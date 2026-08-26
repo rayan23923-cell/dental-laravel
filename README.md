@@ -5159,6 +5159,98 @@ back as scan-or-search, matching the Flutter experience.
 Verified: the underlying search query directly via `tinker` (phone-prefix
 search correctly matched); `php -l` and `npm run build` both clean.
 
+## Production deployment: GitHub Actions → cPanel, replacing the live legacy site (2026-08-27)
+
+The project is now live in production at `cdclinics.com`, deployed
+automatically from `hakamiraqi/cdc` on every push to `main`. This replaced
+the original PHP `dental_clinics2` app that had been running at that
+domain — its files are untouched, just no longer served (see the
+Document Root note below).
+
+**Workflow**: `.github/workflows/deploy.yml`. On push to `main`:
+1. `composer install --no-dev --optimize-autoloader` and
+   `npm ci && npm run build` run in the CI runner itself — the built app
+   (with `vendor/` and `public/build/`) is what gets shipped, not raw
+   source that the server would need to build.
+2. The SSH private key (repo secret `SSH_PRIVATE_KEY`, passphrase in
+   `SSH_KEY_PASSPHRASE`) is written to a temp file and its passphrase is
+   stripped in-place (`ssh-keygen -p -N ""`) so the ephemeral CI job can
+   use it non-interactively — never touches the real key's passphrase on
+   disk anywhere else.
+3. The built tree is shipped to `/home/cdclinics/dental_laravel/` on the
+   server and `php artisan migrate --force` + the usual cache commands
+   run over SSH.
+
+**Why `tar czf - | ssh ... tar xzf -` instead of `rsync`**: the first
+deploy attempt used `rsync -e ssh`, which failed with `rsync: command not
+found` — the shared-hosting account simply doesn't have an `rsync`
+binary (confirmed via `which rsync` in cPanel's Terminal). Since `rsync`
+needs the binary on *both* ends regardless of `-e ssh`, there's no
+client-side-only fix; switched to piping a `tar` stream over `ssh`
+instead, which only needs `ssh`/`tar` (always present). Trade-off: unlike
+`rsync --delete`, this never removes files that were deleted from the
+repo — acceptable for this project's pace, revisit if stale files ever
+become a problem.
+
+**Why `migrate --force` failed on the very first production run, and the
+one-time fix**: `2024_01_01_000000_import_clinic_schema` replays the full
+61-table `clinic_system2` DDL via raw SQL (see Project layout notes
+below) — that's exactly the schema the production database *already
+had* (it's the same live database the legacy PHP app has been running
+against), so `CREATE TABLE` failed immediately on the first table
+(`appointments`) with `SQLSTATE[42S01]... already exists`. This is
+expected and only needed handling once: manually recorded that one
+migration as already-run without executing it —
+```
+php artisan tinker --execute="DB::table('migrations')->insert(['migration' => '2024_01_01_000000_import_clinic_schema', 'batch' => 1]);"
+```
+— then `php artisan migrate --force` ran clean for every migration after
+it, since those are all genuinely new (Laravel-only) additions this
+project made on top of the legacy schema, never applied to production
+before. Confirmed via `migrate:status` before and after. This was a
+one-time manual step for adopting an existing database; every migration
+written from here on runs automatically through the normal CI pipeline
+like anything else.
+
+**Why the switch-over used a symlink instead of cPanel's Document Root
+field**: cPanel's "Domains" UI (this account's theme/version) only
+exposes an editable Document Root for subdomains/addon domains — the
+*primary* domain's row shows "No configuration options currently exist"
+when managed, with no way to repoint it from that screen. Worked around
+it via SSH instead, which achieves the identical effect Apache-side:
+```
+cd /home/cdclinics
+mv public_html public_html_old_backup
+ln -s /home/cdclinics/dental_laravel/public public_html
+```
+The legacy app's files are fully intact in `public_html_old_backup`,
+just no longer reachable over the web — trivially reversible (`rm
+public_html && mv public_html_old_backup public_html`) if ever needed.
+A side benefit: `public_html/phpinfo.php` (a leftover debug file from
+the legacy app's own `CPANEL_DEPLOYMENT.md` checklist, guarded only by a
+static `?key=` query string) is no longer web-reachable either, since
+nothing points at `public_html_old_backup` anymore.
+
+**Production `.env`** lives only on the server
+(`/home/cdclinics/dental_laravel/.env`) — deliberately excluded from the
+`tar` transfer (`--exclude='.env'`) so a deploy never overwrites it.
+`DB_*` values point at the same `cdclinics_clinic_system` database the
+legacy app used (credentials were already sitting in the legacy app's
+own `config/db.php` in `public_html_old_backup` — reused as-is rather
+than re-entered, since it's the same physical database).
+
+**Verified end-to-end on production**: logged in with a disposable test
+account created via `tinker` (not the real `admin` account, to avoid
+touching a live credential) — dashboard renders real data (139 doctors,
+36 task-progress rows) pulled from the actual `clinic_system2` database,
+confirming DB connectivity, sessions, and auth all work correctly under
+the new deploy. Test account removed after verification.
+
+**Still open**: `Force HTTPS Redirect` was off for the domain in cPanel
+at deploy time — worth enabling. `public_html_old_backup` is being kept
+for now as a rollback safety net; safe to delete once the new deployment
+has run untroubled for a few days.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the
