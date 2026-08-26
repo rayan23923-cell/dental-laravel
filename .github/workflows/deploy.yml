@@ -36,21 +36,20 @@ jobs:
           ssh-keygen -p -f ~/.ssh/deploy_key -N "" -P "${{ secrets.SSH_KEY_PASSPHRASE }}"
           ssh-keyscan -p 22 158.220.126.1 >> ~/.ssh/known_hosts
 
-      - name: Upload built app via rsync
+      - name: Upload built app via tar+ssh
+        # rsync غير مثبت على هذا السيرفر (تحقق عبر `which rsync` في cPanel
+        # Terminal) — tar+ssh لا يحتاج أي أداة إضافية على السيرفر، فقط ssh
+        # الموجود دائمًا. العيب: لا يحذف ملفات أُزيلت من المستودع (بخلاف
+        # rsync --delete) — مقبول لحجم هذا المشروع.
         run: |
-          rsync -az --delete \
+          tar czf - \
             --exclude='.git' \
             --exclude='.github' \
             --exclude='node_modules' \
             --exclude='tests' \
-            --exclude='storage/app/*' \
-            --exclude='storage/framework/cache/*' \
-            --exclude='storage/framework/sessions/*' \
-            --exclude='storage/framework/views/*' \
-            --exclude='storage/logs/*' \
             --exclude='.env' \
-            -e "ssh -p 22 -i ~/.ssh/deploy_key" \
-            ./ cdclinics@158.220.126.1:/home/cdclinics/dental_laravel/
+            . | ssh -p 22 -i ~/.ssh/deploy_key cdclinics@158.220.126.1 \
+            "mkdir -p /home/cdclinics/dental_laravel && tar xzf - -C /home/cdclinics/dental_laravel"
 
       - name: Run remote migration & cache commands
         uses: appleboy/ssh-action@v1.0.3
