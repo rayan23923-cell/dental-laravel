@@ -1,0 +1,63 @@
+<IfModule mod_rewrite.c>
+    <IfModule mod_negotiation.c>
+        Options -MultiViews -Indexes
+    </IfModule>
+
+    RewriteEngine On
+
+    # Handle Authorization Header
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Handle X-XSRF-Token Header
+    RewriteCond %{HTTP:x-xsrf-token} .
+    RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
+
+    # Redirect Trailing Slashes If Not A Folder...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
+
+    # Send Requests To Front Controller...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+# Long-lived caching for Vite's build output.
+#
+# Safe because every file in build/assets carries a content hash in its
+# name, so a changed file is a new URL and can never be served stale. This
+# matters most for the Material Symbols font: 3.8 MB that would otherwise
+# cost a revalidation round-trip on every page load over the LAN.
+#
+# Lives here rather than in public/build/.htaccess because Vite empties the
+# build directory on each `npm run build`.
+<IfModule mod_headers.c>
+    <FilesMatch "\.(woff2?|ttf|otf|eot|js|css|svg|png|jpe?g|gif|webp|avif)$">
+        <If "%{REQUEST_URI} =~ m#/build/assets/#">
+            Header set Cache-Control "public, max-age=31536000, immutable"
+        </If>
+    </FilesMatch>
+</IfModule>
+
+# `/storage` (clinic/university logos, doctor profile photos, …) is a
+# symlink to storage/app/public, served by Apache directly — it never
+# reaches Laravel's PHP layer, so the `api/*`-scoped CORS middleware that
+# already covers `/api/v1/*` (confirmed via curl: those responses carry
+# `Access-Control-Allow-Origin: *`) never applies here. Found live: the
+# Flutter web build (served from its own dev-server origin, a different
+# port than this Apache origin) got a real browser CORS rejection trying
+# to load a clinic logo — confirmed via the browser console's exact
+# "blocked by CORS policy" message, not assumed. Native Android/iOS builds
+# aren't affected (CORS is a browser-only mechanism), but a real web
+# deployment could hit the same thing if the app and API ever end up on
+# different origins, so this is a real gap worth closing here rather than
+# leaving as a testing-only footnote.
+<IfModule mod_headers.c>
+    <FilesMatch "\.(png|jpe?g|gif|webp|avif|svg)$">
+        <If "%{REQUEST_URI} =~ m#/storage/#">
+            Header set Access-Control-Allow-Origin "*"
+        </If>
+    </FilesMatch>
+</IfModule>

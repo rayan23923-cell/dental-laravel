@@ -1,0 +1,83 @@
+<?php
+
+namespace App\Http\Resources;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+class SurgeryResource extends JsonResource
+{
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' => $this->id,
+            'task_instances_id' => $this->task_instances_id,
+            'patient_id' => $this->patient_id,
+            'patient_name' => $this->patient_name,
+            'doctor_id' => $this->doctor_id,
+            'student_name' => $this->student_name,
+            'grade_group' => $this->grade_group,
+            'surgery_date' => $this->surgery_date,
+            'surgery_date_field' => $this->surgery_date_field,
+            'start_time' => $this->start_time,
+            'staff_signature' => $this->staff_signature,
+            'surgery_type' => $this->surgery_type,
+            'chief_complaint' => $this->chief_complaint,
+            'cc_pain' => $this->cc_pain,
+            'cc_swelling' => $this->cc_swelling,
+            'cc_others' => $this->cc_others,
+            'medical_history' => $this->medical_history,
+            'hpi_duration' => $this->hpi_duration,
+            'hpi_onset' => $this->hpi_onset,
+            'hpi_factors' => $this->hpi_factors,
+            'hpi_characteristics' => $this->hpi_characteristics,
+            'past_dental_history' => $this->past_dental_history,
+            'mh_blood_pressure' => $this->mh_blood_pressure,
+            'mh_diabetes' => $this->mh_diabetes,
+            'mh_heart' => $this->mh_heart,
+            'mh_thyroid' => $this->mh_thyroid,
+            'mh_bleeding' => $this->mh_bleeding,
+            'mh_epilepsy' => $this->mh_epilepsy,
+            'mh_respiratory' => $this->mh_respiratory,
+            'mh_git' => $this->mh_git,
+            'mh_liver' => $this->mh_liver,
+            'mh_kidney' => $this->mh_kidney,
+            'mh_hiv' => $this->mh_hiv,
+            'mh_implants' => $this->mh_implants,
+            'mh_hospitalization' => $this->mh_hospitalization,
+            'mh_hospitalization_details' => $this->mh_hospitalization_details,
+            'mh_smoking' => $this->mh_smoking,
+            'mh_smoking_amount' => $this->mh_smoking_amount,
+            'mh_allergies' => $this->mh_allergies,
+            'mh_allergies_details' => $this->mh_allergies_details,
+            'mh_drugs' => $this->mh_drugs,
+            'mh_drugs_details' => $this->mh_drugs_details,
+            'mh_pregnant' => $this->mh_pregnant,
+            'exam_extraoral' => $this->exam_extraoral,
+            'exam_intraoral' => $this->exam_intraoral,
+            'investigation' => $this->investigation,
+            'diagnosis' => $this->diagnosis,
+            'treatment_tooth' => $this->treatment_tooth,
+            'selected_teeth' => $this->selected_teeth,
+            'surgical_procedure' => $this->surgical_procedure,
+            'anesthesia_type' => $this->anesthesia_type,
+            'duration_minutes' => $this->duration_minutes,
+            'complications' => $this->complications,
+            'postop_instructions' => $this->postop_instructions,
+            'follow_up_date' => $this->follow_up_date,
+            'status' => $this->status,
+            'notes' => $this->notes,
+            'patient_phone' => $this->patient_phone,
+            'patient_age' => $this->patient_age,
+            'patient_gender' => $this->patient_gender,
+            'patient_address' => $this->patient_address,
+            'patient_occupation' => $this->patient_occupation,
+            'senior_doctor_name' => $this->senior_doctor_name,
+            'approval_date' => $this->approval_date,
+            'senior_signature' => $this->senior_signature,
+            'created_at' => $this->created_at,
+            'updated_at' => $this->updated_at,
+            'doctor' => $this->whenLoaded('doctor', fn () => ['id' => $this->doctor->id, 'name' => $this->doctor->name]),
+        ];
+    }
+}

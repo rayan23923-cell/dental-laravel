@@ -1,0 +1,79 @@
+<?php
+
+namespace App\Http\Resources;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+class ProsthodonticsRecordResource extends JsonResource
+{
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' => $this->id,
+            'task_instances_id' => $this->task_instances_id,
+            'doctor_id' => $this->doctor_id,
+            'student_name' => $this->student_name,
+            'patient_name' => $this->patient_name,
+            'patient_phone' => $this->patient_phone,
+            'group_name' => $this->group_name,
+            'age' => $this->age,
+            'sex' => $this->sex,
+            'telephone' => $this->telephone,
+            'occupation' => $this->occupation,
+            'address' => $this->address,
+            'first_time' => $this->first_time,
+            'medical_history' => $this->medical_history,
+            'dental_extraction_reason' => $this->dental_extraction_reason,
+            'dentist_visit_regular' => $this->dentist_visit_regular,
+            'partial_denture_reason' => $this->partial_denture_reason,
+            'previous_partial_denture' => $this->previous_partial_denture,
+            'not_using_reason' => $this->not_using_reason,
+            'tmj_disorder' => $this->tmj_disorder,
+            'muscles_mastication' => $this->muscles_mastication,
+            'facial_tissue' => $this->facial_tissue,
+            'missing_teeth' => $this->missing_teeth,
+            'caries_teeth' => $this->caries_teeth,
+            'soft_tissue_condition' => $this->soft_tissue_condition,
+            'abnormal_lesion' => $this->abnormal_lesion,
+            'abutments_mobility' => $this->abutments_mobility,
+            'teeth_extraction' => $this->teeth_extraction,
+            'preprosthetic_treatment' => $this->preprosthetic_treatment,
+            'diagnosis_starting' => $this->diagnosis_starting,
+            'diagnosis_instructor_signature' => $this->diagnosis_instructor_signature,
+            'diagnosis_date' => $this->diagnosis_date,
+            'diagnosis_grade' => $this->diagnosis_grade,
+            'stage_preliminary_signature' => $this->stage_preliminary_signature,
+            'stage_preliminary_date' => $this->stage_preliminary_date,
+            'stage_preliminary_grade' => $this->stage_preliminary_grade,
+            'stage_surveying_signature' => $this->stage_surveying_signature,
+            'stage_surveying_date' => $this->stage_surveying_date,
+            'stage_surveying_grade' => $this->stage_surveying_grade,
+            'stage_final_signature' => $this->stage_final_signature,
+            'stage_final_date' => $this->stage_final_date,
+            'stage_final_grade' => $this->stage_final_grade,
+            'stage_jawrel_signature' => $this->stage_jawrel_signature,
+            'stage_jawrel_date' => $this->stage_jawrel_date,
+            'stage_jawrel_grade' => $this->stage_jawrel_grade,
+            'stage_trial_signature' => $this->stage_trial_signature,
+            'stage_trial_date' => $this->stage_trial_date,
+            'stage_trial_grade' => $this->stage_trial_grade,
+            'stage_flasking_signature' => $this->stage_flasking_signature,
+            'stage_flasking_date' => $this->stage_flasking_date,
+            'stage_flasking_grade' => $this->stage_flasking_grade,
+            'stage_rpd_signature' => $this->stage_rpd_signature,
+            'stage_rpd_date' => $this->stage_rpd_date,
+            'stage_rpd_grade' => $this->stage_rpd_grade,
+            'stage_adjust1_signature' => $this->stage_adjust1_signature,
+            'stage_adjust1_date' => $this->stage_adjust1_date,
+            'stage_adjust1_grade' => $this->stage_adjust1_grade,
+            'stage_finaleval_signature' => $this->stage_finaleval_signature,
+            'stage_finaleval_date' => $this->stage_finaleval_date,
+            'stage_finaleval_grade' => $this->stage_finaleval_grade,
+            'tooth_chart_data' => $this->tooth_chart_data,
+            'created_at' => $this->created_at,
+            'updated_at' => $this->updated_at,
+            'doctor' => $this->whenLoaded('doctor', fn () => ['id' => $this->doctor->id, 'name' => $this->doctor->name]),
+        ];
+    }
+}

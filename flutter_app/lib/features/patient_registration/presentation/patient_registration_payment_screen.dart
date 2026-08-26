@@ -1,0 +1,268 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart' hide TextDirection;
+
+import '../../../core/network/api_exception.dart';
+import '../../printing/data/pos_printer_service.dart';
+import '../../printing/presentation/printer_error_snackbar.dart';
+import '../../printing/presentation/printer_settings_providers.dart';
+import '../../printing/presentation/receipt_widget.dart';
+import '../../printing/presentation/ticket_renderer.dart';
+import '../../records/data/records_repository.dart';
+import '../data/patient_registration_repository.dart';
+import '../domain/patient_registration.dart';
+import '../domain/registration_payment_state.dart';
+
+/// The payment-desk screen reached after scanning a registration's ticket
+/// QR (or its on-screen equivalent) — shows whether it's paid, and if
+/// not, takes a payment via quick-digit amount entry and prints a
+/// receipt. See Phase 5's plan, Step 5.
+class PatientRegistrationPaymentScreen extends ConsumerStatefulWidget {
+  const PatientRegistrationPaymentScreen({super.key, required this.initial});
+
+  final RegistrationPaymentState initial;
+
+  @override
+  ConsumerState<PatientRegistrationPaymentScreen> createState() => _PatientRegistrationPaymentScreenState();
+}
+
+class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegistrationPaymentScreen> {
+  late RegistrationPaymentState _state;
+  final _amountController = TextEditingController();
+  bool _paying = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _state = widget.initial;
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  /// Quick-digit entry: `0`/`00`/`000` append to whatever's already
+  /// typed, so a clerk types "5" then taps `000` for 5000 — exactly the
+  /// flow described when this was planned. A bare `TextField` still
+  /// allows typing any digits directly for anything the quick buttons
+  /// don't cover.
+  void _appendDigits(String digits) {
+    setState(() {
+      _amountController.text += digits;
+      _amountController.selection = TextSelection.collapsed(offset: _amountController.text.length);
+    });
+  }
+
+  void _clearAmount() => setState(() => _amountController.clear());
+
+  double? get _amount {
+    final value = double.tryParse(_amountController.text);
+    return (value != null && value > 0) ? value : null;
+  }
+
+  Future<void> _confirmPayment() async {
+    final amount = _amount;
+    if (amount == null) return;
+    setState(() => _paying = true);
+
+    try {
+      // `patient_registration_id` (not `appointment_id`) — the desk-payment
+      // flow this screen implements; see `Api\PaymentController::validatePayment()`.
+      await ref.read(recordsRepositoryProvider).createPayment({
+        'patient_registration_id': _state.registration.id,
+        'amount': amount,
+      });
+      final updated = await ref.read(patientRegistrationRepositoryProvider).status(_state.registration.id);
+      if (!mounted) return;
+      setState(() {
+        _state = updated;
+        _amountController.clear();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تسجيل الدفع.')));
+
+      if (!kIsWeb && Platform.isAndroid && mounted) {
+        try {
+          final printerSettings = await ref.read(printerSettingsProvider.future);
+          if (!mounted) return;
+          final pngBytes = await renderWidgetToPng(
+            context,
+            ReceiptWidget(
+              registration: updated.registration,
+              amountPaid: amount,
+              totalPaid: updated.totalPaid,
+              widthDots: printerSettings.dotsPerLine,
+            ),
+          );
+          await ref.read(posPrinterServiceProvider).printTicket(pngBytes);
+        } catch (e) {
+          // The payment already succeeded — a print failure is reported,
+          // not treated as the operation having failed (same convention
+          // as the registration ticket in `patient_registration_form_screen.dart`).
+          if (mounted) {
+            showPrinterErrorSnackBar(context, 'تم الدفع، لكن تعذرت طباعة الوصل.', error: e);
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        final message = e is ApiException ? e.userMessage : 'تعذر تسجيل الدفع.';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } finally {
+      if (mounted) setState(() => _paying = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final r = _state.registration;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('دفع تسجيل مريض')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(r.name, style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 4),
+                  Directionality(textDirection: TextDirection.ltr, child: Text(r.phone)),
+                  const SizedBox(height: 4),
+                  Text('${r.serviceName ?? '—'} · ${r.registerDayName ?? '—'}'),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          _PaidBanner(state: _state),
+          const SizedBox(height: 16),
+          if (!r.isScreeningClear) ...[
+            _ScreeningBlockedBanner(registration: r),
+          ] else if (_state.isPaid) ...[
+            Text('الدفعات', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            for (final p in _state.payments)
+              Card(
+                child: ListTile(
+                  title: Text(NumberFormat('#,##0.##').format(p.amount)),
+                  subtitle: Text(p.paidAt ?? '—'),
+                ),
+              ),
+          ] else ...[
+            Text('إدخال المبلغ', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _amountController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              textDirection: TextDirection.ltr,
+              textAlign: TextAlign.left,
+              decoration: const InputDecoration(labelText: 'المبلغ', border: OutlineInputBorder()),
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final digits in const ['0', '00', '000'])
+                  OutlinedButton(onPressed: () => _appendDigits(digits), child: Text(digits)),
+                OutlinedButton.icon(
+                  onPressed: _clearAmount,
+                  icon: const Icon(Icons.backspace_outlined),
+                  label: const Text('مسح'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: (_paying || _amount == null) ? null : _confirmPayment,
+              child: _paying
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('تأكيد الدفع وطباعة الوصل'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Blocks payment entirely until the infectious-disease/viral-hepatitis
+/// screening comes back "سليم" — pure UX (the real enforcement is
+/// `PatientScreeningGate` server-side, see `Api\PaymentController::store()`).
+/// The "غير سليم" (flagged) case gets its own message since it's a
+/// deliberate refusal, not just "not checked yet".
+class _ScreeningBlockedBanner extends StatelessWidget {
+  const _ScreeningBlockedBanner({required this.registration});
+
+  final PatientRegistration registration;
+
+  @override
+  Widget build(BuildContext context) {
+    final flagged = registration.screeningStatus == 'flagged';
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        border: Border.all(color: Colors.red.shade200),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.coronavirus_outlined, color: Colors.red.shade700),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              flagged
+                  ? 'لا يمكن الدفع — نتيجة فحص المريض غير سليمة.'
+                  : 'لا يمكن الدفع قبل تأكيد سلامة المريض من الأمراض المعدية عبر فحص المختبر.',
+              style: TextStyle(color: Colors.red.shade900, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaidBanner extends StatelessWidget {
+  const _PaidBanner({required this.state});
+
+  final RegistrationPaymentState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = state.isPaid ? Colors.green : Colors.amber;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.shade50,
+        border: Border.all(color: color.shade200),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(state.isPaid ? Icons.check_circle : Icons.warning_amber, color: color.shade700),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              state.isPaid
+                  ? 'تم الدفع — إجمالي المدفوع: ${NumberFormat('#,##0.##').format(state.totalPaid)}'
+                  : 'لم يتم الدفع',
+              style: TextStyle(color: color.shade900, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

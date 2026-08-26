@@ -1,0 +1,41 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/network/api_client.dart';
+import '../../../core/network/paginated.dart';
+
+final caseSheetRecordRepositoryProvider = Provider<CaseSheetRecordRepository>((ref) {
+  return CaseSheetRecordRepository(ref.watch(apiClientProvider));
+});
+
+/// Generic CRUD against any of the 8 case-sheet REST resources
+/// (`/api/v1/{resource}`) — they're all standard `apiResource` controllers
+/// with the same `{data: {...}}` / paginated-`{data: [...]}` envelope, so
+/// one repository parametrized by resource name covers all 8 instead of 8
+/// near-identical classes.
+class CaseSheetRecordRepository {
+  CaseSheetRecordRepository(this._client);
+  final ApiClient _client;
+
+  Future<Paginated<Map<String, dynamic>>> list(String resource, {String? doctorId}) async {
+    final data = await _client.getJson('/$resource') as Map<String, dynamic>;
+    return Paginated.fromJson(data, (json) => json);
+  }
+
+  Future<Map<String, dynamic>> fetch(String resource, int id) async {
+    final data = await _client.getJson('/$resource/$id') as Map<String, dynamic>;
+    return data['data'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> create(String resource, Map<String, dynamic> payload) async {
+    final data = await _client.postJson('/$resource', body: payload) as Map<String, dynamic>;
+    return data['data'] as Map<String, dynamic>;
+  }
+
+  /// Partial update — only send the keys the form actually edited (every
+  /// `update()` on these 8 controllers validates with `sometimes`, so an
+  /// omitted key is left untouched server-side, never nulled).
+  Future<Map<String, dynamic>> update(String resource, int id, Map<String, dynamic> payload) async {
+    final data = await _client.putJson('/$resource/$id', body: payload) as Map<String, dynamic>;
+    return data['data'] as Map<String, dynamic>;
+  }
+}

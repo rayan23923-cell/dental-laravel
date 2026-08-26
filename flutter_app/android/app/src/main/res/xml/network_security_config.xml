@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Dev-only cleartext-traffic exception, scoped to the Android emulator's
+  loopback alias to the host machine (10.0.2.2) — the Laravel API runs on
+  plain http:// during development (XAMPP, no local TLS cert). Scoped to
+  this one domain rather than a blanket usesCleartextTraffic="true" so the
+  exception is easy to spot and doesn't quietly permit cleartext to
+  arbitrary hosts. A production build talking to a real HTTPS API needs
+  none of this.
+
+  Testing on a physical device on the same Wi-Fi network: dev machine's
+  current LAN IP added below (192.168.1.155, Wi-Fi adapter, checked via
+  `Get-NetIPAddress` — update if the machine's IP changes, e.g. DHCP lease
+  renewal or a different network).
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <domain includeSubdomains="false">192.168.1.155</domain>
+    </domain-config>
+</network-security-config>

@@ -1,0 +1,251 @@
+<script setup>
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import InputError from '@/Components/InputError.vue';
+import InputLabel from '@/Components/InputLabel.vue';
+import PrimaryButton from '@/Components/PrimaryButton.vue';
+import SecondaryButton from '@/Components/SecondaryButton.vue';
+import TextInput from '@/Components/TextInput.vue';
+import QrScanner from '@/Components/QrScanner.vue';
+import Icon from '@/Components/Icon.vue';
+import { Head, useForm, usePage } from '@inertiajs/vue3';
+import { nextTick, ref, watch } from 'vue';
+import axios from 'axios';
+
+defineProps({
+    appointments: Array,
+});
+
+const page = usePage();
+
+// A payment settles either an appointment or a reception-desk
+// registration — never both (see PaymentController::validatePayment()'s
+// required_without/prohibits pair). This toggle keeps the form from ever
+// submitting both at once by clearing the other field on switch.
+const source = ref('appointment');
+
+const form = useForm({
+    appointment_id: '',
+    patient_registration_id: '',
+    amount: '',
+    paid_by: '',
+});
+
+watch(source, (value) => {
+    if (value === 'appointment') {
+        form.patient_registration_id = '';
+        clearRegistration();
+    } else {
+        form.appointment_id = '';
+    }
+});
+
+// --- Find a registered patient: scan their ticket QR, or search by
+// name/phone (2026-08-26) — replaces a `<select>` that loaded every
+// registration into the page at once, which the user asked to fix. Scan
+// reuses the exact same `Components/QrScanner.vue` + `patient-registrations
+// .scan` round-trip already used elsewhere (TaskProgress's start-task
+// modal); search hits the new lightweight `patient-registrations.search`
+// endpoint instead of `index()`'s full paginated page.
+const selectedRegistration = ref(null);
+
+const scanning = ref(false);
+const scannerRef = ref(null);
+const scanError = ref('');
+
+const openScanner = async () => {
+    scanError.value = '';
+    scanning.value = true;
+    await nextTick();
+    scannerRef.value?.start();
+};
+
+const onDecoded = async (text) => {
+    scanError.value = '';
+    try {
+        const { data } = await axios.post(route('patient-registrations.scan'), { payload: text });
+        selectedRegistration.value = data.data.registration;
+        form.patient_registration_id = data.data.registration.id;
+        scannerRef.value?.stop();
+        scanning.value = false;
+    } catch (e) {
+        scanError.value = e?.response?.data?.message ?? 'تعذر قراءة الرمز.';
+    }
+};
+
+const registrationSearch = ref('');
+const registrationResults = ref([]);
+const searching = ref(false);
+let searchTimer;
+
+const onSearchInput = () => {
+    clearTimeout(searchTimer);
+    if (!registrationSearch.value.trim()) {
+        registrationResults.value = [];
+        return;
+    }
+    searchTimer = setTimeout(async () => {
+        searching.value = true;
+        try {
+            const { data } = await axios.get(route('patient-registrations.search'), { params: { q: registrationSearch.value } });
+            registrationResults.value = data.data;
+        } finally {
+            searching.value = false;
+        }
+    }, 300);
+};
+
+const selectRegistration = (r) => {
+    selectedRegistration.value = r;
+    form.patient_registration_id = r.id;
+    registrationSearch.value = '';
+    registrationResults.value = [];
+};
+
+const clearRegistration = () => {
+    selectedRegistration.value = null;
+    form.patient_registration_id = '';
+    registrationSearch.value = '';
+    registrationResults.value = [];
+    scanError.value = '';
+};
+
+// --- Quick-digit amount entry — matches the Flutter payment screen's
+// "0"/"00"/"000" append buttons (2026-08-26), same reasoning: a clerk
+// types "5" then taps "000" for 5000 instead of typing every digit.
+const appendDigits = (digits) => {
+    form.amount = `${form.amount ?? ''}${digits}`;
+};
+const clearAmount = () => {
+    form.amount = '';
+};
+
+const submit = () => {
+    form.post(route('payments.store'));
+};
+</script>
+
+<template>
+    <Head title="Record Payment" />
+
+    <AuthenticatedLayout>
+        <template #header>
+            <h2 class="text-xl font-semibold leading-tight text-gray-800">Record Payment</h2>
+        </template>
+
+        <div class="py-12">
+            <div class="mx-auto max-w-2xl sm:px-6 lg:px-8">
+                <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
+                    <!-- Surfaces PatientScreeningGate's refusal (2026-08-26) —
+                         this form previously had no flash-message display at
+                         all, so `back()->with('error', ...)` from the
+                         screening gate (or anything else) went unseen. -->
+                    <div v-if="page.props.flash?.error" class="mb-6 rounded-md bg-red-50 p-4 text-sm text-red-700">
+                        {{ page.props.flash.error }}
+                    </div>
+                    <form @submit.prevent="submit" class="space-y-6">
+                        <div>
+                            <InputLabel value="نوع المدفوعة" />
+                            <div class="mt-2 flex items-center gap-6">
+                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                    <input type="radio" value="appointment" v-model="source" class="border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                    موعد
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                    <input type="radio" value="registration" v-model="source" class="border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                    تسجيل مريض
+                                </label>
+                            </div>
+                        </div>
+
+                        <div v-if="source === 'appointment'">
+                            <InputLabel for="appointment_id" value="Appointment" />
+                            <select id="appointment_id" v-model="form.appointment_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
+                                <option value="" disabled>Select an appointment</option>
+                                <option v-for="a in appointments" :key="a.id" :value="a.id">{{ a.full_name }} — {{ a.appointment_date }}</option>
+                            </select>
+                            <InputError class="mt-2" :message="form.errors.appointment_id" />
+                        </div>
+
+                        <div v-else>
+                            <InputLabel value="المريض المسجل" />
+
+                            <!-- A patient was found (scan or search) -->
+                            <div v-if="selectedRegistration" class="mt-1 flex items-center justify-between rounded-md border border-green-200 bg-green-50 p-3">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-900">{{ selectedRegistration.name }}</p>
+                                    <p class="text-xs text-gray-500" dir="ltr">{{ selectedRegistration.phone }}</p>
+                                </div>
+                                <button type="button" class="text-sm text-indigo-600 hover:underline" @click="clearRegistration">تغيير</button>
+                            </div>
+
+                            <!-- Not found yet: scan or search -->
+                            <div v-else class="mt-1 space-y-3">
+                                <div v-if="!scanning">
+                                    <SecondaryButton type="button" @click="openScanner">
+                                        <Icon name="qr_code_scanner" class="ml-1" />امسح رمز المريض
+                                    </SecondaryButton>
+                                </div>
+                                <QrScanner v-else ref="scannerRef" @decoded="onDecoded" />
+                                <div v-if="scanError" class="rounded-md bg-red-50 p-2 text-sm text-red-700">{{ scanError }}</div>
+
+                                <div class="relative">
+                                    <TextInput
+                                        v-model="registrationSearch"
+                                        @input="onSearchInput"
+                                        type="text"
+                                        placeholder="أو ابحث بالاسم أو الهاتف..."
+                                        class="block w-full"
+                                    />
+                                    <div v-if="registrationResults.length" class="absolute z-10 mt-1 w-full rounded-md border border-gray-200 bg-white shadow-lg">
+                                        <button
+                                            v-for="r in registrationResults"
+                                            :key="r.id"
+                                            type="button"
+                                            class="block w-full px-4 py-2 text-right text-sm hover:bg-gray-50"
+                                            @click="selectRegistration(r)"
+                                        >
+                                            {{ r.name }} — <span dir="ltr">{{ r.phone }}</span>
+                                        </button>
+                                    </div>
+                                    <p v-else-if="searching" class="mt-1 text-xs text-gray-400">جارٍ البحث...</p>
+                                    <p v-else-if="registrationSearch.trim()" class="mt-1 text-xs text-gray-400">لا توجد نتائج.</p>
+                                </div>
+                            </div>
+                            <InputError class="mt-2" :message="form.errors.patient_registration_id" />
+                        </div>
+
+                        <div>
+                            <InputLabel for="amount" value="Amount" />
+                            <TextInput id="amount" v-model="form.amount" type="text" inputmode="decimal" class="mt-1 block w-full" dir="ltr" required autofocus />
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                <button
+                                    v-for="digits in ['0', '00', '000']"
+                                    :key="digits"
+                                    type="button"
+                                    class="rounded-md border border-gray-300 px-4 py-1 text-sm text-gray-700 hover:bg-gray-50"
+                                    @click="appendDigits(digits)"
+                                >
+                                    {{ digits }}
+                                </button>
+                                <button type="button" class="rounded-md border border-gray-300 px-4 py-1 text-sm text-gray-700 hover:bg-gray-50" @click="clearAmount">
+                                    مسح
+                                </button>
+                            </div>
+                            <InputError class="mt-2" :message="form.errors.amount" />
+                        </div>
+
+                        <div>
+                            <InputLabel for="paid_by" value="Paid By" />
+                            <TextInput id="paid_by" v-model="form.paid_by" type="text" class="mt-1 block w-full" />
+                            <InputError class="mt-2" :message="form.errors.paid_by" />
+                        </div>
+
+                        <div class="flex justify-end">
+                            <PrimaryButton :disabled="form.processing">Save Payment</PrimaryButton>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </AuthenticatedLayout>
+</template>

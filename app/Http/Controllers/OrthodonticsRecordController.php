@@ -1,0 +1,127 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Doctor;
+use App\Models\OrthodonticsRecord;
+use App\Services\CaseSheetAccess;
+use App\Support\OrthodonticsForm;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
+
+/**
+ * Orthodontics case sheet — faithful port of
+ * dental_clinics2/doctor/orthodontics.php (layout in
+ * App\Support\OrthodonticsForm). The patient/referral half maps to real
+ * columns; the clinical half lives in the `examination_data` JSON blob,
+ * keyed exactly as save_orthodontics.php writes it.
+ */
+class OrthodonticsRecordController extends Controller
+{
+    public function index(): Response
+    {
+        return Inertia::render('Specialty/Index', [
+            'resource' => 'orthodontics-records',
+            'title' => 'Orthodontics Records',
+            'titleField' => 'patient_name',
+            'records' => CaseSheetAccess::scope(OrthodonticsRecord::with('doctor'))->latest('id')->paginate(15),
+        ]);
+    }
+
+    public function create(Request $request): Response
+    {
+        // See README "task_instances_id wiring" — a blank sheet opened
+        // from a task instance must stay linked to it.
+        return $this->form(null, taskInstanceId: $request->integer('task_instances_id') ?: null);
+    }
+
+    public function edit(OrthodonticsRecord $record): Response
+    {
+        return $this->form($record);
+    }
+
+    public function show(OrthodonticsRecord $record): Response
+    {
+        return $this->form($record, readonly: true);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        OrthodonticsRecord::create($this->prepare($request));
+
+        return redirect()->route('orthodontics-records.index')->with('success', 'Orthodontics record created.');
+    }
+
+    public function update(Request $request, OrthodonticsRecord $record): RedirectResponse
+    {
+        $record->update($this->prepare($request));
+
+        return redirect()->route('orthodontics-records.index')->with('success', 'Orthodontics record updated.');
+    }
+
+    public function destroy(OrthodonticsRecord $record): RedirectResponse
+    {
+        $record->delete();
+
+        return redirect()->route('orthodontics-records.index')->with('success', 'Orthodontics record deleted.');
+    }
+
+    private function form(?OrthodonticsRecord $record, bool $readonly = false, ?int $taskInstanceId = null): Response
+    {
+        return Inertia::render('Specialty/SectionedForm', [
+            'resource' => 'orthodontics-records',
+            'title' => 'Orthodontics Record',
+            'sections' => OrthodonticsForm::sections(),
+            'doctors' => Doctor::orderBy('name')->get(['id', 'name']),
+            'record' => $record,
+            // Staff view but never save (App\Services\CaseSheetAccess);
+            // the original disables every input for them.
+            'readonly' => $readonly || CaseSheetAccess::isViewOnly(),
+            'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
+        ]);
+    }
+
+    private function prepare(Request $request): array
+    {
+        $rules = [
+            'doctor_id' => ['required', 'exists:doctors,id'],
+            'task_instances_id' => ['nullable', 'integer'],
+            'patient_name' => ['required', 'string', 'max:255'],
+            'patient_age' => ['nullable', 'integer', 'min:0', 'max:150'],
+            'patient_sex' => ['nullable', 'in:male,female'],
+            'examination_data' => ['nullable', 'string'],
+        ];
+
+        foreach (OrthodonticsForm::sections() as $section) {
+            foreach ($section['fields'] as $field) {
+                if (! empty($field['group']) || isset($rules[$field['key']])) {
+                    continue;
+                }
+                $rules[$field['key']] = match ($field['type']) {
+                    'boolean' => ['nullable', 'boolean'],
+                    'number' => ['nullable', 'integer'],
+                    'date' => ['nullable', 'date'],
+                    default => ['nullable', 'string'],
+                };
+            }
+        }
+
+        $validated = $request->validate($rules);
+
+        // The original always carries these three sub-structures inside
+        // examination_data (teeth_squares, treatment_stages,
+        // appliance_designs — all built as real widgets, see
+        // App\Support\OrthodonticsForm). Default them defensively rather
+        // than dropping the keys if a payload is ever missing one, so the
+        // blob keeps the shape the original reads.
+        $examination = json_decode($validated['examination_data'] ?? '{}', true) ?: [];
+        $examination['treatment_stages'] ??= [];
+        $examination['appliance_designs'] ??= [];
+        $examination['teeth_squares'] ??= new \stdClass();
+        $validated['examination_data'] = json_encode($examination);
+
+        return $validated;
+    }
+}

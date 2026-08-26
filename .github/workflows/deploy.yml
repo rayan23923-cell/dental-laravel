@@ -1,0 +1,69 @@
+name: Deploy to cPanel
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Install composer deps
+        run: composer install --no-dev --optimize-autoloader
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build frontend assets
+        run: |
+          npm ci
+          npm run build
+
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # يزيل الـ passphrase مؤقتًا داخل بيئة CI المؤقتة فقط، حتى يقدر rsync
+          # يستخدم المفتاح مباشرة بدون طلب كلمة مرور تفاعليًا.
+          ssh-keygen -p -f ~/.ssh/deploy_key -N "" -P "${{ secrets.SSH_KEY_PASSPHRASE }}"
+          ssh-keyscan -p 22 158.220.126.1 >> ~/.ssh/known_hosts
+
+      - name: Upload built app via rsync
+        run: |
+          rsync -az --delete \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='node_modules' \
+            --exclude='tests' \
+            --exclude='storage/app/*' \
+            --exclude='storage/framework/cache/*' \
+            --exclude='storage/framework/sessions/*' \
+            --exclude='storage/framework/views/*' \
+            --exclude='storage/logs/*' \
+            --exclude='.env' \
+            -e "ssh -p 22 -i ~/.ssh/deploy_key" \
+            ./ cdclinics@158.220.126.1:/home/cdclinics/dental_laravel/
+
+      - name: Run remote migration & cache commands
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 158.220.126.1
+          port: 22
+          username: cdclinics
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.SSH_KEY_PASSPHRASE }}
+          script: |
+            cd /home/cdclinics/dental_laravel
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            php artisan storage:link

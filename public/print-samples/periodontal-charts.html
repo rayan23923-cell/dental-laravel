@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Periodontal Chart - Print</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 10mm;
+        }
+
+        body {
+            font-family: "DejaVu Sans", Arial, sans-serif;
+            font-size: 9pt;
+            line-height: 1.3;
+            color: #000;
+            background: #fff;
+            margin: 0;
+        }
+
+        .no-print { display: block; }
+
+        @media print {
+            .no-print { display: none !important; }
+            body { background: #fff; }
+            /* The grey section bars and table headings are the document's
+               structure, not decoration — browsers drop backgrounds when
+               printing unless this is forced. */
+            * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+
+        .print-controls {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #dee2e6;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .print-controls button {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, .2);
+            transition: all .3s;
+        }
+
+        .print-controls .btn-print { background: #007bff; }
+        .print-controls .btn-back { background: #6c757d; margin-left: 10px; }
+        .print-controls button:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0, 0, 0, .3); }
+        .print-controls button:active { transform: translateY(0); }
+
+        .sheet {
+            width: 100%;
+            max-width: 210mm;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            font-weight: bold;
+            font-size: 13pt;
+            line-height: 1.4;
+            margin-bottom: 6px;
+            position: relative;
+            min-height: 80px;
+        }
+
+        .header-logo { max-width: 80px; max-height: 80px; position: absolute; top: 0; display: block; }
+        .header-logo-left { left: 0; }
+        .header-logo-right { right: 0; }
+        .header-content { text-align: center; }
+
+        .sub-header { text-align: center; font-size: 10pt; margin-bottom: 10px; }
+
+        .section-title {
+            font-weight: bold;
+            font-size: 10pt;
+            background-color: #f0f0f0;
+            padding: 4px 6px;
+            border: 1px solid #000;
+            margin-top: 6px;
+            /* A section heading stranded at the foot of a page is the most
+               common defect in the original's printouts. */
+            page-break-after: avoid;
+        }
+
+        .table-bordered {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 4px;
+        }
+
+        .table-bordered td, .table-bordered th {
+            border: 1px solid #000;
+            padding: 3px 4px;
+            vertical-align: top;
+        }
+
+        .table-heading th {
+            background-color: #eaeaea;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .mini { font-size: 8pt; }
+        .text-bold { font-weight: bold; }
+
+        /* A field cell: bold label then its value, as every original page
+           renders it (`<span class="text-bold">Label:</span> value`). */
+        .field-label { font-weight: bold; }
+        .field-value { }
+        .field-empty { color: #000; }
+
+        .notes-box {
+            border: 1px solid #000;
+            padding: 4px;
+            min-height: 40px;
+            margin-bottom: 4px;
+            white-space: pre-wrap;
+        }
+
+        .teeth-list { font-weight: bold; letter-spacing: .5px; }
+
+        /* Per-tooth measurement grid (BOP/PPD/CAL). One column per tooth,
+           three sites per surface — the layout of the original's chart. */
+        .perio-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            margin-bottom: 6px;
+        }
+
+        .perio-table th, .perio-table td {
+            border: 1px solid #000;
+            padding: 1px;
+            text-align: center;
+            font-size: 6.5pt;
+            line-height: 1.1;
+        }
+
+        .perio-table th { background-color: #eaeaea; font-weight: bold; }
+        .perio-table .surface-label { width: 46px; font-weight: bold; text-align: left; padding-left: 3px; }
+        .perio-table .site { width: 33.33%; display: inline-block; }
+        .perio-arch-title { font-weight: bold; font-size: 8pt; margin: 4px 0 2px; }
+
+        .footer-signature { margin-top: 8px; font-size: 9pt; }
+        .footer-signature td { padding-top: 12px; }
+
+        .qr-wrapper {
+            margin-top: 28px;
+            padding: 6px 12px;
+            text-align: right;
+            font-size: 8pt;
+            font-style: italic;
+            display: inline-block;
+            float: right;
+        }
+
+        .qr-wrapper img {
+            display: inline-block;
+            width: 60px;
+            height: 60px;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        /* Keep a table's rows together with its heading where the page
+           break would otherwise split a two-row block. */
+        table, tr, td, th { page-break-inside: avoid; }
+    </style>
+</head>
+<body>
+    <div class="print-controls no-print">
+        <button type="button" class="btn-print" onclick="window.print()">طباعة</button>
+        <button type="button" class="btn-back" onclick="goBack()">رجوع</button>
+    </div>
+
+    <script>
+        // Matches the original's goBack(): close the tab when the sheet was
+        // opened with window.open, otherwise navigate back to the record.
+        function goBack() {
+            if (window.opener) {
+                window.close();
+            } else {
+                window.location.href = "http:\/\/localhost\/dental_laravel\/public\/periodontal-charts\/10\/edit";
+            }
+        }
+    </script>
+
+    <div class="sheet">
+        <div class="header">
+            
+            
+            <div class="header-content">
+                University of Baghdad<br>
+                College of Dentistry
+                            </div>
+        </div>
+
+                    <div class="sub-header">Department of Periodontics</div>
+        
+        
+        <table class="table-bordered mini">
+            <tr>
+                <td><span class="field-label">Student's Name:</span> Hh</td>
+                <td><span class="field-label">Grade/Group:</span> </td>
+                <td><span class="field-label">Date:</span> 2026-08-19</td>
+            </tr>
+        </table>
+
+                    <div class="section-title">Patient Information</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Patient Name:</span>
+                                                                    <span class="field-value">Ali Hasan Mahmoud</span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Phone Number:</span>
+                                                                    <span class="field-value">07701234567</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Date:</span>
+                                                                    <span class="field-value">2026-08-19</span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Age:</span>
+                                                                    <span class="field-value">34</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Gender:</span>
+                                                                    <span class="field-value">Female</span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Address:</span>
+                                                                    <span class="field-value">Baghdad - Karrada</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Occupation:</span>
+                                                                    <span class="field-value">Teacher</span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Marital Status:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">Student / Case</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Student Name:</span>
+                                                                    <span class="field-value">Hh</span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Group:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Case Start Date:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Mentor:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">Women Only</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Pregnancy:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Number of weeks:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Taking birth control pills or hormonal replacement:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Nursing:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">Chief Complaint &amp; Medical History</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Chief complaint(s):</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">MH:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">History</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Smoker — Yes:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Smoker — No:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Smoker — Previous:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">When stopped?:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Diabetes mellitus — Yes:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Diabetes mellitus — No:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Controlled — Yes:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Controlled — No:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Lab investigation:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Brushing — Once/day:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Brushing — Twice/day:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Brushing — Three/day:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Manual brush:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Powered brush:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Interproximal aids — Yes:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Interproximal aids — No:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Type &amp; frequency:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Family history of periodontal disease — Yes:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Family history of periodontal disease — No:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Details:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Previous treatment by GDP:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">Examination</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">E/O: TMJ click — Yes:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">E/O: TMJ click — No:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Facial asymmetry — Yes:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Facial asymmetry — No:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Facial asymmetry details:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Missing teeth:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Soft tissue lesion — Yes:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Soft tissue lesion — No:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Soft tissue comments:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Occlusal trauma — Yes:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Occlusal trauma — No:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Mobile teeth — Yes:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Mobile teeth — No:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Which teeth are mobile:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Caries — Yes:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Caries — No:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Which teeth are carious:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">BPE (Basic Periodontal Examination)</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Upper Right:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Upper Anterior:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Upper Left:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Lower Right:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Lower Anterior:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Lower Left:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">Radiographs &amp; Investigations</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Periapical:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Bitewing:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Panoramic (OPG):</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">CBCT:</span>
+                                                                    <span class="field-value">No</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Other investigations:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">Clinical Examination</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Oral Hygiene:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Periodontal Condition:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Additional Notes:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">Diagnosis</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Pattern:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Stage:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Grade:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Status:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Risk factors:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">Treatment Plan &amp; Approval</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Treatment Plan:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Treatment Plan Date:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Senior Doctor:</span>
+                                                                    <span class="field-value">Dr. Mustafa Kareem</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Approval Date:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Clinical Notes:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                            </table>
+        
+                    <div class="section-title">Periodontal Chart — Initial</div>
+
+                                                <div class="perio-arch-title">BOP — Upper</div>
+                    <table class="perio-table">
+                        <tr>
+                            <th class="surface-label">Tooth</th>
+                                                            <th>18</th>
+                                                            <th>17</th>
+                                                            <th>16</th>
+                                                            <th>15</th>
+                                                            <th>14</th>
+                                                            <th>13</th>
+                                                            <th>12</th>
+                                                            <th>11</th>
+                                                            <th>21</th>
+                                                            <th>22</th>
+                                                            <th>23</th>
+                                                            <th>24</th>
+                                                            <th>25</th>
+                                                            <th>26</th>
+                                                            <th>27</th>
+                                                            <th>28</th>
+                                                    </tr>
+                        <tr>
+                            <td class="surface-label">Buccal</td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">+</span><span class="site">·</span><span class="site">+</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">+</span><span class="site">+</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                    </tr>
+                        <tr>
+                            <td class="surface-label">Palatal</td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">+</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                    </tr>
+                    </table>
+                                    <div class="perio-arch-title">BOP — Lower</div>
+                    <table class="perio-table">
+                        <tr>
+                            <th class="surface-label">Tooth</th>
+                                                            <th>48</th>
+                                                            <th>47</th>
+                                                            <th>46</th>
+                                                            <th>45</th>
+                                                            <th>44</th>
+                                                            <th>43</th>
+                                                            <th>42</th>
+                                                            <th>41</th>
+                                                            <th>31</th>
+                                                            <th>32</th>
+                                                            <th>33</th>
+                                                            <th>34</th>
+                                                            <th>35</th>
+                                                            <th>36</th>
+                                                            <th>37</th>
+                                                            <th>38</th>
+                                                    </tr>
+                        <tr>
+                            <td class="surface-label">Buccal</td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                    </tr>
+                        <tr>
+                            <td class="surface-label">Lingual</td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                    </tr>
+                    </table>
+                                                                <div class="perio-arch-title">PPD (mm) — Upper</div>
+                    <table class="perio-table">
+                        <tr>
+                            <th class="surface-label">Tooth</th>
+                                                            <th>18</th>
+                                                            <th>17</th>
+                                                            <th>16</th>
+                                                            <th>15</th>
+                                                            <th>14</th>
+                                                            <th>13</th>
+                                                            <th>12</th>
+                                                            <th>11</th>
+                                                            <th>21</th>
+                                                            <th>22</th>
+                                                            <th>23</th>
+                                                            <th>24</th>
+                                                            <th>25</th>
+                                                            <th>26</th>
+                                                            <th>27</th>
+                                                            <th>28</th>
+                                                    </tr>
+                        <tr>
+                            <td class="surface-label">Buccal</td>
+                                                            <td><span class="site">3</span><span class="site">2</span><span class="site">4</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">5</span><span class="site">4</span><span class="site">6</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">4</span><span class="site">3</span><span class="site">3</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                    </tr>
+                        <tr>
+                            <td class="surface-label">Palatal</td>
+                                                            <td><span class="site">2</span><span class="site">3</span><span class="site">3</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">4</span><span class="site">4</span><span class="site">5</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">3</span><span class="site">3</span><span class="site">4</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                    </tr>
+                    </table>
+                                    <div class="perio-arch-title">PPD (mm) — Lower</div>
+                    <table class="perio-table">
+                        <tr>
+                            <th class="surface-label">Tooth</th>
+                                                            <th>48</th>
+                                                            <th>47</th>
+                                                            <th>46</th>
+                                                            <th>45</th>
+                                                            <th>44</th>
+                                                            <th>43</th>
+                                                            <th>42</th>
+                                                            <th>41</th>
+                                                            <th>31</th>
+                                                            <th>32</th>
+                                                            <th>33</th>
+                                                            <th>34</th>
+                                                            <th>35</th>
+                                                            <th>36</th>
+                                                            <th>37</th>
+                                                            <th>38</th>
+                                                    </tr>
+                        <tr>
+                            <td class="surface-label">Buccal</td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">2</span><span class="site">2</span><span class="site">3</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                    </tr>
+                        <tr>
+                            <td class="surface-label">Lingual</td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">3</span><span class="site">2</span><span class="site">2</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                    </tr>
+                    </table>
+                                                                <div class="perio-arch-title">CAL (mm) — Upper</div>
+                    <table class="perio-table">
+                        <tr>
+                            <th class="surface-label">Tooth</th>
+                                                            <th>18</th>
+                                                            <th>17</th>
+                                                            <th>16</th>
+                                                            <th>15</th>
+                                                            <th>14</th>
+                                                            <th>13</th>
+                                                            <th>12</th>
+                                                            <th>11</th>
+                                                            <th>21</th>
+                                                            <th>22</th>
+                                                            <th>23</th>
+                                                            <th>24</th>
+                                                            <th>25</th>
+                                                            <th>26</th>
+                                                            <th>27</th>
+                                                            <th>28</th>
+                                                    </tr>
+                        <tr>
+                            <td class="surface-label">Buccal</td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">6</span><span class="site">5</span><span class="site">7</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                    </tr>
+                        <tr>
+                            <td class="surface-label">Palatal</td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">5</span><span class="site">5</span><span class="site">6</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                    </tr>
+                    </table>
+                                    <div class="perio-arch-title">CAL (mm) — Lower</div>
+                    <table class="perio-table">
+                        <tr>
+                            <th class="surface-label">Tooth</th>
+                                                            <th>48</th>
+                                                            <th>47</th>
+                                                            <th>46</th>
+                                                            <th>45</th>
+                                                            <th>44</th>
+                                                            <th>43</th>
+                                                            <th>42</th>
+                                                            <th>41</th>
+                                                            <th>31</th>
+                                                            <th>32</th>
+                                                            <th>33</th>
+                                                            <th>34</th>
+                                                            <th>35</th>
+                                                            <th>36</th>
+                                                            <th>37</th>
+                                                            <th>38</th>
+                                                    </tr>
+                        <tr>
+                            <td class="surface-label">Buccal</td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                    </tr>
+                        <tr>
+                            <td class="surface-label">Lingual</td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                            <td><span class="site">·</span><span class="site">·</span><span class="site">·</span></td>
+                                                    </tr>
+                    </table>
+                                    
+        
+        <table class="table-bordered mini footer-signature">
+            <tr>
+                <td><span class="field-label">Supervisor:</span> _____________</td>
+                <td><span class="field-label">Approval Date:</span> _____________</td>
+                <td><span class="field-label">Staff Signature:</span> _____________</td>
+            </tr>
+        </table>
+
+                    <div class="qr-wrapper">
+                Scan the QR code to reopen this case sheet.
+                <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIwAAACMAQMAAACUDtN9AAAABlBMVEUEAgT8/vxJvsdeAAAACXBIWXMAAA7EAAAOxAGVKw4bAAABuUlEQVRIieWWMY6kMBRECxE4oy9gyddw5ivhC0DPBZorOfM1LHEByBxYeMs909OjTdY/2GC1FiJ4lgBX1f8f1N/Xgf8VFcA8nPah+AooAVqrOQMmq6FMjQI0K71GLEr7qAch4ut5n5QYDTytMmeUobXqIeyHw62+D9SDgPbdz+stYQfiKlDj5fYtvk3rQGVuDlFrDYdBgta4X0hr5smxRgkKenJmi+YO/XpWF1qQJui17mfcTxFSfIqp2Rw2zaof1S0mH8YtlMUxUgJEU9fM+JZbZar6URnokKPB4/ntUB9ihrbchL7s/lD9qK2PPNJan80lQGXImB0mXnjlvg/NtsCOB5jCvQpQ3TJbSQK4kSYlQB85PTuCOZjF2o9a7g9bz6YaNwToxvw1pZjCerl+VM9gLtuEZhy/HOpC5RZI8Wntl4R9yMfx0SpNw74aTB+aUZjdIY/1u9L6kGfoHdsf9+AFqPUvH1il/PSyqH70nENgiTIQepYg9mh2IlbaQ9EtAWqDxDah78CkZAgMRDCH0osQrTlNTg+5/BiGf0actawx6nVZ1qoAcQ4tLs1gc6931Y/+8r/Jv4x+AXQnhsjf/6CKAAAAAElFTkSuQmCC" alt="QR Code">
+            </div>
+            </div>
+</body>
+</html>

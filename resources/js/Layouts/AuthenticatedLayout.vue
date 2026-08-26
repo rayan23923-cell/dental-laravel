@@ -1,0 +1,338 @@
+<script setup>
+/**
+ * Staff shell.
+ *
+ * The navigation is modelled on the dental-unit control panel: a raised
+ * slab holding a horizontally-scrolling strip of icon+label tiles, with the
+ * active tile carrying the accent gradient. Colours come from the theme
+ * variables (App\Support\ThemePalette), so the bar follows whichever theme
+ * is selected in settings.
+ *
+ * **The content region deliberately keeps its neutral light background.**
+ * Around fifty page components style their own cards, tables and text with
+ * fixed Tailwind greys (`bg-white`, `text-gray-800`); repainting the region
+ * behind them from a dark theme token would leave dark-on-dark text on any
+ * page that writes directly onto the page background. Theming the chrome is
+ * safe today, theming every page body is a separate pass.
+ */
+import { computed, ref } from 'vue';
+import BrandMark from '@/Components/BrandMark.vue';
+import Dropdown from '@/Components/Dropdown.vue';
+import DropdownLink from '@/Components/DropdownLink.vue';
+import Icon from '@/Components/Icon.vue';
+import { Link, usePage } from '@inertiajs/vue3';
+
+const showingNavigationDropdown = ref(false);
+const page = usePage();
+
+const isAdmin = computed(() => ['super_admin', 'admin'].includes(page.props.auth.user.role));
+
+/**
+ * Grouping mirrors the original app's navbar.php dropdowns (إدارة البيانات
+ * الأساسية / إدارة الأطباء / إدارة المرضى / الإعدادات) rather than the flat
+ * strip this rebuild started with. Group membership follows the *actual*
+ * `role:` middleware in routes/web.php, not the original 1:1 — this app's
+ * route gates have diverged from the original's in both directions (e.g.
+ * `groups` is admin-only here, `tasks` is editor-accessible here), so
+ * copying the original's grouping verbatim would have hidden links from
+ * roles that can legitimately use them, or shown links that just 403.
+ * Two tiers, matching the two role gates actually used:
+ *  - "editor,admin,super_admin" routes stay flat or in an always-visible
+ *    dropdown (doctors, patients/patient-registrations, tasks, dental
+ *    charts, clinical records, appointments, payments).
+ *  - "admin,super_admin"-only routes (education-types, stages,
+ *    departments, academic-sessions, case-sheet-types, groups,
+ *    task-progress, activity-logs, permissions, clinic-settings,
+ *    register-settings, department-roles, backup) stay behind `isAdmin`.
+ */
+const clinicalRoutes = [
+    'complete-denture-records', 'oral-medicine-charts', 'orthodontics-records',
+    'periodontal-charts', 'prevention-records', 'prosthodontics-records',
+    'surgeries', 'surgery-follow-ups', 'surgery-images', 'surgery-medications',
+    'treatment-plans', 'treatment-materials',
+];
+const isClinicalRecordsActive = computed(
+    () => route().current('clinical-records.*') || clinicalRoutes.some((r) => route().current(`${r}.*`))
+);
+
+const isPatientsGroupActive = computed(
+    () => route().current('patients.*')
+        || route().current('patient-registrations.index')
+        || route().current('patient-registrations.create')
+);
+
+const structureRoutes = [
+    'departments', 'stages', 'education-types',
+    'academic-sessions', 'groups', 'case-sheet-types',
+];
+const isStructureActive = computed(() => structureRoutes.some((r) => route().current(`${r}.*`)));
+
+const isSettingsGroupActive = computed(
+    () => route().current('clinic-settings.*')
+        || route().current('patient-registrations.settings')
+        || route().current('register-days.*')
+        || route().current('register-services.*')
+        || route().current('department-roles.*')
+        || route().current('permissions.*')
+        || route().current('activity-logs.*')
+        || route().current('backup.*')
+);
+
+/**
+ * One list drives the desktop strip and the mobile menu, so a module can no
+ * longer be added to one and forgotten in the other — which is exactly how
+ * the mobile menu ended up missing half the app.
+ */
+const primaryLinks = computed(() => [
+    { label: 'الرئيسية', icon: 'dashboard', href: route('dashboard'), active: route().current('dashboard') },
+    { label: 'الأطباء', icon: 'stethoscope', href: route('doctors.index'), active: route().current('doctors.*') },
+    { label: 'المهام', icon: 'assignment', href: route('tasks.index'), active: route().current('tasks.*') },
+    ...(isAdmin.value
+        ? [{ label: 'تقدم المهام', icon: 'monitoring', href: route('task-progress.index'), active: route().current('task-progress.*') }]
+        : []),
+    { label: 'السجلات السريرية', icon: 'clinical_notes', href: route('clinical-records.index'), active: isClinicalRecordsActive.value },
+    { label: 'المواعيد', icon: 'event', href: route('appointments.index'), active: route().current('appointments.*') },
+    { label: 'المدفوعات', icon: 'payments', href: route('payments.index'), active: route().current('payments.*') },
+]);
+
+// "إدارة المرضى" — always visible (patients/patient-registrations are
+// editor-accessible, same as the flat links above). Restores two routes
+// that already existed in the backend but had no navbar entry at all:
+// `patients.index` (the plain patient-record list) and
+// `patient-registrations.create` (its own page, separate from the index).
+const patientsLinks = computed(() => [
+    { label: 'تسجيل مريض جديد', icon: 'person_add', href: route('patient-registrations.create'), active: route().current('patient-registrations.create') },
+    { label: 'تسجيل المرضى', icon: 'how_to_reg', href: route('patient-registrations.index'), active: route().current('patient-registrations.index') },
+    { label: 'قائمة المرضى', icon: 'list_alt', href: route('patients.index'), active: route().current('patients.*') },
+]);
+
+// "البيانات الأساسية" — admin-only (matches the original's dropdown of the
+// same name); "المجموعات" lives here rather than paired with "الأطباء"
+// above because — unlike the original — this app's `groups` routes are
+// admin-only while `doctors` is editor-accessible.
+const structureLinks = computed(() => [
+    { label: 'أنواع التعليم', icon: 'school', href: route('education-types.index'), active: route().current('education-types.*') },
+    { label: 'المراحل', icon: 'stairs', href: route('stages.index'), active: route().current('stages.*') },
+    { label: 'الأقسام', icon: 'apartment', href: route('departments.index'), active: route().current('departments.*') },
+    { label: 'الأعوام الدراسية', icon: 'calendar_month', href: route('academic-sessions.index'), active: route().current('academic-sessions.*') },
+    { label: 'المجموعات', icon: 'groups', href: route('groups.index'), active: route().current('groups.*') },
+    { label: 'أنواع النماذج السريرية', icon: 'description', href: route('case-sheet-types.index'), active: route().current('case-sheet-types.*') },
+]);
+
+// "الإعدادات" — admin-only, new grouped dropdown replacing the flat
+// `adminLinks` strip. Folds in three routes that existed in the backend
+// with no navbar link at all: `clinic-settings.edit` (previously reachable
+// only from the account menu), `patient-registrations.settings`, and
+// `department-roles.index`.
+const settingsLinks = computed(() => [
+    { label: 'إعدادات العيادة', icon: 'settings', href: route('clinic-settings.edit'), active: route().current('clinic-settings.*') },
+    { label: 'إعدادات التسجيل', icon: 'tune', href: route('patient-registrations.settings'), active: route().current('patient-registrations.settings') || route().current('register-days.*') || route().current('register-services.*') },
+    { label: 'صلاحيات الأقسام', icon: 'badge', href: route('department-roles.index'), active: route().current('department-roles.*') },
+    { label: 'الصلاحيات', icon: 'admin_panel_settings', href: route('permissions.index'), active: route().current('permissions.*') },
+    { label: 'سجل النشاط', icon: 'history', href: route('activity-logs.index'), active: route().current('activity-logs.*') },
+    { label: 'النسخ الاحتياطي', icon: 'database', href: route('backup.index'), active: route().current('backup.*') },
+]);
+
+// One class list for every nav tile — active tiles take the accent gradient,
+// the rest stay quiet until hovered.
+const tileClass = (active) => [
+    'flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition',
+    active
+        ? 'bg-gradient-to-br from-accent to-accent-deep text-accent-fg shadow-glow'
+        : 'text-muted hover:bg-surface-2 hover:text-content',
+];
+</script>
+
+<template>
+    <div class="min-h-screen bg-gray-100">
+        <div class="bg-app px-3 pb-3 pt-3 sm:px-6 lg:px-8">
+            <nav class="mx-auto max-w-7xl rounded-card border border-hairline/70 bg-surface shadow-panel">
+                <div class="flex items-center gap-3 px-3 py-2.5 sm:px-4">
+                    <!-- Brand -->
+                    <Link :href="route('dashboard')" class="flex shrink-0 items-center gap-2.5">
+                        <img
+                            v-if="page.props.clinicSettings?.logo_url"
+                            :src="page.props.clinicSettings.logo_url"
+                            alt=""
+                            class="h-9 w-9 rounded-xl object-contain"
+                        />
+                        <BrandMark v-else :size="36" />
+                        <span v-if="page.props.clinicSettings?.name" class="hidden text-sm font-semibold text-content lg:inline">
+                            {{ page.props.clinicSettings.name }}
+                        </span>
+                    </Link>
+
+                    <div class="hidden h-8 w-px shrink-0 bg-hairline sm:block"></div>
+
+                    <!-- Tool strip. Scrolls horizontally rather than wrapping,
+                         like the unit panel's instrument row. -->
+                    <div class="hide-scrollbar hidden flex-1 items-center gap-1 overflow-x-auto sm:flex">
+                        <Link v-for="link in primaryLinks" :key="link.href" :href="link.href" :class="tileClass(link.active)">
+                            <Icon :name="link.icon" size="text-[18px]" />
+                            <span class="whitespace-nowrap">{{ link.label }}</span>
+                        </Link>
+
+                        <Dropdown align="left" width="56">
+                            <template #trigger>
+                                <button type="button" :class="tileClass(isPatientsGroupActive)">
+                                    <Icon name="how_to_reg" size="text-[18px]" />
+                                    <span class="whitespace-nowrap">إدارة المرضى</span>
+                                    <Icon name="expand_more" size="text-[16px]" />
+                                </button>
+                            </template>
+                            <template #content>
+                                <DropdownLink v-for="link in patientsLinks" :key="link.href" :href="link.href">
+                                    {{ link.label }}
+                                </DropdownLink>
+                            </template>
+                        </Dropdown>
+
+                        <Dropdown v-if="isAdmin" align="left" width="56">
+                            <template #trigger>
+                                <button type="button" :class="tileClass(isStructureActive)">
+                                    <Icon name="database" size="text-[18px]" />
+                                    <span class="whitespace-nowrap">البيانات الأساسية</span>
+                                    <Icon name="expand_more" size="text-[16px]" />
+                                </button>
+                            </template>
+                            <template #content>
+                                <DropdownLink v-for="link in structureLinks" :key="link.href" :href="link.href">
+                                    {{ link.label }}
+                                </DropdownLink>
+                            </template>
+                        </Dropdown>
+
+                        <Dropdown v-if="isAdmin" align="left" width="56">
+                            <template #trigger>
+                                <button type="button" :class="tileClass(isSettingsGroupActive)">
+                                    <Icon name="settings" size="text-[18px]" />
+                                    <span class="whitespace-nowrap">الإعدادات</span>
+                                    <Icon name="expand_more" size="text-[16px]" />
+                                </button>
+                            </template>
+                            <template #content>
+                                <DropdownLink v-for="link in settingsLinks" :key="link.href" :href="link.href">
+                                    {{ link.label }}
+                                </DropdownLink>
+                            </template>
+                        </Dropdown>
+                    </div>
+
+                    <!-- Account -->
+                    <div class="ms-auto hidden shrink-0 items-center sm:flex">
+                        <Dropdown align="right" width="48">
+                            <template #trigger>
+                                <button
+                                    type="button"
+                                    class="flex items-center gap-2 rounded-xl border border-hairline/70 bg-surface-2 px-3 py-2 text-sm font-medium text-content transition hover:border-accent/50"
+                                >
+                                    <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-br from-accent to-accent-deep text-accent-fg">
+                                        <Icon name="person" size="text-[16px]" />
+                                    </span>
+                                    <span class="max-w-[10rem] truncate">{{ page.props.auth.user.full_name }}</span>
+                                    <Icon name="expand_more" size="text-[16px]" class="text-muted" />
+                                </button>
+                            </template>
+                            <template #content>
+                                <DropdownLink :href="route('profile.edit')">الملف الشخصي</DropdownLink>
+                                <DropdownLink :href="route('logout')" method="post" as="button">تسجيل الخروج</DropdownLink>
+                            </template>
+                        </Dropdown>
+                    </div>
+
+                    <!-- Hamburger -->
+                    <button
+                        type="button"
+                        @click="showingNavigationDropdown = !showingNavigationDropdown"
+                        class="ms-auto inline-flex items-center justify-center rounded-xl bg-surface-2 p-2 text-muted transition hover:text-content sm:hidden"
+                        :aria-label="showingNavigationDropdown ? 'إغلاق القائمة' : 'فتح القائمة'"
+                    >
+                        <Icon :name="showingNavigationDropdown ? 'close' : 'menu'" size="text-[22px]" />
+                    </button>
+                </div>
+
+                <!-- Mobile menu. Built from the same link lists as the desktop
+                     strip, so the two can't drift apart again. -->
+                <div v-show="showingNavigationDropdown" class="border-t border-hairline/70 px-3 pb-3 pt-2 sm:hidden">
+                    <div class="grid grid-cols-2 gap-1.5">
+                        <Link v-for="link in primaryLinks" :key="link.href" :href="link.href" :class="tileClass(link.active)">
+                            <Icon :name="link.icon" size="text-[18px]" />
+                            <span class="truncate">{{ link.label }}</span>
+                        </Link>
+                    </div>
+
+                    <div class="mt-3 px-1 text-xs font-semibold uppercase tracking-wider text-muted">
+                        إدارة المرضى
+                    </div>
+                    <div class="mt-1.5 grid grid-cols-2 gap-1.5">
+                        <Link v-for="link in patientsLinks" :key="link.href" :href="link.href" :class="tileClass(link.active)">
+                            <Icon :name="link.icon" size="text-[18px]" />
+                            <span class="truncate">{{ link.label }}</span>
+                        </Link>
+                    </div>
+
+                    <template v-if="isAdmin">
+                        <div class="mt-3 px-1 text-xs font-semibold uppercase tracking-wider text-muted">
+                            البيانات الأساسية
+                        </div>
+                        <div class="mt-1.5 grid grid-cols-2 gap-1.5">
+                            <Link v-for="link in structureLinks" :key="link.href" :href="link.href" :class="tileClass(link.active)">
+                                <Icon :name="link.icon" size="text-[18px]" />
+                                <span class="truncate">{{ link.label }}</span>
+                            </Link>
+                        </div>
+
+                        <div class="mt-3 px-1 text-xs font-semibold uppercase tracking-wider text-muted">
+                            الإعدادات
+                        </div>
+                        <div class="mt-1.5 grid grid-cols-2 gap-1.5">
+                            <Link v-for="link in settingsLinks" :key="link.href" :href="link.href" :class="tileClass(link.active)">
+                                <Icon :name="link.icon" size="text-[18px]" />
+                                <span class="truncate">{{ link.label }}</span>
+                            </Link>
+                        </div>
+                    </template>
+
+                    <div class="mt-4 rounded-xl border border-hairline/70 bg-surface-2 p-3">
+                        <div class="text-sm font-semibold text-content">{{ page.props.auth.user.full_name }}</div>
+                        <div class="text-xs text-muted">{{ page.props.auth.user.email }}</div>
+
+                        <!-- Plain themed links rather than ResponsiveNavLink:
+                             that component is fixed `text-gray-600`, which
+                             all but disappears on this dark panel. -->
+                        <div class="mt-3 space-y-1">
+                            <Link :href="route('profile.edit')" :class="tileClass(route().current('profile.*'))">
+                                <Icon name="account_circle" size="text-[18px]" />الملف الشخصي
+                            </Link>
+                            <Link :href="route('logout')" method="post" as="button" :class="[...tileClass(false), 'w-full']">
+                                <Icon name="logout" size="text-[18px]" />تسجيل الخروج
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+        </div>
+
+        <!-- Page Heading -->
+        <header v-if="$slots.header" class="border-b border-gray-200 bg-white shadow-sm">
+            <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+                <slot name="header" />
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <main>
+            <slot />
+        </main>
+    </div>
+</template>
+
+<style scoped>
+/* The nav strip scrolls but shouldn't show a scrollbar over the panel. */
+.hide-scrollbar {
+    scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+</style>

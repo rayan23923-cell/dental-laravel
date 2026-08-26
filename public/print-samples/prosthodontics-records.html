@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Partial Denture Case Sheet - Print</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 10mm;
+        }
+
+        body {
+            font-family: "DejaVu Sans", Arial, sans-serif;
+            font-size: 9pt;
+            line-height: 1.3;
+            color: #000;
+            background: #fff;
+            margin: 0;
+        }
+
+        .no-print { display: block; }
+
+        @media print {
+            .no-print { display: none !important; }
+            body { background: #fff; }
+            /* The grey section bars and table headings are the document's
+               structure, not decoration — browsers drop backgrounds when
+               printing unless this is forced. */
+            * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+
+        .print-controls {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #dee2e6;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .print-controls button {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, .2);
+            transition: all .3s;
+        }
+
+        .print-controls .btn-print { background: #007bff; }
+        .print-controls .btn-back { background: #6c757d; margin-left: 10px; }
+        .print-controls button:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0, 0, 0, .3); }
+        .print-controls button:active { transform: translateY(0); }
+
+        .sheet {
+            width: 100%;
+            max-width: 210mm;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            font-weight: bold;
+            font-size: 13pt;
+            line-height: 1.4;
+            margin-bottom: 6px;
+            position: relative;
+            min-height: 80px;
+        }
+
+        .header-logo { max-width: 80px; max-height: 80px; position: absolute; top: 0; display: block; }
+        .header-logo-left { left: 0; }
+        .header-logo-right { right: 0; }
+        .header-content { text-align: center; }
+
+        .sub-header { text-align: center; font-size: 10pt; margin-bottom: 10px; }
+
+        .section-title {
+            font-weight: bold;
+            font-size: 10pt;
+            background-color: #f0f0f0;
+            padding: 4px 6px;
+            border: 1px solid #000;
+            margin-top: 6px;
+            /* A section heading stranded at the foot of a page is the most
+               common defect in the original's printouts. */
+            page-break-after: avoid;
+        }
+
+        .table-bordered {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 4px;
+        }
+
+        .table-bordered td, .table-bordered th {
+            border: 1px solid #000;
+            padding: 3px 4px;
+            vertical-align: top;
+        }
+
+        .table-heading th {
+            background-color: #eaeaea;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .mini { font-size: 8pt; }
+        .text-bold { font-weight: bold; }
+
+        /* A field cell: bold label then its value, as every original page
+           renders it (`<span class="text-bold">Label:</span> value`). */
+        .field-label { font-weight: bold; }
+        .field-value { }
+        .field-empty { color: #000; }
+
+        .notes-box {
+            border: 1px solid #000;
+            padding: 4px;
+            min-height: 40px;
+            margin-bottom: 4px;
+            white-space: pre-wrap;
+        }
+
+        .teeth-list { font-weight: bold; letter-spacing: .5px; }
+
+        /* Per-tooth measurement grid (BOP/PPD/CAL). One column per tooth,
+           three sites per surface — the layout of the original's chart. */
+        .perio-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            margin-bottom: 6px;
+        }
+
+        .perio-table th, .perio-table td {
+            border: 1px solid #000;
+            padding: 1px;
+            text-align: center;
+            font-size: 6.5pt;
+            line-height: 1.1;
+        }
+
+        .perio-table th { background-color: #eaeaea; font-weight: bold; }
+        .perio-table .surface-label { width: 46px; font-weight: bold; text-align: left; padding-left: 3px; }
+        .perio-table .site { width: 33.33%; display: inline-block; }
+        .perio-arch-title { font-weight: bold; font-size: 8pt; margin: 4px 0 2px; }
+
+        .footer-signature { margin-top: 8px; font-size: 9pt; }
+        .footer-signature td { padding-top: 12px; }
+
+        .qr-wrapper {
+            margin-top: 28px;
+            padding: 6px 12px;
+            text-align: right;
+            font-size: 8pt;
+            font-style: italic;
+            display: inline-block;
+            float: right;
+        }
+
+        .qr-wrapper img {
+            display: inline-block;
+            width: 60px;
+            height: 60px;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        /* Keep a table's rows together with its heading where the page
+           break would otherwise split a two-row block. */
+        table, tr, td, th { page-break-inside: avoid; }
+    </style>
+</head>
+<body>
+    <div class="print-controls no-print">
+        <button type="button" class="btn-print" onclick="window.print()">طباعة</button>
+        <button type="button" class="btn-back" onclick="goBack()">رجوع</button>
+    </div>
+
+    <script>
+        // Matches the original's goBack(): close the tab when the sheet was
+        // opened with window.open, otherwise navigate back to the record.
+        function goBack() {
+            if (window.opener) {
+                window.close();
+            } else {
+                window.location.href = "http:\/\/localhost\/dental_laravel\/public\/prosthodontics-records\/9\/edit";
+            }
+        }
+    </script>
+
+    <div class="sheet">
+        <div class="header">
+            
+            
+            <div class="header-content">
+                University of Baghdad<br>
+                College of Dentistry
+                            </div>
+        </div>
+
+                    <div class="sub-header">PROSTHODONTIC</div>
+        
+        
+        <table class="table-bordered mini">
+            <tr>
+                <td><span class="field-label">Student's Name:</span> Hh</td>
+                <td><span class="field-label">Grade/Group:</span> </td>
+                <td><span class="field-label">Date:</span> 2026-08-19</td>
+            </tr>
+        </table>
+
+                    <div class="section-title">Patient Information</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Patient&#039;s Name:</span>
+                                                                    <span class="field-value">Ali Hasan Mahmoud</span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Phone Number:</span>
+                                                                    <span class="field-value">07701234567</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Age:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Gender:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Telephone (alt.):</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Occupation:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Address:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">Student / Case</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Student Name:</span>
+                                                                    <span class="field-value">Hh</span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Group:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">First time?:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">Medical history</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Enter medical history (e.g., allergies, medications, systemic conditions):</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">Dental History</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Reason for tooth extraction:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Regular dentist visits?:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Reasons for constructing a partial denture:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Any previous partial denture?:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Reason for not using it:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">A- Extraoral Examination</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">TMJ disorder (clicking):</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Muscles of mastication (tone):</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Facial tissue and structure:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">B- Intraoral Examination</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Missing Teeth — For Partial Denture:</span>
+                                                                    <span class="teeth-list"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Caries teeth:</span>
+                                                                    <span class="teeth-list"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">C- Condition of soft tissue:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">D- Presence of any abnormal lesion:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">E- Mobility of abutments:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">F- Teeth to be extracted:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">G- Pre-prosthetic treatment required:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">Diagnosis and starting</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Diagnosis and starting:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Signature of instructor:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Date:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Grade/Mark:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                            </table>
+        
+        
+                    
+            <div class="section-title">Stages and evaluation</div>
+            <table class="table-bordered mini">
+                <tr class="table-heading">
+                    <th>Stage</th>
+                    <th>Signature of instructor</th>
+                    <th>Date</th>
+                    <th>Grade</th>
+                </tr>
+                                    <tr>
+                        <td>
+                            Preliminary impression
+                                                            <div class="mini">a. Upper — b. Lower</div>
+                                                    </td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                                    <tr>
+                        <td>
+                            Cast - Surveying
+                                                    </td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                                    <tr>
+                        <td>
+                            Final impression
+                                                            <div class="mini">a. Upper — b. Lower</div>
+                                                    </td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                                    <tr>
+                        <td>
+                            Registration of jaw relation
+                                                    </td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                                    <tr>
+                        <td>
+                            Trial denture
+                                                    </td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                                    <tr>
+                        <td>
+                            Ready for flasking
+                                                    </td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                                    <tr>
+                        <td>
+                            R.P.D in mouth
+                                                    </td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                                    <tr>
+                        <td>
+                            1st adjustment
+                                                    </td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                                    <tr>
+                        <td>
+                            Final evaluation
+                                                    </td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                            </table>
+        
+        <table class="table-bordered mini footer-signature">
+            <tr>
+                <td><span class="field-label">Supervisor:</span> _____________</td>
+                <td><span class="field-label">Approval Date:</span> _____________</td>
+                <td><span class="field-label">Staff Signature:</span> _____________</td>
+            </tr>
+        </table>
+
+                    <div class="qr-wrapper">
+                Scan the QR code to reopen this case sheet.
+                <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIwAAACMAQMAAACUDtN9AAAABlBMVEUEAgT8/vxJvsdeAAAACXBIWXMAAA7EAAAOxAGVKw4bAAABvklEQVRIieWWPY7EIAyFHaVwl1wAiWvQcaXkApC5wMyV6LgGEhdIOgoUr5lf7Vam2GK1iCL6CjB+fnaAfq4d/iuqAHoD5QsdBIAdyJM+It2CAqspdqAF1dxuH4+ohk60Fj5OTdiNAMcN9LezBMiTmgNdLQz0eZAEAag1PvYnhQLEq04AYPMtfkQToLqwQqayQhtyHB1oLglgPILecXxGL0J04ddSmqwCAyvJUXUmecon5iNm6kFzUXPMp9G7SRP2oFAXmylUZ8FZOSIqXPSwWDUUFkmO6hDSgtVxyiKdVo5o47tNS/TV1kf0MsTFlDjFvmQq4GMHmtjYQd8i8MezMEWINpOPwGZLnO5L7EDnve6HUOGlkBCxNr4hvUN6KSRBdeZ2AHQrdClq6UIhOaQNMr2dJkMLgENONO0IT4VkaIK6NGm5LNJbIQlyqE9kp40c/VM0GeKSpZg3APbbQR3It3bAVmnPWDtQ618taOR8cfeUo8ccYrdwu3w5TYa4RzujHOYd62Q7EE+Fge5Og7doUjTZ5rQd+cQ+5Exz2lDqZzQJEM/aK9ahJB9eLU2GeA6xq9dAu6ErytEv/5v8ZfQFvgyEKzlwpzwAAAAASUVORK5CYII=" alt="QR Code">
+            </div>
+            </div>
+</body>
+</html>

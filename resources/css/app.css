@@ -1,0 +1,20 @@
+/* Material Symbols, self-hosted from the npm package rather than the
+   Google Fonts CDN — this app is used over a LAN where the internet may
+   not be reachable, and an icon font that silently fails to load would
+   leave every button unlabelled. Vite bundles the woff2 alongside the CSS. */
+@import 'material-symbols/outlined.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+    /* Base styling for the <Icon> component (Components/Icon.vue).
+       `font-variation-settings` is what actually controls fill/weight on a
+       variable icon font; these match the outlined style. */
+    .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        line-height: 1;
+        user-select: none;
+    }
+}

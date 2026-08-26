@@ -1,0 +1,105 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- Required for the app to reach the Laravel API at all. Was previously
+         only granted via src/debug and src/profile's manifests (added there
+         by the Flutter template for the hot-reload/DevTools connection), so
+         a release build silently had no network access — every API call
+         would fail. Needed unconditionally, not just for dev. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- mobile_scanner (QR check-in, features/task_instances/presentation/qr_scan_screen.dart) -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <!-- PosPrinterPlugin.kt — binding the built-in POS printer's AIDL
+         service. The vendor SDK doc for this exact device notes these are
+         required; the AIDL bind itself doesn't obviously need them (the
+         printer service runs as a privileged system app and does its own
+         Bluetooth I/O), but they cost nothing to declare and the doc says
+         to. `BLUETOOTH_CONNECT` covers API 31+ devices this same POS
+         hardware family might ship on; this test device is Android 8.1
+         (API 27), pre-dating that permission entirely. -->
+    <uses-permission android:name="android.permission.BLUETOOTH"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+    <!-- Printer-settings screen's Bluetooth device *discovery* (as opposed
+         to connecting to an already-bonded device, which BLUETOOTH_CONNECT
+         alone covers) — required on API 31+ to call startDiscovery(), which
+         nothing in this app did before the printer-settings feature.
+         neverForLocation because this app never derives location from a
+         Bluetooth scan, only device identity. tools:targetApi so lint
+         doesn't flag the flag attribute pre-31. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s"/>
+    <!-- A real bug found live, not by reading docs: on API 23–30 (this
+         includes the test device, API 27), classic Bluetooth discovery
+         (startDiscovery()/ACTION_FOUND) silently withholds results from any
+         app that lacks a location permission — startDiscovery() still
+         "succeeds" and ACTION_DISCOVERY_FINISHED still fires, the found
+         devices are just never delivered. Confirmed via a live scan: a
+         printer already visible in the phone's own Bluetooth settings (a
+         privileged system app, exempt from this) never appeared in this
+         app's scan results, and the manifest had no location permission at
+         all to request. maxSdkVersion=30 because API 31+ doesn't need
+         this — BLUETOOTH_SCAN's neverForLocation flag above already covers
+         discovery there without exposing location to the user. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="30"/>
+    <!-- NFC doctor-tag lookup (core/nfc/nfc_uid_reader.dart via
+         nfc_manager). required="false" so the app still installs on
+         non-NFC devices — this test device happens to have NFC hardware
+         (confirmed via `adb shell pm list features`), but nothing else
+         in this project assumes every device does. -->
+    <uses-permission android:name="android.permission.NFC"/>
+    <uses-feature android:name="android.hardware.nfc" android:required="false"/>
+    <!-- USB printer support (printer-settings screen, PosPrinterPlugin.kt's
+         printViaUsb()). required="false" is essential, not optional — the
+         project's own connected test device reports only
+         android.hardware.usb.accessory, not .usb.host, via
+         `adb shell pm list features`, so a required="true" declaration
+         would make the app uninstallable on this project's own hardware. -->
+    <uses-feature android:name="android.hardware.usb.host" android:required="false"/>
+    <application
+        android:label="CDC"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher"
+        android:networkSecurityConfig="@xml/network_security_config">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <!-- Specifies an Android theme to apply to this Activity as soon as
+                 the Android process has started. This theme is visible to the user
+                 while the Flutter UI initializes. After that, this theme continues
+                 to determine the Window background behind the Flutter UI. -->
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <!-- Don't delete the meta-data below.
+             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+    <!-- Required to query activities that can process text, see:
+         https://developer.android.com/training/package-visibility and
+         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
+
+         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+    </queries>
+</manifest>

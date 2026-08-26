@@ -1,0 +1,130 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\AcademicSession;
+use App\Models\Department;
+use App\Models\EducationType;
+use App\Models\Stage;
+use App\Models\User;
+use App\Models\UserPermission;
+use App\Services\PermissionManager;
+use App\Services\ScopeHelper;
+use App\Support\PermissionMatrix;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
+use Inertia\Response;
+
+/**
+ * Grants/revokes rows in `user_permissions` — the table PermissionManager
+ * actually checks (see App\Services\PermissionManager docblock for why
+ * this is the real ACL and `roles`/`permissions`/`role_permissions` are
+ * not) — and, separately, a user's access-scope restrictions
+ * (App\Services\ScopeHelper): which departments/stages/education
+ * types/academic years their own account is confined to.
+ *
+ * The module/action matrix lives in App\Support\PermissionMatrix, copied
+ * verbatim from the original's own definition — including its per-module
+ * action sets, which an earlier version of this port flattened into a
+ * uniform view/create/edit/delete/export grid (see README).
+ *
+ * The scope section is new here, not carried over from an earlier version:
+ * `ScopeHelper::setAllowedDepartments()`/`setAllowedStages()`/
+ * `setAllowedEducationTypes()` already existed (the original's own
+ * `save_scope_permissions.php` equivalent) but were never actually called
+ * from anywhere — confirmed by a repo-wide search — so a scope restriction
+ * could never be set through this app at all, on any of the four
+ * dimensions. Wired up here, all four together, rather than adding only
+ * the academic-session one and leaving its three siblings still
+ * unreachable.
+ */
+class UserPermissionController extends Controller
+{
+    public function index(): Response
+    {
+        return Inertia::render('Permissions/Index', [
+            'users' => User::where('role', '!=', 'super_admin')
+                ->orderBy('full_name')
+                ->get(['id', 'full_name', 'username', 'role']),
+        ]);
+    }
+
+    public function edit(User $user): Response
+    {
+        $granted = UserPermission::where('user_id', $user->id)
+            ->where('granted', true)
+            ->get(['module', 'permission'])
+            ->map(fn ($p) => "{$p->module}.{$p->permission}")
+            ->all();
+
+        return Inertia::render('Permissions/Edit', [
+            'targetUser' => $user,
+            'modules' => PermissionMatrix::forUi(),
+            'granted' => $granted,
+            'scopeOptions' => [
+                'departments' => Department::orderBy('name')->get(['id', 'name']),
+                'stages' => Stage::orderBy('name')->get(['id', 'name']),
+                'educationTypes' => EducationType::orderBy('name')->get(['id', 'name']),
+                'academicSessions' => AcademicSession::orderByDesc('start_date')->get(['id', 'name']),
+            ],
+            // null in any of these means "unrestricted" — ScopeHelper's own
+            // convention (zero rows = sees everything), not an empty
+            // selection the form should treat as "nothing checked".
+            'scope' => [
+                'departments' => ScopeHelper::allowedDepartmentIds($user),
+                'stages' => ScopeHelper::allowedStageIds($user),
+                'educationTypes' => ScopeHelper::allowedEducationTypeIds($user),
+                'academicSessions' => ScopeHelper::allowedAcademicSessionIds($user),
+            ],
+        ]);
+    }
+
+    public function update(Request $request, User $user): RedirectResponse
+    {
+        $validated = $request->validate([
+            'grants' => ['array'],
+            // Only pairs the matrix actually defines are accepted — a
+            // client can't invent a module/permission combination.
+            'grants.*' => ['string', 'in:'.implode(',', PermissionMatrix::pairs())],
+            // Each scope field is nullable-vs-array, not just an empty
+            // array, so "leave unrestricted" (send nothing) and "restrict
+            // to nothing" (send an empty list, which ScopeHelper would also
+            // treat as unrestricted per its own "zero rows" rule — there is
+            // no way to express "allowed to see nothing" and that's
+            // intentional) don't need to be told apart at this layer.
+            'scope' => ['nullable', 'array'],
+            'scope.departments' => ['nullable', 'array'],
+            'scope.departments.*' => ['integer', 'exists:departments,id'],
+            'scope.stages' => ['nullable', 'array'],
+            'scope.stages.*' => ['integer', 'exists:stages,id'],
+            'scope.education_types' => ['nullable', 'array'],
+            'scope.education_types.*' => ['integer', 'exists:education_types,id'],
+            'scope.academic_sessions' => ['nullable', 'array'],
+            'scope.academic_sessions.*' => ['integer', 'exists:academic_sessions,id'],
+        ]);
+        $grants = $validated['grants'] ?? [];
+        $scope = $validated['scope'] ?? [];
+
+        DB::transaction(function () use ($user, $grants, $scope) {
+            foreach (PermissionMatrix::modules() as $module => $definition) {
+                foreach (array_keys($definition['permissions']) as $permission) {
+                    UserPermission::updateOrCreate(
+                        ['user_id' => $user->id, 'module' => $module, 'permission' => $permission],
+                        ['granted' => in_array("{$module}.{$permission}", $grants, true)]
+                    );
+
+                    PermissionManager::forget($user->id, $module, $permission);
+                }
+            }
+
+            ScopeHelper::setAllowedDepartments($user, $scope['departments'] ?? []);
+            ScopeHelper::setAllowedStages($user, $scope['stages'] ?? []);
+            ScopeHelper::setAllowedEducationTypes($user, $scope['education_types'] ?? []);
+            ScopeHelper::setAllowedAcademicSessions($user, $scope['academic_sessions'] ?? []);
+        });
+
+        return redirect()->route('permissions.index')->with('success', "Permissions updated for {$user->full_name}.");
+    }
+}

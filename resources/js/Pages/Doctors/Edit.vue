@@ -1,0 +1,181 @@
+<script setup>
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import InputError from '@/Components/InputError.vue';
+import InputLabel from '@/Components/InputLabel.vue';
+import PrimaryButton from '@/Components/PrimaryButton.vue';
+import TextInput from '@/Components/TextInput.vue';
+import { Head, useForm } from '@inertiajs/vue3';
+import { computed, watch } from 'vue';
+
+const props = defineProps({
+    doctor: Object,
+    educationTypes: Array,
+    stages: Array,
+    academicSessions: { type: Array, default: () => [] },
+});
+
+const form = useForm({
+    name: props.doctor.name,
+    username: props.doctor.username,
+    email: props.doctor.email,
+    phone: props.doctor.phone,
+    education_type_id: props.doctor.education_type_id,
+    stage_id: props.doctor.stage_id,
+    academic_session_id: props.doctor.academic_session_id ?? '',
+    password: '',
+    profile_image: null,
+    nfc_tag_id: props.doctor.nfc_tag_id ?? '',
+});
+
+// See Doctors/Create.vue for why this filters (mirrors the original app's
+// get_stages_by_edu.php cascading dropdown).
+const filteredStages = computed(() =>
+    form.education_type_id
+        ? props.stages.filter((s) => s.education_type_id === form.education_type_id)
+        : props.stages
+);
+
+// Only reset stage_id if the user actively changes education type away from the
+// doctor's current one — not on initial mount, where the saved combination must
+// still display correctly even before any interaction.
+let initialized = false;
+watch(
+    () => form.education_type_id,
+    () => {
+        if (!initialized) {
+            initialized = true;
+            return;
+        }
+        if (!filteredStages.value.some((s) => s.id === form.stage_id)) {
+            form.stage_id = '';
+        }
+    }
+);
+
+const submit = () => {
+    // Laravel can't parse multipart PUT bodies, so file uploads on update
+    // go via POST with Laravel's _method spoofing (Inertia's documented
+    // pattern for file uploads on an update form).
+    form.transform((data) => ({ ...data, _method: 'put' })).post(route('doctors.update', props.doctor.id));
+};
+</script>
+
+<template>
+    <Head title="Edit Doctor" />
+
+    <AuthenticatedLayout>
+        <template #header>
+            <h2 class="text-xl font-semibold leading-tight text-gray-800">
+                Edit Doctor
+            </h2>
+        </template>
+
+        <div class="py-12">
+            <div class="mx-auto max-w-2xl sm:px-6 lg:px-8">
+                <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
+                    <form @submit.prevent="submit" class="space-y-6">
+                        <div>
+                            <InputLabel for="name" value="Name" />
+                            <TextInput id="name" v-model="form.name" type="text" class="mt-1 block w-full" required autofocus />
+                            <InputError class="mt-2" :message="form.errors.name" />
+                        </div>
+
+                        <div>
+                            <InputLabel for="username" value="Username" />
+                            <TextInput id="username" v-model="form.username" type="text" class="mt-1 block w-full" required />
+                            <InputError class="mt-2" :message="form.errors.username" />
+                        </div>
+
+                        <div>
+                            <InputLabel for="email" value="Email" />
+                            <TextInput id="email" v-model="form.email" type="email" class="mt-1 block w-full" required />
+                            <InputError class="mt-2" :message="form.errors.email" />
+                        </div>
+
+                        <div>
+                            <InputLabel for="phone" value="Phone" />
+                            <TextInput id="phone" v-model="form.phone" type="text" class="mt-1 block w-full" />
+                            <InputError class="mt-2" :message="form.errors.phone" />
+                        </div>
+
+                        <div>
+                            <InputLabel for="education_type_id" value="Education Type" />
+                            <select
+                                id="education_type_id"
+                                v-model="form.education_type_id"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                required
+                            >
+                                <option v-for="type in educationTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
+                            </select>
+                            <InputError class="mt-2" :message="form.errors.education_type_id" />
+                        </div>
+
+                        <div>
+                            <InputLabel for="stage_id" value="Stage" />
+                            <select
+                                id="stage_id"
+                                v-model="form.stage_id"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                :disabled="!form.education_type_id"
+                                required
+                            >
+                                <option v-for="stage in filteredStages" :key="stage.id" :value="stage.id">{{ stage.name }}</option>
+                            </select>
+                            <InputError class="mt-2" :message="form.errors.stage_id" />
+                        </div>
+
+                        <div v-if="academicSessions.length">
+                            <InputLabel for="academic_session_id" value="العام الدراسي" />
+                            <select
+                                id="academic_session_id"
+                                v-model="form.academic_session_id"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            >
+                                <option value="">غير مرتبط (يظهر في كل الفصول)</option>
+                                <option v-for="s in academicSessions" :key="s.id" :value="s.id">{{ s.name }}</option>
+                            </select>
+                            <InputError class="mt-2" :message="form.errors.academic_session_id" />
+                        </div>
+
+                        <div>
+                            <InputLabel for="password" value="New Password" />
+                            <TextInput id="password" v-model="form.password" type="password" class="mt-1 block w-full" placeholder="Leave blank to keep current password" />
+                            <InputError class="mt-2" :message="form.errors.password" />
+                        </div>
+
+                        <div>
+                            <InputLabel for="nfc_tag_id" value="NFC Tag ID" />
+                            <TextInput id="nfc_tag_id" v-model="form.nfc_tag_id" type="text" class="mt-1 block w-full" dir="ltr" />
+                            <p class="mt-1 text-xs text-gray-500">
+                                Only the Flutter app can scan a tag directly — this field is for manual entry/correction.
+                            </p>
+                            <InputError class="mt-2" :message="form.errors.nfc_tag_id" />
+                        </div>
+
+                        <div>
+                            <InputLabel for="profile_image" value="Profile Photo" />
+                            <img
+                                v-if="doctor.profile_image"
+                                :src="`/storage/${doctor.profile_image}`"
+                                class="mt-1 mb-2 h-16 w-16 rounded-full object-cover"
+                            />
+                            <input
+                                id="profile_image"
+                                type="file"
+                                accept="image/*"
+                                class="mt-1 block w-full text-sm text-gray-700"
+                                @input="form.profile_image = $event.target.files[0]"
+                            />
+                            <InputError class="mt-2" :message="form.errors.profile_image" />
+                        </div>
+
+                        <div class="flex justify-end">
+                            <PrimaryButton :disabled="form.processing">Update Doctor</PrimaryButton>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </AuthenticatedLayout>
+</template>

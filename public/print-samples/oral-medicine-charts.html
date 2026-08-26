@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facial Pain and TMJ Disorders Case Sheet - Print</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 10mm;
+        }
+
+        body {
+            font-family: "DejaVu Sans", Arial, sans-serif;
+            font-size: 9pt;
+            line-height: 1.3;
+            color: #000;
+            background: #fff;
+            margin: 0;
+        }
+
+        .no-print { display: block; }
+
+        @media print {
+            .no-print { display: none !important; }
+            body { background: #fff; }
+            /* The grey section bars and table headings are the document's
+               structure, not decoration — browsers drop backgrounds when
+               printing unless this is forced. */
+            * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+
+        .print-controls {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #dee2e6;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .print-controls button {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, .2);
+            transition: all .3s;
+        }
+
+        .print-controls .btn-print { background: #007bff; }
+        .print-controls .btn-back { background: #6c757d; margin-left: 10px; }
+        .print-controls button:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0, 0, 0, .3); }
+        .print-controls button:active { transform: translateY(0); }
+
+        .sheet {
+            width: 100%;
+            max-width: 210mm;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            font-weight: bold;
+            font-size: 13pt;
+            line-height: 1.4;
+            margin-bottom: 6px;
+            position: relative;
+            min-height: 80px;
+        }
+
+        .header-logo { max-width: 80px; max-height: 80px; position: absolute; top: 0; display: block; }
+        .header-logo-left { left: 0; }
+        .header-logo-right { right: 0; }
+        .header-content { text-align: center; }
+
+        .sub-header { text-align: center; font-size: 10pt; margin-bottom: 10px; }
+
+        .section-title {
+            font-weight: bold;
+            font-size: 10pt;
+            background-color: #f0f0f0;
+            padding: 4px 6px;
+            border: 1px solid #000;
+            margin-top: 6px;
+            /* A section heading stranded at the foot of a page is the most
+               common defect in the original's printouts. */
+            page-break-after: avoid;
+        }
+
+        .table-bordered {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 4px;
+        }
+
+        .table-bordered td, .table-bordered th {
+            border: 1px solid #000;
+            padding: 3px 4px;
+            vertical-align: top;
+        }
+
+        .table-heading th {
+            background-color: #eaeaea;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .mini { font-size: 8pt; }
+        .text-bold { font-weight: bold; }
+
+        /* A field cell: bold label then its value, as every original page
+           renders it (`<span class="text-bold">Label:</span> value`). */
+        .field-label { font-weight: bold; }
+        .field-value { }
+        .field-empty { color: #000; }
+
+        .notes-box {
+            border: 1px solid #000;
+            padding: 4px;
+            min-height: 40px;
+            margin-bottom: 4px;
+            white-space: pre-wrap;
+        }
+
+        .teeth-list { font-weight: bold; letter-spacing: .5px; }
+
+        /* Per-tooth measurement grid (BOP/PPD/CAL). One column per tooth,
+           three sites per surface — the layout of the original's chart. */
+        .perio-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            margin-bottom: 6px;
+        }
+
+        .perio-table th, .perio-table td {
+            border: 1px solid #000;
+            padding: 1px;
+            text-align: center;
+            font-size: 6.5pt;
+            line-height: 1.1;
+        }
+
+        .perio-table th { background-color: #eaeaea; font-weight: bold; }
+        .perio-table .surface-label { width: 46px; font-weight: bold; text-align: left; padding-left: 3px; }
+        .perio-table .site { width: 33.33%; display: inline-block; }
+        .perio-arch-title { font-weight: bold; font-size: 8pt; margin: 4px 0 2px; }
+
+        .footer-signature { margin-top: 8px; font-size: 9pt; }
+        .footer-signature td { padding-top: 12px; }
+
+        .qr-wrapper {
+            margin-top: 28px;
+            padding: 6px 12px;
+            text-align: right;
+            font-size: 8pt;
+            font-style: italic;
+            display: inline-block;
+            float: right;
+        }
+
+        .qr-wrapper img {
+            display: inline-block;
+            width: 60px;
+            height: 60px;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        /* Keep a table's rows together with its heading where the page
+           break would otherwise split a two-row block. */
+        table, tr, td, th { page-break-inside: avoid; }
+    </style>
+</head>
+<body>
+    <div class="print-controls no-print">
+        <button type="button" class="btn-print" onclick="window.print()">طباعة</button>
+        <button type="button" class="btn-back" onclick="goBack()">رجوع</button>
+    </div>
+
+    <script>
+        // Matches the original's goBack(): close the tab when the sheet was
+        // opened with window.open, otherwise navigate back to the record.
+        function goBack() {
+            if (window.opener) {
+                window.close();
+            } else {
+                window.location.href = "http:\/\/localhost\/dental_laravel\/public\/oral-medicine-charts\/5\/edit";
+            }
+        }
+    </script>
+
+    <div class="sheet">
+        <div class="header">
+            
+            
+            <div class="header-content">
+                University of Baghdad<br>
+                College of Dentistry
+                                    <br>Dept. of Oral Diagnosis/Oral Medicine Clinic
+                            </div>
+        </div>
+
+        
+        
+        <table class="table-bordered mini">
+            <tr>
+                <td><span class="field-label">Student's Name:</span> Hh</td>
+                <td><span class="field-label">Grade/Group:</span> </td>
+                <td><span class="field-label">Date:</span> 2026-08-19</td>
+            </tr>
+        </table>
+
+                    <div class="section-title">Patient Information</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Case No.:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Date:</span>
+                                                                    <span class="field-value">2026-08-19</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Patient Name:</span>
+                                                                    <span class="field-value">74</span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Phone Number:</span>
+                                                                    <span class="field-value">07701234567</span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Age:</span>
+                                                                    <span class="field-value">34</span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Gender:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Address:</span>
+                                                                    <span class="field-value">Baghdad - Karrada</span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Occupation:</span>
+                                                                    <span class="field-value">Teacher</span>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">Chief Complaint</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Chief complaint:</span>
+                                                                    <div class="notes-box">Severe pain in the lower left molar for two weeks, worse at night.</div>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">History of Complaint</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">When did the pain or condition first occur?:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">What do you believe is the cause of the pain or condition?:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Did you have any accident?:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Is there anything that makes your pain or discomfort worse?:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Is there anything that relieves your pain or discomfort?:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Pain scale (0–10):</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Any other information:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">Past Medical History</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Past medical history:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">Surgical History</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Extra-oral surgery:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Intra-oral surgery:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Operations:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">When?:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Relevant to current treatment?:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">Family History</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Family history:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">Social History</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Marital status:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Occupation:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Tobacco / cigarettes:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Packs per day:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">For how many years:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Quit when?:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Alcohol:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Exercise:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">Clinical Examination</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Pain pattern:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">Extraoral / Intraoral Examination</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Facial defects:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Maximum mouth opening:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Oral mucosa condition:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Head diagram notes:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">Teeth</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Present teeth:</span>
+                                                                    <span class="teeth-list"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Teeth requiring treatment:</span>
+                                                                    <span class="teeth-list"></span>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">Jaws &amp; Teeth Relations</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Classification:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Notes:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">Investigations &amp; Diagnosis</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Investigations:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Diagnosis:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Treatment plan:</span>
+                                                                    <div class="notes-box"></div>
+                                                            </td>
+                                            </tr>
+                            </table>
+                    <div class="section-title">Student Visits</div>
+
+            
+            <table class="table-bordered mini">
+                                    <tr>
+                                                    <td colspan="1">
+                                <span class="field-label">Student name:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                                    <td colspan="1">
+                                <span class="field-label">Staff signature:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                                    <tr>
+                                                    <td colspan="2">
+                                <span class="field-label">Date:</span>
+                                                                    <span class="field-value"></span>
+                                                            </td>
+                                            </tr>
+                            </table>
+        
+        
+        
+        <table class="table-bordered mini footer-signature">
+            <tr>
+                <td><span class="field-label">Supervisor:</span> _____________</td>
+                <td><span class="field-label">Approval Date:</span> _____________</td>
+                <td><span class="field-label">Staff Signature:</span> _____________</td>
+            </tr>
+        </table>
+
+                    <div class="qr-wrapper">
+                Scan the QR code to reopen this case sheet.
+                <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIwAAACMAQMAAACUDtN9AAAABlBMVEUEAgT8/vxJvsdeAAAACXBIWXMAAA7EAAAOxAGVKw4bAAABvElEQVRIieWWPY7kIBCFy3JQGb4AEtcg40r2BXDPBdpXIuMalrgAzghQs49Z9XbvJkNJE81aTvwFqOD9YGr/Ppn+V1SJTAvnXvBJxAK0N3N35gjmxqZFAVpZT0Xvbb6inoRoKbRFrViMFJ3Yw19rDaC9Ya10t+fUXhsaQUQaE3y+ryMcQHiq4pNsuuJLtAFUV8wdNBTKTJME7QW6pitUb/USBWi15iikHJHVz+WHkGec1PxgTJ8uCdojbHR6a7I9PY+j9rDQVe+xekd7FKCPSIpMdt2LqxOgm4NC2vObaEOodivYGSIpeyoeR90Ty2dEs3uzydcIa2mY/ogw8dP3Q6h9lPTgupV0xL6BYVSVJU91CpX+iDaEGnQlpDqYTCJUt4ChYcR2FIRtHDW03mrbjebjFb4hdAXz4H7QoHceR3VpqBJIay7UXxSgLZBiJE0jacQCtHI6wowJWkzPNhlC6AJy5B1qhXYB6i70bDKnFqsE9XsoM64E7OEp2hhCR6+2Jy1zVU6A+nUSUHwwEymWIU+9NHNPuAwtAUmjqdS3O+1rhLv2ZuuEpm44bgH63XpbaMjnncfRd/6I/DD0CyhJkGT9Ppn0AAAAAElFTkSuQmCC" alt="QR Code">
+            </div>
+            </div>
+</body>
+</html>
