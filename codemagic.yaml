@@ -11,8 +11,8 @@ workflows:
       - name: Build Android APK (release)
         script: flutter build apk --release
     artifacts:
-      - flutter_app/build/app/outputs/**/*.apk
-      - flutter_app/build/app/outputs/**/mapping.txt
+      - "**/outputs/**/*.apk"
+      - "**/outputs/**/mapping.txt"
     triggering:
       events:
         - push
@@ -48,7 +48,7 @@ workflows:
           cd build/ios/ipa_payload
           zip -r ../../../dental_clinic_app_unsigned.ipa Payload
     artifacts:
-      - flutter_app/dental_clinic_app_unsigned.ipa
+      - "**/dental_clinic_app_unsigned.ipa"
     triggering:
       events:
         - push
