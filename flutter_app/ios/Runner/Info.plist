@@ -45,8 +45,36 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-	<!-- mobile_scanner (QR check-in, features/task_instances/presentation/qr_scan_screen.dart) -->
+	<!-- mobile_scanner (QR check-in, features/task_instances/presentation/qr_scan_screen.dart)
+	     and image_picker's camera-capture path (doctor/surgery photos) both
+	     trigger this same system prompt — one description covers both. -->
 	<key>NSCameraUsageDescription</key>
-	<string>مطلوب الوصول إلى الكاميرا لمسح رمز QR الخاص بالمهمة.</string>
+	<string>مطلوب الوصول إلى الكاميرا لمسح رمز QR أو التقاط صورة.</string>
+	<!-- image_picker's gallery-pick path (doctor photo upload, surgery image
+	     uploads — see pubspec.yaml's image_picker entry) — missing before
+	     2026-08-27, which is why picking a profile photo silently failed on
+	     iOS with no visible permission prompt at all. -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>مطلوب الوصول إلى الصور لاختيار صورة الملف الشخصي.</string>
+	<!-- printer_settings_screen.dart's Bluetooth device scan
+	     (flutter_blue_plus, see pos_printer_service.dart) — missing before
+	     2026-08-27, which is why iOS refused to even show the scan
+	     permission prompt ("يلزم إذن البلوتوث للبحث عن أجهزة" never
+	     resolved on its own). NSBluetoothAlwaysUsageDescription is the
+	     iOS 13+ key; kept alongside the older Peripheral key for pre-13
+	     devices, which costs nothing to include.
+	-->
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>مطلوب إذن البلوتوث للبحث عن الطابعة والاتصال بها.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>مطلوب إذن البلوتوث للبحث عن الطابعة والاتصال بها.</string>
+	<!-- nfc_manager (doctor NFC-tag reader, core/nfc/nfc_uid_reader.dart) —
+	     the Info.plist key alone is NOT sufficient on its own; see
+	     Runner.entitlements and the README note added 2026-08-27 about
+	     CoreNFC's paid-Apple-Developer-account requirement. -->
+	<key>NFCReaderUsageDescription</key>
+	<string>مطلوب إذن قراءة NFC لقراءة بطاقة الطبيب.</string>
+	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
+	<array/>
 </dict>
 </plist>

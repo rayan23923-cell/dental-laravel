@@ -3832,3 +3832,52 @@ own doc comments used to describe that continuity as deliberate.
 this pass — worth a live check that the logo displays correctly and both
 fields are legible in both light and dark mode before considering this
 fully closed.
+
+## Three iOS gaps found testing on a real iPhone (2026-08-27): missing permission strings, and one real feature gap
+
+First real iOS device test (via AltStore/AltServer sideloading — see the
+main README's SSH/deploy section for that saga) surfaced three broken
+features. `ios/Runner/Info.plist` had exactly one usage-description key
+(`NSCameraUsageDescription`, added for `mobile_scanner`'s QR check-in) —
+every other permission-gated feature this app has added since was never
+given its matching iOS permission string, so iOS silently refused each
+one rather than even showing a prompt.
+
+**Fixed — profile photo upload**: added `NSPhotoLibraryUsageDescription`.
+`image_picker` itself has full iOS support; the missing Info.plist key
+was the entire gap. Not yet re-verified on-device in this pass (no
+rebuild/reinstall cycle happened after the fix), but this class of fix —
+add the description string the plugin's own docs require — is
+low-risk and well-understood.
+
+**Partially fixed, hard platform limit remains — NFC doctor-tag
+reading**: added `NFCReaderUsageDescription` to Info.plist and a new
+`ios/Runner/Runner.entitlements` declaring
+`com.apple.developer.nfc.readersession.formats`, wired into all three
+Runner build configs' `CODE_SIGN_ENTITLEMENTS` in `project.pbxproj`.
+**This will very likely still not work.** CoreNFC's entitlement is one of
+several Apple restricts to apps signed with a paid Apple Developer
+Program membership ($99/year) — a free/personal-team signature (which is
+what AltServer/AltStore uses, and what this whole sideloading setup is
+built on) has this entitlement stripped during signing regardless of
+what's declared in the project. The code-level setup is now correct and
+complete for the day a paid account exists; until then, expect the same
+"NFC reader not available" error, just from a different point in the
+stack (a stripped entitlement instead of a missing Info.plist key).
+
+**Not fixed — Bluetooth printer scanning has no iOS implementation at
+all**: this one isn't a missing permission string. Added
+`NSBluetoothAlwaysUsageDescription`/`NSBluetoothPeripheralUsageDescription`
+to Info.plist regardless (necessary infrastructure either way), but
+`pos_printer_service.dart`'s Bluetooth scan/pair/print calls all go
+through a custom `MethodChannel`
+(`com.dentalclinic.dental_clinic_app/pos_printer`) whose *only*
+implementation is `PosPrinterPlugin.kt` — Android-only. `ios/Runner/
+AppDelegate.swift` has no Bluetooth code whatsoever. Adding the
+permission strings lets iOS *ask* the question; there's still no native
+Swift/CoreBluetooth counterpart on the other end to actually scan for or
+print to a device. That's a real native-development task (scanning,
+pairing semantics differ from Android's "paired devices" list, and BLE
+vs. classic-Bluetooth-SPP support depends on what protocol these printers
+actually speak), not a config fix — flagging it rather than attempting a
+blind implementation with no printer hardware to test against from here.
