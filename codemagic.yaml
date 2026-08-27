@@ -9,7 +9,11 @@ workflows:
       - name: Get Flutter packages
         script: flutter pub get
       - name: Build Android APK (release)
-        script: flutter build apk --release
+        # Without --dart-define, AppConfig.baseUrl falls back to its
+        # zero-config dev default (10.0.2.2, the Android emulator's alias
+        # for the host machine) — useless in a real release build, which
+        # needs the actual production API.
+        script: flutter build apk --release --dart-define=API_BASE_URL=https://cdclinics.com/api/v1
     artifacts:
       - "**/outputs/**/*.apk"
       - "**/outputs/**/mapping.txt"
@@ -40,7 +44,10 @@ workflows:
         script: |
           cd ios && pod install
       - name: Build unsigned iOS app
-        script: flutter build ios --release --no-codesign
+        # Same reasoning as the Android workflow's --dart-define: without
+        # it, AppConfig.baseUrl falls back to `localhost`, which on a real
+        # device means the device itself — never reachable.
+        script: flutter build ios --release --no-codesign --dart-define=API_BASE_URL=https://cdclinics.com/api/v1
       - name: Package as unsigned .ipa
         script: |
           mkdir -p build/ios/ipa_payload/Payload
