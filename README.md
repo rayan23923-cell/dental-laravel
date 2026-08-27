@@ -5251,6 +5251,49 @@ at deploy time — worth enabling. `public_html_old_backup` is being kept
 for now as a rollback safety net; safe to delete once the new deployment
 has run untroubled for a few days.
 
+## Production's real database was older than `schema_import.sql` assumed: `academic_session_id` missing on three tables (2026-08-27)
+
+First real post-deploy bug report: the Flutter app's "الأعوام الدراسية"
+(academic years) screen showed a generic server-error banner. `tail
+storage/logs/laravel.log` on production named it exactly:
+`SQLSTATE[42S22]: Unknown column 'groups.academic_session_id'`, thrown
+from `AcademicSessionController::index()`'s `withCount(['groups',
+'tasks'])`.
+
+Root cause traces back to the deploy-day migration adoption described
+above: `2024_01_01_000000_import_clinic_schema` (which recreates the
+*current* `schema_import.sql`, including `academic_session_id` on
+`groups`/`tasks`/`task_assignments`) was marked already-run rather than
+executed, on the assumption that production's existing tables matched
+that dump. They mostly did — except production's actual `clinic_system2`
+database turned out to predate whichever point the legacy app added this
+column to these three tables specifically. `doctors.academic_session_id`
+was fine, because that one *did* get its own dedicated migration
+(`2026_08_19_120000_add_academic_session_to_doctors`) that had already
+run for real; `groups`/`tasks`/`task_assignments` never got one, since
+the base import was assumed sufficient for them.
+
+Fix: `2026_08_27_090000_add_academic_session_id_to_groups_tasks_task_
+assignments.php`, guarded per-table with `Schema::hasColumn(...)` so it's
+safe regardless of which of the three a given database is actually
+missing it on (confirmed locally: local dev needed all three too, so this
+gap wasn't production-only — just never surfaced there since local dev's
+database has its own separate history). Verified locally via `php artisan
+tinker` that `AcademicSession::withCount(['groups', 'tasks'])->get()` now
+succeeds. Deployed the normal way — `git push`, the GitHub Actions
+pipeline built and ran `php artisan migrate --force` on production
+automatically, no manual SSH intervention needed this time (the whole
+point of setting that pipeline up two sections above).
+
+**Takeaway for adopting an existing database this way in general**: a
+migration marked already-run instead of executed is only as trustworthy
+as the assumption that its target database actually matches what the
+migration would have created — that assumption can be wrong in specific,
+narrow ways (three columns out of ~60 tables) without being wrong
+everywhere, so isolated column-level errors like this one may still
+surface as real production database structure is exercised by features
+that weren't part of the initial end-to-end verification pass.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the
