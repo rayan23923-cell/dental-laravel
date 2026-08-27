@@ -134,13 +134,27 @@ flutter:
   # see https://flutter.dev/to/font-from-package
 
 # `dart run flutter_launcher_icons` — regenerates the Android mipmap
-# launcher icons and windows/runner's resources/app_icon.ico from the
-# clinic logo (2026-08-25: extended to Android — was Windows-only before,
-# since only the Windows desktop build had had its icon set; the Android
-# app was still shipping Flutter's default icon).
+# launcher icons, the iOS AppIcon.appiconset, and windows/runner's
+# resources/app_icon.ico from the clinic logo (2026-08-25: extended to
+# Android — was Windows-only before; 2026-08-27: extended to iOS, and to
+# a proper Android adaptive icon instead of one flat image, using the
+# college seal supplied that day with its white background keyed out).
+# iOS gets its own pre-flattened, opaque (white-background) source —
+# `remove_alpha_ios: true` alone isn't enough here: it only forces the
+# alpha channel to 100%, it doesn't composite onto anything first, so
+# whatever RGB value sits under a transparent pixel shows through as-is —
+# and that was black for this source PNG (transparent canvases default to
+# black RGB at alpha=0), producing a solid black icon. app_logo.png itself
+# stays transparent, since it's also used in-app (login/splash screens)
+# over a dark background, where a white square around the logo would look
+# wrong.
 flutter_launcher_icons:
   android: true
+  ios: true
   image_path: "assets/branding/app_logo.png"
+  image_path_ios: "assets/icon/app_icon_ios.png"
+  adaptive_icon_background: "assets/icon/app_icon_background.png"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
   windows:
     generate: true
     image_path: "assets/branding/app_logo.png"

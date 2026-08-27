@@ -3768,3 +3768,67 @@ on both paper sizes.
 caught the print-animation frame — the QR now visibly fills most of the
 ticket's width, a clear, easy-to-compare jump from the old size on the
 same hardware.
+
+## New app icon on Android/iOS, and the login screen rebuilt on the ambient theme (2026-08-27)
+
+The user supplied a new college seal logo (a photo with a white square
+background) to use as both the in-app logo and the launcher icon on
+Android and iOS, and reported that on the login screen, whatever you
+typed into the username or password field was invisible — white text on
+a near-white field.
+
+**Logo processing**: `magick ... -fuzz 8% -transparent white -trim` keyed
+out the white background and cropped to the circular seal, then three
+derived assets went into `assets/icon/`: an opaque white-background
+version for iOS (`app_icon_ios.png` — Apple's icon slot doesn't support
+transparency at all), a safe-zone-inset transparent foreground and a
+solid-white background for Android's adaptive icon
+(`app_icon_foreground.png` / `app_icon_background.png`), plus the plain
+transparent logo replacing `assets/branding/app_logo.png` itself (used
+in-app on the login/splash screens, which sit on a dark background — an
+opaque white square around the logo there would look wrong).
+
+`pubspec.yaml`'s existing `flutter_launcher_icons` config (Android +
+Windows only until now) gained `ios: true`, `image_path_ios` pointing at
+the opaque variant, and `adaptive_icon_background`/
+`adaptive_icon_foreground`. **First attempt failed**: setting
+`remove_alpha_ios: true` on the transparent source instead of using a
+dedicated opaque one produced a solid **black** iOS icon — that flag only
+forces the alpha channel to fully opaque, it doesn't composite onto
+anything, so whatever RGB value ImageMagick had stored under fully
+transparent pixels (black, `xc:none`'s default) was revealed as-is once
+alpha stopped hiding it. Switched to a pre-flattened white-background
+source for iOS specifically instead of relying on that flag. Ran `dart
+run flutter_launcher_icons` locally and confirmed both the generated
+`Icon-App-1024x1024@1x.png` and an Android `mipmap-xxxhdpi/ic_launcher.png`
+render correctly (checked by eye, not just "the command exited 0").
+
+**Login screen — root cause of the invisible text**: not a per-field
+color miss, but an architectural one. `LoginScreen` had its own hardcoded
+navy/gold palette (`_navyDark`/`_gold`/etc., matching `SplashScreen`) with
+each field's `fillColor` hand-set to a near-white grey — but never set
+the typed *text* color, which fell through to `app_theme.dart`'s ambient
+`instagramDarkTheme`/`instagramLightTheme` (already a real, correctly
+light/dark-aware Instagram-accurate theme, complete with its own
+`inputDecorationTheme` — this app just wasn't using it on this one
+screen). In dark mode that ambient default is near-white text — on a
+near-white hardcoded field fill, invisible.
+
+**Fix**: rebuilt `LoginScreen` to use the ambient theme instead of
+fighting it — plain `Scaffold` background, `TextFormField`s with no
+color/border overrides at all (so they inherit the theme's already-correct
+`inputDecorationTheme`), the button using `filledButtonTheme`'s default
+Instagram blue. This fixes the contrast bug at the root (any future theme
+tweak now applies here too, instead of this screen silently drifting out
+of sync again) and, incidentally, is the actual redesign the user asked
+for: the screen now looks like the rest of the app's Instagram-styled UI
+instead of a one-off branded page. `SplashScreen` was deliberately left
+on its own navy/gold look — only the login screen was in scope here — so
+there's now a brief, intentional style handoff between the two rather
+than one continuous brand experience; flagging it since the two screens'
+own doc comments used to describe that continuity as deliberate.
+
+`flutter analyze`: clean, no issues. Not yet verified on a real device in
+this pass — worth a live check that the logo displays correctly and both
+fields are legible in both light and dark mode before considering this
+fully closed.

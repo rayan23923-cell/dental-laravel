@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_exception.dart';
+import '../../../core/theme/app_theme.dart';
 import '../data/branding_repository.dart';
 import 'auth_controller.dart';
 import 'auth_state.dart';
@@ -15,13 +16,17 @@ import 'auth_state.dart';
 /// `authControllerProvider` becoming `Authenticated` instead, keeping
 /// "where am I" single-sourced.
 ///
-/// Visuals deliberately mirror `SplashScreen`'s branded navy/gold look
-/// (same color values, same circular logo-frame language) rather than the
-/// app's ambient Instagram-style light/dark theme, so the splash → login
-/// hand-off reads as one continuous brand experience instead of two
-/// unrelated screens back to back. The colors are duplicated here rather
-/// than extracted into a shared file, to avoid touching the already-
-/// verified `splash_screen.dart` for a four-constant DRY gain.
+/// Redesigned (2026-08-27) to actually use the app's ambient Instagram
+/// theme (`app_theme.dart`) instead of a one-off hardcoded navy/gold
+/// palette layered on top of it. That mismatch was more than cosmetic: the
+/// old version hardcoded each field's `fillColor` to a near-white grey but
+/// left the typed text's color unset, so it fell through to the ambient
+/// theme's default — which is near-white in dark mode. White text on a
+/// near-white field is how a user ends up unable to see anything they
+/// type. Using the theme's own `inputDecorationTheme` (already
+/// light/dark-correct, already Instagram-accurate) fixes that at the root
+/// instead of hand-picking one more hardcoded color that could drift out
+/// of sync with the theme again later.
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -30,11 +35,6 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  static const _navyDark = Color(0xFF0A1128);
-  static const _navyMid = Color(0xFF13224A);
-  static const _gold = Color(0xFFD4AF37);
-  static const _goldSoft = Color(0xFFF4E3B2);
-
   final _formKey = GlobalKey<FormState>();
   final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -87,164 +87,95 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final isLoading = ref.watch(authControllerProvider).isLoading;
     final branding = ref.watch(publicBrandingProvider).valueOrNull;
+    final theme = Theme.of(context);
 
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [_navyDark, _navyMid, _navyDark],
-          ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 400),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Form(
+                key: _formKey,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _LogoFrame(logoUrl: branding?.logoUrl),
-                    const SizedBox(height: 20),
-                    const Text(
+                    const SizedBox(height: 24),
+                    Center(child: _Logo(logoUrl: branding?.logoUrl)),
+                    const SizedBox(height: 16),
+                    Text(
                       'المستشفى التعليمي لكلية طب الأسنان',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: _goldSoft,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        height: 1.4,
-                      ),
+                      style: theme.textTheme.titleMedium,
                     ),
-                    const Text(
+                    Text(
                       'جامعة تكريت',
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall,
                     ),
-                    const SizedBox(height: 28),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.25),
-                            blurRadius: 24,
-                            offset: const Offset(0, 8),
+                    const SizedBox(height: 40),
+                    if (_networkErrorMessage != null) ...[
+                      MaterialBanner(
+                        content: Text(_networkErrorMessage!),
+                        actions: [
+                          TextButton(
+                            onPressed: () => setState(() => _networkErrorMessage = null),
+                            child: const Text('إغلاق'),
                           ),
                         ],
                       ),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            const Text(
-                              'تسجيل الدخول',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: _navyDark,
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            if (_networkErrorMessage != null) ...[
-                              MaterialBanner(
-                                content: Text(_networkErrorMessage!),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => setState(() => _networkErrorMessage = null),
-                                    child: const Text('إغلاق'),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                            ],
-                            TextFormField(
-                              controller: _identifierController,
-                              enabled: !isLoading,
-                              keyboardType: TextInputType.emailAddress,
-                              autofillHints: const [AutofillHints.username, AutofillHints.email],
-                              textInputAction: TextInputAction.next,
-                              decoration: InputDecoration(
-                                labelText: 'البريد الإلكتروني أو اسم المستخدم',
-                                errorText: _fieldErrors['login'],
-                                filled: true,
-                                fillColor: const Color(0xFFF5F6FA),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide.none,
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: const BorderSide(color: _navyMid, width: 1.5),
-                                ),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) return 'هذا الحقل مطلوب';
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _passwordController,
-                              enabled: !isLoading,
-                              obscureText: _obscurePassword,
-                              textInputAction: TextInputAction.done,
-                              onFieldSubmitted: (_) => _submit(),
-                              decoration: InputDecoration(
-                                labelText: 'كلمة المرور',
-                                errorText: _fieldErrors['password'],
-                                filled: true,
-                                fillColor: const Color(0xFFF5F6FA),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide.none,
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: const BorderSide(color: _navyMid, width: 1.5),
-                                ),
-                                suffixIcon: IconButton(
-                                  icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
-                                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                                ),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) return 'هذا الحقل مطلوب';
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 24),
-                            FilledButton(
-                              style: FilledButton.styleFrom(
-                                backgroundColor: _navyDark,
-                                foregroundColor: _gold,
-                                minimumSize: const Size.fromHeight(48),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                              onPressed: isLoading ? null : _submit,
-                              child: isLoading
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: _gold),
-                                    )
-                                  : const Text(
-                                      'تسجيل الدخول',
-                                      style: TextStyle(fontWeight: FontWeight.bold),
-                                    ),
-                            ),
-                          ],
+                      const SizedBox(height: 16),
+                    ],
+                    TextFormField(
+                      controller: _identifierController,
+                      enabled: !isLoading,
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [AutofillHints.username, AutofillHints.email],
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: 'البريد الإلكتروني أو اسم المستخدم',
+                        errorText: _fieldErrors['login'],
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) return 'هذا الحقل مطلوب';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _passwordController,
+                      enabled: !isLoading,
+                      obscureText: _obscurePassword,
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => _submit(),
+                      decoration: InputDecoration(
+                        labelText: 'كلمة المرور',
+                        errorText: _fieldErrors['password'],
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                            color: InstagramColors.gray,
+                          ),
+                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                         ),
                       ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) return 'هذا الحقل مطلوب';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    FilledButton(
+                      onPressed: isLoading ? null : _submit,
+                      child: isLoading
+                          ? SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: theme.colorScheme.onPrimary),
+                            )
+                          : const Text('تسجيل الدخول'),
                     ),
                   ],
                 ),
@@ -257,30 +188,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 }
 
-/// White circular disc behind the clinic logo — same visual language as
-/// `SplashScreen`'s logo frame, minus the entrance/pulse animation (this is
-/// a persistent screen, not a transient splash). Uses the admin-configured
-/// logo (`publicBrandingProvider`) when available, falling back to the
-/// bundled brand asset otherwise — the same fail-open contract every other
-/// logo/QR image in this app already follows.
-class _LogoFrame extends StatelessWidget {
-  const _LogoFrame({required this.logoUrl});
+/// The clinic logo, sized and framed the way Instagram's own login screen
+/// treats its wordmark — a plain, un-boxed mark sitting directly on the
+/// scaffold background, no shadow/tinted disc behind it (that treatment
+/// belonged to `SplashScreen`'s navy backdrop, which this screen no longer
+/// shares). Same admin-configured-logo-with-bundled-fallback contract as
+/// before.
+class _Logo extends StatelessWidget {
+  const _Logo({required this.logoUrl});
 
   final String? logoUrl;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 130,
-      height: 130,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(color: Color(0x33D4AF37), blurRadius: 20, spreadRadius: 2),
-        ],
-      ),
-      padding: const EdgeInsets.all(6),
+    return SizedBox(
+      width: 96,
+      height: 96,
       child: ClipOval(
         child: logoUrl != null
             ? Image.network(
