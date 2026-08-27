@@ -38,16 +38,26 @@ class DiagnoseSchemaDrift extends Command
 
         $issues = [];
 
-        // Live table/column inventory, one query instead of one per table.
-        $liveColumns = DB::table('information_schema.columns')
+        // `information_schema`'s own column-name casing (TABLE_NAME vs
+        // table_name) isn't consistent across MySQL/MariaDB versions —
+        // production returned uppercase keys where local dev returned
+        // lowercase, which crashed this on first run there. Normalizing
+        // every row through `array_change_key_case` up front sidesteps
+        // that instead of guessing at one server's behavior.
+        $normalize = fn ($row) => array_change_key_case((array) $row, CASE_LOWER);
+
+        $liveColumns = collect(DB::table('information_schema.columns')
             ->where('table_schema', $connection)
             ->select('table_name', 'column_name', 'extra')
-            ->get()
+            ->get())
+            ->map($normalize)
             ->groupBy('table_name');
 
-        $livePrimaryKeys = DB::table('information_schema.key_column_usage')
+        $livePrimaryKeys = collect(DB::table('information_schema.key_column_usage')
             ->where('table_schema', $connection)
             ->where('constraint_name', 'PRIMARY')
+            ->get(['table_name']))
+            ->map($normalize)
             ->pluck('table_name')
             ->flip();
 
@@ -77,7 +87,7 @@ class DiagnoseSchemaDrift extends Command
             }
 
             $row = $liveColumns[$table]->firstWhere('column_name', $column);
-            if ($row && ! str_contains(strtolower($row->extra ?? ''), 'auto_increment')) {
+            if ($row && ! str_contains(strtolower($row['extra'] ?? ''), 'auto_increment')) {
                 $issues[] = "AUTO_INCREMENT MISSING: `{$table}`.`{$column}`";
             }
         }
