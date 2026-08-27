@@ -5294,6 +5294,39 @@ everywhere, so isolated column-level errors like this one may still
 surface as real production database structure is exercised by features
 that weren't part of the initial end-to-end verification pass.
 
+## Second drift bug same day, and a one-shot diagnostic instead of another reactive round-trip (2026-08-27)
+
+Right after the fix above, creating a new academic year hit a *different*
+drift bug: `SQLSTATE[HY000]: 1364 Field 'id' doesn't have a default
+value` from `AcademicSession::create()`. `schema_import.sql` adds
+`academic_sessions`' primary key and `AUTO_INCREMENT` via separate
+`ALTER TABLE` statements (mysqldump's usual style: `CREATE TABLE` first,
+then indexes, then `AUTO_INCREMENT` values, each in their own section)
+— production's real table was missing the `AUTO_INCREMENT` (and,
+per the error, quite possibly the primary key too), for the same reason
+as the last one: it's an older table than the dump this project's schema
+was built from. Fixed by
+`2026_08_27_093000_fix_academic_sessions_id_auto_increment.php`, which
+checks `information_schema` for both before doing anything — a no-op on
+any database (including local dev) where they're already correct.
+
+Two unrelated columns/attributes drifting in one day made the pattern
+clear enough to stop treating each occurrence as a one-off: rather than
+keep discovering these through real user bug reports one at a time, added
+`php artisan schema:diagnose`
+(`app/Console/Commands/DiagnoseSchemaDrift.php`) — parses every `CREATE
+TABLE`, `ADD PRIMARY KEY`, and `MODIFY ... AUTO_INCREMENT` statement
+straight out of `schema_import.sql` (the same file the "production
+already matches this" assumption was based on) and diffs it against
+`information_schema` on whatever database it's run against. Entirely
+read-only; reports missing tables, missing columns, missing primary
+keys, and missing `AUTO_INCREMENT` in one pass instead of one support
+ticket at a time. Verified locally: correctly parsed all 61 tables from
+the SQL file, and (after applying both fixes above) reports "No drift
+found" against local dev. **Not yet run against production** — next step
+is `php artisan schema:diagnose` there via cPanel Terminal, to catch any
+remaining gaps before a real user does.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the
