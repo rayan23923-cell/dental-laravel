@@ -246,7 +246,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
     TaskStartResult result,
     TaskProgressGroupOption groupOption,
   ) async {
-    if (kIsWeb || !Platform.isAndroid) return;
+    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return;
     try {
       Uint8List? qrBytes;
       try {

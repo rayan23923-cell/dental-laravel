@@ -50,6 +50,17 @@ class AuthRepository {
     return (token, type, account);
   }
 
+  /// "نسيت كلمة المرور؟" — unified across both account types, same
+  /// reasoning as [login]. See `Api\PasswordResetController` docblock:
+  /// always succeeds with a neutral message regardless of whether the
+  /// email actually matches an account, and only emails a link — the
+  /// user completes the reset by opening that link in a browser, which
+  /// lands on the existing web reset-password page.
+  Future<String> sendPasswordResetLink(String email) async {
+    final data = await _client.postJson('/forgot-password', body: {'email': email}) as Map<String, dynamic>;
+    return data['message'] as String;
+  }
+
   Future<AuthAccount> fetchMe(AccountType type) async {
     final data = await _client.getJson('/me') as Map<String, dynamic>;
 

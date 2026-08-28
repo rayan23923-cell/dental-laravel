@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\OrthodonticsRecordController;
 use App\Http\Controllers\Api\PatientController;
 use App\Http\Controllers\Api\PatientRegistrationController;
 use App\Http\Controllers\Api\PatientRegistrationQrController;
+use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PeriodontalChartController;
 use App\Http\Controllers\Api\PreventionRecordController;
@@ -73,6 +74,11 @@ Route::name('api.')->prefix('v1')->group(function () {
     // One endpoint for both account types now — see AuthController::login()'s
     // own docblock for how it tells a staff login from a doctor login apart.
     Route::post('/login', [AuthController::class, 'login']);
+
+    // "نسيت كلمة المرور؟" — unified across both account types, same
+    // reasoning as /login above. Throttled like the web equivalents
+    // (routes/web.php's doctor.password.email / Breeze's password.email).
+    Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink'])->middleware('throttle:6,1');
 
     // Public, unauthenticated — mirrors the original app's tv_patients.php
     // waiting-room display. See TvBoardController docblock for a real

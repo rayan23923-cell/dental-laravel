@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
+import '../data/auth_repository.dart';
 import '../data/branding_repository.dart';
 import 'auth_controller.dart';
 import 'auth_state.dart';
@@ -57,6 +58,70 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           identifier: _identifierController.text.trim(),
           password: _passwordController.text,
         );
+  }
+
+  Future<void> _showForgotPasswordDialog() async {
+    final emailController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    var sending = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('نسيت كلمة المرور؟'),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: emailController,
+              autofocus: true,
+              enabled: !sending,
+              keyboardType: TextInputType.emailAddress,
+              autofillHints: const [AutofillHints.email],
+              decoration: const InputDecoration(labelText: 'البريد الإلكتروني'),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) return 'هذا الحقل مطلوب';
+                if (!value.contains('@')) return 'بريد إلكتروني غير صالح';
+                return null;
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: sending ? null : () => Navigator.of(dialogContext).pop(),
+              child: const Text('إلغاء'),
+            ),
+            FilledButton(
+              onPressed: sending
+                  ? null
+                  : () async {
+                      if (!(formKey.currentState?.validate() ?? false)) return;
+                      setDialogState(() => sending = true);
+                      try {
+                        final message = await ref
+                            .read(authRepositoryProvider)
+                            .sendPasswordResetLink(emailController.text.trim());
+                        if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+                        }
+                      } catch (e) {
+                        setDialogState(() => sending = false);
+                        if (dialogContext.mounted) {
+                          ScaffoldMessenger.of(dialogContext).showSnackBar(
+                            SnackBar(content: Text(e is ApiException ? e.userMessage : 'تعذر إرسال الطلب.')),
+                          );
+                        }
+                      }
+                    },
+              child: sending
+                  ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('إرسال'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -166,7 +231,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 20),
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: TextButton(
+                        onPressed: isLoading ? null : _showForgotPasswordDialog,
+                        child: const Text('نسيت كلمة المرور؟'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     FilledButton(
                       onPressed: isLoading ? null : _submit,
                       child: isLoading

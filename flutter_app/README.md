@@ -4043,3 +4043,62 @@ discovered-devices scan, pairing succeeds, a real ticket prints in full
 (no truncation) with correct Arabic rendering and adequate paper feed
 before tear, and that a broken/out-of-range printer fails within the
 ~10-second connect timeout rather than hanging.
+
+## Two real bugs found testing the above on the real device (2026-08-28)
+
+**Bluetooth scan permanently blocked on iOS**: `printer_settings_screen.dart`'s
+`_scanBluetooth()` requested `Permission.bluetoothScan`/`Permission.bluetoothConnect`
+unconditionally — those are Android-12+-only permission *types*;
+`permission_handler` has no iOS mapping for them and always reports them
+denied there, regardless of the real CoreBluetooth permission
+(`NSBluetoothAlwaysUsageDescription`) the user had already granted. So the
+"يلزم إذن البلوتوث للبحث عن أجهزة" error showed every time on iOS, even
+after granting Bluetooth access, and the scan never actually ran. Fixed:
+iOS now requests `Permission.bluetooth` instead (the correct iOS-side
+permission type in this package). Verified live: scan found "58E_BD90"
+and pairing succeeded once this was fixed.
+
+**Printing from Task Progress did nothing on iOS, silently** — a second,
+separate guard from the three call sites already fixed above:
+`task_progress_screen.dart`'s `_printReceipt()` had its own early-return
+at the top of the function (`if (kIsWeb || !Platform.isAndroid) return;`),
+missed in the original sweep because the earlier review only checked the
+line calling `printTicket()` itself, not the whole function it's nested
+in. This made the "طباعة الوصل بعد بدء المهمة" flow a complete no-op on
+iOS — no ticket, no error, nothing — even after the BLE plugin and
+pairing both worked correctly. Relaxed to
+`!(Platform.isAndroid || Platform.isIOS)`, matching the other three
+call sites. **Lesson for next time**: grep the whole file for
+`Platform.isAndroid`, not just the line near the specific call being
+changed — a guard can sit several dozen lines above the code it protects.
+
+## "نسيت كلمة المرور؟" added to the Flutter login screen (2026-08-28)
+
+The web app has had password reset for a while (`Auth\DoctorPasswordResetController`
+for doctors, Breeze's own flow for staff — see main `README.md`), but the
+Flutter login screen had no way to trigger either one; a doctor who forgot
+their password had no self-service path at all on mobile.
+
+Added `POST /api/v1/forgot-password` (`Api\PasswordResetController`) —
+unified across both account types the same way `AuthController::login()`
+is: tries the `users` table first, then `doctors`, and always returns the
+same neutral "if this email is registered, a reset link was sent" message
+regardless of which (or neither) matched, so the endpoint can't be used to
+probe which emails are registered accounts. Deliberately **does not**
+build a native in-app reset-token screen — completing the reset happens by
+opening the emailed link, which lands on the existing web reset-password
+page (already built, already working, and now reachable from a mail
+client on the same phone). Duplicating that whole form natively for a
+rarely-used flow wasn't worth the upkeep of two copies to keep in sync.
+
+`login_screen.dart` gained a "نسيت كلمة المرور؟" text button under the
+password field, opening a small dialog (email field only) that calls the
+new endpoint via `AuthRepository.sendPasswordResetLink()` and shows the
+server's neutral confirmation message in a `SnackBar`.
+
+`flutter analyze` and `php -l` both clean; `php artisan route:list`
+confirms the route registers correctly. Not yet tested against a real
+mailbox end-to-end from the app itself — the underlying `Password::broker()`
+send-reset-link call and the production SMTP config it depends on were
+already verified working independently (see main `README.md`'s SMTP
+section), so this is a thin, low-risk wrapper around both.

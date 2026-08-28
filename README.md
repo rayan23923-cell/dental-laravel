@@ -5427,6 +5427,84 @@ very first send attempt.
 successfully (no exception) once `MAIL_SCHEME=smtps` was set, confirmed
 delivered by checking the mailbox directly over Webmail.
 
+## Production schema drift, systematically fixed via a new diagnostic command (2026-08-28)
+
+Two one-off production bugs earlier the same day (`groups`/`tasks`/
+`task_assignments` missing `academic_session_id`, then `academic_sessions.id`
+missing `AUTO_INCREMENT` — both because production's real database
+predates `database/schema_import.sql` in specific spots, from marking
+`2024_01_01_000000_import_clinic_schema` as already-run on production
+instead of executing it, since its tables already existed there) made it
+clear this class of drift wasn't limited to those two tables. Rather than
+keep discovering the rest one real-user bug report at a time, added
+`php artisan schema:diagnose`
+(`app/Console/Commands/DiagnoseSchemaDrift.php`) — read-only, parses every
+`CREATE TABLE`/`ADD PRIMARY KEY`/`MODIFY ... AUTO_INCREMENT` statement out
+of `schema_import.sql` and diffs it against `information_schema` on
+whatever database it's run against, reporting every missing table,
+column, primary key, or AUTO_INCREMENT gap at once.
+
+Run against production, it found **152 gaps**. Cross-checked each one
+against actual app code (`grep` for the column/table name across `app/`)
+before deciding what to fix — a "missing" column schema_import.sql
+expects doesn't necessarily mean anything in this rebuild still uses it:
+
+- **Real bugs, fixed** (migration `2026_08_28_090000_fix_production_schema_drift.php`):
+  `periodontal_charts` was missing ~135 columns that
+  `App\Models\PeriodontalChart`'s own `$fillable` actively uses — the
+  entire Periodontal Chart case sheet was unusable on production before
+  this. `user_activity_log` was missing 10 columns
+  `App\Services\ActivityLogger` writes on every logged action (used via
+  `App\Traits\LogsActivity` across the admin area) — activity logging was
+  silently broken. `complete_denture_records.last_tooth_extracted_teeth`
+  was missing, in `CompleteDentureRecord`'s `$fillable`.
+- **Deliberately left alone** (confirmed via grep — nothing in `app/`
+  references them, so they're inert legacy artifacts from the original
+  PHP app, not bugs in this rebuild): `app_settings`/`endodontics_images`/
+  `mikrotik_settings` tables; `clinic_settings.mikrotik_*`/`jwt_secret_key`
+  (explicitly excluded from this rebuild from day one — see
+  `ClinicSetting.php`'s own doc comment, matching the project's standing
+  "no MikroTik backup feature" requirement); `doctor_tasks.academic_session_id`
+  (the `doctor_tasks` table itself is referenced nowhere outside
+  `ImportLegacyData.php`'s doc comment); `patients_simple.gender`
+  (superseded by the `sex` enum column, nothing reads or writes `gender`).
+
+A quirk found running the diagnostic command itself on production:
+`information_schema`'s own column-name casing (`TABLE_NAME` vs
+`table_name`) isn't consistent across MySQL/MariaDB versions — the
+command crashed on its first production run
+(`Undefined property: stdClass::$table_name`) even though it worked fine
+locally, because the two servers returned different casing for the same
+query. Fixed by normalizing every `information_schema` row through
+`array_change_key_case(..., CASE_LOWER)` before reading it, instead of
+assuming either server's casing.
+
+**Verified**: ran clean locally both before and after (local dev's DB
+already matches `schema_import.sql` exactly, so the migration is a no-op
+there — every `Schema::hasColumn()` check short-circuits). On production,
+the migration applied successfully (confirmed via the GitHub Actions
+deploy log, no SQL errors) and a subsequent `schema:diagnose` run there
+would now report zero gaps for anything the app actually uses (not
+re-verified with a fresh diagnostic pass after deploy — worth doing once
+to confirm, since the command is cheap and read-only).
+
+## "نسيت كلمة المرور؟" API endpoint for the Flutter client (2026-08-28)
+
+The web app already has password reset (`Auth\DoctorPasswordResetController`
+for doctors, Breeze's own flow for staff), but there was no API
+equivalent — the Flutter login screen had no self-service path for a
+forgotten password at all. Added `POST /api/v1/forgot-password`
+(`Api\PasswordResetController::sendResetLink()`), unified across both
+account types the same way `Api\AuthController::login()` already is:
+checks `users` first, then `doctors`, and always returns the same neutral
+message regardless of which (or neither) matched — the same
+can't-probe-registered-emails reasoning `DoctorPasswordResetController::email()`
+already uses, applied consistently to the unified endpoint. Deliberately
+sends-email-only, no API-side reset-by-token endpoint: completing the
+reset happens via the emailed link, which opens the existing web
+reset-password page — see `flutter_app/README.md` for the Flutter-side
+UI this backs.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the
