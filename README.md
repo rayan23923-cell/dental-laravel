@@ -5396,6 +5396,37 @@ result with zero backend changes needed). It lands on
 button — so scanning a case's QR as a senior already chains straight into
 opening its clinical form, with no additional admin-side code required.
 
+## Production email now sends for real, via the cPanel mailbox (2026-08-28)
+
+`.env` on production had `MAIL_MAILER=log` (the local-dev default) since
+the very first deploy — real password-reset/notification emails were
+being written to `storage/logs/laravel.log` instead of sent, invisibly to
+any end user. Switched to `smtp` using the cPanel-hosted mailbox
+`adminstrator@cdclinics.com` (note: spelled without the second "i" —
+that's the account's real address, not a typo introduced here).
+
+```
+MAIL_MAILER=smtp
+MAIL_HOST=mail.cdclinics.com
+MAIL_PORT=465
+MAIL_SCHEME=smtps
+MAIL_USERNAME=adminstrator@cdclinics.com
+MAIL_FROM_ADDRESS=adminstrator@cdclinics.com
+```
+
+**`MAIL_SCHEME=ssl` fails on Laravel 12** — Symfony Mailer (which Laravel
+12 uses under the hood) renamed the old Laravel `MAIL_ENCRYPTION=ssl/tls`
+values; the `smtp` transport now only accepts `smtp` (plain, negotiates
+STARTTLS itself — pair with port 587) or `smtps` (implicit TLS from the
+first byte — pair with port 465, which is what this account uses).
+Setting `MAIL_SCHEME=ssl` throws
+`Symfony\Component\Mailer\Exception\UnsupportedSchemeException` on the
+very first send attempt.
+
+**Verified**: `Mail::raw(...)` via `tinker` on production sent
+successfully (no exception) once `MAIL_SCHEME=smtps` was set, confirmed
+delivered by checking the mailbox directly over Webmail.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the
