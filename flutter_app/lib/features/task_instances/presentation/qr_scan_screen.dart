@@ -49,6 +49,13 @@ class QrScanScreen extends ConsumerStatefulWidget {
 class _QrScanScreenState extends ConsumerState<QrScanScreen> {
   bool _handled = false;
   String? _error;
+  final MobileScannerController _controller = MobileScannerController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   Future<void> _onDetect(BarcodeCapture capture) async {
     if (_handled) return;
@@ -94,10 +101,38 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_title)),
+      appBar: AppBar(
+        title: Text(_title),
+        actions: [
+          // Torch toggle — mirrors the web QrScanner.vue's existing
+          // "تشغيل/إطفاء الفلاش" control (same feature, previously missing
+          // here). ValueListenableBuilder keeps the icon in sync whether
+          // the torch was toggled from here or turned off elsewhere (e.g.
+          // the OS killing it when the app backgrounds).
+          ValueListenableBuilder(
+            valueListenable: _controller,
+            builder: (context, state, child) {
+              if (!state.isInitialized || state.torchState == TorchState.unavailable) {
+                return const SizedBox.shrink();
+              }
+              return IconButton(
+                onPressed: () => _controller.toggleTorch(),
+                icon: Icon(state.torchState == TorchState.on ? Icons.flash_on : Icons.flash_off),
+                tooltip: state.torchState == TorchState.on ? 'إطفاء الفلاش' : 'تشغيل الفلاش',
+              );
+            },
+          ),
+        ],
+      ),
       body: Stack(
+        fit: StackFit.expand,
         children: [
-          MobileScanner(onDetect: _onDetect),
+          MobileScanner(controller: _controller, onDetect: _onDetect),
+          // Square aiming frame with corner brackets — purely visual (the
+          // scanner itself reads the whole camera frame regardless), so a
+          // user pointing at a QR code gets the same "aim here" cue this
+          // app already gives on web (QrScanner.vue's green frame overlay).
+          const IgnorePointer(child: CustomPaint(painter: _ScannerFramePainter())),
           if (_error != null)
             Positioned(
               left: 16,
@@ -114,4 +149,52 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
       ),
     );
   }
+}
+
+/// Draws a dimmed mask with a clear square cutout in the center, plus
+/// bracket-style corners at that square — the standard QR-scanner "aim
+/// here" affordance.
+class _ScannerFramePainter extends CustomPainter {
+  const _ScannerFramePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final frameSize = size.shortestSide * 0.65;
+    final frameRect = Rect.fromCenter(
+      center: Offset(size.width / 2, size.height / 2),
+      width: frameSize,
+      height: frameSize,
+    );
+    const cornerRadius = 16.0;
+    final frameRRect = RRect.fromRectAndRadius(frameRect, const Radius.circular(cornerRadius));
+
+    // Dimmed mask outside the frame — even-odd fill leaves the frame itself clear.
+    final maskPath = Path()
+      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..addRRect(frameRRect)
+      ..fillType = PathFillType.evenOdd;
+    canvas.drawPath(maskPath, Paint()..color = Colors.black.withValues(alpha: 0.5));
+
+    // Corner brackets.
+    const bracketLength = 28.0;
+    const strokeWidth = 4.0;
+    final bracketPaint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+
+    void drawCorner(Offset corner, Offset dx, Offset dy) {
+      canvas.drawLine(corner, corner + dx * bracketLength, bracketPaint);
+      canvas.drawLine(corner, corner + dy * bracketLength, bracketPaint);
+    }
+
+    drawCorner(frameRect.topLeft, const Offset(1, 0), const Offset(0, 1));
+    drawCorner(frameRect.topRight, const Offset(-1, 0), const Offset(0, 1));
+    drawCorner(frameRect.bottomLeft, const Offset(1, 0), const Offset(0, -1));
+    drawCorner(frameRect.bottomRight, const Offset(-1, 0), const Offset(0, -1));
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

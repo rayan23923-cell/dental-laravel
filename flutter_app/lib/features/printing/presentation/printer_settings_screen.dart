@@ -66,19 +66,29 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
     // Runtime permission (API 31+) — requested Dart-side since the plugin
     // only holds a plain Context, not an Activity (see PosPrinterPlugin.kt's
     // doc comment).
+    // `Permission.bluetoothScan`/`bluetoothConnect` are Android-12+-only
+    // permission *types* — permission_handler has no iOS mapping for them
+    // and always reports them denied there, which permanently blocked this
+    // screen's scan button on iOS regardless of the real CoreBluetooth
+    // permission (`NSBluetoothAlwaysUsageDescription`) the user had
+    // already granted. iOS's single equivalent is `Permission.bluetooth`.
     // locationWhenInUse is an Android-only requirement here (classic-
     // Bluetooth discovery historically ties to it) — BLE scanning on iOS
     // has never needed Location, so asking for it there would just be a
     // confusing, purposeless permission prompt.
+    final isAndroid = !kIsWeb && Platform.isAndroid;
+    final isIOS = !kIsWeb && Platform.isIOS;
+    final bluetoothPermissions = isAndroid
+        ? [Permission.bluetoothScan, Permission.bluetoothConnect]
+        : isIOS
+            ? [Permission.bluetooth]
+            : <Permission>[];
     final statuses = await [
-      Permission.bluetoothScan,
-      Permission.bluetoothConnect,
-      if (!kIsWeb && Platform.isAndroid) Permission.locationWhenInUse,
+      ...bluetoothPermissions,
+      if (isAndroid) Permission.locationWhenInUse,
     ].request();
 
-    final btDenied = [Permission.bluetoothScan, Permission.bluetoothConnect]
-        .map((p) => statuses[p])
-        .any((s) => s != null && !s.isGranted);
+    final btDenied = bluetoothPermissions.map((p) => statuses[p]).any((s) => s != null && !s.isGranted);
     if (btDenied) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('يلزم إذن البلوتوث للبحث عن أجهزة.')));
