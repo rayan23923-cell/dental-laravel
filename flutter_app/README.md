@@ -4284,6 +4284,26 @@ two fixes. None of these are Flutter-side bugs, but all three would have
 made this exact feature appear broken from the app with no client-side
 fix possible.
 
+**A fourth real bug, this one Flutter-side, found live on-device**: the
+new `/case-sheets/scan-patient` route opened a blank screen titled
+"scan-patient" with "حدث خطأ في الخادم، حاول مرة أخرى." instead of the QR
+scanner. Cause: `go_router` (14.8.1) matches sibling routes by trying
+each in registration order and returning the *first* match — no
+specificity-based sorting between a static segment and a `:param` one
+(confirmed by reading `configuration.dart::_getLocRouteMatches()`
+directly rather than assumed). `/case-sheets/:resource` was registered
+*before* `/case-sheets/scan-patient` in `app_router.dart`, so it matched
+first and captured `resource: 'scan-patient'`, routing to
+`CaseSheetRecordListScreen` instead — which then failed fetching records
+for a resource that doesn't exist, producing exactly that generic error.
+Every other `:param` route in this file happened to already have its
+static siblings (`/new`, the whole `/records/patient-registrations/...`
+tree) registered in an order that didn't collide; this was the first new
+static route added as a *sibling* of an existing `:param` route at the
+same path depth. Fixed by moving the static route before the dynamic
+one — the correct fix given go_router's actual (order-only) matching
+behavior, not just a workaround.
+
 Verified: `flutter analyze` clean project-wide. Backend verification
 (curl against the local dev server, real Sanctum tokens) covered in
 `README.md`'s matching entry.

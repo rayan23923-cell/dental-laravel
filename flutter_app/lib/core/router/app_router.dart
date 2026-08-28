@@ -91,6 +91,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/scan', builder: (context, state) => const QrScanScreen()),
       GoRoute(path: '/notifications', builder: (context, state) => const NotificationInboxScreen()),
       GoRoute(path: '/case-sheets', builder: (context, state) => const CaseSheetTypesScreen()),
+      // Must be registered before `/case-sheets/:resource` below — go_router
+      // matches sibling routes in registration order, so a `:resource`
+      // route registered first would otherwise swallow this static path,
+      // capturing `resource: 'scan-patient'` and routing to the record-list
+      // screen instead (a real bug found live: the scan button opened a
+      // blank "scan-patient" list that then failed fetching a nonexistent
+      // API resource).
+      GoRoute(
+        path: '/case-sheets/scan-patient',
+        builder: (context, state) => const QrScanScreen(mode: QrScanMode.caseSheetPatientAutofill),
+      ),
       GoRoute(
         path: '/case-sheets/:resource',
         builder: (context, state) => CaseSheetRecordListScreen(resource: state.pathParameters['resource']!),
@@ -171,10 +182,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/records/patient-registrations/scan-for-task',
         builder: (context, state) => const QrScanScreen(mode: QrScanMode.taskPatientLink),
-      ),
-      GoRoute(
-        path: '/case-sheets/scan-patient',
-        builder: (context, state) => const QrScanScreen(mode: QrScanMode.caseSheetPatientAutofill),
       ),
       GoRoute(path: '/records/payments', builder: (context, state) => const PaymentListScreen()),
       GoRoute(
