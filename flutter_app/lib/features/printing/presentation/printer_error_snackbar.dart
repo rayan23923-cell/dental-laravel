@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -36,9 +37,15 @@ void showPrinterErrorSnackBar(BuildContext context, String messagePrefix, {Objec
     return;
   }
 
+  // Temporary (2026-08-28): appends the raw native error detail, purely
+  // to diagnose the new iOS BLE plugin's real on-device failures instead
+  // of guessing — remove once that path is confirmed stable, per this
+  // file's own doc comment on why the message is normally kept generic.
+  final detail = error is PlatformException ? ' [${error.code}: ${error.message}]' : '';
+
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-    content: Text('$messagePrefix تحقق من توصيل الطابعة.'),
-    duration: const Duration(seconds: 6),
+    content: Text('$messagePrefix تحقق من توصيل الطابعة.$detail'),
+    duration: const Duration(seconds: 10),
     action: SnackBarAction(
       label: 'إعدادات الطابعة',
       // Same fix as printer_settings_screen.dart's own SnackBarActions —
