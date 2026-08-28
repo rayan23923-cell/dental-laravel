@@ -4102,3 +4102,36 @@ mailbox end-to-end from the app itself — the underlying `Password::broker()`
 send-reset-link call and the production SMTP config it depends on were
 already verified working independently (see main `README.md`'s SMTP
 section), so this is a thin, low-risk wrapper around both.
+
+## Third real iOS printing bug: pairing had nothing to select from (2026-08-28)
+
+Found live, after fixing the previous two: even after a successful scan +
+pair on iOS, printing still failed — `[bad_args: عنوان بلوتوث مفقود]`
+(surfaced only once the temporary raw-error-detail addition above shipped;
+the generic message alone gave no way to tell this apart from a real
+connection failure).
+
+Root cause: `printer_settings_screen.dart`'s pairing flow is two steps —
+tap "اقتران" on a *discovered* device (`_pair()`, calls `pairDevice`),
+then tap "تحديد" on that same device once it reappears in the *paired*
+devices list (`_selectBluetoothDevice()`, the only place that actually
+sets `draft.bluetoothAddress`). That second list comes from
+`listPairedDevices()`, which reflects Android's real OS-level bonded-
+devices list there — but always returns `[]` on iOS (`PosPrinterPlugin.swift`,
+since BLE has no equivalent concept, see that file's method table). So on
+iOS, a successful pair had nothing to ever reappear in, no "تحديد" step
+was ever reachable, and `bluetoothAddress` was never saved — printing
+then failed immediately with "address missing," independent of whether
+the printer itself was reachable at all.
+
+Fixed in `_pair()`: on iOS, a successful pair now calls
+`_selectBluetoothDevice()` directly instead of `_loadPairedDevices()` —
+pairing *is* the selection there, since there's no separate persisted
+"paired" state to browse back into later. Android's existing two-step
+flow is unchanged. The user still needs to tap "حفظ" afterward to persist
+the selection, same as Android.
+
+Not yet re-verified against the real "58E_BD90" printer after this fix —
+next on-device test should confirm a full print succeeds end-to-end now
+that all three iOS-specific bugs (Bluetooth permission, the Task
+Progress print guard, and this selection gap) are fixed.

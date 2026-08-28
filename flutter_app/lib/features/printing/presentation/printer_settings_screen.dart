@@ -182,7 +182,19 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
     if (!mounted) return;
     if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم الاقتران بـ ${device.name}.')));
-      await _loadPairedDevices();
+      // On Android, `listPairedDevices()` reflects the OS's own bonded-
+      // devices list, so a second explicit "تحديد" step (from that list)
+      // makes sense there. BLE has no such list — `listPairedDevices()`
+      // always returns [] on iOS (see PosPrinterPlugin.swift) — so without
+      // this, a successful pairing there had nothing to select from and
+      // `bluetoothAddress` was never actually saved (found live: printing
+      // failed with "عنوان بلوتوث مفقود" despite pairing having
+      // succeeded). On iOS, pairing itself *is* the selection.
+      if (!kIsWeb && Platform.isIOS) {
+        _selectBluetoothDevice(device);
+      } else {
+        await _loadPairedDevices();
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تعذر الاقتران.')));
     }
