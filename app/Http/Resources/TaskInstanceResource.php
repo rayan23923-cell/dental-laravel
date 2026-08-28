@@ -19,6 +19,12 @@ class TaskInstanceResource extends JsonResource
             'notes' => $this->notes,
             'grade' => $this->grade,
             'assigned_by' => $this->assigned_by,
+            // "شكرا، تم توثيقه ورقياً" (2026-08-28) — purely informational,
+            // never gates the electronic case-sheet flow. Null/null means
+            // "not confirmed on paper," not "unknown" — no whenLoaded()
+            // needed, these are plain columns on this same row.
+            'paper_case_sheet_confirmed_by' => $this->paper_case_sheet_confirmed_by,
+            'paper_case_sheet_confirmed_at' => $this->paper_case_sheet_confirmed_at,
             // Both gated the same way, at the controller (only eager-loaded
             // when the viewer is authorized — see
             // `App\Support\TaskInstanceVisibility`) — `whenLoaded` then

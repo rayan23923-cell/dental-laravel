@@ -96,4 +96,27 @@ class TaskInstanceController extends Controller
 
         return response()->json(null, 204);
     }
+
+    /**
+     * "شكرا، تم توثيقه ورقياً" (2026-08-28) — a doctor may mark their own
+     * case as documented on paper instead of filling the electronic case
+     * sheet. Purely a non-exclusive confirmation tag, not a mode switch:
+     * this never blocks or hides the "نموذج سريري" flow (both stay
+     * available, per the user's explicit confirmation) — it only sets
+     * when/who confirmed, same shape as `screening_checked_by`/
+     * `screening_checked_at` on `patients_simple`.
+     */
+    public function confirmPaper(Request $request, TaskInstance $taskInstance): JsonResponse
+    {
+        $doctor = $request->user();
+        abort_unless($doctor instanceof Doctor, 403);
+        abort_unless($taskInstance->doctor_id === $doctor->id, 403);
+
+        $taskInstance->update([
+            'paper_case_sheet_confirmed_by' => $doctor->id,
+            'paper_case_sheet_confirmed_at' => now(),
+        ]);
+
+        return (new TaskInstanceResource($taskInstance))->response();
+    }
 }

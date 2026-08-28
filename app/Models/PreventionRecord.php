@@ -15,6 +15,8 @@ class PreventionRecord extends Model
         'task_id',
         'patient_data',
         'examination_data',
+        'supervisor_notes',
+        'supervisor_signature',
     ];
 
     protected function casts(): array

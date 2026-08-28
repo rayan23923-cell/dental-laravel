@@ -79,6 +79,15 @@ class DentalChartController extends Controller
             'treatment_plan_date' => ['nullable', 'date'],
             'treatment_plan_notes' => ['nullable', 'string'],
             'senior_doctor_name' => ['nullable', 'string', 'max:255'],
+            // Real bug found and fixed (2026-08-28, caught live via a curl
+            // test of the supervisor-preview feature): missing here meant
+            // `$request->validate()` silently dropped it from every save —
+            // the web equivalent auto-generates its rules from
+            // App\Support\OperativeForm::sections() (which does include
+            // this field), so only this hand-written API rule set had the
+            // gap. `senior_signature` is a real `$fillable` column and one
+            // of `dental-charts`' own App\Support\CaseSheetSupervisorFields.
+            'senior_signature' => ['nullable', 'string'],
         ]);
     }
 }

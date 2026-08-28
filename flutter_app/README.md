@@ -4202,3 +4202,88 @@ OS-level, invisible to and uncontrollable by the app (same category as
 `requestEnableBluetooth`'s no-op — see the first iOS printing entry
 above), so there's nothing to build here unless a real PIN requirement is
 ever confirmed on an actual unit.
+
+## Supervisor case-sheet preview, paper confirmation, and QR patient-autofill (2026-08-28)
+
+Matches the web feature of the same name (see `README.md`) — a
+staff/admin viewer can now open a doctor's case sheet from Task Progress
+here too (previously nothing in this screen could open one at all), a
+doctor can mark a case as paper-documented without hiding the electronic
+form, and a case-sheet form can autofill its patient-identity fields from
+the same registration ticket QR used elsewhere.
+
+**`DynamicSectionForm`'s `State` class was made public** (renamed
+`_DynamicSectionFormState` → `DynamicSectionFormState`) so
+`CaseSheetFormScreen` can reach into it via a `GlobalKey` — the only way
+to programmatically fill a field from outside, since select/radio/
+checkbox/date/time fields read straight from the form's internal
+`_values` map in their own `build()` (a parent-level `setState()` after
+mutating `_values` correctly cascades to them) while text-controlled
+fields (`text`/`textarea`/`number`/`decimal`/`teeth`) are bound to a
+`TextEditingController` instead, which needs its `.text` set directly —
+`onChanged` only fires on user interaction, never on a programmatic
+assignment. New public `setFieldIfBlank(formKey, value)` handles both
+paths and only ever fills a currently-blank field. New `readonly` (default
+`false`) + `supervisorEditableFields` (default `[]`) params drive the same
+per-field `fieldDisabled()`/`canSubmit` logic the web's `SectionedForm.vue`
+now has — previously `readonly` was hardcoded `true` at the one call site
+that existed, dead code as far as `false` was concerned, since nothing
+reachable from this app ever passed anything else in.
+
+**`CaseSheetFormScreen`** gained matching `readonly`/`supervisorEditableFields`
+constructor params, round-tripped through `app_router.dart`'s
+`/case-sheets/:resource/:id` route as `?readonly=1&supervisor_fields=a,b`
+query params (this screen is reached by pushing a URL, not by passing
+widget constructor args directly, so the state has to survive that
+trip) — resolved once by the caller from `Api\CaseSheetController::open()`'s
+new `readonly`/`supervisor_editable_fields` response fields, the same
+call `openFor()` already made to resolve `resource`/`record_id`. Also
+gained a "مسح رمز المريض" `AppBar` action (hidden when `readonly`, or
+when the resource has no known patient-field mapping) that pushes a new
+`/case-sheets/scan-patient` route (`QrScanMode.caseSheetPatientAutofill`
+— same scan/resolve/pop-with-result shape as the existing
+`QrScanMode.taskPatientLink`, kept as its own enum value so the call
+site and this screen's title read clearly rather than reusing an
+unrelated-sounding name), then fills whichever fields the new
+`CaseSheetPatientFieldMap` maps for that resource — a straight Dart port
+of the identical per-resource field-name map now in `SectionedForm.vue`
+(deliberately duplicated rather than fetched from a new endpoint — same
+call this project already made for `CaseSheetResolver`'s own map having
+no client-side API equivalent either).
+
+**`task_progress_admin/presentation/task_progress_screen.dart`** gained a
+"معاينة الكيس شيت" button on every slot card with an instance — this
+screen previously had zero case-sheet-opening capability for staff at
+all. Resolves via the existing `CaseSheetRecordRepository.openFor()`,
+same as the doctor side; shows a snackbar instead of navigating when the
+doctor hasn't started filling anything in yet (staff can't create a
+record, only edit the 2-ish supervisor fields on one that exists).
+
+**"تأكيد أنه ورقي"** — `my_tasks_screen.dart` gained a small text button
+next to each started slot's status (a "موثّق ورقياً" badge once
+confirmed), calling a new `TaskInstanceRepository.confirmPaper()` →
+`POST /task-instances/{id}/confirm-paper`. `TaskSlotCard` gained a
+`paperCaseSheetConfirmedAt` field, populated by the shared
+`TaskProgressGroupSummary::build()` backend service so both this screen
+and the admin task-progress screen see it.
+
+**Three real, pre-existing/newly-introduced backend bugs found live via
+curl while testing this feature** (full detail in `README.md`, since all
+three are backend-only and this app is just the client that would have
+silently misbehaved because of them): (1) `EnforceCaseSheetAccess`'s
+API-vs-web route-name parsing bug, which zeroed every resource's
+supervisor-field list on the API at all times — a staff save of even its
+own allowed fields always 403'd, and a doctor could freely overwrite
+those same fields; (2) `TaskInstance::$fillable` missing the two new
+paper-confirmation columns, so `confirm-paper` always returned a clean
+200 with nothing actually written; (3) `Api\DentalChartController`
+missing `senior_signature` from its validation rules (and
+`DentalChartResource` never exposing it in output at all) — a
+`dental-charts` supervisor save silently no-op'd even after the other
+two fixes. None of these are Flutter-side bugs, but all three would have
+made this exact feature appear broken from the app with no client-side
+fix possible.
+
+Verified: `flutter analyze` clean project-wide. Backend verification
+(curl against the local dev server, real Sanctum tokens) covered in
+`README.md`'s matching entry.

@@ -72,6 +72,7 @@ class TaskSlotCard {
     this.notes,
     this.grade,
     this.startedByName,
+    this.paperCaseSheetConfirmedAt,
   });
 
   factory TaskSlotCard.fromJson(Map<String, dynamic> json) => TaskSlotCard(
@@ -90,6 +91,7 @@ class TaskSlotCard {
         notes: json['notes'] as String?,
         grade: double.tryParse(json['grade']?.toString() ?? ''),
         startedByName: json['started_by'] as String?,
+        paperCaseSheetConfirmedAt: json['paper_case_sheet_confirmed_at'] as String?,
       );
 
   final int slot;
@@ -108,6 +110,11 @@ class TaskSlotCard {
   /// The staff member who started this task — null if never started
   /// (`status == 'unassigned'`) or that user has since been deleted.
   final String? startedByName;
+
+  /// "شكرا، تم توثيقه ورقياً" (2026-08-28) — set once a doctor confirms
+  /// this case is documented on paper; purely informational, never gates
+  /// the electronic case-sheet flow. Null means "not confirmed."
+  final String? paperCaseSheetConfirmedAt;
 }
 
 class TaskProgressDoctorRow {

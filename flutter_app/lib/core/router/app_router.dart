@@ -102,6 +102,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           recordId: null,
           taskInstanceId: _intQueryParam(state, 'task_instances_id'),
           taskId: _intQueryParam(state, 'task_id'),
+          readonly: state.uri.queryParameters['readonly'] == '1',
+          supervisorEditableFields: _listQueryParam(state, 'supervisor_fields'),
         ),
       ),
       GoRoute(
@@ -111,6 +113,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           recordId: int.parse(state.pathParameters['id']!),
           taskInstanceId: _intQueryParam(state, 'task_instances_id'),
           taskId: _intQueryParam(state, 'task_id'),
+          readonly: state.uri.queryParameters['readonly'] == '1',
+          supervisorEditableFields: _listQueryParam(state, 'supervisor_fields'),
         ),
       ),
       GoRoute(path: '/records', builder: (context, state) => const RecordsHubScreen()),
@@ -167,6 +171,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/records/patient-registrations/scan-for-task',
         builder: (context, state) => const QrScanScreen(mode: QrScanMode.taskPatientLink),
+      ),
+      GoRoute(
+        path: '/case-sheets/scan-patient',
+        builder: (context, state) => const QrScanScreen(mode: QrScanMode.caseSheetPatientAutofill),
       ),
       GoRoute(path: '/records/payments', builder: (context, state) => const PaymentListScreen()),
       GoRoute(
@@ -290,4 +298,15 @@ final routerProvider = Provider<GoRouter>((ref) {
 int? _intQueryParam(GoRouterState state, String name) {
   final raw = state.uri.queryParameters[name];
   return raw == null ? null : int.tryParse(raw);
+}
+
+/// Carries the staff supervisor-preview state (2026-08-28) across
+/// navigation, since `CaseSheetFormScreen` is reached by pushing a plain
+/// URL rather than passing a widget's constructor args directly — mirrors
+/// `task_instances_id`/`task_id` above. Comma-separated field-key list;
+/// field keys are plain identifiers (see `App\Support\
+/// CaseSheetSupervisorFields`), so no escaping is needed.
+List<String> _listQueryParam(GoRouterState state, String name) {
+  final raw = state.uri.queryParameters[name];
+  return (raw == null || raw.isEmpty) ? const [] : raw.split(',');
 }

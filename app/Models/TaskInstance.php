@@ -24,6 +24,14 @@ class TaskInstance extends Model
         'notes',
         'grade',
         'assigned_by',
+        // "شكرا، تم توثيقه ورقياً" (2026-08-28) — real bug found and fixed
+        // live via a curl test: TaskInstanceController::confirmPaper()'s
+        // update() call silently no-op'd on these two without a fillable
+        // entry (Eloquent drops non-fillable keys from update() rather than
+        // throwing), so the endpoint always returned 200 with nothing
+        // actually written.
+        'paper_case_sheet_confirmed_by',
+        'paper_case_sheet_confirmed_at',
     ];
 
     protected function casts(): array
@@ -33,6 +41,7 @@ class TaskInstance extends Model
             'completion_date' => 'datetime',
             'created_at' => 'datetime',
             'grade' => 'decimal:2',
+            'paper_case_sheet_confirmed_at' => 'datetime',
         ];
     }
 

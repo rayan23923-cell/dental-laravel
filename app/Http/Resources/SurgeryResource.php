@@ -12,6 +12,7 @@ class SurgeryResource extends JsonResource
         return [
             'id' => $this->id,
             'task_instances_id' => $this->task_instances_id,
+            'task_id' => $this->task_id,
             'patient_id' => $this->patient_id,
             'patient_name' => $this->patient_name,
             'doctor_id' => $this->doctor_id,

@@ -49,6 +49,8 @@ class CaseSheetRecordRepository {
     return CaseSheetOpenResult(
       resource: data['resource'] as String,
       recordId: data['record_id'] as int?,
+      readonly: data['readonly'] as bool? ?? false,
+      supervisorEditableFields: (data['supervisor_editable_fields'] as List<dynamic>?)?.cast<String>() ?? const [],
     );
   }
 
@@ -67,7 +69,21 @@ class CaseSheetRecordRepository {
 }
 
 class CaseSheetOpenResult {
-  const CaseSheetOpenResult({required this.resource, required this.recordId});
+  const CaseSheetOpenResult({
+    required this.resource,
+    required this.recordId,
+    this.readonly = false,
+    this.supervisorEditableFields = const [],
+  });
   final String resource;
   final int? recordId;
+
+  /// Set only by [openFor] — a staff viewer previewing an existing case
+  /// (see `Api\CaseSheetController::open()`'s `readonly`). Always false
+  /// from [openForTask], which is doctor-only by design.
+  final bool readonly;
+
+  /// This viewer's own supervisor-editable fields for [resource] — see
+  /// `App\Support\CaseSheetSupervisorFields`. Empty for a doctor.
+  final List<String> supervisorEditableFields;
 }

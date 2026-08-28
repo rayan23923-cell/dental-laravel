@@ -1,6 +1,6 @@
 <script setup>
 import DoctorLayout from '@/Layouts/DoctorLayout.vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import Icon from '@/Components/Icon.vue';
 
@@ -28,6 +28,14 @@ const statusClass = (s) =>
     }[s] ?? 'bg-gray-50 text-gray-500 border-gray-300');
 
 const fmt = (v) => (v ? new Date(v).toLocaleDateString() : null);
+
+// "تأكيد أنه ورقي" (2026-08-28) — a non-exclusive tag, never a mode
+// switch: confirming never hides or disables "فتح النموذج" above it, the
+// electronic form always stays available too.
+const confirmPaper = (slot) => {
+    if (!confirm('تأكيد أن هذه الحالة موثّقة على نسخة ورقية؟')) return;
+    router.post(route('doctor.task-instances.confirm-paper', slot.instance_id), {}, { preserveScroll: true });
+};
 </script>
 
 <template>
@@ -101,6 +109,22 @@ const fmt = (v) => (v ? new Date(v).toLocaleDateString() : null);
                                 >
                                     <Icon name="description" class="ml-1" />فتح النموذج
                                 </Link>
+
+                                <!-- "تأكيد أنه ورقي" — only meaningful once
+                                     the case has a real instance (a
+                                     not-yet-started slot's optional draft
+                                     isn't a documented case yet). -->
+                                <div v-if="slot.instance_id && slot.paper_case_sheet_confirmed_at" class="mt-2 rounded bg-amber-50 px-2 py-1 text-center text-xs text-amber-800">
+                                    <Icon name="check_circle" class="ml-1" />موثّق ورقياً — {{ fmt(slot.paper_case_sheet_confirmed_at) }}
+                                </div>
+                                <button
+                                    v-else-if="slot.instance_id"
+                                    type="button"
+                                    @click="confirmPaper(slot)"
+                                    class="mt-2 block w-full rounded bg-gray-200 px-2 py-1 text-center text-xs font-medium text-gray-700 hover:bg-gray-300"
+                                >
+                                    <Icon name="edit_note" class="ml-1" />تأكيد أنه ورقي
+                                </button>
                             </div>
                         </div>
                     </div>

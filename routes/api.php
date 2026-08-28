@@ -247,6 +247,7 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::post('/task-instances', [TaskInstanceController::class, 'store']);
         Route::put('/task-instances/{taskInstance}', [TaskInstanceController::class, 'update']);
         Route::delete('/task-instances/{taskInstance}', [TaskInstanceController::class, 'destroy']);
+        Route::post('/task-instances/{taskInstance}/confirm-paper', [TaskInstanceController::class, 'confirmPaper']);
         Route::get('/task-instances/{taskInstance}/qr', [TaskInstanceQrController::class, 'show']);
         Route::post('/task-instances/scan', [TaskInstanceQrController::class, 'scan']);
         // Resolves a case's clinical-form resource (Flutter's equivalent of
@@ -279,7 +280,19 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::put('/task-progress/instances/{taskInstance}', [TaskProgressController::class, 'updateInstance'])
             ->middleware('permission:task_progress,finish');
 
-        Route::apiResource('dental-charts', DentalChartController::class);
+        // Was missing entirely on the API side until 2026-08-28 — a real,
+        // pre-existing gap found while building the supervisor-preview
+        // feature: `EnforceCaseSheetAccess` (staff-view-only + doctor-owns-
+        // own-record) was wired into routes/web.php only, so any
+        // authenticated Sanctum principal could read/write/delete any of
+        // these resources via the mobile API regardless of ownership.
+        // `App\Services\CaseSheetAccess::doctor()` was extended the same
+        // day to recognize a Sanctum-authenticated Doctor (previously only
+        // checked the web session's `doctor` guard), so this middleware
+        // behaves identically here to its web counterpart.
+        Route::middleware('case-sheet')->group(function () {
+            Route::apiResource('dental-charts', DentalChartController::class);
+        });
 
         Route::apiResource('appointments', AppointmentController::class);
         Route::apiResource('payments', PaymentController::class);
@@ -301,21 +314,23 @@ Route::name('api.')->prefix('v1')->group(function () {
         // doctor_id column; full CRUD; validation generated from the real
         // imported schema). See README.md for which tables were skipped
         // and why.
-        foreach ([
-            'complete-denture-records' => CompleteDentureRecordController::class,
-            'oral-medicine-charts' => OralMedicineChartController::class,
-            'orthodontics-records' => OrthodonticsRecordController::class,
-            'periodontal-charts' => PeriodontalChartController::class,
-            'prevention-records' => PreventionRecordController::class,
-            'prosthodontics-records' => ProsthodonticsRecordController::class,
-            'surgeries' => SurgeryController::class,
-            'surgery-follow-ups' => SurgeryFollowUpController::class,
-            'surgery-images' => SurgeryImageController::class,
-            'surgery-medications' => SurgeryMedicationController::class,
-            'treatment-plans' => TreatmentPlanController::class,
-            'treatment-materials' => TreatmentMaterialController::class,
-        ] as $uri => $controller) {
-            Route::apiResource($uri, $controller)->parameters([$uri => 'record']);
-        }
+        Route::middleware('case-sheet')->group(function () {
+            foreach ([
+                'complete-denture-records' => CompleteDentureRecordController::class,
+                'oral-medicine-charts' => OralMedicineChartController::class,
+                'orthodontics-records' => OrthodonticsRecordController::class,
+                'periodontal-charts' => PeriodontalChartController::class,
+                'prevention-records' => PreventionRecordController::class,
+                'prosthodontics-records' => ProsthodonticsRecordController::class,
+                'surgeries' => SurgeryController::class,
+                'surgery-follow-ups' => SurgeryFollowUpController::class,
+                'surgery-images' => SurgeryImageController::class,
+                'surgery-medications' => SurgeryMedicationController::class,
+                'treatment-plans' => TreatmentPlanController::class,
+                'treatment-materials' => TreatmentMaterialController::class,
+            ] as $uri => $controller) {
+                Route::apiResource($uri, $controller)->parameters([$uri => 'record']);
+            }
+        });
     });
 });

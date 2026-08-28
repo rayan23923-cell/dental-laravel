@@ -24,6 +24,8 @@ class OrthodonticsRecord extends Model
         'referral_date',
         'referred_from',
         'examination_data',
+        'supervisor_notes',
+        'supervisor_signature',
     ];
 
     protected function casts(): array

@@ -5571,6 +5571,162 @@ obvious this save won't count toward anything yet.
 .../case-sheet-draft` again → now returns the created record's id.
 `php -l` on all 26 touched PHP files, `npm run build` clean.
 
+## Supervisor case-sheet preview, paper/electronic confirmation, and QR patient-autofill (2026-08-28)
+
+A supervisor/admin (any staff principal) can now preview a doctor's case
+sheet from Task Progress without editing the doctor's own clinical
+fields — except each resource's own notes/senior-signature-equivalent
+field(s), which staff *can* edit and the doctor *cannot*. A doctor can
+also mark a case as documented on paper (a non-exclusive tag, never
+hiding the electronic form), and can autofill a case sheet's
+patient-identity fields by scanning the same registration ticket QR
+already used for payment/screening.
+
+**`App\Support\CaseSheetSupervisorFields`** (new) — a `match()` registry,
+same pattern as `CaseSheetResolver`/`CaseSheetPrint`, mapping each of the
+8 resources to its own supervisor-editable field(s): `dental-charts`/
+`surgeries`/`periodontal-charts` reuse their existing `notes`/
+`senior_doctor_name`/`senior_signature`(/`approval_date`/`clinical_notes`)
+columns; `prosthodontics-records`/`complete-denture-records` reuse their
+existing `diagnosis_instructor_signature` + 9 `stage_{key}_{signature,date,grade}`
+triples (each table's own 9 stage keys); the remaining 3
+(`orthodontics-records`, `prevention-records`, `oral-medicine-charts`)
+had neither, so two new nullable columns — `supervisor_notes` (text),
+`supervisor_signature` (longtext) — were added to just those three
+(`2026_08_28_110000_add_supervisor_fields_to_gapped_case_sheets.php`),
+plus a new "Supervisor" section in each of their three
+`App\Support\*Form` layout classes so the web/Flutter forms actually
+render an input for them (they're real fillable columns now, but
+nothing rendered a control before this).
+
+**`EnforceCaseSheetAccess` gained two more rules**, on top of its
+existing staff-view-only / doctor-owns-own-record pair: (1) a staff
+write may only *change* a resource's supervisor fields — not merely
+have their keys present in the payload, since `SectionedForm.vue`
+always submits the whole record on every save, so a legitimate
+supervisor-only edit still carries every other field's *unchanged*
+value. What actually distinguishes an allowed edit from a disguised one
+is comparing the route-bound model's current stored value against the
+posted one field-by-field (new `boundRecord()`/`changedFields()`
+helpers), not "which keys exist." (2) The literal inverse: a doctor may
+never *change* those same fields, even on their own record (resubmitting
+a supervisor's existing, unchanged signature is fine — only an actual
+edit to it is blocked).
+
+**A real, pre-existing security gap closed**: this middleware was wired
+into `routes/web.php` only — `routes/api.php` had *no* case-sheet
+enforcement at all. Any authenticated Sanctum principal (staff or
+doctor) could previously read/write/delete any of the 8 case-sheet
+resources via the mobile API regardless of ownership; two spot-checked
+API controllers (`Api\DentalChartController`, `Api\SurgeryController`)
+had no ownership/view-only check of their own either. Closed by applying
+the `'case-sheet'` middleware alias to `routes/api.php`'s equivalent
+route groups, mirroring `routes/web.php`. This surfaced a second real
+bug in `App\Services\CaseSheetAccess::doctor()`: it checked only the web
+session's `doctor` guard, which is never populated over Sanctum — a
+doctor authenticates on the API purely as `$request->user()`, same as
+`Api\CaseSheetController::open()` already handled. Without a fix, every
+legitimate doctor API request would have been misclassified as "staff"
+and limited to view-only, breaking normal mobile saves entirely. Fixed
+by falling back to `request()?->user()` when the guard is empty.
+
+**A third real bug, found live via a curl test of this exact feature
+before it ever reached staging**: `EnforceCaseSheetAccess`'s resource-name
+resolution (`explode('.', $routeName, 2)[0]`) assumed a bare
+`{resource}.{action}` route name — true on the web, but every
+`routes/api.php` route is wrapped in `Route::name('api.')->prefix('v1')`,
+making the real name `api.{resource}.{action}`. The old code silently
+read `'api'` as the "resource" on *every* API request, which zeroed
+`CaseSheetSupervisorFields::fieldsFor('api')` (the registry's `default => []`
+case) at all times — breaking both directions of the split at once: a
+staff request got 403 even writing its own allowed fields (an empty
+allow-list can never match a non-empty diff), and a doctor could freely
+overwrite those same fields on their own record (an empty allow-list
+never intersects anything). Fixed by reading the *second-to-last*
+dot-segment instead of the first, which is robust to either name shape
+(the action segment is always exactly one segment, regardless of prefix
+depth).
+
+**A fourth real bug**: `TaskInstance::$fillable` never listed the two new
+`paper_case_sheet_confirmed_by`/`_at` columns (added in
+`2026_08_28_120000_add_paper_case_sheet_confirmation_to_task_instances.php`
+for the paper-confirmation feature below), so
+`TaskInstanceController::confirmPaper()`'s `update()` call silently
+dropped them — Eloquent drops non-fillable keys from a mass-assignment
+`update()` rather than throwing, so the endpoint returned a clean 200
+with nothing actually written. Caught by checking the DB directly after
+a real API call rather than trusting the 200 status code.
+
+**A fifth real bug, unrelated to this feature's own new code but found
+while curl-testing it**: `Api\DentalChartController::validateChart()`
+was missing `senior_signature` from its validation rules entirely (it
+had `notes` and `senior_doctor_name`, but not the third field of that
+same trio) — `$request->validate()` silently strips any key absent from
+its rule set, so a staff save of `senior_signature` always no-op'd
+before this fix, even though the column is `$fillable` and the
+middleware correctly allowed the write through. The web equivalent
+never had this gap, since it auto-generates its rules from
+`App\Support\OperativeForm::sections()` (which does include the field)
+rather than a hand-written list. `App\Http\Resources\DentalChartResource`
+had the matching read-side gap — never exposed `senior_signature` at
+all — fixed alongside it. All other 7 resources' API validation +
+Resource output were checked against their own `CaseSheetSupervisorFields`
+entries and found complete.
+
+**`CaseSheetController::open()`** (web) and **`Api\CaseSheetController::open()`**
+now both return the viewer's own `supervisor_editable_fields` (empty for
+a doctor) alongside the existing `resource`/`record_id`/`case_sheet_type`
+— the API response also gained a `readonly` flag (`! $principal instanceof Doctor`),
+since Flutter has no server-rendered `readonly` prop the way Inertia
+does. Each of the 8 web resource controllers' `form()` method gained a
+matching `supervisorEditableFields` Inertia prop.
+
+**`SectionedForm.vue`**: a new `supervisorEditableFields` prop overrides
+the per-field `disabled` state (`fieldDisabled(field)`) so those fields
+stay editable even under `readonly` — covering both the generic
+`sections()` field loop and the separate prosthodontics/complete-denture
+"Stages and evaluation" table (`stageFieldDisabled(stageKey, part)`,
+since those rows aren't part of `sections()`). The Update/Save button,
+previously hidden outright under `readonly`, now shows whenever
+`supervisorEditableFields` is non-empty too (`canSubmit`) — a supervisor
+with something to save couldn't have saved it otherwise. Also gained a
+"مسح رمز المريض" button + modal (reusing `Components/QrScanner.vue` and
+the existing `patient-registrations.scan` endpoint) that fills in
+whichever of the current resource's mapped patient-identity fields are
+still blank, via a new `PATIENT_FIELD_MAP` — per-resource because the
+8 tables name these columns inconsistently (`patient_sex` vs `sex` vs
+`patient_gender`; `patient_phone` vs `telephone`; `dental-charts`/
+`oral-medicine-charts` even use `patient_id` as their name field).
+`prevention-records` packs its patient fields into the `patient_data`
+JSON group instead of real columns, so its map entries target the
+grouped `patient_data__*` form keys instead.
+
+**`PatientRegistrationResource`** gained `age`/`sex`/`address`/
+`occupation` — real columns on `patients_simple` the QR-scan response
+never exposed before, needed for the autofill above.
+
+**Paper case-sheet confirmation** — new `POST /doctor/task-instances/{taskInstance}/confirm-paper`
+(web, `Doctor\TaskInstanceController::confirmPaper()`) and
+`POST /api/v1/task-instances/{taskInstance}/confirm-paper`
+(`Api\TaskInstanceController::confirmPaper()`), doctor-and-owner-only,
+setting `paper_case_sheet_confirmed_by`/`_at`. Purely an informational
+tag: never blocks or hides the electronic case-sheet button next to it.
+`Doctor/RequiredTasks.vue` gained a "تأكيد أنه ورقي" button (a "موثّق
+ورقياً" badge once confirmed) next to each started slot's "فتح النموذج"
+link. `TaskProgressGroupSummary::build()` (shared by the admin and
+doctor task-progress endpoints) now includes the confirmation timestamp
+in each slot card.
+
+**Verified via curl against the local dev server** (Sanctum tokens
+minted directly via `tinker`, not guessed): staff PUT of only a
+supervisor field succeeds; adding any other changed field to the same
+payload 403s; a doctor PUT changing a supervisor field on their own
+record 403s; a doctor PUT of a normal field succeeds; a different
+doctor can't even `GET` someone else's record. `confirm-paper` verified
+to actually persist both columns after the `$fillable` fix.
+`php artisan schema:diagnose` still reports no drift after migrating.
+`php -l` on every touched PHP file, `npm run build` clean.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the

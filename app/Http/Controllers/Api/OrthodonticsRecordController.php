@@ -67,6 +67,8 @@ class OrthodonticsRecordController extends Controller
             'referral_date' => ['nullable', 'date'],
             'referred_from' => ['nullable', 'string', 'max:255'],
             'examination_data' => ['nullable', 'string'],
+            'supervisor_notes' => ['nullable', 'string'],
+            'supervisor_signature' => ['nullable', 'string'],
         ];
 
         if ($partial) {

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Doctor;
 use App\Models\PreventionRecord;
 use App\Services\CaseSheetAccess;
+use App\Support\CaseSheetSupervisorFields;
 use App\Support\PreventionForm;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -97,6 +98,7 @@ class PreventionRecordController extends Controller
             // Staff view but never save (App\Services\CaseSheetAccess);
             // the original disables every input for them.
             'readonly' => $readonly || CaseSheetAccess::isViewOnly(),
+            'supervisorEditableFields' => CaseSheetAccess::isViewOnly() ? CaseSheetSupervisorFields::fieldsFor('prevention-records') : [],
             'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
             'taskId' => $record?->task_id ?? $taskId,
         ]);
@@ -112,6 +114,9 @@ class PreventionRecordController extends Controller
             'questions' => ['nullable', 'string'],
             'dmfs_indices' => ['nullable', 'string'],
             'dietary_recall' => ['nullable', 'string'],
+            // See App\Support\CaseSheetSupervisorFields.
+            'supervisor_notes' => ['nullable', 'string'],
+            'supervisor_signature' => ['nullable', 'string'],
         ]);
 
         $examination = [];

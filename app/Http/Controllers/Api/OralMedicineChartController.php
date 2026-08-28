@@ -77,6 +77,8 @@ class OralMedicineChartController extends Controller
             'history_of_complaint' => ['nullable', 'string'],
             'investigations_diagnosis' => ['nullable', 'string'],
             'student_visits' => ['nullable', 'string'],
+            'supervisor_notes' => ['nullable', 'string'],
+            'supervisor_signature' => ['nullable', 'string'],
         ];
 
         if ($partial) {

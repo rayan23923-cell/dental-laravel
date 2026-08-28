@@ -226,6 +226,17 @@ class OrthodonticsForm
                     ['group' => $g, 'key' => 'appliance_designs', 'label' => 'Appliance type & Design', 'type' => 'quadrant_repeater', 'width' => 'full', 'itemLabel' => 'Appliance', 'infoLabel' => 'Appliance Information'],
                 ],
             ],
+            [
+                // See App\Support\CaseSheetSupervisorFields — this sheet had
+                // no notes/senior-signature field of its own, so these two
+                // were added (2026-08-28) specifically for the supervisor-
+                // preview feature.
+                'title' => 'Supervisor',
+                'fields' => [
+                    ['key' => 'supervisor_notes', 'label' => 'Supervisor Notes', 'type' => 'textarea', 'width' => 'full'],
+                    ['key' => 'supervisor_signature', 'label' => 'Supervisor Signature', 'type' => 'text', 'width' => 'half'],
+                ],
+            ],
         ];
     }
 }

@@ -125,6 +125,17 @@ class PreventionForm
                     ['group' => 'patient_data', 'key' => 'signature_date', 'label' => 'Date', 'type' => 'date'],
                 ],
             ],
+            [
+                // Real columns, not part of the patient_data blob like
+                // 'Signature' above — see App\Support\CaseSheetSupervisorFields.
+                // Added (2026-08-28) specifically for the supervisor-preview
+                // feature; this sheet had no equivalent field of its own.
+                'title' => 'Supervisor',
+                'fields' => [
+                    ['key' => 'supervisor_notes', 'label' => 'Supervisor Notes', 'type' => 'textarea', 'width' => 'full'],
+                    ['key' => 'supervisor_signature', 'label' => 'Supervisor Signature', 'type' => 'text', 'width' => 'half'],
+                ],
+            ],
         ];
     }
 

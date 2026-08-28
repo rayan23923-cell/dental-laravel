@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CompleteDentureRecord;
 use App\Models\Doctor;
 use App\Services\CaseSheetAccess;
+use App\Support\CaseSheetSupervisorFields;
 use App\Support\CompleteDentureForm;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -84,6 +85,7 @@ class CompleteDentureRecordController extends Controller
             // Staff view but never save (App\Services\CaseSheetAccess);
             // the original disables every input for them.
             'readonly' => $readonly || CaseSheetAccess::isViewOnly(),
+            'supervisorEditableFields' => CaseSheetAccess::isViewOnly() ? CaseSheetSupervisorFields::fieldsFor('complete-denture-records') : [],
             'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
             'taskId' => $record?->task_id ?? $taskId,
         ]);

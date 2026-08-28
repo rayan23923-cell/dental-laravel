@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Doctor;
 use App\Models\OralMedicineChart;
 use App\Services\CaseSheetAccess;
+use App\Support\CaseSheetSupervisorFields;
 use App\Support\OralMedicineForm;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -82,6 +83,7 @@ class OralMedicineChartController extends Controller
             // Staff view but never save (App\Services\CaseSheetAccess);
             // the original disables every input for them.
             'readonly' => $readonly || CaseSheetAccess::isViewOnly(),
+            'supervisorEditableFields' => CaseSheetAccess::isViewOnly() ? CaseSheetSupervisorFields::fieldsFor('oral-medicine-charts') : [],
             'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
             'taskId' => $record?->task_id ?? $taskId,
         ]);
@@ -97,6 +99,9 @@ class OralMedicineChartController extends Controller
             'visit_date' => ['required', 'date'],
             'patient_age' => ['nullable', 'integer', 'min:0', 'max:150'],
             'patient_sex' => ['nullable', 'in:male,female'],
+            // See App\Support\CaseSheetSupervisorFields.
+            'supervisor_notes' => ['nullable', 'string'],
+            'supervisor_signature' => ['nullable', 'string'],
         ];
 
         foreach (OralMedicineForm::sections() as $section) {

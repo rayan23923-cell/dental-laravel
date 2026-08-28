@@ -50,4 +50,13 @@ class TaskInstanceRepository {
     final data = await _client.postJson('/task-instances/scan', body: {'payload': payload}) as Map<String, dynamic>;
     return TaskInstance.fromJson(data['data'] as Map<String, dynamic>);
   }
+
+  /// "شكرا، تم توثيقه ورقياً" (2026-08-28) — see
+  /// `Api\TaskInstanceController::confirmPaper()`'s doc comment: purely a
+  /// non-exclusive confirmation tag, never blocks or hides the electronic
+  /// case-sheet flow.
+  Future<TaskInstance> confirmPaper(int id) async {
+    final data = await _client.postJson('/task-instances/$id/confirm-paper') as Map<String, dynamic>;
+    return TaskInstance.fromJson(data['data'] as Map<String, dynamic>);
+  }
 }

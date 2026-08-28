@@ -7,8 +7,10 @@ import '../../../core/widgets/qr_dialog.dart';
 import '../../auth/domain/auth_account.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../auth/presentation/auth_state.dart';
+import '../../patient_registration/domain/registration_payment_state.dart';
 import '../data/case_sheet_record_repository.dart';
 import '../domain/case_sheet_form_schema.dart';
+import '../domain/case_sheet_patient_field_map.dart';
 import 'case_sheet_form_providers.dart';
 import 'dynamic_section_form.dart';
 
@@ -29,15 +31,32 @@ import 'dynamic_section_form.dart';
 /// `sections()` fields (exactly what `DynamicSectionForm` sends) is
 /// always a valid partial update.
 class CaseSheetFormScreen extends ConsumerWidget {
-  const CaseSheetFormScreen({
+  CaseSheetFormScreen({
     super.key,
     required this.resource,
     required this.recordId,
     this.taskInstanceId,
     this.taskId,
+    this.readonly = false,
+    this.supervisorEditableFields = const [],
   });
   final String resource;
   final int? recordId;
+
+  /// Reaches into the mounted `DynamicSectionForm` for "مسح رمز المريض"
+  /// (2026-08-28) — see [_scanPatient] below. Not `const`-constructible any
+  /// more because of this field (no caller const-constructs this widget
+  /// today; `resource`/`recordId` always come from route state).
+  final GlobalKey<DynamicSectionFormState> _formStateKey = GlobalKey<DynamicSectionFormState>();
+
+  /// Staff supervisor-preview state (2026-08-28) — set only when arriving
+  /// via the "معاينة الكيس شيت" action on `task_progress_screen.dart`
+  /// (resolved there from `Api\CaseSheetController::open()`'s `readonly`/
+  /// `supervisor_editable_fields`, then round-tripped through the route's
+  /// query string — see `app_router.dart`). Always false/`[]` for a
+  /// doctor's own create/edit flow.
+  final bool readonly;
+  final List<String> supervisorEditableFields;
 
   /// Carries the case this sheet belongs to, end to end (2026-08-27):
   /// present when arriving via the "نموذج سريري" action on a case row —
@@ -78,6 +97,17 @@ class CaseSheetFormScreen extends ConsumerWidget {
                 caption: 'يُمسح هذا الرمز لإعادة فتح هذه الحالة مباشرة.',
               ),
             ),
+          // "مسح رمز المريض" (2026-08-28) — autofills the patient-identity
+          // fields reception already captured at registration, from the
+          // same ticket QR used elsewhere. Hidden when readonly (a staff
+          // supervisor preview never types patient identity) or when this
+          // resource has no known mapping — see kCaseSheetPatientFieldMap.
+          if (!readonly && kCaseSheetPatientFieldMap.containsKey(resource))
+            IconButton(
+              icon: const Icon(Icons.qr_code_scanner),
+              tooltip: 'مسح رمز المريض',
+              onPressed: () => _scanPatient(context),
+            ),
         ],
       ),
       body: switch ((schemaAsync, recordAsync)) {
@@ -87,9 +117,11 @@ class CaseSheetFormScreen extends ConsumerWidget {
         (AsyncData(value: final schema), AsyncData(value: final record)) => SingleChildScrollView(
             padding: const EdgeInsets.all(12),
             child: DynamicSectionForm(
+              key: _formStateKey,
               schema: schema,
               record: record,
-              readonly: false,
+              readonly: readonly,
+              supervisorEditableFields: supervisorEditableFields,
               onSubmit: (payload) => isCreate
                   ? _create(context, ref, schema)(payload)
                   : _update(context, ref, recordId!)(payload),
@@ -156,5 +188,27 @@ class CaseSheetFormScreen extends ConsumerWidget {
         }
       }
     };
+  }
+
+  /// "مسح رمز المريض" (2026-08-28) — resolves the scanned registration QR
+  /// (same round-trip `/records/patient-registrations/scan-for-task` etc.
+  /// already use), then fills in whichever of this resource's mapped
+  /// fields exist, one `setFieldIfBlank` call per field — never
+  /// overwriting something already typed, per the user's own framing.
+  Future<void> _scanPatient(BuildContext context) async {
+    final state = await context.push<RegistrationPaymentState>('/case-sheets/scan-patient');
+    if (state == null) return;
+
+    final map = kCaseSheetPatientFieldMap[resource];
+    final formState = _formStateKey.currentState;
+    if (map == null || formState == null) return;
+
+    final r = state.registration;
+    if (map.name != null && r.name.isNotEmpty) formState.setFieldIfBlank(map.name!, r.name);
+    if (map.phone != null && r.phone.isNotEmpty) formState.setFieldIfBlank(map.phone!, r.phone);
+    if (map.age != null && r.age != null) formState.setFieldIfBlank(map.age!, r.age!.toString());
+    if (map.sex != null && r.sex != null) formState.setFieldIfBlank(map.sex!, r.sex!);
+    if (map.address != null && r.address != null) formState.setFieldIfBlank(map.address!, r.address!);
+    if (map.occupation != null && r.occupation != null) formState.setFieldIfBlank(map.occupation!, r.occupation!);
   }
 }

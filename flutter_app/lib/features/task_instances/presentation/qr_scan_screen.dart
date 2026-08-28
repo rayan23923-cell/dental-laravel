@@ -19,6 +19,12 @@ enum QrScanMode {
   // routed to a different next step.
   patientRegistrationScreening,
   taskPatientLink,
+  // Case-sheet patient-identity autofill (2026-08-28) — same scan/resolve
+  // as [taskPatientLink] (pops back with the resolved `PatientRegistration`
+  // rather than navigating forward), a distinct mode so the call site
+  // (`CaseSheetFormScreen`) and this screen's title read clearly for what
+  // they're actually doing rather than reusing an unrelated-sounding name.
+  caseSheetPatientAutofill,
 }
 
 /// Scans a QR code and resolves it against the flow-appropriate endpoint:
@@ -80,6 +86,7 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
           final state = await ref.read(patientRegistrationRepositoryProvider).scan(raw);
           if (mounted) context.pushReplacement('/records/patient-registrations/screening', extra: state);
         case QrScanMode.taskPatientLink:
+        case QrScanMode.caseSheetPatientAutofill:
           final state = await ref.read(patientRegistrationRepositoryProvider).scan(raw);
           if (mounted) context.pop(state);
       }
@@ -96,6 +103,7 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
         QrScanMode.patientRegistrationPayment => 'مسح رمز الدفع',
         QrScanMode.patientRegistrationScreening => 'مسح رمز الفحص',
         QrScanMode.taskPatientLink => 'امسح رمز المريض',
+        QrScanMode.caseSheetPatientAutofill => 'مسح رمز المريض',
       };
 
   @override

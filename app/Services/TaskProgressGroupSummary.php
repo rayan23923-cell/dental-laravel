@@ -165,6 +165,10 @@ class TaskProgressGroupSummary
                     // (re)print the start receipt at any time,
                     // not only at the moment of starting.
                     'started_by' => $instance?->assignedBy?->full_name,
+                    // "شكرا، تم توثيقه ورقياً" (2026-08-28) — purely
+                    // informational; drives a badge/button on the
+                    // client only, never gates the electronic form.
+                    'paper_case_sheet_confirmed_at' => $instance?->paper_case_sheet_confirmed_at,
                 ];
             }
         }

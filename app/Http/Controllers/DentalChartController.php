@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\DentalChart;
 use App\Models\Doctor;
 use App\Services\CaseSheetAccess;
+use App\Support\CaseSheetSupervisorFields;
 use App\Support\OperativeForm;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -86,6 +87,7 @@ class DentalChartController extends Controller
             // Staff view but never save (App\Services\CaseSheetAccess);
             // the original disables every input for them.
             'readonly' => $readonly || CaseSheetAccess::isViewOnly(),
+            'supervisorEditableFields' => CaseSheetAccess::isViewOnly() ? CaseSheetSupervisorFields::fieldsFor('dental-charts') : [],
             'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
             'taskId' => $record?->task_id ?? $taskId,
         ]);

@@ -58,6 +58,8 @@ class PreventionRecordController extends Controller
             'task_id' => ['nullable', 'integer'],
             'patient_data' => ['nullable', 'string'],
             'examination_data' => ['nullable', 'string'],
+            'supervisor_notes' => ['nullable', 'string'],
+            'supervisor_signature' => ['nullable', 'string'],
         ];
 
         if ($partial) {

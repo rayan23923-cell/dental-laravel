@@ -36,9 +36,20 @@ use Illuminate\Support\Facades\Auth;
  */
 class CaseSheetAccess
 {
+    /**
+     * Checks the web session's `doctor` guard first (the original context
+     * this whole class was built for), falling back to the current
+     * request's Sanctum-authenticated principal (2026-08-28, added when
+     * `EnforceCaseSheetAccess` was applied to `routes/api.php` too — the
+     * mobile API has no `doctor` guard session at all; a Doctor
+     * authenticates there as `$request->user()` directly, same as
+     * `Api\CaseSheetController::open()` already checks). The web path
+     * always resolves first and short-circuits, so this changes nothing
+     * for existing web behavior.
+     */
     public static function doctor(): ?Doctor
     {
-        $doctor = Auth::guard('doctor')->user();
+        $doctor = Auth::guard('doctor')->user() ?? request()?->user();
 
         return $doctor instanceof Doctor ? $doctor : null;
     }

@@ -19,6 +19,7 @@ class DentalChartResource extends JsonResource
             'patient_occupation' => $this->patient_occupation,
             'doctor_id' => $this->doctor_id,
             'task_instances_id' => $this->task_instances_id,
+            'task_id' => $this->task_id,
             'chart_type' => $this->chart_type,
             'visit_date' => $this->visit_date,
             'notes' => $this->notes,
@@ -34,6 +35,12 @@ class DentalChartResource extends JsonResource
             'treatment_plan_date' => $this->treatment_plan_date,
             'treatment_plan_notes' => $this->treatment_plan_notes,
             'senior_doctor_name' => $this->senior_doctor_name,
+            // Real gap found and fixed alongside the validation-rule gap in
+            // Api\DentalChartController::validateChart() — this resource
+            // never exposed the value at all, so even once a save worked a
+            // client had no way to read it back (e.g. to show what's
+            // already there before editing).
+            'senior_signature' => $this->senior_signature,
             'doctor' => $this->whenLoaded('doctor', fn () => [
                 'id' => $this->doctor->id,
                 'name' => $this->doctor->name,

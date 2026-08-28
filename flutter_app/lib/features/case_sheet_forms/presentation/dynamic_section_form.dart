@@ -43,6 +43,7 @@ class DynamicSectionForm extends StatefulWidget {
     required this.record,
     required this.readonly,
     required this.onSubmit,
+    this.supervisorEditableFields = const [],
   });
 
   final CaseSheetFormSchema schema;
@@ -52,11 +53,20 @@ class DynamicSectionForm extends StatefulWidget {
   final bool readonly;
   final Future<void> Function(Map<String, dynamic> payload) onSubmit;
 
+  /// This viewer's own supervisor-editable fields (mirrors
+  /// `App\Support\CaseSheetSupervisorFields` — empty for a doctor's own
+  /// edit, populated only for a staff viewer via
+  /// `Api\CaseSheetController::open()`'s `supervisor_editable_fields`).
+  /// A field in this list stays editable even though [readonly] is true,
+  /// per the supervisor-preview feature (2026-08-28): staff may view but
+  /// never save, except these.
+  final List<String> supervisorEditableFields;
+
   @override
-  State<DynamicSectionForm> createState() => _DynamicSectionFormState();
+  State<DynamicSectionForm> createState() => DynamicSectionFormState();
 }
 
-class _DynamicSectionFormState extends State<DynamicSectionForm> {
+class DynamicSectionFormState extends State<DynamicSectionForm> {
   final _formKey = GlobalKey<FormState>();
   final Map<String, dynamic> _values = {};
   final Map<String, Map<String, dynamic>> _groupOriginals = {};
@@ -179,6 +189,43 @@ class _DynamicSectionFormState extends State<DynamicSectionForm> {
     return payload;
   }
 
+  /// A field stays locked under `readonly` unless it's one of this
+  /// viewer's own supervisor-editable fields (empty for a doctor, so this
+  /// is a no-op for them). Grouped subkeys aren't part of any resource's
+  /// supervisor-field list today, so `field.key` (not `formKey`) is the
+  /// right comparison — mirrors `SectionedForm.vue`'s `fieldDisabled()`.
+  bool fieldDisabled(CaseSheetField field) =>
+      widget.readonly && !widget.supervisorEditableFields.contains(field.key);
+
+  /// The Save button was unconditionally hidden under `readonly` —
+  /// correct while staff were fully locked out, but a supervisor with
+  /// actual editable fields needs it to save those.
+  bool get canSubmit => !widget.readonly || widget.supervisorEditableFields.isNotEmpty;
+
+  /// Public entry point for "مسح رمز المريض" (2026-08-28) —
+  /// `CaseSheetFormScreen` calls this via a `GlobalKey<DynamicSectionFormState>`
+  /// after resolving a scanned patient-registration QR, once per mapped
+  /// field. Only fills a field that's currently blank — never overwrites
+  /// something already typed, per the user's own framing of this feature.
+  /// `formKey` (not `field.key`) is the right address here: it's exactly
+  /// what `_values`/`_controllers` are keyed by, grouped fields included
+  /// (mirrors `SectionedForm.vue`'s `form[key]` target).
+  void setFieldIfBlank(String formKey, String value) {
+    final current = _values[formKey];
+    final isBlank = current == null || (current is String && current.isEmpty);
+    if (!isBlank) return;
+
+    final controller = _controllers[formKey];
+    if (controller != null) {
+      // Setting .text already repaints this field; onChanged only fires
+      // on user interaction, so _values needs updating here too.
+      controller.text = value;
+      _values[formKey] = value;
+    } else {
+      setState(() => _values[formKey] = value);
+    }
+  }
+
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? true)) return;
 
@@ -205,7 +252,7 @@ class _DynamicSectionFormState extends State<DynamicSectionForm> {
               readOnly: widget.readonly,
               onChanged: (next) => setState(() => _chartValue = next),
             ),
-          if (!widget.readonly) ...[
+          if (canSubmit) ...[
             const SizedBox(height: 8),
             FilledButton(
               onPressed: _submitting ? null : _submit,
@@ -223,7 +270,7 @@ class _DynamicSectionFormState extends State<DynamicSectionForm> {
 class _SectionCard extends StatelessWidget {
   const _SectionCard({required this.section, required this.state});
   final CaseSheetSection section;
-  final _DynamicSectionFormState state;
+  final DynamicSectionFormState state;
 
   @override
   Widget build(BuildContext context) {
@@ -254,7 +301,7 @@ class _SectionCard extends StatelessWidget {
 class _FieldWidget extends StatelessWidget {
   const _FieldWidget({required this.field, required this.state});
   final CaseSheetField field;
-  final _DynamicSectionFormState state;
+  final DynamicSectionFormState state;
 
   @override
   Widget build(BuildContext context) {
@@ -307,7 +354,7 @@ class _FieldLabel extends StatelessWidget {
 class _TextField extends StatelessWidget {
   const _TextField({required this.field, required this.state, required this.multiline});
   final CaseSheetField field;
-  final _DynamicSectionFormState state;
+  final DynamicSectionFormState state;
   final bool multiline;
 
   @override
@@ -318,7 +365,7 @@ class _TextField extends StatelessWidget {
         _FieldLabel(field: field),
         TextFormField(
           controller: state._controllers[field.formKey],
-          enabled: !state.widget.readonly,
+          enabled: !state.fieldDisabled(field),
           maxLines: multiline ? 3 : 1,
           keyboardType: field.type == 'number'
               ? TextInputType.number
@@ -342,7 +389,7 @@ class _TextField extends StatelessWidget {
 class _BooleanField extends StatefulWidget {
   const _BooleanField({required this.field, required this.state});
   final CaseSheetField field;
-  final _DynamicSectionFormState state;
+  final DynamicSectionFormState state;
 
   @override
   State<_BooleanField> createState() => _BooleanFieldState();
@@ -356,7 +403,7 @@ class _BooleanFieldState extends State<_BooleanField> {
       contentPadding: EdgeInsets.zero,
       title: Text(widget.field.label),
       value: value,
-      onChanged: widget.state.widget.readonly
+      onChanged: widget.state.fieldDisabled(widget.field)
           ? null
           : (v) => setState(() => widget.state._values[widget.field.formKey] = v),
     );
@@ -366,7 +413,7 @@ class _BooleanFieldState extends State<_BooleanField> {
 class _SelectField extends StatefulWidget {
   const _SelectField({required this.field, required this.state});
   final CaseSheetField field;
-  final _DynamicSectionFormState state;
+  final DynamicSectionFormState state;
 
   @override
   State<_SelectField> createState() => _SelectFieldState();
@@ -389,7 +436,7 @@ class _SelectFieldState extends State<_SelectField> {
             const DropdownMenuItem(value: null, child: Text('— اختر —')),
             for (final o in widget.field.options) DropdownMenuItem(value: o.value, child: Text(o.label)),
           ],
-          onChanged: widget.state.widget.readonly
+          onChanged: widget.state.fieldDisabled(widget.field)
               ? null
               : (v) => setState(() => widget.state._values[widget.field.formKey] = v ?? ''),
           validator: widget.field.required ? (v) => (v == null || v.isEmpty) ? 'هذا الحقل مطلوب' : null : null,
@@ -402,7 +449,7 @@ class _SelectFieldState extends State<_SelectField> {
 class _RadioField extends StatefulWidget {
   const _RadioField({required this.field, required this.state});
   final CaseSheetField field;
-  final _DynamicSectionFormState state;
+  final DynamicSectionFormState state;
 
   @override
   State<_RadioField> createState() => _RadioFieldState();
@@ -419,7 +466,7 @@ class _RadioFieldState extends State<_RadioField> {
         RadioGroup<String>(
           groupValue: value,
           onChanged: (v) {
-            if (widget.state.widget.readonly) return;
+            if (widget.state.fieldDisabled(widget.field)) return;
             setState(() => widget.state._values[widget.field.formKey] = v ?? '');
           },
           child: Wrap(
@@ -427,7 +474,7 @@ class _RadioFieldState extends State<_RadioField> {
             children: [
               for (final o in widget.field.options)
                 InkWell(
-                  onTap: widget.state.widget.readonly
+                  onTap: widget.state.fieldDisabled(widget.field)
                       ? null
                       : () => setState(() => widget.state._values[widget.field.formKey] = o.value),
                   child: Row(
@@ -449,7 +496,7 @@ class _RadioFieldState extends State<_RadioField> {
 class _CheckboxesField extends StatefulWidget {
   const _CheckboxesField({required this.field, required this.state});
   final CaseSheetField field;
-  final _DynamicSectionFormState state;
+  final DynamicSectionFormState state;
 
   @override
   State<_CheckboxesField> createState() => _CheckboxesFieldState();
@@ -470,7 +517,7 @@ class _CheckboxesFieldState extends State<_CheckboxesField> {
               FilterChip(
                 label: Text(o.label),
                 selected: value.contains(o.value),
-                onSelected: widget.state.widget.readonly
+                onSelected: widget.state.fieldDisabled(widget.field)
                     ? null
                     : (selected) => setState(() {
                           final next = List<String>.from(value);
@@ -488,7 +535,7 @@ class _CheckboxesFieldState extends State<_CheckboxesField> {
 class _DateField extends StatefulWidget {
   const _DateField({required this.field, required this.state});
   final CaseSheetField field;
-  final _DynamicSectionFormState state;
+  final DynamicSectionFormState state;
 
   @override
   State<_DateField> createState() => _DateFieldState();
@@ -503,7 +550,7 @@ class _DateFieldState extends State<_DateField> {
       children: [
         _FieldLabel(field: widget.field),
         InkWell(
-          onTap: widget.state.widget.readonly ? null : () => _pick(context, value),
+          onTap: widget.state.fieldDisabled(widget.field) ? null : () => _pick(context, value),
           child: InputDecorator(
             decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true, suffixIcon: Icon(Icons.calendar_today, size: 18)),
             child: Text(value.isEmpty ? '— اختر تاريخًا —' : value),
@@ -530,7 +577,7 @@ class _DateFieldState extends State<_DateField> {
 class _TimeField extends StatefulWidget {
   const _TimeField({required this.field, required this.state});
   final CaseSheetField field;
-  final _DynamicSectionFormState state;
+  final DynamicSectionFormState state;
 
   @override
   State<_TimeField> createState() => _TimeFieldState();
@@ -545,7 +592,7 @@ class _TimeFieldState extends State<_TimeField> {
       children: [
         _FieldLabel(field: widget.field),
         InkWell(
-          onTap: widget.state.widget.readonly ? null : () => _pick(context, value),
+          onTap: widget.state.fieldDisabled(widget.field) ? null : () => _pick(context, value),
           child: InputDecorator(
             decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true, suffixIcon: Icon(Icons.access_time, size: 18)),
             child: Text(value.isEmpty ? '— اختر وقتًا —' : value),
@@ -572,7 +619,7 @@ class _TimeFieldState extends State<_TimeField> {
 class _DentalChartFieldWidget extends StatefulWidget {
   const _DentalChartFieldWidget({required this.field, required this.state});
   final CaseSheetField field;
-  final _DynamicSectionFormState state;
+  final DynamicSectionFormState state;
 
   @override
   State<_DentalChartFieldWidget> createState() => _DentalChartFieldWidgetState();
@@ -587,7 +634,7 @@ class _DentalChartFieldWidgetState extends State<_DentalChartFieldWidget> {
       children: [
         _FieldLabel(field: widget.field),
         IgnorePointer(
-          ignoring: widget.state.widget.readonly,
+          ignoring: widget.state.fieldDisabled(widget.field),
           child: ToothOdontogramField(
             value: value,
             onChanged: (next) => setState(() => widget.state._values[widget.field.formKey] = next),
@@ -601,7 +648,7 @@ class _DentalChartFieldWidgetState extends State<_DentalChartFieldWidget> {
 class _EndodonticsFieldWidget extends StatefulWidget {
   const _EndodonticsFieldWidget({required this.field, required this.state});
   final CaseSheetField field;
-  final _DynamicSectionFormState state;
+  final DynamicSectionFormState state;
 
   @override
   State<_EndodonticsFieldWidget> createState() => _EndodonticsFieldWidgetState();
@@ -615,7 +662,7 @@ class _EndodonticsFieldWidgetState extends State<_EndodonticsFieldWidget> {
     // own header row ("سجل علاج عصب الأسنان" + the enable toggle) already
     // serves as the label, and showing both would just duplicate it.
     return IgnorePointer(
-      ignoring: widget.state.widget.readonly,
+      ignoring: widget.state.fieldDisabled(widget.field),
       child: EndodonticsField(
         value: value,
         onChanged: (next) => setState(() => widget.state._values[widget.field.formKey] = next),
@@ -633,7 +680,7 @@ class _EndodonticsFieldWidgetState extends State<_EndodonticsFieldWidget> {
 class _UnsupportedField extends StatelessWidget {
   const _UnsupportedField({required this.field, required this.state});
   final CaseSheetField field;
-  final _DynamicSectionFormState state;
+  final DynamicSectionFormState state;
 
   @override
   Widget build(BuildContext context) {

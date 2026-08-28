@@ -13,6 +13,15 @@ class PatientRegistrationResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'phone' => $this->phone,
+            // Added 2026-08-28 for the case-sheet QR-autofill feature — the
+            // scan flow only ever exposed name/phone before, but the doctor
+            // form fields (age/sex/address/occupation) reception already
+            // captured these at registration time, per
+            // App\Support\CaseSheetPatientFieldMap.
+            'age' => $this->age,
+            'sex' => $this->sex,
+            'address' => $this->address,
+            'occupation' => $this->occupation,
             'service_id' => $this->service_id,
             'register_day_id' => $this->register_day_id,
             'task_id' => $this->task_id,

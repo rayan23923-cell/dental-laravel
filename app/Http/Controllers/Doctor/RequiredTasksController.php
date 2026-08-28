@@ -58,6 +58,11 @@ class RequiredTasksController extends Controller
                             'completion_date' => $instance?->completion_date,
                             'notes' => $instance?->notes,
                             'grade' => $instance?->grade,
+                            // "شكرا، تم توثيقه ورقياً" (2026-08-28) — purely
+                            // informational, drives the badge/button state
+                            // only; never gates the electronic form link
+                            // above it.
+                            'paper_case_sheet_confirmed_at' => $instance?->paper_case_sheet_confirmed_at,
                         ];
                     }
 

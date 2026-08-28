@@ -15,6 +15,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/nfc/nfc_uid_reader.dart';
 import '../../../core/pdf/pdf_letterhead.dart';
 import '../../../core/widgets/academic_year_banner.dart';
+import '../../case_sheet_forms/data/case_sheet_record_repository.dart';
 import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../../patient_registration/domain/registration_payment_state.dart';
 import '../../printing/data/pos_printer_service.dart';
@@ -367,6 +368,41 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(message)));
+      }
+    }
+  }
+
+  /// "معاينة الكيس شيت" (2026-08-28) — nothing in this staff/admin screen
+  /// could open a case sheet at all before this; `openFor()` resolves
+  /// which of the 8 resources this case's task uses, whether a record
+  /// already exists, and (staff-only) this viewer's `readonly`/
+  /// `supervisor_editable_fields` — see `Api\CaseSheetController::open()`.
+  /// A supervisor previews an *existing* filled sheet only: if the doctor
+  /// hasn't started filling one in yet, there's nothing to preview or
+  /// annotate (staff can't create a record, only edit the 2 supervisor
+  /// fields on one that exists), so this shows a message instead of
+  /// navigating to a blank create screen.
+  Future<void> _openCaseSheetPreview(TaskSlotCard card) async {
+    try {
+      final result = await ref.read(caseSheetRecordRepositoryProvider).openFor(card.instanceId!);
+      if (!mounted) return;
+      if (result.recordId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('لم يبدأ الطبيب تعبئة النموذج بعد.')),
+        );
+        return;
+      }
+      final fields = result.supervisorEditableFields.join(',');
+      context.push(
+        '/case-sheets/${result.resource}/${result.recordId}'
+        '?task_instances_id=${card.instanceId}'
+        '&readonly=${result.readonly ? 1 : 0}'
+        '${fields.isEmpty ? '' : '&supervisor_fields=$fields'}',
+      );
+    } catch (e) {
+      if (mounted) {
+        final message = e is ApiException ? e.userMessage : 'تعذر فتح النموذج.';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     }
   }
@@ -937,6 +973,14 @@ class _TaskSlotTile extends StatelessWidget {
                 TextButton(
                   onPressed: () => screen._editInstance(card),
                   child: const Text('تعديل'),
+                ),
+              // "معاينة الكيس شيت" — staff/admin's view of the doctor's
+              // own case sheet (readonly, except the resource's supervisor
+              // notes/signature fields — see _openCaseSheetPreview above).
+              if (card.instanceId != null)
+                TextButton(
+                  onPressed: () => screen._openCaseSheetPreview(card),
+                  child: const Text('معاينة الكيس شيت'),
                 ),
               // Reprintable any time after starting — not just at the
               // moment `_startTask` first runs (a lost/damaged receipt, or

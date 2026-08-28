@@ -12,6 +12,7 @@ class PeriodontalChartResource extends JsonResource
         return [
             'id' => $this->id,
             'task_instances_id' => $this->task_instances_id,
+            'task_id' => $this->task_id,
             'patient_id' => $this->patient_id,
             'doctor_id' => $this->doctor_id,
             'student_name' => $this->student_name,

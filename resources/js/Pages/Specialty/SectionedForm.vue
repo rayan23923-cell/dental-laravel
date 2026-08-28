@@ -19,9 +19,11 @@ import TeethSquaresGrid from '@/Components/TeethSquaresGrid.vue';
 import QuadrantRepeater from '@/Components/QuadrantRepeater.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
+import QrScanner from '@/Components/QrScanner.vue';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
-import { computed, reactive, ref } from 'vue';
+import { computed, nextTick, reactive, ref } from 'vue';
 import Icon from '@/Components/Icon.vue';
+import axios from 'axios';
 
 /**
  * Shared renderer for the faithfully-ported case sheets. Each specialty
@@ -58,6 +60,12 @@ const props = defineProps({
     // Sheets whose only actor is a parent record rather than a doctor
     // (surgery satellites, treatment plans) hide the doctor selector.
     hideDoctor: Boolean,
+    // The resource's own supervisor-editable fields (App\Support\
+    // CaseSheetSupervisorFields), populated server-side only for a staff
+    // viewer — a doctor's own edit always gets []. These stay editable
+    // even though `readonly` is true for staff, per the supervisor-preview
+    // feature (2026-08-28): staff may view but never save, except these.
+    supervisorEditableFields: { type: Array, default: () => [] },
 });
 
 const page = usePage();
@@ -97,6 +105,61 @@ const Layout = computed(() => (isDoctor.value ? DoctorLayout : AuthenticatedLayo
 // Staff open every sheet read-only (the original's "View Only Mode"); the
 // server sets `readonly` for them, this only explains why.
 const staffViewOnly = computed(() => props.readonly && !isDoctor.value);
+
+// "مسح رمز المريض" (2026-08-28) — autofills the patient-identity fields
+// reception already captured at registration, read from the same ticket QR
+// used elsewhere (payments, task start). Per-resource because each of the
+// 8 sheets names these columns differently — confirmed against every
+// model's own $fillable rather than assumed uniform. `prevention-records`
+// packs its patient fields into the `patient_data` JSON group instead of
+// real columns, so its map targets the grouped `patient_data__*` form keys
+// (see formKey()/the group-reassembly in submit()) — same flat `form[key]`
+// target either way, no special-casing needed at the point of use below.
+const PATIENT_FIELD_MAP = {
+    'dental-charts': { name: 'patient_id', phone: 'patient_phone', age: 'patient_age', sex: 'patient_sex', address: 'patient_address', occupation: 'patient_occupation' },
+    'oral-medicine-charts': { name: 'patient_id', phone: 'patient_phone', age: 'patient_age', sex: 'patient_sex', address: 'patient_address', occupation: 'patient_occupation' },
+    surgeries: { name: 'patient_name', phone: 'patient_phone', age: 'patient_age', sex: 'patient_gender', address: 'patient_address', occupation: 'patient_occupation' },
+    'periodontal-charts': { name: 'patient_name', phone: 'patient_phone', age: 'patient_age', sex: 'patient_gender', address: 'patient_address', occupation: 'patient_occupation' },
+    'prosthodontics-records': { name: 'patient_name', phone: 'telephone', age: 'age', sex: 'sex', address: 'address', occupation: 'occupation' },
+    'complete-denture-records': { name: 'patient_name', phone: 'telephone', age: 'age', sex: 'sex', address: 'address', occupation: 'occupation' },
+    'orthodontics-records': { name: 'patient_name', phone: 'patient_phone', age: 'patient_age', sex: 'patient_sex', address: 'patient_address' },
+    'prevention-records': { name: 'patient_data__child_name', phone: 'patient_data__phone_number', age: 'patient_data__patient_age', sex: 'patient_data__patient_gender' },
+};
+const patientFieldMap = computed(() => PATIENT_FIELD_MAP[props.resource] ?? null);
+
+const showPatientScan = ref(false);
+const patientScannerRef = ref(null);
+const patientScanError = ref('');
+
+const openPatientScan = async () => {
+    patientScanError.value = '';
+    showPatientScan.value = true;
+    await nextTick();
+    patientScannerRef.value?.start();
+};
+
+// Only fills blank fields — never overwrites something the doctor already
+// typed, per the user's own framing of this feature.
+const onPatientDecoded = async (text) => {
+    patientScanError.value = '';
+    try {
+        const { data } = await axios.post(route('patient-registrations.scan'), { payload: text });
+        const r = data.data.registration;
+        const map = patientFieldMap.value;
+        if (map) {
+            if (map.name && !form[map.name] && r.name) form[map.name] = r.name;
+            if (map.phone && !form[map.phone] && r.phone) form[map.phone] = r.phone;
+            if (map.age && !form[map.age] && r.age != null) form[map.age] = r.age;
+            if (map.sex && !form[map.sex] && r.sex) form[map.sex] = r.sex;
+            if (map.address && !form[map.address] && r.address) form[map.address] = r.address;
+            if (map.occupation && !form[map.occupation] && r.occupation) form[map.occupation] = r.occupation;
+        }
+        patientScannerRef.value?.stop();
+        showPatientScan.value = false;
+    } catch (e) {
+        patientScanError.value = e?.response?.data?.message ?? 'تعذر قراءة الرمز.';
+    }
+};
 
 /**
  * `date`-cast Eloquent columns serialise to Inertia as full ISO datetimes
@@ -295,6 +358,23 @@ const formKey = (field) => (field.group ? `${field.group}__${field.key}` : field
 
 const widthClass = (field) =>
     ({ full: 'sm:col-span-4', half: 'sm:col-span-2' }[field.width] ?? 'sm:col-span-1');
+
+// A field stays locked under `readonly` unless it's one of this viewer's
+// own supervisor-editable fields (empty for a doctor, so this is a no-op
+// for them — every field they can already touch stays exactly as gated as
+// before). Grouped subkeys aren't part of any resource's supervisor-field
+// list today, so `field.key` (not formKey()) is the right comparison.
+const fieldDisabled = (field) => props.readonly && !props.supervisorEditableFields.includes(field.key);
+
+// Same idea for the "Stages and evaluation" table, whose rows aren't part
+// of `sections` and so aren't covered by fieldDisabled() above.
+const stageFieldDisabled = (stageKey, part) =>
+    props.readonly && !props.supervisorEditableFields.includes(`stage_${stageKey}_${part}`);
+
+// The Update/Save button was unconditionally hidden under `readonly` —
+// correct while staff were fully locked out, but a supervisor with actual
+// editable fields (notes/signature/stage sign-off) needs it to save those.
+const canSubmit = computed(() => !props.readonly || props.supervisorEditableFields.length > 0);
 </script>
 
 <template>
@@ -329,6 +409,18 @@ const widthClass = (field) =>
                         class="inline-flex items-center rounded-md bg-cyan-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-cyan-700"
                     >
                         <Icon name="qr_code_2" class="ml-1" />رمز QR
+                    </button>
+                    <!-- Autofill patient-identity fields from the same
+                         registration ticket QR used for payment/screening,
+                         instead of retyping what reception already
+                         captured. -->
+                    <button
+                        v-if="!readonly && patientFieldMap"
+                        type="button"
+                        @click="openPatientScan"
+                        class="inline-flex items-center rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
+                    >
+                        <Icon name="qr_code_scanner" class="ml-1" />مسح رمز المريض
                     </button>
                     <Link :href="route(`${resource}.index`)" class="text-sm text-indigo-600 hover:underline">Back to list</Link>
                 </div>
@@ -391,7 +483,7 @@ const widthClass = (field) =>
                                 <div v-if="fieldVisible(field)" :class="widthClass(field)">
                                     <!-- Boolean -->
                                     <label v-if="field.type === 'boolean'" class="flex items-center gap-2 pt-6 text-sm text-gray-700">
-                                        <input type="checkbox" v-model="form[formKey(field)]" :disabled="readonly" class="rounded border-gray-300" />
+                                        <input type="checkbox" v-model="form[formKey(field)]" :disabled="fieldDisabled(field)" class="rounded border-gray-300" />
                                         {{ field.label }}
                                     </label>
 
@@ -402,7 +494,7 @@ const widthClass = (field) =>
                                             v-if="field.type === 'select'"
                                             :id="formKey(field)"
                                             v-model="form[formKey(field)]"
-                                            :disabled="readonly"
+                                            :disabled="fieldDisabled(field)"
                                             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         >
                                             <option value="">— Select —</option>
@@ -411,7 +503,7 @@ const widthClass = (field) =>
 
                                         <div v-else-if="field.type === 'radio'" class="mt-2 flex flex-wrap gap-4">
                                             <label v-for="o in field.options" :key="o.value" class="flex items-center gap-1 text-sm text-gray-700">
-                                                <input type="radio" :value="o.value" v-model="form[formKey(field)]" :disabled="readonly" class="border-gray-300" />
+                                                <input type="radio" :value="o.value" v-model="form[formKey(field)]" :disabled="fieldDisabled(field)" class="border-gray-300" />
                                                 {{ o.label }}
                                             </label>
                                         </div>
@@ -422,7 +514,7 @@ const widthClass = (field) =>
                                                     type="checkbox"
                                                     :value="o.value"
                                                     :checked="(form[formKey(field)] ?? []).includes(o.value)"
-                                                    :disabled="readonly"
+                                                    :disabled="fieldDisabled(field)"
                                                     class="rounded border-gray-300"
                                                     @change="
                                                         form[formKey(field)] = $event.target.checked
@@ -438,7 +530,7 @@ const widthClass = (field) =>
                                             v-else-if="field.type === 'lookup'"
                                             :id="formKey(field)"
                                             v-model="form[formKey(field)]"
-                                            :disabled="readonly"
+                                            :disabled="fieldDisabled(field)"
                                             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                             :required="field.required"
                                         >
@@ -453,7 +545,7 @@ const widthClass = (field) =>
                                                 class="mb-2 h-32 rounded border object-contain"
                                             />
                                             <input
-                                                v-if="!readonly"
+                                                v-if="!fieldDisabled(field)"
                                                 :id="formKey(field)"
                                                 type="file"
                                                 accept="image/*"
@@ -465,21 +557,21 @@ const widthClass = (field) =>
                                         <QuadrantTeeth
                                             v-else-if="field.type === 'teeth'"
                                             v-model="form[formKey(field)]"
-                                            :disabled="readonly"
+                                            :disabled="fieldDisabled(field)"
                                             class="mt-1"
                                         />
 
                                         <ToothOdontogram
                                             v-else-if="field.type === 'dental_chart'"
                                             v-model="form[formKey(field)]"
-                                            :disabled="readonly"
+                                            :disabled="fieldDisabled(field)"
                                             class="mt-1"
                                         />
 
                                         <EndodonticsSection
                                             v-else-if="field.type === 'endodontics'"
                                             v-model="form[formKey(field)]"
-                                            :disabled="readonly"
+                                            :disabled="fieldDisabled(field)"
                                             class="mt-1"
                                         />
 
@@ -492,13 +584,13 @@ const widthClass = (field) =>
                                         <TeethSquaresGrid
                                             v-else-if="field.type === 'teeth_squares_grid'"
                                             v-model="form[formKey(field)]"
-                                            :disabled="readonly"
+                                            :disabled="fieldDisabled(field)"
                                             class="mt-1"
                                         />
                                         <QuadrantRepeater
                                             v-else-if="field.type === 'quadrant_repeater'"
                                             v-model="form[formKey(field)]"
-                                            :disabled="readonly"
+                                            :disabled="fieldDisabled(field)"
                                             :item-label="field.itemLabel"
                                             :info-label="field.infoLabel"
                                             class="mt-1"
@@ -511,38 +603,38 @@ const widthClass = (field) =>
                                         <HistoryOfComplaintSection
                                             v-else-if="field.type === 'history_complaint'"
                                             v-model="form[formKey(field)]"
-                                            :disabled="readonly"
+                                            :disabled="fieldDisabled(field)"
                                             class="mt-1"
                                         />
                                         <ValueDetailsChecklist
                                             v-else-if="field.type === 'pmh_checklist'"
                                             v-model="form[formKey(field)]"
                                             :items="field.options"
-                                            :disabled="readonly"
+                                            :disabled="fieldDisabled(field)"
                                             class="mt-1"
                                         />
                                         <SurgicalHistorySection
                                             v-else-if="field.type === 'surgical_history'"
                                             v-model="form[formKey(field)]"
-                                            :disabled="readonly"
+                                            :disabled="fieldDisabled(field)"
                                             class="mt-1"
                                         />
                                         <FamilyHistorySection
                                             v-else-if="field.type === 'family_history'"
                                             v-model="form[formKey(field)]"
-                                            :disabled="readonly"
+                                            :disabled="fieldDisabled(field)"
                                             class="mt-1"
                                         />
                                         <SocialHistorySection
                                             v-else-if="field.type === 'social_history'"
                                             v-model="form[formKey(field)]"
-                                            :disabled="readonly"
+                                            :disabled="fieldDisabled(field)"
                                             class="mt-1"
                                         />
                                         <ExtraoralIntraoralExam
                                             v-else-if="field.type === 'extraoral_exam'"
                                             v-model="form[formKey(field)]"
-                                            :disabled="readonly"
+                                            :disabled="fieldDisabled(field)"
                                             class="mt-1"
                                         />
 
@@ -550,7 +642,7 @@ const widthClass = (field) =>
                                             v-else-if="field.type === 'textarea'"
                                             :id="formKey(field)"
                                             v-model="form[formKey(field)]"
-                                            :disabled="readonly"
+                                            :disabled="fieldDisabled(field)"
                                             rows="3"
                                             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         ></textarea>
@@ -561,7 +653,7 @@ const widthClass = (field) =>
                                             v-model="form[formKey(field)]"
                                             :type="['number', 'date', 'time'].includes(field.type) ? field.type : field.type === 'decimal' ? 'number' : 'text'"
                                             :step="field.type === 'decimal' ? '0.01' : undefined"
-                                            :disabled="readonly"
+                                            :disabled="fieldDisabled(field)"
                                             class="mt-1 block w-full"
                                             :required="field.required"
                                         />
@@ -596,13 +688,13 @@ const widthClass = (field) =>
                                             <div v-if="stage.note" class="text-xs text-gray-400">{{ stage.note }}</div>
                                         </td>
                                         <td class="px-4 py-2">
-                                            <TextInput v-model="form[`stage_${stage.key}_signature`]" type="text" :disabled="readonly" class="block w-full text-sm" />
+                                            <TextInput v-model="form[`stage_${stage.key}_signature`]" type="text" :disabled="stageFieldDisabled(stage.key, 'signature')" class="block w-full text-sm" />
                                         </td>
                                         <td class="px-4 py-2">
-                                            <TextInput v-model="form[`stage_${stage.key}_date`]" type="date" :disabled="readonly" class="block w-full text-sm" />
+                                            <TextInput v-model="form[`stage_${stage.key}_date`]" type="date" :disabled="stageFieldDisabled(stage.key, 'date')" class="block w-full text-sm" />
                                         </td>
                                         <td class="px-4 py-2">
-                                            <TextInput v-model="form[`stage_${stage.key}_grade`]" type="text" :disabled="readonly" placeholder="e.g. 9/10" class="block w-full text-sm" />
+                                            <TextInput v-model="form[`stage_${stage.key}_grade`]" type="text" :disabled="stageFieldDisabled(stage.key, 'grade')" placeholder="e.g. 9/10" class="block w-full text-sm" />
                                         </td>
                                     </tr>
                                 </tbody>
@@ -625,7 +717,7 @@ const widthClass = (field) =>
                         </div>
                     </div>
 
-                    <div v-if="!readonly" class="flex justify-end">
+                    <div v-if="canSubmit" class="flex justify-end">
                         <PrimaryButton :disabled="form.processing">{{ isEdit ? 'Update' : 'Save' }}</PrimaryButton>
                     </div>
                 </form>
@@ -646,6 +738,20 @@ const widthClass = (field) =>
                 <p class="mt-3 text-sm text-gray-500">امسح هذا الرمز لإعادة فتح هذه الحالة مباشرة.</p>
                 <div class="mt-6 flex justify-center">
                     <SecondaryButton @click="showQr = false">إغلاق</SecondaryButton>
+                </div>
+            </div>
+        </Modal>
+
+        <Modal :show="showPatientScan" @close="showPatientScan = false">
+            <div class="p-6">
+                <h3 class="text-lg font-medium text-gray-900"><Icon name="qr_code_scanner" class="ml-1" />مسح رمز المريض</h3>
+                <p class="mt-1 text-sm text-gray-500">امسح رمز تذكرة المريض لتعبئة الحقول الفارغة تلقائياً.</p>
+                <div class="mt-4">
+                    <QrScanner v-if="showPatientScan" ref="patientScannerRef" @decoded="onPatientDecoded" />
+                </div>
+                <div v-if="patientScanError" class="mt-3 rounded-md bg-red-50 p-2 text-sm text-red-700">{{ patientScanError }}</div>
+                <div class="mt-6 flex justify-center">
+                    <SecondaryButton @click="showPatientScan = false">إغلاق</SecondaryButton>
                 </div>
             </div>
         </Modal>

@@ -9,6 +9,7 @@ use App\Models\Task;
 use App\Models\TaskInstance;
 use App\Services\PermissionManager;
 use App\Support\CaseSheetResolver;
+use App\Support\CaseSheetSupervisorFields;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -48,6 +49,17 @@ class CaseSheetController extends Controller
                 'name_ar' => $caseSheetType->name_ar,
                 'name_en' => $caseSheetType->name_en,
             ] : null,
+            // Staff view but never save (App\Services\CaseSheetAccess) —
+            // except these fields, which only staff may edit. A doctor
+            // (who owns and can save the rest of the record) always gets
+            // an empty list here, matching the web equivalent in each of
+            // the 8 resource controllers' form().
+            'supervisor_editable_fields' => $principal instanceof Doctor ? [] : CaseSheetSupervisorFields::fieldsFor($resource),
+            // Mirrors the web `readonly` prop (`$readonly || CaseSheetAccess
+            // ::isViewOnly()`) — Flutter has no server-rendered readonly
+            // flag of its own otherwise, so this is the one place it learns
+            // whether the current viewer may save at all.
+            'readonly' => ! $principal instanceof Doctor,
         ]);
     }
 

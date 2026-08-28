@@ -7,6 +7,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/qr_dialog.dart';
 import '../../case_sheet_forms/data/case_sheet_record_repository.dart';
 import '../../task_progress_admin/domain/task_progress_group.dart';
+import '../data/task_instance_repository.dart';
 import '../domain/my_task_department.dart';
 import 'task_instances_providers.dart';
 
@@ -201,6 +202,39 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
     }
   }
 
+  /// "تأكيد أنه ورقي" (2026-08-28) — non-exclusive, never hides or
+  /// disables the electronic "نموذج سريري" button next to it; see
+  /// `Api\TaskInstanceController::confirmPaper()`'s doc comment.
+  Future<void> _confirmPaper() async {
+    final instanceId = slot.instanceId;
+    if (instanceId == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: const Text('تأكيد أن هذه الحالة موثّقة على نسخة ورقية؟'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('تأكيد')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await ref.read(taskInstanceRepositoryProvider).confirmPaper(instanceId);
+      invalidateTaskInstance(ref, instanceId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تأكيد توثيق الحالة ورقياً.')));
+      }
+    } catch (e) {
+      if (mounted) {
+        final message = e is ApiException ? e.userMessage : 'تعذر الحفظ.';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    }
+  }
+
   Color _statusColor(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return switch (slot.status) {
@@ -250,6 +284,24 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
           ),
           if (parsedDate != null) Text(dateFormat.format(parsedDate)),
           if (slot.notes != null && slot.notes!.isNotEmpty) Text(slot.notes!),
+          // "تأكيد أنه ورقي" — only meaningful once the case has a real
+          // instance (an unstarted slot's optional draft isn't a
+          // documented case yet).
+          if (slot.instanceId != null && slot.paperCaseSheetConfirmedAt != null)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(Icons.check_circle, size: 14, color: Colors.amber),
+                SizedBox(width: 4),
+                Text('موثّق ورقياً', style: TextStyle(fontSize: 12)),
+              ],
+            )
+          else if (slot.instanceId != null)
+            TextButton(
+              style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0), visualDensity: VisualDensity.compact),
+              onPressed: _confirmPaper,
+              child: const Text('تأكيد أنه ورقي', style: TextStyle(fontSize: 12)),
+            ),
         ],
       ),
       // QR always shown — even an unstarted slot has one, since scanning

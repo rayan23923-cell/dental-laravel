@@ -34,6 +34,8 @@ class OralMedicineChart extends Model
         'history_of_complaint',
         'investigations_diagnosis',
         'student_visits',
+        'supervisor_notes',
+        'supervisor_signature',
     ];
 
     protected function casts(): array

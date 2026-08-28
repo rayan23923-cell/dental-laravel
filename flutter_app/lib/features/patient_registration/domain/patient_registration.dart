@@ -8,6 +8,10 @@ class PatientRegistration {
     required this.id,
     required this.name,
     required this.phone,
+    required this.age,
+    required this.sex,
+    required this.address,
+    required this.occupation,
     required this.serviceId,
     required this.registerDayId,
     required this.serviceName,
@@ -28,6 +32,13 @@ class PatientRegistration {
       id: json['id'] as int,
       name: json['name'] as String? ?? '',
       phone: json['phone'] as String? ?? '',
+      // Added 2026-08-28 for case-sheet QR-autofill — reception already
+      // captures these at registration time (`patients_simple.age/sex/
+      // address/occupation`); see App\Support\CaseSheetPatientFieldMap.
+      age: json['age'] as int?,
+      sex: json['sex'] as String?,
+      address: json['address'] as String?,
+      occupation: json['occupation'] as String?,
       serviceId: json['service_id'] as int?,
       registerDayId: json['register_day_id'] as int?,
       serviceName: service?['name'] as String?,
@@ -47,6 +58,10 @@ class PatientRegistration {
   final int id;
   final String name;
   final String phone;
+  final int? age;
+  final String? sex;
+  final String? address;
+  final String? occupation;
   final int? serviceId;
   final int? registerDayId;
   final String? serviceName;

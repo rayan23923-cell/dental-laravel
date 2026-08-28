@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Doctor;
 use App\Models\OrthodonticsRecord;
 use App\Services\CaseSheetAccess;
+use App\Support\CaseSheetSupervisorFields;
 use App\Support\OrthodonticsForm;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -83,6 +84,7 @@ class OrthodonticsRecordController extends Controller
             // Staff view but never save (App\Services\CaseSheetAccess);
             // the original disables every input for them.
             'readonly' => $readonly || CaseSheetAccess::isViewOnly(),
+            'supervisorEditableFields' => CaseSheetAccess::isViewOnly() ? CaseSheetSupervisorFields::fieldsFor('orthodontics-records') : [],
             'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
             'taskId' => $record?->task_id ?? $taskId,
         ]);
@@ -98,6 +100,12 @@ class OrthodonticsRecordController extends Controller
             'patient_age' => ['nullable', 'integer', 'min:0', 'max:150'],
             'patient_sex' => ['nullable', 'in:male,female'],
             'examination_data' => ['nullable', 'string'],
+            // See App\Support\CaseSheetSupervisorFields — this table has
+            // neither a `notes` field nor a senior-signature-equivalent
+            // one of its own, so these two are new, dedicated to the
+            // supervisor-preview feature.
+            'supervisor_notes' => ['nullable', 'string'],
+            'supervisor_signature' => ['nullable', 'string'],
         ];
 
         foreach (OrthodonticsForm::sections() as $section) {

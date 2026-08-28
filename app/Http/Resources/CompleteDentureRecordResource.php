@@ -13,6 +13,7 @@ class CompleteDentureRecordResource extends JsonResource
             'id' => $this->id,
             'doctor_id' => $this->doctor_id,
             'task_instances_id' => $this->task_instances_id,
+            'task_id' => $this->task_id,
             'student_name' => $this->student_name,
             'patient_name' => $this->patient_name,
             'group_name' => $this->group_name,
