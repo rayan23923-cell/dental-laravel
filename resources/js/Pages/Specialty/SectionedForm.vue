@@ -143,7 +143,13 @@ const openPatientScan = async () => {
 const onPatientDecoded = async (text) => {
     patientScanError.value = '';
     try {
-        const { data } = await axios.post(route('patient-registrations.scan'), { payload: text });
+        // Doctor-only route (2026-08-28) — this button only ever shows for
+        // a doctor (readonly is always true for staff), and the staff-only
+        // `patient-registrations.scan` route rejects any Doctor principal
+        // outright (`EnsureUserHasPermission`'s `permission:patients,view`
+        // gate). Also enforces `PatientScreeningGate` server-side — a
+        // patient not yet screened clear can't be autofilled here either.
+        const { data } = await axios.post(route('patient-registrations.scan-for-case-sheet'), { payload: text });
         const r = data.data.registration;
         const map = patientFieldMap.value;
         if (map) {

@@ -94,6 +94,20 @@ class PatientRegistrationRepository {
     return RegistrationPaymentState.fromJson(data);
   }
 
+  /// Doctor-only twin of [scan], for the case-sheet "مسح رمز المريض"
+  /// patient-autofill button (2026-08-28) — [scan] hits a
+  /// `permission:patients,view`-gated route that rejects any Doctor
+  /// principal outright, so a doctor's own scan attempt always 403'd
+  /// ("لا تملك صلاحية لهذا الإجراء", found live on a real device). Same
+  /// response shape — also enforces `PatientScreeningGate` server-side,
+  /// so a not-yet-screened-clear patient surfaces as a normal caught
+  /// error here instead of a silent success.
+  Future<RegistrationPaymentState> scanForCaseSheet(String payload) async {
+    final data = await _client.postJson('/patient-registrations/scan-for-case-sheet', body: {'payload': payload})
+        as Map<String, dynamic>;
+    return RegistrationPaymentState.fromJson(data);
+  }
+
   /// Same response shape as [scan] — used to refresh payment state after
   /// taking a payment, without needing to re-scan the ticket.
   Future<RegistrationPaymentState> status(int registrationId) async {

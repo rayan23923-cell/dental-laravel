@@ -4307,3 +4307,36 @@ behavior, not just a workaround.
 Verified: `flutter analyze` clean project-wide. Backend verification
 (curl against the local dev server, real Sanctum tokens) covered in
 `README.md`'s matching entry.
+
+## Fixed: a doctor's "مسح رمز المريض" scan always 403'd (2026-08-28)
+
+Found live on a real device right after shipping the feature above: the
+scan screen opened correctly (confirming the earlier route-order fix
+worked) but every scan attempt returned "لا تملك صلاحية لهذا الإجراء."
+`PatientRegistrationRepository.scan()` hits a `permission:patients,view`-gated
+route that rejects any Doctor principal outright by design (see
+`README.md`'s matching entry) — no doctor session could ever have
+succeeded there, on web or Flutter.
+
+Fixed by pointing `QrScanMode.caseSheetPatientAutofill` at a new
+`PatientRegistrationRepository.scanForCaseSheet()` method (→
+`POST /patient-registrations/scan-for-case-sheet`, doctor-only, also
+enforcing `PatientScreeningGate` server-side) instead of reusing `.scan()`
+— `taskPatientLink` and `caseSheetPatientAutofill` were split into their
+own `switch` cases in `qr_scan_screen.dart` for this (previously shared
+one case, since both used to call the same repository method the same
+way). Same `RegistrationPaymentState` response shape either way, so
+nothing else in `CaseSheetFormScreen`'s autofill logic needed to change.
+
+A patient who hasn't been lab-screened yet, or came back flagged, now
+surfaces the exact `PatientScreeningGate` message
+("لا يمكن المتابعة قبل تأكيد سلامة المريض...") in the scan screen's error
+banner instead of either a permission error or a silent autofill — the
+user's own explicit requirement, matching the same gate already blocking
+payment and task-starting.
+
+Verified via curl against the local dev server (mirrors the checks in
+`README.md`'s matching entry): a doctor scanning a clear registration
+gets the full record; scanning a not-yet-clear one gets the exact
+screening-gate message instead of a permission error. `flutter analyze`
+clean project-wide.

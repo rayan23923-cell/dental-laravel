@@ -86,8 +86,12 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
           final state = await ref.read(patientRegistrationRepositoryProvider).scan(raw);
           if (mounted) context.pushReplacement('/records/patient-registrations/screening', extra: state);
         case QrScanMode.taskPatientLink:
-        case QrScanMode.caseSheetPatientAutofill:
           final state = await ref.read(patientRegistrationRepositoryProvider).scan(raw);
+          if (mounted) context.pop(state);
+        case QrScanMode.caseSheetPatientAutofill:
+          // Doctor-only route + PatientScreeningGate enforcement — see
+          // PatientRegistrationRepository.scanForCaseSheet()'s doc comment.
+          final state = await ref.read(patientRegistrationRepositoryProvider).scanForCaseSheet(raw);
           if (mounted) context.pop(state);
       }
     } catch (e) {

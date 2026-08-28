@@ -161,6 +161,12 @@ Route::name('api.')->prefix('v1')->group(function () {
         // payment state — see PatientRegistrationQrController.
         Route::post('/patient-registrations/scan', [PatientRegistrationQrController::class, 'scan'])
             ->middleware('permission:patients,view');
+        // Doctor-only twin for the case-sheet "مسح رمز المريض" autofill
+        // button (2026-08-28) — deliberately outside `permission:`, which
+        // rejects any Doctor principal outright; see
+        // PatientRegistrationQrController::scanForCaseSheet()'s doc
+        // comment.
+        Route::post('/patient-registrations/scan-for-case-sheet', [PatientRegistrationQrController::class, 'scanForCaseSheet']);
         Route::get('/patient-registrations/{patientRegistration}/qr', [PatientRegistrationQrController::class, 'show'])
             ->middleware('permission:patients,view');
         Route::get('/patient-registrations/{patientRegistration}/status', [PatientRegistrationQrController::class, 'status'])

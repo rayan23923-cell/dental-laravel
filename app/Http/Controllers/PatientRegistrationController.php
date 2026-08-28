@@ -6,11 +6,14 @@ use App\Models\PatientRegistration;
 use App\Models\RegisterDay;
 use App\Models\Service;
 use App\Models\Task;
+use App\Services\PatientScreeningException;
+use App\Services\PatientScreeningGate;
 use App\Support\QrCodeFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -167,6 +170,49 @@ class PatientRegistrationController extends Controller
 
         if (! $registration) {
             return response()->json(['message' => 'التسجيل غير موجود.'], 404);
+        }
+
+        return $this->stateResponse($registration);
+    }
+
+    /**
+     * Doctor-only twin of `scan()` above, for the case-sheet
+     * "مسح رمز المريض" patient-autofill button (2026-08-28) —
+     * `scan()`/`Api\PatientRegistrationQrController::scan()` are both
+     * gated by `permission:patients,view`, a staff-only concept
+     * (`EnsureUserHasPermission` explicitly rejects a Doctor principal
+     * rather than passing it to `PermissionManager`), so a doctor's own
+     * session could never reach either — found live via a real scan
+     * attempt on-device ("لا تملك صلاحية لهذا الإجراء"). This route sits
+     * outside that gate entirely (see the doctor-only group in
+     * `routes/web.php`) and additionally enforces `PatientScreeningGate`:
+     * a patient who hasn't been lab-screened yet, or came back flagged,
+     * must not be readable here either — the user's own explicit
+     * requirement, matching the same gate already applied to payment and
+     * task-starting.
+     */
+    public function scanForCaseSheet(Request $request): JsonResponse
+    {
+        abort_unless(Auth::guard('doctor')->check(), 403);
+
+        $request->validate(['payload' => ['required', 'string']]);
+
+        $decoded = json_decode($request->string('payload'), true);
+
+        if (! is_array($decoded) || ($decoded['type'] ?? null) !== 'patient_registration' || empty($decoded['id'])) {
+            return response()->json(['message' => 'رمز غير صالح — هذا ليس رمز تسجيل مريض.'], 422);
+        }
+
+        $registration = PatientRegistration::with(['service', 'registerDay'])->find($decoded['id']);
+
+        if (! $registration) {
+            return response()->json(['message' => 'التسجيل غير موجود.'], 404);
+        }
+
+        try {
+            PatientScreeningGate::ensureClear($registration);
+        } catch (PatientScreeningException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
         }
 
         return $this->stateResponse($registration);

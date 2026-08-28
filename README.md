@@ -5727,6 +5727,53 @@ to actually persist both columns after the `$fillable` fix.
 `php artisan schema:diagnose` still reports no drift after migrating.
 `php -l` on every touched PHP file, `npm run build` clean.
 
+## Fixed: a doctor could never use the new case-sheet "مسح رمز المريض" autofill (2026-08-28)
+
+Found live on a real device immediately after shipping the feature
+above: a doctor scanning the patient QR from inside a case sheet got
+"لا تملك صلاحية لهذا الإجراء" instead of the patient's info. Both
+`scan()` methods this reused (`PatientRegistrationController::scan()`
+web, `Api\PatientRegistrationQrController::scan()` API) are gated by
+`permission:patients,view` — a staff-only concept by design
+(`EnsureUserHasPermission`'s own docblock: "a Doctor principal reaching
+here must be denied, not passed to `PermissionManager`, [whose]
+constructor requires a User"). So no doctor session or Sanctum token
+could ever have reached either endpoint; this was never a regression in
+this feature, just the first time a doctor tried to hit a
+`patients,view`-gated route at all.
+
+Fixed with a **new, doctor-only endpoint** rather than loosening the
+existing staff one (which stays exactly as staff-scoped as before, still
+used at the payment desk): `PatientRegistrationController::scanForCaseSheet()`
+(web, doctor-guard-checked in code, registered inside the existing
+`auth:doctor` route group rather than the staff `role:`-gated one) and
+`Api\PatientRegistrationQrController::scanForCaseSheet()` (API,
+`$request->user() instanceof Doctor` checked in code, same pattern
+`TaskInstanceQrController::scan()` already uses — no `permission:`
+middleware at all). Both additionally enforce `PatientScreeningGate::ensureClear()`
+before returning any data — the user's own explicit requirement while
+reporting this bug: a patient who hasn't been lab-screened yet, or came
+back flagged, must not be readable here either, the same gate already
+blocking payment and task-starting. `SectionedForm.vue`'s
+`onPatientDecoded()` now calls the new route name
+(`patient-registrations.scan-for-case-sheet`); the Flutter equivalent is
+covered in `flutter_app/README.md`.
+
+Starting a task itself is untouched by any of this — that stays exactly
+as staff/admin-only as it always was (`TaskStarter`, gated by the
+`task_progress,start` permission via the pending-task QR flow); this scan
+is a read-only lookup for autofilling case-sheet fields, never a way to
+begin a case.
+
+**Verified via curl against the local dev server**: a doctor scanning a
+`screening_status = 'clear'` registration gets the full record back
+(age/sex/address/occupation included); scanning a `pending` one gets a
+422 with the exact `PatientScreeningGate` message; a staff token on the
+new route gets 403; a staff token on the old `patients,view` route is
+unaffected (still 200) — confirming the fix is additive, not a
+loosening of the existing staff-facing route. `php -l` on every touched
+file, `npm run build` clean.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the

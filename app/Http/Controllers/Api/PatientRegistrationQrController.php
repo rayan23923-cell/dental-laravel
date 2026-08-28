@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PatientRegistrationResource;
+use App\Models\Doctor;
 use App\Models\PatientRegistration;
+use App\Services\PatientScreeningException;
+use App\Services\PatientScreeningGate;
 use App\Support\QrCodeFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -50,6 +53,46 @@ class PatientRegistrationQrController extends Controller
         );
 
         $registration = PatientRegistration::with(['service', 'registerDay'])->findOrFail($decoded['id']);
+
+        return $this->stateResponse($registration);
+    }
+
+    /**
+     * Doctor-only twin of `scan()` above, for Flutter's case-sheet "مسح رمز
+     * المريض" patient-autofill button (2026-08-28) — `scan()` is gated by
+     * `permission:patients,view`, a staff-only concept
+     * (`EnsureUserHasPermission` explicitly rejects a Doctor principal
+     * rather than passing it to `PermissionManager`), so a doctor's own
+     * Sanctum token could never reach it — found live on a real device
+     * ("لا تملك صلاحية لهذا الإجراء"). Auth checked in code rather than via
+     * `permission:` route middleware, same pattern this controller/
+     * `TaskInstanceQrController::scan()` already use elsewhere. Also
+     * enforces `PatientScreeningGate`: a patient who hasn't been
+     * lab-screened yet, or came back flagged, must not be readable here
+     * either — the user's own explicit requirement, matching the same gate
+     * already applied to payment and task-starting.
+     */
+    public function scanForCaseSheet(Request $request): JsonResponse
+    {
+        abort_unless($request->user() instanceof Doctor, 403);
+
+        $request->validate(['payload' => ['required', 'string']]);
+
+        $decoded = json_decode($request->string('payload'), true);
+
+        abort_if(
+            ! is_array($decoded) || ($decoded['type'] ?? null) !== 'patient_registration' || empty($decoded['id']),
+            422,
+            'رمز غير صالح — هذا ليس رمز تسجيل مريض.'
+        );
+
+        $registration = PatientRegistration::with(['service', 'registerDay'])->findOrFail($decoded['id']);
+
+        try {
+            PatientScreeningGate::ensureClear($registration);
+        } catch (PatientScreeningException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
 
         return $this->stateResponse($registration);
     }

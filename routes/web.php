@@ -144,6 +144,12 @@ Route::middleware('auth:doctor')->group(function () {
     // Optional pre-instance draft (2026-08-28) — see CaseSheetController::openForTask()'s
     // doc comment: no TaskInstance/screening gate involved.
     Route::get('/doctor/case-sheet/for-task/{task}', [CaseSheetController::class, 'openForTask'])->name('doctor.case-sheet.for-task');
+    // "مسح رمز المريض" case-sheet patient-autofill (2026-08-28) — doctor-only
+    // twin of the staff-only `patient-registrations.scan` above; see
+    // PatientRegistrationController::scanForCaseSheet()'s doc comment for
+    // why this couldn't just reuse that route.
+    Route::post('/patient-registrations/scan-for-case-sheet', [PatientRegistrationController::class, 'scanForCaseSheet'])
+        ->name('patient-registrations.scan-for-case-sheet');
     Route::post('/doctor/session', [AcademicSessionController::class, 'select'])->name('doctor.session.select');
 });
 
