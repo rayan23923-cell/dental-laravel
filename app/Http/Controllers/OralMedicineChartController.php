@@ -33,7 +33,11 @@ class OralMedicineChartController extends Controller
     {
         // See README "task_instances_id wiring" — a blank sheet opened
         // from a task instance must stay linked to it.
-        return $this->form(null, taskInstanceId: $request->integer('task_instances_id') ?: null);
+        return $this->form(
+            null,
+            taskInstanceId: $request->integer('task_instances_id') ?: null,
+            taskId: $request->integer('task_id') ?: null,
+        );
     }
 
     public function edit(OralMedicineChart $record): Response
@@ -67,7 +71,7 @@ class OralMedicineChartController extends Controller
         return redirect()->route('oral-medicine-charts.index')->with('success', 'Oral medicine chart deleted.');
     }
 
-    private function form(?OralMedicineChart $record, bool $readonly = false, ?int $taskInstanceId = null): Response
+    private function form(?OralMedicineChart $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null): Response
     {
         return Inertia::render('Specialty/SectionedForm', [
             'resource' => 'oral-medicine-charts',
@@ -79,6 +83,7 @@ class OralMedicineChartController extends Controller
             // the original disables every input for them.
             'readonly' => $readonly || CaseSheetAccess::isViewOnly(),
             'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
+            'taskId' => $record?->task_id ?? $taskId,
         ]);
     }
 
@@ -87,6 +92,7 @@ class OralMedicineChartController extends Controller
         $rules = [
             'doctor_id' => ['required', 'exists:doctors,id'],
             'task_instances_id' => ['nullable', 'integer'],
+            'task_id' => ['nullable', 'integer'],
             'patient_id' => ['required', 'string', 'max:255'],
             'visit_date' => ['required', 'date'],
             'patient_age' => ['nullable', 'integer', 'min:0', 'max:150'],

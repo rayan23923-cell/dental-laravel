@@ -174,6 +174,33 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
     }
   }
 
+  /// The optional pre-instance draft (2026-08-28) — same idea as
+  /// [_openCaseSheet], but for a slot that hasn't started yet: no real
+  /// `TaskInstance` exists, so this resolves/creates a standalone draft
+  /// keyed by (doctor, task) instead — see `Api\CaseSheetController::openForTask()`'s
+  /// doc comment for why this deliberately never starts the task itself
+  /// (that still requires the normal QR-scan/screening-gated flow).
+  Future<void> _openCaseSheetForTask() async {
+    setState(() => _openingCaseSheet = true);
+    try {
+      final result = await ref.read(caseSheetRecordRepositoryProvider).openForTask(slot.taskId);
+      if (!mounted) return;
+      final query = '?task_id=${slot.taskId}';
+      context.push(
+        result.recordId != null
+            ? '/case-sheets/${result.resource}/${result.recordId}$query'
+            : '/case-sheets/${result.resource}/new$query',
+      );
+    } catch (e) {
+      if (mounted) {
+        final message = e is ApiException ? e.userMessage : 'تعذر فتح النموذج السريري.';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } finally {
+      if (mounted) setState(() => _openingCaseSheet = false);
+    }
+  }
+
   Color _statusColor(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return switch (slot.status) {
@@ -231,7 +258,9 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
       // المهام المعلقة" page). Every remaining unstarted slot of the same
       // task shows the identical code — there's no finer-grained identity
       // until one is actually claimed (see `TaskStarter`'s pending-slot
-      // pooling). "نموذج سريري" only makes sense once a real case exists.
+      // pooling). "نموذج سريري" is now shown on unstarted slots too
+      // (2026-08-28) — optional prep notes via [_openCaseSheetForTask],
+      // deliberately not linked to a real instance yet.
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -249,17 +278,16 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
                   : 'يمسح المشرف هذا الرمز لبدء هذه المهمة لك.',
             ),
           ),
-          if (slot.instanceId != null)
-            _openingCaseSheet
-                ? const Padding(
-                    padding: EdgeInsets.all(8),
-                    child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                  )
-                : IconButton(
-                    icon: const Icon(Icons.description_outlined),
-                    tooltip: 'نموذج سريري',
-                    onPressed: _openCaseSheet,
-                  ),
+          _openingCaseSheet
+              ? const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.description_outlined),
+                  tooltip: 'نموذج سريري',
+                  onPressed: slot.instanceId != null ? _openCaseSheet : _openCaseSheetForTask,
+                ),
           if (slot.instanceId != null) const Icon(Icons.chevron_left),
         ],
       ),

@@ -55,6 +55,7 @@ class CompleteDentureRecordController extends Controller
         $rules = [
             'doctor_id' => ['required', 'integer'],
             'task_instances_id' => ['nullable', 'integer'],
+            'task_id' => ['nullable', 'integer'],
             'student_name' => ['nullable', 'string', 'max:255'],
             'patient_name' => ['nullable', 'string', 'max:255'],
             'group_name' => ['nullable', 'string', 'max:255'],

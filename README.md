@@ -5505,6 +5505,72 @@ reset happens via the emailed link, which opens the existing web
 reset-password page — see `flutter_app/README.md` for the Flutter-side
 UI this backs.
 
+## Optional case-sheet drafts for not-yet-started task slots (2026-08-28)
+
+The doctor's task list ("مهامي"/`Doctor/RequiredTasks.vue`) shows N
+numbered slots per task; a slot only got a "نموذج سريري" (case-sheet)
+button once it had actually started (a real `TaskInstance` row existed).
+The user asked for that button on unstarted ("لم تبدأ بعد") slots too, so
+a doctor can optionally start filling in clinical notes before formally
+starting the case — matching a real flow the *original* PHP app had
+(`dental_clinics2/doctor/create_task_instance_and_open.php`, confirmed by
+reading the actual legacy source, which still lives on disk as a sibling
+project).
+
+That original flow worked by silently creating a real, doctor-claimed
+`TaskInstance` on button-press — not reusable here: this project earlier
+added a deliberate, hard requirement
+(`App\Services\TaskStarter::start()` / `PatientScreeningGate::ensureClear()`)
+that no task may start without first scanning the patient's ticket QR and
+confirming they're clear of infectious disease. Silently creating an
+instance from this button would bypass that gate entirely. Asked directly,
+the user chose the safer option: a case-sheet draft that is **not** linked
+to any task instance at all, doesn't count toward the task's required-case
+count, and never touches the screening gate — purely optional prep work.
+
+**New nullable `task_id` column** on all 8 case-sheet tables
+(`dental_charts`, `prosthodontics_records`, `complete_denture_records`,
+`surgeries`, `periodontal_charts`, `orthodontics_records`,
+`prevention_records`, `oral_medicine_charts`) — no FK, matching this
+project's existing convention on `task_instances_id`/`patient_registration_id`
+on these same tables. Added to each of the 8 models' `$fillable` + a new
+`task(): BelongsTo` relation, and each of the 16 controllers' (8 web + 8
+API) validation rules.
+
+**`App\Support\CaseSheetResolver`** gained `resourceForTask(Task $task)`
+(same `type_code` → resource resolution as the existing `resourceFor(TaskInstance)`,
+refactored to share one private `resourceForTypeCode()`) and
+`existingDraftRecordId($resource, $doctorId, $taskId)` — finds a
+doctor+task's draft via `where('doctor_id', ...)->where('task_id', ...)->whereNull('task_instances_id')`.
+One doctor+task pair resolves to at most one draft at a time: once the
+doctor later formally starts that task (a real instance gets created and
+linked via the *existing* `task_instances_id`-keyed path), the old
+draft's `task_instances_id` is no longer null, so a subsequent tap on
+another still-unstarted slot of the same task starts a fresh draft rather
+than reopening the now-linked one. Known, accepted simplification — not
+per-slot-numbered identity, just "my scratch notes for this task type,"
+consistent with "optional, at this stage" scope.
+
+**New endpoints**, doctor-only (this button only exists on a doctor's own
+unstarted rows): `CaseSheetController::openForTask(Task $task)` (web,
+`GET /doctor/case-sheet/for-task/{task}`) and
+`Api\CaseSheetController::openForTask()` (`GET /api/v1/tasks/{task}/case-sheet-draft`)
+— same resolve-or-create-then-redirect/JSON shape as the existing
+instance-keyed `open()` methods, just keyed by task+doctor instead.
+Passes `task_id` (not `task_instances_id`) as the query param when
+creating; the 8 create-form pages already read `task_instances_id` from
+the query string to prefill the hidden field — `Specialty/SectionedForm.vue`
+gained the equivalent `task_id` prop/initial-form-value alongside it, plus
+an amber "مسودة اختيارية غير مرتبطة بحالة مهمة بعد" banner (parallel to
+the existing sky-blue "مرتبط بحالة المهمة رقم..." one) so it's visually
+obvious this save won't count toward anything yet.
+
+**Verified end-to-end via curl** against the real running app (not just
+`tinker`): `GET .../case-sheet-draft` → `record_id: null` → `POST
+/dental-charts` with `task_id` (no `task_instances_id`) → `GET
+.../case-sheet-draft` again → now returns the created record's id.
+`php -l` on all 26 touched PHP files, `npm run build` clean.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the

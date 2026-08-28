@@ -101,6 +101,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           resource: state.pathParameters['resource']!,
           recordId: null,
           taskInstanceId: _intQueryParam(state, 'task_instances_id'),
+          taskId: _intQueryParam(state, 'task_id'),
         ),
       ),
       GoRoute(
@@ -109,6 +110,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           resource: state.pathParameters['resource']!,
           recordId: int.parse(state.pathParameters['id']!),
           taskInstanceId: _intQueryParam(state, 'task_instances_id'),
+          taskId: _intQueryParam(state, 'task_id'),
         ),
       ),
       GoRoute(path: '/records', builder: (context, state) => const RecordsHubScreen()),

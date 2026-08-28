@@ -55,6 +55,7 @@ class OralMedicineChartController extends Controller
         $rules = [
             'doctor_id' => ['required', 'integer'],
             'task_instances_id' => ['nullable', 'integer'],
+            'task_id' => ['nullable', 'integer'],
             'case_no' => ['nullable', 'string', 'max:255'],
             'visit_date' => ['nullable', 'date'],
             'patient_id' => ['nullable', 'string', 'max:255'],

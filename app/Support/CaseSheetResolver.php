@@ -10,6 +10,7 @@ use App\Models\PeriodontalChart;
 use App\Models\PreventionRecord;
 use App\Models\ProsthodonticsRecord;
 use App\Models\Surgery;
+use App\Models\Task;
 use App\Models\TaskInstance;
 
 /**
@@ -55,8 +56,26 @@ class CaseSheetResolver
     public static function resourceFor(TaskInstance $taskInstance): string
     {
         $taskInstance->loadMissing('task.caseSheetType');
-        $typeCode = $taskInstance->task?->caseSheetType?->type_code;
 
+        return self::resourceForTypeCode($taskInstance->task?->caseSheetType?->type_code);
+    }
+
+    /**
+     * Same resolution, starting from a bare `Task` instead of a
+     * `TaskInstance` — used for the optional pre-instance case-sheet
+     * draft a doctor can start filling in before formally starting the
+     * task (see `existingDraftRecordId()`), where there's no
+     * `TaskInstance` yet to resolve from.
+     */
+    public static function resourceForTask(Task $task): string
+    {
+        $task->loadMissing('caseSheetType');
+
+        return self::resourceForTypeCode($task->caseSheetType?->type_code);
+    }
+
+    private static function resourceForTypeCode(?string $typeCode): string
+    {
         // The original defaults to the operative sheet for an unknown or
         // missing type rather than erroring.
         return self::ROUTES[$typeCode] ?? 'dental-charts';
@@ -68,6 +87,23 @@ class CaseSheetResolver
 
         return $model
             ? $model::where('task_instances_id', $taskInstanceId)->value('id')
+            : null;
+    }
+
+    /**
+     * A doctor+task's optional pre-instance draft, if one exists — see
+     * this class's `resourceForTask()` doc comment. `whereNull('task_instances_id')`
+     * means a draft that later gets formally linked to a real instance
+     * (via the normal `task_instances_id`-keyed path) is no longer found
+     * here, so a subsequent tap of the same unstarted-slot button starts
+     * a fresh draft rather than reopening the now-linked one.
+     */
+    public static function existingDraftRecordId(string $resource, int $doctorId, int $taskId): ?int
+    {
+        $model = self::MODELS[$resource] ?? null;
+
+        return $model
+            ? $model::where('doctor_id', $doctorId)->where('task_id', $taskId)->whereNull('task_instances_id')->value('id')
             : null;
     }
 }

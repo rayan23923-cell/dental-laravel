@@ -34,7 +34,11 @@ class CompleteDentureRecordController extends Controller
     {
         // See README "task_instances_id wiring" — a blank sheet opened
         // from a task instance must stay linked to it.
-        return $this->form(null, taskInstanceId: $request->integer('task_instances_id') ?: null);
+        return $this->form(
+            null,
+            taskInstanceId: $request->integer('task_instances_id') ?: null,
+            taskId: $request->integer('task_id') ?: null,
+        );
     }
 
     public function edit(CompleteDentureRecord $record): Response
@@ -68,7 +72,7 @@ class CompleteDentureRecordController extends Controller
         return redirect()->route('complete-denture-records.index')->with('success', 'Complete denture record deleted.');
     }
 
-    private function form(?CompleteDentureRecord $record, bool $readonly = false, ?int $taskInstanceId = null): Response
+    private function form(?CompleteDentureRecord $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null): Response
     {
         return Inertia::render('Specialty/SectionedForm', [
             'resource' => 'complete-denture-records',
@@ -81,6 +85,7 @@ class CompleteDentureRecordController extends Controller
             // the original disables every input for them.
             'readonly' => $readonly || CaseSheetAccess::isViewOnly(),
             'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
+            'taskId' => $record?->task_id ?? $taskId,
         ]);
     }
 
@@ -89,6 +94,7 @@ class CompleteDentureRecordController extends Controller
         $rules = [
             'doctor_id' => ['required', 'exists:doctors,id'],
             'task_instances_id' => ['nullable', 'integer'],
+            'task_id' => ['nullable', 'integer'],
             'patient_name' => ['required', 'string', 'max:255'],
             'age' => ['nullable', 'integer', 'min:0', 'max:150'],
             'sex' => ['nullable', 'in:male,female'],

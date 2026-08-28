@@ -29,7 +29,13 @@ import 'dynamic_section_form.dart';
 /// `sections()` fields (exactly what `DynamicSectionForm` sends) is
 /// always a valid partial update.
 class CaseSheetFormScreen extends ConsumerWidget {
-  const CaseSheetFormScreen({super.key, required this.resource, required this.recordId, this.taskInstanceId});
+  const CaseSheetFormScreen({
+    super.key,
+    required this.resource,
+    required this.recordId,
+    this.taskInstanceId,
+    this.taskId,
+  });
   final String resource;
   final int? recordId;
 
@@ -42,6 +48,13 @@ class CaseSheetFormScreen extends ConsumerWidget {
   /// screen. Null for the older, still-supported standalone "browse my
   /// records" flow, where a sheet floats free of any specific case.
   final int? taskInstanceId;
+
+  /// The optional pre-instance draft's linkage (2026-08-28) — mutually
+  /// exclusive with [taskInstanceId]: set when arriving from a
+  /// not-yet-started slot's "نموذج سريري" action instead, via
+  /// `CaseSheetController::openForTask()`. Sent as `task_id` on create; no
+  /// "رمز QR" action here, since there's no task-instance QR to show yet.
+  final int? taskId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -119,6 +132,7 @@ class CaseSheetFormScreen extends ConsumerWidget {
         ...caseSheetCreateDefaults(resource),
         'doctor_id': doctor.id,
         if (taskInstanceId != null) 'task_instances_id': taskInstanceId,
+        if (taskInstanceId == null && taskId != null) 'task_id': taskId,
       };
 
       try {
@@ -130,7 +144,9 @@ class CaseSheetFormScreen extends ConsumerWidget {
           // still shows on the resulting edit screen — otherwise this
           // case's linkage would be visible only until the very next
           // navigation.
-          final query = taskInstanceId != null ? '?task_instances_id=$taskInstanceId' : '';
+          final query = taskInstanceId != null
+              ? '?task_instances_id=$taskInstanceId'
+              : (taskId != null ? '?task_id=$taskId' : '');
           context.pushReplacement('/case-sheets/$resource/${created['id']}$query');
         }
       } catch (e) {

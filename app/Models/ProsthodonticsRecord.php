@@ -11,6 +11,7 @@ class ProsthodonticsRecord extends Model
 
     protected $fillable = [
         'task_instances_id',
+        'task_id',
         'doctor_id',
         'student_name',
         'patient_name',
@@ -98,5 +99,11 @@ class ProsthodonticsRecord extends Model
     public function taskInstance(): BelongsTo
     {
         return $this->belongsTo(TaskInstance::class, 'task_instances_id');
+    }
+
+    /** Set only for a pre-instance draft — see `CaseSheetResolver::existingDraftRecordId()`. */
+    public function task(): BelongsTo
+    {
+        return $this->belongsTo(Task::class);
     }
 }

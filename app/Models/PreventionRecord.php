@@ -12,6 +12,7 @@ class PreventionRecord extends Model
     protected $fillable = [
         'doctor_id',
         'task_instances_id',
+        'task_id',
         'patient_data',
         'examination_data',
     ];
@@ -32,5 +33,11 @@ class PreventionRecord extends Model
     public function taskInstance(): BelongsTo
     {
         return $this->belongsTo(TaskInstance::class, 'task_instances_id');
+    }
+
+    /** Set only for a pre-instance draft — see `CaseSheetResolver::existingDraftRecordId()`. */
+    public function task(): BelongsTo
+    {
+        return $this->belongsTo(Task::class);
     }
 }

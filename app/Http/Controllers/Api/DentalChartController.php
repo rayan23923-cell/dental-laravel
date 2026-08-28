@@ -63,6 +63,7 @@ class DentalChartController extends Controller
             'patient_occupation' => ['nullable', 'string', 'max:255'],
             'doctor_id' => [$partial ? 'sometimes' : 'required', 'exists:doctors,id'],
             'task_instances_id' => ['nullable', 'exists:task_instances,id'],
+            'task_id' => ['nullable', 'integer'],
             'chart_type' => [$partial ? 'sometimes' : 'required', 'in:primary,permanent'],
             'visit_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],

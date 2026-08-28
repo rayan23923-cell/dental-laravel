@@ -88,10 +88,15 @@ const fmt = (v) => (v ? new Date(v).toLocaleDateString() : null);
                                 </div>
 
                                 <!-- فتح النموذج — routes this instance to its case
-                                     sheet by the task's case-sheet type. -->
+                                     sheet by the task's case-sheet type. For a
+                                     not-yet-started slot (2026-08-28), opens an
+                                     optional pre-instance draft instead — see
+                                     CaseSheetController::openForTask()'s doc
+                                     comment for why this never starts the task
+                                     itself (still requires the normal QR-scan/
+                                     screening-gated flow). -->
                                 <Link
-                                    v-if="slot.instance_id"
-                                    :href="route('doctor.case-sheet', slot.instance_id)"
+                                    :href="slot.instance_id ? route('doctor.case-sheet', slot.instance_id) : route('doctor.case-sheet.for-task', task.id)"
                                     class="mt-2 block rounded bg-indigo-600 px-2 py-1 text-center text-xs font-medium text-white hover:bg-indigo-700"
                                 >
                                     <Icon name="description" class="ml-1" />فتح النموذج

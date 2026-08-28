@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\CaseSheetType;
 use App\Models\Doctor;
+use App\Models\Task;
 use App\Models\TaskInstance;
 use App\Services\PermissionManager;
 use App\Support\CaseSheetResolver;
@@ -38,6 +39,32 @@ class CaseSheetController extends Controller
         $resource = CaseSheetResolver::resourceFor($taskInstance);
         $recordId = CaseSheetResolver::existingRecordId($resource, $taskInstance->id);
         $caseSheetType = $taskInstance->task?->caseSheetType;
+
+        return response()->json([
+            'resource' => $resource,
+            'record_id' => $recordId,
+            'case_sheet_type' => $caseSheetType ? [
+                'id' => $caseSheetType->id,
+                'name_ar' => $caseSheetType->name_ar,
+                'name_en' => $caseSheetType->name_en,
+            ] : null,
+        ]);
+    }
+
+    /**
+     * Flutter's equivalent of the web `openForTask()` — same optional
+     * pre-instance draft, doctor-only (see that method's doc comment for
+     * why: no real `TaskInstance` is created, so no `TaskStarter`/
+     * screening-gate involvement).
+     */
+    public function openForTask(Request $request, Task $task): JsonResponse
+    {
+        $doctor = $request->user();
+        abort_unless($doctor instanceof Doctor, 403);
+
+        $resource = CaseSheetResolver::resourceForTask($task);
+        $recordId = CaseSheetResolver::existingDraftRecordId($resource, $doctor->id, $task->id);
+        $caseSheetType = $task->caseSheetType;
 
         return response()->json([
             'resource' => $resource,

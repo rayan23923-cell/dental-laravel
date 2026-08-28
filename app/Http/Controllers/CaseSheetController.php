@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Task;
 use App\Models\TaskInstance;
 use App\Services\PermissionManager;
 use App\Support\CaseSheetResolver;
@@ -54,5 +55,26 @@ class CaseSheetController extends Controller
         return $existing
             ? redirect()->route("{$resource}.edit", $existing)
             : redirect()->route("{$resource}.create", ['task_instances_id' => $taskInstance->id]);
+    }
+
+    /**
+     * The optional pre-instance case-sheet draft (2026-08-28) — lets a
+     * doctor start filling in clinical notes for a not-yet-started slot,
+     * without creating a real `TaskInstance` (which would require going
+     * through `TaskStarter::start()`'s mandatory patient-screening gate).
+     * Doctor-only: this button only ever appears on the doctor's own
+     * "لم تبدأ بعد" rows, never on a staff-facing screen.
+     */
+    public function openForTask(Task $task): RedirectResponse
+    {
+        $doctor = Auth::guard('doctor')->user();
+        abort_unless($doctor, 403);
+
+        $resource = CaseSheetResolver::resourceForTask($task);
+        $existing = CaseSheetResolver::existingDraftRecordId($resource, $doctor->id, $task->id);
+
+        return $existing
+            ? redirect()->route("{$resource}.edit", $existing)
+            : redirect()->route("{$resource}.create", ['task_id' => $task->id]);
     }
 }

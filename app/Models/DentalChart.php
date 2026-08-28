@@ -20,6 +20,7 @@ class DentalChart extends Model
         'patient_occupation',
         'doctor_id',
         'task_instances_id',
+        'task_id',
         'chart_type',
         'visit_date',
         'notes',
@@ -58,6 +59,12 @@ class DentalChart extends Model
     public function taskInstance(): BelongsTo
     {
         return $this->belongsTo(TaskInstance::class, 'task_instances_id');
+    }
+
+    /** Set only for a pre-instance draft — see `CaseSheetResolver::existingDraftRecordId()`. */
+    public function task(): BelongsTo
+    {
+        return $this->belongsTo(Task::class);
     }
 
     public function followUps(): HasMany

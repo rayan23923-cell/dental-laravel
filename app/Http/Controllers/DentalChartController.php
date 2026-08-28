@@ -37,7 +37,11 @@ class DentalChartController extends Controller
 
     public function create(Request $request): Response
     {
-        return $this->form(null, taskInstanceId: $request->integer('task_instances_id') ?: null);
+        return $this->form(
+            null,
+            taskInstanceId: $request->integer('task_instances_id') ?: null,
+            taskId: $request->integer('task_id') ?: null,
+        );
     }
 
     public function edit(DentalChart $dentalChart): Response
@@ -71,7 +75,7 @@ class DentalChartController extends Controller
         return redirect()->route('dental-charts.index')->with('success', 'تم حذف المخطط السني.');
     }
 
-    private function form(?DentalChart $record, bool $readonly = false, ?int $taskInstanceId = null): Response
+    private function form(?DentalChart $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null): Response
     {
         return Inertia::render('Specialty/SectionedForm', [
             'resource' => 'dental-charts',
@@ -83,6 +87,7 @@ class DentalChartController extends Controller
             // the original disables every input for them.
             'readonly' => $readonly || CaseSheetAccess::isViewOnly(),
             'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
+            'taskId' => $record?->task_id ?? $taskId,
         ]);
     }
 
@@ -91,6 +96,7 @@ class DentalChartController extends Controller
         $rules = [
             'doctor_id' => ['required', 'exists:doctors,id'],
             'task_instances_id' => ['nullable', 'integer'],
+            'task_id' => ['nullable', 'integer'],
             'patient_id' => ['required', 'string', 'max:255'],
             'patient_age' => ['nullable', 'integer', 'min:0', 'max:150'],
             'patient_sex' => ['nullable', 'in:male,female'],

@@ -12,6 +12,7 @@ class CompleteDentureRecord extends Model
     protected $fillable = [
         'doctor_id',
         'task_instances_id',
+        'task_id',
         'student_name',
         'patient_name',
         'group_name',
@@ -114,5 +115,11 @@ class CompleteDentureRecord extends Model
     public function taskInstance(): BelongsTo
     {
         return $this->belongsTo(TaskInstance::class, 'task_instances_id');
+    }
+
+    /** Set only for a pre-instance draft — see `CaseSheetResolver::existingDraftRecordId()`. */
+    public function task(): BelongsTo
+    {
+        return $this->belongsTo(Task::class);
     }
 }

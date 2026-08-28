@@ -253,6 +253,8 @@ Route::name('api.')->prefix('v1')->group(function () {
         // the web's CaseSheetController::open() redirect) — same
         // CaseSheetResolver, same access rules, JSON instead of a redirect.
         Route::get('/task-instances/{taskInstance}/case-sheet', [CaseSheetController::class, 'open']);
+        // Optional pre-instance draft (2026-08-28) — see CaseSheetController::openForTask()'s doc comment.
+        Route::get('/tasks/{task}/case-sheet-draft', [CaseSheetController::class, 'openForTask']);
         // The doctor's own "pending task" QR (task+doctor, no instance yet
         // — see Doctor\PendingTasksQrController's docblock for why "pending"
         // means something different here than task_instances.status). New

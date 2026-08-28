@@ -32,7 +32,11 @@ class ProsthodonticsRecordController extends Controller
     {
         // See README "task_instances_id wiring" — a blank sheet opened
         // from a task instance must stay linked to it.
-        return $this->form(null, taskInstanceId: $request->integer('task_instances_id') ?: null);
+        return $this->form(
+            null,
+            taskInstanceId: $request->integer('task_instances_id') ?: null,
+            taskId: $request->integer('task_id') ?: null,
+        );
     }
 
     public function edit(ProsthodonticsRecord $record): Response
@@ -66,7 +70,7 @@ class ProsthodonticsRecordController extends Controller
         return redirect()->route('prosthodontics-records.index')->with('success', 'Prosthodontics record deleted.');
     }
 
-    private function form(?ProsthodonticsRecord $record, bool $readonly = false, ?int $taskInstanceId = null): Response
+    private function form(?ProsthodonticsRecord $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null): Response
     {
         return Inertia::render('Specialty/SectionedForm', [
             'resource' => 'prosthodontics-records',
@@ -79,6 +83,7 @@ class ProsthodonticsRecordController extends Controller
             // the original disables every input for them.
             'readonly' => $readonly || CaseSheetAccess::isViewOnly(),
             'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
+            'taskId' => $record?->task_id ?? $taskId,
         ]);
     }
 
@@ -109,6 +114,7 @@ class ProsthodonticsRecordController extends Controller
         $rules = [
             'doctor_id' => ['required', 'exists:doctors,id'],
             'task_instances_id' => ['nullable', 'integer'],
+            'task_id' => ['nullable', 'integer'],
             'patient_name' => ['required', 'string', 'max:255'],
             'age' => ['nullable', 'integer', 'min:0', 'max:150'],
             'sex' => ['nullable', 'in:male,female'],

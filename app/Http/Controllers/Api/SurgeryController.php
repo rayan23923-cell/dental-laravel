@@ -91,6 +91,7 @@ class SurgeryController extends Controller
     {
         $rules = [
             'task_instances_id' => ['nullable', 'integer'],
+            'task_id' => ['nullable', 'integer'],
             // Not client-supplied — resolved server-side by
             // resolvePatientId() from patient_name (+ patient_phone), same
             // as the web controller. Accepting it as 'nullable' rather than

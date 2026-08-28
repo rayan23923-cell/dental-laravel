@@ -55,6 +55,7 @@ class OrthodonticsRecordController extends Controller
         $rules = [
             'doctor_id' => ['required', 'integer'],
             'task_instances_id' => ['nullable', 'integer'],
+            'task_id' => ['nullable', 'integer'],
             'student_name' => ['nullable', 'string', 'max:255'],
             'group_name' => ['nullable', 'string', 'max:255'],
             'supervised_by' => ['nullable', 'string', 'max:255'],

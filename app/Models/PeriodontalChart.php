@@ -11,6 +11,7 @@ class PeriodontalChart extends Model
 
     protected $fillable = [
         'task_instances_id',
+        'task_id',
         'patient_id',
         'doctor_id',
         'student_name',
@@ -231,6 +232,12 @@ class PeriodontalChart extends Model
     public function taskInstance(): BelongsTo
     {
         return $this->belongsTo(TaskInstance::class, 'task_instances_id');
+    }
+
+    /** Set only for a pre-instance draft — see `CaseSheetResolver::existingDraftRecordId()`. */
+    public function task(): BelongsTo
+    {
+        return $this->belongsTo(Task::class);
     }
 
     public function patient(): BelongsTo

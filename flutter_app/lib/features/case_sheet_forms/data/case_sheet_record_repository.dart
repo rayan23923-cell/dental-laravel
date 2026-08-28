@@ -51,6 +51,19 @@ class CaseSheetRecordRepository {
       recordId: data['record_id'] as int?,
     );
   }
+
+  /// The optional pre-instance draft (2026-08-28) — same shape as [openFor],
+  /// but for a not-yet-started slot: no `TaskInstance` exists yet, so this
+  /// resolves/creates a draft keyed by (doctor, task) instead. See
+  /// `Api\CaseSheetController::openForTask()`'s doc comment for why this
+  /// deliberately never creates a real task instance.
+  Future<CaseSheetOpenResult> openForTask(int taskId) async {
+    final data = await _client.getJson('/tasks/$taskId/case-sheet-draft') as Map<String, dynamic>;
+    return CaseSheetOpenResult(
+      resource: data['resource'] as String,
+      recordId: data['record_id'] as int?,
+    );
+  }
 }
 
 class CaseSheetOpenResult {

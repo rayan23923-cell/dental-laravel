@@ -140,6 +140,9 @@ Route::middleware('auth:doctor')->group(function () {
     Route::get('/doctor/pending-qr/{task}', [DoctorPendingTasksQrController::class, 'qr'])->name('doctor.pending-qr.image');
     // فتح النموذج — routes a task instance to its case sheet by type code.
     Route::get('/doctor/case-sheet/{taskInstance}', [CaseSheetController::class, 'open'])->name('doctor.case-sheet');
+    // Optional pre-instance draft (2026-08-28) — see CaseSheetController::openForTask()'s
+    // doc comment: no TaskInstance/screening gate involved.
+    Route::get('/doctor/case-sheet/for-task/{task}', [CaseSheetController::class, 'openForTask'])->name('doctor.case-sheet.for-task');
     Route::post('/doctor/session', [AcademicSessionController::class, 'select'])->name('doctor.session.select');
 });
 

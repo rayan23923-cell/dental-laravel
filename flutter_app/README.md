@@ -4135,3 +4135,30 @@ Not yet re-verified against the real "58E_BD90" printer after this fix —
 next on-device test should confirm a full print succeeds end-to-end now
 that all three iOS-specific bugs (Bluetooth permission, the Task
 Progress print guard, and this selection gap) are fixed.
+
+## Optional case-sheet drafts for not-yet-started task slots (2026-08-28)
+
+`my_tasks_screen.dart`'s `_SlotRow` showed "نموذج سريري" only once a slot
+had actually started (a real `TaskInstance`). Now shown on every slot —
+an unstarted one calls the new `_openCaseSheetForTask()` (hits
+`CaseSheetRecordRepository.openForTask(taskId)` →
+`GET /api/v1/tasks/{task}/case-sheet-draft`) instead of the existing
+`_openCaseSheet()`, navigating with `?task_id=` instead of
+`?task_instances_id=` in the query string. See main `README.md` for the
+full design — this is deliberately **not** a real task-instance/screening-
+gated start, just an optional draft keyed by (doctor, task), since the
+original PHP app's equivalent flow silently started a real instance,
+which would have bypassed this project's own infectious-disease
+screening gate.
+
+`CaseSheetFormScreen` gained a `taskId` parameter (mutually exclusive
+with the existing `taskInstanceId`) — `app_router.dart`'s two
+`/case-sheets/:resource/*` routes now also read `task_id` from the query
+string, and `_create()`'s payload sends `task_id` instead of
+`task_instances_id` when that's what's set. No "رمز QR" action for a
+task_id-linked draft (unlike the instance-linked case) — there's no
+task-instance QR to show yet.
+
+`flutter analyze` clean. Backend verified independently via curl (see
+main `README.md`) — this Flutter wiring itself not yet exercised
+on-device in this pass.

@@ -39,7 +39,11 @@ class PreventionRecordController extends Controller
     {
         // See README "task_instances_id wiring" — a blank sheet opened
         // from a task instance must stay linked to it.
-        return $this->form(null, taskInstanceId: $request->integer('task_instances_id') ?: null);
+        return $this->form(
+            null,
+            taskInstanceId: $request->integer('task_instances_id') ?: null,
+            taskId: $request->integer('task_id') ?: null,
+        );
     }
 
     public function edit(PreventionRecord $record): Response
@@ -73,7 +77,7 @@ class PreventionRecordController extends Controller
         return redirect()->route('prevention-records.index')->with('success', 'Prevention record deleted.');
     }
 
-    private function form(?PreventionRecord $record, bool $readonly = false, ?int $taskInstanceId = null): Response
+    private function form(?PreventionRecord $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null): Response
     {
         // Flatten the stored examination_data back out so the form's
         // grouping can seed `questions` / `dmfs_indices` / `dietary_recall`
@@ -94,6 +98,7 @@ class PreventionRecordController extends Controller
             // the original disables every input for them.
             'readonly' => $readonly || CaseSheetAccess::isViewOnly(),
             'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
+            'taskId' => $record?->task_id ?? $taskId,
         ]);
     }
 
@@ -102,6 +107,7 @@ class PreventionRecordController extends Controller
         $validated = $request->validate([
             'doctor_id' => ['required', 'exists:doctors,id'],
             'task_instances_id' => ['nullable', 'integer'],
+            'task_id' => ['nullable', 'integer'],
             'patient_data' => ['nullable', 'string'],
             'questions' => ['nullable', 'string'],
             'dmfs_indices' => ['nullable', 'string'],

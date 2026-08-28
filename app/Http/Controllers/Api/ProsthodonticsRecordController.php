@@ -54,6 +54,7 @@ class ProsthodonticsRecordController extends Controller
     {
         $rules = [
             'task_instances_id' => ['nullable', 'integer'],
+            'task_id' => ['nullable', 'integer'],
             'doctor_id' => ['required', 'integer'],
             'student_name' => ['nullable', 'string', 'max:255'],
             'patient_name' => ['nullable', 'string', 'max:255'],

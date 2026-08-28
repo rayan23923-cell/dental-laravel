@@ -49,6 +49,12 @@ const props = defineProps({
     // CaseSheetController) — carried through so the saved sheet stays tied
     // to that task, as in the original.
     taskInstanceId: { type: [Number, String], default: null },
+    // The optional pre-instance draft's linkage (2026-08-28) — mutually
+    // exclusive with taskInstanceId: set instead when opened from a
+    // not-yet-started slot via CaseSheetController::openForTask(). No
+    // task-instance QR to show for this case (there's no instance yet),
+    // so unlike taskInstanceId this doesn't gate the "رمز QR" button below.
+    taskId: { type: [Number, String], default: null },
     // Sheets whose only actor is a parent record rather than a doctor
     // (surgery satellites, treatment plans) hide the doctor selector.
     hideDoctor: Boolean,
@@ -124,6 +130,7 @@ const parseGroup = (raw) => {
 const initial = {
     doctor_id: props.record?.doctor_id ?? '',
     task_instances_id: props.record?.task_instances_id ?? props.taskInstanceId ?? null,
+    task_id: props.record?.task_id ?? props.taskId ?? null,
 };
 const groupCache = {};
 props.sections.forEach((section) => {
@@ -347,6 +354,14 @@ const widthClass = (field) =>
 
                 <div v-if="form.task_instances_id" class="rounded-md bg-sky-50 p-3 text-sm text-sky-800">
                     <Icon name="assignment" class="ml-1" />هذا النموذج مرتبط بحالة المهمة رقم <strong>{{ form.task_instances_id }}</strong> — سيُحفظ باسمها.
+                </div>
+
+                <!-- Optional pre-instance draft (2026-08-28) — see
+                     CaseSheetController::openForTask()'s doc comment: not
+                     linked to a real task case yet, filling it in is
+                     optional prep work. -->
+                <div v-else-if="form.task_id" class="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+                    <Icon name="assignment" class="ml-1" />هذه مسودة اختيارية غير مرتبطة بحالة مهمة بعد — ابدأ المهمة من "مهامي" لربطها رسمياً.
                 </div>
 
                 <form @submit.prevent="submit" class="space-y-6">

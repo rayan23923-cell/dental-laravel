@@ -55,6 +55,7 @@ class PreventionRecordController extends Controller
         $rules = [
             'doctor_id' => ['required', 'integer'],
             'task_instances_id' => ['nullable', 'integer'],
+            'task_id' => ['nullable', 'integer'],
             'patient_data' => ['nullable', 'string'],
             'examination_data' => ['nullable', 'string'],
         ];
