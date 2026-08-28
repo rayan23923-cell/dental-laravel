@@ -1,3 +1,6 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -21,9 +24,15 @@ class PrinterSettingsRepository {
   Future<PrinterSettings> read() async {
     final prefs = await SharedPreferences.getInstance();
     final typeName = prefs.getString(_kConnectionType);
+    // `PrinterConnectionType.builtin` (a vendor AIDL SDK for one specific
+    // Android POS terminal) is an impossible starting state on iOS — a
+    // fresh install there should default to Bluetooth instead, the only
+    // connection type iOS can ever use (see PosPrinterPlugin.swift). Only
+    // affects the case nothing has been saved yet; an iOS install that
+    // already has some saved value keeps it as-is.
     final connectionType = PrinterConnectionType.values.firstWhere(
       (t) => t.name == typeName,
-      orElse: () => PrinterConnectionType.builtin,
+      orElse: () => (!kIsWeb && Platform.isAndroid) ? PrinterConnectionType.builtin : PrinterConnectionType.bluetooth,
     );
 
     return PrinterSettings(

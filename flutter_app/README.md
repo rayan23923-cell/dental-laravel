@@ -3941,3 +3941,105 @@ curl (see main `README.md`); the Flutter side itself has not yet been
 exercised on a real device in this pass — worth a live check of the two
 new icons on an unstarted vs. started case row, and that a sheet created
 this way actually persists `task_instances_id`.
+
+## iOS printing support — a new Bluetooth-LE native plugin (2026-08-28)
+
+Printing only ever worked on Android before this — `PosPrinterPlugin.kt`
+speaks classic Bluetooth SPP, a vendor AIDL POS-terminal SDK, and Android's
+USB host API, none of which iOS can reach for a non-MFi-certified device
+(third-party iOS apps get CoreBluetooth for Bluetooth, which is BLE-only —
+no classic SPP; and no general USB-host API at all). So the four print
+call sites either threw `MissingPluginException`
+(`task_progress_screen.dart`, which had no platform guard at all) or were
+silently skipped by an explicit `Platform.isAndroid` check
+(`patient_registration_form_screen.dart`,
+`patient_registration_payment_screen.dart`,
+`patient_registration_list_screen.dart`).
+
+**The real printer already in production** (a generic "58E" thermal
+receipt printer) was confirmed, live via the LightBlue BLE-scanner app, to
+support Bluetooth LE — not just the classic SPP Android already uses. It
+exposes GATT service `0xFF00` (`0xFF01` notify / `0xFF02` write+writeWithoutResponse
+/ `0xFF03` notify — the extremely common generic-Chinese-BLE-serial-module
+pattern used by countless cheap ESC/POS printers) and an alternate service
+`0x18F0` (`0x2AF0` notify / `0x2AF1` write). Its advertisement packet does
+**not** include a service UUID, confirmed the same way — any scan that
+filters by service UUID would never see it.
+
+**New file: `ios/Runner/PosPrinterPlugin.swift`** — a `CoreBluetooth`-based
+plugin wired to the *exact same* two channel names Android already uses
+(`com.dentalclinic.dental_clinic_app/pos_printer` MethodChannel,
+`.../pos_printer/bt_scan_events` EventChannel), so `pos_printer_service.dart`
+needed **zero changes** — iOS is simply a second native backend for the
+same Dart API. `bitmapToEscPosRaster()`'s exact algorithm (including the
+`ESC d 8` trailing-feed constant from the earlier tear-bar fix, which is a
+hardware fact about this physical printer, not an OS detail) was ported
+byte-for-byte, just rewritten from Android's single-call `Bitmap.getPixels()`
+to a `CGContext`-based RGBA pixel read (iOS has no equivalent shortcut).
+Scans for *all* nearby BLE peripherals (`withServices: nil`) rather than
+filtering, connects on demand, discovers `FF00`→`FF02` first with `18F0`→`2AF1`
+as a fallback, writes the raster in MTU-sized chunks (`.withResponse`,
+since this class of cheap BLE-serial-bridge printer is known to drop
+unthrottled `.withoutResponse` writes), waits the same 2000ms Android does
+before disconnecting (the printer buffers asynchronously — an early
+disconnect truncates the job, regardless of OS), and bounds every
+operation with connect/write timeouts so a broken or out-of-range printer
+fails cleanly instead of hanging the Dart `Future` forever.
+
+**Where iOS's behavior genuinely differs from Android's** (each a real
+platform constraint, not an oversight):
+- `requestEnableBluetooth` is a no-op success — iOS has no programmatic
+  "turn on Bluetooth" API at all (Apple deliberately doesn't expose one to
+  third-party apps). Dart's `printTicket()` already throws
+  `BluetoothDisabledException` regardless of this call's outcome, so the
+  net effect matches Android's own "no completion, user re-taps طباعة"
+  behavior — just without an in-between system dialog.
+- `listPairedDevices` returns `[]` — BLE has no OS-level "bonded devices"
+  list an app can enumerate (only peripherals *this app* has previously
+  connected to, retrievable by identifier, not a general query).
+- `pairDevice` doesn't "pair" in the classic-SPP sense (no bonding, no PIN
+  dialog) — it connects, resolves the FF00/18F0 GATT profile, then
+  immediately disconnects and reports success/failure. That's the honest
+  BLE equivalent of "prove this address is a real, connectable printer,"
+  which is all the settings screen's pairing flow actually needs.
+- `isLocationEnabled` always reports `true` — BLE scanning has never
+  needed Location on iOS (that's an Android classic-Bluetooth-discovery-
+  only historical quirk); the settings screen's location-nag banner and
+  its `Permission.locationWhenInUse` request are both skipped on iOS now
+  too (`printer_settings_screen.dart`), since asking for it there would
+  just be a confusing, purposeless prompt.
+- "الطابعة المدمجة" (builtin, a vendor AIDL SDK for one specific Android
+  POS terminal) and "USB" are impossible on iOS and no longer offered
+  there at all — `printer_settings_screen.dart`'s connection-type
+  selector only shows "بلوتوث" on non-Android. A fresh iOS install also
+  no longer seeds from the shared `builtin` default (impossible there);
+  `printer_settings_repository.dart`'s "nothing saved yet" fallback is
+  now platform-aware, resolving straight to `bluetooth`.
+- **All four print call sites now work identically on iOS and Android** —
+  the three that were previously Android-only guards
+  (`patient_registration_form_screen.dart`,
+  `patient_registration_payment_screen.dart`,
+  `patient_registration_list_screen.dart`) were relaxed to
+  `Platform.isAndroid || Platform.isIOS`, confirmed with the user as the
+  intended scope (full parity, not just the one screen that happened to
+  already be unguarded).
+
+**A genuinely easy-to-miss step, worth flagging for anyone touching this
+again**: `ios/Runner.xcodeproj/project.pbxproj` is a manually-maintained
+file list, not a glob — Xcode/`xcodebuild` won't compile a new `.swift`
+file dropped into `ios/Runner/` unless it's *also* registered at 4 points
+in that file (`PBXBuildFile`, `PBXFileReference`, the `Runner` group's
+`children`, and the `PBXSourcesBuildPhase`'s `files` list), each needing a
+fresh, unique 24-hex-digit ID. Skipped, this produces a confusing "cannot
+find 'PosPrinterPlugin' in scope" Codemagic build failure with no obvious
+cause — the file exists on disk in the right place, it's just never
+handed to the Swift compiler.
+
+**Verified**: `flutter analyze` clean across every touched file. Not yet
+verified on a real device against the actual "58E_BD90" printer (no Mac
+locally — ships via the existing Codemagic `ios-workflow` → AltStore
+sideload pipeline) — still to confirm: the printer appears in the
+discovered-devices scan, pairing succeeds, a real ticket prints in full
+(no truncation) with correct Arabic rendering and adequate paper feed
+before tear, and that a broken/out-of-range printer fails within the
+~10-second connect timeout rather than hanging.

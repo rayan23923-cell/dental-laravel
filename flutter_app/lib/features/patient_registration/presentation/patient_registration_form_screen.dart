@@ -68,7 +68,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تسجيل المريض بنجاح.')));
       }
 
-      if (!kIsWeb && Platform.isAndroid && mounted) {
+      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS) && mounted) {
         try {
           // Best-effort: the registration already succeeded server-side,
           // so a QR fetch failure (offline, slow network) must not block

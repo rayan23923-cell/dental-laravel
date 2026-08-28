@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -64,10 +66,14 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
     // Runtime permission (API 31+) — requested Dart-side since the plugin
     // only holds a plain Context, not an Activity (see PosPrinterPlugin.kt's
     // doc comment).
+    // locationWhenInUse is an Android-only requirement here (classic-
+    // Bluetooth discovery historically ties to it) — BLE scanning on iOS
+    // has never needed Location, so asking for it there would just be a
+    // confusing, purposeless permission prompt.
     final statuses = await [
       Permission.bluetoothScan,
       Permission.bluetoothConnect,
-      Permission.locationWhenInUse,
+      if (!kIsWeb && Platform.isAndroid) Permission.locationWhenInUse,
     ].request();
 
     final btDenied = [Permission.bluetoothScan, Permission.bluetoothConnect]
@@ -231,10 +237,18 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
               Text('نوع الاتصال', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               SegmentedButton<PrinterConnectionType>(
-                segments: const [
-                  ButtonSegment(value: PrinterConnectionType.builtin, label: Text('الطابعة المدمجة')),
-                  ButtonSegment(value: PrinterConnectionType.bluetooth, label: Text('بلوتوث')),
-                  ButtonSegment(value: PrinterConnectionType.usb, label: Text('USB')),
+                // Android-only connection types: "builtin" is a vendor AIDL
+                // SDK for one specific POS terminal, and "usb" needs
+                // Android's USB host API — neither has an iOS equivalent
+                // (no MFi accessory involved), so only Bluetooth (BLE on
+                // iOS) is offered there. See PosPrinterPlugin.swift's class
+                // doc for why.
+                segments: [
+                  if (!kIsWeb && Platform.isAndroid)
+                    const ButtonSegment(value: PrinterConnectionType.builtin, label: Text('الطابعة المدمجة')),
+                  const ButtonSegment(value: PrinterConnectionType.bluetooth, label: Text('بلوتوث')),
+                  if (!kIsWeb && Platform.isAndroid)
+                    const ButtonSegment(value: PrinterConnectionType.usb, label: Text('USB')),
                 ],
                 selected: {draft.connectionType},
                 onSelectionChanged: (selection) {

@@ -85,7 +85,7 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
       });
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تسجيل الدفع.')));
 
-      if (!kIsWeb && Platform.isAndroid && mounted) {
+      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS) && mounted) {
         try {
           final printerSettings = await ref.read(printerSettingsProvider.future);
           if (!mounted) return;

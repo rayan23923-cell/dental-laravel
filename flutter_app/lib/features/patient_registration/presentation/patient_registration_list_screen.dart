@@ -225,7 +225,7 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                               : Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    if (!kIsWeb && Platform.isAndroid)
+                                    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
                                       IconButton(
                                         icon: const Icon(Icons.print_outlined),
                                         tooltip: 'إعادة طباعة التكت',
