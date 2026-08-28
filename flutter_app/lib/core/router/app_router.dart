@@ -100,6 +100,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => CaseSheetFormScreen(
           resource: state.pathParameters['resource']!,
           recordId: null,
+          taskInstanceId: _intQueryParam(state, 'task_instances_id'),
         ),
       ),
       GoRoute(
@@ -107,6 +108,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => CaseSheetFormScreen(
           resource: state.pathParameters['resource']!,
           recordId: int.parse(state.pathParameters['id']!),
+          taskInstanceId: _intQueryParam(state, 'task_instances_id'),
         ),
       ),
       GoRoute(path: '/records', builder: (context, state) => const RecordsHubScreen()),
@@ -282,3 +284,8 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
   );
 });
+
+int? _intQueryParam(GoRouterState state, String name) {
+  final raw = state.uri.queryParameters[name];
+  return raw == null ? null : int.tryParse(raw);
+}

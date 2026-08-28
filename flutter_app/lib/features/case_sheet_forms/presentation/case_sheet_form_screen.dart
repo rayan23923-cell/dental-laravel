@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/qr_dialog.dart';
 import '../../auth/domain/auth_account.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../auth/presentation/auth_state.dart';
@@ -28,9 +29,19 @@ import 'dynamic_section_form.dart';
 /// `sections()` fields (exactly what `DynamicSectionForm` sends) is
 /// always a valid partial update.
 class CaseSheetFormScreen extends ConsumerWidget {
-  const CaseSheetFormScreen({super.key, required this.resource, required this.recordId});
+  const CaseSheetFormScreen({super.key, required this.resource, required this.recordId, this.taskInstanceId});
   final String resource;
   final int? recordId;
+
+  /// Carries the case this sheet belongs to, end to end (2026-08-27):
+  /// present when arriving via the "نموذج سريري" action on a case row —
+  /// `_create()` below sends it as `task_instances_id` (the field
+  /// `CaseSheetController::open()`'s web equivalent has always keyed a
+  /// sheet by), and its presence gates the "رمز QR" button so the exact
+  /// same case's QR is reachable from here too, not just the task-instance
+  /// screen. Null for the older, still-supported standalone "browse my
+  /// records" flow, where a sheet floats free of any specific case.
+  final int? taskInstanceId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -40,7 +51,22 @@ class CaseSheetFormScreen extends ConsumerWidget {
         isCreate ? const AsyncValue<Map<String, dynamic>>.data({}) : ref.watch(caseSheetRecordProvider((resource, recordId!)));
 
     return Scaffold(
-      appBar: AppBar(title: Text(schemaAsync.valueOrNull?.title ?? '...')),
+      appBar: AppBar(
+        title: Text(schemaAsync.valueOrNull?.title ?? '...'),
+        actions: [
+          if (taskInstanceId != null)
+            IconButton(
+              icon: const Icon(Icons.qr_code_2),
+              tooltip: 'رمز الحالة',
+              onPressed: () => showQrDialog(
+                context,
+                imagePath: '/task-instances/$taskInstanceId/qr',
+                title: 'رمز الحالة',
+                caption: 'يُمسح هذا الرمز لإعادة فتح هذه الحالة مباشرة.',
+              ),
+            ),
+        ],
+      ),
       body: switch ((schemaAsync, recordAsync)) {
         (AsyncError(:final error), _) || (_, AsyncError(:final error)) => Center(
             child: Text(error is ApiException ? error.userMessage : 'تعذر تحميل النموذج.'),
@@ -92,6 +118,7 @@ class CaseSheetFormScreen extends ConsumerWidget {
         ...payload,
         ...caseSheetCreateDefaults(resource),
         'doctor_id': doctor.id,
+        if (taskInstanceId != null) 'task_instances_id': taskInstanceId,
       };
 
       try {
@@ -99,7 +126,12 @@ class CaseSheetFormScreen extends ConsumerWidget {
         ref.invalidate(caseSheetRecordListProvider(resource));
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم إنشاء السجل بنجاح.')));
-          context.pushReplacement('/case-sheets/$resource/${created['id']}');
+          // Carries taskInstanceId forward so the "رمز QR" button above
+          // still shows on the resulting edit screen — otherwise this
+          // case's linkage would be visible only until the very next
+          // navigation.
+          final query = taskInstanceId != null ? '?task_instances_id=$taskInstanceId' : '';
+          context.pushReplacement('/case-sheets/$resource/${created['id']}$query');
         }
       } catch (e) {
         if (context.mounted) {

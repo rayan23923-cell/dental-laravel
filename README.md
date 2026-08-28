@@ -5327,6 +5327,75 @@ found" against local dev. **Not yet run against production** — next step
 is `php artisan schema:diagnose` there via cPanel Terminal, to catch any
 remaining gaps before a real user does.
 
+## Flutter gets the same case-sheet ↔ task-instance linkage the web already had (2026-08-27)
+
+The user asked for each case row in the Flutter doctor app to get a
+clinical-form ("نموذج سريري") icon, plus a QR code reachable from that
+same row, requesting the whole thing "behave like dentalclinic" — the web
+app's `CaseSheetController::open(TaskInstance $taskInstance)` has resolved
+a task's `case_sheet_type_id` to the right one of 8 specialty sheets, and
+either reopened the existing record for that instance or created a new
+one pre-linked via `task_instances_id`, since the original PHP port.
+Flutter's `case_sheet_forms` feature had never been wired to this at
+all — its create payload never sent `task_instances_id`, so a sheet
+filled from the app floated free of whatever case it was meant for.
+
+**Extracted the resolution logic** (the `type_code` → resource map and the
+"does a record already exist for this instance" lookup) out of
+`CaseSheetController` into `app/Support/CaseSheetResolver.php`, so it has
+one home instead of risking a second, divergent copy once an API version
+needed the same logic. The web controller is now a thin caller of it;
+behavior unchanged, verified via `php -l` and by reading through the
+refactor line by line rather than assuming an extraction this mechanical
+is risk-free.
+
+**New `Api\CaseSheetController::open()`**
+(`GET /api/v1/task-instances/{taskInstance}/case-sheet`) — Flutter's
+equivalent, returning JSON (`{resource, record_id, case_sheet_type}`)
+instead of a redirect. Access branching mirrors the web controller exactly
+(doctor → own-instance-only; staff → `PermissionManager::can('task_progress',
+'open_case_sheet')`), checked in code rather than via `permission:` route
+middleware — that middleware assumes a staff `User` principal, which would
+break the doctor half of the same endpoint. Verified end-to-end via curl
+locally: owning doctor → 200 with the correct resource; a different
+doctor → 403; staff (admin) → 200 for *any* doctor's instance; created a
+real `complete_denture_records` row for an instance and confirmed
+`record_id` correctly flips from `null` to that row's id on a second call.
+
+**New `Api\PendingTaskQrController::show()`**
+(`GET /api/v1/pending-tasks/{task}/qr`) — Flutter had no way to generate
+the task+doctor "pending_task" QR at all before (the one a senior scans to
+*start* a case that hasn't begun yet; see `Doctor\PendingTasksQrController`'s
+docblock for why "pending" means something different here than
+`task_instances.status`). Same payload, same `stage_id` access check as
+its web counterpart. Verified via curl: 200, real PNG bytes back.
+
+**Flutter side**: `CaseSheetFormScreen` gained an optional
+`taskInstanceId`, threaded through its go_router routes as a
+`task_instances_id` query param; its create payload now includes it when
+present — the one missing piece causing the original disconnect. A new
+`showQrDialog()` helper (`core/widgets/qr_dialog.dart`) generalizes the
+existing `QrImage` widget into a reusable "show this QR in a modal"
+pattern (mirroring web's `SectionedForm.vue` "رمز QR" button), used at
+three places: `my_tasks_screen.dart`'s per-case row (a QR icon — the
+*pending*-task QR for an unstarted case, the *instance* QR once started —
+plus a "نموذج سريري" icon, instance-only, since there's nothing to link a
+sheet to before a case exists), `case_sheet_form_screen.dart` (an AppBar
+action, instance-only), and `task_instance_detail_screen.dart` (replacing
+what used to be an always-visible inline QR image with the same on-demand
+button, for consistency, plus a new "نموذج سريري" button since this screen
+previously had no case-sheet entry point at all).
+
+**Admin/senior QR lookup in Flutter's Task Progress screen turned out to
+already exist** — `task_progress_screen.dart` already had a "مسح رمز مهمة"
+button reusing `QrScanMode.taskInstance` (confirmed via
+`Api\TaskInstanceQrController::scan()`: its ownership check only fires
+`if ($doctor instanceof Doctor)`, so a staff caller already got the full
+result with zero backend changes needed). It lands on
+`TaskInstanceDetailScreen`, which now also shows the new "نموذج سريري"
+button — so scanning a case's QR as a senior already chains straight into
+opening its clinical form, with no additional admin-side code required.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the

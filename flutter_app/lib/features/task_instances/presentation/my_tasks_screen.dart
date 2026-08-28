@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/qr_dialog.dart';
+import '../../case_sheet_forms/data/case_sheet_record_repository.dart';
 import '../../task_progress_admin/domain/task_progress_group.dart';
 import '../domain/my_task_department.dart';
 import 'task_instances_providers.dart';
@@ -132,9 +134,45 @@ class _TaskGroupTile extends StatelessWidget {
   }
 }
 
-class _SlotRow extends StatelessWidget {
+class _SlotRow extends ConsumerStatefulWidget {
   const _SlotRow({required this.slot});
   final TaskSlotCard slot;
+
+  @override
+  ConsumerState<_SlotRow> createState() => _SlotRowState();
+}
+
+class _SlotRowState extends ConsumerState<_SlotRow> {
+  TaskSlotCard get slot => widget.slot;
+  bool _openingCaseSheet = false;
+
+  /// Same resolve-or-create linkage as `TaskInstanceDetailScreen`'s
+  /// `_openCaseSheet()` — duplicated rather than shared because that
+  /// screen doesn't have a `TaskSlotCard` to build a `_SlotRow` from and
+  /// the method itself is only a few lines; not worth a third file for.
+  Future<void> _openCaseSheet() async {
+    final instanceId = slot.instanceId;
+    if (instanceId == null) return;
+
+    setState(() => _openingCaseSheet = true);
+    try {
+      final result = await ref.read(caseSheetRecordRepositoryProvider).openFor(instanceId);
+      if (!mounted) return;
+      final query = '?task_instances_id=$instanceId';
+      context.push(
+        result.recordId != null
+            ? '/case-sheets/${result.resource}/${result.recordId}$query'
+            : '/case-sheets/${result.resource}/new$query',
+      );
+    } catch (e) {
+      if (mounted) {
+        final message = e is ApiException ? e.userMessage : 'تعذر فتح النموذج السريري.';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } finally {
+      if (mounted) setState(() => _openingCaseSheet = false);
+    }
+  }
 
   Color _statusColor(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -187,9 +225,44 @@ class _SlotRow extends StatelessWidget {
           if (slot.notes != null && slot.notes!.isNotEmpty) Text(slot.notes!),
         ],
       ),
-      // Only a started slot (has a real instance) has anything to open —
-      // an unassigned slot is purely informational.
-      trailing: slot.instanceId != null ? const Icon(Icons.chevron_left) : null,
+      // QR always shown — even an unstarted slot has one, since scanning
+      // it is how an admin/senior *starts* it (the task+doctor
+      // "pending_task" QR, same one already used on the web's "رموز
+      // المهام المعلقة" page). Every remaining unstarted slot of the same
+      // task shows the identical code — there's no finer-grained identity
+      // until one is actually claimed (see `TaskStarter`'s pending-slot
+      // pooling). "نموذج سريري" only makes sense once a real case exists.
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.qr_code_2),
+            tooltip: 'رمز QR',
+            onPressed: () => showQrDialog(
+              context,
+              imagePath: slot.instanceId != null
+                  ? '/task-instances/${slot.instanceId}/qr'
+                  : '/pending-tasks/${slot.taskId}/qr',
+              title: slot.instanceId != null ? 'رمز الحالة' : 'رمز بدء المهمة',
+              caption: slot.instanceId != null
+                  ? 'يُمسح هذا الرمز لإعادة فتح هذه الحالة مباشرة.'
+                  : 'يمسح المشرف هذا الرمز لبدء هذه المهمة لك.',
+            ),
+          ),
+          if (slot.instanceId != null)
+            _openingCaseSheet
+                ? const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.description_outlined),
+                    tooltip: 'نموذج سريري',
+                    onPressed: _openCaseSheet,
+                  ),
+          if (slot.instanceId != null) const Icon(Icons.chevron_left),
+        ],
+      ),
       onTap: slot.instanceId != null ? () => context.push('/tasks/${slot.instanceId}') : null,
     );
   }

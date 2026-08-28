@@ -39,6 +39,8 @@ use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\TaskInstanceController;
 use App\Http\Controllers\Api\TaskProgressController;
 use App\Http\Controllers\Api\TaskInstanceQrController;
+use App\Http\Controllers\Api\CaseSheetController;
+use App\Http\Controllers\Api\PendingTaskQrController;
 use App\Http\Controllers\Api\TaskRegisterDaysController;
 use App\Http\Controllers\Api\TreatmentMaterialController;
 use App\Http\Controllers\Api\TreatmentPlanController;
@@ -241,6 +243,15 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::delete('/task-instances/{taskInstance}', [TaskInstanceController::class, 'destroy']);
         Route::get('/task-instances/{taskInstance}/qr', [TaskInstanceQrController::class, 'show']);
         Route::post('/task-instances/scan', [TaskInstanceQrController::class, 'scan']);
+        // Resolves a case's clinical-form resource (Flutter's equivalent of
+        // the web's CaseSheetController::open() redirect) — same
+        // CaseSheetResolver, same access rules, JSON instead of a redirect.
+        Route::get('/task-instances/{taskInstance}/case-sheet', [CaseSheetController::class, 'open']);
+        // The doctor's own "pending task" QR (task+doctor, no instance yet
+        // — see Doctor\PendingTasksQrController's docblock for why "pending"
+        // means something different here than task_instances.status). New
+        // 2026-08-27: Flutter had no way to generate this PNG at all before.
+        Route::get('/pending-tasks/{task}/qr', [PendingTaskQrController::class, 'show']);
 
         // NFC doctor lookup — Flutter-only (browsers can't read NFC), the
         // web's session-based /task-progress/scan stays QR-only and is

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/network/api_exception.dart';
-import '../../../core/widgets/qr_image.dart';
+import '../../../core/widgets/qr_dialog.dart';
+import '../../case_sheet_forms/data/case_sheet_record_repository.dart';
 import '../data/task_instance_repository.dart';
 import '../domain/task_instance.dart';
 import '../domain/task_instance_status.dart';
@@ -41,6 +43,31 @@ class _DetailBody extends ConsumerStatefulWidget {
 
 class _DetailBodyState extends ConsumerState<_DetailBody> {
   bool _updating = false;
+  bool _openingCaseSheet = false;
+
+  /// Mirrors the web's `CaseSheetController::open()` — reuse the sheet
+  /// already filled for this case if there is one, otherwise a blank sheet
+  /// pre-linked to it. Added 2026-08-27: this screen previously had no
+  /// entry point into the case-sheet feature at all.
+  Future<void> _openCaseSheet() async {
+    setState(() => _openingCaseSheet = true);
+    try {
+      final result = await ref.read(caseSheetRecordRepositoryProvider).openFor(widget.instance.id);
+      if (!mounted) return;
+      if (result.recordId != null) {
+        context.push('/case-sheets/${result.resource}/${result.recordId}?task_instances_id=${widget.instance.id}');
+      } else {
+        context.push('/case-sheets/${result.resource}/new?task_instances_id=${widget.instance.id}');
+      }
+    } catch (e) {
+      if (mounted) {
+        final message = e is ApiException ? e.userMessage : 'تعذر فتح النموذج السريري.';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } finally {
+      if (mounted) setState(() => _openingCaseSheet = false);
+    }
+  }
 
   Future<void> _setStatus(TaskInstanceStatus status) async {
     // Captured before the `await` so the catch block never touches
@@ -119,9 +146,24 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
             ],
           ),
           const SizedBox(height: 24),
-          Text('رمز QR الخاص بهذه المهمة', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Center(child: QrImage(path: '/task-instances/${instance.id}/qr')),
+          FilledButton.icon(
+            onPressed: _openingCaseSheet ? null : _openCaseSheet,
+            icon: _openingCaseSheet
+                ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.description_outlined),
+            label: const Text('نموذج سريري'),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => showQrDialog(
+              context,
+              imagePath: '/task-instances/${instance.id}/qr',
+              title: 'رمز الحالة',
+              caption: 'يُمسح هذا الرمز لإعادة فتح هذه الحالة مباشرة.',
+            ),
+            icon: const Icon(Icons.qr_code_2),
+            label: const Text('رمز QR الخاص بهذه المهمة'),
+          ),
         ],
       ),
     );

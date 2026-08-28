@@ -3881,3 +3881,63 @@ pairing semantics differ from Android's "paired devices" list, and BLE
 vs. classic-Bluetooth-SPP support depends on what protocol these printers
 actually speak), not a config fix — flagging it rather than attempting a
 blind implementation with no printer hardware to test against from here.
+
+## Each case now links to its clinical form, matching the web (2026-08-27)
+
+The web app has always resolved a case's clinical form ("نموذج سريري")
+via `CaseSheetController::open(TaskInstance $taskInstance)` — reopening
+the existing sheet for that case if one exists, otherwise a blank one
+pre-linked via `task_instances_id`. Flutter's `case_sheet_forms` feature
+never had this: it was a free-standing "browse my records of type X"
+flow whose create payload never sent `task_instances_id` at all, and
+neither `my_tasks_screen.dart` nor `task_instance_detail_screen.dart` had
+any button to open one. See the main `README.md`'s matching entry for the
+new backend endpoints this relies on
+(`Api\CaseSheetController::open()`, `Api\PendingTaskQrController::show()`).
+
+**`CaseSheetFormScreen`** gained an optional `taskInstanceId`, carried as
+a `task_instances_id` query param on both its go_router routes
+(`/case-sheets/:resource/new` and `/case-sheets/:resource/:id`). Its
+`_create()` payload now includes it when present. After a successful
+create, the redirect to the resulting edit screen
+(`context.pushReplacement('/case-sheets/$resource/${created['id']}')`)
+now carries the same query param forward — otherwise the new "رمز QR"
+button (below) would only be visible until the very next navigation.
+
+**New shared `showQrDialog()`** (`core/widgets/qr_dialog.dart`) wraps the
+existing `QrImage` widget in an `AlertDialog`, parametrized by
+`imagePath`/`title`/`caption` — one helper instead of three near-identical
+`AlertDialog`s. Used at:
+- `my_tasks_screen.dart`'s `_SlotRow` (now a `ConsumerStatefulWidget`,
+  changed from `StatelessWidget` to hold the "opening..." spinner state) —
+  every case row gets a QR icon **regardless of whether it's started yet**.
+  This was a mid-implementation correction: the QR on an unstarted "لم
+  تبدأ بعد" row isn't gated on having a real instance — it's the
+  *pending_task* QR (task+doctor, identical across every remaining
+  unstarted slot of the same task, matching `TaskStarter`'s existing
+  fungible-pending-slot pooling — there's no finer-grained identity until
+  one is claimed), which is exactly what a senior scans to *start* that
+  case. Once started, the icon switches to the real per-instance QR
+  instead. A second icon, "نموذج سريري", appears only once a case has
+  started (nothing to link a sheet to before then) and calls the new
+  `CaseSheetRecordRepository.openFor()` to resolve/navigate.
+- `case_sheet_form_screen.dart` — an AppBar action icon (instance QR only,
+  a sheet only ever exists once a case has started).
+- `task_instance_detail_screen.dart` — replaced the old always-visible
+  inline `QrImage` with the same on-demand button (for consistency across
+  all three touchpoints), and added the "نموذج سريري" button this screen
+  never had.
+
+**Admin/senior QR lookup needed zero new code**: `task_progress_screen.dart`
+already had a "مسح رمز مهمة" button reusing `QrScanMode.taskInstance` —
+`Api\TaskInstanceQrController::scan()`'s ownership check only fires
+`if ($doctor instanceof Doctor)`, so a staff caller already received the
+full result before this change. It lands on `TaskInstanceDetailScreen`,
+which now shows the new "نموذج سريري" button too — so a senior scanning a
+case's QR already chains straight into its clinical form.
+
+`flutter analyze`: clean across every touched file. Backend verified via
+curl (see main `README.md`); the Flutter side itself has not yet been
+exercised on a real device in this pass — worth a live check of the two
+new icons on an unstarted vs. started case row, and that a sheet created
+this way actually persists `task_instances_id`.

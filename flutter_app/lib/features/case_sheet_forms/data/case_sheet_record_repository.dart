@@ -38,4 +38,23 @@ class CaseSheetRecordRepository {
     final data = await _client.putJson('/$resource/$id', body: payload) as Map<String, dynamic>;
     return data['data'] as Map<String, dynamic>;
   }
+
+  /// Flutter's entry point into the same task-instance → clinical-form
+  /// linkage the web has had all along (`CaseSheetController::open()`) —
+  /// added 2026-08-27, since this repository's `create()` never carried a
+  /// `task_instances_id` before. Resolves which of the 8 resources this
+  /// case's task uses, and whether a record already exists for it.
+  Future<CaseSheetOpenResult> openFor(int taskInstanceId) async {
+    final data = await _client.getJson('/task-instances/$taskInstanceId/case-sheet') as Map<String, dynamic>;
+    return CaseSheetOpenResult(
+      resource: data['resource'] as String,
+      recordId: data['record_id'] as int?,
+    );
+  }
+}
+
+class CaseSheetOpenResult {
+  const CaseSheetOpenResult({required this.resource, required this.recordId});
+  final String resource;
+  final int? recordId;
 }
