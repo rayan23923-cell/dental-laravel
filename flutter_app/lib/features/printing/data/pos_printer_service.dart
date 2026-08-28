@@ -64,6 +64,9 @@ class PosPrinterService {
       'bluetoothAddress': settings.bluetoothAddress,
       'usbDeviceName': settings.usbDeviceName,
       'paperWidthDots': settings.dotsPerLine.round(),
+      // iOS-only — see BluetoothWriteMode's doc comment. Android ignores
+      // this (classic Bluetooth SPP has no such distinction).
+      'bluetoothWriteMode': settings.bluetoothWriteMode.name,
     });
   }
 

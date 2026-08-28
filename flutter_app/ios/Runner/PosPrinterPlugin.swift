@@ -30,6 +30,10 @@ final class PosPrinterPlugin: NSObject, FlutterStreamHandler, CBCentralManagerDe
     private var connectedPeripheral: CBPeripheral?
     private var writeCharacteristic: CBCharacteristic?
     private var usesWriteWithoutResponse = false
+    /// User-selectable via printer settings ("سريع"/"آمن" — see
+    /// `BluetoothWriteMode` on the Dart side). Only meaningful for
+    /// `printTicket`; `pairDevice`'s connect-probe never writes anything.
+    private var preferFastWrite = true
 
     private var scanEventSink: FlutterEventSink?
 
@@ -129,6 +133,10 @@ final class PosPrinterPlugin: NSObject, FlutterStreamHandler, CBCentralManagerDe
         if pendingResult != nil {
             finish(false, error: "طلب طباعة آخر قيد التنفيذ")
         }
+
+        // "safe" opts out of .withoutResponse even when the characteristic
+        // supports it — see BluetoothWriteMode's Dart-side doc comment.
+        preferFastWrite = (args["bluetoothWriteMode"] as? String) != "safe"
 
         pendingResult = result
         pendingPrintPayload = (bytes.data, maxDots)
@@ -237,7 +245,19 @@ final class PosPrinterPlugin: NSObject, FlutterStreamHandler, CBCentralManagerDe
     private func resolveWriteCharacteristic(_ characteristic: CBCharacteristic) {
         guard writeCharacteristic == nil else { return }
         writeCharacteristic = characteristic
-        usesWriteWithoutResponse = !characteristic.properties.contains(.write) && characteristic.properties.contains(.writeWithoutResponse)
+        // Prefer .withoutResponse when the characteristic supports it (this
+        // hardware's FF02/2AF1 both do) and the user hasn't opted into
+        // "آمن" (safe) mode in printer settings — confirmed live
+        // (2026-08-28) that printing works reliably either way, and
+        // .withResponse's per-chunk ack round-trip made a full ticket
+        // noticeably slower than Android's classic-Bluetooth SPP stream.
+        // Backpressure still applies via canSendWriteWithoutResponse/
+        // peripheralIsReady below even in fast mode, so this isn't an
+        // unthrottled firehose — just fewer round trips than waiting for
+        // an explicit ack on every single chunk. A characteristic that
+        // doesn't support .writeWithoutResponse at all still forces safe
+        // mode regardless of the setting, since fast isn't actually possible.
+        usesWriteWithoutResponse = preferFastWrite && characteristic.properties.contains(.writeWithoutResponse)
 
         connectTimeoutTimer?.invalidate()
         connectTimeoutTimer = nil

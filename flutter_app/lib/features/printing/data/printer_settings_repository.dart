@@ -20,6 +20,7 @@ class PrinterSettingsRepository {
   static const _kBluetoothName = 'printer_bluetooth_name';
   static const _kUsbDeviceName = 'printer_usb_device_name';
   static const _kPaperWidthMm = 'printer_paper_width_mm';
+  static const _kBluetoothWriteMode = 'printer_bluetooth_write_mode';
 
   Future<PrinterSettings> read() async {
     final prefs = await SharedPreferences.getInstance();
@@ -35,12 +36,19 @@ class PrinterSettingsRepository {
       orElse: () => (!kIsWeb && Platform.isAndroid) ? PrinterConnectionType.builtin : PrinterConnectionType.bluetooth,
     );
 
+    final writeModeName = prefs.getString(_kBluetoothWriteMode);
+    final bluetoothWriteMode = BluetoothWriteMode.values.firstWhere(
+      (m) => m.name == writeModeName,
+      orElse: () => BluetoothWriteMode.fast,
+    );
+
     return PrinterSettings(
       connectionType: connectionType,
       bluetoothAddress: prefs.getString(_kBluetoothAddress),
       bluetoothName: prefs.getString(_kBluetoothName),
       usbDeviceName: prefs.getString(_kUsbDeviceName),
       paperWidthMm: prefs.getInt(_kPaperWidthMm) ?? 58,
+      bluetoothWriteMode: bluetoothWriteMode,
     );
   }
 
@@ -48,6 +56,7 @@ class PrinterSettingsRepository {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kConnectionType, settings.connectionType.name);
     await prefs.setInt(_kPaperWidthMm, settings.paperWidthMm);
+    await prefs.setString(_kBluetoothWriteMode, settings.bluetoothWriteMode.name);
 
     if (settings.bluetoothAddress != null) {
       await prefs.setString(_kBluetoothAddress, settings.bluetoothAddress!);

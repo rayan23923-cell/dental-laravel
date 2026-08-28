@@ -4162,3 +4162,43 @@ task-instance QR to show yet.
 `flutter analyze` clean. Backend verified independently via curl (see
 main `README.md`) — this Flutter wiring itself not yet exercised
 on-device in this pass.
+
+## iOS printing worked but was slow — user-selectable safe/fast Bluetooth write mode (2026-08-28)
+
+Confirmed live: after the three fixes above, printing from the real
+"58E_BD90" printer succeeded reliably — but noticeably slower than
+Android. Cause: `resolveWriteCharacteristic()` in `PosPrinterPlugin.swift`
+always chose `.withResponse` (waits for an explicit ack after every
+~20-180-byte chunk) whenever the characteristic supported plain `.write`
+at all — which FF02 does, alongside `.writeWithoutResponse` — so it never
+took the faster path even though the hardware supports it. `.withResponse`
+was originally the conservative default because this class of cheap
+BLE-serial-bridge printer is known to sometimes drop unthrottled writes;
+with reliable printing now confirmed, `.withoutResponse` (paced by
+`canSendWriteWithoutResponse`/`peripheralIsReady`, not unthrottled) is
+worth using instead — a full ticket's per-chunk ack round-trip was the
+dominant cost, not the fixed 2-second post-write drain.
+
+Rather than just flip the default, this is now a printer-settings toggle:
+new `BluetoothWriteMode { fast, safe }` on `PrinterSettings`
+(`printer_settings.dart`), persisted in `printer_settings_repository.dart`,
+sent as `bluetoothWriteMode` in `printTicket()`'s method-channel args
+(`pos_printer_service.dart`), and read by `PosPrinterPlugin.swift` to
+decide `usesWriteWithoutResponse` — `"safe"` opts out of
+`.withoutResponse` even when the characteristic supports it, in case a
+different physical printer unit needs the slower-but-more-conservative
+path. `printer_settings_screen.dart` gained a "وضع الطباعة" segmented
+control ("سريع"/"آمن"), shown only on iOS (Android's classic Bluetooth
+SPP has no such distinction — nothing to toggle there). Defaults to
+`fast`.
+
+Also asked to "activate the printer's pairing code" — clarified with the
+user that there's no evidence this specific printer's GATT profile
+requires BLE bonding/authentication (its characteristics showed no
+encrypted-write requirement in the LightBlue scan). If a printer unit
+ever does require it, iOS's own system "Bluetooth Pairing Request" dialog
+appears automatically during `centralManager.connect()` — this is
+OS-level, invisible to and uncontrollable by the app (same category as
+`requestEnableBluetooth`'s no-op — see the first iOS printing entry
+above), so there's nothing to build here unless a real PIN requirement is
+ever confirmed on an actual unit.

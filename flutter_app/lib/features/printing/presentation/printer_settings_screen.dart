@@ -306,6 +306,27 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
                       title: Text('المحدد حالياً: ${draft.bluetoothName ?? draft.bluetoothAddress}'),
                     ),
                   ),
+                // iOS-only — classic Bluetooth SPP (Android) has no
+                // withResponse/withoutResponse distinction, this is purely
+                // a BLE GATT write-type choice (see BluetoothWriteMode's
+                // doc comment). "سريع" prints noticeably faster; "آمن"
+                // falls back to it if a specific printer unit ever drops
+                // fast-mode writes.
+                if (!kIsWeb && Platform.isIOS) ...[
+                  const SizedBox(height: 12),
+                  Text('وضع الطباعة', style: Theme.of(context).textTheme.titleSmall),
+                  const SizedBox(height: 4),
+                  SegmentedButton<BluetoothWriteMode>(
+                    segments: const [
+                      ButtonSegment(value: BluetoothWriteMode.fast, label: Text('سريع')),
+                      ButtonSegment(value: BluetoothWriteMode.safe, label: Text('آمن')),
+                    ],
+                    selected: {draft.bluetoothWriteMode},
+                    onSelectionChanged: (selection) {
+                      setState(() => _draft = draft.copyWith(bluetoothWriteMode: selection.first));
+                    },
+                  ),
+                ],
                 const SizedBox(height: 8),
                 Text('أجهزة مقترنة', style: Theme.of(context).textTheme.titleSmall),
                 for (final d in _pairedDevices)
