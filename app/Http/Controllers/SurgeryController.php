@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Surgery;
+use App\Models\TaskInstance;
 use App\Services\CaseSheetAccess;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\SurgeryForm;
@@ -56,6 +57,7 @@ class SurgeryController extends Controller
     {
         $data = $this->validateRecord($request);
         $data['patient_id'] = $this->resolvePatientId($data);
+        $data['senior_doctor_name'] = $this->resolveSeniorDoctorName($data);
 
         Surgery::create($data);
 
@@ -95,6 +97,30 @@ class SurgeryController extends Controller
             'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
             'taskId' => $record?->task_id ?? $taskId,
         ]);
+    }
+
+    /**
+     * "Senior doctor" (`senior_doctor_name`) is a supervisor-only field
+     * (App\Support\CaseSheetSupervisorFields) — a doctor never fills it in
+     * themselves, so it always arrives blank on create. By request
+     * (2026-08-29, "Senior doctor يتم اختياره بصورة تلقائية لاسم المشرف
+     * او من يملك صلاحية لبدء المهمة"): default it to whichever staff
+     * member actually started this task (`task_instances.assigned_by`,
+     * set by `TaskStarter`/`TaskInstanceController::store()` from the
+     * authenticated staff principal at start time) instead of leaving it
+     * for a supervisor to type from scratch — they can still correct it
+     * afterward, since the field stays editable for them. Only fires when
+     * the sheet is tied to a real task instance; a standalone/no-instance
+     * create leaves it blank, same as before.
+     */
+    private function resolveSeniorDoctorName(array $data): ?string
+    {
+        $taskInstanceId = $data['task_instances_id'] ?? null;
+        if (! $taskInstanceId) {
+            return $data['senior_doctor_name'] ?? null;
+        }
+
+        return TaskInstance::find($taskInstanceId)?->assignedBy?->full_name ?? $data['senior_doctor_name'] ?? null;
     }
 
     /**

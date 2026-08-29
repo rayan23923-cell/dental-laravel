@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\SurgeryResource;
 use App\Models\Patient;
 use App\Models\Surgery;
+use App\Models\TaskInstance;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -34,10 +35,27 @@ class SurgeryController extends Controller
     {
         $data = $this->validateRecord($request);
         $data['patient_id'] = $this->resolvePatientId($data);
+        $data['senior_doctor_name'] = $this->resolveSeniorDoctorName($data);
 
         $record = Surgery::create($data);
 
         return (new SurgeryResource($record))->response()->setStatusCode(201);
+    }
+
+    /**
+     * Mirrors `App\Http\Controllers\SurgeryController::resolveSeniorDoctorName()`
+     * exactly — see that method's doc comment for the full "by request"
+     * context. Kept in sync rather than shared, same convention this
+     * controller pair already follows for `resolvePatientId()` below.
+     */
+    private function resolveSeniorDoctorName(array $data): ?string
+    {
+        $taskInstanceId = $data['task_instances_id'] ?? null;
+        if (! $taskInstanceId) {
+            return $data['senior_doctor_name'] ?? null;
+        }
+
+        return TaskInstance::find($taskInstanceId)?->assignedBy?->full_name ?? $data['senior_doctor_name'] ?? null;
     }
 
     public function update(Request $request, Surgery $record): JsonResponse

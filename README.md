@@ -6136,6 +6136,39 @@ since the two original layouts differ here.
 
 Verified: `php -l`.
 
+## Surgery: "Senior doctor" auto-fills from whoever started the task (2026-08-29)
+
+By request, from a live screenshot of Surgery's "Approval" section:
+"Senior doctor يتم اختياره بصورة تلقائية لاسم المشرف او من يملك صلاحية
+لبدء المهمة" (Senior doctor should be auto-selected as the name of the
+supervisor/whoever has permission to start the task) — `senior_doctor_name`
+is a supervisor-only field (`App\Support\CaseSheetSupervisorFields`), so
+a doctor never fills it in themselves; it always arrived blank at
+creation, left for a supervisor to type from scratch later.
+
+Real, already-tracked data exists for exactly this: `task_instances.assigned_by`
+records the staff `User` who actually started/assigned that task instance
+(`TaskStarter::start()` and both `TaskInstanceController::store()`
+methods already set it from the authenticated staff principal at start
+time — confirmed by reading all three call sites, not assumed) — the
+literal "whoever has permission to start the task" the request describes.
+Added `resolveSeniorDoctorName()` to both `SurgeryController` (web) and
+`Api\SurgeryController`, called from `store()` only (mirrors the
+Orthodontics `student_name`/`referral_date` auto-fill precedent: creation-
+time default, never overwritten on update): when the new record carries a
+`task_instances_id`, looks up that instance's `assignedBy?->full_name`
+and uses it as the default; falls back to whatever was submitted (blank,
+today) if there's no linked instance or no `assigned_by` on it.
+
+The field stays editable for a supervisor afterward (it was already
+unlocked for them, and remains visible-but-locked for the doctor per the
+entries above) — this only changes what a supervisor sees as the
+starting value, in case the person who actually approves later differs
+from whoever started the task, rather than removing their ability to
+correct it.
+
+Verified: `php -l` on both controllers.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the
