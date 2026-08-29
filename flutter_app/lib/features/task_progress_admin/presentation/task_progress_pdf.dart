@@ -145,12 +145,14 @@ String _statusLabel(String status) => switch (status) {
       _ => 'لم تبدأ بعد',
     };
 
-/// One printable row: a doctor's name repeated on every one of their task
-/// rows (`index` starts a fresh count per doctor, matching the legacy
-/// table's rowspan-per-doctor grouping — the `pdf` package has no native
-/// rowspan, so this repeats the cell instead of blanking it after the
-/// first row, trading the visual merge for simplicity and still keeping
-/// every doctor's block clearly readable).
+/// One printable row: `index` starts a fresh count per doctor, matching
+/// the legacy table's rowspan-per-doctor grouping. `doctorName` is only
+/// set on the first row of each doctor's block (blank on the rest) — the
+/// `pdf` package has no native rowspan, so this is the standard faux-merge
+/// technique for a grouped table, printing the name once per doctor
+/// instead of repeating it on every row (2026-08-29, by request — the
+/// prior approach traded the visual merge for simplicity by repeating the
+/// cell instead, which read as clutter once actually printed).
 class _PrintRow {
   const _PrintRow({required this.index, required this.doctorName, required this.card});
   final int index;
@@ -162,7 +164,7 @@ List<_PrintRow> _flattenRows(List<TaskProgressDoctorRow> doctors) {
   final rows = <_PrintRow>[];
   for (final doctor in doctors) {
     for (var i = 0; i < doctor.tasks.length; i++) {
-      rows.add(_PrintRow(index: i + 1, doctorName: doctor.name, card: doctor.tasks[i]));
+      rows.add(_PrintRow(index: i + 1, doctorName: i == 0 ? doctor.name : '', card: doctor.tasks[i]));
     }
   }
   return rows;

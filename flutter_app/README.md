@@ -4537,3 +4537,22 @@ Verified: `flutter analyze` clean project-wide. Not verified on a real
 printer in this session (no physical access) — the user will confirm on
 next print after the next Codemagic build + AltStore reinstall, per
 this project's standing pattern for Flutter-only changes.
+
+## Task-progress PDF report: doctor name printed once per block, not repeated (2026-08-29)
+
+`task_progress_pdf.dart`'s own doc comment already admitted the
+trade-off: the `pdf` package has no native rowspan, so `_flattenRows()`
+repeated the doctor's name on every one of their task rows instead of
+blanking it after the first — "trading the visual merge for simplicity."
+By request, after seeing a real exported report (68 rows, most doctors
+have 5-7 task rows each, the name repeated on every single one):
+`doctorName` is now only set on the first row of each doctor's block
+(`i == 0 ? doctor.name : ''`), blank on the rest — the standard
+faux-rowspan technique for a grouped table in a library with no real
+cell-merging, and what the user actually wanted here. No web equivalent
+exists to also fix — this report has no Blade counterpart, it's
+generated client-side in Flutter only (the legacy `admin/task_progress_print.php`
+was ported here, not to a web print view).
+
+Verified: `flutter analyze` clean. Not re-verified against a real PDF
+render in this session — the user will confirm on next export.
