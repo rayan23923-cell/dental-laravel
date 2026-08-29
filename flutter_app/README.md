@@ -4425,3 +4425,62 @@ accepted trade-off for the simplification. Web `Payments/Create.vue`
 still offers the appointment source unchanged, for that edge case.
 
 Verified: `flutter analyze` clean project-wide.
+
+## PaymentFormScreen: paid/screening feedback, date fully automatic (2026-08-29)
+
+Same-day follow-up, by request, after a real double-payment attempt: the
+screen never showed whether a scanned/picked patient had already paid,
+or whether their screening was clear, until the submit either silently
+succeeded twice or the server rejected it with no visible reason first.
+
+Extracted `PatientRegistrationPaymentScreen`'s (the reception-desk flow)
+`_ScreeningBlockedBanner`/`_PaidBanner` into a new shared
+`core/widgets/registration_status_banners.dart`
+(`ScreeningBlockedBanner`/`PaidBanner`, public) rather than writing a
+second drifting copy of the red "not clear" banner
+`PaymentFormScreen` already had inline from yesterday's change — that
+inline copy is gone now too, replaced by the shared widget.
+`PatientRegistrationPaymentScreen` itself now imports these instead of
+defining them privately; no behavior change there.
+
+New `RegistrationPaymentState? _paymentState` (alongside the existing
+`_registration`) carries the full picked/scanned patient's payment +
+screening state. Both resolution paths feed it: `_scanRegistration()`
+already got a full `RegistrationPaymentState` from `scan()` and used to
+discard everything but `.registration` — now kept. `_pickRegistration()`
+only ever returned a bare `PatientRegistration` from the list-picker
+(no payment/screening data at all) — now follows up with
+`PatientRegistrationRepository.status(id)` so both paths show identical
+feedback regardless of how the patient was found.
+
+**Deliberately scoped to create only.** `_paymentState` is only
+populated/consulted while `_isCreate` — editing an existing payment
+never fetches or checks it. The payment being edited already happened;
+gating an edit on *today's* paid/screening status would be wrong (every
+existing payment would trip "already paid" against itself) and could
+block fixing a typo in an old record. `_pickRegistration()`'s
+`status()` follow-up call itself is skipped entirely in edit mode for
+the same reason.
+
+Once `_paymentState` is set: `PaidBanner` always shows first (green
+"تم الدفع — إجمالي المدفوع: …" / amber "لم يتم الدفع" — this alone
+answers "لم يظهر هل قام بالدفع"). Then one of three: `ScreeningBlockedBanner`
+if not clear (blocks the amount section, matching the reception desk);
+else, if already paid, a read-only list of existing payments instead of
+an amount field at all (answers "اذا قام بالدفع سابقا لا يحتاج ان يدفع
+مرة أخرى" — no way to even reach the submit button for a second
+payment); else the normal amount entry + quick digits + submit, exactly
+as before. `_submit()` also gained a belt-and-suspenders `if (_blocked
+|| _alreadyPaid) return;` in case state goes stale between a render and
+a tap — the UI already hides the button in both cases, so this should
+be unreachable in practice.
+
+`تاريخ الدفع` is gone from this screen entirely now, not just defaulted
+— no field, no `_paidAt`, no `_pickPaidAt()`. `paid_at` is never sent on
+create (the `payments` table's own `DEFAULT current_timestamp()` fills
+it in) and never touched on update (the `sometimes` partial-update rule
+leaves an edited payment's original date alone) — yesterday's "default
+to today but still editable" middle ground turned out not to be what
+was wanted; this is the fully-automatic version.
+
+Verified: `flutter analyze` clean project-wide.

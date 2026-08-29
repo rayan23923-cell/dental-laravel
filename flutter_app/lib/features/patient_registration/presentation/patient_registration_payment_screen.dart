@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/registration_status_banners.dart';
 import '../../printing/data/pos_printer_service.dart';
 import '../../printing/presentation/printer_error_snackbar.dart';
 import '../../printing/presentation/printer_settings_providers.dart';
@@ -13,7 +14,6 @@ import '../../printing/presentation/receipt_widget.dart';
 import '../../printing/presentation/ticket_renderer.dart';
 import '../../records/data/records_repository.dart';
 import '../data/patient_registration_repository.dart';
-import '../domain/patient_registration.dart';
 import '../domain/registration_payment_state.dart';
 
 /// The payment-desk screen reached after scanning a registration's ticket
@@ -143,10 +143,10 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
             ),
           ),
           const SizedBox(height: 16),
-          _PaidBanner(state: _state),
+          PaidBanner(state: _state),
           const SizedBox(height: 16),
           if (!r.isScreeningClear) ...[
-            _ScreeningBlockedBanner(registration: r),
+            ScreeningBlockedBanner(registration: r),
           ] else if (_state.isPaid) ...[
             Text('الدفعات', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
@@ -196,73 +196,7 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
   }
 }
 
-/// Blocks payment entirely until the infectious-disease/viral-hepatitis
-/// screening comes back "سليم" — pure UX (the real enforcement is
-/// `PatientScreeningGate` server-side, see `Api\PaymentController::store()`).
-/// The "غير سليم" (flagged) case gets its own message since it's a
-/// deliberate refusal, not just "not checked yet".
-class _ScreeningBlockedBanner extends StatelessWidget {
-  const _ScreeningBlockedBanner({required this.registration});
-
-  final PatientRegistration registration;
-
-  @override
-  Widget build(BuildContext context) {
-    final flagged = registration.screeningStatus == 'flagged';
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.red.shade50,
-        border: Border.all(color: Colors.red.shade200),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.coronavirus_outlined, color: Colors.red.shade700),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              flagged
-                  ? 'لا يمكن الدفع — نتيجة فحص المريض غير سليمة.'
-                  : 'لا يمكن الدفع قبل تأكيد سلامة المريض من الأمراض المعدية عبر فحص المختبر.',
-              style: TextStyle(color: Colors.red.shade900, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PaidBanner extends StatelessWidget {
-  const _PaidBanner({required this.state});
-
-  final RegistrationPaymentState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = state.isPaid ? Colors.green : Colors.amber;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.shade50,
-        border: Border.all(color: color.shade200),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(state.isPaid ? Icons.check_circle : Icons.warning_amber, color: color.shade700),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              state.isPaid
-                  ? 'تم الدفع — إجمالي المدفوع: ${NumberFormat('#,##0.##').format(state.totalPaid)}'
-                  : 'لم يتم الدفع',
-              style: TextStyle(color: color.shade900, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+// `_ScreeningBlockedBanner`/`_PaidBanner` extracted (2026-08-29) to
+// `core/widgets/registration_status_banners.dart` as `ScreeningBlockedBanner`/
+// `PaidBanner` — `PaymentFormScreen` needed the identical banners, and a
+// second drifting copy wasn't worth it for something this small.

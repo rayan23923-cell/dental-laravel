@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/widgets/registration_status_banners.dart';
+import '../../../patient_registration/data/patient_registration_repository.dart';
 import '../../../patient_registration/domain/patient_registration.dart';
 import '../../../patient_registration/domain/registration_payment_state.dart';
 import '../../../patient_registration/presentation/patient_registration_list_screen.dart';
@@ -23,13 +25,18 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   PatientRegistration? _registration;
-  // Screening confirmation (2026-08-29) — set instead of `_registration`
-  // when a resolved patient (scan or list-pick) isn't screening-clear, so
-  // the blocked banner can show who was rejected and why, mirroring the
-  // reception-desk `PatientRegistrationPaymentScreen`'s
-  // `_ScreeningBlockedBanner`. `PatientScreeningGate` still enforces this
-  // server-side regardless — this is purely earlier client-side feedback.
-  PatientRegistration? _blockedRegistration;
+  // Full payment/screening state for the currently-picked registration —
+  // only populated (and only gates anything) while *creating* a new
+  // payment; editing an existing one never fetches or checks this (see
+  // `_applyPaymentState()`/`build()`'s `_isCreate` guards) — the payment
+  // being edited already happened, so "already paid"/screening gating on
+  // *today's* status would be wrong, and could block fixing a typo in an
+  // old record. `PatientScreeningGate` still enforces screening
+  // server-side on create regardless of any of this — this is purely
+  // earlier, clearer client-side feedback (2026-08-29, by request: the
+  // user hit a real case where neither the screening result nor an
+  // existing payment were shown before submitting).
+  RegistrationPaymentState? _paymentState;
   bool _scanningRegistration = false;
   // Appointment-sourced payments removed from this form (2026-08-29, by
   // request) — this screen now always settles a reception-desk
@@ -45,13 +52,17 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
   // submitting without picking a registration is blocked the same way an
   // unpicked registration already was.
   //
-  // Defaults to today (2026-08-29, by request) rather than requiring a
-  // manual pick — still editable via the date field below for backdating.
-  DateTime? _paidAt = DateTime.now();
+  // `paid_at` removed from this screen entirely (2026-08-29, by request)
+  // — never shown, never sent on create (the `payments` table's own
+  // `DEFAULT current_timestamp()` fills it in), and never touched on
+  // update (the `sometimes` partial-update rule leaves an edited
+  // payment's original date alone).
   bool _seeded = false;
   bool _submitting = false;
 
   bool get _isCreate => widget.paymentId == null;
+  bool get _blocked => _isCreate && _paymentState != null && !_paymentState!.registration.isScreeningClear;
+  bool get _alreadyPaid => _isCreate && _paymentState != null && _paymentState!.isPaid;
 
   @override
   void dispose() {
@@ -63,7 +74,6 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
     if (_seeded) return;
     _seeded = true;
     _amountController.text = payment.amount.toStringAsFixed(2);
-    _paidAt = payment.paidAt == null ? DateTime.now() : DateTime.tryParse(payment.paidAt!);
     if (payment.patientRegistrationId != null) {
       _registration = PatientRegistration(
         id: payment.patientRegistrationId!,
@@ -94,7 +104,29 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
     final picked = await Navigator.of(context).push<PatientRegistration>(
       MaterialPageRoute(builder: (_) => const PatientRegistrationListScreen(pickMode: true)),
     );
-    if (picked != null) _applyRegistration(picked);
+    if (picked == null) return;
+
+    // The list-picker only returns the bare registration, not its
+    // payment/screening state (unlike a scan, which already carries both)
+    // — fetch it separately so the picker path shows the identical
+    // "already paid"/"screening clear" feedback the scan path does. Only
+    // needed while creating — see `_paymentState`'s doc comment.
+    if (_isCreate) {
+      setState(() => _scanningRegistration = true);
+      try {
+        final state = await ref.read(patientRegistrationRepositoryProvider).status(picked.id);
+        _applyPaymentState(state);
+      } catch (e) {
+        if (mounted) {
+          final message = e is ApiException ? e.userMessage : 'تعذر التحقق من حالة المريض.';
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        }
+      } finally {
+        if (mounted) setState(() => _scanningRegistration = false);
+      }
+    } else {
+      setState(() => _registration = picked);
+    }
   }
 
   /// "مسح رمز المريض" (2026-08-29) — scans the same reception-desk ticket
@@ -107,25 +139,20 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
     setState(() => _scanningRegistration = true);
     try {
       final result = await context.push<RegistrationPaymentState>('/records/patient-registrations/scan-for-payment');
-      if (result != null) _applyRegistration(result.registration);
+      if (result != null) _applyPaymentState(result);
     } finally {
       if (mounted) setState(() => _scanningRegistration = false);
     }
   }
 
-  /// Shared by both resolution paths (scan and list-pick) — a patient who
-  /// isn't screening-clear is shown as blocked rather than accepted, so
-  /// the clerk sees why immediately instead of typing an amount only to
-  /// have `PatientScreeningGate` reject the submit.
-  void _applyRegistration(PatientRegistration registration) {
+  /// Shared by both resolution paths (scan and list-pick, when creating).
+  /// Always sets `_registration` (what actually gets submitted); also
+  /// keeps the full state for the paid/screening banners below, per
+  /// `_paymentState`'s doc comment.
+  void _applyPaymentState(RegistrationPaymentState state) {
     setState(() {
-      if (registration.isScreeningClear) {
-        _registration = registration;
-        _blockedRegistration = null;
-      } else {
-        _registration = null;
-        _blockedRegistration = registration;
-      }
+      _registration = state.registration;
+      _paymentState = state;
     });
   }
 
@@ -142,22 +169,17 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
 
   void _clearAmount() => setState(() => _amountController.clear());
 
-  Future<void> _pickPaidAt() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _paidAt ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-    );
-    if (picked != null) setState(() => _paidAt = picked);
-  }
-
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? true)) return;
     if (_registration == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('يرجى اختيار المريض المسجل.')));
       return;
     }
+    // Belt-and-suspenders — the amount/submit section is already hidden
+    // whenever either of these is true, so this should be unreachable in
+    // practice; kept anyway in case state goes stale between a render and
+    // a tap. `PatientScreeningGate` enforces the first server-side too.
+    if (_blocked || _alreadyPaid) return;
 
     setState(() => _submitting = true);
 
@@ -172,7 +194,7 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
       // of the app relies on (list source badges, the new source filter).
       'appointment_id': null,
       'amount': double.tryParse(_amountController.text.trim()) ?? 0,
-      'paid_at': _paidAt == null ? null : DateFormat('yyyy-MM-dd').format(_paidAt!),
+      // `paid_at` deliberately never sent — see its doc comment above.
     };
 
     try {
@@ -280,74 +302,61 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
                       ),
               ],
             ),
-            // Screening confirmation (2026-08-29) — see `_applyRegistration()`.
-            // `PatientScreeningGate` still enforces this server-side
-            // regardless; this is earlier, clearer client-side feedback.
-            if (_blockedRegistration != null)
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.08),
-                  border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-                  borderRadius: BorderRadius.circular(8),
+            // Paid/screening feedback (2026-08-29, by request) — only
+            // while creating; see `_paymentState`'s doc comment for why
+            // editing skips all of this. Answers both of the user's
+            // complaints in one place: whether this patient already paid,
+            // and whether their screening is clear — neither was shown
+            // before, so a clerk could try to charge an already-paid or
+            // not-yet-clear patient with no feedback until submit failed.
+            if (_isCreate && _paymentState != null) ...[
+              const SizedBox(height: 8),
+              PaidBanner(state: _paymentState!),
+            ],
+            if (_blocked) ...[
+              const SizedBox(height: 8),
+              ScreeningBlockedBanner(registration: _paymentState!.registration),
+            ] else if (_alreadyPaid) ...[
+              const SizedBox(height: 16),
+              Text('الدفعات', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              for (final p in _paymentState!.payments)
+                Card(
+                  child: ListTile(
+                    title: Text(NumberFormat('#,##0.##').format(p.amount)),
+                    subtitle: Text(p.paidAt ?? '—'),
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.block, color: Colors.red, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _blockedRegistration!.screeningStatus == 'flagged'
-                            ? 'لا يمكن الدفع — نتيجة فحص "${_blockedRegistration!.name}" غير سليمة.'
-                            : 'لا يمكن الدفع قبل تأكيد سلامة "${_blockedRegistration!.name}" من الأمراض المعدية عبر فحص المختبر.',
-                        style: const TextStyle(color: Colors.red),
-                      ),
-                    ),
-                  ],
-                ),
+            ] else ...[
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _amountController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'المبلغ', border: OutlineInputBorder()),
+                validator: (v) => (v == null || double.tryParse(v.trim()) == null) ? 'أدخل مبلغًا صحيحًا' : null,
               ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _amountController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'المبلغ', border: OutlineInputBorder()),
-              validator: (v) => (v == null || double.tryParse(v.trim()) == null) ? 'أدخل مبلغًا صحيحًا' : null,
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final digits in const ['0', '00', '000'])
-                  OutlinedButton(onPressed: () => _appendDigits(digits), child: Text(digits)),
-                OutlinedButton.icon(
-                  onPressed: _clearAmount,
-                  icon: const Icon(Icons.backspace_outlined),
-                  label: const Text('مسح'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            InkWell(
-              onTap: _pickPaidAt,
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'تاريخ الدفع',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                  suffixIcon: Icon(Icons.calendar_today, size: 18),
-                ),
-                child: Text(_paidAt == null ? '— اختر تاريخًا —' : DateFormat('yyyy-MM-dd').format(_paidAt!)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final digits in const ['0', '00', '000'])
+                    OutlinedButton(onPressed: () => _appendDigits(digits), child: Text(digits)),
+                  OutlinedButton.icon(
+                    onPressed: _clearAmount,
+                    icon: const Icon(Icons.backspace_outlined),
+                    label: const Text('مسح'),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: _submitting ? null : _submit,
-              child: _submitting
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('حفظ'),
-            ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: _submitting ? null : _submit,
+                child: _submitting
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('حفظ'),
+              ),
+            ],
           ],
         ),
       ),
