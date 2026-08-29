@@ -1,12 +1,16 @@
 import 'dart:io' show Platform;
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
+import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/registration_status_banners.dart';
+import '../../clinic_settings/domain/clinic_settings.dart';
+import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../../printing/data/pos_printer_service.dart';
 import '../../printing/presentation/printer_error_snackbar.dart';
 import '../../printing/presentation/printer_settings_providers.dart';
@@ -87,6 +91,25 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
 
       if (!kIsWeb && (Platform.isAndroid || Platform.isIOS) && mounted) {
         try {
+          // Same fetch-before-capture, fail-open pattern as the
+          // registration ticket in `patient_registration_form_screen.dart`
+          // — this receipt printed with no logo and hard-coded header
+          // text at all before (2026-08-29 fix).
+          Uint8List? logoBytes;
+          ClinicSettings? settings;
+          try {
+            settings = await ref.read(clinicSettingsProvider.future);
+            final logoUrl = settings?.ticketLogoUrl;
+            if (logoUrl != null) {
+              final bytes = await ref.read(apiClientProvider).getBytes(logoUrl);
+              logoBytes = Uint8List.fromList(bytes);
+            }
+          } catch (_) {
+            logoBytes = null;
+          }
+          if (!mounted) return;
+          await precacheTicketImages(context, [logoBytes]);
+          if (!mounted) return;
           final printerSettings = await ref.read(printerSettingsProvider.future);
           if (!mounted) return;
           final pngBytes = await renderWidgetToPng(
@@ -95,6 +118,9 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
               registration: updated.registration,
               amountPaid: amount,
               totalPaid: updated.totalPaid,
+              logoBytes: logoBytes,
+              headerTitle: settings?.universityName ?? settings?.clinicName,
+              headerSubtitle: settings?.collegeName,
               widthDots: printerSettings.dotsPerLine,
             ),
           );

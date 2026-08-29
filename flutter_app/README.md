@@ -4484,3 +4484,56 @@ to today but still editable" middle ground turned out not to be what
 was wanted; this is the fully-automatic version.
 
 Verified: `flutter analyze` clean project-wide.
+
+## Thermal ticket/receipt: full-width logo, settings-driven header, bordered info table (2026-08-29)
+
+By request: the printed logo was tiny, the clinic/university header text
+was hard-coded instead of pulled from settings, and the patient-info
+lines were too small and not visually a "جدول" (table).
+
+**Logo, full paper width.** `TicketWidget`/`TaskInstanceTicketWidget`
+rendered their (already settings-sourced) logo at a fixed
+`Image.memory(logoBytes!, width: 72, height: 72)` regardless of paper
+width — ~19% of a 58mm ticket's 384 dots, ~12.5% of an 80mm one's 576.
+Changed to `Image.memory(logoBytes!, width: widthDots)` — height
+omitted so `Image` preserves the logo's own aspect ratio rather than
+squashing it into a forced square. `ReceiptWidget` (the payment-desk
+receipt) **had no logo at all before** — no parameter, no fetch at its
+call site — added one, matching the other two widgets exactly.
+
+**Header text now sourced from `ClinicSettings`.** All three widgets
+printed a literal hard-coded string pair
+(`'المستشفى التعليمي لكلية طب الأسنان'` / `'جامعة تكريت'`) regardless
+of what was actually configured in "الإعدادات" — despite the *logo*
+already being fetched from settings at two of the three call sites. New
+`headerTitle`/`headerSubtitle` params on each widget, filled in by every
+call site as `settings?.universityName ?? settings?.clinicName` /
+`settings?.collegeName` — the exact same precedence
+`print/layout.blade.php`'s web letterhead already uses for print
+headers (`university_name ?: clinic_name` / `college_name`), now
+finally shared with the thermal path instead of drifting from it. Null
+or empty falls back to the original hard-coded strings *inside the
+widget itself* (never blocks printing if settings fetch fails or
+nothing's configured — same fail-open contract [logoBytes] already
+had). `patient_registration_payment_screen.dart` gained an entirely new
+settings+logo fetch block for this (mirroring
+`patient_registration_form_screen.dart`'s existing one) since
+`ReceiptWidget` never had one.
+
+**Patient-info rows: real bordered table, bigger text.** `ticket_row.dart`'s
+`ticketRow()` (a borderless `Row` of two `Text`s per line, stacked in a
+`Column` — visually a list, not a table) replaced with `ticketTable()`
+— a real `Table` with `TableBorder.all()` grid lines, taking a
+`List<(String, String)>` of label/value pairs. Font size bumped
+18 → 22 (`ticketRow()`'s only size) for readability, per request; the
+value cell keeps its `TextOverflow.ellipsis` safety net, so a long
+value truncates rather than overflowing the fixed ticket width. All
+three widgets' sequences of `ticketRow(...)` calls became one
+`ticketTable([...])` call each. Header title/subtitle font sizes
+(24/16 on Ticket and TaskInstanceTicket, 20/14 on Receipt) left
+unchanged — already the largest text on each ticket.
+
+Verified: `flutter analyze` clean project-wide. Not verified on a real
+printer in this session (no physical access) — the user will confirm on
+next print after the next Codemagic build + AltStore reinstall, per
+this project's standing pattern for Flutter-only changes.

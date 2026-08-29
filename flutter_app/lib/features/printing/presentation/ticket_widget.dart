@@ -22,6 +22,8 @@ class TicketWidget extends StatelessWidget {
     required this.registration,
     this.qrBytes,
     this.logoBytes,
+    this.headerTitle,
+    this.headerSubtitle,
     this.widthDots = 384,
   });
 
@@ -42,6 +44,14 @@ class TicketWidget extends StatelessWidget {
   /// (offline, unset, fetch failure) just omits the logo, never blocks
   /// printing.
   final Uint8List? logoBytes;
+
+  /// Big/small header lines — normally `ClinicSettings.universityName ?:
+  /// clinicName` / `.collegeName` (the same pair `print/layout.blade.php`'s
+  /// letterhead already uses), fetched by the caller alongside [logoBytes].
+  /// Null or empty falls back to the original hard-coded strings below —
+  /// never blocks printing if settings fetch fails or nothing's configured.
+  final String? headerTitle;
+  final String? headerSubtitle;
 
   final double widthDots;
 
@@ -67,25 +77,31 @@ class TicketWidget extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             if (logoBytes != null) ...[
-              Image.memory(logoBytes!, width: 72, height: 72),
+              // Full paper width (2026-08-29, by request — was a fixed
+              // 72x72 regardless of `widthDots`, a small fraction of the
+              // real paper width). Height omitted so `Image` preserves the
+              // logo's own aspect ratio instead of squashing it square.
+              Image.memory(logoBytes!, width: widthDots),
               const SizedBox(height: 8),
             ],
-            const Text(
-              'المستشفى التعليمي لكلية طب الأسنان',
+            Text(
+              (headerTitle?.isNotEmpty ?? false) ? headerTitle! : 'المستشفى التعليمي لكلية طب الأسنان',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
+              style: const TextStyle(color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
             ),
-            const Text(
-              'جامعة تكريت',
-              style: TextStyle(color: Colors.black, fontSize: 16),
+            Text(
+              (headerSubtitle?.isNotEmpty ?? false) ? headerSubtitle! : 'جامعة تكريت',
+              style: const TextStyle(color: Colors.black, fontSize: 16),
             ),
             const SizedBox(height: 12),
             const Divider(color: Colors.black, thickness: 1),
             const SizedBox(height: 8),
-            ticketRow('اسم المريض', registration.name),
-            ticketRow('الهاتف', registration.phone),
-            ticketRow('الخدمة', registration.serviceName ?? '—'),
-            ticketRow('اليوم', registration.registerDayName ?? '—'),
+            ticketTable([
+              ('اسم المريض', registration.name),
+              ('الهاتف', registration.phone),
+              ('الخدمة', registration.serviceName ?? '—'),
+              ('اليوم', registration.registerDayName ?? '—'),
+            ]),
             const SizedBox(height: 8),
             const Divider(color: Colors.black, thickness: 1),
             const SizedBox(height: 8),

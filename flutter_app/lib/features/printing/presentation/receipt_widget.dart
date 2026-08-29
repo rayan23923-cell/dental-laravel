@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 // `intl` exports its own `TextDirection`-colliding symbol — same
 // collision already found and fixed in `backup_screen.dart` this session.
@@ -17,12 +19,24 @@ class ReceiptWidget extends StatelessWidget {
     required this.registration,
     required this.amountPaid,
     required this.totalPaid,
+    this.logoBytes,
+    this.headerTitle,
+    this.headerSubtitle,
     this.widthDots = 384,
   });
 
   final PatientRegistration registration;
   final double amountPaid;
   final double totalPaid;
+
+  /// See `TicketWidget.logoBytes`/`.headerTitle`/`.headerSubtitle` — same
+  /// source (`ClinicSettings`, fetched by the caller), same fail-open
+  /// null/empty fallback. Added 2026-08-29 — this receipt printed with no
+  /// logo and hard-coded header text at all before, unlike the other two
+  /// ticket widgets which already had (a small, fixed-size) logo.
+  final Uint8List? logoBytes;
+  final String? headerTitle;
+  final String? headerSubtitle;
 
   /// See `TicketWidget.widthDots` — same 384/58mm default, 576/80mm option.
   final double widthDots;
@@ -42,14 +56,19 @@ class ReceiptWidget extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Text(
-              'المستشفى التعليمي لكلية طب الأسنان',
+            if (logoBytes != null) ...[
+              // Full paper width — see `TicketWidget`'s matching comment.
+              Image.memory(logoBytes!, width: widthDots),
+              const SizedBox(height: 8),
+            ],
+            Text(
+              (headerTitle?.isNotEmpty ?? false) ? headerTitle! : 'المستشفى التعليمي لكلية طب الأسنان',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold),
+              style: const TextStyle(color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            const Text(
-              'جامعة تكريت',
-              style: TextStyle(color: Colors.black, fontSize: 14),
+            Text(
+              (headerSubtitle?.isNotEmpty ?? false) ? headerSubtitle! : 'جامعة تكريت',
+              style: const TextStyle(color: Colors.black, fontSize: 14),
             ),
             const SizedBox(height: 4),
             const Text(
@@ -59,15 +78,19 @@ class ReceiptWidget extends StatelessWidget {
             const SizedBox(height: 12),
             const Divider(color: Colors.black, thickness: 1),
             const SizedBox(height: 8),
-            ticketRow('اسم المريض', registration.name),
-            ticketRow('الهاتف', registration.phone),
-            ticketRow('الخدمة', registration.serviceName ?? '—'),
-            ticketRow('اليوم', registration.registerDayName ?? '—'),
+            ticketTable([
+              ('اسم المريض', registration.name),
+              ('الهاتف', registration.phone),
+              ('الخدمة', registration.serviceName ?? '—'),
+              ('اليوم', registration.registerDayName ?? '—'),
+            ]),
             const SizedBox(height: 8),
             const Divider(color: Colors.black, thickness: 1),
             const SizedBox(height: 8),
-            ticketRow('المبلغ المدفوع', amountStr),
-            ticketRow('إجمالي المدفوع', totalStr),
+            ticketTable([
+              ('المبلغ المدفوع', amountStr),
+              ('إجمالي المدفوع', totalStr),
+            ]),
             const SizedBox(height: 8),
             const Divider(color: Colors.black, thickness: 1),
             const SizedBox(height: 8),

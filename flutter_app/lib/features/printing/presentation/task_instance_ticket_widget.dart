@@ -28,6 +28,8 @@ class TaskInstanceTicketWidget extends StatelessWidget {
     this.startedByName,
     this.qrBytes,
     this.logoBytes,
+    this.headerTitle,
+    this.headerSubtitle,
     this.widthDots = 384,
   });
 
@@ -61,6 +63,11 @@ class TaskInstanceTicketWidget extends StatelessWidget {
   /// own [logoBytes] already is.
   final Uint8List? logoBytes;
 
+  /// See `TicketWidget.headerTitle`/`.headerSubtitle` — same source, same
+  /// hard-coded fallback when null/empty.
+  final String? headerTitle;
+  final String? headerSubtitle;
+
   final double widthDots;
 
   @override
@@ -82,30 +89,33 @@ class TaskInstanceTicketWidget extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             if (logoBytes != null) ...[
-              Image.memory(logoBytes!, width: 72, height: 72),
+              // Full paper width — see `TicketWidget`'s matching comment.
+              Image.memory(logoBytes!, width: widthDots),
               const SizedBox(height: 8),
             ],
-            const Text(
-              'المستشفى التعليمي لكلية طب الأسنان',
+            Text(
+              (headerTitle?.isNotEmpty ?? false) ? headerTitle! : 'المستشفى التعليمي لكلية طب الأسنان',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
+              style: const TextStyle(color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
             ),
-            const Text(
-              'جامعة تكريت',
-              style: TextStyle(color: Colors.black, fontSize: 16),
+            Text(
+              (headerSubtitle?.isNotEmpty ?? false) ? headerSubtitle! : 'جامعة تكريت',
+              style: const TextStyle(color: Colors.black, fontSize: 16),
             ),
             const SizedBox(height: 12),
             const Divider(color: Colors.black, thickness: 1),
             const SizedBox(height: 8),
-            ticketRow('الطالب/الطبيب', doctorName),
-            if (educationTypeName != null) ticketRow('نوع الدراسة', educationTypeName!),
-            if (stageName != null) ticketRow('المرحلة', stageName!),
-            if (groupName != null) ticketRow('المجموعة', groupName!),
-            ticketRow('المهمة', taskTitle),
-            if (departmentName != null) ticketRow('القسم', departmentName!),
-            if (notes != null && notes!.isNotEmpty) ticketRow('ملاحظات', notes!),
-            ticketRow('وقت البدء', startedAt),
-            if (startedByName != null && startedByName!.isNotEmpty) ticketRow('بدأ بواسطة', startedByName!),
+            ticketTable([
+              ('الطالب/الطبيب', doctorName),
+              if (educationTypeName != null) ('نوع الدراسة', educationTypeName!),
+              if (stageName != null) ('المرحلة', stageName!),
+              if (groupName != null) ('المجموعة', groupName!),
+              ('المهمة', taskTitle),
+              if (departmentName != null) ('القسم', departmentName!),
+              if (notes != null && notes!.isNotEmpty) ('ملاحظات', notes!),
+              ('وقت البدء', startedAt),
+              if (startedByName != null && startedByName!.isNotEmpty) ('بدأ بواسطة', startedByName!),
+            ]),
             const SizedBox(height: 8),
             const Divider(color: Colors.black, thickness: 1),
             if (qrBytes != null) ...[

@@ -16,6 +16,7 @@ import '../../../core/nfc/nfc_uid_reader.dart';
 import '../../../core/pdf/pdf_letterhead.dart';
 import '../../../core/widgets/academic_year_banner.dart';
 import '../../case_sheet_forms/data/case_sheet_record_repository.dart';
+import '../../clinic_settings/domain/clinic_settings.dart';
 import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../../patient_registration/domain/registration_payment_state.dart';
 import '../../printing/data/pos_printer_service.dart';
@@ -261,8 +262,9 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
       }
 
       Uint8List? logoBytes;
+      ClinicSettings? settings;
       try {
-        final settings = await ref.read(clinicSettingsProvider.future);
+        settings = await ref.read(clinicSettingsProvider.future);
         final logoUrl = settings?.ticketLogoUrl;
         if (logoUrl != null) {
           final bytes = await ref.read(apiClientProvider).getBytes(logoUrl);
@@ -296,6 +298,8 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
           startedByName: result.startedByName,
           qrBytes: qrBytes,
           logoBytes: logoBytes,
+          headerTitle: settings?.universityName ?? settings?.clinicName,
+          headerSubtitle: settings?.collegeName,
           widthDots: printerSettings.dotsPerLine,
         ),
       );

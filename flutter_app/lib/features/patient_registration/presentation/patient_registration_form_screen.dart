@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/cascading_dropdown.dart';
+import '../../clinic_settings/domain/clinic_settings.dart';
 import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../../printing/data/pos_printer_service.dart';
 import '../../printing/presentation/printer_settings_providers.dart';
@@ -84,9 +85,12 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
           // the logo is admin-uploaded (mutable), so it's fetched fresh
           // rather than bundled as an asset. `logoUrl` is already an
           // absolute URL (`Storage::url()`), which `getBytes` follows as-is.
+          // `settings` is also kept (not just its logo) so the printed
+          // header text can come from it too — see `TicketWidget.headerTitle`.
           Uint8List? logoBytes;
+          ClinicSettings? settings;
           try {
-            final settings = await ref.read(clinicSettingsProvider.future);
+            settings = await ref.read(clinicSettingsProvider.future);
             final logoUrl = settings?.ticketLogoUrl;
             if (logoUrl != null) {
               final bytes = await ref.read(apiClientProvider).getBytes(logoUrl);
@@ -106,6 +110,8 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
               registration: registration,
               qrBytes: qrBytes,
               logoBytes: logoBytes,
+              headerTitle: settings?.universityName ?? settings?.clinicName,
+              headerSubtitle: settings?.collegeName,
               widthDots: printerSettings.dotsPerLine,
             ),
           );

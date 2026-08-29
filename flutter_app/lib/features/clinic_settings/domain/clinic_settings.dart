@@ -24,7 +24,11 @@ class ClinicSettings {
   final String clinicName;
   final String? logoUrl;
   final String? universityLogoUrl;
-  // Only used by the PDF letterhead (core/pdf/pdf_letterhead.dart) today.
+  // Used by the PDF letterhead (core/pdf/pdf_letterhead.dart) and, since
+  // 2026-08-29, the thermal ticket/receipt headers (TicketWidget/
+  // TaskInstanceTicketWidget/ReceiptWidget's headerTitle/headerSubtitle) —
+  // same `universityName ?: clinicName` / `collegeName` precedence
+  // `print/layout.blade.php`'s letterhead already uses.
   final String? universityName;
   final String? collegeName;
 
