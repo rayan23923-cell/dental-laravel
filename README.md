@@ -5863,6 +5863,54 @@ CSS-only); not re-verified via a live print in this session (no
 physical printer access) — the reception desk can confirm on next
 reprint.
 
+## Orthodontics: removed Student Name/Supervised by/Referral Date/Referred from (2026-08-29)
+
+By request — "نفسها معلومات الطبيب" (the same as the doctor's own
+info): the doctor filling this sheet already *is* the student, and
+their identity is already the record's `doctor_id`, so a separate
+free-text "Student Name" field only ever duplicated it; "Supervised
+by"/"Referral Date"/"Referred from" were removed alongside it (the
+user named all four specifically). `group_name` ("Group") stays — not
+named, not touched.
+
+Removed the four fields from `App\Support\OrthodonticsForm::sections()`
+entirely, retitling what's left of that section to "Group" (a
+"Student / Referral" card holding only a Group field would've read as
+broken, not simplified). This is a **single-source-of-truth fix, not a
+per-client one**: both `SectionedForm.vue` (web) and Flutter's
+`DynamicSectionForm` render whatever `sections()` returns — Flutter
+fetches it live from `GET /api/v1/case-sheet-forms/orthodontics-records`
+(`Api\CaseSheetFormController::show()`, confirmed calling
+`OrthodonticsForm::sections()` directly, no separate cached copy
+anywhere) rather than bundling it at build time, so this change is
+already live on both platforms the moment it's deployed — no Codemagic
+rebuild needed, unlike every other Flutter-side entry in this file.
+
+Per "اجعلها تلقائية" (make them automatic): `student_name` and
+`referral_date` are still real, populated columns — just no longer
+client-supplied. Both `OrthodonticsRecordController::prepare()` (web,
+now taking a `bool $isCreate` parameter) and
+`Api\OrthodonticsRecordController::store()` set them once, at creation
+only (never touched on update, matching every other auto-defaulted
+field this session — `Payment.paid_at`, etc.): `student_name` from
+`Doctor::find($validated['doctor_id'])->name`, `referral_date` from
+`now()->toDateString()`. `supervised_by`/`referred_from` have no
+equivalent automatic source, so they're simply gone from both
+controllers' accepted input — matching how `Payment.paid_by` was
+dropped for the identical reason. The API controller's validation
+rules dropped these four keys outright (rather than leaving them
+accepted-but-unused) since it lists its rules explicitly instead of
+generating them from `sections()` the way the web controller does.
+
+Confirmed no print view breaks: `print/case-sheet.blade.php` (the only
+Blade template referencing any of these four column names) already
+prefers a separately-passed `$doctorName` over `$sheet->student_name`,
+falling back to the latter only if the former is absent — either path
+still resolves correctly now that `student_name` is doctor-derived
+rather than manually typed.
+
+Verified: `php -l` on both touched controllers.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the

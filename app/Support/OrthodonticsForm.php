@@ -76,13 +76,24 @@ class OrthodonticsForm
                 ],
             ],
             [
-                'title' => 'Student / Referral',
+                // Student Name / Supervised by / Referral Date / Referred
+                // from removed (2026-08-29, by request) — "نفسها معلومات
+                // الطبيب" (the same as the doctor's own info): the doctor
+                // filling this sheet already *is* the student, and their
+                // identity is already the record's `doctor_id`, so a
+                // separate free-text student-name field only ever
+                // duplicated it. `student_name`/`referral_date` are now
+                // set automatically at create time instead
+                // (`OrthodonticsRecordController::prepare()`/
+                // `Api\OrthodonticsRecordController::store()` — the
+                // doctor's own name, and today's date); `supervised_by`/
+                // `referred_from` had no equivalent automatic source, so
+                // they're simply gone, matching how `Payment.paid_by` was
+                // dropped for the same reason. `group_name` stays — the
+                // user asked for these four specifically, not it.
+                'title' => 'Group',
                 'fields' => [
-                    ['key' => 'student_name', 'label' => 'Student Name', 'type' => 'text'],
                     ['key' => 'group_name', 'label' => 'Group', 'type' => 'text'],
-                    ['key' => 'supervised_by', 'label' => 'Supervised by', 'type' => 'text'],
-                    ['key' => 'referral_date', 'label' => 'Referral Date', 'type' => 'date'],
-                    ['key' => 'referred_from', 'label' => 'Referred from', 'type' => 'text'],
                 ],
             ],
             [

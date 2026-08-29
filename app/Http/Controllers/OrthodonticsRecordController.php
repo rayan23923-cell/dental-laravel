@@ -54,7 +54,7 @@ class OrthodonticsRecordController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        OrthodonticsRecord::create($this->prepare($request));
+        OrthodonticsRecord::create($this->prepare($request, isCreate: true));
 
         return redirect()->route('orthodontics-records.index')->with('success', 'Orthodontics record created.');
     }
@@ -90,7 +90,7 @@ class OrthodonticsRecordController extends Controller
         ]);
     }
 
-    private function prepare(Request $request): array
+    private function prepare(Request $request, bool $isCreate = false): array
     {
         $rules = [
             'doctor_id' => ['required', 'exists:doctors,id'],
@@ -123,6 +123,18 @@ class OrthodonticsRecordController extends Controller
         }
 
         $validated = $request->validate($rules);
+
+        // `student_name`/`referral_date` no longer have their own form
+        // fields (removed 2026-08-29, by request — see
+        // App\Support\OrthodonticsForm's matching comment) so they never
+        // reach $rules/$validated above; set automatically instead, once,
+        // at creation only (an update never overwrites them, same
+        // "sometimes"-style convention as every other auto-defaulted
+        // field this session).
+        if ($isCreate) {
+            $validated['student_name'] = Doctor::find($validated['doctor_id'])?->name;
+            $validated['referral_date'] = now()->toDateString();
+        }
 
         // The original always carries these three sub-structures inside
         // examination_data (teeth_squares, treatment_stages,
