@@ -126,6 +126,37 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
         _controllers[field.formKey] = TextEditingController(text: (_values[field.formKey] as String?) ?? '');
       }
     }
+
+    // Stage rows (Prosthodontics/Complete Denture's 9-row evaluation
+    // table) bind to `stage_{key}_{signature,date,grade}` columns, the
+    // original's own naming — not `sections()` fields, so not covered by
+    // the loop above; matches `SectionedForm.vue`'s identical stage-row
+    // seeding. Added 2026-08-29, by request: this table (the one place
+    // `diagnosis_instructor_signature`'s per-stage sign-off actually
+    // lives) wasn't rendered on Flutter at all before, so a supervisor
+    // had no way to fill it in on mobile even though the permission
+    // model already reserved it for them (`CaseSheetSupervisorFields`).
+    for (final stage in widget.schema.stages) {
+      final key = stage['key'] as String;
+      for (final part in ['signature', 'date', 'grade']) {
+        final formKey = 'stage_${key}_$part';
+        final raw = widget.record[formKey];
+        _values[formKey] = part == 'date' ? _coerceDate(raw) : (raw?.toString() ?? '');
+        if (part != 'date') {
+          _controllers[formKey] = TextEditingController(text: _values[formKey] as String);
+        }
+      }
+    }
+  }
+
+  /// Same date-string normalization as `_coerce()`'s `'date'` case — kept
+  /// separate since stage fields aren't `CaseSheetField`s and don't go
+  /// through `_coerce()`.
+  String _coerceDate(dynamic raw) {
+    final s = raw?.toString();
+    if (s == null || s.isEmpty) return '';
+    final match = RegExp(r'^(\d{4}-\d{2}-\d{2})').firstMatch(s);
+    return match?.group(1) ?? s;
   }
 
   bool _isTextControlled(String type) =>
@@ -206,6 +237,16 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
       payload[chartField] = jsonEncode({'teeth': {}, ..._chartValue});
     }
 
+    // Stage rows — see `_seed()`'s matching comment; flat top-level
+    // columns like everything else here, never grouped.
+    for (final stage in widget.schema.stages) {
+      final key = stage['key'] as String;
+      for (final part in ['signature', 'date', 'grade']) {
+        final formKey = 'stage_${key}_$part';
+        payload[formKey] = _values[formKey];
+      }
+    }
+
     return payload;
   }
 
@@ -216,6 +257,15 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
   /// right comparison — mirrors `SectionedForm.vue`'s `fieldDisabled()`.
   bool fieldDisabled(CaseSheetField field) =>
       widget.readonly && !widget.supervisorEditableFields.contains(field.key);
+
+  /// Same idea as [fieldDisabled], for the stage-evaluation table's rows
+  /// (Prosthodontics/Complete Denture) — these aren't `CaseSheetField`s,
+  /// so they need their own check against the same
+  /// `stage_{key}_{part}`-keyed entries `CaseSheetSupervisorFields::
+  /// stageFields()` puts in `supervisorEditableFields`. Mirrors
+  /// `SectionedForm.vue`'s identically-named `stageFieldDisabled()`.
+  bool stageFieldDisabled(String stageKey, String part) =>
+      widget.readonly && !widget.supervisorEditableFields.contains('stage_${stageKey}_$part');
 
   /// The Save button was unconditionally hidden under `readonly` —
   /// correct while staff were fully locked out, but a supervisor with
@@ -265,6 +315,7 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (final section in widget.schema.sections) _SectionCard(section: section, state: this),
+          if (widget.schema.stages.isNotEmpty) _StageEvaluationTable(stages: widget.schema.stages, state: this),
           if (widget.schema.chartGroups.isNotEmpty)
             PerioChartGroupsField(
               groups: widget.schema.chartGroups,
@@ -284,6 +335,134 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
         ],
       ),
     );
+  }
+}
+
+/// Stages and evaluation — the 9-row sign-off table on Prosthodontics/
+/// Complete Denture (`diagnosis_instructor_signature` plus a
+/// `stage_{key}_{signature,date,grade}` triple per stage), added
+/// 2026-08-29 by request: this table is where the supervisor-only
+/// signature/date/grade fields actually live, and it wasn't rendered on
+/// Flutter at all before (`CaseSheetFormSchema.stages` was parsed but
+/// never displayed — see its own doc comment) even though the permission
+/// model (`CaseSheetSupervisorFields::stageFields()`) already reserved
+/// every one of these cells for staff. A vertical card-per-stage layout,
+/// not `SectionedForm.vue`'s wide HTML table — three columns of text
+/// input don't fit a phone screen without cramming or horizontal scroll,
+/// and this form has no other table-shaped field that would set a
+/// precedent to match.
+class _StageEvaluationTable extends StatelessWidget {
+  const _StageEvaluationTable({required this.stages, required this.state});
+  final List<Map<String, dynamic>> stages;
+  final DynamicSectionFormState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Stages and evaluation', style: Theme.of(context).textTheme.titleMedium),
+            for (final stage in stages) _StageRow(stage: stage, state: state),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StageRow extends StatelessWidget {
+  const _StageRow({required this.stage, required this.state});
+  final Map<String, dynamic> stage;
+  final DynamicSectionFormState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final key = stage['key'] as String;
+    final label = stage['label'] as String? ?? key;
+    final note = stage['note'] as String?;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(height: 1),
+          const SizedBox(height: 8),
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+          if (note != null) Text(note, style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: state._controllers['stage_${key}_signature'],
+                  enabled: !state.stageFieldDisabled(key, 'signature'),
+                  style: const TextStyle(fontSize: 13),
+                  decoration: const InputDecoration(labelText: 'Signature', isDense: true, border: OutlineInputBorder()),
+                  onChanged: (v) => state._values['stage_${key}_signature'] = v,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(child: _StageDateField(stageKey: key, state: state)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextFormField(
+                  controller: state._controllers['stage_${key}_grade'],
+                  enabled: !state.stageFieldDisabled(key, 'grade'),
+                  style: const TextStyle(fontSize: 13),
+                  decoration: const InputDecoration(labelText: 'Grade', hintText: '9/10', isDense: true, border: OutlineInputBorder()),
+                  onChanged: (v) => state._values['stage_${key}_grade'] = v,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StageDateField extends StatefulWidget {
+  const _StageDateField({required this.stageKey, required this.state});
+  final String stageKey;
+  final DynamicSectionFormState state;
+
+  @override
+  State<_StageDateField> createState() => _StageDateFieldState();
+}
+
+class _StageDateFieldState extends State<_StageDateField> {
+  String get _formKey => 'stage_${widget.stageKey}_date';
+
+  @override
+  Widget build(BuildContext context) {
+    final value = widget.state._values[_formKey] as String? ?? '';
+    final disabled = widget.state.stageFieldDisabled(widget.stageKey, 'date');
+    return InkWell(
+      onTap: disabled ? null : () => _pick(value),
+      child: InputDecorator(
+        decoration: const InputDecoration(
+          labelText: 'Date',
+          isDense: true,
+          border: OutlineInputBorder(),
+          suffixIcon: Icon(Icons.calendar_today, size: 16),
+        ),
+        child: Text(value.isEmpty ? '—' : value, style: const TextStyle(fontSize: 13)),
+      ),
+    );
+  }
+
+  Future<void> _pick(String current) async {
+    final initial = DateTime.tryParse(current) ?? DateTime.now();
+    final picked = await showDatePicker(context: context, initialDate: initial, firstDate: DateTime(1950), lastDate: DateTime(2100));
+    if (picked != null) {
+      setState(() => widget.state._values[_formKey] = DateFormat('yyyy-MM-dd').format(picked));
+    }
   }
 }
 

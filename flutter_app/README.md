@@ -4699,3 +4699,48 @@ Verified: `flutter analyze` clean project-wide (including after `flutter
 pub get` re-resolving the new asset entries). Not verified on a real
 device in this session — the user will confirm on next preview after
 the next Codemagic build + AltStore reinstall.
+
+## Prosthodontics/Complete Denture: stage-evaluation table now renders on Flutter (2026-08-29)
+
+By request ("diagnosis signature date grade خاص بالمدير او المشرف وهو
+الوحيد الذي يحق له التعديل عليها" — diagnosis/signature/date/grade is
+for the manager/supervisor only, and only they may edit it): the
+9-row "Stages and evaluation" table (`diagnosis_instructor_signature`
+plus a `stage_{key}_{signature,date,grade}` triple per stage —
+Preliminary impression, Cast-Surveying, Final impression, … through
+Final evaluation) is exactly where these fields live on Prosthodontics
+and Complete Denture, and `CaseSheetFormSchema`'s own doc comment
+already flagged it as parsed-but-never-rendered on Flutter. So the
+permission model (`CaseSheetSupervisorFields::stageFields()`) already
+correctly reserved every one of these cells for staff — but a
+supervisor had no way to actually *reach* them on mobile, since the
+table itself didn't exist there. `diagnosis_instructor_signature` itself
+was never affected by this gap — it's a normal `sections()` field
+(type `text`), already rendered and already gated correctly by the
+existing generic `fieldDisabled()` mechanism.
+
+New `_StageEvaluationTable`/`_StageRow`/`_StageDateField` in
+`dynamic_section_form.dart` (not a new file — small enough, and tightly
+coupled to `DynamicSectionFormState`'s internals the same way
+`_SectionCard` already is) render a card per stage rather than porting
+`SectionedForm.vue`'s wide HTML table verbatim — three columns of text
+input don't fit a phone screen without cramming or forcing horizontal
+scroll, and no other field in this form is table-shaped in a way that
+would set a precedent to match instead. `_seed()`/`buildSubmitPayload()`
+both gained a stage-row loop alongside the existing `sections()` loop,
+since `CaseSheetFormSchema.stages` is a separate top-level list, not
+part of `allFields`. New `stageFieldDisabled(stageKey, part)` mirrors
+`fieldDisabled()` exactly, checking `supervisorEditableFields` for
+`stage_{key}_{part}` — the same synthetic keys
+`CaseSheetSupervisorFields::stageFields()` already emits, so a
+supervisor previewing either sheet can now actually fill these in on
+mobile, while a doctor's own view still shows them editable client-side
+(matching this app's existing pattern everywhere else — server-side
+`EnforceCaseSheetAccess` is the real enforcement, per-field
+`readonly`/`fieldDisabled` only ever gates a *staff* viewer, never a
+doctor's own record) but is rejected server-side on an actual attempt
+to change one, exactly as it already was before this fix.
+
+Verified: `flutter analyze` clean project-wide. Not verified on a real
+device in this session — the user will confirm on next preview after
+the next Codemagic build + AltStore reinstall.
