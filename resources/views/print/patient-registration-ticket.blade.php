@@ -8,11 +8,16 @@
     {{-- Scoped to this ticket only — the shared table/font-size rules in
          print.layout.blade.php stay as-is for the doctor roster/card, which
          weren't asked to change; a bigger QR/text was specific to this
-         desk-facing ticket. --}}
+         desk-facing ticket. Same reasoning for the logo override below
+         (2026-08-29, matching the Flutter thermal ticket's identical fix):
+         the shared `.letterhead img { height: 80px }` stays untouched for
+         everything else, this ticket alone spans the logo to match its own
+         420px box width instead. --}}
     <style>
-        .reg-ticket table { font-size: 16px; }
+        .letterhead img { width: 100%; max-width: 420px; height: auto; }
+        .reg-ticket table { font-size: 19px; }
         .reg-ticket th, .reg-ticket td { padding: 10px 12px; }
-        .reg-ticket .muted { font-size: 15px; }
+        .reg-ticket .muted { font-size: 16px; }
     </style>
     <div class="reg-ticket" style="max-width:420px; margin:24px auto; border:1px solid #9ca3af; border-radius:8px; padding:20px;">
         <table style="margin:0 0 16px">

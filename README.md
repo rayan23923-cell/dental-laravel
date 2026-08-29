@@ -5826,6 +5826,43 @@ field in the app.
 Verified: `php -l` on every touched PHP file, `npm run build` clean,
 `flutter analyze` clean on every touched Dart file.
 
+## Web registration ticket: full-width logo, bigger table text (2026-08-29)
+
+Web twin of the Flutter thermal-ticket fix above (`flutter_app/README.md`'s
+matching entry), by request ("نفس الإعدادات للويب" — same treatment for
+the web): `resources/views/print/patient-registration-ticket.blade.php`
+(the desk-reprint ticket reached from `PatientRegistrationController::print()`
+via a browser print dialog — a separate rendering path from the Flutter
+ESC/POS raster ticket, sharing no code with it) had the same two gaps.
+
+Logo was capped at the shared `print/layout.blade.php` letterhead's
+`height: 80px` — small and fixed regardless of the ticket's own
+420px-wide box. Scoped to this view only (the same established pattern
+this file's own top comment already documents — `layout.blade.php`'s
+shared rules stay untouched for the doctor roster/card, which weren't
+asked to change): `.letterhead img { width: 100%; max-width: 420px; height: auto; }`
+inside this file's own `<style>` block, so the logo now spans the
+ticket's full width, aspect-ratio preserved, without affecting any other
+print view that reuses the same shared layout.
+
+Header text (`h1`/`h2` — university/clinic/college name) was **already**
+sourced live from `ClinicSetting::current()` here (`{{ $settings->university_name ?: $settings->clinic_name }}`/
+`{{ $settings->college_name }}`) — no change needed; this was the one
+piece of "بقية المعلومات من الإعدادات" the web side had already gotten
+right before the Flutter side did.
+
+Patient-info was already a real `<table>` here too (unlike the Flutter
+tickets' stacked `Text` rows, fixed separately in the entry above) —
+only its font size needed the same readability bump: 16px → 19px table
+text, 15px → 16px muted caption text (this view's own scoped override,
+`.reg-ticket table`/`.reg-ticket .muted` — the shared layout's default
+13px table size is untouched for every other print view).
+
+Verified: Blade syntax reviewed by direct read (no PHP logic changed,
+CSS-only); not re-verified via a live print in this session (no
+physical printer access) — the reception desk can confirm on next
+reprint.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the
