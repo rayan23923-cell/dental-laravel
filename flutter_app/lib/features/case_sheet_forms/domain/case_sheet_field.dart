@@ -39,7 +39,8 @@ class CaseSheetField {
   bool get isSupported => const {
         'text', 'textarea', 'number', 'decimal', 'date', 'time',
         'select', 'radio', 'checkboxes', 'boolean', 'teeth', 'dental_chart',
-        'endodontics', 'extraoral_exam',
+        'endodontics', 'extraoral_exam', 'history_complaint', 'pmh_checklist',
+        'surgical_history', 'family_history', 'social_history',
       }.contains(type);
 }
 

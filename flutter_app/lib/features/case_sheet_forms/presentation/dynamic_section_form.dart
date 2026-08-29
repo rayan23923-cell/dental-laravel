@@ -9,7 +9,12 @@ import '../../perio_chart/presentation/perio_chart_groups_field.dart';
 import '../domain/case_sheet_field.dart';
 import '../domain/case_sheet_form_schema.dart';
 import 'extraoral_intraoral_exam_field.dart';
+import 'family_history_field.dart';
+import 'history_of_complaint_field.dart';
 import 'quadrant_teeth_field.dart';
+import 'social_history_field.dart';
+import 'surgical_history_field.dart';
+import 'value_details_checklist_field.dart';
 
 /// Renders any of the 8 case-sheet resources from its
 /// `CaseSheetFormSchema` — one generic widget instead of 12 bespoke
@@ -27,23 +32,38 @@ import 'quadrant_teeth_field.dart';
 /// `ExtraoralIntraoralExamField`/`HeadDiagramsBoard` — added 2026-08-29,
 /// by request, since it's the one Oral Medicine composite involving real
 /// reference images with tap-to-mark drawings, matching web's
-/// `HeadDiagramsBoard.vue`). A resource's `chartGroups`/`chartField`
-/// (periodontal-charts only, today — the BOP/PPD/CAL per-tooth tables)
-/// are rendered separately, after every `sections()` card, via
-/// `PerioChartGroupsField` — they're not `sections()` fields at all, so
-/// they sit outside the field-type switch below entirely. Every other
-/// unhandled type (Oral Medicine's remaining five JSON-blob composites —
-/// history_complaint, pmh_checklist, surgical_history, family_history,
-/// social_history — plus Orthodontics' teeth-squares-grid/quadrant-repeater)
-/// renders as a read-only placeholder instead of an editable control — and,
-/// critically, is never touched by `buildSubmitPayload()`, so saving never
-/// silently drops data this form can't edit yet. For a *grouped* field
-/// (e.g. one subkey inside Orthodontics' `examination_data` blob) this
-/// means the group is reassembled from a copy of its original decoded
-/// object with only the supported subkeys overwritten — an unsupported
-/// sibling subkey inside the same JSON blob survives a save untouched
-/// rather than being wiped because this form didn't render a control for
-/// it.
+/// `HeadDiagramsBoard.vue`), and Oral Medicine's other five JSON-blob
+/// composites (2026-08-29, by request — a live screenshot showed all
+/// five still rendering as "غير مدعوم في التطبيق بعد" placeholders):
+/// `history_complaint` (`HistoryOfComplaintField` — the 28-item symptom
+/// checklist plus six follow-up questions and a pain scale),
+/// `pmh_checklist` (`ValueDetailsChecklistField`, generic over the
+/// field's own `options`), `surgical_history`/`family_history`/
+/// `social_history` (their own dedicated fields, each a direct port of
+/// the matching `Components/*Section.vue`). A resource's
+/// `chartGroups`/`chartField` (periodontal-charts only, today — the
+/// BOP/PPD/CAL per-tooth tables) are rendered separately, after every
+/// `sections()` card, via `PerioChartGroupsField` — they're not
+/// `sections()` fields at all, so they sit outside the field-type switch
+/// below entirely. Every other unhandled type (Orthodontics' teeth-
+/// squares-grid/quadrant-repeater) renders as a read-only placeholder
+/// instead of an editable control — and, critically, is never touched by
+/// `buildSubmitPayload()`, so saving never silently drops data this form
+/// can't edit yet. For a *grouped* field (e.g. one subkey inside
+/// Orthodontics' `examination_data` blob) this means the group is
+/// reassembled from a copy of its original decoded object with only the
+/// supported subkeys overwritten — an unsupported sibling subkey inside
+/// the same JSON blob survives a save untouched rather than being wiped
+/// because this form didn't render a control for it.
+/// Oral Medicine's JSON-blob columns — none carry an Eloquent 'array'
+/// cast, so they arrive as (and must be re-serialized back into) a JSON
+/// *string*, unlike `dental_chart`/`endodontics`. Mirrors
+/// `SectionedForm.vue`'s identically-named `JSON_BLOB_FIELD_TYPES`.
+const _jsonBlobFieldTypes = {
+  'extraoral_exam', 'history_complaint', 'pmh_checklist',
+  'surgical_history', 'family_history', 'social_history',
+};
+
 class DynamicSectionForm extends StatefulWidget {
   const DynamicSectionForm({
     super.key,
@@ -184,10 +204,15 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
       case 'endodontics':
         return _parseGroup(raw);
       case 'extraoral_exam':
-        // `oral_medicine_charts.extraoral_intraoral_examination` carries
-        // no Eloquent 'array' cast (unlike `endodontics_data` above) — see
-        // `buildSubmitPayload()`'s matching `jsonEncode` for the other
-        // half of this.
+      case 'history_complaint':
+      case 'pmh_checklist':
+      case 'surgical_history':
+      case 'family_history':
+      case 'social_history':
+        // None of Oral Medicine's six JSON-blob composite columns carry
+        // an Eloquent 'array' cast (unlike `endodontics_data` above) —
+        // see `_jsonBlobFieldTypes`/`buildSubmitPayload()`'s matching
+        // `jsonEncode` for the other half of this.
         return _parseGroup(raw);
       default:
         return raw?.toString() ?? '';
@@ -214,9 +239,9 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
 
       if (field.group != null) {
         groupBuckets[field.group!]![field.key] = value;
-      } else if (field.type == 'extraoral_exam') {
-        // See `_coerce()`'s matching comment — this column has no
-        // Eloquent cast, so the Map this form works with must be
+      } else if (_jsonBlobFieldTypes.contains(field.type)) {
+        // See `_coerce()`'s matching comment — none of these columns has
+        // an Eloquent cast, so the Map this form works with must be
         // stringified before it reaches the API, unlike `endodontics`'s
         // `endodontics_data` (which does have one and is sent as-is).
         payload[field.key] = jsonEncode(value);
@@ -549,6 +574,16 @@ class _FieldWidget extends StatelessWidget {
         return _EndodonticsFieldWidget(field: field, state: state);
       case 'extraoral_exam':
         return _ExtraoralExamFieldWidget(field: field, state: state);
+      case 'history_complaint':
+        return _HistoryComplaintFieldWidget(field: field, state: state);
+      case 'pmh_checklist':
+        return _PmhChecklistFieldWidget(field: field, state: state);
+      case 'surgical_history':
+        return _SurgicalHistoryFieldWidget(field: field, state: state);
+      case 'family_history':
+        return _FamilyHistoryFieldWidget(field: field, state: state);
+      case 'social_history':
+        return _SocialHistoryFieldWidget(field: field, state: state);
       default: // text, number, decimal
         return _TextField(field: field, state: state, multiline: false);
     }
@@ -884,6 +919,122 @@ class _ExtraoralExamFieldWidgetState extends State<_ExtraoralExamFieldWidget> {
     // schema's own field label ("Extraoral / Intraoral Examination") is
     // already shown by the section card title above it.
     return ExtraoralIntraoralExamField(
+      value: value,
+      readOnly: widget.state.fieldDisabled(widget.field),
+      onChanged: (next) => setState(() => widget.state._values[widget.field.formKey] = next),
+    );
+  }
+}
+
+class _HistoryComplaintFieldWidget extends StatefulWidget {
+  const _HistoryComplaintFieldWidget({required this.field, required this.state});
+  final CaseSheetField field;
+  final DynamicSectionFormState state;
+
+  @override
+  State<_HistoryComplaintFieldWidget> createState() => _HistoryComplaintFieldWidgetState();
+}
+
+class _HistoryComplaintFieldWidgetState extends State<_HistoryComplaintFieldWidget> {
+  @override
+  Widget build(BuildContext context) {
+    final value = widget.state._values[widget.field.formKey] as Map<String, dynamic>? ?? const {};
+    // No `_FieldLabel` — matches `_ExtraoralExamFieldWidget`: the schema's
+    // own field label is already shown by the section card title above it.
+    return HistoryOfComplaintField(
+      value: value,
+      readOnly: widget.state.fieldDisabled(widget.field),
+      onChanged: (next) => setState(() => widget.state._values[widget.field.formKey] = next),
+    );
+  }
+}
+
+class _PmhChecklistFieldWidget extends StatefulWidget {
+  const _PmhChecklistFieldWidget({required this.field, required this.state});
+  final CaseSheetField field;
+  final DynamicSectionFormState state;
+
+  @override
+  State<_PmhChecklistFieldWidget> createState() => _PmhChecklistFieldWidgetState();
+}
+
+class _PmhChecklistFieldWidgetState extends State<_PmhChecklistFieldWidget> {
+  @override
+  Widget build(BuildContext context) {
+    final value = widget.state._values[widget.field.formKey] as Map<String, dynamic>? ?? const {};
+    // PMH's own `options` are `{key, label}` pairs (see `App\Support\
+    // OralMedicineForm`), not the `{value, label}` shape
+    // `CaseSheetField.options` assumes for select/radio/checkboxes — read
+    // the raw list directly rather than through that getter.
+    final items = (widget.field.raw['options'] as List<dynamic>? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .map((o) => (o['key'] as String, o['label'] as String? ?? o['key'] as String))
+        .toList();
+    return ValueDetailsChecklistField(
+      value: value,
+      items: items,
+      readOnly: widget.state.fieldDisabled(widget.field),
+      onChanged: (next) => setState(() => widget.state._values[widget.field.formKey] = next),
+    );
+  }
+}
+
+class _SurgicalHistoryFieldWidget extends StatefulWidget {
+  const _SurgicalHistoryFieldWidget({required this.field, required this.state});
+  final CaseSheetField field;
+  final DynamicSectionFormState state;
+
+  @override
+  State<_SurgicalHistoryFieldWidget> createState() => _SurgicalHistoryFieldWidgetState();
+}
+
+class _SurgicalHistoryFieldWidgetState extends State<_SurgicalHistoryFieldWidget> {
+  @override
+  Widget build(BuildContext context) {
+    final value = widget.state._values[widget.field.formKey] as Map<String, dynamic>? ?? const {};
+    return SurgicalHistoryField(
+      value: value,
+      readOnly: widget.state.fieldDisabled(widget.field),
+      onChanged: (next) => setState(() => widget.state._values[widget.field.formKey] = next),
+    );
+  }
+}
+
+class _FamilyHistoryFieldWidget extends StatefulWidget {
+  const _FamilyHistoryFieldWidget({required this.field, required this.state});
+  final CaseSheetField field;
+  final DynamicSectionFormState state;
+
+  @override
+  State<_FamilyHistoryFieldWidget> createState() => _FamilyHistoryFieldWidgetState();
+}
+
+class _FamilyHistoryFieldWidgetState extends State<_FamilyHistoryFieldWidget> {
+  @override
+  Widget build(BuildContext context) {
+    final value = widget.state._values[widget.field.formKey] as Map<String, dynamic>? ?? const {};
+    return FamilyHistoryField(
+      value: value,
+      readOnly: widget.state.fieldDisabled(widget.field),
+      onChanged: (next) => setState(() => widget.state._values[widget.field.formKey] = next),
+    );
+  }
+}
+
+class _SocialHistoryFieldWidget extends StatefulWidget {
+  const _SocialHistoryFieldWidget({required this.field, required this.state});
+  final CaseSheetField field;
+  final DynamicSectionFormState state;
+
+  @override
+  State<_SocialHistoryFieldWidget> createState() => _SocialHistoryFieldWidgetState();
+}
+
+class _SocialHistoryFieldWidgetState extends State<_SocialHistoryFieldWidget> {
+  @override
+  Widget build(BuildContext context) {
+    final value = widget.state._values[widget.field.formKey] as Map<String, dynamic>? ?? const {};
+    return SocialHistoryField(
       value: value,
       readOnly: widget.state.fieldDisabled(widget.field),
       onChanged: (next) => setState(() => widget.state._values[widget.field.formKey] = next),

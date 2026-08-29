@@ -4796,3 +4796,77 @@ registry generically, this one extra entry is enough to lock the field
 on the doctor's own page too, the moment the schema endpoint (fetched
 live, no caching) reflects it — no Codemagic rebuild needed. See
 `dental_laravel/README.md`'s matching entry for the full detail.
+
+## Oral Medicine's remaining five JSON-blob composites now render on Flutter (2026-08-29)
+
+By request, from a live screenshot showing "History of the Complaint",
+"PMH. (Past Medical History)", "History of Surgical Operations or
+Treatments", and "Family History" all still rendering as "غير مدعوم في
+التطبيق بعد" (not yet supported) placeholders: Oral Medicine has six
+JSON-blob composite field types in total (`App\Support\OralMedicineForm`);
+only `extraoral_exam` had a real Flutter widget before this (see the
+2026-08-29 entry above it), the other five were parsed by the schema but
+had no renderer, so `_UnsupportedField` was all a doctor or supervisor
+ever saw for them — meaning `history_of_complaint`, `past_medical_history`,
+`surgical_history`, `family_history`, and `social_history` were
+effectively unfillable from the mobile app.
+
+Five new widgets, each a direct port of its matching web component —
+read in full before building, not guessed, per this project's standing
+rule:
+- `HistoryOfComplaintField` (`history_complaint` type) — port of
+  `Components/HistoryOfComplaintSection.vue` +
+  `Components/SymptomsChecklist.vue`: the 28-item symptom checklist
+  (`symptoms: string[]`, with a `hasSides`-flagged subset revealing a
+  right/left detail pair and the special `other` item revealing free
+  text — `symptom_details: {key: {right, left, other}}`), the six
+  open-ended follow-up questions, and a 0–10 pain scale.
+- `ValueDetailsChecklistField` (`pmh_checklist` type) — port of
+  `Components/ValueDetailsChecklist.vue`: a generic "Yes/No + details if
+  yes" grid (`{key: {value: 'yes'|'no', details: string}}` per item),
+  driven by the field's own 14-category `options` list — a real gotcha
+  here: PMH's `options` are `{key, label}` pairs, not the `{value,
+  label}` shape `CaseSheetField.options` assumes for select/radio/
+  checkboxes elsewhere, so the wrapper widget reads `field.raw['options']`
+  directly instead of going through that getter.
+- `SurgicalHistoryField` (`surgical_history` type) — port of
+  `Components/SurgicalHistorySection.vue`: `extra_oral`/`intra_oral` are
+  plain "yes"/"no" strings (confirmed against real imported data by the
+  web component's own comment — not the value+details pattern PMH uses),
+  plus three free-text fields.
+- `FamilyHistoryField` (`family_history` type) — port of
+  `Components/FamilyHistorySection.vue`: eight plain free-text fields,
+  one per hereditary condition, no value/details toggle.
+- `SocialHistoryField` (`social_history` type) — port of
+  `Components/SocialHistorySection.vue`: marital status/tobacco use/
+  alcohol/exercise (radio), two checkbox multi-select lists
+  (`tobacco_other`, `caffeine`), and several free-text fields.
+
+Wiring, mirroring exactly how `extraoral_exam` was added: `CaseSheetField.isSupported`
+gained all five type names; `DynamicSectionForm._coerce()` gained
+matching cases (all six of Oral Medicine's composites decode identically
+— `_parseGroup(raw)` — since none of these columns carry an Eloquent
+`'array'` cast, unlike `endodontics_data`); the ad hoc `field.type ==
+'extraoral_exam'` check in `buildSubmitPayload()` was generalized into a
+new `_jsonBlobFieldTypes` set (mirrors `SectionedForm.vue`'s identically
+-named `JSON_BLOB_FIELD_TYPES` constant) covering all six, so every one
+of them gets `jsonEncode()`d back to a string before reaching the API;
+five new `case`s in `_FieldWidget`'s dispatch switch, each backed by a
+small wrapper `StatefulWidget` (`_HistoryComplaintFieldWidget`, etc.)
+following the exact `_ExtraoralExamFieldWidget` pattern — no `_FieldLabel`
+(the section card's own title already labels it), reads/writes
+`state._values[field.formKey]` as a `Map<String, dynamic>`.
+
+Radio groups in the three new widgets that needed them use `RadioGroup`
+(the current non-deprecated Flutter API — confirmed by first trying the
+older direct `Radio.groupValue`/`onChanged` pair, which `flutter
+analyze` flagged as deprecated, then matching the pattern the existing
+`_RadioField` in this same file already uses) rather than reintroducing
+the old pattern.
+
+Verified: `flutter analyze` clean project-wide (no issues, including
+after fixing the `RadioGroup` deprecation warnings and a `ValueChanged<T?>`
+non-nullable-callback signature mismatch caught the same way — both
+self-caught before shipping). Not verified on a real device in this
+session — the user will confirm on next preview after the next
+Codemagic build + AltStore reinstall.
