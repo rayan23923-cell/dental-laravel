@@ -11,9 +11,11 @@ import '../domain/case_sheet_form_schema.dart';
 import 'extraoral_intraoral_exam_field.dart';
 import 'family_history_field.dart';
 import 'history_of_complaint_field.dart';
+import 'quadrant_repeater_field.dart';
 import 'quadrant_teeth_field.dart';
 import 'social_history_field.dart';
 import 'surgical_history_field.dart';
+import 'teeth_squares_grid_field.dart';
 import 'value_details_checklist_field.dart';
 
 /// Renders any of the 8 case-sheet resources from its
@@ -40,14 +42,19 @@ import 'value_details_checklist_field.dart';
 /// `pmh_checklist` (`ValueDetailsChecklistField`, generic over the
 /// field's own `options`), `surgical_history`/`family_history`/
 /// `social_history` (their own dedicated fields, each a direct port of
-/// the matching `Components/*Section.vue`). A resource's
-/// `chartGroups`/`chartField` (periodontal-charts only, today — the
-/// BOP/PPD/CAL per-tooth tables) are rendered separately, after every
-/// `sections()` card, via `PerioChartGroupsField` — they're not
-/// `sections()` fields at all, so they sit outside the field-type switch
-/// below entirely. Every other unhandled type (Orthodontics' teeth-
-/// squares-grid/quadrant-repeater) renders as a read-only placeholder
-/// instead of an editable control — and, critically, is never touched by
+/// the matching `Components/*Section.vue`), and Orthodontics'
+/// `teeth_squares_grid`/`quadrant_repeater` (`TeethSquaresGridField`/
+/// `QuadrantRepeaterField`, added the same day — the "Number of Teeth"
+/// 4×16 marking grid and the two repeating info+quadrant-picker lists,
+/// "Stages of treatment"/"Appliance type & Design"; the latter reuses
+/// `QuadrantTeethField` per row rather than a second tooth-picker
+/// implementation). A resource's `chartGroups`/`chartField`
+/// (periodontal-charts only, today — the BOP/PPD/CAL per-tooth tables)
+/// are rendered separately, after every `sections()` card, via
+/// `PerioChartGroupsField` — they're not `sections()` fields at all, so
+/// they sit outside the field-type switch below entirely. Every other
+/// unhandled type renders as a read-only placeholder instead of an
+/// editable control — and, critically, is never touched by
 /// `buildSubmitPayload()`, so saving never silently drops data this form
 /// can't edit yet. For a *grouped* field (e.g. one subkey inside
 /// Orthodontics' `examination_data` blob) this means the group is
@@ -203,6 +210,20 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
         return raw is List ? List<dynamic>.from(raw) : <dynamic>[];
       case 'endodontics':
         return _parseGroup(raw);
+      case 'teeth_squares_grid':
+      case 'quadrant_repeater':
+        // Grouped subkeys (inside `examination_data`) whose value is
+        // itself an object/array, not a scalar — unlike the JSON-blob
+        // *columns* below, the whole group's JSON string is decoded once
+        // in `_seed()`/`_parseGroup()`, so `raw` here already arrived as
+        // a real `Map` (or a `List` — an empty `[]` on a fresh record,
+        // per `OrthodonticsRecordController::prepare()`'s defaults — not
+        // yet ever a populated list, since both PHP-side callers only
+        // ever write associative keys into these two). The existing
+        // group-reassembly in `buildSubmitPayload()` re-encodes the
+        // *whole* group column, so no per-field `jsonEncode` is needed
+        // here the way `extraoral_exam` etc. below need one.
+        return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
       case 'extraoral_exam':
       case 'history_complaint':
       case 'pmh_checklist':
@@ -584,6 +605,10 @@ class _FieldWidget extends StatelessWidget {
         return _FamilyHistoryFieldWidget(field: field, state: state);
       case 'social_history':
         return _SocialHistoryFieldWidget(field: field, state: state);
+      case 'teeth_squares_grid':
+        return _TeethSquaresGridFieldWidget(field: field, state: state);
+      case 'quadrant_repeater':
+        return _QuadrantRepeaterFieldWidget(field: field, state: state);
       default: // text, number, decimal
         return _TextField(field: field, state: state, multiline: false);
     }
@@ -975,6 +1000,62 @@ class _PmhChecklistFieldWidgetState extends State<_PmhChecklistFieldWidget> {
       items: items,
       readOnly: widget.state.fieldDisabled(widget.field),
       onChanged: (next) => setState(() => widget.state._values[widget.field.formKey] = next),
+    );
+  }
+}
+
+class _TeethSquaresGridFieldWidget extends StatefulWidget {
+  const _TeethSquaresGridFieldWidget({required this.field, required this.state});
+  final CaseSheetField field;
+  final DynamicSectionFormState state;
+
+  @override
+  State<_TeethSquaresGridFieldWidget> createState() => _TeethSquaresGridFieldWidgetState();
+}
+
+class _TeethSquaresGridFieldWidgetState extends State<_TeethSquaresGridFieldWidget> {
+  @override
+  Widget build(BuildContext context) {
+    final value = widget.state._values[widget.field.formKey] as Map<String, dynamic>? ?? const {};
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _FieldLabel(field: widget.field),
+        TeethSquaresGridField(
+          value: value,
+          readOnly: widget.state.fieldDisabled(widget.field),
+          onChanged: (next) => setState(() => widget.state._values[widget.field.formKey] = next),
+        ),
+      ],
+    );
+  }
+}
+
+class _QuadrantRepeaterFieldWidget extends StatefulWidget {
+  const _QuadrantRepeaterFieldWidget({required this.field, required this.state});
+  final CaseSheetField field;
+  final DynamicSectionFormState state;
+
+  @override
+  State<_QuadrantRepeaterFieldWidget> createState() => _QuadrantRepeaterFieldWidgetState();
+}
+
+class _QuadrantRepeaterFieldWidgetState extends State<_QuadrantRepeaterFieldWidget> {
+  @override
+  Widget build(BuildContext context) {
+    final value = widget.state._values[widget.field.formKey] as Map<String, dynamic>? ?? const {};
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _FieldLabel(field: widget.field),
+        QuadrantRepeaterField(
+          value: value,
+          readOnly: widget.state.fieldDisabled(widget.field),
+          itemLabel: widget.field.itemLabel ?? 'Item',
+          infoLabel: widget.field.infoLabel ?? 'Information',
+          onChanged: (next) => setState(() => widget.state._values[widget.field.formKey] = next),
+        ),
+      ],
     );
   }
 }

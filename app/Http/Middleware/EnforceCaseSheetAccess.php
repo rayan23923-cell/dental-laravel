@@ -165,6 +165,18 @@ class EnforceCaseSheetAccess
      * `tooth_data`-style array-cast column, never match any resource's
      * `$supervisorFields` either — the allow-list check behaves
      * identically either way, just at finer granularity).
+     *
+     * **A subkey whose own value is itself an array** (2026-08-29, found
+     * while registering Orthodontics' `treatment_stages`/`appliance_designs`
+     * — `{index: {info, quadrants}}` repeater rows, not scalars) exposed a
+     * second bug in the naive string-cast comparison: PHP casts *any*
+     * array to the literal string `"Array"` (with a warning), so two
+     * different array values always compared equal — a doctor could
+     * freely edit either field with rule 3 never noticing, since
+     * `changedFields()` would never report them. `differs()` below
+     * special-cases this: an array on either side is compared via
+     * `json_encode()` instead of a string cast, everything else keeps the
+     * original string-cast comparison.
      */
     private function changedFields(Request $request, Model $record): array
     {
@@ -176,18 +188,28 @@ class EnforceCaseSheetAccess
 
             if (is_array($storedDecoded) && is_array($valueDecoded)) {
                 foreach (array_unique([...array_keys($storedDecoded), ...array_keys($valueDecoded)]) as $subkey) {
-                    if ((string) ($valueDecoded[$subkey] ?? '') !== (string) ($storedDecoded[$subkey] ?? '')) {
+                    if ($this->differs($valueDecoded[$subkey] ?? '', $storedDecoded[$subkey] ?? '')) {
                         $changed[] = $subkey;
                     }
                 }
                 continue;
             }
 
-            if ((string) ($value ?? '') !== (string) ($stored ?? '')) {
+            if ($this->differs($value, $stored)) {
                 $changed[] = $key;
             }
         }
 
         return $changed;
+    }
+
+    /** See `changedFields()`'s doc comment for why arrays need their own branch. */
+    private function differs(mixed $value, mixed $stored): bool
+    {
+        if (is_array($value) || is_array($stored)) {
+            return json_encode($value) !== json_encode($stored);
+        }
+
+        return (string) ($value ?? '') !== (string) ($stored ?? '');
     }
 }

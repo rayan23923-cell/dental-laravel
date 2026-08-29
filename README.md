@@ -6270,6 +6270,66 @@ Confirmed no print-view breakage: no Blade view references
 
 Verified: `php -l` on both touched files.
 
+## Orthodontics: removed the redundant Group field, locked Diagnosis/Treatment Plan to supervisors, and a real changedFields() bug fix (2026-08-29)
+
+Three-part request from a live screenshot set: "عالج الحقول الغير مدعومة
+ازل حقل group... من حقل التشخيص الى اخر حقل خاصة بالمشرفين او من
+يملكون صلاحية ولايمكن للاطباء التعديل عليها" (handle the unsupported
+fields, remove the Group field, and from the Diagnosis field to the
+last one belong to the supervisor/authorized person and a doctor may
+not edit them).
+
+**"Group" removed.** `group_name` — a lone top-level field in its own
+"Group" section — was explicitly kept during the earlier "Student Name/
+Supervised by/Referral Date/Referred from" removal ("the user asked for
+these four specifically, not it"), but is redundant for the same reason
+and removed now in this follow-up. Web validation generated this rule
+dynamically from `sections()` (no change needed); the API controller
+(`Api\OrthodonticsRecordController::validateRecord()`) had it explicit,
+so that one rule line was deleted there too.
+
+**Diagnosis/Treatment plan/Stages of treatment/Appliance type & Design
+locked to supervisors.** These four (`examination_data` subkeys
+`diagnosis`/`treatment_plan`/`treatment_stages`/`appliance_designs`)
+are exactly the four fields the *original* app's own
+`hasDepartmentRole()` gates in `doctor/orthodontics.php` (editable only
+by an admin or a doctor holding a department-role for the task's
+department — see the Department Roles research earlier today).
+Registered them in `CaseSheetSupervisorFields` at this port's simpler,
+already-established any-staff granularity instead of reintroducing the
+original's separate department-role mechanism at the individual-field
+level — consistent with every other resource's supervisor-only fields
+this session, and confirmed the right call since the user's own phrasing
+mirrored that simpler pattern ("المشرفين او من يملكون صلاحية"), not a
+department-specific one.
+
+**A real second bug, found while wiring the above up**: `treatment_stages`/
+`appliance_designs` are array-valued (`{index: {info, quadrants}}`
+repeater rows), not scalars. `EnforceCaseSheetAccess::changedFields()`'s
+grouped-subkey diff (added earlier today for Prevention) compared values
+via a plain `(string)` cast — but PHP casts *any* array to the literal
+string `"Array"` (with a warning), so two completely different array
+values always compared equal. Left as-is, this would have meant rule 3
+(a doctor may never *change* a supervisor field) silently never fired
+for these two — the client-side lock would show, but a crafted request
+could bypass it entirely server-side, since `changedFields()` would
+never report them as changed. Fixed with a new `differs()` helper: an
+array on either side is compared via `json_encode()` instead of a
+string cast; every other (scalar) comparison keeps the original,
+deliberate string-cast behavior unchanged.
+
+**"عالج الحقول الغير مدعومة" (handle the unsupported fields)** — the
+same screenshots showed `teeth_squares_grid` ("Number of teeth") and
+`quadrant_repeater` ("Stages of treatment"/"Appliance type & Design")
+still rendering as "غير مدعوم في التطبيق بعد" on Flutter. Both now have
+real widgets — see the matching `flutter_app/README.md` entry for detail
+— which also means a supervisor can now actually exercise the new lock
+on Flutter (edit these fields there), not just view them frozen at
+whatever the doctor already typed before the fields existed as
+controls.
+
+Verified: `php -l` on all four touched PHP files.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the

@@ -52,6 +52,18 @@ namespace App\Support;
  * field entirely. Grouped-subkey diffing (`EnforceCaseSheetAccess::
  * changedFields()`) already handles this correctly, same mechanism
  * `prevention-records`' `senior_name`/`signature_date` above relies on.
+ *
+ * **Addition (2026-08-29)**: `orthodontics-records`' `diagnosis`/
+ * `treatment_plan`/`treatment_stages`/`appliance_designs` (subkeys of
+ * `examination_data`) are also supervisor-only, by explicit request —
+ * this is the port's version of the original's own `hasDepartmentRole()`
+ * gate on these exact four fields (see `App\Support\OrthodonticsForm`'s
+ * class doc comment), at the simpler any-staff granularity every other
+ * resource's supervisor split already uses rather than the original's
+ * department-role-specific one. `treatment_stages`/`appliance_designs`
+ * are array-valued (repeater rows, not scalars), which exposed a second,
+ * real bug in `EnforceCaseSheetAccess::changedFields()`'s diffing — see
+ * that method's doc comment — fixed in the same change as this addition.
  */
 class CaseSheetSupervisorFields
 {
@@ -71,7 +83,7 @@ class CaseSheetSupervisorFields
             'periodontal-charts' => ['notes', 'clinical_notes', 'senior_doctor_name', 'approval_date', 'senior_signature'],
             'prosthodontics-records' => self::stageFields(self::PROSTHODONTICS_STAGES),
             'complete-denture-records' => self::stageFields(self::COMPLETE_DENTURE_STAGES),
-            'orthodontics-records' => ['supervisor_notes', 'supervisor_signature'],
+            'orthodontics-records' => ['diagnosis', 'treatment_plan', 'treatment_stages', 'appliance_designs', 'supervisor_notes', 'supervisor_signature'],
             'oral-medicine-charts' => ['staff_signature', 'date', 'supervisor_notes', 'supervisor_signature'],
             'prevention-records' => ['senior_name', 'signature_date', 'supervisor_notes', 'supervisor_signature'],
             default => [],

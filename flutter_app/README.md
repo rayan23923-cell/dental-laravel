@@ -4870,3 +4870,53 @@ non-nullable-callback signature mismatch caught the same way — both
 self-caught before shipping). Not verified on a real device in this
 session — the user will confirm on next preview after the next
 Codemagic build + AltStore reinstall.
+
+## Orthodontics' last two unsupported field types now render on Flutter (2026-08-29)
+
+By request, from live screenshots showing "Stages of treatment",
+"Appliance type & Design", and "Number of teeth" still as "غير مدعوم في
+التطبيق بعد" placeholders — these were the only two remaining unhandled
+`App\Support\OrthodonticsForm` types (`teeth_squares_grid`,
+`quadrant_repeater`) after every one of Oral Medicine's composites was
+covered earlier today.
+
+- **`TeethSquaresGridField`** (`teeth_squares_grid`) — port of
+  `Components/TeethSquaresGrid.vue`: a 4-row × 16-column marking grid
+  (Unerupted/Erupted/Erupted/Unerupted, header 8→1 then 1→8), each cell
+  tappable to open a bottom-sheet picker offering Primary teeth A–E,
+  Permanent teeth 1–8, the "/" (Extracted) mark, or Clear. `value` is
+  `{ [square_id]: mark }`, `square_id = '${row_type}_${col}'`, matching
+  the web component's keys exactly. Wrapped in a horizontal
+  `SingleChildScrollView` inside a fixed LTR `Directionality` — the
+  header's anatomical 8→1→1→8 reading order must not flip under the
+  app's Arabic (RTL) locale, same reasoning as `QuadrantTeethField`.
+- **`QuadrantRepeaterField`** (`quadrant_repeater`) — port of
+  `Components/QuadrantRepeater.vue`: repeating "info + quadrant tooth
+  picker" rows (`{index: {info, quadrants}}`, 1-based), used for both
+  "Stages of treatment" and "Appliance type & Design" (same shape,
+  different `itemLabel`/`infoLabel`). Reuses the existing
+  `QuadrantTeethField` per row for the tooth picker rather than a second
+  fdi-cross implementation — the two already share the exact same
+  comma-separated-code value shape.
+
+Both are **grouped subkeys** inside `examination_data`, not top-level
+JSON-blob columns — unlike Oral Medicine's six composites (which each
+needed their own `jsonEncode`/`_jsonBlobFieldTypes` entry),
+`_coerce()`'s new cases just normalize `raw` to a `Map` and let the
+*existing* group-reassembly in `buildSubmitPayload()` re-encode the
+whole `examination_data` blob as it already does for every other
+grouped field — no submit-path change needed at all.
+
+This lands the same day `diagnosis`/`treatment_plan`/`treatment_stages`/
+`appliance_designs` were registered supervisor-only (see
+`dental_laravel/README.md`'s matching entry) — until these two widgets
+existed, a supervisor previewing an Orthodontics record on Flutter had
+no way to actually *edit* Stages of treatment/Appliance type & Design
+even though the permission model now reserves them for exactly that
+role; they'd only ever seen the frozen "not supported" placeholder,
+same gap the Prosthodontics/Complete Denture stage table had before it
+was built.
+
+Verified: `flutter analyze` clean project-wide (no issues). Not
+verified on a real device — the user will confirm on next preview after
+the next Codemagic build + AltStore reinstall.

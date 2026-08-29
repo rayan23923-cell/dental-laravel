@@ -65,7 +65,6 @@ class OrthodonticsRecordController extends Controller
             'doctor_id' => ['required', 'integer'],
             'task_instances_id' => ['nullable', 'integer'],
             'task_id' => ['nullable', 'integer'],
-            'group_name' => ['nullable', 'string', 'max:255'],
             'patient_name' => ['required', 'string', 'max:255'],
             'patient_age' => ['nullable', 'integer'],
             'patient_sex' => ['nullable', 'string', 'max:255'],

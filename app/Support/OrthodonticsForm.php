@@ -42,12 +42,19 @@ namespace App\Support;
  * Deliberately not built: the per-row canvas signature pad on the separate
  * `treatment_plans` satellite table (Treatment Plan & Senior Approval) —
  * same class of simplification as every other sheet's drawn signatures
- * (plain text field instead, see App\Support\SurgerySatelliteForms). The
- * department-role gate the original applies to `diagnosis`/`treatment_plan`/
+ * (plain text field instead, see App\Support\SurgerySatelliteForms).
+ *
+ * The original's `hasDepartmentRole()` gate on `diagnosis`/`treatment_plan`/
  * `treatment_stages`/`appliance_designs` (editable only by admins or a
- * doctor with a role in the owning department) isn't replicated either —
- * this port's readonly is the same all-or-nothing CaseSheetAccess gate
- * every other sheet uses.
+ * doctor with a role in the *owning department* specifically) is ported
+ * at coarser granularity (2026-08-29, by request): all four are
+ * registered supervisor-only in `App\Support\CaseSheetSupervisorFields`
+ * — any staff/supervisor may edit them, not specifically one with a role
+ * in this task's department — matching the simpler `CaseSheetAccess`
+ * split every other resource's supervisor-only fields already use,
+ * rather than reintroducing the original's separate department-role
+ * mechanism (`App\Models\DepartmentRoleAssignment`) at the individual
+ * case-sheet-field level.
  */
 class OrthodonticsForm
 {
@@ -75,27 +82,22 @@ class OrthodonticsForm
                     ['key' => 'patient_address', 'label' => 'Address', 'type' => 'text', 'width' => 'half'],
                 ],
             ],
-            [
-                // Student Name / Supervised by / Referral Date / Referred
-                // from removed (2026-08-29, by request) — "نفسها معلومات
-                // الطبيب" (the same as the doctor's own info): the doctor
-                // filling this sheet already *is* the student, and their
-                // identity is already the record's `doctor_id`, so a
-                // separate free-text student-name field only ever
-                // duplicated it. `student_name`/`referral_date` are now
-                // set automatically at create time instead
-                // (`OrthodonticsRecordController::prepare()`/
-                // `Api\OrthodonticsRecordController::store()` — the
-                // doctor's own name, and today's date); `supervised_by`/
-                // `referred_from` had no equivalent automatic source, so
-                // they're simply gone, matching how `Payment.paid_by` was
-                // dropped for the same reason. `group_name` stays — the
-                // user asked for these four specifically, not it.
-                'title' => 'Group',
-                'fields' => [
-                    ['key' => 'group_name', 'label' => 'Group', 'type' => 'text'],
-                ],
-            ],
+            // Student Name / Supervised by / Referral Date / Referred from
+            // removed (2026-08-29, by request) — "نفسها معلومات الطبيب"
+            // (the same as the doctor's own info): the doctor filling this
+            // sheet already *is* the student, and their identity is
+            // already the record's `doctor_id`, so a separate free-text
+            // student-name field only ever duplicated it.
+            // `student_name`/`referral_date` are now set automatically at
+            // create time instead (`OrthodonticsRecordController::prepare()`/
+            // `Api\OrthodonticsRecordController::store()` — the doctor's
+            // own name, and today's date); `supervised_by`/`referred_from`
+            // had no equivalent automatic source, so they're simply gone,
+            // matching how `Payment.paid_by` was dropped for the same
+            // reason. The whole "Group" section (just `group_name`) was
+            // kept at the time ("the user asked for these four
+            // specifically, not it") but removed outright in a follow-up
+            // request the same day, for the same reason — also redundant.
             [
                 'title' => 'Chief Complaint',
                 'fields' => [
@@ -229,6 +231,21 @@ class OrthodonticsForm
                 ],
             ],
             [
+                // All four fields registered supervisor-only (2026-08-29,
+                // by request — "من حقل التشخيص الى اخر حقل خاصة
+                // بالمشرفين... ولا يمكن للاطباء التعديل عليها": from the
+                // Diagnosis field to the last one belong to the
+                // supervisor/authorized person, a doctor may not edit
+                // them) — see App\Support\CaseSheetSupervisorFields. All
+                // four are grouped subkeys inside `examination_data`,
+                // handled by the same grouped-field diffing/locking
+                // machinery `prevention-records`' `senior_name` etc. rely
+                // on. This also matches the original app's own
+                // `hasDepartmentRole()` gate on these same four fields
+                // (doctor/orthodontics.php) — not replicated at that
+                // granularity (department-role-specific), just as
+                // supervisor-only, consistent with every other resource's
+                // simpler CaseSheetAccess-based split this session.
                 'title' => 'Diagnosis and Treatment Plan',
                 'fields' => [
                     ['group' => $g, 'key' => 'diagnosis', 'label' => 'Diagnosis', 'type' => 'textarea', 'width' => 'full'],
