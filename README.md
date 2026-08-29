@@ -6429,6 +6429,49 @@ correctly either way.
 
 Verified: `php -l` on all five touched PHP files.
 
+## Stages of treatment / Appliance type & Design: renumber rows after removal (2026-08-29)
+
+By request: "Stage of treatment appliance type and design اجعل يعمل نفس
+dentalclinic ديناميك teeth numbering" (make Stages of treatment/
+Appliance type & Design work the same as dentalclinic — dynamic teeth
+numbering). Researched the original's actual `orthodontics.php` JS
+before touching anything, rather than guessing what "dynamic" meant.
+
+**The FDI tooth-numbering grid itself was already correct** — the
+original uses the exact same fixed quadrant grid (UR8-1/UL1-8/LL1-8/
+LR8-1, permanent teeth only) for every quadrant picker in the app,
+`QuadrantTeeth.vue`/`QuadrantTeethField` already match it. "Dynamic"
+actually refers to the original's `addTreatmentStage()`/
+`addApplianceDesign()`/`removeTreatmentStage()`/`removeApplianceDesign()`
+(rows added/removed at runtime) plus, critically,
+`renumberTreatmentStages()`/`renumberApplianceDesigns()`: after removing
+a row, the original physically renames every remaining row's field
+id/name/data-attributes to stay contiguous (1..N, no gaps) — e.g.
+removing stage 2 out of 1/2/3 turns the old stage 3 into the new stage
+2, not a gap.
+
+Both `QuadrantRepeater.vue` (already had add/remove, built earlier this
+project) and its new Flutter twin `QuadrantRepeaterField` (built
+yesterday) had this exact gap: `removeRow()`/`_removeRow()` just deleted
+the given index, leaving a hole — harmless for the stored data itself,
+but every row past the hole kept displaying its *old* "Stage N" label
+under its new position, unlike the original. Fixed identically in both:
+`removeRow()` now filters out the removed key and reassigns the
+remaining rows to fresh sequential indices (1..N) in their existing
+order.
+
+Flutter needed one more fix Vue didn't: `QuadrantRepeaterField` keeps a
+`TextEditingController` per row, keyed by position (`info_$i`) — after
+renumbering, a given key can now belong to a *different* row's data,
+which would otherwise show stale cached text instead of that row's real
+(shifted) value. Vue's `:value` binding is fully reactive so it has no
+equivalent problem. Fixed by disposing all controllers and clearing the
+map on removal, letting them be recreated fresh from the renumbered
+data on the next build.
+
+Verified: `flutter analyze` (no issues) and `npm run build` (web assets
+compiled clean).
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the

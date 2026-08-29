@@ -63,9 +63,36 @@ class _QuadrantRepeaterFieldState extends State<QuadrantRepeaterField> {
     widget.onChanged(next);
   }
 
+  // Renumbers the remaining rows to stay contiguous (1..N, no gaps) after
+  // a removal — matches the original's own renumberTreatmentStages()/
+  // renumberApplianceDesigns() (orthodontics.php), which physically
+  // renames every field's id/name/data-attributes on removal for the
+  // same reason. Mirrors `QuadrantRepeater.vue`'s identical fix
+  // (2026-08-29, found while confirming "dynamic teeth numbering"
+  // parity with dentalclinic) — without it, removing a middle row left
+  // a gap that was harmless for the stored data but showed every
+  // remaining row past the gap under its *old* "Stage N" label.
   void _removeRow(int i) {
-    final next = Map<String, dynamic>.from(widget.value);
-    next.remove('$i');
+    final remaining = _indices.where((k) => k != i).toList();
+    final next = <String, dynamic>{};
+    for (var idx = 0; idx < remaining.length; idx++) {
+      next['${idx + 1}'] = widget.value['${remaining[idx]}'];
+    }
+
+    // Unlike Vue's fully-reactive `:value` binding, this widget's
+    // TextEditingControllers are keyed by position (`info_$i`) and
+    // persist independently of `widget.value` once created — after
+    // renumbering, a given key may now belong to a *different* row's
+    // data, which would otherwise show that key's stale cached text
+    // instead of the row's real (shifted) value. Disposing them all and
+    // letting `_controllerFor` recreate fresh ones from `next` on the
+    // following build is simpler and safer than trying to shift each
+    // controller's `.text` to match its row's new index individually.
+    for (final c in _controllers.values) {
+      c.dispose();
+    }
+    _controllers.clear();
+
     widget.onChanged(next);
   }
 

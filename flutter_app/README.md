@@ -4920,3 +4920,28 @@ was built.
 Verified: `flutter analyze` clean project-wide (no issues). Not
 verified on a real device — the user will confirm on next preview after
 the next Codemagic build + AltStore reinstall.
+
+## QuadrantRepeaterField: renumber rows after removal, fix stale controller text (2026-08-29)
+
+Follow-up to the entry above, by request to match the original app's
+"dynamic teeth numbering" — researched `orthodontics.php`'s actual JS
+first: the FDI grid itself was already right, "dynamic" means the
+original renumbers `treatment_stage_N`/`appliance_design_N` rows
+sequentially after a removal (`renumberTreatmentStages()`/
+`renumberApplianceDesigns()`), which `QuadrantRepeaterField._removeRow()`
+didn't do — it just deleted the given key, leaving a gap, so every row
+past it kept its *old* "Stage N" label instead of its new position.
+
+Fixed to filter the removed key and reassign the remaining rows to
+fresh sequential indices (1..N), mirroring the identical fix in the web
+`QuadrantRepeater.vue`. Needed one more Flutter-specific fix Vue
+doesn't: this widget keeps a `TextEditingController` per row keyed by
+position (`info_$i`), which — unlike Vue's fully-reactive `:value`
+binding — persists independently of the data once created. After
+renumbering, a given controller key can now belong to a *different*
+row's data, which would otherwise render that key's stale cached text
+instead of the row's real (shifted) value. Fixed by disposing every
+controller and clearing the map on removal, so `_controllerFor`
+recreates them fresh from the renumbered data on the next build.
+
+Verified: `flutter analyze` clean project-wide (no issues).

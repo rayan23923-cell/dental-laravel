@@ -43,9 +43,21 @@ const addRow = () => {
     emit('update:modelValue', next);
 };
 
+// Renumbers the remaining rows to stay contiguous (1..N, no gaps) after a
+// removal — matches the original's own renumberTreatmentStages()/
+// renumberApplianceDesigns() (orthodontics.php), which physically renames
+// every field's id/name/data-attributes on removal for the same reason.
+// Without this, removing a middle row (e.g. row 2 of 1/2/3) left a gap
+// (1/3) — harmless for the stored data itself, but every remaining row
+// past the gap kept displaying its *old* "Stage N" label instead of its
+// new position (2026-08-29, found while confirming "dynamic teeth
+// numbering" parity with dentalclinic).
 const removeRow = (i) => {
-    const next = { ...props.modelValue };
-    delete next[i];
+    const remaining = indices.value.filter((k) => k !== i);
+    const next = {};
+    remaining.forEach((k, idx) => {
+        next[idx + 1] = props.modelValue[k];
+    });
     emit('update:modelValue', next);
 };
 </script>
