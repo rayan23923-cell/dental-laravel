@@ -5945,13 +5945,23 @@ method and Flutter's generic `fieldDisabled()` mechanism already gate
 on it identically to every other resource — no code change needed
 here, just verification.
 
-**Pre-existing, unrelated gap noticed while verifying the above, not
-fixed here** (out of scope for this request): `senior_signature` is
-also in `CaseSheetSupervisorFields`' list and is a real, validated
-column (`Api\PeriodontalChartController`'s rules), but has no
-corresponding field anywhere in `PeriodontalChartForm::sections()` — a
-supervisor has no actual input to fill it from. Flagged for a future
-request rather than guessed at now.
+**Follow-up, same day**: the `senior_signature` gap flagged above was
+then requested — added `['key' => 'senior_signature', 'label' =>
+'Senior Signature', 'type' => 'text', 'width' => 'half']` to the
+"Treatment Plan & Approval" section, right after `approval_date`. No
+controller changes needed on either side: the column was already
+fillable (`PeriodontalChart::$fillable`), already exposed
+(`PeriodontalChartResource`), and already validated
+(`Api\PeriodontalChartController`'s explicit `'senior_signature' =>
+['nullable', 'string']`) — only `Api\PeriodontalChartController` lists
+its rules explicitly; the *web* controller generates unlisted fields'
+rules dynamically from `sections()`, so adding the layout entry alone
+was enough there too (no rule was missing to begin with, since
+`senior_signature` was never explicitly listed in either controller,
+just absent from the layout that feeds the web controller's dynamic
+generation). Already registered in `CaseSheetSupervisorFields` from
+before, so it's supervisor-only-editable from the moment it appeared —
+no separate permission change needed.
 
 Confirmed no print view breaks: same `print/case-sheet.blade.php`
 already covered in the Orthodontics entry above — its
