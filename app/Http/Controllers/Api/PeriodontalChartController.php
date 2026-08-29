@@ -94,10 +94,6 @@ class PeriodontalChartController extends Controller
             // as Api\SurgeryController.
             'patient_id' => ['nullable', 'integer'],
             'doctor_id' => ['required', 'integer'],
-            'student_name' => ['nullable', 'string', 'max:255'],
-            'student_group' => ['nullable', 'string', 'max:255'],
-            'case_start_date' => ['nullable', 'date'],
-            'mentor_name' => ['nullable', 'string', 'max:255'],
             'patient_name' => ['nullable', 'string', 'max:255'],
             'patient_first_name' => ['nullable', 'string', 'max:255'],
             'patient_middle_name' => ['nullable', 'string', 'max:255'],

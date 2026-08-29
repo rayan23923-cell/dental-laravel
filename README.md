@@ -5911,6 +5911,56 @@ rather than manually typed.
 
 Verified: `php -l` on both touched controllers.
 
+## Periodontal Chart: removed "Student / Case" section, confirmed supervisor gating (2026-08-29)
+
+Same request pattern as the Orthodontics entry above — "معلومات الطبيب
+نفسها معلومات الطالب" (the doctor's info is the same as the student's)
+— but this time explicitly "ازل جميع معلومات student/case" (remove
+*all* Student/Case info) and, unlike Orthodontics, no "اجعلها تلقائية"
+was asked for — so no auto-fill replacement this time, the four columns
+(`student_name`, `student_group`, `case_start_date`, `mentor_name`)
+simply stop being collected.
+
+Removed the whole "Student / Case" section from
+`App\Support\PeriodontalChartForm::sections()`. Unlike Orthodontics,
+this controller pair's validation is **not** fully generated from
+`sections()` — both `PeriodontalChartController::validateRecord()` (web)
+and `Api\PeriodontalChartController::validateRecord()` list an explicit
+`$rules` array (the API one entirely explicit, covering many columns
+`sections()` doesn't even render — a much larger legacy field set),
+so removing the layout entries alone wouldn't have removed them from
+either controller's accepted input. Deleted the four matching rule
+lines from both explicitly.
+
+**The second half of the request — "بالنسبة لمعلومات المشرف اجعلها
+فقط للمشرف او المدير او من له صلاحية" (the supervisor's info should be
+for the supervisor/manager/authorized person only) — was already true**,
+confirmed by re-reading `CaseSheetSupervisorFields::fieldsFor('periodontal-charts')`
+directly rather than trusting memory: `senior_doctor_name`,
+`approval_date`, and `clinical_notes` (the three fields under
+"Treatment Plan & Approval" that actually read as *supervisor*
+sign-off, as opposed to `treatment_plan`/`treatment_plan_date`, the
+doctor's own plan) are already in that list, and both the web `form()`
+method and Flutter's generic `fieldDisabled()` mechanism already gate
+on it identically to every other resource — no code change needed
+here, just verification.
+
+**Pre-existing, unrelated gap noticed while verifying the above, not
+fixed here** (out of scope for this request): `senior_signature` is
+also in `CaseSheetSupervisorFields`' list and is a real, validated
+column (`Api\PeriodontalChartController`'s rules), but has no
+corresponding field anywhere in `PeriodontalChartForm::sections()` — a
+supervisor has no actual input to fill it from. Flagged for a future
+request rather than guessed at now.
+
+Confirmed no print view breaks: same `print/case-sheet.blade.php`
+already covered in the Orthodontics entry above — its
+`$doctorName ?? ($sheet->student_name ?? '')` fallback continues to
+resolve correctly with `student_name` now permanently null instead of
+manually typed.
+
+Verified: `php -l` on all three touched files.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the

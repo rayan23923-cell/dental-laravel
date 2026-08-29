@@ -40,15 +40,17 @@ class PeriodontalChartForm
                     ]],
                 ],
             ],
-            [
-                'title' => 'Student / Case',
-                'fields' => [
-                    ['key' => 'student_name', 'label' => 'Student Name', 'type' => 'text'],
-                    ['key' => 'student_group', 'label' => 'Group', 'type' => 'text'],
-                    ['key' => 'case_start_date', 'label' => 'Case Start Date', 'type' => 'date'],
-                    ['key' => 'mentor_name', 'label' => 'Mentor', 'type' => 'text'],
-                ],
-            ],
+            // "Student / Case" section (Student Name/Group/Case Start
+            // Date/Mentor) removed entirely (2026-08-29, by request) —
+            // "معلومات الطبيب نفسها معلومات الطالب" (the doctor's info is
+            // the same as the student's): the doctor filling this sheet
+            // already is the student, and their identity is already the
+            // record's `doctor_id`/`Doctor::group` elsewhere, so a
+            // separate free-text block only duplicated it. Unlike the
+            // matching Orthodontics removal, no auto-fill replacement was
+            // requested here — the columns (`student_name`, `student_group`,
+            // `case_start_date`, `mentor_name`) still exist and stay
+            // nullable, simply no longer collected.
             [
                 // Shown only when gender = female, matching the original's
                 // #womenOnlySection display toggle.
