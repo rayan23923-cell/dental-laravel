@@ -118,13 +118,15 @@ class PreventionForm
                     // added in their place, matching every other
                     // duplicate-field removal this session that wasn't
                     // explicitly asked to become automatic.
-                    // 'nutritional_gender'/'nutritional_group' stay — not
-                    // mentioned in this request.
+                    // 'nutritional_gender' stays — not mentioned in that
+                    // request. 'nutritional_group' was also kept then
+                    // ("not mentioned in this request") but removed now
+                    // in a follow-up, global "ازل group من كل الكيس شيت"
+                    // (remove Group from every case sheet) request.
                     ['group' => 'patient_data', 'key' => 'nutritional_gender', 'label' => 'Gender', 'type' => 'select', 'options' => [
                         ['value' => 'male', 'label' => 'Male'],
                         ['value' => 'female', 'label' => 'Female'],
                     ]],
-                    ['group' => 'patient_data', 'key' => 'nutritional_group', 'label' => 'Group', 'type' => 'text'],
                     ['group' => 'patient_data', 'key' => 'height', 'label' => 'Height', 'type' => 'text'],
                     ['group' => 'patient_data', 'key' => 'weight', 'label' => 'Weight', 'type' => 'text'],
                     ['group' => 'patient_data', 'key' => 'bmi', 'label' => 'BMI', 'type' => 'text'],

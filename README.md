@@ -6374,6 +6374,61 @@ subkeys.
 
 Verified: `php -l` on `PreventionForm.php` and both controllers.
 
+## Removed "Group" wherever it still remained, and locked Prosthodontics' Diagnosis/Grade to supervisors (2026-08-29)
+
+By request, from three screenshots (Prosthodontics' "Diagnosis and
+starting" section, its "Student / Case" section, and a repeat of
+Prevention's Nutritional Assessment): "ازل group من كل الكيس شيت وازل
+كذلك student name وgrade/mark diagnosis and starting من صلاحية المشرف
+او المسؤول فقط" (remove Group from every case sheet, and also remove
+Student Name; Grade/Mark and Diagnosis and starting are for the
+supervisor/authorized person's permission only).
+
+**Audited all 8 `*Form.php` layouts for every remaining "Group"/
+`student_name` field** (several had already been removed earlier this
+session — Orthodontics, Periodontal Chart, Prevention's top-level
+`patient_group`, Oral Medicine). Found and removed the rest:
+
+- `prosthodontics-records`: `student_name`/`group_name` ("Student /
+  Case" section, confirmed via the screenshot).
+- `complete-denture-records`: the identical `student_name`/`group_name`
+  pair in its own "Student / Case" section — not shown in a screenshot
+  this time, but removed for the same "من كل الكيس شيت" (every case
+  sheet) reason, reading the original layout directly to confirm it
+  really is the same redundant pair rather than assuming from the name
+  alone.
+- `prevention-records`: `nutritional_group` — deliberately *kept* in an
+  earlier pass today ("not mentioned in this request"), now removed
+  under this follow-up's explicit global scope.
+- `surgeries`' `grade_group` ("Grade / Group") was **deliberately left
+  alone** — confirmed with the user first, since it's one combined
+  free-text column storing Grade and Group together in the original
+  schema; removing it outright would have also destroyed the ability to
+  record Grade, which was never asked for.
+
+Both API controllers for Prosthodontics/Complete Denture had explicit
+`student_name`/`group_name` validation rules (web generates these
+dynamically from `sections()`, so only the API side needed a rule-line
+deletion) — same asymmetry seen with Periodontal Chart earlier.
+
+**`prosthodontics-records`' `diagnosis_starting`/`diagnosis_grade`**
+registered supervisor-only, joining `diagnosis_instructor_signature`
+(already covered via the existing `stageFields()` mechanism).
+`diagnosis_date` wasn't named in the request and stays doctor-editable.
+Deliberately **not** extended to `complete-denture-records`' own
+"Diagnosis and starting" section — read that resource's layout directly
+rather than assuming identical structure, and found it isn't:
+`diagnosis_grade`/`diagnosis_date` don't exist there at all (only
+`diagnosis_starting`/`diagnosis_instructor_signature`), and extending
+the lock to it wasn't requested for that resource anyway.
+
+No print-view breakage: `student_name`/`group_name` remain real columns
+on both models (just no longer collected via the form), and
+`print/case-sheet.blade.php`'s `student_name` fallback still resolves
+correctly either way.
+
+Verified: `php -l` on all five touched PHP files.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the

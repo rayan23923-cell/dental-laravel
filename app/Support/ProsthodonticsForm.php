@@ -27,11 +27,13 @@ class ProsthodonticsForm
                     ['key' => 'address', 'label' => 'Address', 'type' => 'text', 'width' => 'half'],
                 ],
             ],
+            // 'student_name'/'group_name' removed (2026-08-29, by request
+            // — "ازل group من كل الكيس شيت وازل كذلك student name"):
+            // redundant with the doctor's own identity, same reasoning as
+            // every other resource's student-info removal this session.
             [
                 'title' => 'Student / Case',
                 'fields' => [
-                    ['key' => 'student_name', 'label' => 'Student Name', 'type' => 'text'],
-                    ['key' => 'group_name', 'label' => 'Group', 'type' => 'text'],
                     ['key' => 'first_time', 'label' => 'First time?', 'type' => 'select', 'options' => [
                         ['value' => 'yes', 'label' => 'Yes'],
                         ['value' => 'no', 'label' => 'No'],
@@ -78,6 +80,13 @@ class ProsthodonticsForm
                 ],
             ],
             [
+                // 'diagnosis_starting'/'diagnosis_grade' registered
+                // supervisor-only (2026-08-29, by request — "grade/mark
+                // diagnosis and starting من صلاحية المشرف او المسؤول
+                // فقط"), alongside 'diagnosis_instructor_signature' (
+                // already supervisor-only via stageFields() below). '
+                // diagnosis_date' was not named in the request and stays
+                // doctor-editable. See App\Support\CaseSheetSupervisorFields.
                 'title' => 'Diagnosis and starting',
                 'fields' => [
                     ['key' => 'diagnosis_starting', 'label' => 'Diagnosis and starting', 'type' => 'textarea', 'width' => 'full'],

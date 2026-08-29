@@ -26,11 +26,13 @@ class CompleteDentureForm
                     ['key' => 'occupation', 'label' => 'العمل (Occupation)', 'type' => 'text'],
                 ],
             ],
+            // 'student_name'/'group_name' removed (2026-08-29, by request
+            // — "ازل group من كل الكيس شيت وازل كذلك student name"):
+            // redundant with the doctor's own identity, same reasoning as
+            // every other resource's student-info removal this session.
             [
                 'title' => 'Student / Case',
                 'fields' => [
-                    ['key' => 'student_name', 'label' => 'Student Name', 'type' => 'text'],
-                    ['key' => 'group_name', 'label' => 'Group', 'type' => 'text'],
                     ['key' => 'first_time', 'label' => 'First time?', 'type' => 'select', 'options' => [
                         ['value' => 'yes', 'label' => 'Yes'],
                         ['value' => 'no', 'label' => 'No'],

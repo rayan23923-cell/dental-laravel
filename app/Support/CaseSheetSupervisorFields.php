@@ -64,6 +64,16 @@ namespace App\Support;
  * are array-valued (repeater rows, not scalars), which exposed a second,
  * real bug in `EnforceCaseSheetAccess::changedFields()`'s diffing — see
  * that method's doc comment — fixed in the same change as this addition.
+ *
+ * **Addition (2026-08-29)**: `prosthodontics-records`' `diagnosis_starting`/
+ * `diagnosis_grade` ("Diagnosis and starting"/"Grade/Mark") are also
+ * supervisor-only, by explicit request — `diagnosis_instructor_signature`
+ * was already covered via `stageFields()` below; `diagnosis_date` was
+ * not named in the request and stays doctor-editable. Deliberately
+ * **not** extended to `complete-denture-records`' own "Diagnosis and
+ * starting" section — confirmed by reading that resource's layout that
+ * it's not identical (`diagnosis_grade`/`diagnosis_date` don't exist
+ * there at all), and this wasn't asked for that resource.
  */
 class CaseSheetSupervisorFields
 {
@@ -81,7 +91,7 @@ class CaseSheetSupervisorFields
             'dental-charts' => ['treatment_plan_notes', 'notes', 'senior_doctor_name', 'senior_signature'],
             'surgeries' => ['notes', 'senior_doctor_name', 'approval_date', 'senior_signature'],
             'periodontal-charts' => ['notes', 'clinical_notes', 'senior_doctor_name', 'approval_date', 'senior_signature'],
-            'prosthodontics-records' => self::stageFields(self::PROSTHODONTICS_STAGES),
+            'prosthodontics-records' => [...self::stageFields(self::PROSTHODONTICS_STAGES), 'diagnosis_starting', 'diagnosis_grade'],
             'complete-denture-records' => self::stageFields(self::COMPLETE_DENTURE_STAGES),
             'orthodontics-records' => ['diagnosis', 'treatment_plan', 'treatment_stages', 'appliance_designs', 'supervisor_notes', 'supervisor_signature'],
             'oral-medicine-charts' => ['staff_signature', 'date', 'supervisor_notes', 'supervisor_signature'],
