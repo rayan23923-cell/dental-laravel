@@ -156,19 +156,25 @@ class OralMedicineForm
             ],
             [
                 'title' => 'Student Visits',
-                'note' => 'Only the first visit\'s fields are ported (student name, date, staff sign-off as text); the original\'s multi-visit extension and drawn signatures are not built.',
+                // 'student_name' removed (2026-08-29, by request) — redundant
+                // with the doctor's own identity, same reasoning as every
+                // other resource's student-info removal this session. Only
+                // the first visit's fields are ported (date, staff sign-off
+                // as text); the original's multi-visit extension and drawn
+                // signatures are not built.
+                'note' => 'This visit\'s staff sign-off — supervisor/manager only.',
                 'fields' => [
-                    ['group' => 'student_visits', 'key' => 'student_name', 'label' => 'Student name', 'type' => 'text'],
                     ['group' => 'student_visits', 'key' => 'staff_signature', 'label' => 'Staff signature', 'type' => 'text'],
                     ['group' => 'student_visits', 'key' => 'date', 'label' => 'Date', 'type' => 'date'],
                 ],
             ],
             [
-                // Real columns, distinct from 'Student Visits' staff_signature
-                // above (a subkey inside the student_visits JSON blob) — see
-                // App\Support\CaseSheetSupervisorFields. Added (2026-08-28)
+                // Real columns, distinct from 'Student Visits' staff_signature/
+                // date above (subkeys inside the student_visits JSON blob,
+                // registered as supervisor-only 2026-08-29 — see
+                // App\Support\CaseSheetSupervisorFields) — added 2026-08-28
                 // specifically for the supervisor-preview feature; this sheet
-                // had no equivalent field of its own.
+                // had no equivalent field of its own before then.
                 'title' => 'Supervisor',
                 'fields' => [
                     ['key' => 'supervisor_notes', 'label' => 'Supervisor Notes', 'type' => 'textarea', 'width' => 'full'],

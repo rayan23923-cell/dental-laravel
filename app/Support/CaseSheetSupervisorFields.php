@@ -44,6 +44,14 @@ namespace App\Support;
  * *doctor's* own plan, not the supervisor's. The two resources' original
  * layouts simply differ here; this was verified per-resource rather than
  * assumed uniform.
+ *
+ * **Addition (2026-08-29)**: `oral-medicine-charts`' "Student Visits"
+ * `staff_signature`/`date` (subkeys of the `student_visits` JSON blob,
+ * see `App\Support\OralMedicineForm`) are also supervisor-only, by the
+ * same request that removed that section's redundant `student_name`
+ * field entirely. Grouped-subkey diffing (`EnforceCaseSheetAccess::
+ * changedFields()`) already handles this correctly, same mechanism
+ * `prevention-records`' `senior_name`/`signature_date` above relies on.
  */
 class CaseSheetSupervisorFields
 {
@@ -63,7 +71,8 @@ class CaseSheetSupervisorFields
             'periodontal-charts' => ['notes', 'clinical_notes', 'senior_doctor_name', 'approval_date', 'senior_signature'],
             'prosthodontics-records' => self::stageFields(self::PROSTHODONTICS_STAGES),
             'complete-denture-records' => self::stageFields(self::COMPLETE_DENTURE_STAGES),
-            'orthodontics-records', 'oral-medicine-charts' => ['supervisor_notes', 'supervisor_signature'],
+            'orthodontics-records' => ['supervisor_notes', 'supervisor_signature'],
+            'oral-medicine-charts' => ['staff_signature', 'date', 'supervisor_notes', 'supervisor_signature'],
             'prevention-records' => ['senior_name', 'signature_date', 'supervisor_notes', 'supervisor_signature'],
             default => [],
         };

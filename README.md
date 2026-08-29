@@ -6229,6 +6229,47 @@ Task Progress only; the others remain unbuilt.
 
 Verified: `php -l` on `ScopeHelper.php`.
 
+## Oral Medicine: removed Student Name, locked Staff signature/Date to supervisors (2026-08-29)
+
+By request, from a live screenshot of the "Student Visits" section:
+"ازل student name وبقية الحقول الموجود بالصورة خاصة بالمشرف او
+المسؤول ولايمكن للطبيب او الطالب التعديل عليها" (remove Student name,
+and the rest of the fields in the picture belong to the supervisor/
+manager and must not be editable by the doctor or student) — read as
+two things: drop `student_name` entirely (same redundant-with-the-
+doctor's-identity reasoning as every other resource this session), and
+register the section's remaining two fields, `staff_signature`/`date`,
+as supervisor-only. The screenshot's other section ("Investigations,
+Diagnosis, and Treatment Plan") was left untouched — that's the
+doctor's own clinical work, not a candidate here.
+
+`App\Support\OralMedicineForm`'s "Student Visits" section already
+carried a comment anticipating this exact split ("Real columns,
+distinct from 'Student Visits' staff_signature above... see
+CaseSheetSupervisorFields" on the neighboring "Supervisor" section, from
+2026-08-28) — it just hadn't been registered yet. No controller change
+needed: `student_visits` is one opaque JSON-blob column validated as a
+plain nullable string on both web and API (`OralMedicineForm::groupColumns()`),
+so removing `student_name`'s layout entry alone stops it being
+collected, exactly like Prevention's `student_name` removal earlier
+today.
+
+Registered `['staff_signature', 'date', 'supervisor_notes', 'supervisor_signature']`
+for `oral-medicine-charts` in `CaseSheetSupervisorFields` (previously
+shared `['supervisor_notes', 'supervisor_signature']` with
+`orthodontics-records` — split into its own arm). Both new entries are
+grouped subkeys (inside `student_visits`), so this relies on the same
+generic `EnforceCaseSheetAccess::changedFields()` grouped-diffing and
+`fieldDisabled()`/canonical-`supervisorFields` machinery built earlier
+today for Prevention/dental-charts — no further code changes needed
+anywhere for it to actually lock the fields (visible, disabled) on a
+doctor's own page while staying editable for a supervisor.
+
+Confirmed no print-view breakage: no Blade view references
+`student_visits` at all.
+
+Verified: `php -l` on both touched files.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the
