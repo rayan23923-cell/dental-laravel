@@ -6571,6 +6571,53 @@ Verified: `php -l` on every touched/new PHP file, `flutter analyze` (no
 issues), `npm run build` (web assets compiled clean). Not verified
 end-to-end against a real mailbox in this session.
 
+## OTP password-reset email wasn't sending in production — found and fixed same day (2026-08-29)
+
+Reported immediately after the entry above went live: "عند ارسال هل
+نسيت كلمة السر لايقوم بارسال اي بريد بعد تحديث التطبيق" (when
+submitting "forgot password", no email is sent at all). Investigated
+before guessing at a fix, since the neutral-response design of this
+endpoint (see the entry above — never reveals whether an email matched
+an account) meant "no email arrived" could just as easily mean "wrong/
+unregistered address was tested" as "something is actually broken."
+
+**Real bug found**: `OtpPasswordResetBroker::send()` called
+`$notifiable->notify(new OtpPasswordReset($code))` directly, instead of
+going through `App\Services\Notifier::send()` like every other
+notification in this app (`TaskAssigned` via `TaskStarter`, etc.).
+Delivery here is synchronous (neither notification implements
+`ShouldQueue` — confirmed directly, not assumed), so a transport-level
+hiccup (SMTP, TLS, whatever) would throw an exception straight through
+`sendResetLink()`/`email()` uncaught — the whole HTTP request fails
+instead of the neutral "sent" response coming back, which looks
+identical to "no email arrived" from the client, and **nothing was
+logged either way**, making the two real possibilities (a genuine
+send failure vs. a wrong/unregistered test address) indistinguishable
+after the fact.
+
+Fixed by routing through `Notifier::send()`, which wraps the same call
+in a try/catch and logs failures (`Log::warning('Notification failed', ...)`)
+— matching every other notification's error-handling convention in this
+app instead of being the one exception to it. This also picks up
+`Notifier`'s `enable_notifications` clinic-setting gate for free, same
+as every other notification; deliberately **not** also gating on the
+mail-specific `enable_email` toggle the way `TaskAssigned::via()` does,
+since a password-reset code is core account-recovery, not a
+routine notification an admin should be able to silence.
+
+Also added a server-side-only debug log (`Api\PasswordResetController::sendResetLink()`)
+for the "address doesn't match any account" branch — never reflected in
+the response (the anti-enumeration guarantee is unchanged), but now
+distinguishable from an actual send failure by checking
+`storage/logs/laravel.log`, which previously logged nothing for either
+case.
+
+Verified: `php -l` on both touched files. Still not verified against a
+real mailbox — the underlying root cause (an uncaught exception vs. a
+non-existent test address) can only be confirmed by checking the
+production log the next time this is tested, which this fix now
+actually populates either way.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the

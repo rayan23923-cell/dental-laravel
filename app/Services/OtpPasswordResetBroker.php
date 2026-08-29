@@ -19,6 +19,24 @@ use Illuminate\Support\Facades\Hash;
  * broker names, so both account types share this one mechanism/table
  * (`password_reset_otps`) the same way they already shared
  * `password_reset_tokens`.
+ *
+ * **Bug fixed (2026-08-29, same day, found live after a production
+ * report of "no email arrives")**: `send()` originally called
+ * `$notifiable->notify(...)` directly instead of going through
+ * `Notifier::send()` like every other notification in this app. Delivery
+ * here is synchronous (neither this notification nor `TaskAssigned`
+ * implements `ShouldQueue`), so a transport-level exception (SMTP
+ * hiccup, etc.) propagated straight up through the controller instead of
+ * being caught — the whole HTTP request would fail, which from the
+ * client looks identical to "the neutral success response came back but
+ * no email showed up," and nothing was logged either way. Routed through
+ * `Notifier::send()` now, which both catches and logs failures
+ * (`Log::warning('Notification failed', ...)`) and respects the same
+ * `enable_notifications` clinic-setting gate every other notification in
+ * this app already does — deliberately *not* also gating on the
+ * mail-specific `enable_email` toggle the way `TaskAssigned::via()`
+ * does, since a password-reset code is a core account-recovery function
+ * that shouldn't be silenceable by a routine-notifications preference.
  */
 class OtpPasswordResetBroker
 {
@@ -54,7 +72,7 @@ class OtpPasswordResetBroker
             ]
         );
 
-        $notifiable->notify(new OtpPasswordReset($code));
+        Notifier::send($notifiable, new OtpPasswordReset($code));
     }
 
     /** Does not consume the code — the caller calls {@see forget()} only after actually changing the password. */

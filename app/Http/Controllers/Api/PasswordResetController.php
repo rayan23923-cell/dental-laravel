@@ -9,6 +9,7 @@ use App\Services\OtpPasswordResetBroker;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -42,6 +43,15 @@ class PasswordResetController extends Controller
             OtpPasswordResetBroker::send($validated['email'], 'users', $user);
         } elseif ($doctor) {
             OtpPasswordResetBroker::send($validated['email'], 'doctors', $doctor);
+        } else {
+            // Server-side only — never reflected in the response, which
+            // stays identically neutral either way (see the comment
+            // above). Added 2026-08-29 alongside `OtpPasswordResetBroker`'s
+            // own logging fix, purely so "no email arrived" can be told
+            // apart from "this address doesn't match any account" by
+            // checking storage/logs/laravel.log, without weakening the
+            // anti-enumeration guarantee for anyone who can't read it.
+            Log::debug('Password reset requested for unknown email', ['email' => $validated['email']]);
         }
 
         return response()->json(['message' => 'إذا كان هذا البريد مسجلاً لدينا، فسيصلك رمز التحقق خلال دقائق.']);
