@@ -7,19 +7,19 @@ import { Head, Link, useForm } from '@inertiajs/vue3';
 
 const props = defineProps({
     email: { type: String, default: '' },
-    token: { type: String, required: true },
+    status: { type: String, default: null },
 });
 
 const form = useForm({
-    token: props.token,
     email: props.email,
+    otp: '',
     password: '',
     password_confirmation: '',
 });
 
 const submit = () => {
     form.post(route('doctor.password.store'), {
-        onFinish: () => form.reset('password', 'password_confirmation'),
+        onFinish: () => form.reset('otp', 'password', 'password_confirmation'),
     });
 };
 </script>
@@ -29,7 +29,11 @@ const submit = () => {
         <Head title="تعيين كلمة مرور جديدة" />
 
         <h2 class="text-lg font-semibold text-content">تعيين كلمة مرور جديدة</h2>
-        <p class="mt-1 text-sm leading-relaxed text-muted">اختر كلمة مرور قوية لحسابك.</p>
+        <p class="mt-1 text-sm leading-relaxed text-muted">أدخل رمز التحقق الذي وصلك عبر البريد الإلكتروني، ثم اختر كلمة مرور قوية لحسابك.</p>
+
+        <div v-if="status" class="mt-5 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-accent">
+            {{ status }}
+        </div>
 
         <form @submit.prevent="submit" class="mt-6 space-y-5">
             <AuthField
@@ -40,6 +44,19 @@ const submit = () => {
                 icon="mail"
                 autocomplete="username"
                 :error="form.errors.email"
+                required
+                readonly
+            />
+
+            <AuthField
+                id="otp"
+                v-model="form.otp"
+                label="رمز التحقق"
+                type="text"
+                icon="pin"
+                placeholder="123456"
+                autocomplete="one-time-code"
+                :error="form.errors.otp"
                 required
                 autofocus
             />
@@ -76,6 +93,10 @@ const submit = () => {
                 <Icon :name="form.processing ? 'progress_activity' : 'check_circle'" :class="form.processing ? 'animate-spin' : ''" />
                 {{ form.processing ? 'جارٍ الحفظ…' : 'حفظ كلمة المرور' }}
             </button>
+
+            <Link :href="route('doctor.password.request')" class="block text-center text-sm text-muted transition hover:text-content">
+                لم يصلك الرمز؟ إعادة الإرسال
+            </Link>
 
             <Link :href="route('login')" class="block text-center text-sm text-muted transition hover:text-content">
                 العودة لتسجيل الدخول

@@ -108,12 +108,16 @@ Route::get('/tv', function () {
 
 // Forgot/reset password for the doctor guard — Breeze only ships this for
 // staff users, and the original app has no password reset at all. Kept
-// as its own flow (not merged into the unified login) since the token
-// broker needs to know which table to reset against.
+// as its own flow (not merged into the unified login) since it needs to
+// know which table to reset against. Sends a 5-minute one-time code
+// instead of a link (2026-08-29, by request; see
+// App\Services\OtpPasswordResetBroker) — no {token} on the GET route
+// any more, since a code is typed, not clicked into; `email` is carried
+// as a query param only to prefill the field.
 Route::get('/doctor/forgot-password', [DoctorPasswordResetController::class, 'request'])->name('doctor.password.request');
 Route::post('/doctor/forgot-password', [DoctorPasswordResetController::class, 'email'])
     ->middleware('throttle:6,1')->name('doctor.password.email');
-Route::get('/doctor/reset-password/{token}', [DoctorPasswordResetController::class, 'reset'])->name('doctor.password.reset');
+Route::get('/doctor/reset-password', [DoctorPasswordResetController::class, 'reset'])->name('doctor.password.reset');
 Route::post('/doctor/reset-password', [DoctorPasswordResetController::class, 'update'])->name('doctor.password.store');
 
 // "Sign in with Google" — shared by the one login page, auto-detecting

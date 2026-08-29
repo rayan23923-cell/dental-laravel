@@ -22,6 +22,7 @@ const props = defineProps({
     autocomplete: { type: String, default: null },
     autofocus: Boolean,
     required: Boolean,
+    readonly: Boolean,
     id: { type: String, required: true },
 });
 
@@ -47,9 +48,10 @@ const resolvedType = computed(() => (isPassword.value && revealed.value ? 'text'
                 :autocomplete="autocomplete"
                 :autofocus="autofocus"
                 :required="required"
+                :readonly="readonly"
                 dir="ltr"
                 class="w-full rounded-xl border border-hairline bg-surface-2 px-4 py-3 text-content placeholder:text-muted/70 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/40"
-                :class="[icon ? 'pr-11' : '', isPassword ? 'pl-11' : '']"
+                :class="[icon ? 'pr-11' : '', isPassword ? 'pl-11' : '', readonly ? 'cursor-not-allowed opacity-70' : '']"
                 @input="$emit('update:modelValue', $event.target.value)"
             />
             <button

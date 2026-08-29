@@ -78,7 +78,12 @@ Route::name('api.')->prefix('v1')->group(function () {
     // "نسيت كلمة المرور؟" — unified across both account types, same
     // reasoning as /login above. Throttled like the web equivalents
     // (routes/web.php's doctor.password.email / Breeze's password.email).
+    // Sends a 5-minute one-time code instead of a link (2026-08-29, by
+    // request; see App\Services\OtpPasswordResetBroker); /reset-password
+    // below completes it natively in-app — a typed code has nowhere else
+    // to go, unlike the old link, which could open the web reset page.
     Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink'])->middleware('throttle:6,1');
+    Route::post('/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:6,1');
 
     // Public, unauthenticated — mirrors the original app's tv_patients.php
     // waiting-room display. See TvBoardController docblock for a real

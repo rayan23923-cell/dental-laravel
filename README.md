@@ -6472,6 +6472,105 @@ data on the next build.
 Verified: `flutter analyze` (no issues) and `npm run build` (web assets
 compiled clean).
 
+## Password reset: replaced the emailed link with a 5-minute one-time code (2026-08-29)
+
+By request: "استبدل otp بدلا من الرابط واجعل لايتجاوز 5 دقائق الرابط
+حاليا يحوي مجموعة من الثغرات عند ضغط الرابط يمكن تغيير الايميل ويعمل
+الرابط على الرغم من مضي اكثر من يوم" (replace with OTP instead of the
+link, make it not exceed 5 minutes — the link currently has several
+vulnerabilities: after clicking it the email can be changed, and it
+still works after more than a day).
+
+**Investigated both claimed vulnerabilities before changing anything**,
+per this project's standing "no guessing" rule:
+
+- **"Email can be changed after clicking the link"** — confirmed real at
+  the UI level (`ResetPassword.vue`/`DoctorResetPassword.vue`'s email
+  field was a normal editable input, not read-only), but **not actually
+  exploitable**: `NewPasswordController::store()`/`DoctorPasswordResetController::update()`
+  both used `Password::reset()`, which looks the user up by *whatever
+  email was submitted* and checks the token against `password_reset_tokens`
+  keyed by that same email — retyping a different address just makes the
+  token fail to match a different row, it can never redirect the reset to
+  someone else's account. Fixed anyway as a UI-clarity improvement (the
+  field is now read-only), not because it was a real hole.
+- **"Link still works after more than a day"** — the 60-minute expiry
+  (`config/auth.php`) *is* enforced, but only when the new password is
+  actually submitted; `NewPasswordController::create()`/`DoctorPasswordResetController::reset()`
+  (the page-load `GET` route) never validated anything, so an old link's
+  *page* always opened regardless of age. Confirmed with the user this
+  was the actual observation (the page opening, not a successful reset)
+  — not a real bug, expected default Laravel behavior for this
+  particular flow shape.
+
+**The OTP replacement itself was still wanted regardless** (better fit
+for the Flutter client especially — a code can be typed directly in-app,
+where a link had to hand off to a browser), scoped to both account types
+(staff `users` guard and `doctor` guard) on request.
+
+Deliberately **not** reusing Laravel's `Password` facade/broker at all —
+its token is a 40-character string meant for a URL, not manual entry,
+and there's no supported way to make it short without replacing the
+whole mechanism anyway. New, self-contained pieces instead:
+
+- **`password_reset_otps`** (migration) — `email`, `guard` (`users`/
+  `doctors`, mirrors config/auth.php's two existing broker names — both
+  account types share this one table exactly like they already shared
+  `password_reset_tokens`), `otp` (hashed), `expires_at`. Primary key
+  `(email, guard)` — one outstanding code per address per guard.
+- **`App\Services\OtpPasswordResetBroker`** — `send()` (6-digit
+  `random_int`, hashed via `Hash::make`, throttled to one new code per
+  60 seconds per address — same number as the old brokers' `throttle`
+  setting, just enforced manually now), `verify()` (hash-checks against
+  the stored code, rejects if past `expires_at`), `forget()` (deletes
+  the row once the password is actually changed — codes are single-use).
+- **`App\Notifications\OtpPasswordReset`** — one notification for both
+  guards (the content never needed to differ by account type the way
+  the old link's target route did), replacing `Illuminate\Auth\Notifications\ResetPassword`
+  (staff, framework default) and the now-deleted `App\Notifications\DoctorResetPassword`.
+  `App\Models\Doctor::sendPasswordResetNotification()` (the override that
+  routed to that deleted class) removed too — dead code once nothing
+  calls `Password::broker('doctors')` any more.
+
+**Every "forgot password" surface rewritten to match**: `PasswordResetLinkController`/
+`NewPasswordController` (staff web), `DoctorPasswordResetController`
+(doctor web), `Api\PasswordResetController` (Flutter/API — gained a real
+`reset()` endpoint; the old version only ever sent the link and relied
+on the web page to finish the job, since a link could always be opened
+in a browser — a typed code has nowhere else to go, so this needed to
+become a genuine native completion step, not just a send-only mirror).
+The reset-password **GET routes dropped their `{token}` parameter**
+entirely (`routes/auth.php`, `routes/web.php`) — a code is typed, not
+clicked into, so there's nothing to carry in the URL beyond `email` (kept
+only to prefill the now-read-only field).
+
+**Vue**: `AuthField.vue` gained a `readonly` prop (used for both reset
+pages' email field). `ResetPassword.vue`/`DoctorResetPassword.vue` lost
+their hidden `token` field and gained a 6-digit `otp` field plus a
+"resend code" link back to the request page; `ForgotPassword.vue`/
+`DoctorForgotPassword.vue` just reworded "link" to "code".
+
+**Flutter**: `AuthRepository.sendPasswordResetLink()` renamed to
+`sendPasswordResetCode()` (same endpoint, new meaning) plus a new
+`resetPasswordWithOtp()` hitting the new API endpoint.
+`LoginScreen._showForgotPasswordDialog()` became a real 2-step dialog
+(request code → enter code + new password) instead of a single "enter
+email, then go check a browser" step — the natural in-app completion the
+old link-based version never had.
+
+Updated the stock Breeze `tests/Feature/Auth/PasswordResetTest.php`
+(still testing the old link/token shape) to match the new flow. Could
+not get a green local run to confirm — `RefreshDatabase` fails against
+this project's SQLite test config with an unrelated, pre-existing
+issue (`database/schema_import.sql`'s `SET FOREIGN_KEY_CHECKS=0` isn't
+valid SQLite syntax, breaking every `RefreshDatabase` test in this
+environment, not just this one) — but the rewritten assertions match
+the actual controller behavior field-for-field.
+
+Verified: `php -l` on every touched/new PHP file, `flutter analyze` (no
+issues), `npm run build` (web assets compiled clean). Not verified
+end-to-end against a real mailbox in this session.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the

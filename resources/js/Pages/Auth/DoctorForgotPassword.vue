@@ -21,7 +21,7 @@ const submit = () => form.post(route('doctor.password.email'));
         <Head title="استعادة كلمة مرور الطبيب" />
 
         <h2 class="text-lg font-semibold text-content">استعادة كلمة المرور</h2>
-        <p class="mt-1 text-sm leading-relaxed text-muted">أدخل البريد الإلكتروني المسجّل باسمك وسنرسل لك رابط إعادة التعيين.</p>
+        <p class="mt-1 text-sm leading-relaxed text-muted">أدخل البريد الإلكتروني المسجّل باسمك وسنرسل لك رمز تحقق صالحاً لمدة 5 دقائق.</p>
 
         <div v-if="status" class="mt-5 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-accent">
             {{ status }}
@@ -47,7 +47,7 @@ const submit = () => form.post(route('doctor.password.email'));
                 class="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-accent to-accent-deep px-4 py-3 font-semibold text-accent-fg shadow-glow transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
             >
                 <Icon :name="form.processing ? 'progress_activity' : 'send'" :class="form.processing ? 'animate-spin' : ''" />
-                {{ form.processing ? 'جارٍ الإرسال…' : 'إرسال الرابط' }}
+                {{ form.processing ? 'جارٍ الإرسال…' : 'إرسال رمز التحقق' }}
             </button>
 
             <Link :href="route('login')" class="block text-center text-sm text-muted transition hover:text-content">

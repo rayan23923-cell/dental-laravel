@@ -60,30 +60,93 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
   }
 
+  /// "نسيت كلمة المرور؟" — a 2-step dialog (2026-08-29, replacing the old
+  /// single "enter email" step, by request): step 1 requests a 5-minute
+  /// one-time code (`AuthRepository.sendPasswordResetCode`); step 2 asks
+  /// for that code plus a new password and completes the reset natively
+  /// in-app (`resetPasswordWithOtp`) — unlike the old link-based flow,
+  /// which handed off to a browser to finish on the web reset-password
+  /// page, a typed code has nowhere else to go.
   Future<void> _showForgotPasswordDialog() async {
     final emailController = TextEditingController();
+    final otpController = TextEditingController();
+    final passwordController = TextEditingController();
+    final passwordConfirmController = TextEditingController();
     final formKey = GlobalKey<FormState>();
     var sending = false;
+    var step = 1;
+    var obscurePassword = true;
 
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
-          title: const Text('نسيت كلمة المرور؟'),
+          title: Text(step == 1 ? 'نسيت كلمة المرور؟' : 'أدخل رمز التحقق'),
           content: Form(
             key: formKey,
-            child: TextFormField(
-              controller: emailController,
-              autofocus: true,
-              enabled: !sending,
-              keyboardType: TextInputType.emailAddress,
-              autofillHints: const [AutofillHints.email],
-              decoration: const InputDecoration(labelText: 'البريد الإلكتروني'),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) return 'هذا الحقل مطلوب';
-                if (!value.contains('@')) return 'بريد إلكتروني غير صالح';
-                return null;
-              },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: step == 1
+                  ? [
+                      TextFormField(
+                        controller: emailController,
+                        autofocus: true,
+                        enabled: !sending,
+                        keyboardType: TextInputType.emailAddress,
+                        autofillHints: const [AutofillHints.email],
+                        decoration: const InputDecoration(labelText: 'البريد الإلكتروني'),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) return 'هذا الحقل مطلوب';
+                          if (!value.contains('@')) return 'بريد إلكتروني غير صالح';
+                          return null;
+                        },
+                      ),
+                    ]
+                  : [
+                      Text(
+                        'إذا كان هذا البريد مسجلاً لدينا، فقد وصلك رمز تحقق صالح لمدة 5 دقائق.',
+                        style: Theme.of(dialogContext).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: otpController,
+                        autofocus: true,
+                        enabled: !sending,
+                        keyboardType: TextInputType.number,
+                        maxLength: 6,
+                        decoration: const InputDecoration(labelText: 'رمز التحقق', counterText: ''),
+                        validator: (value) {
+                          if (value == null || value.trim().length != 6) return 'أدخل رمزاً مكوناً من 6 أرقام';
+                          return null;
+                        },
+                      ),
+                      TextFormField(
+                        controller: passwordController,
+                        enabled: !sending,
+                        obscureText: obscurePassword,
+                        decoration: InputDecoration(
+                          labelText: 'كلمة المرور الجديدة',
+                          suffixIcon: IconButton(
+                            icon: Icon(obscurePassword ? Icons.visibility : Icons.visibility_off),
+                            onPressed: () => setDialogState(() => obscurePassword = !obscurePassword),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.length < 6) return 'كلمة المرور قصيرة جداً (6 أحرف على الأقل)';
+                          return null;
+                        },
+                      ),
+                      TextFormField(
+                        controller: passwordConfirmController,
+                        enabled: !sending,
+                        obscureText: obscurePassword,
+                        decoration: const InputDecoration(labelText: 'تأكيد كلمة المرور'),
+                        validator: (value) {
+                          if (value != passwordController.text) return 'كلمتا المرور غير متطابقتين';
+                          return null;
+                        },
+                      ),
+                    ],
             ),
           ),
           actions: [
@@ -98,30 +161,53 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       if (!(formKey.currentState?.validate() ?? false)) return;
                       setDialogState(() => sending = true);
                       try {
-                        final message = await ref
-                            .read(authRepositoryProvider)
-                            .sendPasswordResetLink(emailController.text.trim());
-                        if (dialogContext.mounted) Navigator.of(dialogContext).pop();
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+                        if (step == 1) {
+                          final message = await ref
+                              .read(authRepositoryProvider)
+                              .sendPasswordResetCode(emailController.text.trim());
+                          setDialogState(() {
+                            sending = false;
+                            step = 2;
+                          });
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+                          }
+                        } else {
+                          await ref.read(authRepositoryProvider).resetPasswordWithOtp(
+                                email: emailController.text.trim(),
+                                otp: otpController.text.trim(),
+                                password: passwordController.text,
+                                passwordConfirmation: passwordConfirmController.text,
+                              );
+                          if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('تم تغيير كلمة المرور بنجاح، يمكنك تسجيل الدخول الآن.')),
+                            );
+                          }
                         }
                       } catch (e) {
                         setDialogState(() => sending = false);
                         if (dialogContext.mounted) {
                           ScaffoldMessenger.of(dialogContext).showSnackBar(
-                            SnackBar(content: Text(e is ApiException ? e.userMessage : 'تعذر إرسال الطلب.')),
+                            SnackBar(content: Text(e is ApiException ? e.userMessage : 'تعذر إتمام الطلب.')),
                           );
                         }
                       }
                     },
               child: sending
                   ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('إرسال'),
+                  : Text(step == 1 ? 'إرسال الرمز' : 'حفظ كلمة المرور'),
             ),
           ],
         ),
       ),
     );
+
+    emailController.dispose();
+    otpController.dispose();
+    passwordController.dispose();
+    passwordConfirmController.dispose();
   }
 
   @override

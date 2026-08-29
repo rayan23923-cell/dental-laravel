@@ -4945,3 +4945,36 @@ controller and clearing the map on removal, so `_controllerFor`
 recreates them fresh from the renumbered data on the next build.
 
 Verified: `flutter analyze` clean project-wide (no issues).
+
+## Password reset: OTP dialog replaces the "check your email for a link" hand-off (2026-08-29)
+
+Backend replaced the emailed reset *link* with a 5-minute one-time code
+across both account types — see `dental_laravel/README.md`'s matching
+entry for the full "two reported vulnerabilities investigated, one real
+UI issue fixed, neither was actually exploitable" writeup and the new
+`App\Services\OtpPasswordResetBroker`/`Api\PasswordResetController::reset()`.
+
+This is the one surface where the change is more than a background
+permission/schema tweak, since the *old* flow never had a native
+completion step at all: `AuthRepository.sendPasswordResetLink()` only
+ever sent the email and told the user to open it in a browser, landing
+on the *web* reset-password page — there was nothing else for Flutter to
+do. A typed code has nowhere else to go, so this needed a real in-app
+completion screen for the first time.
+
+- `AuthRepository.sendPasswordResetLink()` renamed to
+  `sendPasswordResetCode()` (same endpoint, `POST /forgot-password` —
+  only what it emails changed) plus a new `resetPasswordWithOtp({email,
+  otp, password, passwordConfirmation})` hitting the new
+  `POST /reset-password`.
+- `LoginScreen._showForgotPasswordDialog()` rebuilt as a 2-step dialog
+  instead of the old single "enter email" step: step 1 requests the
+  code; on success the *same* dialog swaps its content (via the
+  existing `StatefulBuilder`'s `step` flag, no new route/screen needed)
+  to a code + new-password + confirm-password form, submitting to
+  `resetPasswordWithOtp()`. A wrong/expired code surfaces via the
+  existing `ApiException`/`.userMessage` plumbing, same as every other
+  form error in this app.
+
+Verified: `flutter analyze` clean project-wide (no issues). Not
+verified against a real mailbox/device in this session.

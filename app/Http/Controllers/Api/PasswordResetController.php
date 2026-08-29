@@ -5,22 +5,26 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Doctor;
 use App\Models\User;
+use App\Services\OtpPasswordResetBroker;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 /**
  * "نسيت كلمة المرور؟" for the Flutter client — mirrors
- * `Auth\DoctorPasswordResetController::email()` and Breeze's own
- * `PasswordResetLinkController` (staff), unified into one endpoint the
- * same way `AuthController::login()` unifies both account types: the
- * mobile app never asks which kind of account this is before submitting.
+ * `Auth\DoctorPasswordResetController` and Breeze's own
+ * `PasswordResetLinkController`/`NewPasswordController` (staff), unified
+ * into one endpoint pair the same way `AuthController::login()` unifies
+ * both account types: the mobile app never asks which kind of account
+ * this is before submitting.
  *
- * Only sends the email — completing the reset (choosing a new password)
- * happens by opening the emailed link, which lands on the existing web
- * reset-password page (`doctor.password.reset`/`password.reset`). No
- * native in-app reset-token screen: that page already exists and works,
- * duplicating it here would just be a second copy to keep in sync.
+ * Sends a 5-minute one-time code instead of a link (2026-08-29, by
+ * request; see App\Services\OtpPasswordResetBroker) — unlike the old
+ * link-based version of this controller, `reset()` below is a real,
+ * native in-app completion step rather than a hand-off to a web page:
+ * a typed code has nowhere else to go, whereas a clickable link could
+ * always open the existing web reset-password page directly.
  */
 class PasswordResetController extends Controller
 {
@@ -28,16 +32,44 @@ class PasswordResetController extends Controller
     {
         $validated = $request->validate(['email' => ['required', 'email']]);
 
-        // Always the same neutral response regardless of which broker (or
+        // Always the same neutral response regardless of which guard (or
         // neither) matched — differentiating would let anyone probe which
-        // addresses belong to a registered account, same reasoning as the
-        // web controller this mirrors.
-        if (User::where('email', $validated['email'])->exists()) {
-            Password::broker('users')->sendResetLink($validated);
-        } elseif (Doctor::where('email', $validated['email'])->exists()) {
-            Password::broker('doctors')->sendResetLink($validated);
+        // addresses belong to a registered account.
+        $user = User::where('email', $validated['email'])->first();
+        $doctor = $user ? null : Doctor::where('email', $validated['email'])->first();
+
+        if ($user) {
+            OtpPasswordResetBroker::send($validated['email'], 'users', $user);
+        } elseif ($doctor) {
+            OtpPasswordResetBroker::send($validated['email'], 'doctors', $doctor);
         }
 
-        return response()->json(['message' => 'إذا كان هذا البريد مسجلاً لدينا، فسيصلك رابط لإعادة تعيين كلمة المرور.']);
+        return response()->json(['message' => 'إذا كان هذا البريد مسجلاً لدينا، فسيصلك رمز التحقق خلال دقائق.']);
+    }
+
+    public function reset(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+            'otp' => ['required', 'digits:6'],
+            'password' => ['required', 'confirmed', 'min:6'],
+        ]);
+
+        $user = User::where('email', $validated['email'])->first();
+        $guard = $user ? 'users' : 'doctors';
+        $account = $user ?? Doctor::where('email', $validated['email'])->first();
+
+        if (! $account || ! OtpPasswordResetBroker::verify($validated['email'], $guard, $validated['otp'])) {
+            return response()->json(['message' => 'رمز التحقق غير صحيح أو منتهي الصلاحية.'], 422);
+        }
+
+        $account->forceFill([
+            'password' => Hash::make($validated['password']),
+            'remember_token' => Str::random(60),
+        ])->save();
+
+        OtpPasswordResetBroker::forget($validated['email'], $guard);
+
+        return response()->json(['message' => 'تم تغيير كلمة المرور بنجاح.']);
     }
 }

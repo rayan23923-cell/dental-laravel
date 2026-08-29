@@ -26,7 +26,10 @@ Route::middleware('guest')->group(function () {
     Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])
         ->name('password.email');
 
-    Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])
+    // No {token} — a one-time code is typed, not clicked into (2026-08-29,
+    // by request; see App\Services\OtpPasswordResetBroker). `email` is
+    // carried as a query param only to prefill the field.
+    Route::get('reset-password', [NewPasswordController::class, 'create'])
         ->name('password.reset');
 
     Route::post('reset-password', [NewPasswordController::class, 'store'])

@@ -78,15 +78,4 @@ class Doctor extends Authenticatable
     {
         return $this->hasMany(TaskInstance::class);
     }
-
-    /**
-     * Reset links must point at the doctor routes, not Breeze's staff ones —
-     * the default notification builds a URL from the `password.reset` route,
-     * which would land a doctor on the staff form and fail against the
-     * `users` broker.
-     */
-    public function sendPasswordResetNotification($token): void
-    {
-        $this->notify(new \App\Notifications\DoctorResetPassword($token));
-    }
 }
