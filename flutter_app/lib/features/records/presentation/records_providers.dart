@@ -23,8 +23,21 @@ final appointmentProvider = FutureProvider.autoDispose.family<Appointment, int>(
   return ref.watch(recordsRepositoryProvider).fetchAppointment(id);
 });
 
-final paymentListProvider = FutureProvider.autoDispose.family<Paginated<Payment>, String?>((ref, search) {
-  return ref.watch(recordsRepositoryProvider).listPayments(search: search);
+/// Filtering (2026-08-29) — a plain Dart `record` type gets structural
+/// (value) equality for free, which is exactly what a Riverpod `family`
+/// key needs (so re-requesting the same filters reuses the cached
+/// result) — no separate class/`==`/`hashCode` boilerplate needed.
+/// `payment_list_screen.dart` was the only call site and is updated to
+/// build one of these instead of passing a bare search string.
+typedef PaymentFilters = ({String? search, String? from, String? to, String? source});
+
+final paymentListProvider = FutureProvider.autoDispose.family<Paginated<Payment>, PaymentFilters>((ref, filters) {
+  return ref.watch(recordsRepositoryProvider).listPayments(
+        search: filters.search,
+        from: filters.from,
+        to: filters.to,
+        source: filters.source,
+      );
 });
 
 final paymentProvider = FutureProvider.autoDispose.family<Payment, int>((ref, id) {

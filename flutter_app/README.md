@@ -4340,3 +4340,52 @@ Verified via curl against the local dev server (mirrors the checks in
 gets the full record; scanning a not-yet-clear one gets the exact
 screening-gate message instead of a permission error. `flutter analyze`
 clean project-wide.
+
+## Payments: filtering, QR scan + screening confirmation, quick-digit parity (2026-08-29)
+
+See `README.md`'s matching entry for the full backend/web picture — this
+is the Flutter-side half.
+
+**`PaymentListScreen`** gained a filter icon (AppBar) opening a modal
+bottom sheet — date-range pickers (`from`/`to`, on `paid_at`) + a source
+dropdown (موعد|تسجيل مريض). `paymentListProvider`'s family key changed
+from a bare `String? search` to a `PaymentFilters` record type
+(`typedef PaymentFilters = ({String? search, String? from, String? to, String? source})`,
+`records_providers.dart`) — a Dart `record` gets structural equality for
+free, which is exactly what a Riverpod family key needs for the same
+filters to hit cache; no separate class/`==`/`hashCode` needed. Only
+call site was this screen, updated to build one instead of passing a
+bare string.
+
+**`PaymentFormScreen`** had no QR scanner at all before this — patient
+linkage was a plain `PatientRegistrationListScreen(pickMode: true)`
+picker, and a code comment on the seeded registration explicitly
+documented "this manual-entry form doesn't gate on screening status
+anyway (only the QR desk flow does)." Added:
+- A new `QrScanMode.paymentPatientLink` (`qr_scan_screen.dart`) — same
+  resolve-and-pop-back shape as `taskPatientLink`, reusing the plain
+  `.scan()` repository method (this screen is staff-only, under
+  `/records`, so the staff-gated `patient-registrations/scan` endpoint
+  is the *correct* one here — unlike the case-sheet autofill scan two
+  entries up, which needed a doctor-only endpoint precisely because its
+  caller is a doctor).
+- A "مسح رمز المريض" `IconButton.filledTonal` next to the registration
+  picker, pushing `/records/patient-registrations/scan-for-payment` and
+  awaiting a `RegistrationPaymentState`.
+- One shared `_applyRegistration(PatientRegistration)` helper, called
+  from both the scan result and the existing list-picker result: if
+  `registration.isScreeningClear`, sets `_registration` as before; if
+  not, sets a new `_blockedRegistration` instead (leaving `_registration`
+  null, so the existing "يرجى اختيار المريض المسجل" submit-guard still
+  fires) and renders a red "لا يمكن الدفع" banner naming the patient and
+  why — the same wording `_ScreeningBlockedBanner` already uses on the
+  reception-desk `PatientRegistrationPaymentScreen`, reused here as inline
+  text rather than extracting a shared widget (small, two call sites,
+  slightly different layout context in each).
+- Quick "0"/"00"/"000"/"مسح" amount buttons (`_appendDigits()`/
+  `_clearAmount()`), identical pattern to
+  `PatientRegistrationPaymentScreen`'s own — this screen's amount field
+  was a plain `TextFormField` before, the one place in the app missing
+  this convenience.
+
+Verified: `flutter analyze` clean on every touched file.

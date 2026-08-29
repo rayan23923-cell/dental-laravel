@@ -69,9 +69,16 @@ class RecordsRepository {
   Future<void> deleteAppointment(int id) => _client.deleteJson('/appointments/$id');
 
   // Payments
-  Future<Paginated<Payment>> listPayments({String? search}) async {
+  /// Filtering (2026-08-29) — date range on `paid_at` (the only date this
+  /// table has) and which of the two mutually-exclusive sources a payment
+  /// settled; see `Api\PaymentController::index()`'s matching comment for
+  /// why no doctor or paid/unpaid filter exists.
+  Future<Paginated<Payment>> listPayments({String? search, String? from, String? to, String? source}) async {
     final data = await _client.getJson('/payments', query: {
       if (search != null && search.isNotEmpty) 'search': search,
+      if (from != null && from.isNotEmpty) 'from': from,
+      if (to != null && to.isNotEmpty) 'to': to,
+      if (source != null && source.isNotEmpty) 'source': source,
     }) as Map<String, dynamic>;
     return Paginated.fromJson(data, Payment.fromJson);
   }

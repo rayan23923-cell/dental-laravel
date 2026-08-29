@@ -18,17 +18,34 @@ class PaymentController extends Controller
     {
         $search = $request->string('search')->toString();
 
+        $source = $request->string('source')->toString();
+
         $payments = Payment::with(['appointment', 'patientRegistration'])
             ->when($search !== '', fn ($q) => $q->where(fn ($q2) => $q2
                 ->whereHas('appointment', fn ($q3) => $q3->where('full_name', 'like', "%{$search}%"))
                 ->orWhereHas('patientRegistration', fn ($q3) => $q3->where('name', 'like', "%{$search}%"))))
+            // Filtering (2026-08-29) — see Api\PaymentController::index()'s
+            // matching comment for why these two (date range + source) are
+            // what's actually filterable on this table.
+            ->when($request->date('from'), fn ($q, $from) => $q->whereDate('paid_at', '>=', $from))
+            ->when($request->date('to'), fn ($q, $to) => $q->whereDate('paid_at', '<=', $to))
+            ->when($source, fn ($q) => match ($source) {
+                'appointment' => $q->whereNotNull('appointment_id'),
+                'registration' => $q->whereNotNull('patient_registration_id'),
+                default => $q,
+            })
             ->latest('paid_at')
             ->paginate(15)
             ->withQueryString();
 
         return Inertia::render('Payments/Index', [
             'payments' => $payments,
-            'filters' => ['search' => $search],
+            'filters' => [
+                'search' => $search,
+                'from' => $request->string('from')->toString() ?: null,
+                'to' => $request->string('to')->toString() ?: null,
+                'source' => $source ?: null,
+            ],
         ]);
     }
 

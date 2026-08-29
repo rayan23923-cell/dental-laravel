@@ -183,6 +183,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/records/patient-registrations/scan-for-task',
         builder: (context, state) => const QrScanScreen(mode: QrScanMode.taskPatientLink),
       ),
+      GoRoute(
+        path: '/records/patient-registrations/scan-for-payment',
+        builder: (context, state) => const QrScanScreen(mode: QrScanMode.paymentPatientLink),
+      ),
       GoRoute(path: '/records/payments', builder: (context, state) => const PaymentListScreen()),
       GoRoute(
         path: '/records/payments/new',

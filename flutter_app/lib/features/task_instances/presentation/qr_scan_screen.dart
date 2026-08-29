@@ -25,6 +25,12 @@ enum QrScanMode {
   // (`CaseSheetFormScreen`) and this screen's title read clearly for what
   // they're actually doing rather than reusing an unrelated-sounding name.
   caseSheetPatientAutofill,
+  // The general "دفعة جديدة" form's patient-registration scan (2026-08-29)
+  // — `payment_form_screen.dart` is staff-only (the `/records` hub), so
+  // this reuses the same staff-gated `patient-registrations/scan` endpoint
+  // [patientRegistrationPayment]/[taskPatientLink] already do, just named
+  // for its own call site like [caseSheetPatientAutofill] is.
+  paymentPatientLink,
 }
 
 /// Scans a QR code and resolves it against the flow-appropriate endpoint:
@@ -86,6 +92,7 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
           final state = await ref.read(patientRegistrationRepositoryProvider).scan(raw);
           if (mounted) context.pushReplacement('/records/patient-registrations/screening', extra: state);
         case QrScanMode.taskPatientLink:
+        case QrScanMode.paymentPatientLink:
           final state = await ref.read(patientRegistrationRepositoryProvider).scan(raw);
           if (mounted) context.pop(state);
         case QrScanMode.caseSheetPatientAutofill:
@@ -108,6 +115,7 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
         QrScanMode.patientRegistrationScreening => 'مسح رمز الفحص',
         QrScanMode.taskPatientLink => 'امسح رمز المريض',
         QrScanMode.caseSheetPatientAutofill => 'مسح رمز المريض',
+        QrScanMode.paymentPatientLink => 'امسح رمز المريض',
       };
 
   @override

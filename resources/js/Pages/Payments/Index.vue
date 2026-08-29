@@ -15,8 +15,26 @@ const page = usePage();
 // registration-sourced alike — surface in one search, regardless of
 // which of the two a given payment settled.
 const search = ref(props.filters.search ?? '');
-const applySearch = () => {
-    router.get(route('payments.index'), { search: search.value || undefined }, { preserveState: true, replace: true });
+
+// Filtering (2026-08-29) — date range on `paid_at` (the only date this
+// table has) and which of the two mutually-exclusive sources a payment
+// settled. No doctor or paid/unpaid filter exists — see
+// Api\PaymentController::index()'s matching comment for why not.
+const from = ref(props.filters.from ?? '');
+const to = ref(props.filters.to ?? '');
+const source = ref(props.filters.source ?? '');
+
+const applyFilters = () => {
+    router.get(
+        route('payments.index'),
+        {
+            search: search.value || undefined,
+            from: from.value || undefined,
+            to: to.value || undefined,
+            source: source.value || undefined,
+        },
+        { preserveState: true, replace: true },
+    );
 };
 
 const personName = (payment) => payment.patient_registration?.name ?? payment.appointment?.full_name ?? '—';
@@ -50,16 +68,46 @@ const destroy = (payment) => {
                     {{ page.props.flash.success }}
                 </div>
 
-                <div class="flex gap-2 rounded-lg bg-white p-4 shadow-sm">
-                    <input
-                        v-model="search"
-                        @keyup.enter="applySearch"
-                        type="text"
-                        placeholder="ابحث عن شخص لعرض كل مدفوعاته..."
-                        class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                    />
+                <div class="flex flex-wrap items-end gap-3 rounded-lg bg-white p-4 shadow-sm">
+                    <div class="min-w-[12rem] flex-1">
+                        <label class="block text-xs font-medium text-gray-500">بحث</label>
+                        <input
+                            v-model="search"
+                            @keyup.enter="applyFilters"
+                            type="text"
+                            placeholder="ابحث عن شخص لعرض كل مدفوعاته..."
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500">من تاريخ</label>
+                        <input
+                            v-model="from"
+                            type="date"
+                            class="mt-1 block rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500">إلى تاريخ</label>
+                        <input
+                            v-model="to"
+                            type="date"
+                            class="mt-1 block rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500">المصدر</label>
+                        <select
+                            v-model="source"
+                            class="mt-1 block rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        >
+                            <option value="">الكل</option>
+                            <option value="appointment">موعد</option>
+                            <option value="registration">تسجيل مريض</option>
+                        </select>
+                    </div>
                     <button
-                        @click="applySearch"
+                        @click="applyFilters"
                         type="button"
                         class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
                     >

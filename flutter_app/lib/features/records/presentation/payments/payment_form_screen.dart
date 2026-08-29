@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../../patient_registration/domain/patient_registration.dart';
+import '../../../patient_registration/domain/registration_payment_state.dart';
 import '../../../patient_registration/presentation/patient_registration_list_screen.dart';
 import '../../data/records_repository.dart';
 import '../../domain/appointment.dart';
@@ -25,6 +27,14 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
   final _paidByController = TextEditingController();
   Appointment? _appointment;
   PatientRegistration? _registration;
+  // Screening confirmation (2026-08-29) — set instead of `_registration`
+  // when a resolved patient (scan or list-pick) isn't screening-clear, so
+  // the blocked banner can show who was rejected and why, mirroring the
+  // reception-desk `PatientRegistrationPaymentScreen`'s
+  // `_ScreeningBlockedBanner`. `PatientScreeningGate` still enforces this
+  // server-side regardless — this is purely earlier client-side feedback.
+  PatientRegistration? _blockedRegistration;
+  bool _scanningRegistration = false;
   // A payment settles either an appointment or a reception-desk
   // registration — never both (see Api\PaymentController::validatePayment()'s
   // required_without/prohibits pair). Mirrors the web Create.vue's toggle.
@@ -105,8 +115,53 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
     final picked = await Navigator.of(context).push<PatientRegistration>(
       MaterialPageRoute(builder: (_) => const PatientRegistrationListScreen(pickMode: true)),
     );
-    if (picked != null) setState(() => _registration = picked);
+    if (picked != null) _applyRegistration(picked);
   }
+
+  /// "مسح رمز المريض" (2026-08-29) — scans the same reception-desk ticket
+  /// QR used elsewhere, resolving it to a registration the same way
+  /// `_pickRegistration()`'s list-picker does, just faster than typing a
+  /// search. Reuses the staff-gated `patient-registrations/scan` endpoint
+  /// (this whole screen is staff-only — see `RecordsHubScreen`), unlike
+  /// the doctor-only case-sheet autofill scan.
+  Future<void> _scanRegistration() async {
+    setState(() => _scanningRegistration = true);
+    try {
+      final result = await context.push<RegistrationPaymentState>('/records/patient-registrations/scan-for-payment');
+      if (result != null) _applyRegistration(result.registration);
+    } finally {
+      if (mounted) setState(() => _scanningRegistration = false);
+    }
+  }
+
+  /// Shared by both resolution paths (scan and list-pick) — a patient who
+  /// isn't screening-clear is shown as blocked rather than accepted, so
+  /// the clerk sees why immediately instead of typing an amount only to
+  /// have `PatientScreeningGate` reject the submit.
+  void _applyRegistration(PatientRegistration registration) {
+    setState(() {
+      if (registration.isScreeningClear) {
+        _registration = registration;
+        _blockedRegistration = null;
+      } else {
+        _registration = null;
+        _blockedRegistration = registration;
+      }
+    });
+  }
+
+  // Quick-digit amount entry (2026-08-29) — matches the reception-desk
+  // `PatientRegistrationPaymentScreen` and web `Payments/Create.vue`'s
+  // identical "0"/"00"/"000" append buttons, for consistent, fast amount
+  // entry across every platform this app ships on.
+  void _appendDigits(String digits) {
+    setState(() {
+      _amountController.text += digits;
+      _amountController.selection = TextSelection.collapsed(offset: _amountController.text.length);
+    });
+  }
+
+  void _clearAmount() => setState(() => _amountController.clear());
 
   Future<void> _pickPaidAt() async {
     final picked = await showDatePicker(
@@ -224,7 +279,11 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
             RadioGroup<String>(
               groupValue: _source,
               onChanged: (v) {
-                if (v != null) setState(() => _source = v);
+                if (v == null) return;
+                setState(() {
+                  _source = v;
+                  if (v == 'appointment') _blockedRegistration = null;
+                });
               },
               child: const Row(
                 children: [
@@ -242,20 +301,79 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
                   child: Text(_appointment?.fullName ?? '— اختر موعدًا —'),
                 ),
               )
-            else
-              InkWell(
-                onTap: _pickRegistration,
-                child: InputDecorator(
-                  decoration: const InputDecoration(labelText: 'المريض المسجل', border: OutlineInputBorder(), isDense: true),
-                  child: Text(_registration?.name ?? '— اختر مريضًا مسجلاً —'),
-                ),
+            else ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: _pickRegistration,
+                      child: InputDecorator(
+                        decoration: const InputDecoration(labelText: 'المريض المسجل', border: OutlineInputBorder(), isDense: true),
+                        child: Text(_registration?.name ?? '— اختر مريضًا مسجلاً —'),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _scanningRegistration
+                      ? const Padding(
+                          padding: EdgeInsets.all(8),
+                          child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                        )
+                      : IconButton.filledTonal(
+                          onPressed: _scanRegistration,
+                          icon: const Icon(Icons.qr_code_scanner),
+                          tooltip: 'مسح رمز المريض',
+                        ),
+                ],
               ),
+              // Screening confirmation (2026-08-29) — see `_applyRegistration()`.
+              // `PatientScreeningGate` still enforces this server-side
+              // regardless; this is earlier, clearer client-side feedback.
+              if (_blockedRegistration != null)
+                Container(
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.08),
+                    border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.block, color: Colors.red, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _blockedRegistration!.screeningStatus == 'flagged'
+                              ? 'لا يمكن الدفع — نتيجة فحص "${_blockedRegistration!.name}" غير سليمة.'
+                              : 'لا يمكن الدفع قبل تأكيد سلامة "${_blockedRegistration!.name}" من الأمراض المعدية عبر فحص المختبر.',
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
             const SizedBox(height: 16),
             TextFormField(
               controller: _amountController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(labelText: 'المبلغ', border: OutlineInputBorder()),
               validator: (v) => (v == null || double.tryParse(v.trim()) == null) ? 'أدخل مبلغًا صحيحًا' : null,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final digits in const ['0', '00', '000'])
+                  OutlinedButton(onPressed: () => _appendDigits(digits), child: Text(digits)),
+                OutlinedButton.icon(
+                  onPressed: _clearAmount,
+                  icon: const Icon(Icons.backspace_outlined),
+                  label: const Text('مسح'),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             TextFormField(

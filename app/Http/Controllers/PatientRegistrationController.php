@@ -65,11 +65,15 @@ class PatientRegistrationController extends Controller
             return response()->json(['data' => []]);
         }
 
+        // `screening_status` added (2026-08-29) so a search-selected match
+        // (not just a scanned one) can also be checked against
+        // `PatientScreeningGate` client-side before payment — see
+        // Payments/Create.vue.
         $registrations = PatientRegistration::where('name', 'like', "%{$search}%")
             ->orWhere('phone', 'like', "%{$search}%")
             ->orderByDesc('created_at')
             ->limit(10)
-            ->get(['id', 'name', 'phone']);
+            ->get(['id', 'name', 'phone', 'screening_status']);
 
         return response()->json(['data' => $registrations]);
     }

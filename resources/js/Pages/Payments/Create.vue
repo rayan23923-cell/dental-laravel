@@ -8,7 +8,7 @@ import TextInput from '@/Components/TextInput.vue';
 import QrScanner from '@/Components/QrScanner.vue';
 import Icon from '@/Components/Icon.vue';
 import { Head, useForm, usePage } from '@inertiajs/vue3';
-import { nextTick, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import axios from 'axios';
 
 defineProps({
@@ -101,6 +101,23 @@ const selectRegistration = (r) => {
     registrationResults.value = [];
 };
 
+// Screening confirmation (2026-08-29) — previously this form only found
+// out a patient wasn't clear when `PatientScreeningGate` rejected the
+// whole submit server-side (a generic flash-error banner, after the
+// clerk had already typed an amount). Both `scan()`'s and now
+// `search()`'s registration payload carry `screening_status`, so this
+// checks it the moment a patient is resolved instead. `isScreeningClear`
+// mirrors the Flutter `PatientRegistration.isScreeningClear` getter.
+const isScreeningClear = (registration) => registration?.screening_status === 'clear';
+
+// Blocks the amount/submit section outright when the source is a
+// registration that isn't screening-clear — the banner above already
+// explains why; server-side `PatientScreeningGate` would reject it
+// anyway, this just surfaces it before the clerk types an amount.
+const registrationBlocked = computed(
+    () => source.value === 'registration' && selectedRegistration.value && !isScreeningClear(selectedRegistration.value),
+);
+
 const clearRegistration = () => {
     selectedRegistration.value = null;
     form.patient_registration_id = '';
@@ -169,8 +186,37 @@ const submit = () => {
                         <div v-else>
                             <InputLabel value="المريض المسجل" />
 
-                            <!-- A patient was found (scan or search) -->
-                            <div v-if="selectedRegistration" class="mt-1 flex items-center justify-between rounded-md border border-green-200 bg-green-50 p-3">
+                            <!-- A patient was found (scan or search) but
+                                 isn't screening-clear — block here rather
+                                 than let the clerk fill an amount only to
+                                 have PatientScreeningGate reject it at
+                                 submit. Mirrors the reception-desk
+                                 Flutter screen's _ScreeningBlockedBanner. -->
+                            <div
+                                v-if="selectedRegistration && !isScreeningClear(selectedRegistration)"
+                                class="mt-1 rounded-md border border-red-200 bg-red-50 p-3"
+                            >
+                                <div class="flex items-start justify-between gap-2">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-900">{{ selectedRegistration.name }}</p>
+                                        <p class="text-xs text-gray-500" dir="ltr">{{ selectedRegistration.phone }}</p>
+                                    </div>
+                                    <button type="button" class="text-sm text-indigo-600 hover:underline" @click="clearRegistration">تغيير</button>
+                                </div>
+                                <p class="mt-2 text-sm text-red-700">
+                                    {{
+                                        selectedRegistration.screening_status === 'flagged'
+                                            ? 'لا يمكن الدفع — نتيجة فحص المريض غير سليمة.'
+                                            : 'لا يمكن الدفع قبل تأكيد سلامة المريض من الأمراض المعدية عبر فحص المختبر.'
+                                    }}
+                                </p>
+                            </div>
+
+                            <!-- A patient was found (scan or search) and is screening-clear -->
+                            <div
+                                v-else-if="selectedRegistration"
+                                class="mt-1 flex items-center justify-between rounded-md border border-green-200 bg-green-50 p-3"
+                            >
                                 <div>
                                     <p class="text-sm font-medium text-gray-900">{{ selectedRegistration.name }}</p>
                                     <p class="text-xs text-gray-500" dir="ltr">{{ selectedRegistration.phone }}</p>
@@ -214,35 +260,37 @@ const submit = () => {
                             <InputError class="mt-2" :message="form.errors.patient_registration_id" />
                         </div>
 
-                        <div>
-                            <InputLabel for="amount" value="Amount" />
-                            <TextInput id="amount" v-model="form.amount" type="text" inputmode="decimal" class="mt-1 block w-full" dir="ltr" required autofocus />
-                            <div class="mt-2 flex flex-wrap gap-2">
-                                <button
-                                    v-for="digits in ['0', '00', '000']"
-                                    :key="digits"
-                                    type="button"
-                                    class="rounded-md border border-gray-300 px-4 py-1 text-sm text-gray-700 hover:bg-gray-50"
-                                    @click="appendDigits(digits)"
-                                >
-                                    {{ digits }}
-                                </button>
-                                <button type="button" class="rounded-md border border-gray-300 px-4 py-1 text-sm text-gray-700 hover:bg-gray-50" @click="clearAmount">
-                                    مسح
-                                </button>
+                        <template v-if="!registrationBlocked">
+                            <div>
+                                <InputLabel for="amount" value="Amount" />
+                                <TextInput id="amount" v-model="form.amount" type="text" inputmode="decimal" class="mt-1 block w-full" dir="ltr" required autofocus />
+                                <div class="mt-2 flex flex-wrap gap-2">
+                                    <button
+                                        v-for="digits in ['0', '00', '000']"
+                                        :key="digits"
+                                        type="button"
+                                        class="rounded-md border border-gray-300 px-4 py-1 text-sm text-gray-700 hover:bg-gray-50"
+                                        @click="appendDigits(digits)"
+                                    >
+                                        {{ digits }}
+                                    </button>
+                                    <button type="button" class="rounded-md border border-gray-300 px-4 py-1 text-sm text-gray-700 hover:bg-gray-50" @click="clearAmount">
+                                        مسح
+                                    </button>
+                                </div>
+                                <InputError class="mt-2" :message="form.errors.amount" />
                             </div>
-                            <InputError class="mt-2" :message="form.errors.amount" />
-                        </div>
 
-                        <div>
-                            <InputLabel for="paid_by" value="Paid By" />
-                            <TextInput id="paid_by" v-model="form.paid_by" type="text" class="mt-1 block w-full" />
-                            <InputError class="mt-2" :message="form.errors.paid_by" />
-                        </div>
+                            <div>
+                                <InputLabel for="paid_by" value="Paid By" />
+                                <TextInput id="paid_by" v-model="form.paid_by" type="text" class="mt-1 block w-full" />
+                                <InputError class="mt-2" :message="form.errors.paid_by" />
+                            </div>
 
-                        <div class="flex justify-end">
-                            <PrimaryButton :disabled="form.processing">Save Payment</PrimaryButton>
-                        </div>
+                            <div class="flex justify-end">
+                                <PrimaryButton :disabled="form.processing">Save Payment</PrimaryButton>
+                            </div>
+                        </template>
                     </form>
                 </div>
             </div>

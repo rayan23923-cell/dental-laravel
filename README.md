@@ -5774,6 +5774,58 @@ unaffected (still 200) — confirming the fix is additive, not a
 loosening of the existing staff-facing route. `php -l` on every touched
 file, `npm run build` clean.
 
+## Payments: filtering, client-side screening confirmation, and quick-digit parity (2026-08-29)
+
+Three related asks on the general "الدفعات" payments list/form
+(`/records/payments`, `/payments` — the front-desk trio's own payment
+flow, separate from the reception-desk ticket-QR payment screen):
+
+**Filtering.** `Api\PaymentController::index()` and web
+`PaymentController::index()` both gained `from`/`to` (a date range on
+`paid_at` — the only date this table has) and `source`
+(`appointment`|`registration`, via `whereNotNull` on the matching FK).
+No doctor filter exists — `payments` has no direct doctor column
+(`appointment_id`/`patient_registration_id` only); no paid/unpaid filter
+either — a `Payment` row already *is* a paid transaction, that state
+lives on `PatientRegistration`, not here. `Payments/Index.vue` gained
+matching date/source inputs alongside the existing search box, all
+threaded through `router.get()`/`filters` the same way search already
+was. Flutter's `PaymentListScreen` gained a filter icon opening a modal
+bottom sheet (date-range pickers + source dropdown); `paymentListProvider`
+switched from a bare `String? search` family key to a `PaymentFilters`
+record type (`records_providers.dart`) — Dart records get structural
+equality for free, which is exactly what a Riverpod family key needs.
+
+**Client-side screening confirmation.** `Payments/Create.vue` already had
+a QR scanner (added 2026-08-26) but never read `screening_status` from
+the resolved registration — a non-clear patient only found out via
+`PatientScreeningGate`'s generic flash-error banner *after* filling in
+an amount and submitting. Now both the scan path and the search path
+(`PatientRegistrationController::search()` was only selecting
+`id, name, phone` — added `screening_status`) show an immediate red
+"لا يمكن الدفع" banner instead of the found-patient card, and the
+amount/paid-by/submit section is hidden entirely for a blocked
+selection. `PatientScreeningGate` still enforces this server-side
+regardless — this is purely earlier, clearer feedback, not a new gate.
+Flutter's `PaymentFormScreen` had no scanner at all before this (patient
+linkage was a plain list-picker, and a code comment explicitly
+documented "this manual-entry form doesn't gate on screening status
+anyway") — added a "مسح رمز المريض" button (new `QrScanMode.paymentPatientLink`,
+reusing the existing staff-gated `patient-registrations/scan` endpoint,
+since this whole screen is staff-only) plus the identical blocked-banner
+treatment, shared between the scan path and the existing list-picker
+path via one `_applyRegistration()` helper.
+
+**Quick-digit amount buttons.** Already present in web `Payments/Create.vue`
+and the reception-desk Flutter `PatientRegistrationPaymentScreen`
+(both added 2026-08-26); missing from Flutter's general `PaymentFormScreen`,
+which had a plain `TextFormField`. Added the identical "0"/"00"/"000"
+append buttons + "مسح" clear button for consistency across every amount
+field in the app.
+
+Verified: `php -l` on every touched PHP file, `npm run build` clean,
+`flutter analyze` clean on every touched Dart file.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the

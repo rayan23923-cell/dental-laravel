@@ -29,6 +29,20 @@ class PaymentController extends Controller
             ->when($search !== '', fn ($q) => $q->where(fn ($q2) => $q2
                 ->whereHas('appointment', fn ($q3) => $q3->where('full_name', 'like', "%{$search}%"))
                 ->orWhereHas('patientRegistration', fn ($q3) => $q3->where('name', 'like', "%{$search}%"))))
+            // Filtering (2026-08-29) — a date range on `paid_at` (the only
+            // date this table has) and which of the two mutually-exclusive
+            // sources a payment settled (see `validatePayment()`'s
+            // required_without/prohibits pair — there's no direct doctor
+            // link on `payments` to filter by, and no separate paid/unpaid
+            // flag either; a `Payment` row already **is** a paid
+            // transaction).
+            ->when($request->date('from'), fn ($q, $from) => $q->whereDate('paid_at', '>=', $from))
+            ->when($request->date('to'), fn ($q, $to) => $q->whereDate('paid_at', '<=', $to))
+            ->when($request->string('source')->toString(), fn ($q, $source) => match ($source) {
+                'appointment' => $q->whereNotNull('appointment_id'),
+                'registration' => $q->whereNotNull('patient_registration_id'),
+                default => $q,
+            })
             ->latest('paid_at')
             ->paginate(15);
 
