@@ -6330,6 +6330,50 @@ controls.
 
 Verified: `php -l` on all four touched PHP files.
 
+## Prevention: auto-fill Date, remove Group, and drop the duplicated Nutritional Assessment fields (2026-08-29)
+
+By request, from three live screenshots of the Prevention Record: "ازل
+التاريخ واجعله بصورة تلقائية يتم اختياره ازل المجموعة، كيس شيت
+prevention ازل patient name age class لانها مكررة" (remove Date and
+make it automatically selected, remove Group; Prevention case sheet:
+remove patient name/age/class because they're duplicated).
+
+**Patient Information's `date`** — removed as a manual field, now set
+automatically at creation to today's date (`patient_data.date`), same
+"auto, once, at create, never overwritten on update" convention as
+Orthodontics' `referral_date`. Unlike that earlier case, `date` lives
+inside the opaque `patient_data` JSON blob rather than a real column, so
+both `PreventionRecordController::prepare()` (gained an `$isCreate`
+flag, previously shared identically between `store()`/`update()`) and
+`Api\PreventionRecordController::store()` (gained a small
+`withDefaultDate()` helper) now decode `patient_data`, inject `date`,
+and re-encode, only when creating.
+
+**Patient Information's `patient_group`** — removed outright, no
+auto-fill (no equivalent automatic source, matching how Orthodontics'
+`supervised_by`/`referred_from` were simply dropped for the same
+reason). Note this reverses this session's own earlier read of this
+exact field ("patient_group/visit are genuinely patient-related, not
+student-redundant... left untouched") — the user's current, explicit
+instruction to remove it takes precedence over that earlier read;
+`visit` itself is untouched, still not part of this removal.
+
+**Nutritional Assessment's `nutritional_patient_name`/`nutritional_age`/
+`nutritional_class`** — removed; each duplicated a field already
+collected in Patient Information (`child_name`/`patient_age`) — the
+first field's own `help` text even said as much ("the original defaults
+this to the child's name when left blank"), a known redundancy flagged
+but deliberately left out of scope in an earlier pass, now addressed.
+`nutritional_gender`/`nutritional_group` stay — not mentioned in this
+request, and structurally distinct enough (gender/group of the
+*assessment* context, not simply a repeated name/age) not to assume
+redundant by extension.
+
+No print-view breakage: no Blade view references any of these five
+subkeys.
+
+Verified: `php -l` on `PreventionForm.php` and both controllers.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the

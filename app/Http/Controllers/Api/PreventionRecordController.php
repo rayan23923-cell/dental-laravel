@@ -31,9 +31,25 @@ class PreventionRecordController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $record = PreventionRecord::create($this->validateRecord($request));
+        $data = $this->validateRecord($request);
+        $data['patient_data'] = $this->withDefaultDate($data['patient_data'] ?? null);
+
+        $record = PreventionRecord::create($data);
 
         return (new PreventionRecordResource($record))->response()->setStatusCode(201);
+    }
+
+    /**
+     * Mirrors `App\Http\Controllers\PreventionRecordController::prepare()`'s
+     * matching comment — `patient_data.date` no longer has its own form
+     * field, set automatically instead, once, at creation only.
+     */
+    private function withDefaultDate(?string $patientData): string
+    {
+        $decoded = json_decode($patientData ?? '{}', true) ?: [];
+        $decoded['date'] = now()->toDateString();
+
+        return json_encode($decoded);
     }
 
     public function update(Request $request, PreventionRecord $record): JsonResponse

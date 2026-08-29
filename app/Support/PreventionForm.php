@@ -35,13 +35,18 @@ class PreventionForm
                 'fields' => [
                     ['group' => 'patient_data', 'key' => 'child_name', 'label' => "Child's Name", 'type' => 'text', 'required' => true, 'width' => 'half'],
                     ['group' => 'patient_data', 'key' => 'phone_number', 'label' => 'Phone Number', 'type' => 'text'],
-                    ['group' => 'patient_data', 'key' => 'date', 'label' => 'Date', 'type' => 'date'],
+                    // 'date'/'patient_group' removed (2026-08-29, by
+                    // request): 'date' is set automatically at creation
+                    // instead (today's date — PreventionRecordController::
+                    // prepare()/Api\PreventionRecordController::store()),
+                    // same "auto, once, at create" convention as
+                    // Orthodontics' referral_date; 'patient_group' had no
+                    // equivalent automatic source, so it's simply gone.
                     ['group' => 'patient_data', 'key' => 'patient_age', 'label' => 'Age', 'type' => 'text'],
                     ['group' => 'patient_data', 'key' => 'patient_gender', 'label' => 'Gender', 'type' => 'select', 'options' => [
                         ['value' => 'male', 'label' => 'Male'],
                         ['value' => 'female', 'label' => 'Female'],
                     ]],
-                    ['group' => 'patient_data', 'key' => 'patient_group', 'label' => 'Group', 'type' => 'text'],
                     ['group' => 'patient_data', 'key' => 'visit', 'label' => 'Visit', 'type' => 'select', 'options' => [
                         ['value' => 'first', 'label' => 'First'],
                         ['value' => 'recall', 'label' => 'Recall'],
@@ -102,10 +107,19 @@ class PreventionForm
             [
                 'title' => 'Nutritional Assessment',
                 'fields' => [
-                    ['group' => 'patient_data', 'key' => 'nutritional_patient_name', 'label' => 'Patient name', 'type' => 'text', 'width' => 'half',
-                        'help' => "The original defaults this to the child's name when left blank."],
-                    ['group' => 'patient_data', 'key' => 'nutritional_age', 'label' => 'Age', 'type' => 'text'],
-                    ['group' => 'patient_data', 'key' => 'nutritional_class', 'label' => 'Class', 'type' => 'text'],
+                    // 'nutritional_patient_name'/'nutritional_age'/
+                    // 'nutritional_class' removed (2026-08-29, by request
+                    // — "ازل patient name age class لانها مكررة", remove
+                    // them, they're duplicated): each duplicated a field
+                    // already collected above in Patient Information
+                    // (child_name/patient_age — this section's own `help`
+                    // text even said as much: "the original defaults this
+                    // to the child's name when left blank"). No auto-fill
+                    // added in their place, matching every other
+                    // duplicate-field removal this session that wasn't
+                    // explicitly asked to become automatic.
+                    // 'nutritional_gender'/'nutritional_group' stay — not
+                    // mentioned in this request.
                     ['group' => 'patient_data', 'key' => 'nutritional_gender', 'label' => 'Gender', 'type' => 'select', 'options' => [
                         ['value' => 'male', 'label' => 'Male'],
                         ['value' => 'female', 'label' => 'Female'],

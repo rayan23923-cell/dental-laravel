@@ -59,7 +59,7 @@ class PreventionRecordController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        PreventionRecord::create($this->prepare($request));
+        PreventionRecord::create($this->prepare($request, isCreate: true));
 
         return redirect()->route('prevention-records.index')->with('success', 'Prevention record created.');
     }
@@ -105,7 +105,7 @@ class PreventionRecordController extends Controller
         ]);
     }
 
-    private function prepare(Request $request): array
+    private function prepare(Request $request, bool $isCreate = false): array
     {
         $validated = $request->validate([
             'doctor_id' => ['required', 'exists:doctors,id'],
@@ -134,7 +134,17 @@ class PreventionRecordController extends Controller
         $examination['dentition_table'] = new \stdClass();
 
         $validated['examination_data'] = json_encode($examination);
-        $validated['patient_data'] ??= '{}';
+
+        // `patient_data.date` no longer has its own form field (removed
+        // 2026-08-29, by request — see App\Support\PreventionForm's
+        // matching comment); set automatically instead, once, at
+        // creation only, same "sometimes"-style convention as
+        // Orthodontics' referral_date.
+        $patientData = json_decode($validated['patient_data'] ?? '{}', true) ?: [];
+        if ($isCreate) {
+            $patientData['date'] = now()->toDateString();
+        }
+        $validated['patient_data'] = json_encode($patientData);
 
         return $validated;
     }
