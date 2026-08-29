@@ -6169,6 +6169,66 @@ correct it.
 
 Verified: `php -l` on both controllers.
 
+## Task Progress now respects a Senior/HR's department-role assignments (2026-08-29)
+
+By request ("بالنسبة للصلاحيات اضف كما في dentalclinic عند اضافة صلاحيات
+للاقسام والمراحل باختيار مرحلة معينه اوقسم معين للمستخدمين" — for
+permissions, add [behavior] like in dentalclinic: when granting
+department/stage permissions, a specific stage or department gets
+selected for the user), confirmed through several rounds of clarifying
+questions down to a precise scope: the "أدوار الأقسام" (Department
+Roles) assignment screen — where an admin already picks a user +
+department + stage + Senior/HR role, see `DepartmentRoles/Index.vue` and
+`App\Http\Controllers\DepartmentRoleAssignmentController` — already
+existed and was already fully wired (CRUD, activity log, the works).
+What was actually missing, confirmed via direct comparison against the
+original's `ajax/get_department_tasks.php`: **holding one of these role
+assignments didn't restrict anything anywhere** — a Senior/HR could see
+every department's tasks on the "تقدم المهام" (Task Progress) screen
+(web *and* Flutter, which share one implementation — see below) exactly
+like an unrestricted admin, whereas the original scopes that Senior/HR's
+task list down to only the department(s) their `department_role_assignments`
+rows cover.
+
+Confirmed the current app already has an *unrelated* but structurally
+identical restriction mechanism doing exactly this kind of scoping for a
+different, independent original-app feature: `App\Services\ScopeHelper`
+(ported from `includes/scope_helper.php`, driven by the *separate*
+`user_allowed_departments`/`user_allowed_stages` tables filled in from
+the Permissions screen's "نطاق الوصول" tab) is already called by both
+`TaskProgressFilters::build()` (the stage picker) and
+`TaskProgressGroupSummary::build()` (the department tabs) — the exact
+two places this needed to hook into, already there, already shared
+between the web `TaskProgressController` and
+`Api\TaskProgressController` (Flutter's twin, per its own docblock).
+So rather than threading a second, parallel restriction check through
+both services, `ScopeHelper::allowedDepartmentIds()`/`allowedStageIds()`
+gained a fallback source: when a user has no explicit `user_allowed_*`
+rows (the common case — the two mechanisms are independent in the
+original, a department-role assignment never touches that table), fall
+back to their **active** `App\Models\DepartmentRoleAssignment` rows'
+department/stage ids instead of treating them as unrestricted. An
+explicit scope assignment still wins outright if one exists — this is
+additive, not a replacement.
+
+Net effect, with **zero changes needed to either `TaskProgress*` service,
+either controller, or any Vue/Flutter file** — the existing scoping calls
+just now see real ids where they used to always see "unrestricted":
+assigning someone Senior or HR for a department+stage via the existing
+Department Roles screen immediately restricts their Task Progress view
+(web and Flutter both) to just that department/stage, with no
+Codemagic rebuild needed since this is a pure server-side filter over
+data the Flutter client already knew how to render.
+
+Deliberately scoped to *only* Task Progress, not the other three
+original call sites the research into `hasDepartmentRole()`/
+`canManageDepartment()` turned up (the Orthodontics treatment-plan
+field-lock, the admin dashboard's Senior/HR view switch, and the HR
+presence widget) — confirmed directly with the user this first pass is
+Task Progress only; the others remain unbuilt.
+
+Verified: `php -l` on `ScopeHelper.php`.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the

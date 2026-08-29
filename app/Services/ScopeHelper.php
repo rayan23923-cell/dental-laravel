@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\DepartmentRoleAssignment;
 use App\Models\User;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\DB;
@@ -27,6 +28,18 @@ use Illuminate\Support\Facades\DB;
  * `$_SESSION['role'] === 'super_admin'` only. An earlier version of this
  * port also exempted `admin`, which was never true of the original and
  * would silently under-restrict any `admin`-role user who has scope rows.
+ *
+ * `allowedDepartmentIds()`/`allowedStageIds()` gained a second restriction
+ * source (2026-08-29, by request): a `senior`/`hr` `App\Models\
+ * DepartmentRoleAssignment` also restricts visibility to just that user's
+ * own department(s)/stage(s) — ported from the original's own
+ * `ajax/get_department_tasks.php`, which resolves a Senior/HR viewer's
+ * allowed departments from that same table before building their task
+ * list. Falls back to it only when `user_allowed_departments`/`_stages`
+ * has no rows for the user, so an explicit scope assignment (the admin's
+ * "نطاق الوصول" tab) always wins if both exist — the two mechanisms are
+ * independent in the original (a department-role assignment never writes
+ * to `user_allowed_*`), so this is additive, not a replacement.
  */
 class ScopeHelper
 {
@@ -37,8 +50,13 @@ class ScopeHelper
         }
 
         $ids = DB::table('user_allowed_departments')->where('user_id', $user->id)->pluck('department_id')->all();
+        if ($ids !== []) {
+            return $ids;
+        }
 
-        return $ids === [] ? null : $ids;
+        $roleIds = static::departmentRoleIds($user, 'department_id');
+
+        return $roleIds === [] ? null : $roleIds;
     }
 
     public static function allowedStageIds(User $user): ?array
@@ -48,8 +66,24 @@ class ScopeHelper
         }
 
         $ids = DB::table('user_allowed_stages')->where('user_id', $user->id)->pluck('stage_id')->all();
+        if ($ids !== []) {
+            return $ids;
+        }
 
-        return $ids === [] ? null : $ids;
+        $roleIds = static::departmentRoleIds($user, 'stage_id');
+
+        return $roleIds === [] ? null : $roleIds;
+    }
+
+    /** Shared by both fallbacks above — see the class docblock. */
+    private static function departmentRoleIds(User $user, string $column): array
+    {
+        return DepartmentRoleAssignment::active()
+            ->where('user_id', $user->id)
+            ->pluck($column)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     public static function allowedEducationTypeIds(User $user): ?array
