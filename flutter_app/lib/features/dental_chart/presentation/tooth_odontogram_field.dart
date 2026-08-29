@@ -10,10 +10,19 @@ import 'tooth_flower_painter.dart';
 /// editing and notes. Only teeth with a non-default entry are kept in
 /// [value], matching the original's sparse storage.
 class ToothOdontogramField extends StatefulWidget {
-  const ToothOdontogramField({super.key, required this.value, required this.onChanged});
+  const ToothOdontogramField({super.key, required this.value, required this.onChanged, this.readOnly = false});
 
   final List<dynamic> value;
   final ValueChanged<List<dynamic>> onChanged;
+
+  /// Disables only the tap-to-edit interaction (opening a tooth's editor
+  /// sheet) — deliberately *not* implemented by wrapping this widget in an
+  /// `IgnorePointer` at the call site, which was the bug: `IgnorePointer`
+  /// kills the arch rows' horizontal `SingleChildScrollView` drag gesture
+  /// too, not just tap, so a supervisor/admin previewing a read-only case
+  /// sheet couldn't scroll the chart at all (found live, 2026-08-29). This
+  /// flag reaches only [_toothButton]'s `onTap`, leaving scrolling free.
+  final bool readOnly;
 
   @override
   State<ToothOdontogramField> createState() => _ToothOdontogramFieldState();
@@ -94,7 +103,7 @@ class _ToothOdontogramFieldState extends State<ToothOdontogramField> {
     final touched = _entries.containsKey(number.toString());
     final borderColor = touched ? Theme.of(context).colorScheme.primary : const Color(0xFFDBDBDB);
     return GestureDetector(
-      onTap: () => _openEditor(number),
+      onTap: widget.readOnly ? null : () => _openEditor(number),
       child: Container(
         width: 46,
         margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),

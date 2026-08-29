@@ -12,6 +12,7 @@ class EndodonticsCanalTable extends StatelessWidget {
     required this.value,
     required this.columns,
     required this.onChanged,
+    this.readOnly = false,
   });
 
   final Map<String, dynamic> value;
@@ -21,6 +22,13 @@ class EndodonticsCanalTable extends StatelessWidget {
   /// naming exactly.
   final List<(String, String)> columns;
   final ValueChanged<Map<String, dynamic>> onChanged;
+
+  /// Disables only the checkbox/text-field edits — not implemented by
+  /// wrapping this widget in `IgnorePointer` at the call site, which broke
+  /// this table's horizontal `SingleChildScrollView` drag gesture too
+  /// (same bug found in `ToothOdontogramField`, see its `readOnly` doc
+  /// comment — 2026-08-29).
+  final bool readOnly;
 
   static const _canals = [
     ('B', 'B.'), ('P', 'P.'), ('OR', 'OR'),
@@ -73,7 +81,7 @@ class EndodonticsCanalTable extends StatelessWidget {
                     children: [
                       Checkbox(
                         value: _rowOf(canalId)['checked'] as bool? ?? false,
-                        onChanged: (v) => _setField(canalId, 'checked', v ?? false),
+                        onChanged: readOnly ? null : (v) => _setField(canalId, 'checked', v ?? false),
                         visualDensity: VisualDensity.compact,
                       ),
                       Text(canalLabel, style: const TextStyle(fontSize: 11)),
@@ -85,6 +93,7 @@ class EndodonticsCanalTable extends StatelessWidget {
                     padding: const EdgeInsets.all(2),
                     child: TextFormField(
                       initialValue: _rowOf(canalId)[colKey] as String? ?? '',
+                      enabled: !readOnly,
                       style: const TextStyle(fontSize: 11),
                       decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 6)),
                       onChanged: (v) => _setField(canalId, colKey, v),

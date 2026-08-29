@@ -4556,3 +4556,38 @@ was ported here, not to a web print view).
 
 Verified: `flutter analyze` clean. Not re-verified against a real PDF
 render in this session — the user will confirm on next export.
+
+## Fixed: supervisor case-sheet preview couldn't scroll the tooth chart (2026-08-29)
+
+Found live: previewing the Operative case sheet as a supervisor/admin
+(readonly) showed the odontogram's arch rows visibly cropped at the
+edges with no way to scroll to see the rest of the teeth. Root cause
+was architectural, not specific to this one widget:
+`_DentalChartFieldWidgetState`/`_EndodonticsFieldWidgetState` in
+`dynamic_section_form.dart` disabled editing by wrapping
+`ToothOdontogramField`/`EndodonticsField` in `IgnorePointer(ignoring:
+readonly)` — `IgnorePointer` removes the *entire* subtree from hit
+testing, which also disables any scroll gesture recognizer inside it,
+not just tap-to-edit. Both widgets have an internal horizontal
+`SingleChildScrollView` (the arch rows; `EndodonticsCanalTable`'s
+10-canal table) that this silently broke for any readonly viewer.
+
+Fixed by giving both widgets their own `readOnly` parameter instead,
+reaching only the actual edit affordances — `ToothOdontogramField`'s
+per-tooth `GestureDetector.onTap` (opens the editor sheet), and every
+interactive control inside `EndodonticsField`/`EndodonticsCanalTable`
+(the enable `Switch`, `TextFormField`s via `enabled: !readOnly`,
+`ChoiceChip`/`FilterChip` via `onSelected: null`, `Checkbox` via
+`onChanged: null`) — while their `SingleChildScrollView`s stay fully
+interactive regardless. `dynamic_section_form.dart`'s two call sites no
+longer use `IgnorePointer` at all, passing `readOnly:
+widget.state.fieldDisabled(widget.field)` straight through instead.
+
+Confirmed web's `ToothOdontogram.vue` never had this bug — it disables
+individual `<button>` elements via `:disabled`, which never blocks a
+parent's native scroll in HTML the way Flutter's `IgnorePointer` blocks
+an entire subtree's gestures; no web-side change needed.
+
+Verified: `flutter analyze` clean project-wide. Not re-verified against
+a real device in this session — the user will confirm on next preview
+after the next Codemagic build + AltStore reinstall.

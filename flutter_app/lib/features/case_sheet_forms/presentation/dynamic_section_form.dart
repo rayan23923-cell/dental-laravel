@@ -633,12 +633,13 @@ class _DentalChartFieldWidgetState extends State<_DentalChartFieldWidget> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _FieldLabel(field: widget.field),
-        IgnorePointer(
-          ignoring: widget.state.fieldDisabled(widget.field),
-          child: ToothOdontogramField(
-            value: value,
-            onChanged: (next) => setState(() => widget.state._values[widget.field.formKey] = next),
-          ),
+        // Not `IgnorePointer` — see `ToothOdontogramField.readOnly`'s doc
+        // comment for why that broke the arch rows' horizontal scroll for
+        // a read-only viewer (2026-08-29 fix).
+        ToothOdontogramField(
+          value: value,
+          readOnly: widget.state.fieldDisabled(widget.field),
+          onChanged: (next) => setState(() => widget.state._values[widget.field.formKey] = next),
         ),
       ],
     );
@@ -661,12 +662,13 @@ class _EndodonticsFieldWidgetState extends State<_EndodonticsFieldWidget> {
     // No `_FieldLabel` here, unlike the other field widgets — the card's
     // own header row ("سجل علاج عصب الأسنان" + the enable toggle) already
     // serves as the label, and showing both would just duplicate it.
-    return IgnorePointer(
-      ignoring: widget.state.fieldDisabled(widget.field),
-      child: EndodonticsField(
-        value: value,
-        onChanged: (next) => setState(() => widget.state._values[widget.field.formKey] = next),
-      ),
+    // Not `IgnorePointer` — see `EndodonticsField.readOnly`'s doc comment
+    // for why that broke `EndodonticsCanalTable`'s horizontal scroll for a
+    // read-only viewer (2026-08-29 fix, same bug as the dental odontogram).
+    return EndodonticsField(
+      value: value,
+      readOnly: widget.state.fieldDisabled(widget.field),
+      onChanged: (next) => setState(() => widget.state._values[widget.field.formKey] = next),
     );
   }
 }

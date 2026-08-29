@@ -27,10 +27,17 @@ import 'endodontics_canal_table.dart';
 /// emptiness on every rebuild, so turning it on for a brand-new record
 /// actually stays on.
 class EndodonticsField extends StatefulWidget {
-  const EndodonticsField({super.key, required this.value, required this.onChanged});
+  const EndodonticsField({super.key, required this.value, required this.onChanged, this.readOnly = false});
 
   final Map<String, dynamic> value;
   final ValueChanged<Map<String, dynamic>> onChanged;
+
+  /// Disables every edit control in this section (the enable switch,
+  /// checkboxes, choice/filter chips, text fields) — not implemented by
+  /// wrapping this widget in `IgnorePointer` at the call site, which broke
+  /// `EndodonticsCanalTable`'s horizontal scroll too (same bug found in
+  /// `ToothOdontogramField`, see its `readOnly` doc comment — 2026-08-29).
+  final bool readOnly;
 
   @override
   State<EndodonticsField> createState() => _EndodonticsFieldState();
@@ -109,7 +116,7 @@ class _EndodonticsFieldState extends State<EndodonticsField> {
           FilterChip(
             label: Text(label, style: const TextStyle(fontSize: 12)),
             selected: _isChecked(key, value),
-            onSelected: (_) => setState(() => _toggleListItem(key, value)),
+            onSelected: widget.readOnly ? null : (_) => setState(() => _toggleListItem(key, value)),
           ),
       ],
     );
@@ -129,13 +136,14 @@ class _EndodonticsFieldState extends State<EndodonticsField> {
                 const Icon(Icons.medical_services_outlined, size: 18),
                 const SizedBox(width: 6),
                 const Expanded(child: Text('سجل علاج عصب الأسنان (Endodontics)', style: TextStyle(fontWeight: FontWeight.w600))),
-                Switch(value: _enabled, onChanged: _toggleEnabled),
+                Switch(value: _enabled, onChanged: widget.readOnly ? null : _toggleEnabled),
               ],
             ),
             if (_enabled) ...[
               const Divider(),
               TextFormField(
                 controller: _toothNoController,
+                enabled: !widget.readOnly,
                 decoration: const InputDecoration(labelText: 'رقم السن', hintText: 'مثال: 46', isDense: true, border: OutlineInputBorder()),
                 onChanged: (v) => _set('tooth_no', v),
               ),
@@ -149,7 +157,7 @@ class _EndodonticsFieldState extends State<EndodonticsField> {
                     ChoiceChip(
                       label: Text(label, style: const TextStyle(fontSize: 12)),
                       selected: widget.value['canal_count'] == value,
-                      onSelected: (_) => setState(() => _set('canal_count', value)),
+                      onSelected: widget.readOnly ? null : (_) => setState(() => _set('canal_count', value)),
                     ),
                 ],
               ),
@@ -174,6 +182,7 @@ class _EndodonticsFieldState extends State<EndodonticsField> {
                   ('final_wl', 'الطول النهائي'),
                 ],
                 onChanged: (next) => _set('first_visit_data', next),
+                readOnly: widget.readOnly,
               ),
 
               const Divider(height: 32),
@@ -189,6 +198,7 @@ class _EndodonticsFieldState extends State<EndodonticsField> {
                   ('rp', 'R.P.'),
                 ],
                 onChanged: (next) => _set('second_visit_data', next),
+                readOnly: widget.readOnly,
               ),
               const SizedBox(height: 8),
               const Text('تقنية التحضير', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
@@ -205,6 +215,7 @@ class _EndodonticsFieldState extends State<EndodonticsField> {
                 clinical: _thirdVisit['master_cone_clinical'] as bool? ?? false,
                 radiographical: _thirdVisit['master_cone_radiographical'] as bool? ?? false,
                 notesController: _masterConeNotesController,
+                readOnly: widget.readOnly,
                 onClinicalChanged: (v) => setState(() => _setThirdVisit('master_cone_clinical', v)),
                 onRadiographicalChanged: (v) => setState(() => _setThirdVisit('master_cone_radiographical', v)),
                 onNotesChanged: (v) => _setThirdVisit('master_cone_notes', v),
@@ -215,6 +226,7 @@ class _EndodonticsFieldState extends State<EndodonticsField> {
                 clinical: _thirdVisit['obturation_clinical'] as bool? ?? false,
                 radiographical: _thirdVisit['obturation_radiographical'] as bool? ?? false,
                 notesController: _obturationNotesController,
+                readOnly: widget.readOnly,
                 onClinicalChanged: (v) => setState(() => _setThirdVisit('obturation_clinical', v)),
                 onRadiographicalChanged: (v) => setState(() => _setThirdVisit('obturation_radiographical', v)),
                 onNotesChanged: (v) => _setThirdVisit('obturation_notes', v),
@@ -223,6 +235,7 @@ class _EndodonticsFieldState extends State<EndodonticsField> {
               const Divider(height: 32),
               TextFormField(
                 initialValue: widget.value['signature'] as String? ?? '',
+                enabled: !widget.readOnly,
                 decoration: const InputDecoration(labelText: 'توقيع المشرف', isDense: true, border: OutlineInputBorder()),
                 onChanged: (v) => _set('signature', v),
               ),
@@ -243,6 +256,7 @@ class _ThirdVisitCheckRow extends StatelessWidget {
     required this.onClinicalChanged,
     required this.onRadiographicalChanged,
     required this.onNotesChanged,
+    this.readOnly = false,
   });
 
   final String label;
@@ -252,6 +266,7 @@ class _ThirdVisitCheckRow extends StatelessWidget {
   final ValueChanged<bool> onClinicalChanged;
   final ValueChanged<bool> onRadiographicalChanged;
   final ValueChanged<String> onNotesChanged;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -265,18 +280,19 @@ class _ThirdVisitCheckRow extends StatelessWidget {
             FilterChip(
               label: const Text('سريري', style: TextStyle(fontSize: 12)),
               selected: clinical,
-              onSelected: onClinicalChanged,
+              onSelected: readOnly ? null : onClinicalChanged,
             ),
             const SizedBox(width: 4),
             FilterChip(
               label: const Text('شعاعي', style: TextStyle(fontSize: 12)),
               selected: radiographical,
-              onSelected: onRadiographicalChanged,
+              onSelected: readOnly ? null : onRadiographicalChanged,
             ),
           ],
         ),
         TextFormField(
           controller: notesController,
+          enabled: !readOnly,
           decoration: const InputDecoration(hintText: 'ملاحظات...', isDense: true, border: OutlineInputBorder()),
           onChanged: onNotesChanged,
         ),
