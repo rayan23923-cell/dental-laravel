@@ -88,6 +88,7 @@ class DentalChartController extends Controller
             // the original disables every input for them.
             'readonly' => $readonly || CaseSheetAccess::isViewOnly(),
             'supervisorEditableFields' => CaseSheetAccess::isViewOnly() ? CaseSheetSupervisorFields::fieldsFor('dental-charts') : [],
+            'supervisorFields' => CaseSheetSupervisorFields::fieldsFor('dental-charts'),
             'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
             'taskId' => $record?->task_id ?? $taskId,
         ]);

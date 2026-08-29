@@ -91,6 +91,7 @@ class SurgeryController extends Controller
             // the original disables every input for them.
             'readonly' => $readonly || CaseSheetAccess::isViewOnly(),
             'supervisorEditableFields' => CaseSheetAccess::isViewOnly() ? CaseSheetSupervisorFields::fieldsFor('surgeries') : [],
+            'supervisorFields' => CaseSheetSupervisorFields::fieldsFor('surgeries'),
             'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
             'taskId' => $record?->task_id ?? $taskId,
         ]);

@@ -250,22 +250,42 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
     return payload;
   }
 
-  /// A field stays locked under `readonly` unless it's one of this
-  /// viewer's own supervisor-editable fields (empty for a doctor, so this
-  /// is a no-op for them). Grouped subkeys aren't part of any resource's
-  /// supervisor-field list today, so `field.key` (not `formKey`) is the
-  /// right comparison — mirrors `SectionedForm.vue`'s `fieldDisabled()`.
-  bool fieldDisabled(CaseSheetField field) =>
-      widget.readonly && !widget.supervisorEditableFields.contains(field.key);
+  /// Two independent reasons a field can be locked (2026-08-29, reworked
+  /// — mirrors `SectionedForm.vue`'s identically-restructured
+  /// `fieldDisabled()`, see its comment for the full history):
+  ///
+  /// 1. It's in `widget.schema.supervisorFields` — the registry's full,
+  ///    unconditional list — and this viewer isn't allowed to edit it
+  ///    (`supervisorEditableFields` is always `[]` for a doctor). Locked
+  ///    regardless of `widget.readonly`, since a doctor's own edit screen
+  ///    has `readonly == false`: previously these rendered as ordinary,
+  ///    fully-editable fields on a doctor's own page, which is what was
+  ///    reported ("معلومات المشرف... يجب ازالتهما من صفحة الطبيب"),
+  ///    then clarified to stay visible, just locked rather than removed
+  ///    ("فقط اظهر... لكن لايمكن تعديلها من الطبيب").
+  /// 2. Every other field stays locked under the pre-existing `readonly`
+  ///    rule (a staff supervisor-preview may look but not touch anything
+  ///    outside their own handful of fields).
+  ///
+  /// Grouped subkeys use `field.key` (not `formKey`) since that's the bare
+  /// name the registry lists (e.g. Prevention's `senior_name`).
+  bool fieldDisabled(CaseSheetField field) => widget.schema.supervisorFields.contains(field.key)
+      ? !widget.supervisorEditableFields.contains(field.key)
+      : widget.readonly && !widget.supervisorEditableFields.contains(field.key);
 
-  /// Same idea as [fieldDisabled], for the stage-evaluation table's rows
-  /// (Prosthodontics/Complete Denture) — these aren't `CaseSheetField`s,
-  /// so they need their own check against the same
+  /// Same two-reason logic as [fieldDisabled], for the stage-evaluation
+  /// table's rows (Prosthodontics/Complete Denture) — these aren't
+  /// `CaseSheetField`s, so they need their own check against the same
   /// `stage_{key}_{part}`-keyed entries `CaseSheetSupervisorFields::
-  /// stageFields()` puts in `supervisorEditableFields`. Mirrors
-  /// `SectionedForm.vue`'s identically-named `stageFieldDisabled()`.
-  bool stageFieldDisabled(String stageKey, String part) =>
-      widget.readonly && !widget.supervisorEditableFields.contains('stage_${stageKey}_$part');
+  /// stageFields()` puts in both `supervisorFields` and
+  /// `supervisorEditableFields`. Mirrors `SectionedForm.vue`'s
+  /// identically-named `stageFieldDisabled()`.
+  bool stageFieldDisabled(String stageKey, String part) {
+    final key = 'stage_${stageKey}_$part';
+    return widget.schema.supervisorFields.contains(key)
+        ? !widget.supervisorEditableFields.contains(key)
+        : widget.readonly && !widget.supervisorEditableFields.contains(key);
+  }
 
   /// The Save button was unconditionally hidden under `readonly` —
   /// correct while staff were fully locked out, but a supervisor with

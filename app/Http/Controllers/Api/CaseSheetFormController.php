@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Support\CaseSheetPrint;
 use App\Support\CaseSheetPrintRenderer;
+use App\Support\CaseSheetSupervisorFields;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -73,6 +74,15 @@ class CaseSheetFormController extends Controller
             // fact that's been constant across every sheet built so far.
             'chartField' => $chartGroups ? 'chart_data' : null,
             'stages' => $stages,
+            // The canonical list from App\Support\CaseSheetSupervisorFields
+            // — unlike Api\CaseSheetController::open()'s per-viewer
+            // `supervisor_editable_fields` (empty for a doctor), this is
+            // sent unconditionally, since schema layout is viewer-agnostic.
+            // DynamicSectionForm needs both together: this to know a field
+            // is supervisor-only at all (so it stays visible but locked for
+            // a doctor, never editable — see fieldDisabled()), the other to
+            // know whether *this* viewer may actually edit it.
+            'supervisorFields' => CaseSheetSupervisorFields::fieldsFor($resource),
         ]);
     }
 }

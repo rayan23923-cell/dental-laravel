@@ -84,6 +84,7 @@ class ProsthodonticsRecordController extends Controller
             // the original disables every input for them.
             'readonly' => $readonly || CaseSheetAccess::isViewOnly(),
             'supervisorEditableFields' => CaseSheetAccess::isViewOnly() ? CaseSheetSupervisorFields::fieldsFor('prosthodontics-records') : [],
+            'supervisorFields' => CaseSheetSupervisorFields::fieldsFor('prosthodontics-records'),
             'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
             'taskId' => $record?->task_id ?? $taskId,
         ]);

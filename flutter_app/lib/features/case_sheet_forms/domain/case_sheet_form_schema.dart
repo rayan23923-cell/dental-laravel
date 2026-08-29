@@ -33,6 +33,7 @@ class CaseSheetFormSchema {
     required this.stages,
     required this.chartGroups,
     required this.chartField,
+    required this.supervisorFields,
   });
 
   factory CaseSheetFormSchema.fromJson(Map<String, dynamic> json) => CaseSheetFormSchema(
@@ -43,17 +44,24 @@ class CaseSheetFormSchema {
             .map(CaseSheetSection.fromJson)
             .toList(),
         groupColumns: (json['groupColumns'] as List<dynamic>? ?? []).cast<String>(),
-        // `stages` (the 9-row evaluation table, complete
-        // denture/prosthodontics) isn't rendered by DynamicSectionForm
-        // yet — same "incrementally after" scope as the composite field
-        // types (see flutter_app/README.md). Still parsed here since it's
-        // cheap and the raw values aren't lost, just not rendered.
+        // `stages` — the 9-row evaluation table, complete
+        // denture/prosthodontics — is rendered by DynamicSectionForm's
+        // `_StageEvaluationTable` (see that class).
         stages: (json['stages'] as List<dynamic>? ?? []).whereType<Map<String, dynamic>>().toList(),
         chartGroups: (json['chartGroups'] as List<dynamic>? ?? [])
             .whereType<Map<String, dynamic>>()
             .map(PerioChartGroupSchema.fromJson)
             .toList(),
         chartField: json['chartField'] as String?,
+        // App\Support\CaseSheetSupervisorFields's canonical, unconditional
+        // list for this resource (2026-08-29) — see
+        // Api\CaseSheetFormController::show()'s doc comment for why this
+        // is separate from `CaseSheetOpenResult.supervisorEditableFields`
+        // (that one's per-viewer and empty for a doctor; this one is
+        // static layout metadata, always populated, used to keep a
+        // supervisor-only field visible-but-locked on a doctor's own page
+        // instead of rendering it as an ordinary editable field).
+        supervisorFields: (json['supervisorFields'] as List<dynamic>? ?? []).cast<String>(),
       );
 
   final String resource;
@@ -63,6 +71,7 @@ class CaseSheetFormSchema {
   final List<Map<String, dynamic>> stages;
   final List<PerioChartGroupSchema> chartGroups;
   final String? chartField;
+  final List<String> supervisorFields;
 
   /// Every field across every section, flattened — used to walk the
   /// schema once when seeding/collecting form values instead of nesting

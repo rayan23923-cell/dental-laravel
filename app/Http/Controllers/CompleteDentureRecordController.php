@@ -86,6 +86,7 @@ class CompleteDentureRecordController extends Controller
             // the original disables every input for them.
             'readonly' => $readonly || CaseSheetAccess::isViewOnly(),
             'supervisorEditableFields' => CaseSheetAccess::isViewOnly() ? CaseSheetSupervisorFields::fieldsFor('complete-denture-records') : [],
+            'supervisorFields' => CaseSheetSupervisorFields::fieldsFor('complete-denture-records'),
             'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
             'taskId' => $record?->task_id ?? $taskId,
         ]);

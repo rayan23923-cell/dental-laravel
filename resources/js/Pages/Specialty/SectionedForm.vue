@@ -66,6 +66,19 @@ const props = defineProps({
     // even though `readonly` is true for staff, per the supervisor-preview
     // feature (2026-08-28): staff may view but never save, except these.
     supervisorEditableFields: { type: Array, default: () => [] },
+    // The same registry's full, unconditional list (2026-08-29) — sent
+    // regardless of viewer, since it's static layout metadata rather than
+    // a permission grant. Lets fieldDisabled() below tell "supervisor-only
+    // field the doctor may only *view*" apart from "ordinary field the
+    // doctor may edit", which supervisorEditableFields alone can't: for a
+    // doctor it's always [], so without this a supervisor field would be
+    // indistinguishable from any other and render fully editable on the
+    // doctor's own page — the actual bug reported (2026-08-29): "معلومات
+    // المشرف... يجب ازالتهما من صفحة الطبيب" (the supervisor's info must
+    // not be editable from the doctor's page), then clarified to keep it
+    // visible, just locked: "فقط اظهر ملاحظات ومعلومات المشرف لكن لايمكن
+    // تعديلها من الطبيب" (show it, just make it non-editable for a doctor).
+    supervisorFields: { type: Array, default: () => [] },
 });
 
 const page = usePage();
@@ -365,17 +378,43 @@ const formKey = (field) => (field.group ? `${field.group}__${field.key}` : field
 const widthClass = (field) =>
     ({ full: 'sm:col-span-4', half: 'sm:col-span-2' }[field.width] ?? 'sm:col-span-1');
 
-// A field stays locked under `readonly` unless it's one of this viewer's
-// own supervisor-editable fields (empty for a doctor, so this is a no-op
-// for them — every field they can already touch stays exactly as gated as
-// before). Grouped subkeys aren't part of any resource's supervisor-field
-// list today, so `field.key` (not formKey()) is the right comparison.
-const fieldDisabled = (field) => props.readonly && !props.supervisorEditableFields.includes(field.key);
+// Two independent reasons a field can be locked (2026-08-29, reworked):
+//
+// 1. It's a *supervisor-only* field (`props.supervisorFields`, the
+//    registry's full list, sent to every viewer) that this viewer isn't
+//    the one supervisor role allowed to edit — locked for a doctor
+//    unconditionally, not just under `readonly`, since a doctor's own
+//    edit page has `readonly === false`. Previously these rendered as
+//    plain, fully-editable inputs on a doctor's own page (the field.key
+//    just never matched anything since supervisorEditableFields is always
+//    [] for a doctor) — reported as "معلومات المشرف... يجب ازالتهما من
+//    صفحة الطبيب", then clarified to keep them visible, just locked
+//    rather than removed: "فقط اظهر... لكن لايمكن تعديلها من الطبيب".
+// 2. Every *other* field stays locked under the existing `readonly` rule
+//    (a staff supervisor-preview may look but not touch anything outside
+//    their own 2-or-so fields).
+//
+// Grouped subkeys use `field.key` (not formKey()) since that's the bare
+// name the registry lists (e.g. Prevention's `senior_name`, packed inside
+// the `patient_data` column) — a plain array-cast column's numeric list
+// indices never collide with a real supervisor-field name, so this is
+// safe for every field shape the registry can describe.
+const fieldDisabled = (field) =>
+    props.supervisorFields.includes(field.key)
+        ? !props.supervisorEditableFields.includes(field.key)
+        : props.readonly && !props.supervisorEditableFields.includes(field.key);
 
 // Same idea for the "Stages and evaluation" table, whose rows aren't part
-// of `sections` and so aren't covered by fieldDisabled() above.
-const stageFieldDisabled = (stageKey, part) =>
-    props.readonly && !props.supervisorEditableFields.includes(`stage_${stageKey}_${part}`);
+// of `sections` and so aren't covered by fieldDisabled() above — mirrors
+// its two-reason logic identically rather than assuming every stage
+// column is always supervisor-gated (true for both tables that have this
+// table today, but this stays correct even if that ever weren't so).
+const stageFieldDisabled = (stageKey, part) => {
+    const key = `stage_${stageKey}_${part}`;
+    return props.supervisorFields.includes(key)
+        ? !props.supervisorEditableFields.includes(key)
+        : props.readonly && !props.supervisorEditableFields.includes(key);
+};
 
 // The Update/Save button was unconditionally hidden under `readonly` —
 // correct while staff were fully locked out, but a supervisor with actual

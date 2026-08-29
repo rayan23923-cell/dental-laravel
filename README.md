@@ -6060,6 +6060,60 @@ rebuild needed.
 Verified: `php -l` on `PreventionForm.php`, `CaseSheetSupervisorFields.php`,
 and `EnforceCaseSheetAccess.php`.
 
+## Supervisor-only fields were fully editable on a doctor's own case-sheet page (2026-08-29)
+
+Follow-up to the Prevention entry above, from a live Flutter screenshot:
+on a doctor's own Operative/Orthodontics/Oral Medicine sheet, every field
+`CaseSheetSupervisorFields` registers (`الطبيب المشرف`/`توقيع المشرف`/
+`ملاحظات إضافية` on Operative, "Supervisor Notes"/"Supervisor Signature"
+on Orthodontics and Oral Medicine, and by extension every other
+resource's equivalent) rendered as a perfectly ordinary, fully-editable
+text field — not disabled, not hidden, no visual difference from any
+field the doctor is actually meant to fill in. First instinct was to
+remove these from the doctor's view entirely; the user then clarified
+the real requirement: **keep them visible** (so a doctor can read the
+supervisor's notes/grade/signature once given), **just make them
+impossible to edit** from the doctor's own page.
+
+**Root cause**: both `SectionedForm.vue`'s and `DynamicSectionForm`'s
+`fieldDisabled()` computed the lock as `readonly && !supervisorEditableFields
+.includes(field.key)` — a field was only ever locked *because of*
+`readonly` mode (the staff supervisor-preview screen). A doctor editing
+their own record always has `readonly === false`, so this expression is
+`false` for every field regardless of key, supervisor-registered or not
+— there was no rule at all saying "this specific field is off-limits to
+you regardless of your own read/write mode." The 403 added on the server
+side (`EnforceCaseSheetAccess`'s rule 3) was already correctly rejecting
+an actual save if the doctor changed one of these — but nothing on
+screen suggested the field wasn't theirs to touch, which is exactly what
+was reported.
+
+**Fix**: gave the client a second, independent list to compare against —
+the registry's full, *unconditional* list of supervisor fields for a
+resource (as opposed to `supervisorEditableFields`, which is only ever
+non-empty for the one viewer currently allowed to edit them). Added
+`'supervisorFields' => CaseSheetSupervisorFields::fieldsFor($resource)`
+to all 8 web controllers' `form()` responses and to
+`Api\CaseSheetFormController::show()` (Flutter's one schema endpoint,
+fetched by every viewer regardless of role — so no change was needed to
+`Api\CaseSheetController::open()`'s per-viewer response). `fieldDisabled()`
+(both `SectionedForm.vue` and `DynamicSectionForm`) now checks that list
+first: a field in it is locked unless this viewer is the one who may
+edit it, full stop — independent of `readonly`. Every other field keeps
+the exact prior behavior. `stageFieldDisabled()` (the Prosthodontics/
+Complete Denture stage-evaluation table) got the identical restructuring
+for its synthesized `stage_{key}_{part}` keys.
+
+Net effect: a doctor now sees the supervisor's notes/signature/grade —
+readable the moment a supervisor fills them in — but the input is
+visibly disabled, matching the read-only styling already used elsewhere
+in these forms, and can never be typed into. A supervisor previewing the
+same sheet is completely unaffected — their own editable subset renders
+exactly as before.
+
+Verified: `php -l` on all 9 touched PHP files, `flutter analyze` (no
+issues), and `npm run build` (web assets compiled clean).
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the

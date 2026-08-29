@@ -4744,3 +4744,43 @@ to change one, exactly as it already was before this fix.
 Verified: `flutter analyze` clean project-wide. Not verified on a real
 device in this session — the user will confirm on next preview after
 the next Codemagic build + AltStore reinstall.
+
+## Supervisor-only fields were fully editable on a doctor's own case-sheet page (2026-08-29)
+
+Corrects the entry immediately above, which explicitly (and, it turned
+out, wrongly) accepted "a doctor's own view still shows them editable
+client-side... but is rejected server-side on an actual attempt to
+change one" as the intended behavior. A live screenshot of a doctor's
+own Operative/Orthodontics/Oral Medicine sheet showed exactly that: every
+`CaseSheetSupervisorFields`-registered field rendered as an ordinary,
+fully-editable text box, indistinguishable from a field the doctor is
+actually meant to fill in — reported as a bug, then clarified to the
+real requirement: keep these fields **visible** (a doctor should be able
+to read the supervisor's notes/grade/signature once given), just make
+them **impossible to edit** from the doctor's own page.
+
+**Root cause**: `fieldDisabled()`/`stageFieldDisabled()` only ever locked
+a field *because of* `widget.readonly` (true only on the staff
+supervisor-preview screen) — `widget.supervisorEditableFields` is always
+`[]` for a doctor, so `readonly && !supervisorEditableFields.contains(key)`
+evaluates to `false` for every field on a doctor's own edit screen,
+supervisor-registered or not. There was no rule saying "this field is
+off-limits to you regardless of your own read/write mode."
+
+**Fix**: `CaseSheetFormSchema` gained a `supervisorFields` list — the
+registry's full, *unconditional* set for the resource (`App\Support\
+CaseSheetSupervisorFields::fieldsFor()`, now added to
+`Api\CaseSheetFormController::show()`'s response), as opposed to
+`supervisorEditableFields` (per-viewer, only ever non-empty for whoever
+may currently edit them). `fieldDisabled()`/`stageFieldDisabled()` now
+check `supervisorFields` first: a field in that list is locked unless
+this viewer is the one allowed to edit it — independent of `readonly`.
+Every other field's behavior is unchanged. See `dental_laravel/README.md`'s
+matching entry (same date) for the full change across both web and API.
+
+A doctor now sees the supervisor's notes/signature/grade the moment
+they're filled in, rendered with the same disabled styling used
+elsewhere in these forms, but can never type into them — a supervisor's
+own preview is unaffected.
+
+Verified: `flutter analyze` clean project-wide (no issues).
