@@ -8,9 +8,7 @@ import '../../../patient_registration/domain/patient_registration.dart';
 import '../../../patient_registration/domain/registration_payment_state.dart';
 import '../../../patient_registration/presentation/patient_registration_list_screen.dart';
 import '../../data/records_repository.dart';
-import '../../domain/appointment.dart';
 import '../../domain/payment.dart';
-import '../appointments/appointment_list_screen.dart';
 import '../records_providers.dart';
 
 class PaymentFormScreen extends ConsumerStatefulWidget {
@@ -24,8 +22,6 @@ class PaymentFormScreen extends ConsumerStatefulWidget {
 class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
-  final _paidByController = TextEditingController();
-  Appointment? _appointment;
   PatientRegistration? _registration;
   // Screening confirmation (2026-08-29) — set instead of `_registration`
   // when a resolved patient (scan or list-pick) isn't screening-clear, so
@@ -35,11 +31,23 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
   // server-side regardless — this is purely earlier client-side feedback.
   PatientRegistration? _blockedRegistration;
   bool _scanningRegistration = false;
-  // A payment settles either an appointment or a reception-desk
-  // registration — never both (see Api\PaymentController::validatePayment()'s
-  // required_without/prohibits pair). Mirrors the web Create.vue's toggle.
-  String _source = 'appointment';
-  DateTime? _paidAt;
+  // Appointment-sourced payments removed from this form (2026-08-29, by
+  // request) — this screen now always settles a reception-desk
+  // registration. The backend (`Payment.appointment_id`, both
+  // controllers' `validatePayment()`) is untouched — only web
+  // `Payments/Create.vue` still offers that source — but editing a
+  // pre-existing appointment-sourced payment here now seeds an empty
+  // registration picker rather than showing its appointment (see
+  // `_seed()`, which no longer has an `appointmentId` branch); saving
+  // such an edit would re-point it at whatever registration gets picked.
+  // Accepted trade-off for the simplification, per the user's own request
+  // — this form's `appointment_id` payload key was removed too, so
+  // submitting without picking a registration is blocked the same way an
+  // unpicked registration already was.
+  //
+  // Defaults to today (2026-08-29, by request) rather than requiring a
+  // manual pick — still editable via the date field below for backdating.
+  DateTime? _paidAt = DateTime.now();
   bool _seeded = false;
   bool _submitting = false;
 
@@ -48,7 +56,6 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
   @override
   void dispose() {
     _amountController.dispose();
-    _paidByController.dispose();
     super.dispose();
   }
 
@@ -56,10 +63,8 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
     if (_seeded) return;
     _seeded = true;
     _amountController.text = payment.amount.toStringAsFixed(2);
-    _paidByController.text = payment.paidBy ?? '';
-    _paidAt = payment.paidAt == null ? null : DateTime.tryParse(payment.paidAt!);
+    _paidAt = payment.paidAt == null ? DateTime.now() : DateTime.tryParse(payment.paidAt!);
     if (payment.patientRegistrationId != null) {
-      _source = 'registration';
       _registration = PatientRegistration(
         id: payment.patientRegistrationId!,
         name: payment.patientRegistrationName ?? 'تسجيل #${payment.patientRegistrationId}',
@@ -82,33 +87,7 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
         // gate on screening status anyway (only the QR desk flow does).
         screeningStatus: 'pending',
       );
-    } else if (payment.appointmentId != null) {
-      _source = 'appointment';
-      _appointment = Appointment(
-        id: payment.appointmentId!,
-        fullName: payment.appointmentFullName ?? 'موعد #${payment.appointmentId}',
-        patientId: null,
-        patientRegistrationId: null,
-        doctorId: null,
-        taskId: null,
-        appointmentDate: null,
-        confirmedByAccountant: false,
-        pinned: false,
-        patientName: null,
-        patientRegistrationName: null,
-        patientRegistrationPhone: null,
-        staffName: null,
-        taskTitle: null,
-        paidTotal: null,
-      );
     }
-  }
-
-  Future<void> _pickAppointment() async {
-    final picked = await Navigator.of(context).push<Appointment>(
-      MaterialPageRoute(builder: (_) => const AppointmentListScreen(pickMode: true)),
-    );
-    if (picked != null) setState(() => _appointment = picked);
   }
 
   Future<void> _pickRegistration() async {
@@ -175,11 +154,7 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
 
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? true)) return;
-    if (_source == 'appointment' && _appointment == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('يرجى اختيار الموعد.')));
-      return;
-    }
-    if (_source == 'registration' && _registration == null) {
+    if (_registration == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('يرجى اختيار المريض المسجل.')));
       return;
     }
@@ -187,10 +162,16 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
     setState(() => _submitting = true);
 
     final payload = {
-      'appointment_id': _source == 'appointment' ? _appointment!.id : null,
-      'patient_registration_id': _source == 'registration' ? _registration!.id : null,
+      'patient_registration_id': _registration!.id,
+      // Explicit null (not just omitted) — required when *editing* a
+      // payment that was previously appointment-sourced: `update()` is a
+      // partial update (`sometimes` rules), so an omitted key would leave
+      // the DB's old `appointment_id` in place, and the row would end up
+      // with both FKs set at once, breaking the "never both" invariant
+      // (`validatePayment()`'s required_without/prohibits pair) the rest
+      // of the app relies on (list source badges, the new source filter).
+      'appointment_id': null,
       'amount': double.tryParse(_amountController.text.trim()) ?? 0,
-      'paid_by': _paidByController.text.trim().isEmpty ? null : _paidByController.text.trim(),
       'paid_at': _paidAt == null ? null : DateFormat('yyyy-MM-dd').format(_paidAt!),
     };
 
@@ -275,85 +256,57 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Text('نوع المدفوعة', style: Theme.of(context).textTheme.titleSmall),
-            RadioGroup<String>(
-              groupValue: _source,
-              onChanged: (v) {
-                if (v == null) return;
-                setState(() {
-                  _source = v;
-                  if (v == 'appointment') _blockedRegistration = null;
-                });
-              },
-              child: const Row(
-                children: [
-                  Expanded(child: RadioListTile<String>(title: Text('موعد'), value: 'appointment')),
-                  Expanded(child: RadioListTile<String>(title: Text('تسجيل مريض'), value: 'registration')),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            if (_source == 'appointment')
-              InkWell(
-                onTap: _pickAppointment,
-                child: InputDecorator(
-                  decoration: const InputDecoration(labelText: 'الموعد', border: OutlineInputBorder(), isDense: true),
-                  child: Text(_appointment?.fullName ?? '— اختر موعدًا —'),
-                ),
-              )
-            else ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: _pickRegistration,
-                      child: InputDecorator(
-                        decoration: const InputDecoration(labelText: 'المريض المسجل', border: OutlineInputBorder(), isDense: true),
-                        child: Text(_registration?.name ?? '— اختر مريضًا مسجلاً —'),
-                      ),
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: _pickRegistration,
+                    child: InputDecorator(
+                      decoration: const InputDecoration(labelText: 'المريض المسجل', border: OutlineInputBorder(), isDense: true),
+                      child: Text(_registration?.name ?? '— اختر مريضًا مسجلاً —'),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  _scanningRegistration
-                      ? const Padding(
-                          padding: EdgeInsets.all(8),
-                          child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                        )
-                      : IconButton.filledTonal(
-                          onPressed: _scanRegistration,
-                          icon: const Icon(Icons.qr_code_scanner),
-                          tooltip: 'مسح رمز المريض',
-                        ),
-                ],
-              ),
-              // Screening confirmation (2026-08-29) — see `_applyRegistration()`.
-              // `PatientScreeningGate` still enforces this server-side
-              // regardless; this is earlier, clearer client-side feedback.
-              if (_blockedRegistration != null)
-                Container(
-                  margin: const EdgeInsets.only(top: 8),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.08),
-                    border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.block, color: Colors.red, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _blockedRegistration!.screeningStatus == 'flagged'
-                              ? 'لا يمكن الدفع — نتيجة فحص "${_blockedRegistration!.name}" غير سليمة.'
-                              : 'لا يمكن الدفع قبل تأكيد سلامة "${_blockedRegistration!.name}" من الأمراض المعدية عبر فحص المختبر.',
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
-            ],
+                const SizedBox(width: 8),
+                _scanningRegistration
+                    ? const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                      )
+                    : IconButton.filledTonal(
+                        onPressed: _scanRegistration,
+                        icon: const Icon(Icons.qr_code_scanner),
+                        tooltip: 'مسح رمز المريض',
+                      ),
+              ],
+            ),
+            // Screening confirmation (2026-08-29) — see `_applyRegistration()`.
+            // `PatientScreeningGate` still enforces this server-side
+            // regardless; this is earlier, clearer client-side feedback.
+            if (_blockedRegistration != null)
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.08),
+                  border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.block, color: Colors.red, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _blockedRegistration!.screeningStatus == 'flagged'
+                            ? 'لا يمكن الدفع — نتيجة فحص "${_blockedRegistration!.name}" غير سليمة.'
+                            : 'لا يمكن الدفع قبل تأكيد سلامة "${_blockedRegistration!.name}" من الأمراض المعدية عبر فحص المختبر.',
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _amountController,
@@ -374,11 +327,6 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
                   label: const Text('مسح'),
                 ),
               ],
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _paidByController,
-              decoration: const InputDecoration(labelText: 'دفع بواسطة', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 16),
             InkWell(

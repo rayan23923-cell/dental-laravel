@@ -4389,3 +4389,39 @@ anyway (only the QR desk flow does)." Added:
   this convenience.
 
 Verified: `flutter analyze` clean on every touched file.
+
+## PaymentFormScreen simplified: registration-only, auto date, no paid-by (2026-08-29)
+
+Same-day follow-up, by request, after seeing the shipped screen live:
+`PaymentFormScreen` no longer offers the "موعد" (appointment) source at
+all — the "نوع المدفوعة" radio toggle and appointment picker
+(`_pickAppointment()`, the `Appointment` domain import) are gone, and
+the form always settles a reception-desk registration now. `_paidAt`
+defaults to `DateTime.now()` at declaration and in `_seed()` (was `null`
+→ "— اختر تاريخًا —") — still shown and editable via the same date
+field, for backdating, just no longer blank by default. "دفع بواسطة"
+(`_paidByController`) is removed entirely; the backend column stays
+nullable and untouched, this form just never populates it anymore.
+
+**A real correctness point, not just UI removal**: `update()` is a
+partial update (`Api\PaymentController::validatePayment()`'s `sometimes`
+rules) — if this form only ever sent `patient_registration_id` and
+never touched `appointment_id`, editing a *pre-existing*
+appointment-sourced payment would leave the DB's old `appointment_id`
+in place while also setting `patient_registration_id`, landing on a row
+with both FKs set at once and breaking the "never both" invariant the
+rest of the app relies on (list source badges, the payments source
+filter added earlier today). Fixed by always sending
+`'appointment_id': null` explicitly in the payload. Confirmed this is
+safe against Laravel's `prohibits`/`required_without` rules: both are
+implemented to short-circuit to "not triggered" when the field's own
+value fails `required` (which an explicit `null` does) — so sending
+`null` clears the old FK without tripping `prohibits:patient_registration_id`
+on itself. Editing a legacy appointment-sourced payment from this
+screen now seeds an *empty* registration picker rather than showing its
+appointment (`_seed()` no longer has an `appointmentId` branch); saving
+such an edit re-points it at whichever registration gets picked — an
+accepted trade-off for the simplification. Web `Payments/Create.vue`
+still offers the appointment source unchanged, for that edge case.
+
+Verified: `flutter analyze` clean project-wide.
