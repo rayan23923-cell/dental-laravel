@@ -146,12 +146,44 @@ class EnforceCaseSheetAccess
      * — avoids PHP's numeric/loose-comparison surprises between a posted
      * string and a cast DB value for what's just a security gate, not the
      * save path itself (validation still normalizes/casts properly).
+     *
+     * **Grouped fields** (a subkey packed inside a JSON-blob column, e.g.
+     * Prevention's `patient_data.senior_name` — see `SectionedForm.vue`'s
+     * `group` mechanism) needed this to go one level deeper (2026-08-29,
+     * found while wiring Prevention's `senior_name`/`signature_date` into
+     * `CaseSheetSupervisorFields`): the client always posts the *whole*
+     * blob as one JSON string, so treating the column name itself as "the
+     * changed field" could never match a bare subkey name like
+     * `senior_name` in `$supervisorFields` — every legitimate
+     * supervisor-only edit to a grouped field would 403 as if it touched
+     * the whole blob. When both the stored and submitted values for a key
+     * decode as JSON arrays (objects *or* lists — deliberately not
+     * excluding lists: PHP's `json_decode(..., true)` can't tell `{}`
+     * apart from `[]`, so a first edit to a still-empty blob must still
+     * diff correctly), this compares their decoded entries instead and
+     * reports differing *subkey* names (a list's numeric indices, for a
+     * `tooth_data`-style array-cast column, never match any resource's
+     * `$supervisorFields` either — the allow-list check behaves
+     * identically either way, just at finer granularity).
      */
     private function changedFields(Request $request, Model $record): array
     {
         $changed = [];
         foreach ($request->except(['_token', '_method']) as $key => $value) {
-            if ((string) ($value ?? '') !== (string) ($record->getAttribute($key) ?? '')) {
+            $stored = $record->getAttribute($key);
+            $storedDecoded = is_string($stored) ? json_decode($stored, true) : null;
+            $valueDecoded = is_string($value) ? json_decode($value, true) : null;
+
+            if (is_array($storedDecoded) && is_array($valueDecoded)) {
+                foreach (array_unique([...array_keys($storedDecoded), ...array_keys($valueDecoded)]) as $subkey) {
+                    if ((string) ($valueDecoded[$subkey] ?? '') !== (string) ($storedDecoded[$subkey] ?? '')) {
+                        $changed[] = $subkey;
+                    }
+                }
+                continue;
+            }
+
+            if ((string) ($value ?? '') !== (string) ($stored ?? '')) {
                 $changed[] = $key;
             }
         }

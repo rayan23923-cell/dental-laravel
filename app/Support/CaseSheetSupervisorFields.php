@@ -21,6 +21,19 @@ namespace App\Support;
  * (`orthodontics-records`, `prevention-records`, `oral-medicine-charts`)
  * had neither, so `supervisor_notes`/`supervisor_signature` were added
  * to just those three (see the matching migration).
+ *
+ * **Correction (2026-08-29)**: the "had neither" premise above was wrong
+ * for `prevention-records` specifically — it already ports the original
+ * app's own `senior_name`/`signature_date` pair (see
+ * `App\Support\PreventionForm`'s "Signature" section), just missed by the
+ * 2026-08-28 read because both live as subkeys of the `patient_data` JSON
+ * blob (a `group`-mechanism field, see `SectionedForm.vue`) rather than
+ * real top-level columns like every other resource's supervisor fields.
+ * Registered here now that `EnforceCaseSheetAccess::changedFields()` can
+ * actually diff a grouped subkey correctly (same date). The newer
+ * `supervisor_notes`/`supervisor_signature` pair stays too — it's a
+ * genuine second field (staff's own notes), not a duplicate of the
+ * doctor-facing senior sign-off.
  */
 class CaseSheetSupervisorFields
 {
@@ -40,7 +53,8 @@ class CaseSheetSupervisorFields
             'periodontal-charts' => ['notes', 'clinical_notes', 'senior_doctor_name', 'approval_date', 'senior_signature'],
             'prosthodontics-records' => self::stageFields(self::PROSTHODONTICS_STAGES),
             'complete-denture-records' => self::stageFields(self::COMPLETE_DENTURE_STAGES),
-            'orthodontics-records', 'prevention-records', 'oral-medicine-charts' => ['supervisor_notes', 'supervisor_signature'],
+            'orthodontics-records', 'oral-medicine-charts' => ['supervisor_notes', 'supervisor_signature'],
+            'prevention-records' => ['senior_name', 'signature_date', 'supervisor_notes', 'supervisor_signature'],
             default => [],
         };
     }

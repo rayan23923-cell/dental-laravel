@@ -46,7 +46,6 @@ class PreventionForm
                         ['value' => 'first', 'label' => 'First'],
                         ['value' => 'recall', 'label' => 'Recall'],
                     ]],
-                    ['group' => 'patient_data', 'key' => 'student_name', 'label' => 'Student Name', 'type' => 'text'],
                 ],
             ],
             [

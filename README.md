@@ -5971,6 +5971,95 @@ manually typed.
 
 Verified: `php -l` on all three touched files.
 
+## Prevention Record: removed Student Name, registered the pre-existing Signature fields as supervisor-only — plus a generic access-control fix (2026-08-29)
+
+Same "قارنها مع dentalclinic وعالج معلومات الطالب والمشرف او المدير"
+(compare against the original app and address the student/supervisor
+info) request pattern as the two entries above, but Prevention's own
+layout (`App\Support\PreventionForm`) turned out shaped differently from
+both Orthodontics and Periodontal Chart, so it needed its own read
+rather than assuming the same fix applied:
+
+- **`patient_group`/`visit`** (also visible in the user's screenshot,
+  labeled "Group"/"Visit") are genuinely patient-related fields from the
+  original app — not student/doctor-redundant like Orthodontics'/
+  Periodontal's similarly-named fields — confirmed by reading
+  `PreventionForm::sections()` directly rather than pattern-matching on
+  the prior two fixes. Left untouched.
+- **`student_name`** (labeled "Student Name") *is* redundant with the
+  doctor's own identity, same as the other two resources — removed from
+  the "Patient Information" section. Both `PreventionRecordController`
+  and `Api\PreventionRecordController` validate the whole `patient_data`
+  group as one opaque `['nullable', 'string']` JSON blob (unlike
+  Periodontal Chart's explicit per-column rule lists), so no controller
+  change was needed — removing the layout entry alone stops it being
+  collected.
+- **A self-caught documentation error, corrected**: the 2026-08-28
+  docblock on `App\Support\CaseSheetSupervisorFields` claimed Prevention
+  "had neither" a notes field nor a senior-signature equivalent before
+  `supervisor_notes`/`supervisor_signature` were added — which is wrong.
+  Prevention's own "Signature" section already ports the original app's
+  `senior_name`/`signature_date` pair (visible in the user's second
+  screenshot as "Signature"), missed on the earlier read because both
+  live as subkeys of the `patient_data` JSON blob rather than real
+  top-level columns like every other resource's supervisor fields.
+  Corrected the docblock and registered
+  `['senior_name', 'signature_date', 'supervisor_notes',
+  'supervisor_signature']` for `prevention-records` in
+  `CaseSheetSupervisorFields::fieldsFor()` — both the doctor-facing
+  senior sign-off *and* staff's own separate notes field are now
+  supervisor-only, kept as two distinct sections (not consolidated, per
+  the user's screenshots showing both) since `supervisor_notes` is
+  genuine added value, not a duplicate.
+
+**This surfaced a real, generic gap**: `EnforceCaseSheetAccess::changedFields()`
+only ever diffed whole top-level request keys against the stored record,
+to tell a supervisor's actual edit apart from the web form's habit of
+resubmitting every field's current value on every save (see that
+method's own docblock). That works for a real column, but Prevention's
+`senior_name`/`signature_date` are subkeys of the `patient_data` JSON
+blob (a `group`-mechanism field, see `SectionedForm.vue`) — the client
+always posts the *whole* blob as one JSON string under the `patient_data`
+key, so comparing the column name itself against `$supervisorFields`
+could never match a bare subkey name like `senior_name`. Registering
+those two fields without fixing this would have made every legitimate
+supervisor edit to them 403 as if it touched the whole blob (rule 3
+would even let a *doctor* freely overwrite them, since
+`array_intersect` against the wrong key never matched either).
+
+Fixed generically in `changedFields()`: when both the stored and
+submitted values for a request key decode as JSON arrays, diff their
+decoded entries instead and report differing *subkey* names, rather
+than the outer column name. Deliberately **not** distinguishing a JSON
+object from a JSON list (no `array_is_list()` check) — a first-ever edit
+to a still-empty blob decodes as `'{}'` server-side but the client may
+send either `'{}'` or `'[]'`, and PHP's `json_decode(..., true)` can't
+tell the two apart (both come back as `[]`), so excluding lists broke
+that exact first-edit case in testing before shipping. Diffing subkeys
+for any JSON-decodable array is safe everywhere else too: a plain array-
+cast column's numeric list indices (e.g. `tooth_data`) never coincide
+with a real supervisor-field name, so the allow-list check behaves
+identically either way, just at finer granularity when it happens to be
+a grouped field. This benefits any future resource with a similar
+grouped supervisor field, not just Prevention.
+
+Confirmed no print-view breakage: `print/case-sheet.blade.php`'s
+`$doctorName ?? ($sheet->student_name ?? '')` fallback (shared across
+resources, covered in the Orthodontics/Periodontal entries above) reads
+a top-level `student_name` *column* that several other resources still
+have — unrelated to Prevention's `patient_data.student_name` *subkey*,
+which was never a real column and isn't referenced there.
+
+Like the Orthodontics/Periodontal fixes, this is a backend-only change —
+`*Form::sections()` and `CaseSheetSupervisorFields` are both fetched
+live by Flutter at runtime (`Api\CaseSheetFormController::show()`, no
+caching — see the Orthodontics entry above for the full explanation), so
+it takes effect on web and mobile immediately on deploy, no Codemagic
+rebuild needed.
+
+Verified: `php -l` on `PreventionForm.php`, `CaseSheetSupervisorFields.php`,
+and `EnforceCaseSheetAccess.php`.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the
