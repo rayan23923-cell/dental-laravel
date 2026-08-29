@@ -106,6 +106,15 @@ flutter:
     - assets/branding/app_logo.png
     - assets/fonts/Tajawal-Regular.ttf
     - assets/fonts/Tajawal-Bold.ttf
+    # Head pain-location diagram reference images (Oral Medicine's
+    # Extraoral/Intraoral Examination, `HeadDiagramsBoard`) — same source
+    # files as web's public/images/head-diagrams/, bundled here since
+    # they're static reference images, not admin-uploaded/mutable data
+    # (2026-08-29).
+    - assets/images/head_diagrams/frontal.jpg
+    - assets/images/head_diagrams/posterior.jpg
+    - assets/images/head_diagrams/right.jpg
+    - assets/images/head_diagrams/left.jpg
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

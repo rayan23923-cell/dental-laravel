@@ -4627,3 +4627,75 @@ only the renderer was behind web.
 Verified: `flutter analyze` clean project-wide. Not re-verified on a
 real device in this session — the user will confirm on next preview
 after the next Codemagic build + AltStore reinstall.
+
+## Oral Medicine's Extraoral/Intraoral Examination: real head-diagram images + tap-to-mark drawings (2026-08-29)
+
+By request ("استعادة الصور مع الرسومات الخاصة بها كما dentalclinic" —
+restore the images with their own drawings, like in dentalclinic),
+after the Oral Medicine Chart screenshot showed this section as one of
+several "غير مدعوم في التطبيق بعد" (not supported yet) placeholders.
+Of Oral Medicine's six JSON-blob composite field types, this is the one
+that's genuinely about images-with-drawings (the other five —
+history_complaint, pmh_checklist, surgical_history, family_history,
+social_history — are checklist/text sections with no images, and stay
+unsupported placeholders for now; not in scope for this request).
+
+**New `HeadDiagramsBoard`** (`case_sheet_forms/presentation/head_diagrams_board.dart`)
+ports `Components/HeadDiagramsBoard.vue` directly: the same four
+reference images (frontal/posterior/right/left — the exact same JPEGs,
+copied from `public/images/head-diagrams/` into
+`flutter_app/assets/images/head_diagrams/` and registered in
+`pubspec.yaml`, since these are static reference images, not
+admin-uploaded/mutable data), tap-to-stamp a pain-quality symbol at the
+tapped point (not freehand drawing — one point per tap, exactly like
+the original), a pattern dropdown (mild/moderate/severe + 7 lettered
+qualities) and a clear button per view. Storage shape is identical:
+`{frontal: [{x,y,type}], posterior: [...], right: [...], left: [...]}`,
+points in the image's *natural* pixel space so a chart saved at one
+screen size still lines up at another.
+
+The symbol-drawing logic (`drawPainPatternForHeadDiagram()`, ported via
+the Vue component, not re-derived from the original PHP) is
+pixel-for-pixel identical, translated from HTML `<canvas>` 2D context
+calls to Flutter's `CustomPainter`/`Canvas`: `quadraticCurveTo` →
+`quadraticBezierTo` (same control/end-point semantics, direct 1:1
+translation), the same two-stage scale clamp (`scale = max(0.8,
+minScale)`, then `lineWidth = max(1.2, 1.2*scale)` — two *independent*
+clamps, not one, since `1.2 × 0.8 = 0.96 < 1.2`), same spacing/height
+constants for the mild (|||||)/moderate (wavy MMM)/severe (/////)
+patterns, same single-letter glyphs (B/D/N/P/S/T/R) for the
+burning/dull/numbing/pressure/sharp/tingling/radiating qualities.
+Coordinate mapping simplifies slightly versus the web version: an
+`AspectRatio` ancestor sized to the image's own decoded
+`width`/`height` guarantees the rendered canvas always preserves the
+image's aspect ratio, so a single scale factor covers both x and y
+(the web version computes them separately since a browser `<canvas>`
+has no equivalent built-in aspect-lock).
+
+**New `ExtraoralIntraoralExamField`** (`extraoral_intraoral_exam_field.dart`)
+wraps `HeadDiagramsBoard` with the rest of the section web's
+`ExtraoralIntraoralExam.vue` renders above it: a 7-muscle
+tenderness grid (right/left text per muscle), four more right/left
+pairs (TMJ clicking, preauricular pain, swelling, deviation on
+opening), max mouth opening, facial defects, and oral mucosa condition
+— same JSON keys as the web component (`muscles`, `tmj_clicking`,
+`preauricular_pain`, `swelling`, `deviation_opening`,
+`max_mouth_opening`, `facial_defects`, `oral_mucosa_condition`,
+`head_diagrams`), so a record saved by either app loads correctly in
+the other.
+
+Wired into `DynamicSectionForm` as a new `case 'extraoral_exam':`
+(previously fell through to the generic unsupported-placeholder path)
+and added to `CaseSheetField.isSupported`. Needed one new submit-path
+special case: unlike `endodontics_data` (which has a real Eloquent
+`'array'` cast on `DentalChart`), `oral_medicine_charts.extraoral_intraoral_examination`
+has no cast at all, so `buildSubmitPayload()` now `jsonEncode()`s this
+one field's value specifically before sending it — every other
+composite/grouped field already had its own correct serialization path,
+this was a new gap `_coerce()`'s decode-on-load side already implied
+but the encode-on-save side hadn't been written yet.
+
+Verified: `flutter analyze` clean project-wide (including after `flutter
+pub get` re-resolving the new asset entries). Not verified on a real
+device in this session — the user will confirm on next preview after
+the next Codemagic build + AltStore reinstall.

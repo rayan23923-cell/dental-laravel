@@ -8,6 +8,7 @@ import '../../endodontics/presentation/endodontics_field.dart';
 import '../../perio_chart/presentation/perio_chart_groups_field.dart';
 import '../domain/case_sheet_field.dart';
 import '../domain/case_sheet_form_schema.dart';
+import 'extraoral_intraoral_exam_field.dart';
 import 'quadrant_teeth_field.dart';
 
 /// Renders any of the 8 case-sheet resources from its
@@ -19,16 +20,22 @@ import 'quadrant_teeth_field.dart';
 /// checkboxes, boolean, `teeth` (the real FDI-cross quadrant picker, see
 /// `QuadrantTeethField` — was a plain comma-list text field until
 /// 2026-08-29, matching web's `QuadrantTeeth.vue` now),
-/// `dental_chart` (the full odontogram, see `ToothOdontogramField`), and
+/// `dental_chart` (the full odontogram, see `ToothOdontogramField`),
 /// `endodontics` (the Operative sheet's root-canal treatment record, see
-/// `EndodonticsField`). A resource's `chartGroups`/`chartField`
+/// `EndodonticsField`), and `extraoral_exam` (Oral Medicine's muscle-
+/// tenderness/TMJ grid plus the four head pain-location diagrams, see
+/// `ExtraoralIntraoralExamField`/`HeadDiagramsBoard` — added 2026-08-29,
+/// by request, since it's the one Oral Medicine composite involving real
+/// reference images with tap-to-mark drawings, matching web's
+/// `HeadDiagramsBoard.vue`). A resource's `chartGroups`/`chartField`
 /// (periodontal-charts only, today — the BOP/PPD/CAL per-tooth tables)
 /// are rendered separately, after every `sections()` card, via
 /// `PerioChartGroupsField` — they're not `sections()` fields at all, so
 /// they sit outside the field-type switch below entirely. Every other
-/// unhandled type (Oral Medicine's six JSON-blob composites,
-/// Orthodontics' teeth-squares-grid/quadrant-repeater) renders as a
-/// read-only placeholder instead of an editable control — and,
+/// unhandled type (Oral Medicine's remaining five JSON-blob composites —
+/// history_complaint, pmh_checklist, surgical_history, family_history,
+/// social_history — plus Orthodontics' teeth-squares-grid/quadrant-repeater)
+/// renders as a read-only placeholder instead of an editable control — and,
 /// critically, is never touched by `buildSubmitPayload()`, so saving never
 /// silently drops data this form can't edit yet. For a *grouped* field
 /// (e.g. one subkey inside Orthodontics' `examination_data` blob) this
@@ -145,6 +152,12 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
         return raw is List ? List<dynamic>.from(raw) : <dynamic>[];
       case 'endodontics':
         return _parseGroup(raw);
+      case 'extraoral_exam':
+        // `oral_medicine_charts.extraoral_intraoral_examination` carries
+        // no Eloquent 'array' cast (unlike `endodontics_data` above) — see
+        // `buildSubmitPayload()`'s matching `jsonEncode` for the other
+        // half of this.
+        return _parseGroup(raw);
       default:
         return raw?.toString() ?? '';
     }
@@ -170,6 +183,12 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
 
       if (field.group != null) {
         groupBuckets[field.group!]![field.key] = value;
+      } else if (field.type == 'extraoral_exam') {
+        // See `_coerce()`'s matching comment — this column has no
+        // Eloquent cast, so the Map this form works with must be
+        // stringified before it reaches the API, unlike `endodontics`'s
+        // `endodontics_data` (which does have one and is sent as-is).
+        payload[field.key] = jsonEncode(value);
       } else {
         payload[field.key] = value;
       }
@@ -329,6 +348,8 @@ class _FieldWidget extends StatelessWidget {
         return _DentalChartFieldWidget(field: field, state: state);
       case 'endodontics':
         return _EndodonticsFieldWidget(field: field, state: state);
+      case 'extraoral_exam':
+        return _ExtraoralExamFieldWidget(field: field, state: state);
       default: // text, number, decimal
         return _TextField(field: field, state: state, multiline: false);
     }
@@ -641,6 +662,32 @@ class _QuadrantTeethFieldWidgetState extends State<_QuadrantTeethFieldWidget> {
           onChanged: (next) => setState(() => widget.state._values[widget.field.formKey] = next),
         ),
       ],
+    );
+  }
+}
+
+class _ExtraoralExamFieldWidget extends StatefulWidget {
+  const _ExtraoralExamFieldWidget({required this.field, required this.state});
+  final CaseSheetField field;
+  final DynamicSectionFormState state;
+
+  @override
+  State<_ExtraoralExamFieldWidget> createState() => _ExtraoralExamFieldWidgetState();
+}
+
+class _ExtraoralExamFieldWidgetState extends State<_ExtraoralExamFieldWidget> {
+  @override
+  Widget build(BuildContext context) {
+    final value = widget.state._values[widget.field.formKey] as Map<String, dynamic>? ?? const {};
+    // No `_FieldLabel` here, matching `_EndodonticsFieldWidget` — this
+    // composite's own internal headings ("Muscle tenderness", "Head
+    // pain-location diagrams", …) already label its sub-sections, and the
+    // schema's own field label ("Extraoral / Intraoral Examination") is
+    // already shown by the section card title above it.
+    return ExtraoralIntraoralExamField(
+      value: value,
+      readOnly: widget.state.fieldDisabled(widget.field),
+      onChanged: (next) => setState(() => widget.state._values[widget.field.formKey] = next),
     );
   }
 }
