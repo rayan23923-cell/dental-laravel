@@ -6114,6 +6114,28 @@ exactly as before.
 Verified: `php -l` on all 9 touched PHP files, `flutter analyze` (no
 issues), and `npm run build` (web assets compiled clean).
 
+## Operative: treatment plan notes are also supervisor-only (2026-08-29)
+
+Follow-up to the entry directly above, from another live screenshot of
+the same "خطة العلاج والاعتماد" (Treatment Plan & Approval) section: the
+user confirmed that its very first field, `treatment_plan_notes`
+("ملاحظات خطة العلاج"), is also meant for the supervisor only — not
+just `senior_doctor_name`/`senior_signature`/`notes`, which were already
+registered. Added to `CaseSheetSupervisorFields::fieldsFor('dental-charts')`;
+no other code change needed, since every mechanism this depends on
+(`fieldDisabled()`'s canonical-list check on both clients,
+`EnforceCaseSheetAccess`'s enforcement) is already fully generic from the
+fix above — adding a field to this one list is enough to lock it
+everywhere.
+
+Deliberately **not** applied to `periodontal-charts`' own similarly-
+named `treatment_plan` field — that one was separately confirmed (see
+the Periodontal Chart entry above) to be the *doctor's* own plan, not
+the supervisor's. Checked per-resource rather than assumed identical,
+since the two original layouts differ here.
+
+Verified: `php -l`.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the

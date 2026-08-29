@@ -34,6 +34,16 @@ namespace App\Support;
  * `supervisor_notes`/`supervisor_signature` pair stays too — it's a
  * genuine second field (staff's own notes), not a duplicate of the
  * doctor-facing senior sign-off.
+ *
+ * **Addition (2026-08-29)**: `dental-charts`' `treatment_plan_notes`
+ * ("ملاحظات خطة العلاج", the "Treatment Plan & Approval" section's first
+ * field) is also supervisor-only, confirmed directly by the user from a
+ * live screenshot — unlike `periodontal-charts`' own similarly-named
+ * `treatment_plan`, which was separately confirmed (see
+ * `dental_laravel/README.md`'s Periodontal Chart entry) to be the
+ * *doctor's* own plan, not the supervisor's. The two resources' original
+ * layouts simply differ here; this was verified per-resource rather than
+ * assumed uniform.
  */
 class CaseSheetSupervisorFields
 {
@@ -48,7 +58,7 @@ class CaseSheetSupervisorFields
     public static function fieldsFor(string $resource): array
     {
         return match ($resource) {
-            'dental-charts' => ['notes', 'senior_doctor_name', 'senior_signature'],
+            'dental-charts' => ['treatment_plan_notes', 'notes', 'senior_doctor_name', 'senior_signature'],
             'surgeries' => ['notes', 'senior_doctor_name', 'approval_date', 'senior_signature'],
             'periodontal-charts' => ['notes', 'clinical_notes', 'senior_doctor_name', 'approval_date', 'senior_signature'],
             'prosthodontics-records' => self::stageFields(self::PROSTHODONTICS_STAGES),

@@ -4784,3 +4784,15 @@ elsewhere in these forms, but can never type into them — a supervisor's
 own preview is unaffected.
 
 Verified: `flutter analyze` clean project-wide (no issues).
+
+## Operative: treatment plan notes are also supervisor-only (2026-08-29)
+
+Backend-only follow-up (`App\Support\CaseSheetSupervisorFields`) — no
+Flutter code changed. `dental-charts`' `treatment_plan_notes` field
+joined the registry's list for that resource, confirmed by the user from
+a live screenshot as also being supervisor-only. Since the fix directly
+above already made `DynamicSectionForm`'s `fieldDisabled()` check that
+registry generically, this one extra entry is enough to lock the field
+on the doctor's own page too, the moment the schema endpoint (fetched
+live, no caching) reflects it — no Codemagic rebuild needed. See
+`dental_laravel/README.md`'s matching entry for the full detail.
