@@ -8,6 +8,7 @@ import '../../endodontics/presentation/endodontics_field.dart';
 import '../../perio_chart/presentation/perio_chart_groups_field.dart';
 import '../domain/case_sheet_field.dart';
 import '../domain/case_sheet_form_schema.dart';
+import 'quadrant_teeth_field.dart';
 
 /// Renders any of the 8 case-sheet resources from its
 /// `CaseSheetFormSchema` — one generic widget instead of 12 bespoke
@@ -15,9 +16,9 @@ import '../domain/case_sheet_form_schema.dart';
 /// on the web side (see flutter_app/README.md §4).
 ///
 /// Supports: text, textarea, number, decimal, date, time, select, radio,
-/// checkboxes, boolean, `teeth` (as a plain comma-list text field — the
-/// original's visual FDI-cross picker isn't ported yet, same
-/// "incrementally after" scope the README already calls out),
+/// checkboxes, boolean, `teeth` (the real FDI-cross quadrant picker, see
+/// `QuadrantTeethField` — was a plain comma-list text field until
+/// 2026-08-29, matching web's `QuadrantTeeth.vue` now),
 /// `dental_chart` (the full odontogram, see `ToothOdontogramField`), and
 /// `endodontics` (the Operative sheet's root-canal treatment record, see
 /// `EndodonticsField`). A resource's `chartGroups`/`chartField`
@@ -121,7 +122,7 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
   }
 
   bool _isTextControlled(String type) =>
-      const {'text', 'textarea', 'number', 'decimal', 'teeth'}.contains(type);
+      const {'text', 'textarea', 'number', 'decimal'}.contains(type);
 
   dynamic _coerce(CaseSheetField field, dynamic raw) {
     switch (field.type) {
@@ -322,11 +323,13 @@ class _FieldWidget extends StatelessWidget {
         return _TimeField(field: field, state: state);
       case 'textarea':
         return _TextField(field: field, state: state, multiline: true);
+      case 'teeth':
+        return _QuadrantTeethFieldWidget(field: field, state: state);
       case 'dental_chart':
         return _DentalChartFieldWidget(field: field, state: state);
       case 'endodontics':
         return _EndodonticsFieldWidget(field: field, state: state);
-      default: // text, number, decimal, teeth
+      default: // text, number, decimal
         return _TextField(field: field, state: state, multiline: false);
     }
   }
@@ -376,7 +379,6 @@ class _TextField extends StatelessWidget {
             border: const OutlineInputBorder(),
             isDense: true,
             helperText: field.help,
-            hintText: field.type == 'teeth' ? 'مثال: UR8, UL1' : null,
           ),
           validator: field.required ? (v) => (v == null || v.trim().isEmpty) ? 'هذا الحقل مطلوب' : null : null,
           onChanged: (v) => state._values[field.formKey] = v,
@@ -613,6 +615,33 @@ class _TimeFieldState extends State<_TimeField> {
       final m = picked.minute.toString().padLeft(2, '0');
       setState(() => widget.state._values[widget.field.formKey] = '$h:$m');
     }
+  }
+}
+
+class _QuadrantTeethFieldWidget extends StatefulWidget {
+  const _QuadrantTeethFieldWidget({required this.field, required this.state});
+  final CaseSheetField field;
+  final DynamicSectionFormState state;
+
+  @override
+  State<_QuadrantTeethFieldWidget> createState() => _QuadrantTeethFieldWidgetState();
+}
+
+class _QuadrantTeethFieldWidgetState extends State<_QuadrantTeethFieldWidget> {
+  @override
+  Widget build(BuildContext context) {
+    final value = widget.state._values[widget.field.formKey] as String? ?? '';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _FieldLabel(field: widget.field),
+        QuadrantTeethField(
+          value: value,
+          readOnly: widget.state.fieldDisabled(widget.field),
+          onChanged: (next) => setState(() => widget.state._values[widget.field.formKey] = next),
+        ),
+      ],
+    );
   }
 }
 

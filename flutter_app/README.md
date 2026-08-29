@@ -4591,3 +4591,39 @@ an entire subtree's gestures; no web-side change needed.
 Verified: `flutter analyze` clean project-wide. Not re-verified against
 a real device in this session — the user will confirm on next preview
 after the next Codemagic build + AltStore reinstall.
+
+## Real FDI quadrant tooth picker for `type: 'teeth'` fields (2026-08-29)
+
+By request, referencing the original "dentalclinic" app's own
+horizontally-scrollable tooth picker: `DynamicSectionForm` rendered
+every `type: 'teeth'` field (Operative's "أسنان غير حيوية"/"أسنان
+مفقودة"/"تيجان / جسور", and the same type used across Orthodontics,
+Surgery, Prosthodontics, Complete Denture, and Oral Medicine's own
+layouts — `grep`-confirmed across all 6 of those `App\Support\*Form.php`
+files) as a plain comma-list text field the user had to type by hand
+("UR8, UL1"), while web already had a real picker
+(`Components/QuadrantTeeth.vue`) for the identical field type.
+
+New `QuadrantTeethField` (`case_sheet_forms/presentation/quadrant_teeth_field.dart`)
+ports `QuadrantTeeth.vue` directly rather than inventing a new design:
+same quadrant order (`UR: 8→1, UL: 1→8, LR: 8→1, LL: 1→8`), same two
+stacked rows (`[UR,UL]`/`[LR,LL]`) with a divider between each row's two
+quadrant blocks, same comma-separated storage string (`"UR8, UL1"` —
+not a JSON array, so a record saved here still loads identically in
+the original PHP app), same tap-to-toggle interaction, wrapped in a
+horizontal `SingleChildScrollView` so the full arch is reachable on a
+narrow phone screen. `readOnly` disables only each tooth button's
+`onTap` (`null` when read-only) rather than wrapping the whole picker
+in `IgnorePointer` — the exact bug just fixed two entries up for the
+odontogram/endodontics widgets, deliberately not repeated here.
+
+Wired into `DynamicSectionForm`'s field-type switch as a new `case
+'teeth':` branch (previously falling through to the generic text-field
+`default:`), and removed from `_isTextControlled()`'s set since it no
+longer needs a `TextEditingController`. `CaseSheetField.isSupported`
+already listed `'teeth'` as supported — no domain-model change needed,
+only the renderer was behind web.
+
+Verified: `flutter analyze` clean project-wide. Not re-verified on a
+real device in this session — the user will confirm on next preview
+after the next Codemagic build + AltStore reinstall.
