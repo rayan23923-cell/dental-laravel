@@ -1,17 +1,25 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
+import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/pdf/pdf_letterhead.dart';
 import '../../../core/widgets/qr_dialog.dart';
 import '../../auth/domain/auth_account.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../auth/presentation/auth_state.dart';
+import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../../patient_registration/domain/registration_payment_state.dart';
 import '../data/case_sheet_record_repository.dart';
 import '../domain/case_sheet_form_schema.dart';
 import '../domain/case_sheet_patient_field_map.dart';
 import 'case_sheet_form_providers.dart';
+import 'case_sheet_print_pdf.dart';
 import 'dynamic_section_form.dart';
 
 /// Fetches a resource's layout schema and (when editing) one of its real
@@ -86,6 +94,16 @@ class CaseSheetFormScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(schemaAsync.valueOrNull?.title ?? '...'),
         actions: [
+          // "طباعة" (2026-08-30) — mirrors the web's SectionedForm.vue
+          // print link: only once a record actually exists (`!isCreate`,
+          // matching its own `isEdit`) and only for the 8 resources
+          // `App\Support\CaseSheetPrint::SHEETS` has a print layout for.
+          if (!isCreate && kCaseSheetPrintableResources.contains(resource))
+            IconButton(
+              icon: const Icon(Icons.print_outlined),
+              tooltip: 'طباعة',
+              onPressed: () => _print(context, ref),
+            ),
           if (taskInstanceId != null)
             IconButton(
               icon: const Icon(Icons.qr_code_2),
@@ -189,6 +207,45 @@ class CaseSheetFormScreen extends ConsumerWidget {
       }
     };
   }
+
+  /// Fetches `Api\CaseSheetPrintController::show()`'s document JSON and
+  /// hands it to `buildCaseSheetPrintPdf`, matching the web's
+  /// `CaseSheetPrintRenderer`-driven printout — same source data, same
+  /// layout, native print/share sheet instead of a browser tab. The
+  /// task-instance QR (when this sheet belongs to one) is fetched the same
+  /// way the "رمز الحالة" button above already does, so the printed PDF
+  /// carries the same back-link the web sheet's own QR has.
+  Future<void> _print(BuildContext context, WidgetRef ref) async {
+    if (recordId == null) return;
+
+    try {
+      final doc = await ref.read(caseSheetRecordRepositoryProvider).fetchPrintDocument(resource, recordId!);
+      final settings = await ref.read(clinicSettingsProvider.future);
+      final logo = await loadLetterheadLogo(ref, settings);
+
+      pw.ImageProvider? qr;
+      if (taskInstanceId != null) {
+        try {
+          final bytes = await ref.read(apiClientProvider).getBytes('/task-instances/$taskInstanceId/qr');
+          qr = pw.MemoryImage(Uint8List.fromList(bytes));
+        } catch (_) {
+          // Same "never block the printout over a QR failure" rule the web
+          // controller's own qrDataUri() follows.
+        }
+      }
+
+      final bytes = await buildCaseSheetPrintPdf(doc: doc, settings: settings, logo: logo, qr: qr);
+      await Printing.layoutPdf(onLayout: (_) async => bytes, name: '${schemaTitle(ref)}.pdf');
+    } catch (e) {
+      if (context.mounted) {
+        final message = e is ApiException ? e.userMessage : 'تعذر إنشاء ملف الطباعة.';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    }
+  }
+
+  String schemaTitle(WidgetRef ref) =>
+      ref.read(caseSheetFormSchemaProvider(resource)).valueOrNull?.title ?? resource;
 
   /// "مسح رمز المريض" (2026-08-28) — resolves the scanned registration QR
   /// (same round-trip `/records/patient-registrations/scan-for-task` etc.

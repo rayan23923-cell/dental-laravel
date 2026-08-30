@@ -73,9 +73,20 @@ class CaseSheetPrintController extends Controller
             ],
             'title' => $config['title'],
             'doctor_name' => $sheet->doctor_id ? Doctor::whereKey($sheet->doctor_id)->value('name') : null,
+            // Identification-strip fallbacks the web printout also uses
+            // (`$sheet->student_name`/`$sheet->grade_group` directly) —
+            // only a few of the 8 sheet types have these columns, hence the
+            // `?? null` rather than assuming every model has them.
+            'student_name' => $sheet->student_name ?? null,
+            'grade_group' => $sheet->grade_group ?? null,
             'printed_at' => now()->toDateString(),
             'sections' => CaseSheetPrintRenderer::sections($formClass::sections(), $sheet, $groupColumns),
             'charts' => CaseSheetPrintRenderer::charts($chartGroups, $chartData),
+            // Added alongside the Flutter print feature (2026-08-30) — the
+            // web controller has always included this; the JSON mirror
+            // simply hadn't needed it until a client actually rendered the
+            // odontogram block.
+            'dental_chart' => CaseSheetPrintRenderer::dentalChart($formClass::sections(), $sheet),
             'stages' => CaseSheetPrintRenderer::stages($stages, $sheet),
         ]);
     }

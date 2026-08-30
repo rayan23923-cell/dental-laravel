@@ -99,6 +99,23 @@ const kCaseSheetCreatableResources = {
   'periodontal-charts',
 };
 
+/// The same 8 resources as `App\Support\CaseSheetPrint::SHEETS` — a
+/// separate registry on the backend (which specialty sheets have a print
+/// layout defined), copied here rather than reused from
+/// [kCaseSheetCreatableResources] even though the two sets happen to be
+/// identical today: one is "can create", the other is "has a print
+/// design," and there's no rule that keeps them in lockstep going forward.
+const kCaseSheetPrintableResources = {
+  'dental-charts',
+  'prosthodontics-records',
+  'complete-denture-records',
+  'surgeries',
+  'periodontal-charts',
+  'orthodontics-records',
+  'prevention-records',
+  'oral-medicine-charts',
+};
+
 /// Extra top-level fields a resource's API `store()` requires that never
 /// appear in `sections()` at all (so `DynamicSectionForm` has no field to
 /// collect them from) and therefore must be injected before a create

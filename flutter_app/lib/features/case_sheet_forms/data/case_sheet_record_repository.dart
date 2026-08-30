@@ -66,6 +66,15 @@ class CaseSheetRecordRepository {
       recordId: data['record_id'] as int?,
     );
   }
+
+  /// `Api\CaseSheetPrintController::show()`'s response — the *rendered
+  /// document model* (letterhead fields, sections already resolved to
+  /// label/value cells, chart grids, stage rows), not the raw record. No
+  /// `{data: ...}` envelope, unlike every other method here — that
+  /// controller returns the document fields at the top level.
+  Future<Map<String, dynamic>> fetchPrintDocument(String resource, int id) async {
+    return await _client.getJson('/case-sheet-prints/$resource/$id') as Map<String, dynamic>;
+  }
 }
 
 class CaseSheetOpenResult {

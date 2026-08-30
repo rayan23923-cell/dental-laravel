@@ -6940,6 +6940,21 @@ verification — this session started XAMPP's Apache + MySQL itself
 restrict/clear round-trip against the real `user_allowed_departments`
 table via `tinker`, not just the refetched UI state.
 
+## Flutter case-sheet printing: two small JSON-parity gaps closed (2026-08-30)
+
+`Api\CaseSheetPrintController::show()` — the JSON mirror of the web's
+printable case sheets — already existed, but had drifted from what
+`CaseSheetPrintController` (web)'s Blade printout has always included:
+the odontogram block and the identification-strip's `student_name`/
+`grade_group` fallbacks. Neither had ever been needed by a JSON consumer
+until the Flutter client actually started rendering a full print
+document (see `flutter_app/README.md`'s matching "Case-sheet printing"
+entry). Closed by adding one `CaseSheetPrintRenderer::dentalChart()`
+call (already used by the web controller) and the same
+`$sheet->student_name`/`$sheet->grade_group` fallbacks the Blade view
+reads directly — no new rendering logic, just two fields the endpoint
+had simply never returned.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the
