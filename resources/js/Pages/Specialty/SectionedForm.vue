@@ -404,6 +404,13 @@ const fieldDisabled = (field) =>
         ? !props.supervisorEditableFields.includes(field.key)
         : props.readonly && !props.supervisorEditableFields.includes(field.key);
 
+// "يجب ان يملئ حقل الدرجة والتاريخ حتى يوقع" (2026-08-30) — a stage can't
+// be signed off until its own Grade and Date are filled in, so the
+// signature never attests to a still-blank evaluation. Enforced again,
+// robustly, server-side in App\Support\CaseSheetSignatures — this is only
+// the client-side convenience (disables the button before a wasted trip).
+const stageReadyToSign = (stageKey) => !!form[`stage_${stageKey}_date`] && !!form[`stage_${stageKey}_grade`];
+
 // Same idea for the "Stages and evaluation" table, whose rows aren't part
 // of `sections` and so aren't covered by fieldDisabled() above — mirrors
 // its two-reason logic identically rather than assuming every stage
@@ -773,12 +780,16 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                                             <button
                                                 v-else
                                                 type="button"
-                                                :disabled="stageFieldDisabled(stage.key, 'signature')"
+                                                :disabled="stageFieldDisabled(stage.key, 'signature') || !stageReadyToSign(stage.key)"
+                                                :title="!stageReadyToSign(stage.key) ? 'أكمل الدرجة والتاريخ أولاً' : ''"
                                                 @click="form[`stage_${stage.key}_signature`] = '__SIGN__'"
                                                 class="w-full rounded-md bg-indigo-600 px-2 py-1 text-xs text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                                             >
                                                 توقيع
                                             </button>
+                                            <p v-if="!stageFieldDisabled(stage.key, 'signature') && !stageReadyToSign(stage.key)" class="mt-1 text-xs text-gray-400">
+                                                أكمل الدرجة والتاريخ أولاً
+                                            </p>
                                         </td>
                                         <td class="px-4 py-2">
                                             <TextInput v-model="form[`stage_${stage.key}_date`]" type="date" :disabled="stageFieldDisabled(stage.key, 'date')" class="block w-full text-sm" />

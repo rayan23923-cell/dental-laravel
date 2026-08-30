@@ -440,16 +440,21 @@ class _StageEvaluationTable extends StatelessWidget {
   }
 }
 
-class _StageRow extends StatelessWidget {
+class _StageRow extends StatefulWidget {
   const _StageRow({required this.stage, required this.state});
   final Map<String, dynamic> stage;
   final DynamicSectionFormState state;
 
   @override
+  State<_StageRow> createState() => _StageRowState();
+}
+
+class _StageRowState extends State<_StageRow> {
+  @override
   Widget build(BuildContext context) {
-    final key = stage['key'] as String;
-    final label = stage['label'] as String? ?? key;
-    final note = stage['note'] as String?;
+    final key = widget.stage['key'] as String;
+    final label = widget.stage['label'] as String? ?? key;
+    final note = widget.stage['note'] as String?;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -464,17 +469,22 @@ class _StageRow extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: _StageSignatureField(stageKey: key, state: state)),
+              Expanded(child: _StageSignatureField(stageKey: key, state: widget.state)),
               const SizedBox(width: 8),
-              Expanded(child: _StageDateField(stageKey: key, state: state)),
+              // `onChanged` forces this row to rebuild so
+              // `_StageSignatureField` re-checks "grade + date filled" —
+              // otherwise a sibling widget's own local setState() (or, for
+              // the grade field below, none at all previously) never
+              // reached it. See that field's matching comment.
+              Expanded(child: _StageDateField(stageKey: key, state: widget.state, onChanged: () => setState(() {}))),
               const SizedBox(width: 8),
               Expanded(
                 child: TextFormField(
-                  controller: state._controllers['stage_${key}_grade'],
-                  enabled: !state.stageFieldDisabled(key, 'grade'),
+                  controller: widget.state._controllers['stage_${key}_grade'],
+                  enabled: !widget.state.stageFieldDisabled(key, 'grade'),
                   style: const TextStyle(fontSize: 13),
                   decoration: const InputDecoration(labelText: 'Grade', hintText: '9/10', isDense: true, border: OutlineInputBorder()),
-                  onChanged: (v) => state._values['stage_${key}_grade'] = v,
+                  onChanged: (v) => setState(() => widget.state._values['stage_${key}_grade'] = v),
                 ),
               ),
             ],
@@ -500,6 +510,18 @@ class _StageSignatureField extends StatefulWidget {
 class _StageSignatureFieldState extends State<_StageSignatureField> {
   static const _sentinel = '__SIGN__';
   String get _formKey => 'stage_${widget.stageKey}_signature';
+
+  /// "يجب ان يملئ حقل الدرجة والتاريخ حتى يوقع" (2026-08-30) — mirrors
+  /// `SectionedForm.vue`'s matching `stageReadyToSign()`; enforced again,
+  /// robustly, server-side in `App\Support\CaseSheetSignatures` (this is
+  /// only the client-side convenience). Relies on `_StageRow` rebuilding
+  /// this widget whenever the grade/date siblings change — see that
+  /// widget's matching comment.
+  bool get _readyToSign {
+    final grade = (widget.state._values['stage_${widget.stageKey}_grade'] as String? ?? '').trim();
+    final date = (widget.state._values['stage_${widget.stageKey}_date'] as String? ?? '').trim();
+    return grade.isNotEmpty && date.isNotEmpty;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -531,18 +553,27 @@ class _StageSignatureFieldState extends State<_StageSignatureField> {
       ]);
     }
 
-    return OutlinedButton(
-      onPressed: disabled ? null : () => setState(() => widget.state._values[_formKey] = _sentinel),
-      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6)),
-      child: const Text('توقيع', style: TextStyle(fontSize: 12)),
+    final readyToSign = _readyToSign;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        OutlinedButton(
+          onPressed: (disabled || !readyToSign) ? null : () => setState(() => widget.state._values[_formKey] = _sentinel),
+          style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6)),
+          child: const Text('توقيع', style: TextStyle(fontSize: 12)),
+        ),
+        if (!disabled && !readyToSign)
+          Text('أكمل الدرجة والتاريخ أولاً', style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+      ],
     );
   }
 }
 
 class _StageDateField extends StatefulWidget {
-  const _StageDateField({required this.stageKey, required this.state});
+  const _StageDateField({required this.stageKey, required this.state, this.onChanged});
   final String stageKey;
   final DynamicSectionFormState state;
+  final VoidCallback? onChanged;
 
   @override
   State<_StageDateField> createState() => _StageDateFieldState();
@@ -574,6 +605,7 @@ class _StageDateFieldState extends State<_StageDateField> {
     final picked = await showDatePicker(context: context, initialDate: initial, firstDate: DateTime(1950), lastDate: DateTime(2100));
     if (picked != null) {
       setState(() => widget.state._values[_formKey] = DateFormat('yyyy-MM-dd').format(picked));
+      widget.onChanged?.call();
     }
   }
 }

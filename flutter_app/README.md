@@ -5032,3 +5032,26 @@ already backs both web and API). Closed it:
 Verified: `flutter analyze` on both touched files (no issues). Not
 verified against a real device in this session — the user will confirm
 on next preview after the next Codemagic build + AltStore reinstall.
+
+## A stage can't be signed off until its own Grade and Date are filled in (2026-08-30)
+
+See `dental_laravel/README.md`'s matching entry for the full backend
+enforcement (`CaseSheetSignatures::requirementsMet()`) — this is the
+Flutter half. `_StageSignatureField`'s "توقيع" button is now disabled
+(with an "أكمل الدرجة والتاريخ أولاً" hint underneath) until both
+`stage_{key}_grade` and `stage_{key}_date` have values.
+
+The one real wrinkle: `_StageRow` was a `StatelessWidget`, and neither
+sibling ever notified it of a change — the grade `TextFormField`'s
+`onChanged` wrote straight into `state._values` with no `setState()` at
+all, and the date picker's `setState()` only rebuilt `_StageDateField`
+itself. `_StageSignatureField` would have kept reading stale grade/date
+values indefinitely. Converted `_StageRow` to a `StatefulWidget`; the
+grade field's `onChanged` and a new `_StageDateField.onChanged` callback
+(invoked after its own `setState()`) both now call the row's own
+`setState(() {})`, so `_StageSignatureField` re-evaluates readiness on
+every keystroke/date pick, same as the web's reactive `form[...]` check.
+
+Verified: `flutter analyze` on `dynamic_section_form.dart` (no issues).
+Not verified on a real device — next Codemagic build + AltStore
+reinstall.

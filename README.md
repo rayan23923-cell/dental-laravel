@@ -6883,6 +6883,33 @@ all 8 `*Form.php` layouts, all 16 touched controllers, and
 `TaskProgressGroupSummary.php`; `flutter analyze` on `case_sheet_field.dart`
 and `dynamic_section_form.dart` (no issues); `npm run build` (succeeded).
 
+## A stage can't be signed off until its own Grade and Date are filled in (2026-08-30)
+
+Same-day follow-up, from a live screenshot of Prosthodontics' "Stages and
+evaluation" table: "يجب ان يملئ حقل الدرجة والتاريخ حتى يوقع" (Grade and
+Date must be filled before signing). Scoped to exactly the 9 per-stage
+`stage_{name}_signature` fields (Prosthodontics/Complete Denture) — not
+`diagnosis_instructor_signature`, which has no such requirement asked of
+it and, on `complete-denture-records`, no `diagnosis_date`/`diagnosis_grade`
+fields to require in the first place; not the other resources' single
+`senior_signature`/`supervisor_signature` either, since none of those
+were shown or named.
+
+**Enforced twice, same pattern as everywhere else in this app that has a
+client-side convenience check**: `CaseSheetSignatures::stageSpecs()` now
+tags each stage's signature spec with `'requires' => ["stage_{name}_date",
+"stage_{name}_grade"]`; `applyFlat()`'s sentinel branch only stamps a
+signature once every `requires` key already has a value (in the request
+or on the existing record) via the new `requirementsMet()` — a direct API
+call sending the sentinel without a grade/date gets silently dropped,
+same as any other tampering attempt. Client-side, `SectionedForm.vue`
+gets a `stageReadyToSign(stageKey)` helper disabling the "توقيع" button
+(with a "أكمل الدرجة والتاريخ أولاً" hint) until both are filled in the
+live form state.
+
+Verified: `php -l` on `CaseSheetSignatures.php`. `npm run build`
+(succeeded). Flutter's matching fix is in `flutter_app/README.md`.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the

@@ -70,7 +70,15 @@ class CaseSheetSignatures
     {
         $specs = [['key' => 'diagnosis_instructor_signature']];
         foreach ($stages as $stage) {
-            $specs[] = ['key' => "stage_{$stage}_signature"];
+            // "يجب ان يملئ حقل الدرجة والتاريخ حتى يوقع" (2026-08-30) — a
+            // stage can't be signed off until its own Grade and Date are
+            // filled in, so a signature never attests to a still-blank
+            // evaluation. Checked server-side (not just the client-side
+            // disabled button) so a direct API call can't skip it either.
+            $specs[] = [
+                'key' => "stage_{$stage}_signature",
+                'requires' => ["stage_{$stage}_date", "stage_{$stage}_grade"],
+            ];
         }
 
         return $specs;
@@ -80,22 +88,24 @@ class CaseSheetSignatures
      * Rewrites every signature field this resource defines that's present
      * in $data: a field the record already has a value for is forced back
      * to that stored value (immutable); a field the client sent
-     * {@see SENTINEL} for gets stamped with $signerName + now(); anything
-     * else sent for a signature key is dropped, since these are no longer
-     * free-typed fields a client can just write text into.
+     * {@see SENTINEL} for gets stamped with $signerName + now() — but only
+     * once every field the spec's `requires` names (if any) already has a
+     * value, in $data or on $existing; anything else sent for a signature
+     * key is dropped, since these are no longer free-typed fields a client
+     * can just write text into.
      */
     public static function applyPending(string $resource, array $data, ?Model $existing, string $signerName): array
     {
         foreach (self::fieldsFor($resource) as $spec) {
             $data = isset($spec['group'])
                 ? self::applyGrouped($data, $existing, $spec['group'], $spec['key'], $signerName)
-                : self::applyFlat($data, $existing, $spec['key'], $signerName);
+                : self::applyFlat($data, $existing, $spec['key'], $signerName, $spec['requires'] ?? []);
         }
 
         return $data;
     }
 
-    private static function applyFlat(array $data, ?Model $existing, string $key, string $signerName): array
+    private static function applyFlat(array $data, ?Model $existing, string $key, string $signerName, array $requires = []): array
     {
         if (! array_key_exists($key, $data)) {
             return $data;
@@ -105,13 +115,24 @@ class CaseSheetSignatures
 
         if (filled($existingValue)) {
             $data[$key] = $existingValue;
-        } elseif ($data[$key] === self::SENTINEL) {
+        } elseif ($data[$key] === self::SENTINEL && self::requirementsMet($requires, $data, $existing)) {
             $data[$key] = self::stamp($signerName);
         } else {
             unset($data[$key]);
         }
 
         return $data;
+    }
+
+    private static function requirementsMet(array $requires, array $data, ?Model $existing): bool
+    {
+        foreach ($requires as $requiredKey) {
+            if (blank($data[$requiredKey] ?? $existing?->getAttribute($requiredKey))) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** The client always posts a grouped column's whole JSON blob as one string — see `EnforceCaseSheetAccess::changedFields()`'s doc comment for the same fact. */
