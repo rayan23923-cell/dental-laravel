@@ -178,7 +178,13 @@ const year = new Date().getFullYear();
 
         <!-- Hero -->
         <section class="mx-auto max-w-5xl px-4 pb-16 pt-10 text-center sm:px-6 sm:pb-24 sm:pt-16 lg:px-8">
-            <span class="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-ig-gradient">
+            <img
+                v-if="clinic.universityLogoUrl || clinic.logoUrl"
+                :src="clinic.universityLogoUrl || clinic.logoUrl"
+                alt=""
+                class="mx-auto h-16 w-16 rounded-2xl object-contain"
+            />
+            <span v-else class="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-ig-gradient">
                 <BrandMark :size="36" variant="mono" class="text-white" />
             </span>
 
