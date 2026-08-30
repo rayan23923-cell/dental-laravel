@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Notifications\OtpPasswordReset;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -73,12 +74,28 @@ class OtpPasswordResetBroker
      * else — `Notifier::send()`'s own failure log already uses
      * `warning()`, so matching it is the safer bet until `LOG_LEVEL` is
      * confirmed rather than assumed.
+     *
+     * **The actual root cause, found (2026-08-30) via two temporary
+     * diagnostic routes that proved this method never once updated the
+     * row or sent mail in *either* CLI or the real web SAPI, no matter
+     * how much real time had passed since the one row created during
+     * initial testing**: `now()->diffInSeconds($existing->created_at)`
+     * passed the **raw database string** straight to `diffInSeconds()`
+     * instead of an explicit `Carbon` instance. Confirmed live: a
+     * `password_reset_otps` row from over 12 hours earlier was still
+     * being treated as "issued within the last 60 seconds" on every
+     * single request, permanently and unconditionally throttling this
+     * address the moment it was ever used once. Fixed by explicitly
+     * parsing with `Carbon::parse()` before diffing — see `verify()`
+     * below for the identical fix to its own `now()->greaterThan(...)`
+     * expiry check, found by inspection once this pattern was known to
+     * be unsafe, not because it had separately misbehaved yet.
      */
     public static function send(string $email, string $guard, object $notifiable): void
     {
         $existing = DB::table('password_reset_otps')->where('email', $email)->where('guard', $guard)->first();
 
-        if ($existing?->created_at && now()->diffInSeconds($existing->created_at) < self::THROTTLE_SECONDS) {
+        if ($existing?->created_at && now()->diffInSeconds(Carbon::parse($existing->created_at)) < self::THROTTLE_SECONDS) {
             Log::warning('Password reset code throttled — one was already issued in the last '.self::THROTTLE_SECONDS.'s', [
                 'email' => $email,
                 'guard' => $guard,
@@ -111,7 +128,7 @@ class OtpPasswordResetBroker
     {
         $row = DB::table('password_reset_otps')->where('email', $email)->where('guard', $guard)->first();
 
-        if (! $row || now()->greaterThan($row->expires_at)) {
+        if (! $row || now()->greaterThan(Carbon::parse($row->expires_at))) {
             return false;
         }
 

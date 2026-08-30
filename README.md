@@ -6663,6 +6663,68 @@ being logged at all," a strictly narrower question.
 
 Verified: `php -l` on both touched files.
 
+## The actual OTP delivery bug, found and fixed: a raw DB string handed to `diffInSeconds()` (2026-08-30)
+
+The real root cause of everything in the two entries above, tracked down
+via a live production debugging session (cPanel Terminal access + two
+temporary diagnostic routes, both removed once resolved) rather than
+another guess:
+
+**`OtpPasswordResetBroker::send()`'s resend-throttle check was
+permanently, unconditionally active for any address that had ever
+requested a code even once** — `now()->diffInSeconds($existing->created_at)`
+passed the **raw database string** (e.g. `"2026-08-29 18:45:42"`)
+straight to `diffInSeconds()` instead of an explicit `Carbon` instance.
+Confirmed live: a `password_reset_otps` row created during the very
+first round of testing yesterday was still being evaluated as "issued
+within the last 60 seconds" twelve-plus hours later, on every single
+request, from both `php artisan tinker` (CLI) and the real production
+web server — meaning the throttle branch's `return;` (added in the
+entry above, specifically to close its *logging* gap) had actually been
+firing on **every** attempt since the first, silently no-op'ing before
+ever reaching the code-generation/`updateOrInsert()`/`Notifier::send()`
+lines. `verify()`'s `now()->greaterThan($row->expires_at)` had the
+identical unsafe pattern, found by inspection once this was known to be
+a real risk, not because it had separately misbehaved yet. Both fixed
+by wrapping the raw string in `Carbon::parse()` before comparing.
+
+**How this was actually tracked down**, since it's a useful record of
+what didn't work and why: the two earlier entries' logging fixes turned
+out to be necessary but not sufficient — `Log::warning()` calls
+compiled correctly but production's `.env` has `LOG_LEVEL=error`
+(discovered via `grep -E '^LOG_' .env` in cPanel Terminal), so
+`warning`-level entries were silently dropped before ever reaching
+`storage/logs/laravel.log`, same as the `debug()` calls before them.
+With logging itself unable to help, the investigation moved to cPanel's
+Terminal directly: confirmed the test address really was a registered
+`Doctor` (`Doctor::where('email', ...)->first()` in `tinker`); confirmed
+raw `Mail::raw()` delivers correctly (ruling out SMTP/mail config);
+confirmed `Notifier::send()` called *directly* (bypassing the broker's
+DB/throttle layer entirely) also delivers correctly, with the OTP email
+arriving with the exact hardcoded test code — which, in hindsight, was
+the first real clue: everything downstream of the throttle check worked
+whenever that check was bypassed. Two temporary, unauthenticated
+diagnostic routes (`/api/v1/diag-2026-08-30`, `/api/v1/diag-2026-08-30-send`,
+both removed in this same fix) then confirmed the real web server sees
+the identical database, the identical matched doctor, and — calling the
+real `OtpPasswordResetBroker::send()` in that exact web context — the
+identical no-op-with-no-exception result as `tinker`, ruling out every
+CLI-vs-web environment theory (different `.env`, OPcache, config-cache
+staleness, timezone mismatch) that had been the working hypothesis up
+to that point. The throttle math (before/after timestamps, both
+captured via the diagnostic routes) was the piece that finally exposed
+the real bug: a 12-hour-plus gap being treated as under 60 seconds could
+only mean the diff calculation itself was broken, not the environment
+running it.
+
+Verified: `php -l` on `OtpPasswordResetBroker.php` and `routes/api.php`
+(after removing both temporary diagnostic routes). Not yet confirmed
+against the real Flutter app as of this commit — the user will retest
+once this deploys, and this entry should gain a dated follow-up
+confirming (or, if something else remains, continuing) once that
+happens, per this project's standing rule against claiming something
+works before it's actually been seen to.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the
