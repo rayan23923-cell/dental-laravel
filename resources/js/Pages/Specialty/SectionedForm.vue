@@ -683,6 +683,33 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                                             class="mt-1"
                                         />
 
+                                        <!-- Auto-captured signature (2026-08-30,
+                                             by request) — replaces a free-typed
+                                             name: once signed, App\Support\
+                                             CaseSheetSignatures immutably stamps
+                                             the real signer + timestamp
+                                             server-side, so this only ever shows
+                                             a "توقيع" button (unsigned) or the
+                                             stamped read-only text (signed). -->
+                                        <div v-else-if="field.type === 'signature'" class="mt-1">
+                                            <p v-if="form[formKey(field)] && form[formKey(field)] !== '__SIGN__'" class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                                                <Icon name="verified" class="ml-1" />{{ form[formKey(field)] }}
+                                            </p>
+                                            <div v-else-if="form[formKey(field)] === '__SIGN__'" class="flex items-center justify-between gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-800">
+                                                سيُسجَّل التوقيع باسمك عند الحفظ
+                                                <button type="button" @click="form[formKey(field)] = ''" class="text-xs text-indigo-600 underline">إلغاء</button>
+                                            </div>
+                                            <button
+                                                v-else
+                                                type="button"
+                                                :disabled="fieldDisabled(field)"
+                                                @click="form[formKey(field)] = '__SIGN__'"
+                                                class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                                <Icon name="draw" class="ml-1" />توقيع
+                                            </button>
+                                        </div>
+
                                         <textarea
                                             v-else-if="field.type === 'textarea'"
                                             :id="formKey(field)"
@@ -733,7 +760,25 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                                             <div v-if="stage.note" class="text-xs text-gray-400">{{ stage.note }}</div>
                                         </td>
                                         <td class="px-4 py-2">
-                                            <TextInput v-model="form[`stage_${stage.key}_signature`]" type="text" :disabled="stageFieldDisabled(stage.key, 'signature')" class="block w-full text-sm" />
+                                            <!-- Same auto-captured signature as the scalar
+                                                 'signature' field type above, just keyed
+                                                 by the stage table's own naming. -->
+                                            <p v-if="form[`stage_${stage.key}_signature`] && form[`stage_${stage.key}_signature`] !== '__SIGN__'" class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs text-emerald-800">
+                                                {{ form[`stage_${stage.key}_signature`] }}
+                                            </p>
+                                            <div v-else-if="form[`stage_${stage.key}_signature`] === '__SIGN__'" class="flex items-center justify-between gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs text-indigo-800">
+                                                عند الحفظ
+                                                <button type="button" @click="form[`stage_${stage.key}_signature`] = ''" class="text-indigo-600 underline">إلغاء</button>
+                                            </div>
+                                            <button
+                                                v-else
+                                                type="button"
+                                                :disabled="stageFieldDisabled(stage.key, 'signature')"
+                                                @click="form[`stage_${stage.key}_signature`] = '__SIGN__'"
+                                                class="w-full rounded-md bg-indigo-600 px-2 py-1 text-xs text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                                توقيع
+                                            </button>
                                         </td>
                                         <td class="px-4 py-2">
                                             <TextInput v-model="form[`stage_${stage.key}_date`]" type="date" :disabled="stageFieldDisabled(stage.key, 'date')" class="block w-full text-sm" />

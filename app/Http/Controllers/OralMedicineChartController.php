@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Doctor;
 use App\Models\OralMedicineChart;
 use App\Services\CaseSheetAccess;
+use App\Support\CaseSheetSignatures;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\OralMedicineForm;
 use Illuminate\Http\RedirectResponse;
@@ -53,14 +54,16 @@ class OralMedicineChartController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        OralMedicineChart::create($this->validateRecord($request));
+        $data = CaseSheetSignatures::applyPending('oral-medicine-charts', $this->validateRecord($request), null, CaseSheetSignatures::signerName($request));
+        OralMedicineChart::create($data);
 
         return redirect()->route('oral-medicine-charts.index')->with('success', 'Oral medicine chart created.');
     }
 
     public function update(Request $request, OralMedicineChart $record): RedirectResponse
     {
-        $record->update($this->validateRecord($request));
+        $data = CaseSheetSignatures::applyPending('oral-medicine-charts', $this->validateRecord($request), $record, CaseSheetSignatures::signerName($request));
+        $record->update($data);
 
         return redirect()->route('oral-medicine-charts.index')->with('success', 'Oral medicine chart updated.');
     }

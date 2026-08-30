@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Doctor;
 use App\Models\ProsthodonticsRecord;
 use App\Services\CaseSheetAccess;
+use App\Support\CaseSheetSignatures;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\ProsthodonticsForm;
 use Illuminate\Http\RedirectResponse;
@@ -59,7 +60,7 @@ class ProsthodonticsRecordController extends Controller
 
     public function update(Request $request, ProsthodonticsRecord $record): RedirectResponse
     {
-        $record->update($this->prepare($request));
+        $record->update($this->prepare($request, $record));
 
         return redirect()->route('prosthodontics-records.index')->with('success', 'Prosthodontics record updated.');
     }
@@ -98,9 +99,10 @@ class ProsthodonticsRecordController extends Controller
      * direct column is empty. Kept in sync here so a record written by this
      * app still loads correctly in the original.
      */
-    private function prepare(Request $request): array
+    private function prepare(Request $request, ?ProsthodonticsRecord $existing = null): array
     {
         $data = $this->validateRecord($request);
+        $data = CaseSheetSignatures::applyPending('prosthodontics-records', $data, $existing, CaseSheetSignatures::signerName($request));
 
         $data['tooth_chart_data'] = json_encode([
             'selectedTeeth' => [],

@@ -194,12 +194,11 @@ class PeriodontalChartForm
                     // Added 2026-08-29 — a real, validated column
                     // (`Api\PeriodontalChartController`'s rules) already
                     // registered as supervisor-only in
-                    // `CaseSheetSupervisorFields`, but with no field here
-                    // for a supervisor to actually fill it from. `type:
-                    // text` (a typed name), not a signature pad — same
-                    // convention every other sheet's `senior_signature`/
-                    // `supervisor_signature` field already uses.
-                    ['key' => 'senior_signature', 'label' => 'Senior Signature', 'type' => 'text', 'width' => 'half'],
+                    // `CaseSheetSupervisorFields`. 'text' → 'signature'
+                    // (2026-08-30, by request) — see
+                    // App\Support\CaseSheetSignatures: auto-captured
+                    // (signer + timestamp) instead of a typed name.
+                    ['key' => 'senior_signature', 'label' => 'Senior Signature', 'type' => 'signature', 'width' => 'half'],
                     ['key' => 'clinical_notes', 'label' => 'Clinical Notes', 'type' => 'textarea', 'width' => 'full'],
                 ],
             ],

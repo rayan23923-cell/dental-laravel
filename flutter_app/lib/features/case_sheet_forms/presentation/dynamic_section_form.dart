@@ -464,15 +464,7 @@ class _StageRow extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: TextFormField(
-                  controller: state._controllers['stage_${key}_signature'],
-                  enabled: !state.stageFieldDisabled(key, 'signature'),
-                  style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(labelText: 'Signature', isDense: true, border: OutlineInputBorder()),
-                  onChanged: (v) => state._values['stage_${key}_signature'] = v,
-                ),
-              ),
+              Expanded(child: _StageSignatureField(stageKey: key, state: state)),
               const SizedBox(width: 8),
               Expanded(child: _StageDateField(stageKey: key, state: state)),
               const SizedBox(width: 8),
@@ -489,6 +481,60 @@ class _StageRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Same auto-captured signature as `_SignatureField` above, just keyed by
+/// the stage table's own `stage_{key}_signature` naming — mirrors
+/// `SectionedForm.vue`'s matching stage-table `<td>` branch.
+class _StageSignatureField extends StatefulWidget {
+  const _StageSignatureField({required this.stageKey, required this.state});
+  final String stageKey;
+  final DynamicSectionFormState state;
+
+  @override
+  State<_StageSignatureField> createState() => _StageSignatureFieldState();
+}
+
+class _StageSignatureFieldState extends State<_StageSignatureField> {
+  static const _sentinel = '__SIGN__';
+  String get _formKey => 'stage_${widget.stageKey}_signature';
+
+  @override
+  Widget build(BuildContext context) {
+    final value = widget.state._values[_formKey] as String? ?? '';
+    final disabled = widget.state.stageFieldDisabled(widget.stageKey, 'signature');
+
+    if (value.isNotEmpty && value != _sentinel) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.green.shade50,
+          border: Border.all(color: Colors.green.shade200),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(value, style: TextStyle(fontSize: 12, color: Colors.green.shade800)),
+      );
+    }
+
+    if (value == _sentinel) {
+      return Row(children: [
+        Expanded(child: Text('عند الحفظ', style: TextStyle(fontSize: 11, color: Colors.indigo.shade800))),
+        IconButton(
+          icon: const Icon(Icons.close, size: 16),
+          onPressed: () => setState(() => widget.state._values[_formKey] = ''),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+        ),
+      ]);
+    }
+
+    return OutlinedButton(
+      onPressed: disabled ? null : () => setState(() => widget.state._values[_formKey] = _sentinel),
+      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6)),
+      child: const Text('توقيع', style: TextStyle(fontSize: 12)),
     );
   }
 }
@@ -609,6 +655,8 @@ class _FieldWidget extends StatelessWidget {
         return _TeethSquaresGridFieldWidget(field: field, state: state);
       case 'quadrant_repeater':
         return _QuadrantRepeaterFieldWidget(field: field, state: state);
+      case 'signature':
+        return _SignatureField(field: field, state: state);
       default: // text, number, decimal
         return _TextField(field: field, state: state, multiline: false);
     }
@@ -630,6 +678,76 @@ class _FieldLabel extends StatelessWidget {
           children: field.required ? const [TextSpan(text: ' *', style: TextStyle(color: Colors.red))] : null,
         ),
       ),
+    );
+  }
+}
+
+/// Auto-captured signature (2026-08-30, by request) — mirrors
+/// `SectionedForm.vue`'s matching `field.type === 'signature'` branch:
+/// once signed, `App\Support\CaseSheetSignatures` immutably stamps the
+/// real signer + timestamp server-side, so this only ever shows a
+/// "توقيع" button (unsigned), a pending state (sentinel sent, not yet
+/// saved), or the stamped read-only text (signed) — never a free-text
+/// input.
+class _SignatureField extends StatefulWidget {
+  const _SignatureField({required this.field, required this.state});
+  final CaseSheetField field;
+  final DynamicSectionFormState state;
+
+  @override
+  State<_SignatureField> createState() => _SignatureFieldState();
+}
+
+class _SignatureFieldState extends State<_SignatureField> {
+  static const _sentinel = '__SIGN__';
+
+  @override
+  Widget build(BuildContext context) {
+    final value = widget.state._values[widget.field.formKey] as String? ?? '';
+    final disabled = widget.state.fieldDisabled(widget.field);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _FieldLabel(field: widget.field),
+        if (value.isNotEmpty && value != _sentinel)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              border: Border.all(color: Colors.green.shade200),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(children: [
+              Icon(Icons.verified, size: 16, color: Colors.green.shade700),
+              const SizedBox(width: 6),
+              Expanded(child: Text(value, style: TextStyle(color: Colors.green.shade800))),
+            ]),
+          )
+        else if (value == _sentinel)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.indigo.shade50,
+              border: Border.all(color: Colors.indigo.shade200),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(children: [
+              Expanded(child: Text('سيُسجَّل التوقيع باسمك عند الحفظ', style: TextStyle(color: Colors.indigo.shade800))),
+              TextButton(
+                onPressed: () => setState(() => widget.state._values[widget.field.formKey] = ''),
+                child: const Text('إلغاء'),
+              ),
+            ]),
+          )
+        else
+          OutlinedButton.icon(
+            onPressed: disabled ? null : () => setState(() => widget.state._values[widget.field.formKey] = _sentinel),
+            icon: const Icon(Icons.draw, size: 18),
+            label: const Text('توقيع'),
+          ),
+      ],
     );
   }
 }

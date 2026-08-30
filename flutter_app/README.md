@@ -4978,3 +4978,38 @@ completion screen for the first time.
 
 Verified: `flutter analyze` clean project-wide (no issues). Not
 verified against a real mailbox/device in this session.
+
+## New `'signature'` field type: auto-captured, no more free-typed names (2026-08-30)
+
+See `dental_laravel/README.md`'s matching entry for the full backend
+design (`App\Support\CaseSheetSignatures`, the exact per-resource field
+list, and the new `all_signed` Task Progress hint). On this side: every
+case-sheet "*_signature" field across all 8 resources is now `type:
+'signature'` instead of `'text'` — added to `CaseSheetField.isSupported`
+(`case_sheet_field.dart`) and rendered by two new widgets in
+`dynamic_section_form.dart`:
+
+- `_SignatureField` — the scalar-field case (`senior_signature`,
+  `supervisor_signature`, `senior_name`, `staff_signature`,
+  `diagnosis_instructor_signature`), wired into `_FieldWidget`'s switch.
+- `_StageSignatureField` — the same behavior for the "Stages and
+  evaluation" table's 9 `stage_{key}_signature` cells (Prosthodontics/
+  Complete Denture), replacing the plain `TextFormField` that column used
+  to be.
+
+Both show a "توقيع" `OutlinedButton` when empty, a pending
+"سيُسجَّل التوقيع باسمك عند الحفظ"/"عند الحفظ" state with an إلغاء/×
+undo once tapped (nothing is sent until the form is actually submitted —
+the client only ever writes the sentinel string into `_values`, never a
+real name), or the server-stamped read-only text once signed. No change
+needed to `buildSubmitPayload()`/`_coerce()`: a signature field's value
+is a plain string exactly like `'text'`, so it already flows through
+both the flat and grouped-subkey paths unmodified.
+
+Not built this session: a matching `all_signed` badge on the Flutter
+`task_progress_admin` screen (the backend field is already there in the
+same JSON `TaskProgressGroupSummary` produces for both web and API — this
+is a UI-only gap, not a missing endpoint).
+
+Verified: `flutter analyze` on `case_sheet_field.dart` and
+`dynamic_section_form.dart` (no issues).

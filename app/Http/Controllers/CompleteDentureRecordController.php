@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CompleteDentureRecord;
 use App\Models\Doctor;
 use App\Services\CaseSheetAccess;
+use App\Support\CaseSheetSignatures;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\CompleteDentureForm;
 use Illuminate\Http\RedirectResponse;
@@ -54,14 +55,16 @@ class CompleteDentureRecordController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        CompleteDentureRecord::create($this->validateRecord($request));
+        $data = CaseSheetSignatures::applyPending('complete-denture-records', $this->validateRecord($request), null, CaseSheetSignatures::signerName($request));
+        CompleteDentureRecord::create($data);
 
         return redirect()->route('complete-denture-records.index')->with('success', 'Complete denture record created.');
     }
 
     public function update(Request $request, CompleteDentureRecord $record): RedirectResponse
     {
-        $record->update($this->validateRecord($request));
+        $data = CaseSheetSignatures::applyPending('complete-denture-records', $this->validateRecord($request), $record, CaseSheetSignatures::signerName($request));
+        $record->update($data);
 
         return redirect()->route('complete-denture-records.index')->with('success', 'Complete denture record updated.');
     }

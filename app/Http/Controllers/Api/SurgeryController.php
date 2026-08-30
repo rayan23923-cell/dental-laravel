@@ -7,6 +7,7 @@ use App\Http\Resources\SurgeryResource;
 use App\Models\Patient;
 use App\Models\Surgery;
 use App\Models\TaskInstance;
+use App\Support\CaseSheetSignatures;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -34,6 +35,7 @@ class SurgeryController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $this->validateRecord($request);
+        $data = CaseSheetSignatures::applyPending('surgeries', $data, null, CaseSheetSignatures::signerName($request));
         $data['patient_id'] = $this->resolvePatientId($data);
         $data['senior_doctor_name'] = $this->resolveSeniorDoctorName($data);
 
@@ -61,6 +63,7 @@ class SurgeryController extends Controller
     public function update(Request $request, Surgery $record): JsonResponse
     {
         $data = $this->validateRecord($request, true);
+        $data = CaseSheetSignatures::applyPending('surgeries', $data, $record, CaseSheetSignatures::signerName($request));
         $data['patient_id'] = $this->resolvePatientId($data, $record->patient_id);
 
         $record->update($data);

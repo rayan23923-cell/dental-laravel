@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Doctor;
 use App\Models\OrthodonticsRecord;
 use App\Services\CaseSheetAccess;
+use App\Support\CaseSheetSignatures;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\OrthodonticsForm;
 use Illuminate\Http\RedirectResponse;
@@ -61,7 +62,7 @@ class OrthodonticsRecordController extends Controller
 
     public function update(Request $request, OrthodonticsRecord $record): RedirectResponse
     {
-        $record->update($this->prepare($request));
+        $record->update($this->prepare($request, existing: $record));
 
         return redirect()->route('orthodontics-records.index')->with('success', 'Orthodontics record updated.');
     }
@@ -91,7 +92,7 @@ class OrthodonticsRecordController extends Controller
         ]);
     }
 
-    private function prepare(Request $request, bool $isCreate = false): array
+    private function prepare(Request $request, bool $isCreate = false, ?OrthodonticsRecord $existing = null): array
     {
         $rules = [
             'doctor_id' => ['required', 'exists:doctors,id'],
@@ -124,6 +125,7 @@ class OrthodonticsRecordController extends Controller
         }
 
         $validated = $request->validate($rules);
+        $validated = CaseSheetSignatures::applyPending('orthodontics-records', $validated, $existing, CaseSheetSignatures::signerName($request));
 
         // `student_name`/`referral_date` no longer have their own form
         // fields (removed 2026-08-29, by request — see

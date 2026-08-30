@@ -90,7 +90,13 @@ class ProsthodonticsForm
                 'title' => 'Diagnosis and starting',
                 'fields' => [
                     ['key' => 'diagnosis_starting', 'label' => 'Diagnosis and starting', 'type' => 'textarea', 'width' => 'full'],
-                    ['key' => 'diagnosis_instructor_signature', 'label' => 'Signature of instructor', 'type' => 'text', 'width' => 'half'],
+                    // 'text' → 'signature' (2026-08-30, by request) — see
+                    // App\Support\CaseSheetSignatures. The 9 per-stage
+                    // signatures below are rendered by the same mechanism
+                    // client-side (SectionedForm.vue's stage table /
+                    // DynamicSectionForm's _StageSignatureField), not a
+                    // `type` this DSL controls — no change needed there.
+                    ['key' => 'diagnosis_instructor_signature', 'label' => 'Signature of instructor', 'type' => 'signature', 'width' => 'half'],
                     ['key' => 'diagnosis_date', 'label' => 'Date', 'type' => 'date'],
                     ['key' => 'diagnosis_grade', 'label' => 'Grade/Mark', 'type' => 'text'],
                 ],

@@ -164,7 +164,9 @@ class OralMedicineForm
                 // signatures are not built.
                 'note' => 'This visit\'s staff sign-off — supervisor/manager only.',
                 'fields' => [
-                    ['group' => 'student_visits', 'key' => 'staff_signature', 'label' => 'Staff signature', 'type' => 'text'],
+                    // 'text' → 'signature' (2026-08-30, by request) — see
+                    // App\Support\CaseSheetSignatures.
+                    ['group' => 'student_visits', 'key' => 'staff_signature', 'label' => 'Staff signature', 'type' => 'signature'],
                     ['group' => 'student_visits', 'key' => 'date', 'label' => 'Date', 'type' => 'date'],
                 ],
             ],
@@ -178,7 +180,7 @@ class OralMedicineForm
                 'title' => 'Supervisor',
                 'fields' => [
                     ['key' => 'supervisor_notes', 'label' => 'Supervisor Notes', 'type' => 'textarea', 'width' => 'full'],
-                    ['key' => 'supervisor_signature', 'label' => 'Supervisor Signature', 'type' => 'text', 'width' => 'half'],
+                    ['key' => 'supervisor_signature', 'label' => 'Supervisor Signature', 'type' => 'signature', 'width' => 'half'],
                 ],
             ],
         ];

@@ -6,6 +6,7 @@ use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\PeriodontalChart;
 use App\Services\CaseSheetAccess;
+use App\Support\CaseSheetSignatures;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\PeriodontalChartForm;
 use Illuminate\Http\RedirectResponse;
@@ -57,6 +58,7 @@ class PeriodontalChartController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $this->validateRecord($request);
+        $data = CaseSheetSignatures::applyPending('periodontal-charts', $data, null, CaseSheetSignatures::signerName($request));
         $data['patient_id'] = $this->resolvePatientId($data);
 
         PeriodontalChart::create($data);
@@ -67,6 +69,7 @@ class PeriodontalChartController extends Controller
     public function update(Request $request, PeriodontalChart $record): RedirectResponse
     {
         $data = $this->validateRecord($request);
+        $data = CaseSheetSignatures::applyPending('periodontal-charts', $data, $record, CaseSheetSignatures::signerName($request));
         $data['patient_id'] = $this->resolvePatientId($data, $record->patient_id);
 
         $record->update($data);

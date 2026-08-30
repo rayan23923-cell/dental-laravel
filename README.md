@@ -6804,6 +6804,85 @@ No print-view breakage: grepped `resources/views` for
 
 Verified: `php -l` on `SurgeryForm.php` and both controllers.
 
+## Auto-captured case-sheet signatures + a "ready to complete" hint on Task Progress (2026-08-30)
+
+Replaced every free-typed "signature" field across all 8 case-sheet
+resources with a real, server-captured signature: the client only ever
+sends a sentinel (`__SIGN__`, `App\Support\CaseSheetSignatures::SENTINEL`)
+by tapping "توقيع" — the actual value stamped into the column
+(`"{signer's name} — {Y-m-d H:i}"`) is resolved server-side from
+`$request->user()` at save time and is then **immutable**: once a
+signature field has a value, `CaseSheetSignatures::applyPending()` always
+re-asserts the stored value over whatever the client sends afterward,
+whether a resubmit of the same form or deliberate tampering. Before this,
+every one of these fields was a plain `text` input anyone with write
+access to the record (including, in several cases, the doctor whose work
+the signature is meant to approve) could type any name into.
+
+**New field type, `'signature'`**, added end-to-end (web `SectionedForm.vue`,
+Flutter `DynamicSectionForm`'s `_SignatureField`/`_StageSignatureField`):
+renders a "توقيع" button when empty, a "سيُسجَّل التوقيع باسمك عند
+الحفظ" + إلغاء pending state once tapped (nothing is sent until the form
+is actually saved), or the stamped read-only text once signed — never an
+editable input again. New shared PHP helper, `App\Support\CaseSheetSignatures`,
+is the single source of truth for which fields on each resource are a
+signature (`fieldsFor()`), applies the sentinel/immutability logic
+(`applyPending()`, called from all 16 web+API store()/update() controllers),
+and answers "are all of this resource's signatures filled in" (`allSigned()`/
+`allSignedForInstance()`).
+
+Exact field list, decided with the user via two clarifying questions
+(which signature(s) constitute "done" for the two stage-based sheets, and
+where the completion hint should surface):
+
+- `dental-charts`, `surgeries`, `periodontal-charts`: `senior_signature`.
+- `orthodontics-records`: `supervisor_signature`.
+- `prevention-records`: `senior_name` (a subkey of the `patient_data`
+  JSON blob — this resource has no separate `senior_signature` column,
+  so `senior_name` itself plays that role) + `supervisor_signature`.
+- `oral-medicine-charts`: `staff_signature` (a subkey of the
+  `student_visits` JSON blob) + `supervisor_signature`.
+- `prosthodontics-records`/`complete-denture-records`: **all 10** —
+  `diagnosis_instructor_signature` plus every `stage_{name}_signature`
+  (9 stages each, the 9th named `rpd` for prosthodontics vs `cd` for
+  complete denture) — the user's own framing: "all signatures complete"
+  is what should surface the completion hint, not any single stage.
+  These 9 aren't part of `sections()` at all (they're the separate
+  "Stages and evaluation" table, `stages()`), so `CaseSheetSignatures`
+  handles them as flat field specs alongside `diagnosis_instructor_signature`
+  rather than through the grouped-subkey path.
+
+A grouped signature (`senior_name`, `staff_signature`) needed its own
+code path (`CaseSheetSignatures::applyGrouped()`): the client always
+posts a grouped column's *whole* JSON blob as one string (same fact
+`EnforceCaseSheetAccess::changedFields()`'s doc comment already
+establishes), so the sentinel/immutability check has to decode the blob,
+patch just that one subkey, and re-encode — not treat the column itself
+as the signature value.
+
+**Completion stays a separate, explicit action** — signing off does
+**not** auto-complete anything. Per the user's own framing ("عند اكمال
+التواقيع يظهر هل تؤشرها انه قد اكتملت" — once every signature is done,
+*ask* whether to mark it complete), `TaskProgressGroupSummary::buildDoctorRow()`
+now computes `CaseSheetSignatures::allSignedForInstance()` per assigned
+task instance (resolving the resource once per task via the already
+-eager-loaded `caseSheetType`, not per instance, to avoid an N+1) and
+exposes it as `all_signed` — surfaced only on the Task Progress screen
+(chosen over the case-sheet page or the resource's own list, both offered
+as options) as a "✓ كل التواقيع جاهزة" badge plus a highlighted "تأشير
+كمكتملة" button. The existing `TaskInstanceGrader::complete()` action is
+completely unchanged; this is purely a visibility hint on top of it.
+Since `TaskProgressGroupSummary` already backs both the web page and
+`Api\TaskProgressController::group()`, the Flutter task-progress-admin
+screen gets the same `all_signed` field in its JSON with no separate API
+work needed (no Flutter UI change made yet for this specific badge — the
+data is there for a future pass).
+
+Verified: `php -l` on `CaseSheetSignatures.php`, `CaseSheetResolver.php`,
+all 8 `*Form.php` layouts, all 16 touched controllers, and
+`TaskProgressGroupSummary.php`; `flutter analyze` on `case_sheet_field.dart`
+and `dynamic_section_form.dart` (no issues); `npm run build` (succeeded).
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the

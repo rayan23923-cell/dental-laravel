@@ -136,7 +136,11 @@ class PreventionForm
             [
                 'title' => 'Signature',
                 'fields' => [
-                    ['group' => 'patient_data', 'key' => 'senior_name', 'label' => 'Senior name', 'type' => 'text'],
+                    // 'text' → 'signature' (2026-08-30, by request) — see
+                    // App\Support\CaseSheetSignatures. This resource has no
+                    // separate `senior_signature` column, so `senior_name`
+                    // itself plays that role.
+                    ['group' => 'patient_data', 'key' => 'senior_name', 'label' => 'Senior name', 'type' => 'signature'],
                     ['group' => 'patient_data', 'key' => 'signature_date', 'label' => 'Date', 'type' => 'date'],
                 ],
             ],
@@ -148,7 +152,7 @@ class PreventionForm
                 'title' => 'Supervisor',
                 'fields' => [
                     ['key' => 'supervisor_notes', 'label' => 'Supervisor Notes', 'type' => 'textarea', 'width' => 'full'],
-                    ['key' => 'supervisor_signature', 'label' => 'Supervisor Signature', 'type' => 'text', 'width' => 'half'],
+                    ['key' => 'supervisor_signature', 'label' => 'Supervisor Signature', 'type' => 'signature', 'width' => 'half'],
                 ],
             ],
         ];

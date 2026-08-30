@@ -262,7 +262,9 @@ class OrthodonticsForm
                 'title' => 'Supervisor',
                 'fields' => [
                     ['key' => 'supervisor_notes', 'label' => 'Supervisor Notes', 'type' => 'textarea', 'width' => 'full'],
-                    ['key' => 'supervisor_signature', 'label' => 'Supervisor Signature', 'type' => 'text', 'width' => 'half'],
+                    // 'text' → 'signature' (2026-08-30, by request) — see
+                    // App\Support\CaseSheetSignatures.
+                    ['key' => 'supervisor_signature', 'label' => 'Supervisor Signature', 'type' => 'signature', 'width' => 'half'],
                 ],
             ],
         ];

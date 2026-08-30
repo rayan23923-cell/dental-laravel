@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\OrthodonticsRecordResource;
 use App\Models\Doctor;
 use App\Models\OrthodonticsRecord;
+use App\Support\CaseSheetSignatures;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -33,6 +34,7 @@ class OrthodonticsRecordController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $this->validateRecord($request);
+        $validated = CaseSheetSignatures::applyPending('orthodontics-records', $validated, null, CaseSheetSignatures::signerName($request));
         // `student_name`/`referral_date` removed from client input
         // entirely (2026-08-29, by request — see
         // App\Support\OrthodonticsForm's matching comment); set
@@ -47,7 +49,8 @@ class OrthodonticsRecordController extends Controller
 
     public function update(Request $request, OrthodonticsRecord $record): JsonResponse
     {
-        $record->update($this->validateRecord($request, true));
+        $validated = CaseSheetSignatures::applyPending('orthodontics-records', $this->validateRecord($request, true), $record, CaseSheetSignatures::signerName($request));
+        $record->update($validated);
 
         return (new OrthodonticsRecordResource($record))->response();
     }

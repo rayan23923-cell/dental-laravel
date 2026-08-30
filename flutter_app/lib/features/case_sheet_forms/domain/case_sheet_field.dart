@@ -41,7 +41,7 @@ class CaseSheetField {
         'select', 'radio', 'checkboxes', 'boolean', 'teeth', 'dental_chart',
         'endodontics', 'extraoral_exam', 'history_complaint', 'pmh_checklist',
         'surgical_history', 'family_history', 'social_history',
-        'teeth_squares_grid', 'quadrant_repeater',
+        'teeth_squares_grid', 'quadrant_repeater', 'signature',
       }.contains(type);
 }
 

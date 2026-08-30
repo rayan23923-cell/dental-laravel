@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\OralMedicineChartResource;
 use App\Models\OralMedicineChart;
+use App\Support\CaseSheetSignatures;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -31,14 +32,16 @@ class OralMedicineChartController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $record = OralMedicineChart::create($this->validateRecord($request));
+        $data = CaseSheetSignatures::applyPending('oral-medicine-charts', $this->validateRecord($request), null, CaseSheetSignatures::signerName($request));
+        $record = OralMedicineChart::create($data);
 
         return (new OralMedicineChartResource($record))->response()->setStatusCode(201);
     }
 
     public function update(Request $request, OralMedicineChart $record): JsonResponse
     {
-        $record->update($this->validateRecord($request, true));
+        $data = CaseSheetSignatures::applyPending('oral-medicine-charts', $this->validateRecord($request, true), $record, CaseSheetSignatures::signerName($request));
+        $record->update($data);
 
         return (new OralMedicineChartResource($record))->response();
     }

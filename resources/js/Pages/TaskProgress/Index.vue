@@ -486,6 +486,14 @@ const startFromScan = () => {
                                                                         <span v-if="card.task_grade" class="rounded-full bg-indigo-100 px-2 py-0.5 text-indigo-800">الدرجة: {{ card.task_grade }}</span>
                                                                         <span v-if="card.notes" class="rounded-full bg-blue-100 px-2 py-0.5 text-blue-800" :title="card.notes">{{ card.notes.slice(0, 30) }}{{ card.notes.length > 30 ? '…' : '' }}</span>
                                                                         <span v-if="card.grade" class="rounded-full bg-green-100 px-2 py-0.5 text-green-800">درجة الحالة: {{ card.grade }}</span>
+                                                        <!-- "كل التواقيع جاهزة" (2026-08-30) — every
+                                                             *_signature field on the linked case
+                                                             sheet is filled in; just a hint next
+                                                             to the existing complete button below,
+                                                             never auto-completes anything. -->
+                                                        <span v-if="card.all_signed" class="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800">
+                                                            <Icon name="verified" class="ml-1" />كل التواقيع جاهزة
+                                                        </span>
                                                                     </div>
                                                                 </div>
                                                                 <div class="flex shrink-0 flex-col gap-1 text-xs">
@@ -502,7 +510,12 @@ const startFromScan = () => {
                                                                     <button v-if="card.status === 'unassigned'" @click.stop="openStart(doctor, card)" class="rounded bg-indigo-600 px-2 py-1 text-white hover:bg-indigo-700">
                                                                         بدء المهمة
                                                                     </button>
-                                                                    <button v-if="card.status === 'assigned'" @click.stop="openComplete(card)" class="rounded bg-green-600 px-2 py-1 text-white hover:bg-green-700">
+                                                                    <button
+                                                                        v-if="card.status === 'assigned'"
+                                                                        @click.stop="openComplete(card)"
+                                                                        class="rounded px-2 py-1 text-white"
+                                                                        :class="card.all_signed ? 'bg-emerald-600 ring-2 ring-emerald-300 hover:bg-emerald-700' : 'bg-green-600 hover:bg-green-700'"
+                                                                    >
                                                                         تأشير كمكتملة
                                                                     </button>
                                                                     <button v-if="card.instance_id && ['assigned', 'completed'].includes(card.status)" @click.stop="openEdit(card)" class="rounded bg-blue-500 px-2 py-1 text-white hover:bg-blue-600">

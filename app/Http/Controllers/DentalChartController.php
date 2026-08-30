@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\DentalChart;
 use App\Models\Doctor;
 use App\Services\CaseSheetAccess;
+use App\Support\CaseSheetSignatures;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\OperativeForm;
 use Illuminate\Http\RedirectResponse;
@@ -57,14 +58,16 @@ class DentalChartController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        DentalChart::create($this->validateRecord($request));
+        $data = CaseSheetSignatures::applyPending('dental-charts', $this->validateRecord($request), null, CaseSheetSignatures::signerName($request));
+        DentalChart::create($data);
 
         return redirect()->route('dental-charts.index')->with('success', 'تم حفظ المخطط السني.');
     }
 
     public function update(Request $request, DentalChart $dentalChart): RedirectResponse
     {
-        $dentalChart->update($this->validateRecord($request));
+        $data = CaseSheetSignatures::applyPending('dental-charts', $this->validateRecord($request), $dentalChart, CaseSheetSignatures::signerName($request));
+        $dentalChart->update($data);
 
         return redirect()->route('dental-charts.index')->with('success', 'تم تحديث المخطط السني.');
     }

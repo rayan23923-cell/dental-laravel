@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PreventionRecordResource;
 use App\Models\PreventionRecord;
+use App\Support\CaseSheetSignatures;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -33,6 +34,7 @@ class PreventionRecordController extends Controller
     {
         $data = $this->validateRecord($request);
         $data['patient_data'] = $this->withDefaultDate($data['patient_data'] ?? null);
+        $data = CaseSheetSignatures::applyPending('prevention-records', $data, null, CaseSheetSignatures::signerName($request));
 
         $record = PreventionRecord::create($data);
 
@@ -54,7 +56,8 @@ class PreventionRecordController extends Controller
 
     public function update(Request $request, PreventionRecord $record): JsonResponse
     {
-        $record->update($this->validateRecord($request, true));
+        $data = CaseSheetSignatures::applyPending('prevention-records', $this->validateRecord($request, true), $record, CaseSheetSignatures::signerName($request));
+        $record->update($data);
 
         return (new PreventionRecordResource($record))->response();
     }

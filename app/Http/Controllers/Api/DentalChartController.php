@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\DentalChartResource;
 use App\Models\DentalChart;
 use App\Models\Doctor;
+use App\Support\CaseSheetSignatures;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -33,14 +34,16 @@ class DentalChartController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $chart = DentalChart::create($this->validateChart($request));
+        $data = CaseSheetSignatures::applyPending('dental-charts', $this->validateChart($request), null, CaseSheetSignatures::signerName($request));
+        $chart = DentalChart::create($data);
 
         return (new DentalChartResource($chart))->response()->setStatusCode(201);
     }
 
     public function update(Request $request, DentalChart $dentalChart): JsonResponse
     {
-        $dentalChart->update($this->validateChart($request, true));
+        $data = CaseSheetSignatures::applyPending('dental-charts', $this->validateChart($request, true), $dentalChart, CaseSheetSignatures::signerName($request));
+        $dentalChart->update($data);
 
         return (new DentalChartResource($dentalChart))->response();
     }

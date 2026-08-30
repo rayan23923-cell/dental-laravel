@@ -86,7 +86,11 @@ class OperativeForm
                     ['key' => 'treatment_plan_notes', 'label' => 'ملاحظات خطة العلاج', 'type' => 'textarea', 'width' => 'full'],
                     ['key' => 'treatment_plan_date', 'label' => 'تاريخ خطة العلاج', 'type' => 'date'],
                     ['key' => 'senior_doctor_name', 'label' => 'الطبيب المشرف', 'type' => 'text'],
-                    ['key' => 'senior_signature', 'label' => 'توقيع المشرف', 'type' => 'text', 'width' => 'half'],
+                    // 'text' → 'signature' (2026-08-30, by request) — see
+                    // App\Support\CaseSheetSignatures: no longer a
+                    // free-typed name, auto-captured (signer + timestamp)
+                    // server-side when the supervisor taps "توقيع".
+                    ['key' => 'senior_signature', 'label' => 'توقيع المشرف', 'type' => 'signature', 'width' => 'half'],
                     ['key' => 'notes', 'label' => 'ملاحظات إضافية', 'type' => 'textarea', 'width' => 'full'],
                 ],
             ],

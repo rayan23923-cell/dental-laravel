@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ProsthodonticsRecordResource;
 use App\Models\ProsthodonticsRecord;
+use App\Support\CaseSheetSignatures;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -31,14 +32,16 @@ class ProsthodonticsRecordController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $record = ProsthodonticsRecord::create($this->validateRecord($request));
+        $data = CaseSheetSignatures::applyPending('prosthodontics-records', $this->validateRecord($request), null, CaseSheetSignatures::signerName($request));
+        $record = ProsthodonticsRecord::create($data);
 
         return (new ProsthodonticsRecordResource($record))->response()->setStatusCode(201);
     }
 
     public function update(Request $request, ProsthodonticsRecord $record): JsonResponse
     {
-        $record->update($this->validateRecord($request, true));
+        $data = CaseSheetSignatures::applyPending('prosthodontics-records', $this->validateRecord($request, true), $record, CaseSheetSignatures::signerName($request));
+        $record->update($data);
 
         return (new ProsthodonticsRecordResource($record))->response();
     }

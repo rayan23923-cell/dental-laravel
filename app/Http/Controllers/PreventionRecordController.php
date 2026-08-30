@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Doctor;
 use App\Models\PreventionRecord;
 use App\Services\CaseSheetAccess;
+use App\Support\CaseSheetSignatures;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\PreventionForm;
 use Illuminate\Http\RedirectResponse;
@@ -66,7 +67,7 @@ class PreventionRecordController extends Controller
 
     public function update(Request $request, PreventionRecord $record): RedirectResponse
     {
-        $record->update($this->prepare($request));
+        $record->update($this->prepare($request, existing: $record));
 
         return redirect()->route('prevention-records.index')->with('success', 'Prevention record updated.');
     }
@@ -105,7 +106,7 @@ class PreventionRecordController extends Controller
         ]);
     }
 
-    private function prepare(Request $request, bool $isCreate = false): array
+    private function prepare(Request $request, bool $isCreate = false, ?PreventionRecord $existing = null): array
     {
         $validated = $request->validate([
             'doctor_id' => ['required', 'exists:doctors,id'],
@@ -145,6 +146,8 @@ class PreventionRecordController extends Controller
             $patientData['date'] = now()->toDateString();
         }
         $validated['patient_data'] = json_encode($patientData);
+
+        $validated = CaseSheetSignatures::applyPending('prevention-records', $validated, $existing, CaseSheetSignatures::signerName($request));
 
         return $validated;
     }

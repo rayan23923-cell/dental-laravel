@@ -148,7 +148,9 @@ class SurgeryForm
                 'fields' => [
                     ['key' => 'senior_doctor_name', 'label' => 'Senior doctor', 'type' => 'text'],
                     ['key' => 'approval_date', 'label' => 'Approval date', 'type' => 'date'],
-                    ['key' => 'senior_signature', 'label' => 'Senior signature', 'type' => 'text', 'width' => 'half'],
+                    // 'text' → 'signature' (2026-08-30, by request) — see
+                    // App\Support\CaseSheetSignatures.
+                    ['key' => 'senior_signature', 'label' => 'Senior signature', 'type' => 'signature', 'width' => 'half'],
                 ],
             ],
         ];

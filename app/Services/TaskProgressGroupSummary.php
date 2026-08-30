@@ -8,6 +8,8 @@ use App\Models\Group;
 use App\Models\Task;
 use App\Models\TaskInstance;
 use App\Models\User;
+use App\Support\CaseSheetResolver;
+use App\Support\CaseSheetSignatures;
 use Illuminate\Support\Collection;
 
 /**
@@ -123,6 +125,11 @@ class TaskProgressGroupSummary
 
         foreach ($deptTasks as $task) {
             $required = (int) $task->required_count;
+            // Resolved once per task (not per instance) since `$task`
+            // already has `caseSheetType` eager-loaded from the query
+            // above — avoids `CaseSheetSignatures::allSignedForInstance()`
+            // re-fetching `task.caseSheetType` per instance.
+            $resource = CaseSheetResolver::resourceForTask($task);
             // The original keys each doctor's cards by slot index
             // 0..required-1 against their own instances for that
             // task — there is no per-slot FK, it's positional.
@@ -169,6 +176,13 @@ class TaskProgressGroupSummary
                     // informational; drives a badge/button on the
                     // client only, never gates the electronic form.
                     'paper_case_sheet_confirmed_at' => $instance?->paper_case_sheet_confirmed_at,
+                    // Surfaces a "ready to mark complete" hint next to the
+                    // existing complete button (2026-08-30, by request) —
+                    // never completes anything itself, see
+                    // App\Support\CaseSheetSignatures's class doc comment.
+                    'all_signed' => $instance && $instance->status === 'assigned'
+                        ? CaseSheetSignatures::allSignedForInstance($resource, $instance)
+                        : false,
                 ];
             }
         }

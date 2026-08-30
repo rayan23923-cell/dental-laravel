@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CompleteDentureRecordResource;
 use App\Models\CompleteDentureRecord;
+use App\Support\CaseSheetSignatures;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -31,14 +32,16 @@ class CompleteDentureRecordController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $record = CompleteDentureRecord::create($this->validateRecord($request));
+        $data = CaseSheetSignatures::applyPending('complete-denture-records', $this->validateRecord($request), null, CaseSheetSignatures::signerName($request));
+        $record = CompleteDentureRecord::create($data);
 
         return (new CompleteDentureRecordResource($record))->response()->setStatusCode(201);
     }
 
     public function update(Request $request, CompleteDentureRecord $record): JsonResponse
     {
-        $record->update($this->validateRecord($request, true));
+        $data = CaseSheetSignatures::applyPending('complete-denture-records', $this->validateRecord($request, true), $record, CaseSheetSignatures::signerName($request));
+        $record->update($data);
 
         return (new CompleteDentureRecordResource($record))->response();
     }

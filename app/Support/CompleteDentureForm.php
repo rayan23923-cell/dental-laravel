@@ -105,7 +105,9 @@ class CompleteDentureForm
                 'title' => 'Diagnosis and starting',
                 'fields' => [
                     ['key' => 'diagnosis_starting', 'label' => 'Diagnosis and starting', 'type' => 'textarea', 'width' => 'full'],
-                    ['key' => 'diagnosis_instructor_signature', 'label' => 'Signature of instructor', 'type' => 'text', 'width' => 'half',
+                    // 'text' → 'signature' (2026-08-30, by request) — see
+                    // App\Support\CaseSheetSignatures.
+                    ['key' => 'diagnosis_instructor_signature', 'label' => 'Signature of instructor', 'type' => 'signature', 'width' => 'half',
                         'help' => 'Instructor name/signature reference.'],
                 ],
             ],

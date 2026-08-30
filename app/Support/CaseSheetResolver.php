@@ -90,6 +90,12 @@ class CaseSheetResolver
             : null;
     }
 
+    /** The Eloquent model class behind a resource slug — used by `CaseSheetSignatures::allSignedForInstance()`. */
+    public static function modelFor(string $resource): ?string
+    {
+        return self::MODELS[$resource] ?? null;
+    }
+
     /**
      * A doctor+task's optional pre-instance draft, if one exists — see
      * this class's `resourceForTask()` doc comment. `whereNull('task_instances_id')`
