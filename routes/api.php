@@ -85,6 +85,30 @@ Route::name('api.')->prefix('v1')->group(function () {
     Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink'])->middleware('throttle:6,1');
     Route::post('/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:6,1');
 
+    // TEMPORARY (2026-08-30) — diagnosing why real web/API requests to
+    // /forgot-password never update password_reset_otps even though the
+    // exact same code, run via `php artisan tinker` (CLI), works
+    // correctly every time: this checks whether PHP-FPM (the real web
+    // process) is somehow seeing a different database than CLI does — a
+    // known cPanel gotcha (a server/vhost-level env override, e.g. an
+    // .htaccess `SetEnv`, that only applies to the web SAPI). REMOVE this
+    // route once the mystery is resolved — it has no auth and leaks
+    // config data by design, only for the duration of this investigation.
+    Route::get('/diag-2026-08-30', function () {
+        return response()->json([
+            'db_connection' => config('database.default'),
+            'db_database' => config('database.connections.'.config('database.default').'.database'),
+            'db_host' => config('database.connections.'.config('database.default').'.host'),
+            'doctor_count' => \App\Models\Doctor::count(),
+            'doctor_matches_test_email' => \App\Models\Doctor::where('email', 'hakamiraqi1994@gmail.com')->exists(),
+            'otp_row_for_test_email' => \Illuminate\Support\Facades\DB::table('password_reset_otps')
+                ->where('email', 'hakamiraqi1994@gmail.com')->first(),
+            'now' => now()->toDateTimeString(),
+            'app_env' => config('app.env'),
+            'log_level' => config('logging.channels.single.level'),
+        ]);
+    });
+
     // Public, unauthenticated — mirrors the original app's tv_patients.php
     // waiting-room display. See TvBoardController docblock for a real
     // display bug in the original app this endpoint deliberately does not
