@@ -138,170 +138,159 @@ const year = new Date().getFullYear();
 <template>
     <Head :title="clinic.name || 'Dental Clinic'" />
 
-    <div :dir="dir" class="min-h-screen bg-app text-content">
-        <!-- Ambient accent wash, matching the auth shell's own decoration. -->
-        <div aria-hidden="true" class="pointer-events-none fixed inset-0 overflow-hidden">
-            <div class="absolute -start-32 -top-32 h-96 w-96 rounded-full bg-accent/20 blur-3xl"></div>
-            <div class="absolute -bottom-40 -end-24 h-[28rem] w-[28rem] rounded-full bg-accent-deep/15 blur-3xl"></div>
-        </div>
+    <div :dir="dir" class="min-h-screen bg-white text-ig-near-black dark:bg-ig-black dark:text-ig-off-white">
+        <!-- Header -->
+        <header class="mx-auto flex max-w-7xl items-center justify-between gap-3 border-b border-ig-border-light px-4 py-4 dark:border-ig-border-dark sm:px-6 lg:px-8">
+            <div class="flex min-w-0 items-center gap-3">
+                <img
+                    v-if="clinic.universityLogoUrl || clinic.logoUrl"
+                    :src="clinic.universityLogoUrl || clinic.logoUrl"
+                    alt=""
+                    class="h-10 w-10 shrink-0 rounded-lg object-contain"
+                />
+                <BrandMark v-else :size="40" />
+                <div class="min-w-0">
+                    <p class="truncate text-sm font-semibold sm:text-base">
+                        {{ clinic.name || t.hero.fallbackTitle }}
+                    </p>
+                    <p v-if="clinic.collegeName" class="truncate text-xs text-ig-gray">{{ clinic.collegeName }}</p>
+                </div>
+            </div>
 
-        <div class="relative">
-            <!-- Header -->
-            <header class="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-5 sm:px-6 lg:px-8">
-                <div class="flex min-w-0 items-center gap-3">
-                    <img
-                        v-if="clinic.universityLogoUrl || clinic.logoUrl"
-                        :src="clinic.universityLogoUrl || clinic.logoUrl"
-                        alt=""
-                        class="h-11 w-11 shrink-0 rounded-xl object-contain"
-                    />
-                    <BrandMark v-else :size="44" />
-                    <div class="min-w-0">
-                        <p class="truncate text-sm font-semibold text-content sm:text-base">
-                            {{ clinic.name || t.hero.fallbackTitle }}
-                        </p>
-                        <p v-if="clinic.collegeName" class="truncate text-xs text-muted">{{ clinic.collegeName }}</p>
+            <div class="flex shrink-0 items-center gap-2 sm:gap-3">
+                <button
+                    type="button"
+                    @click="lang = lang === 'ar' ? 'en' : 'ar'"
+                    class="flex items-center gap-1.5 rounded-lg border border-ig-border-light px-3 py-2 text-sm font-medium transition hover:bg-ig-off-white dark:border-ig-border-dark dark:hover:bg-ig-dark-surface"
+                >
+                    <Icon name="language" size="text-[18px]" />
+                    <span class="hidden sm:inline">{{ t.langToggle }}</span>
+                </button>
+                <Link
+                    v-if="page.props.canLogin"
+                    :href="route('login')"
+                    class="flex items-center gap-1.5 rounded-lg bg-ig-blue px-4 py-2 text-sm font-semibold text-white transition hover:brightness-105"
+                >
+                    {{ t.nav.login }}
+                </Link>
+            </div>
+        </header>
+
+        <!-- Hero -->
+        <section class="mx-auto max-w-5xl px-4 pb-16 pt-10 text-center sm:px-6 sm:pb-24 sm:pt-16 lg:px-8">
+            <span class="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-ig-gradient">
+                <BrandMark :size="36" variant="mono" class="text-white" />
+            </span>
+
+            <h1 class="mt-6 text-3xl font-bold leading-tight tracking-tight sm:text-5xl">
+                {{ heroTitle }}
+            </h1>
+
+            <p v-if="clinic.description" class="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-ig-gray sm:text-lg">
+                {{ clinic.description }}
+            </p>
+
+            <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                <Link
+                    v-if="page.props.canLogin"
+                    :href="route('login')"
+                    class="flex w-full items-center justify-center gap-2 rounded-lg bg-ig-blue px-6 py-3 font-semibold text-white transition hover:brightness-105 sm:w-auto"
+                >
+                    {{ t.hero.ctaLogin }}
+                </Link>
+                <Link
+                    :href="route('tv-board')"
+                    class="flex w-full items-center justify-center gap-2 rounded-lg border border-ig-border-light px-6 py-3 font-semibold transition hover:bg-ig-off-white dark:border-ig-border-dark dark:hover:bg-ig-dark-surface sm:w-auto"
+                >
+                    <Icon name="tv" size="text-[20px]" />
+                    {{ t.hero.ctaBoard }}
+                </Link>
+            </div>
+        </section>
+
+        <!-- Stats -->
+        <section class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+                <div
+                    v-for="tile in statTiles"
+                    :key="tile.label"
+                    class="rounded-lg border border-ig-border-light p-5 text-center dark:border-ig-border-dark sm:p-6"
+                >
+                    <p class="text-3xl font-bold text-ig-blue sm:text-4xl">{{ tile.value }}</p>
+                    <p class="mt-1.5 text-xs text-ig-gray sm:text-sm">{{ tile.label }}</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features -->
+        <section class="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
+            <div class="mx-auto max-w-2xl text-center">
+                <h2 class="text-2xl font-bold sm:text-3xl">{{ t.features.title }}</h2>
+                <p class="mt-3 text-ig-gray">{{ t.features.subtitle }}</p>
+            </div>
+
+            <div class="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div
+                    v-for="item in t.features.items"
+                    :key="item.title"
+                    class="rounded-lg border border-ig-border-light p-6 transition hover:border-ig-gray dark:border-ig-border-dark"
+                >
+                    <span class="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-ig-blue text-white">
+                        <Icon :name="item.icon" size="text-[22px]" />
+                    </span>
+                    <h3 class="mt-4 font-semibold">{{ item.title }}</h3>
+                    <p class="mt-1.5 text-sm leading-relaxed text-ig-gray">{{ item.desc }}</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Contact / about -->
+        <section v-if="hasContactInfo" class="mx-auto max-w-4xl px-4 pb-20 sm:px-6 lg:px-8">
+            <div class="rounded-lg border border-ig-border-light p-7 dark:border-ig-border-dark sm:p-10">
+                <h2 class="text-xl font-bold">{{ t.about.title }}</h2>
+                <dl class="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
+                    <div v-if="clinic.workingHours" class="flex items-start gap-3">
+                        <Icon name="schedule" size="text-[20px]" class="mt-0.5 text-ig-blue" />
+                        <div>
+                            <dt class="text-xs font-medium uppercase tracking-wide text-ig-gray">{{ t.about.hours }}</dt>
+                            <dd class="mt-0.5 text-sm">{{ clinic.workingHours }}</dd>
+                        </div>
                     </div>
-                </div>
-
-                <div class="flex shrink-0 items-center gap-2 sm:gap-3">
-                    <button
-                        type="button"
-                        @click="lang = lang === 'ar' ? 'en' : 'ar'"
-                        class="flex items-center gap-1.5 rounded-xl border border-hairline/70 bg-surface px-3 py-2 text-sm font-medium text-content transition hover:border-accent/50"
-                    >
-                        <Icon name="language" size="text-[18px]" />
-                        <span class="hidden sm:inline">{{ t.langToggle }}</span>
-                    </button>
-                    <Link
-                        v-if="page.props.canLogin"
-                        :href="route('login')"
-                        class="flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-accent to-accent-deep px-4 py-2 text-sm font-semibold text-accent-fg shadow-glow transition hover:brightness-110"
-                    >
-                        <Icon name="login" size="text-[18px]" />
-                        {{ t.nav.login }}
-                    </Link>
-                </div>
-            </header>
-
-            <!-- Hero -->
-            <section class="mx-auto max-w-5xl px-4 pb-16 pt-8 text-center sm:px-6 sm:pb-24 sm:pt-14 lg:px-8">
-                <span class="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-accent">
-                    <Icon name="verified" size="text-[16px]" />
-                    {{ t.hero.eyebrow }}
-                </span>
-
-                <h1 class="mt-6 text-3xl font-bold leading-tight tracking-tight text-content sm:text-5xl">
-                    {{ heroTitle }}
-                </h1>
-
-                <p v-if="clinic.description" class="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-muted sm:text-lg">
-                    {{ clinic.description }}
-                </p>
-
-                <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                    <Link
-                        v-if="page.props.canLogin"
-                        :href="route('login')"
-                        class="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-accent to-accent-deep px-6 py-3.5 font-semibold text-accent-fg shadow-glow transition hover:brightness-110 sm:w-auto"
-                    >
-                        <Icon name="login" size="text-[20px]" />
-                        {{ t.hero.ctaLogin }}
-                    </Link>
-                    <Link
-                        :href="route('tv-board')"
-                        class="flex w-full items-center justify-center gap-2 rounded-xl border border-hairline bg-surface px-6 py-3.5 font-semibold text-content transition hover:border-accent/50 hover:bg-surface-2 sm:w-auto"
-                    >
-                        <Icon name="tv" size="text-[20px]" />
-                        {{ t.hero.ctaBoard }}
-                    </Link>
-                </div>
-            </section>
-
-            <!-- Stats -->
-            <section class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-                <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-                    <div
-                        v-for="tile in statTiles"
-                        :key="tile.label"
-                        class="rounded-card border border-hairline/70 bg-surface p-5 text-center shadow-panel sm:p-6"
-                    >
-                        <p class="text-3xl font-bold text-accent sm:text-4xl">{{ tile.value }}</p>
-                        <p class="mt-1.5 text-xs text-muted sm:text-sm">{{ tile.label }}</p>
+                    <div v-if="clinic.address" class="flex items-start gap-3">
+                        <Icon name="location_on" size="text-[20px]" class="mt-0.5 text-ig-blue" />
+                        <div>
+                            <dt class="text-xs font-medium uppercase tracking-wide text-ig-gray">{{ t.about.address }}</dt>
+                            <dd class="mt-0.5 text-sm">{{ clinic.address }}</dd>
+                        </div>
                     </div>
-                </div>
-            </section>
-
-            <!-- Features -->
-            <section class="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
-                <div class="mx-auto max-w-2xl text-center">
-                    <h2 class="text-2xl font-bold text-content sm:text-3xl">{{ t.features.title }}</h2>
-                    <p class="mt-3 text-muted">{{ t.features.subtitle }}</p>
-                </div>
-
-                <div class="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <div
-                        v-for="item in t.features.items"
-                        :key="item.title"
-                        class="rounded-card border border-hairline/70 bg-surface p-6 shadow-panel transition hover:border-accent/40"
-                    >
-                        <span class="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-accent to-accent-deep text-accent-fg shadow-glow">
-                            <Icon :name="item.icon" size="text-[22px]" />
-                        </span>
-                        <h3 class="mt-4 font-semibold text-content">{{ item.title }}</h3>
-                        <p class="mt-1.5 text-sm leading-relaxed text-muted">{{ item.desc }}</p>
+                    <div v-if="clinic.phone" class="flex items-start gap-3">
+                        <Icon name="call" size="text-[20px]" class="mt-0.5 text-ig-blue" />
+                        <div>
+                            <dt class="text-xs font-medium uppercase tracking-wide text-ig-gray">{{ t.about.phone }}</dt>
+                            <dd class="mt-0.5 text-sm" dir="ltr" style="unicode-bidi: isolate;">{{ clinic.phone }}</dd>
+                        </div>
                     </div>
-                </div>
-            </section>
+                    <div v-if="clinic.email" class="flex items-start gap-3">
+                        <Icon name="mail" size="text-[20px]" class="mt-0.5 text-ig-blue" />
+                        <div>
+                            <dt class="text-xs font-medium uppercase tracking-wide text-ig-gray">{{ t.about.email }}</dt>
+                            <dd class="mt-0.5 text-sm" dir="ltr" style="unicode-bidi: isolate;">{{ clinic.email }}</dd>
+                        </div>
+                    </div>
+                    <div v-if="clinic.website" class="flex items-start gap-3 sm:col-span-2">
+                        <Icon name="language" size="text-[20px]" class="mt-0.5 text-ig-blue" />
+                        <div>
+                            <dt class="text-xs font-medium uppercase tracking-wide text-ig-gray">{{ t.about.website }}</dt>
+                            <dd class="mt-0.5 text-sm" dir="ltr" style="unicode-bidi: isolate;">{{ clinic.website }}</dd>
+                        </div>
+                    </div>
+                </dl>
+            </div>
+        </section>
 
-            <!-- Contact / about -->
-            <section v-if="hasContactInfo" class="mx-auto max-w-4xl px-4 pb-20 sm:px-6 lg:px-8">
-                <div class="rounded-card border border-hairline/70 bg-surface p-7 shadow-panel sm:p-10">
-                    <h2 class="text-xl font-bold text-content">{{ t.about.title }}</h2>
-                    <dl class="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
-                        <div v-if="clinic.workingHours" class="flex items-start gap-3">
-                            <Icon name="schedule" size="text-[20px]" class="mt-0.5 text-accent" />
-                            <div>
-                                <dt class="text-xs font-medium uppercase tracking-wide text-muted">{{ t.about.hours }}</dt>
-                                <dd class="mt-0.5 text-sm text-content">{{ clinic.workingHours }}</dd>
-                            </div>
-                        </div>
-                        <div v-if="clinic.address" class="flex items-start gap-3">
-                            <Icon name="location_on" size="text-[20px]" class="mt-0.5 text-accent" />
-                            <div>
-                                <dt class="text-xs font-medium uppercase tracking-wide text-muted">{{ t.about.address }}</dt>
-                                <dd class="mt-0.5 text-sm text-content">{{ clinic.address }}</dd>
-                            </div>
-                        </div>
-                        <div v-if="clinic.phone" class="flex items-start gap-3">
-                            <Icon name="call" size="text-[20px]" class="mt-0.5 text-accent" />
-                            <div>
-                                <dt class="text-xs font-medium uppercase tracking-wide text-muted">{{ t.about.phone }}</dt>
-                                <dd class="mt-0.5 text-sm text-content" dir="ltr" style="unicode-bidi: isolate;">{{ clinic.phone }}</dd>
-                            </div>
-                        </div>
-                        <div v-if="clinic.email" class="flex items-start gap-3">
-                            <Icon name="mail" size="text-[20px]" class="mt-0.5 text-accent" />
-                            <div>
-                                <dt class="text-xs font-medium uppercase tracking-wide text-muted">{{ t.about.email }}</dt>
-                                <dd class="mt-0.5 text-sm text-content" dir="ltr" style="unicode-bidi: isolate;">{{ clinic.email }}</dd>
-                            </div>
-                        </div>
-                        <div v-if="clinic.website" class="flex items-start gap-3 sm:col-span-2">
-                            <Icon name="language" size="text-[20px]" class="mt-0.5 text-accent" />
-                            <div>
-                                <dt class="text-xs font-medium uppercase tracking-wide text-muted">{{ t.about.website }}</dt>
-                                <dd class="mt-0.5 text-sm text-content" dir="ltr" style="unicode-bidi: isolate;">{{ clinic.website }}</dd>
-                            </div>
-                        </div>
-                    </dl>
-                </div>
-            </section>
-
-            <!-- Footer -->
-            <footer class="border-t border-hairline/70 px-4 py-8 text-center text-xs text-muted sm:px-6 lg:px-8">
-                © {{ year }} {{ clinic.name || t.hero.fallbackTitle }} — {{ t.footer.rights }}
-            </footer>
-        </div>
+        <!-- Footer -->
+        <footer class="border-t border-ig-border-light px-4 py-8 text-center text-xs text-ig-gray dark:border-ig-border-dark sm:px-6 lg:px-8">
+            © {{ year }} {{ clinic.name || t.hero.fallbackTitle }} — {{ t.footer.rights }}
+        </footer>
     </div>
 </template>

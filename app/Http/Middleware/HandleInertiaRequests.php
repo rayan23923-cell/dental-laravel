@@ -69,6 +69,13 @@ class HandleInertiaRequests extends Middleware
                 return [
                     'name' => $settings->clinic_name,
                     'logo_url' => $settings->logoUrl(),
+                    // College/university identity — added for the
+                    // Instagram-style login screen (GuestLayout.vue,
+                    // 2026-08-30), which shows the same academic branding
+                    // Welcome.vue's own `clinic` prop already carries.
+                    'college_name' => $settings->college_name,
+                    'university_name' => $settings->university_name,
+                    'university_logo_url' => $settings->universityLogoUrl(),
                 ];
             }),
             // The doctor navbar carries SessionHelper::renderSwitcherWidget()
