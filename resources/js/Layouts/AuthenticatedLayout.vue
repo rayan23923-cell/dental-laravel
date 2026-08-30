@@ -136,7 +136,7 @@ const settingsLinks = computed(() => [
 // One class list for every nav tile — active tiles take the accent gradient,
 // the rest stay quiet until hovered.
 const tileClass = (active) => [
-    'flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition',
+    'flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition',
     active
         ? 'bg-gradient-to-br from-accent to-accent-deep text-accent-fg shadow-glow'
         : 'text-muted hover:bg-surface-2 hover:text-content',
@@ -146,7 +146,7 @@ const tileClass = (active) => [
 <template>
     <div class="min-h-screen bg-gray-100">
         <div class="bg-app px-3 pb-3 pt-3 sm:px-6 lg:px-8">
-            <nav class="mx-auto max-w-7xl rounded-card border border-hairline/70 bg-surface shadow-panel">
+            <nav class="mx-auto max-w-[110rem] rounded-card border border-hairline/70 bg-surface shadow-panel">
                 <div class="flex items-center gap-3 px-3 py-2.5 sm:px-4">
                     <!-- Brand -->
                     <Link :href="route('dashboard')" class="flex shrink-0 items-center gap-2.5">
@@ -164,13 +164,28 @@ const tileClass = (active) => [
 
                     <div class="hidden h-8 w-px shrink-0 bg-hairline sm:block"></div>
 
-                    <!-- Tool strip. Scrolls horizontally rather than wrapping,
-                         like the unit panel's instrument row. -->
-                    <div class="hide-scrollbar hidden flex-1 items-center gap-1 overflow-x-auto sm:flex">
+                    <!-- Tool strip — grouped into the same three clusters as
+                         the mobile menu's labelled sections (عام / إدارة
+                         المرضى / إدارة), separated by hairline dividers
+                         instead of section headings (no room for both a
+                         label and every tile on one row). Wraps onto a
+                         second line rather than scrolling horizontally: an
+                         `overflow-x-auto` strip with a hidden scrollbar (the
+                         previous approach) silently clips whatever doesn't
+                         fit with no scrollbar or edge cue to show more
+                         exists — on anything narrower than a very wide
+                         monitor that meant the patients/admin dropdowns
+                         were unreachable, not just visually uneven. Wrapping
+                         means every tile is always on-screen, same guarantee
+                         the mobile grid already gives, just as a second row
+                         instead of a labelled section. -->
+                    <div class="hidden flex-1 flex-wrap items-center gap-1.5 sm:flex">
                         <Link v-for="link in primaryLinks" :key="link.href" :href="link.href" :class="tileClass(link.active)">
                             <Icon :name="link.icon" size="text-[18px]" />
                             <span class="whitespace-nowrap">{{ link.label }}</span>
                         </Link>
+
+                        <div class="h-6 w-px shrink-0 bg-hairline"></div>
 
                         <Dropdown align="left" width="56">
                             <template #trigger>
@@ -187,35 +202,39 @@ const tileClass = (active) => [
                             </template>
                         </Dropdown>
 
-                        <Dropdown v-if="isAdmin" align="left" width="56">
-                            <template #trigger>
-                                <button type="button" :class="tileClass(isStructureActive)">
-                                    <Icon name="database" size="text-[18px]" />
-                                    <span class="whitespace-nowrap">البيانات الأساسية</span>
-                                    <Icon name="expand_more" size="text-[16px]" />
-                                </button>
-                            </template>
-                            <template #content>
-                                <DropdownLink v-for="link in structureLinks" :key="link.href" :href="link.href">
-                                    {{ link.label }}
-                                </DropdownLink>
-                            </template>
-                        </Dropdown>
+                        <template v-if="isAdmin">
+                            <div class="h-6 w-px shrink-0 bg-hairline"></div>
 
-                        <Dropdown v-if="isAdmin" align="left" width="56">
-                            <template #trigger>
-                                <button type="button" :class="tileClass(isSettingsGroupActive)">
-                                    <Icon name="settings" size="text-[18px]" />
-                                    <span class="whitespace-nowrap">الإعدادات</span>
-                                    <Icon name="expand_more" size="text-[16px]" />
-                                </button>
-                            </template>
-                            <template #content>
-                                <DropdownLink v-for="link in settingsLinks" :key="link.href" :href="link.href">
-                                    {{ link.label }}
-                                </DropdownLink>
-                            </template>
-                        </Dropdown>
+                            <Dropdown align="left" width="56">
+                                <template #trigger>
+                                    <button type="button" :class="tileClass(isStructureActive)">
+                                        <Icon name="database" size="text-[18px]" />
+                                        <span class="whitespace-nowrap">البيانات الأساسية</span>
+                                        <Icon name="expand_more" size="text-[16px]" />
+                                    </button>
+                                </template>
+                                <template #content>
+                                    <DropdownLink v-for="link in structureLinks" :key="link.href" :href="link.href">
+                                        {{ link.label }}
+                                    </DropdownLink>
+                                </template>
+                            </Dropdown>
+
+                            <Dropdown align="left" width="56">
+                                <template #trigger>
+                                    <button type="button" :class="tileClass(isSettingsGroupActive)">
+                                        <Icon name="settings" size="text-[18px]" />
+                                        <span class="whitespace-nowrap">الإعدادات</span>
+                                        <Icon name="expand_more" size="text-[16px]" />
+                                    </button>
+                                </template>
+                                <template #content>
+                                    <DropdownLink v-for="link in settingsLinks" :key="link.href" :href="link.href">
+                                        {{ link.label }}
+                                    </DropdownLink>
+                                </template>
+                            </Dropdown>
+                        </template>
                     </div>
 
                     <!-- Account -->
@@ -326,13 +345,3 @@ const tileClass = (active) => [
         </main>
     </div>
 </template>
-
-<style scoped>
-/* The nav strip scrolls but shouldn't show a scrollbar over the panel. */
-.hide-scrollbar {
-    scrollbar-width: none;
-}
-.hide-scrollbar::-webkit-scrollbar {
-    display: none;
-}
-</style>
