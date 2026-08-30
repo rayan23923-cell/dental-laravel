@@ -6748,6 +6748,19 @@ was sufficient there.
 
 Verified: `php -l`.
 
+**Confirmed working, same day**: a real request through the actual
+Flutter app produced a fresh, randomly-generated code (not a leftover
+hardcoded test value) arriving by email within about a minute — the
+full pipeline (throttle check → code generation → database write →
+`Notifier::send()` → SMTP delivery) genuinely works end-to-end now.
+Closes out this entire investigation, across three commits over one
+day: the first two (`Notifier::send()` routing, then logging/log-level
+fixes) were real, worthwhile improvements to this app's error handling
+and observability, but the actual reported symptom — no email ever
+arriving — was caused entirely by the throttle bug fixed in this
+entry's two commits, which the earlier two could never have caught on
+their own.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the
