@@ -136,6 +136,7 @@ Route::middleware('auth:doctor')->group(function () {
     Route::put('/doctor/profile/password', [DoctorProfileController::class, 'updatePassword'])->name('doctor.profile.password');
     Route::put('/doctor/task-instances/{taskInstance}', [DoctorTaskInstanceController::class, 'update'])->name('doctor.task-instances.update');
     Route::post('/doctor/task-instances/{taskInstance}/confirm-paper', [DoctorTaskInstanceController::class, 'confirmPaper'])->name('doctor.task-instances.confirm-paper');
+    Route::get('/doctor/task-instances/{taskInstance}/qr', [DoctorTaskInstanceController::class, 'qr'])->name('doctor.task-instances.qr');
 
     // The remaining three items of the original's doctor navbar
     // (doctor_navbar.php), plus its academic-session switcher.

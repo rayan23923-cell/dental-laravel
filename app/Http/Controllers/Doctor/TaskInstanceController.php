@@ -4,12 +4,33 @@ namespace App\Http\Controllers\Doctor;
 
 use App\Http\Controllers\Controller;
 use App\Models\TaskInstance;
+use App\Support\QrCodeFactory;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 
 class TaskInstanceController extends Controller
 {
+    /**
+     * Doctor-guarded twin of `TaskInstanceController::qr()` (the
+     * admin/staff one, no ownership check needed there since any admin can
+     * open any instance) — same payload, same `Api\TaskInstanceQrController::show()`
+     * shape, but scoped to the doctor's own instance like `update()`/
+     * `confirmPaper()` above. Lets "المهام المطلوبة حسب الأقسام"
+     * (`Doctor/RequiredTasks.vue`) show a QR per case the same way the
+     * Flutter app's "مهامي" screen already does for a started slot.
+     */
+    public function qr(TaskInstance $taskInstance): Response
+    {
+        $doctor = Auth::guard('doctor')->user();
+        abort_unless($taskInstance->doctor_id === $doctor->id, 403);
+
+        return QrCodeFactory::pngResponse(
+            QrCodeFactory::payload('task_instance', $taskInstance->id),
+        );
+    }
+
     public function update(Request $request, TaskInstance $taskInstance): RedirectResponse
     {
         $doctor = Auth::guard('doctor')->user();

@@ -1,5 +1,7 @@
 <script setup>
 import DoctorLayout from '@/Layouts/DoctorLayout.vue';
+import Modal from '@/Components/Modal.vue';
+import SecondaryButton from '@/Components/SecondaryButton.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import Icon from '@/Components/Icon.vue';
@@ -35,6 +37,29 @@ const fmt = (v) => (v ? new Date(v).toLocaleDateString() : null);
 const confirmPaper = (slot) => {
     if (!confirm('تأكيد أن هذه الحالة موثّقة على نسخة ورقية؟')) return;
     router.post(route('doctor.task-instances.confirm-paper', slot.instance_id), {}, { preserveScroll: true });
+};
+
+// "رمز QR" (2026-08-30) — mirrors the Flutter app's "مهامي" screen: every
+// slot shows a code, even an unstarted one, since scanning it is how a
+// senior/admin *starts* the task for this doctor (the "pending_task" QR,
+// same one the standalone "رموز المهام المعلقة" page already shows). Every
+// remaining unstarted slot of the same task shares the identical code —
+// there's no finer-grained identity until one is actually claimed (see
+// `TaskStarter`'s pending-slot pooling) — so the QR is keyed by task, not
+// by slot, until `slot.instance_id` exists.
+const showingQr = ref(null);
+const openQr = (task, slot) => {
+    showingQr.value = slot.instance_id
+        ? {
+              imageUrl: route('doctor.task-instances.qr', slot.instance_id),
+              title: 'رمز الحالة',
+              caption: 'يُمسح هذا الرمز لإعادة فتح هذه الحالة مباشرة.',
+          }
+        : {
+              imageUrl: route('doctor.pending-qr.image', task.id),
+              title: 'رمز بدء المهمة',
+              caption: 'يمسح المشرف هذا الرمز لبدء هذه المهمة لك.',
+          };
 };
 </script>
 
@@ -103,12 +128,21 @@ const confirmPaper = (slot) => {
                                      comment for why this never starts the task
                                      itself (still requires the normal QR-scan/
                                      screening-gated flow). -->
-                                <Link
-                                    :href="slot.instance_id ? route('doctor.case-sheet', slot.instance_id) : route('doctor.case-sheet.for-task', task.id)"
-                                    class="mt-2 block rounded bg-indigo-600 px-2 py-1 text-center text-xs font-medium text-white hover:bg-indigo-700"
-                                >
-                                    <Icon name="description" class="ml-1" />فتح النموذج
-                                </Link>
+                                <div class="mt-2 grid grid-cols-2 gap-1">
+                                    <Link
+                                        :href="slot.instance_id ? route('doctor.case-sheet', slot.instance_id) : route('doctor.case-sheet.for-task', task.id)"
+                                        class="block rounded bg-indigo-600 px-2 py-1 text-center text-xs font-medium text-white hover:bg-indigo-700"
+                                    >
+                                        <Icon name="description" class="ml-1" />فتح النموذج
+                                    </Link>
+                                    <button
+                                        type="button"
+                                        @click="openQr(task, slot)"
+                                        class="block rounded bg-gray-700 px-2 py-1 text-center text-xs font-medium text-white hover:bg-gray-800"
+                                    >
+                                        <Icon name="qr_code_2" class="ml-1" />رمز QR
+                                    </button>
+                                </div>
 
                                 <!-- "تأكيد أنه ورقي" — only meaningful once
                                      the case has a real instance (a
@@ -131,5 +165,20 @@ const confirmPaper = (slot) => {
                 </div>
             </div>
         </div>
+
+        <Modal :show="showingQr !== null" @close="showingQr = null">
+            <div class="p-6">
+                <h3 class="text-lg font-medium text-gray-900"><Icon name="qr_code_2" class="ml-1" />{{ showingQr?.title }}</h3>
+                <div class="mt-4 flex justify-center rounded-2xl bg-gray-50 p-4">
+                    <img v-if="showingQr" :src="showingQr.imageUrl" alt="QR" class="h-56 w-56" />
+                </div>
+                <p class="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-center text-sm text-amber-800">
+                    {{ showingQr?.caption }}
+                </p>
+                <div class="mt-6 flex justify-end">
+                    <SecondaryButton @click="showingQr = null">إغلاق</SecondaryButton>
+                </div>
+            </div>
+        </Modal>
     </DoctorLayout>
 </template>
