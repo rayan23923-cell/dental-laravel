@@ -210,7 +210,8 @@ defineExpose({ start, stop });
                 class="rounded-md px-4 py-2 text-sm font-medium"
                 :class="torchOn ? 'bg-amber-400 text-gray-900' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
             >
-                {{ torchOn ? '<Icon name="flashlight_on" class="ml-1" />إطفاء الفلاش' : '<Icon name="flashlight_on" class="ml-1" />تشغيل الفلاش' }}
+                <Icon :name="torchOn ? 'flashlight_off' : 'flashlight_on'" class="ml-1" />
+                {{ torchOn ? 'إطفاء الفلاش' : 'تشغيل الفلاش' }}
             </button>
 
             <button
