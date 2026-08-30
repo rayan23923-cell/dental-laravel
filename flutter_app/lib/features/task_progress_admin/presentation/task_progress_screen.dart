@@ -950,6 +950,24 @@ class _TaskSlotTile extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text('الدرجة: ${card.grade}'),
               ],
+              // "كل التواقيع جاهزة" (2026-08-30) — mirrors the web's
+              // matching badge (TaskProgress/Index.vue) — see
+              // TaskSlotCard.allSigned's doc comment. Never auto-completes
+              // anything, just a hint next to the complete button below.
+              if (card.allSigned && card.status == 'assigned') ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade100,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '✓ كل التواقيع جاهزة',
+                    style: TextStyle(color: Colors.green.shade800, fontWeight: FontWeight.w600, fontSize: 12),
+                  ),
+                ),
+              ],
             ],
           ),
           if (card.notes != null && card.notes!.isNotEmpty)
@@ -970,6 +988,9 @@ class _TaskSlotTile extends StatelessWidget {
               if (card.status == 'assigned')
                 TextButton(
                   onPressed: () => screen._completeTask(card),
+                  style: card.allSigned
+                      ? TextButton.styleFrom(backgroundColor: Colors.green.shade50, foregroundColor: Colors.green.shade800)
+                      : null,
                   child: const Text('تأشير كمكتملة'),
                 ),
               if (card.instanceId != null &&

@@ -5006,10 +5006,29 @@ needed to `buildSubmitPayload()`/`_coerce()`: a signature field's value
 is a plain string exactly like `'text'`, so it already flows through
 both the flat and grouped-subkey paths unmodified.
 
-Not built this session: a matching `all_signed` badge on the Flutter
-`task_progress_admin` screen (the backend field is already there in the
-same JSON `TaskProgressGroupSummary` produces for both web and API — this
-is a UI-only gap, not a missing endpoint).
-
 Verified: `flutter analyze` on `case_sheet_field.dart` and
 `dynamic_section_form.dart` (no issues).
+
+## The `all_signed` badge, now also on the Flutter Task Progress screen (2026-08-30)
+
+Follow-up the same day: a live screenshot of a Prosthodontics record with
+all 10 signatures filled in showed no hint on the Flutter Task Progress
+screen — this session's earlier entry above explicitly noted that gap
+("UI-only, not a missing endpoint," since `TaskProgressGroupSummary`
+already backs both web and API). Closed it:
+
+- `TaskSlotCard.allSigned` (`task_progress_group.dart`) — new `bool`
+  field reading the `all_signed` key `TaskProgressGroupSummary` already
+  puts in every task-instance card's JSON (`dental_laravel/README.md`'s
+  matching entry), defaulting `false` for older cached responses.
+- `task_progress_screen.dart`'s `_TaskCard` — a green "✓ كل التواقيع
+  جاهزة" pill next to the status chip when `card.allSigned &&
+  card.status == 'assigned'`, and the existing "تأشير كمكتملة"
+  `TextButton` gets a green-tinted style in that same state — mirrors
+  `TaskProgress/Index.vue`'s web badge/button-highlight exactly. Purely
+  a visibility hint: `_completeTask()` is completely unchanged, so
+  nothing here auto-completes anything.
+
+Verified: `flutter analyze` on both touched files (no issues). Not
+verified against a real device in this session — the user will confirm
+on next preview after the next Codemagic build + AltStore reinstall.

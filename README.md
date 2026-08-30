@@ -6874,9 +6874,9 @@ as options) as a "✓ كل التواقيع جاهزة" badge plus a highlighted
 completely unchanged; this is purely a visibility hint on top of it.
 Since `TaskProgressGroupSummary` already backs both the web page and
 `Api\TaskProgressController::group()`, the Flutter task-progress-admin
-screen gets the same `all_signed` field in its JSON with no separate API
-work needed (no Flutter UI change made yet for this specific badge — the
-data is there for a future pass).
+screen got the same `all_signed` field in its JSON with no separate API
+work needed — its own matching badge (same day, after a live screenshot
+showed the gap) is documented in `flutter_app/README.md`.
 
 Verified: `php -l` on `CaseSheetSignatures.php`, `CaseSheetResolver.php`,
 all 8 `*Form.php` layouts, all 16 touched controllers, and

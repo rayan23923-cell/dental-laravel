@@ -73,6 +73,7 @@ class TaskSlotCard {
     this.grade,
     this.startedByName,
     this.paperCaseSheetConfirmedAt,
+    this.allSigned = false,
   });
 
   factory TaskSlotCard.fromJson(Map<String, dynamic> json) => TaskSlotCard(
@@ -92,6 +93,7 @@ class TaskSlotCard {
         grade: double.tryParse(json['grade']?.toString() ?? ''),
         startedByName: json['started_by'] as String?,
         paperCaseSheetConfirmedAt: json['paper_case_sheet_confirmed_at'] as String?,
+        allSigned: json['all_signed'] as bool? ?? false,
       );
 
   final int slot;
@@ -115,6 +117,15 @@ class TaskSlotCard {
   /// this case is documented on paper; purely informational, never gates
   /// the electronic case-sheet flow. Null means "not confirmed."
   final String? paperCaseSheetConfirmedAt;
+
+  /// "كل التواقيع جاهزة" (2026-08-30) — every `*_signature` field on the
+  /// linked case-sheet record (`App\Support\CaseSheetSignatures::allSigned()`)
+  /// is filled in. Purely a hint next to the existing complete button on
+  /// an `assigned` slot; never auto-completes anything (mirrors
+  /// `TaskProgress/Index.vue`'s web badge — see that file's matching
+  /// comment and `dental_laravel/README.md`'s "Auto-captured case-sheet
+  /// signatures" entry for the full design).
+  final bool allSigned;
 }
 
 class TaskProgressDoctorRow {
