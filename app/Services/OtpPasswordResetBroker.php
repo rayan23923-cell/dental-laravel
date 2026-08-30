@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Notifications\OtpPasswordReset;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Replaces the emailed reset *link* (Laravel's stock `Password` facade /
@@ -48,16 +49,41 @@ class OtpPasswordResetBroker
     /**
      * Generates and emails a fresh code, replacing any still-outstanding
      * one for this address — unless one was just issued within
-     * {@see THROTTLE_SECONDS}, in which case this is a silent no-op (the
-     * caller shows the same neutral "sent" response either way, so this
-     * never reveals whether a throttle or a missing account was the
-     * reason nothing new went out).
+     * {@see THROTTLE_SECONDS}, in which case this is a silent no-op *to
+     * the caller* (the client always gets the same neutral "sent"
+     * response, so this never reveals whether a throttle or a missing
+     * account was the reason nothing new went out).
+     *
+     * **Logging added (2026-08-30)**, after a production report of "no
+     * email arrives" that turned out to leave *zero* trace in
+     * storage/logs/laravel.log on every attempt, across two rounds of
+     * fixes — this throttle branch was the one remaining silent path:
+     * unlike a missing account (`Api\PasswordResetController::sendResetLink()`'s
+     * own log) or a `Notifier::send()` failure (already logged), hitting
+     * the throttle here logged nothing at all, making a same-minute
+     * repeat test indistinguishable from a genuine delivery failure.
+     *
+     * Deliberately `Log::warning()`, not `Log::debug()`, for all three of
+     * these new log lines (here and in `sendResetLink()`) — a production
+     * environment commonly sets `LOG_LEVEL` above `debug` to cut noise,
+     * which would silently drop every `debug()` call before it's ever
+     * written, regardless of which code path actually ran. That would
+     * reproduce the exact "log stays empty no matter what" symptom this
+     * investigation is chasing all by itself, independent of anything
+     * else — `Notifier::send()`'s own failure log already uses
+     * `warning()`, so matching it is the safer bet until `LOG_LEVEL` is
+     * confirmed rather than assumed.
      */
     public static function send(string $email, string $guard, object $notifiable): void
     {
         $existing = DB::table('password_reset_otps')->where('email', $email)->where('guard', $guard)->first();
 
         if ($existing?->created_at && now()->diffInSeconds($existing->created_at) < self::THROTTLE_SECONDS) {
+            Log::warning('Password reset code throttled — one was already issued in the last '.self::THROTTLE_SECONDS.'s', [
+                'email' => $email,
+                'guard' => $guard,
+            ]);
+
             return;
         }
 
@@ -72,7 +98,12 @@ class OtpPasswordResetBroker
             ]
         );
 
-        Notifier::send($notifiable, new OtpPasswordReset($code));
+        $sent = Notifier::send($notifiable, new OtpPasswordReset($code));
+
+        Log::warning($sent ? 'Password reset code notification dispatched' : 'Password reset code notification not sent (Notifier::send() returned false)', [
+            'email' => $email,
+            'guard' => $guard,
+        ]);
     }
 
     /** Does not consume the code — the caller calls {@see forget()} only after actually changing the password. */

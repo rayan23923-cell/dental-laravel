@@ -6618,6 +6618,51 @@ non-existent test address) can only be confirmed by checking the
 production log the next time this is tested, which this fix now
 actually populates either way.
 
+## OTP email still silent after the logging fix — two more gaps closed (2026-08-30)
+
+Tested live from an iPhone after the entry above shipped: the app
+showed the normal success message, but `storage/logs/laravel.log`
+stayed **completely empty** — no warning, no debug entry, nothing.
+Ruled out step by step with the user rather than guessing: not in
+spam/junk; `ClinicSetting.enable_notifications` confirmed **on** in the
+admin panel (so `Notifier::send()`'s own gate wasn't silently
+swallowing it, as first suspected). That left exactly one remaining
+code path that could produce total silence:
+
+**Gap #1 — the resend throttle logged nothing at all.**
+`OtpPasswordResetBroker::send()`'s "already issued a code in the last
+60 seconds" branch was a bare `return;` — no log line existed for it
+at all, unlike the "unknown email" and `Notifier::send()`-failure
+branches either side of it, which already logged something. A
+same-minute repeat test (very likely, across several rounds of
+"try again" during this exact debugging session) would silently no-op
+here with zero trace, indistinguishable from a real delivery failure.
+Added a log line to this branch so it's no longer a silent gap.
+
+**Gap #2 — everything was logged at `debug` level.**
+Realized while adding gap #1's fix: every diagnostic log added so far
+today (this entry's fix, and the two from the entry above) used
+`Log::debug()`. If production's `.env` sets `LOG_LEVEL` above `debug`
+(common in production to cut noise — `config/logging.php`'s own
+fallback is `debug`, but that's only the *default when unset*, not
+proof of what this server's `.env` actually has, which isn't in the
+repo to check), every one of those calls would be **silently dropped
+before ever reaching the log file** — reproducing the exact "log stays
+empty no matter which branch actually ran" symptom entirely on its
+own, independent of the real underlying cause. `Notifier::send()`'s
+own failure log already uses `Log::warning()` — matching that level
+for all three new diagnostic lines instead of assuming `debug` would
+be captured.
+
+With both gaps closed, the next test is conclusive one way or another:
+either a log line finally appears (revealing which of the four possible
+paths actually ran), or the log stays empty and `LOG_LEVEL` itself
+needs checking directly in production's `.env` — at which point the
+mystery moves from "which code path" to "is anything from this app
+being logged at all," a strictly narrower question.
+
+Verified: `php -l` on both touched files.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the

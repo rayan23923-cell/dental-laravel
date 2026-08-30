@@ -51,7 +51,13 @@ class PasswordResetController extends Controller
             // apart from "this address doesn't match any account" by
             // checking storage/logs/laravel.log, without weakening the
             // anti-enumeration guarantee for anyone who can't read it.
-            Log::debug('Password reset requested for unknown email', ['email' => $validated['email']]);
+            // `warning`, not `debug` (2026-08-30) — see
+            // `OtpPasswordResetBroker::send()`'s matching comment for why:
+            // production may well have `LOG_LEVEL` set above `debug`,
+            // which would silently drop this (and did, on the first two
+            // rounds of live testing — the log stayed empty regardless of
+            // which branch actually ran).
+            Log::warning('Password reset requested for unknown email', ['email' => $validated['email']]);
         }
 
         return response()->json(['message' => 'إذا كان هذا البريد مسجلاً لدينا، فسيصلك رمز التحقق خلال دقائق.']);
