@@ -49,21 +49,20 @@ class SurgeryForm
                     ['key' => 'patient_occupation', 'label' => 'Occupation', 'type' => 'text'],
                 ],
             ],
+            // 'student_name'/'grade_group'/'surgery_date_field'/'start_time'/
+            // 'status'/'staff_signature' removed (2026-08-30, by explicit
+            // request — "ازل student name group/grade date start time
+            // status staff signature"). Note 'grade_group' was
+            // deliberately *kept* the day before (confirmed with the user
+            // it's one combined Grade+Group column, and removing it would
+            // also drop Grade tracking) — this is a direct, later
+            // instruction overriding that earlier call, not a
+            // contradiction to reconcile. 'surgery_type' is the only
+            // field from this section the user did not name; it stays.
             [
                 'title' => 'Case',
                 'fields' => [
-                    ['key' => 'student_name', 'label' => 'Student Name', 'type' => 'text'],
-                    ['key' => 'grade_group', 'label' => 'Grade / Group', 'type' => 'text'],
-                    ['key' => 'surgery_date_field', 'label' => 'Date', 'type' => 'date'],
-                    ['key' => 'start_time', 'label' => 'Start time', 'type' => 'time'],
                     ['key' => 'surgery_type', 'label' => 'Surgery type', 'type' => 'text'],
-                    ['key' => 'staff_signature', 'label' => 'Staff signature', 'type' => 'text'],
-                    ['key' => 'status', 'label' => 'Status', 'type' => 'select', 'options' => [
-                        ['value' => 'planned', 'label' => 'Planned'],
-                        ['value' => 'in_progress', 'label' => 'In progress'],
-                        ['value' => 'completed', 'label' => 'Completed'],
-                        ['value' => 'cancelled', 'label' => 'Cancelled'],
-                    ]],
                 ],
             ],
             [
@@ -85,22 +84,31 @@ class SurgeryForm
                     ['key' => 'past_dental_history', 'label' => 'Past dental history', 'type' => 'textarea', 'width' => 'full'],
                 ],
             ],
+            // Yes/No fields switched from 'select' (a dropdown — tap, wait
+            // for the picker, tap "Yes"/"No") to 'radio' (2026-08-30, by
+            // request — "حول القائمة المنسدلة الى جيك بوكس للسرعة
+            // والسهولة", convert the dropdown to a faster tap-to-select
+            // control): both options are already visible inline with one
+            // tap to choose, no picker round-trip. Matches this app's own
+            // existing convention for a mutually-exclusive Yes/No choice
+            // (e.g. Prevention's dental-behaviour questions) — `options`
+            // stay exactly `self::YN`, only `type` changes.
             [
                 'title' => 'Medical History',
                 'fields' => array_merge(
                     array_map(
-                        fn ($key, $label) => ['key' => $key, 'label' => $label, 'type' => 'select', 'options' => self::YN],
+                        fn ($key, $label) => ['key' => $key, 'label' => $label, 'type' => 'radio', 'options' => self::YN],
                         array_keys(self::MEDICAL_HISTORY),
                         self::MEDICAL_HISTORY
                     ),
                     [
-                        ['key' => 'mh_hospitalization', 'label' => 'Previous hospitalization', 'type' => 'select', 'options' => self::YN],
+                        ['key' => 'mh_hospitalization', 'label' => 'Previous hospitalization', 'type' => 'radio', 'options' => self::YN],
                         ['key' => 'mh_hospitalization_details', 'label' => 'Hospitalization details', 'type' => 'textarea', 'width' => 'full'],
-                        ['key' => 'mh_smoking', 'label' => 'Smoking', 'type' => 'select', 'options' => self::YN],
+                        ['key' => 'mh_smoking', 'label' => 'Smoking', 'type' => 'radio', 'options' => self::YN],
                         ['key' => 'mh_smoking_amount', 'label' => 'Smoking amount', 'type' => 'text'],
-                        ['key' => 'mh_allergies', 'label' => 'Allergies', 'type' => 'select', 'options' => self::YN],
+                        ['key' => 'mh_allergies', 'label' => 'Allergies', 'type' => 'radio', 'options' => self::YN],
                         ['key' => 'mh_allergies_details', 'label' => 'Allergy details', 'type' => 'textarea', 'width' => 'full'],
-                        ['key' => 'mh_drugs', 'label' => 'Current medication', 'type' => 'select', 'options' => self::YN],
+                        ['key' => 'mh_drugs', 'label' => 'Current medication', 'type' => 'radio', 'options' => self::YN],
                         ['key' => 'mh_drugs_details', 'label' => 'Medication details', 'type' => 'textarea', 'width' => 'full'],
                         ['key' => 'medical_history', 'label' => 'Additional medical notes', 'type' => 'textarea', 'width' => 'full'],
                     ]
@@ -121,8 +129,9 @@ class SurgeryForm
                     ['key' => 'selected_teeth', 'label' => 'Selected teeth', 'type' => 'teeth', 'width' => 'full'],
                     ['key' => 'treatment_tooth', 'label' => 'Treatment tooth', 'type' => 'text', 'width' => 'half'],
                     ['key' => 'surgical_procedure', 'label' => 'Surgical procedure', 'type' => 'textarea', 'width' => 'full'],
-                    ['key' => 'anesthesia_type', 'label' => 'Anesthesia type', 'type' => 'text'],
-                    ['key' => 'duration_minutes', 'label' => 'Duration (minutes)', 'type' => 'number'],
+                    // 'anesthesia_type'/'duration_minutes' removed
+                    // (2026-08-30, by request — "Anesthesia type duration
+                    // remove thim").
                     ['key' => 'complications', 'label' => 'Complications', 'type' => 'textarea', 'width' => 'full'],
                 ],
             ],

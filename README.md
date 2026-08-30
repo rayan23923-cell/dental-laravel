@@ -6761,6 +6761,49 @@ arriving — was caused entirely by the throttle bug fixed in this
 entry's two commits, which the earlier two could never have caught on
 their own.
 
+## Surgery: removed several redundant fields, and Medical History's Yes/No dropdowns became radio buttons (2026-08-30)
+
+Three related requests from live screenshots of the Surgery case sheet:
+
+**"Case" section — "ازل student name group/grade date start time
+status staff signature"**: removed `student_name`, `grade_group`,
+`surgery_date_field` ("Date"), `start_time`, `status`, and
+`staff_signature`, leaving only `surgery_type` in that section. Note on
+`grade_group`: the day before, the user explicitly chose to *keep* it
+("اتركه كما هو حالياً") after being told it's one combined Grade+Group
+column and removing it would also drop Grade tracking — this is a
+direct, later instruction overriding that earlier call, not a
+contradiction to resolve; complied as asked. Both web and API
+controllers had explicit (not dynamically-generated) validation rules
+for these fields — `status`/`duration_minutes`/`start_time` on the web
+side, all of them plus `anesthesia_type` on the API side — all deleted
+alongside the layout entries rather than left as orphaned-but-harmless
+`nullable` rules.
+
+**"Anesthesia type duration remove thim"**: removed `anesthesia_type`
+and `duration_minutes` from the Surgical Procedure section.
+
+**"حول القائمة المنسدلة الى جيك بوكس للسرعة والسهولة" (convert the
+dropdown to a faster tap-to-select control)**: every Medical History
+Yes/No field (13 generated from the `MEDICAL_HISTORY` constant, plus
+`mh_hospitalization`/`mh_smoking`/`mh_allergies`/`mh_drugs`) switched
+`type` from `select` (a dropdown — tap, wait for the picker, tap "Yes"/
+"No") to `radio` — both options already visible inline with one tap,
+matching this app's own existing convention for a mutually-exclusive
+Yes/No choice (e.g. Prevention's dental-behaviour questions). Pure
+layout-metadata change reusing the existing `radio` widget on both web
+and Flutter — no new component needed, `options` unchanged
+(`self::YN`). Neither controller's validation needed to change: the
+web side's dynamic rule generator has no special case for `select` vs
+`radio` (both fall through to the same `default => ['nullable', 'string']`
+arm), and the API side validates every field explicitly regardless of
+its layout `type`.
+
+No print-view breakage: grepped `resources/views` for
+`surgery_date_field`/`anesthesia_type`/`duration_minutes` — no matches.
+
+Verified: `php -l` on `SurgeryForm.php` and both controllers.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the

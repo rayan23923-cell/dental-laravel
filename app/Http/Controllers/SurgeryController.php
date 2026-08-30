@@ -156,13 +156,6 @@ class SurgeryController extends Controller
             'patient_name' => ['required', 'string', 'max:255'],
             'patient_age' => ['nullable', 'integer', 'min:0', 'max:150'],
             'patient_gender' => ['nullable', 'in:male,female'],
-            'status' => ['nullable', 'in:planned,in_progress,completed,cancelled'],
-            'duration_minutes' => ['nullable', 'integer', 'min:0'],
-            // MySQL returns TIME columns as HH:MM:SS, and <input type="time">
-            // round-trips that form unchanged — so an edit that never touches
-            // the field re-submits HH:MM:SS. Accepting only H:i would reject
-            // it (a save that worked on create failing on edit).
-            'start_time' => ['nullable', 'date_format:H:i,H:i:s'],
         ];
 
         foreach (SurgeryForm::sections() as $section) {
