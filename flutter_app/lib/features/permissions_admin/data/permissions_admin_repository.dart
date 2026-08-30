@@ -23,6 +23,20 @@ class PermissionsAdminRepository {
     return PermissionsDetail.fromJson(data);
   }
 
-  Future<void> update(int userId, List<String> grants) =>
-      _client.putJson('/permissions/$userId', body: {'grants': grants});
+  /// `scope` lists follow the same "empty = unrestricted" convention as the
+  /// web form: omitting a dimension and sending `[]` for it both resolve to
+  /// unrestricted server-side (`ScopeHelper`'s zero-rows rule), so this
+  /// always sends the four keys rather than trying to distinguish them.
+  Future<void> update(int userId, List<String> grants, PermissionScopeSelection scope) => _client.putJson(
+        '/permissions/$userId',
+        body: {
+          'grants': grants,
+          'scope': {
+            'departments': scope.departmentIds,
+            'stages': scope.stageIds,
+            'education_types': scope.educationTypeIds,
+            'academic_sessions': scope.academicSessionIds,
+          },
+        },
+      );
 }

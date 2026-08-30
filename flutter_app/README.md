@@ -5055,3 +5055,53 @@ every keystroke/date pick, same as the web's reactive `form[...]` check.
 Verified: `flutter analyze` on `dynamic_section_form.dart` (no issues).
 Not verified on a real device — next Codemagic build + AltStore
 reinstall.
+
+## Permissions admin: access-scope restriction (2026-08-30)
+
+Closes the gap the Permissions admin entry above (2026-08-21) left open
+on purpose: `Api\UserPermissionController` gained `scope_options`/`scope`
+in `show()` and a `scope` field in `update()` (see
+`dental_laravel/README.md`'s matching entry for the backend half, which
+mirrors the web `Permissions/Edit` page's `edit()`/`update()` exactly).
+This is the Flutter side consuming that new surface.
+
+- `PermissionScopeOptions`/`PermissionScope` (domain) decode the new
+  `scope_options`/`scope` response keys — a `null` list on any of the
+  four dimensions means unrestricted (`ScopeHelper`'s own "zero rows"
+  convention), not "nothing selected". A separate mutable
+  `PermissionScopeSelection` (always non-null lists, `[]` = unrestricted)
+  holds the edit screen's live form state — checkbox widgets need a
+  concrete list to test membership against either way, so the null/empty
+  distinction only has to survive the initial decode, not the whole
+  widget tree.
+- `PermissionsAdminRepository.update()` now takes a
+  `PermissionScopeSelection` alongside `grants` and always sends all four
+  scope keys as arrays (never omitted) — matches the web form's own
+  `useForm` shape, and an empty array resolves to unrestricted
+  server-side regardless, so there's no need to distinguish "omit the
+  key" from "send `[]`" at this layer either.
+- `PermissionEditScreen` gets four new `_ScopeDimensionTile`s (أقسام/
+  مراحل/أنواع تعليم/أعوام دراسية) above the existing module list, same
+  `ExpansionTile`-per-dimension shape as the module tiles below them for
+  visual consistency: collapsed subtitle reads "بلا قيد — يرى الكل" when
+  empty or "مقيّد بـ N" with a "إزالة القيد" clear action when not,
+  mirroring the web page's per-dimension card exactly (dashed "بلا قيد"
+  box, `الأقسام`/`المراحل`/`أنواع التعليم`/`الأعوام الدراسية` labels,
+  same clear-restriction affordance) rather than the web's uniform
+  2/4-column checkbox grid, which doesn't fit a phone any better than the
+  module matrix did.
+
+Verified live end-to-end via `flutter run -d chrome` (this session
+started XAMPP's Apache + MySQL first — neither was running), logged in
+as a throwaway `qa_scope_test` admin account created via `tinker` for
+this: opened user 27 (`طبيب ahmed`, confirmed unrestricted on all four
+dimensions beforehand via a `curl` baseline), expanded الأقسام, checked
+`operative` + `operative dent`, saved — the tile's subtitle switched to
+"مقيّد بـ 2" and `user_allowed_departments` gained exactly those two rows
+(confirmed via `tinker`, not just the refetched UI state). Clicked
+"إزالة القيد", saved again — subtitle back to "بلا قيد — يرى الكل" and
+the pivot table back to zero rows, confirming the clear path round-trips
+through the API correctly too, not just the local widget state. Test
+user and its Sanctum token deleted afterward via `tinker`; user 27 left
+exactly as found (unrestricted). `flutter analyze` clean on the whole
+project throughout.

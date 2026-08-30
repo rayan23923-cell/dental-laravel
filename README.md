@@ -6910,6 +6910,36 @@ live form state.
 Verified: `php -l` on `CaseSheetSignatures.php`. `npm run build`
 (succeeded). Flutter's matching fix is in `flutter_app/README.md`.
 
+## Flutter permissions admin: access-scope restriction (2026-08-30)
+
+Closes the gap this README's own "Phase 3 admin: permissions" entry
+(2026-08-21) left open by explicit design: `Api\UserPermissionController`
+now exposes `App\Services\ScopeHelper`'s four-dimension access-scope
+restriction (departments/stages/education types/academic sessions) to
+the Flutter client — the same feature the web `Permissions/Edit` page
+has had since the "Academic-session scope added to permissions"
+(2026-08-21) entry wired `ScopeHelper` up in the first place.
+
+`show()` gained `scope_options` (the four option lists, same shape as
+the web page's `scopeOptions` prop) and `scope` (the account's current
+selection per dimension — `null` means unrestricted, `ScopeHelper`'s own
+"zero rows" convention, not "nothing selected"); `update()` gained a
+`scope` field validated the same nullable-vs-array way as the web
+controller (`scope.departments`, `.stages`, `.education_types`,
+`.academic_sessions`, each `nullable|array` with `exists:` on every id),
+then calls the same four `ScopeHelper::setAllowed*()` methods the web
+controller calls. No new backend logic — this is the API controller
+catching up to a capability `ScopeHelper` and the web controller already
+had.
+
+See `flutter_app/README.md`'s matching entry ("Permissions admin:
+access-scope restriction", 2026-08-30) for the Flutter-side build (four
+new `_ScopeDimensionTile`s on the permission edit screen) and its live
+verification — this session started XAMPP's Apache + MySQL itself
+(neither was running), ran `flutter run -d chrome`, and confirmed the
+restrict/clear round-trip against the real `user_allowed_departments`
+table via `tinker`, not just the refetched UI state.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the
