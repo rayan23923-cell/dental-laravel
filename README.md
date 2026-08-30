@@ -6725,6 +6725,29 @@ confirming (or, if something else remains, continuing) once that
 happens, per this project's standing rule against claiming something
 works before it's actually been seen to.
 
+**Follow-up, same day**: the `Carbon::parse()` fix above turned out to
+fix only half the bug — confirmed live (`grep`-ed the deployed file to
+rule out a bad deploy first, then re-verified via the exact same
+before/curl/after terminal sequence) that the throttle was still
+permanently active after that fix shipped. The real remaining issue:
+`diffInSeconds()` in the Carbon version this app uses returns a
+**signed** value — negative when the compared date is in the past
+relative to `now()`, which every stored `created_at` always is by the
+time this check runs again on a later request. A negative number is
+always `< THROTTLE_SECONDS`, so the throttle fired unconditionally
+regardless of real elapsed time, independent of whether the string had
+been parsed correctly. Replaced the diff entirely with
+`Carbon::parse($existing->created_at)->addSeconds(self::THROTTLE_SECONDS)->isFuture()`
+— an unambiguous "is the cooldown window still ahead of us" check with
+no sign convention to get backwards, rather than trying to remember
+which direction a diff library considers positive this version.
+`verify()`'s own `now()->greaterThan(...)` needed no equivalent change
+— `greaterThan()` is a plain boolean comparison, not a diff, so it
+never had this half of the problem; the earlier `Carbon::parse()` wrap
+was sufficient there.
+
+Verified: `php -l`.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the

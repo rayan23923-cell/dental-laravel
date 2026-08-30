@@ -81,21 +81,30 @@ class OtpPasswordResetBroker
      * how much real time had passed since the one row created during
      * initial testing**: `now()->diffInSeconds($existing->created_at)`
      * passed the **raw database string** straight to `diffInSeconds()`
-     * instead of an explicit `Carbon` instance. Confirmed live: a
-     * `password_reset_otps` row from over 12 hours earlier was still
-     * being treated as "issued within the last 60 seconds" on every
-     * single request, permanently and unconditionally throttling this
-     * address the moment it was ever used once. Fixed by explicitly
-     * parsing with `Carbon::parse()` before diffing — see `verify()`
-     * below for the identical fix to its own `now()->greaterThan(...)`
-     * expiry check, found by inspection once this pattern was known to
-     * be unsafe, not because it had separately misbehaved yet.
+     * instead of an explicit `Carbon` instance — confirmed live, a row
+     * from over 12 hours earlier was still throttling every request.
+     *
+     * Wrapping the string in `Carbon::parse()` alone turned out to fix
+     * only half the bug (confirmed live — still stuck after that fix
+     * alone deployed): `diffInSeconds()` in the Carbon version this app
+     * uses returns a **signed** value — negative when the compared date
+     * is in the past relative to `now()`, which every stored
+     * `created_at` always is by the time this runs again. Any negative
+     * number is always `< 60`, so the throttle fired unconditionally
+     * regardless of how much time had actually passed, string-parsing
+     * bug or not. Replaced the diff entirely with an unambiguous
+     * `isFuture()` check on `created_at + THROTTLE_SECONDS` — "is the
+     * cooldown window still ahead of us" has no sign convention to get
+     * backwards, unlike a diff. See `verify()` below for its own
+     * `now()->greaterThan(...)` expiry check, which does *not* have this
+     * problem (`greaterThan()` is a plain boolean comparison, not a
+     * diff) — only needed the `Carbon::parse()` half of this fix.
      */
     public static function send(string $email, string $guard, object $notifiable): void
     {
         $existing = DB::table('password_reset_otps')->where('email', $email)->where('guard', $guard)->first();
 
-        if ($existing?->created_at && now()->diffInSeconds(Carbon::parse($existing->created_at)) < self::THROTTLE_SECONDS) {
+        if ($existing?->created_at && Carbon::parse($existing->created_at)->addSeconds(self::THROTTLE_SECONDS)->isFuture()) {
             Log::warning('Password reset code throttled — one was already issued in the last '.self::THROTTLE_SECONDS.'s', [
                 'email' => $email,
                 'guard' => $guard,
