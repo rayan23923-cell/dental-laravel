@@ -109,6 +109,39 @@ Route::name('api.')->prefix('v1')->group(function () {
         ]);
     });
 
+    // TEMPORARY (2026-08-30) — actually invokes the real broker method,
+    // in the real web/FPM context, to isolate whether the bug is inside
+    // OtpPasswordResetBroker::send() itself (would fail here too) or
+    // specifically inside PasswordResetController::sendResetLink()'s own
+    // logic (would succeed here, since this bypasses that controller
+    // entirely and calls the broker directly, same as the CLI tinker
+    // tests that already proved it works — the only difference here is
+    // running under the real web SAPI instead of CLI). REMOVE with the
+    // route above once resolved.
+    Route::get('/diag-2026-08-30-send', function () {
+        $doctor = \App\Models\Doctor::where('email', 'hakamiraqi1994@gmail.com')->first();
+        $before = \Illuminate\Support\Facades\DB::table('password_reset_otps')
+            ->where('email', 'hakamiraqi1994@gmail.com')->where('guard', 'doctors')->first();
+
+        $error = null;
+        try {
+            \App\Services\OtpPasswordResetBroker::send('hakamiraqi1994@gmail.com', 'doctors', $doctor);
+        } catch (\Throwable $e) {
+            $error = get_class($e).': '.$e->getMessage();
+        }
+
+        $after = \Illuminate\Support\Facades\DB::table('password_reset_otps')
+            ->where('email', 'hakamiraqi1994@gmail.com')->where('guard', 'doctors')->first();
+
+        return response()->json([
+            'doctor_found' => (bool) $doctor,
+            'before_created_at' => $before->created_at ?? null,
+            'after_created_at' => $after->created_at ?? null,
+            'row_changed' => ($before->created_at ?? null) !== ($after->created_at ?? null),
+            'exception' => $error,
+        ]);
+    });
+
     // Public, unauthenticated — mirrors the original app's tv_patients.php
     // waiting-room display. See TvBoardController docblock for a real
     // display bug in the original app this endpoint deliberately does not
