@@ -7249,3 +7249,21 @@ did not load the page in a browser to visually confirm; the geometry
 (tooth outline paths, quadrant triangle points) is copied verbatim from
 the same `App\Support\PlaqueChart` constants the print renderer already
 uses and has been visually confirmed correct there.
+
+### Extraction now syncs across all 5 visits, triggered by the tooth number (2026-08-31)
+
+Follow-up request, matching the original's own `syncExtractionToAllVisitsFromVisit()`:
+a tooth marked missing at one visit is missing at every visit, and the
+original toggles it by clicking the tooth's own number label rather than
+a separate control. Replaced the standalone "✕" chip with making the
+`{{ tooth }}` number itself the toggle, and `toggleExtracted()` became
+`toggleExtractedAllVisits(fromVisitKey, tooth)`: it reads the *new*
+state once from the visit that was clicked, then writes that same
+`extracted` flag into all 5 visits' `teeth[tooth]` entries in one
+`update:modelValue` emit — each visit's own `surfaces` marks are left
+untouched, only `extracted` is shared. Verified the merge logic with a
+standalone Node reproduction of the exact function against a
+two-visit-populated model (`visit2`/`visit4` each with their own
+`surfaces`, only `visit4`'s tooth 11 extracted-toggled): all 5 visits'
+tooth 11 came back `extracted: true`, `visit2` and `visit4` each kept
+their own pre-existing `surfaces` data intact. `npm run build` clean.

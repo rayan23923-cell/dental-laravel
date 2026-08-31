@@ -5462,3 +5462,16 @@ the print-side `buildPlaqueToothSvg()` (identical source shapes, proven
 by the `flutter_test` in the entry above), so only the new hit-testing
 and `CustomPainter` wiring here were unverified beyond static analysis
 and manual geometry review.
+
+### Extraction now syncs across all 5 visits, triggered by the tooth number (2026-08-31)
+
+Same follow-up as the web side's matching entry — port of the original's
+`syncExtractionToAllVisitsFromVisit()`. Replaced the standalone "مخلوع"
+chip with making the tooth-number `Text` itself the tap target;
+`_toggleExtracted()` became `_toggleExtractedAllVisits(fromVisitKey,
+toothId)`, which reads the new state once from the tapped visit then
+writes that `extracted` flag into all 5 visits' `teeth['$toothId']`
+entries via 5 separate reads of `_teethFor(v.key)` off the field's own
+`value` (each visit's `surfaces` map is read and rewritten unchanged,
+only `extracted` is touched) before a single `onChanged` call with the
+fully updated map. `flutter analyze` clean.

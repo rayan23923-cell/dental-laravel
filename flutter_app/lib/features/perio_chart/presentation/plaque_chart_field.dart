@@ -108,11 +108,18 @@ const _kSectorPoints = {
 /// (`dental_clinics2/doctor/periodontal_chart.php`'s `createToothForVisit()`),
 /// simplified into one direct interaction that works the same on every
 /// screen size: tap a quadrant of the tooth to mark/unmark plaque there, tap
-/// the small "مخلوع" chip to mark the tooth extracted (which then stops
-/// accepting surface taps, mirroring `App\Support\PlaqueChart::visitData()`'s
-/// own "extracted teeth never count" rule). The *printed* chart
+/// the tooth's own number to mark it extracted (which then stops accepting
+/// surface taps, mirroring `App\Support\PlaqueChart::visitData()`'s own
+/// "extracted teeth never count" rule). The *printed* chart
 /// (`periodontal_plaque_chart_svg.dart`, via `pw.SvgImage`) draws the same
 /// outlines from the same source coordinates.
+///
+/// Extraction syncs across all 5 visits (2026-08-31, by request) — a tooth
+/// missing by visit 3 is still missing at visit 5 and follow-up, so
+/// toggling it in one visit sets the same `extracted` flag in every visit's
+/// data at once (`_toggleExtractedAllVisits`), port of the original's own
+/// `syncExtractionToAllVisitsFromVisit()`. Each visit still keeps its own
+/// independent `surfaces` marks — only `extracted` is shared.
 ///
 /// [value] is `chart_data.dentalCharts` as already-decoded JSON —
 /// `{visit2: {teeth: {'11': {extracted: bool, surfaces: {...}}, ...}}, ...}`.
@@ -156,10 +163,20 @@ class PlaqueChartField extends StatelessWidget {
     onChanged(next);
   }
 
-  void _toggleExtracted(String visitKey, int toothId) {
-    final tooth = Map<String, dynamic>.from(_toothData(visitKey, toothId));
-    tooth['extracted'] = !_isExtracted(tooth);
-    _setTooth(visitKey, toothId, tooth);
+  /// Toggles `extracted` for this tooth in every visit at once — see the
+  /// class doc comment above for why (matches the original's own
+  /// cross-visit sync).
+  void _toggleExtractedAllVisits(String fromVisitKey, int toothId) {
+    final newState = !_isExtracted(_toothData(fromVisitKey, toothId));
+    var next = Map<String, dynamic>.from(value);
+    for (final v in visits) {
+      final teeth = Map<String, dynamic>.from(_teethFor(v.key));
+      final tooth = Map<String, dynamic>.from((teeth['$toothId'] as Map<String, dynamic>?) ?? const {});
+      tooth['extracted'] = newState;
+      teeth['$toothId'] = tooth;
+      next = Map<String, dynamic>.from(next)..[v.key] = {'teeth': teeth};
+    }
+    onChanged(next);
   }
 
   void _toggleSurface(String visitKey, int toothId, String surface) {
@@ -216,7 +233,7 @@ class _VisitCard extends StatelessWidget {
         children: [
           const Align(
             alignment: Alignment.centerRight,
-            child: Text('اضغط على أي جزء من السن لتحديد السطح، واضغط "مخلوع" لتحديد سن مخلوع.', style: TextStyle(fontSize: 11, color: Colors.black54)),
+            child: Text('اضغط على أي جزء من السن لتحديد السطح، واضغط رقم السن لتحديده كمخلوع (يُطبَّق على جميع الزيارات).', style: TextStyle(fontSize: 11, color: Colors.black54)),
           ),
           const SizedBox(height: 4),
           const Align(alignment: Alignment.centerRight, child: Text('الفك العلوي — Upper Arch')),
@@ -282,17 +299,16 @@ class _ToothTile extends StatelessWidget {
               ),
             ),
           ),
-          Text('$toothId', style: const TextStyle(fontSize: 10)),
           GestureDetector(
-            onTap: field.readOnly ? null : () => field._toggleExtracted(visitKey, toothId),
-            child: Container(
-              margin: const EdgeInsets.only(top: 1),
-              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-              decoration: BoxDecoration(
-                color: extracted ? Colors.red.shade100 : Colors.transparent,
-                borderRadius: BorderRadius.circular(4),
+            onTap: field.readOnly ? null : () => field._toggleExtractedAllVisits(visitKey, toothId),
+            child: Text(
+              '$toothId',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: extracted ? FontWeight.bold : FontWeight.normal,
+                color: extracted ? Colors.red.shade700 : Colors.black87,
+                decoration: extracted ? TextDecoration.underline : null,
               ),
-              child: Text('مخلوع', style: TextStyle(fontSize: 8, color: extracted ? Colors.red.shade700 : Colors.grey)),
             ),
           ),
         ],

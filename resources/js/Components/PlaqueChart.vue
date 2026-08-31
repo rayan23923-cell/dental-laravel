@@ -15,10 +15,17 @@
  * three surfaces draw identical art), simplified from the original's
  * desktop-click-vs-mobile-modal-vs-Surface/Extract-mode-toggle into one
  * direct interaction that works the same on every device: tap a quadrant
- * triangle to mark/unmark it, tap the small "✕" chip under a tooth to
- * mark it extracted (extracted teeth stop accepting surface taps, mirroring
+ * triangle to mark/unmark it, tap the tooth's own number to mark it
+ * extracted (extracted teeth stop accepting surface taps, mirroring
  * `App\Support\PlaqueChart::visitData()`'s own "extracted teeth never
  * count" rule).
+ *
+ * Extraction syncs across all 5 visits (2026-08-31, by request) — a tooth
+ * that's missing by visit 3 is still missing at visit 5 and follow-up, so
+ * toggling it in one visit's table sets the same `extracted` flag in every
+ * visit's data at once, port of the original's own
+ * `syncExtractionToAllVisitsFromVisit()`. Each visit still keeps its own
+ * independent `surfaces` marks — only `extracted` is shared.
  *
  * `modelValue` is `chart_data.dentalCharts` as already-decoded JSON:
  *   { visit2: { teeth: { '11': { extracted: bool, surfaces: {...} } } }, ... }
@@ -82,11 +89,18 @@ const setTooth = (visitKey, tooth, data) => {
     emit('update:modelValue', next);
 };
 
-const toggleExtracted = (visitKey, tooth) => {
+// Toggles `extracted` for this tooth in every visit at once — see the doc
+// comment above for why (matches the original's own cross-visit sync).
+const toggleExtractedAllVisits = (fromVisitKey, tooth) => {
     if (props.disabled) return;
-    const data = { ...toothData(visitKey, tooth) };
-    data.extracted = !data.extracted;
-    setTooth(visitKey, tooth, data);
+    const newState = !isExtracted(fromVisitKey, tooth);
+    let next = { ...props.modelValue };
+    for (const v of props.visits) {
+        const teeth = { ...(next[v.key]?.teeth ?? {}) };
+        teeth[String(tooth)] = { ...(teeth[String(tooth)] ?? {}), extracted: newState };
+        next = { ...next, [v.key]: { teeth } };
+    }
+    emit('update:modelValue', next);
 };
 
 const toggleSurface = (visitKey, tooth, surface) => {
@@ -132,7 +146,7 @@ const sectorOpacity = (visitKey, tooth, surface) => (isMarked(visitKey, tooth, s
             </button>
 
             <div v-if="openVisit === visit.key" class="space-y-4 p-4">
-                <p class="text-xs text-gray-400">اضغط على أي جزء من السن لتحديد السطح المصاب باللويحة، واضغط ✕ لتحديد سن مخلوع.</p>
+                <p class="text-xs text-gray-400">اضغط على أي جزء من السن لتحديد السطح المصاب باللويحة، واضغط رقم السن لتحديده كمخلوع (يُطبَّق على جميع الزيارات).</p>
 
                 <div v-for="(arch, archLabel) in { 'Upper Arch': UPPER, 'Lower Arch': LOWER }" :key="archLabel">
                     <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">{{ archLabel }}</div>
@@ -167,15 +181,15 @@ const sectorOpacity = (visitKey, tooth, surface) => (isMarked(visitKey, tooth, s
                                         stroke-linecap="round"
                                     />
                                 </svg>
-                                <span class="text-[10px] leading-none text-gray-600">{{ tooth }}</span>
                                 <button
                                     type="button"
                                     :disabled="disabled"
-                                    class="rounded px-1 text-[9px] leading-tight"
-                                    :class="isExtracted(visit.key, tooth) ? 'bg-red-100 text-red-700' : 'text-gray-400 hover:bg-gray-100'"
-                                    @click="toggleExtracted(visit.key, tooth)"
+                                    class="rounded px-1 text-[10px] leading-tight"
+                                    :class="isExtracted(visit.key, tooth) ? 'font-bold text-red-600 underline' : 'text-gray-600 hover:text-indigo-600'"
+                                    :title="isExtracted(visit.key, tooth) ? 'مخلوع — اضغط لإلغاء' : 'اضغط لتحديده كمخلوع'"
+                                    @click="toggleExtractedAllVisits(visit.key, tooth)"
                                 >
-                                    ✕
+                                    {{ tooth }}
                                 </button>
                             </div>
                         </div>
