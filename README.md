@@ -7662,3 +7662,29 @@ feature actually exercised in a browser this session, because the user
 explicitly asked for a size comparison against a live site rather than
 a code-level change — everything else in this feature was verified via
 `tinker`/`curl`/`npm run build` per the standing "no browser" instruction.
+
+## Advanced Periodontal Chart, revision 7: the crown must never disappear (2026-08-31)
+
+By request: "عند اختيار السن كزرعة يختفي التاج اجعله لا يختفي بكل
+الاحوال" — toggling Implant was swapping the *whole* tooth drawing
+(crown included) for the fixture graphic. Re-checked the reference
+asset's own CSS to confirm the correct behavior rather than guess:
+`.tooth.implant-mode .root,.canal,.furcation,.detail,.lingual-detail{
+display:none}` — the crown class is deliberately absent from that list.
+Real anatomy backs this up too: a dental implant replaces the *natural
+root*; the crown (natural or a prosthetic restoration shaped the same
+way) still sits visibly on top of it. The previous revision's "swap the
+whole tooth" was a misreading of that CSS rule, not a deliberate design
+choice.
+
+Fixed by moving the crown `<path>` outside the `v-if`/`v-else` entirely
+so it always renders regardless of the Implant flag; only the *roots*
+`<g>` is still conditionally replaced by the implant fixture group.
+
+Verified live in the browser tool (a second temporary doctor account,
+deleted after use): toggled Implant for tooth 18 on the real
+`/advanced-periodontal-charts/create` page and read the tooth's actual
+SVG `<g>` contents via `querySelectorAll('path')` — confirmed 5 paths
+present simultaneously: the implant body, abutment, thread, and
+highlight, *and* tooth 18's own crown path — rather than trusting the
+code change on sight.

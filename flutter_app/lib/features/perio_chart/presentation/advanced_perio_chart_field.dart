@@ -152,7 +152,14 @@ String _archSvg(List<(int, String)> arch, bool isUpper, Map<String, dynamic> tee
     final implant = toothMap?['implant'] == true;
     final transform = isUpper ? 'translate($cx,164) scale(1,-1)' : 'translate($cx,25)';
 
+    final shape = shapes[type]!;
     buffer.write('<g transform="$transform">');
+    // The crown always renders, implant or not — only the *root* is ever
+    // replaced by the implant fixture (revision 7, by request: "اجعله لا
+    // يختفي بكل الاحوال" — the crown must never disappear), matching the
+    // reference asset's own CSS (`.implant-mode` hides `.root`/`.canal`/
+    // etc. but never `.crown`) and real anatomy — an implant replaces the
+    // natural root, not the visible crown restoration on top of it.
     if (implant) {
       buffer
         ..write('<path d="$_kImplantBody" fill="#d7d9db" stroke="#20272b" stroke-width="1.4"/>')
@@ -160,16 +167,15 @@ String _archSvg(List<(int, String)> arch, bool isUpper, Map<String, dynamic> tee
         ..write('<path d="$_kImplantThread" fill="none" stroke="#3b4246" stroke-width="1"/>')
         ..write('<path d="$_kImplantHighlight" fill="none" stroke="#ffffff" stroke-width="1" opacity="0.7"/>');
     } else {
-      final shape = shapes[type]!;
       buffer.write('<g transform="translate(0,10) scale(1.15,0.74)">');
       for (final r in shape.roots) {
         buffer.write('<path d="$r" fill="#ffffff" stroke="#37474f" stroke-width="1.3"/>');
       }
-      buffer
-        ..write('</g>')
-        ..write('<path d="${shape.crown}" fill="#ffffff" stroke="#20272b" stroke-width="1.6" stroke-linejoin="round"/>');
+      buffer.write('</g>');
     }
-    buffer.write('</g>');
+    buffer
+      ..write('<path d="${shape.crown}" fill="#ffffff" stroke="#20272b" stroke-width="1.6" stroke-linejoin="round"/>')
+      ..write('</g>');
   }
 
   buffer.write('</svg>');

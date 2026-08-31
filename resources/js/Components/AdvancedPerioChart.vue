@@ -23,10 +23,15 @@
  * same "shared type, mirrored across the arch" structure this component
  * already had, just with 8 real per-position shapes instead of 5 generic
  * blob categories. The implant graphic is identical across every tooth in
- * the source asset, so `IMPLANT_SHAPE` is a single shared constant:
- * a tooth marked "Implant" in the data now visibly renders as a fixture
- * in place of its normal crown+root, mirroring the reference site's own
- * per-tooth implant-mode swap.
+ * the source asset, so `IMPLANT_SHAPE` is a single shared constant: a
+ * tooth marked "Implant" swaps its *root* for the fixture graphic while
+ * keeping its crown always visible (revision 7, by request — "اجعله لا
+ * يختفي بكل الاحوال" — the crown must never disappear; an earlier
+ * revision swapped the whole tooth, which was wrong: the reference
+ * asset's own CSS only hides `.root`/`.canal`/`.furcation`/`.detail` in
+ * implant mode, never `.crown`, matching real anatomy — an implant
+ * replaces the natural root, not the visible crown restoration on top of
+ * it).
  *
  * Two diagrams per arch (revision 3, same day, by request — "لكل فك هناك
  * مخططان labial/lingual"): each arch now renders TWO tooth-row graphics,
@@ -457,18 +462,22 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                             <svg width="100%" height="auto" :viewBox="`0 0 ${ARCH_WIDTH} ${ARCH_HEIGHT}`" preserveAspectRatio="xMidYMin meet" style="display: block">
                                 <line :x2="ARCH_WIDTH" :y1="gumlineY(isUpper)" :y2="gumlineY(isUpper)" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="4,3" />
                                 <g v-for="([tooth, type], idx) in (isUpper ? UPPER : LOWER)" :key="tooth" :transform="toothTransform(isUpper, idx)">
+                                    <!-- The crown always renders, implant or not — see this
+                                         component's own doc comment for why: only the
+                                         *root* is ever replaced by the implant fixture,
+                                         matching the reference asset's own CSS (its
+                                         `.implant-mode` rule hides `.root`/`.canal`/etc.
+                                         but never `.crown`), by request. -->
                                     <template v-if="getSingle(tooth, 'implant')">
                                         <path :d="IMPLANT_SHAPE.body" fill="#d7d9db" stroke="#20272b" stroke-width="1.4" />
                                         <path :d="IMPLANT_SHAPE.abutment" fill="#eceeef" stroke="#20272b" stroke-width="1.4" />
                                         <path :d="IMPLANT_SHAPE.thread" fill="none" stroke="#3b4246" stroke-width="1" />
                                         <path :d="IMPLANT_SHAPE.highlight" fill="none" stroke="#fff" stroke-width="1" opacity="0.7" />
                                     </template>
-                                    <template v-else>
-                                        <g transform="translate(0,10) scale(1.15,0.74)">
-                                            <path v-for="(r, ri) in shapeFor(isUpper, type).roots" :key="ri" :d="r" fill="#fff" stroke="#37474f" stroke-width="1.3" />
-                                        </g>
-                                        <path :d="shapeFor(isUpper, type).crown" fill="#fff" stroke="#20272b" stroke-width="1.6" stroke-linejoin="round" />
-                                    </template>
+                                    <g v-else transform="translate(0,10) scale(1.15,0.74)">
+                                        <path v-for="(r, ri) in shapeFor(isUpper, type).roots" :key="ri" :d="r" fill="#fff" stroke="#37474f" stroke-width="1.3" />
+                                    </g>
+                                    <path :d="shapeFor(isUpper, type).crown" fill="#fff" stroke="#20272b" stroke-width="1.6" stroke-linejoin="round" />
                                 </g>
                             </svg>
                         </td>

@@ -5713,3 +5713,24 @@ Verified with a temporary `flutter_test` (deleted after use): pumped
 `tester.takeException()` was `null`, all 4 `SvgPicture` graphics still
 render, and both `'18'` and `'28'` tooth-number labels are present.
 `flutter analyze` clean, project-wide.
+
+## Advanced Periodontal Chart, revision 7: the crown must never disappear (2026-08-31)
+
+Same fix as `dental_laravel/README.md`'s matching entry — read that one
+for the reasoning (the reference asset's own CSS never hides the crown
+in implant mode, only the root; a dental implant replaces the natural
+root, not the visible crown restoration on top of it). `_archSvg()`'s
+crown `<path>` write moved outside the `if (implant)`/`else` branch
+entirely — it's now written unconditionally after that branch, which
+only still decides between the roots-`<g>` and the implant-fixture
+paths.
+
+Verified with a temporary `flutter_test` (deleted after use): pumped
+`AdvancedPerioChartField` with an implant-flagged tooth (`46`) and
+confirmed `tester.takeException()` was `null` and all 4 `SvgPicture`
+graphics still render — `SvgStringLoader`'s own SVG string isn't
+publicly readable from a test (confirmed in the previous revision's own
+entry), so the actual dual-path (crown + implant both present) output
+was independently confirmed against the identical Vue logic live in the
+browser instead; this test confirms the Dart buffer-writing logic
+itself doesn't throw. `flutter analyze` clean, project-wide.
