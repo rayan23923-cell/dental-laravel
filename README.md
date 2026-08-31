@@ -7954,3 +7954,72 @@ confirmed the GM polyline's mid-point is now `y = 57.9` — *larger* than
 the `45` baseline (apical, into the root) rather than smaller (which
 would be coronal, into the crown) as it incorrectly was before this fix.
 `npm run build` clean throughout.
+
+## Advanced Periodontal Chart, revision 12: mm-ruler gridlines over the roots + a PD≥4mm highlight (2026-08-31)
+
+By request: "اضف كذلك الخطوط التي تغطي الجذور بنفس السمك والطول
+والمواقع بدون تخمين او هلوسة ولاحظ بقية الميزات التي لم نذكرها" —
+initially investigated the earlier user-supplied static reference asset
+(`permanent-dentition-anatomical-periodontal-reference.html`, which has
+its own `.canal` root-canal lines left unextracted since revision 2), but
+the user corrected mid-investigation: "اقصد الموقع وليس الملف" — the
+live reference site, not that file. Restarted the investigation there.
+
+**mm-ruler gridlines** — inspecting the reference's own live SVG (not
+just its `perio-*`/`inter-*` overlay classes checked in earlier
+revisions) turned up 17 plain `<line>` elements per quadrant with no
+class at all: `stroke="#000"` `stroke-width="1.25"`, no dash, spanning
+the *entire* row width (`x1="0" x2="790"`), evenly spaced by exactly
+`6.45` — one per mm — starting at the gumline baseline and continuing 16
+mm apically. Visually these read as a ruler crossing every tooth's root
+region, letting a viewer eyeball pocket depth at a glance without
+reading numbers — a real, previously unported feature.
+
+The reference draws its tooth artwork as a separate raster `<img
+class="background-image">` *behind* the whole SVG, so its own grid
+(inside the SVG) already paints over the roots regardless of DOM order.
+This component draws roots as vector `<path>` content *inside* the same
+SVG, so reproducing "lines that cover the roots" means the grid has to
+be appended *after* the tooth `<g>` loop in the template — copying the
+CSS values literally would have been correct, but copying the DOM
+*position* literally would have buried the grid under the white root
+fills, invisible. New `mmGridlineYs(isUpper)`: 16 arch-level y-values (mm
+1–16; mm 0 is the dashed gumline this component already draws), computed
+in the same *screen*-space direction math already established for
+`toothTransform`/`gumlineY` (apical is screen-y *decreasing* for the
+upper arch's flip, *increasing* for the lower arch).
+
+**PD ≥4mm highlight** — the user's second ask, "لاحظ بقية الميزات التي
+لم نذكرها" (notice the rest of the features we haven't mentioned yet),
+prompted a broader page survey (`Print/Export/Load/PDF Import/Save/
+Delete/Copy`, a `Classification`/`PRA` risk panel, `Overview/Analysis/
+Interval/3D` summary charts, `QR Code`/`Calibration` tools — noted below
+as candidates for a future, separately-scoped request rather than
+implemented here, since each is a standalone feature/page of its own,
+not a small addition to the existing grid). One item was small, concrete,
+and directly relevant to the grid already built, so it was implemented
+now: setting a PD input to `3` left it plain black, `4`/`5`/`6`/`7` all
+added a `pd-high` class (`color: red !important`) — confirmed the exact
+threshold (≥4, not ≥5 or ≥6 as the page's own legend text might suggest)
+by testing each value individually rather than assuming. Ported as
+`isPdHigh(value)`, applied only to `pd` cells (not `gm`/`al`, which never
+gained the class in testing) as `text-red-600 font-bold`.
+
+**Noted but not implemented** (candidates for a future request, each a
+standalone feature rather than a small grid addition): a `Classification`
+panel (likely AAP/EFP staging from the entered data), a `PRA` risk-
+assessment tool, `Overview`/`Analysis`/`Interval` summary charts (cross-
+visit comparison — not applicable here since this resource has one
+snapshot per chart, not multiple visits, unlike `PlaqueChart.vue`), a
+`3D` tooth view, `QR Code` export, print `Calibration`, and file-
+management controls (`Print`/`Export`/`Load`/`PDF Import`/`Save`/
+`Delete`/`Copy`) that this app already covers through its own case-sheet
+CRUD instead.
+
+Verified live end-to-end (a fresh temporary doctor account, deleted
+after use): confirmed 16 solid gridlines render (17 total `<line>`s
+including the dashed gumline) at the exact expected y-values (`119 -
+n×6.45` for the upper arch), spanning the full arch width, appended after
+every tooth `<g>` so they paint on top; set a PD site to `3` (stayed
+`rgb(0,0,0)`) and `4` (turned `rgb(220,38,38)`, Tailwind's `red-600`).
+`npm run build` clean throughout.

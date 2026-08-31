@@ -207,6 +207,31 @@ String _pocketOverlaySvg(AdvancedPerioChartField field, int tooth, String zone) 
 /// y≈-24, gumline at 45), so reproducing "11 units apical" here means
 /// *adding* to the baseline, not subtracting.
 const _kFurcationMarkerY = 56.0; // _kPocketBaselineY (45) + 11, apical (root-ward) of the gumline, matching the reference's own offset direction
+
+/// mm-ruler gridlines across the roots (revision 12, by request — "اضف
+/// كذلك الخطوط التي تغطي الجذور بنفس السمك والطول والمواقع... قارن مع
+/// الموقع") — Flutter port of the same live-captured reference-site
+/// mechanics documented in full on `AdvancedPerioChart.vue`'s own
+/// `mmGridlineYs` doc comment: 17 solid `stroke="#000000"`
+/// `stroke-width="1.25"` lines spanning the full row width, one per mm,
+/// starting at the gumline (already drawn as the dashed red line here)
+/// and continuing 16mm apically. `_kPocketMaxMm` (16) matches the
+/// reference's own span; mm 0 is skipped since the dashed gumline
+/// already covers it.
+const _kPocketMaxMm = 16;
+List<double> _mmGridlineYs(bool isUpper, double gumlineY) {
+  final dir = isUpper ? -1 : 1;
+  return [for (var mm = 1; mm <= _kPocketMaxMm; mm++) gumlineY + dir * mm * _kPocketScale];
+}
+
+/// Probing Depth ≥4mm highlight (revision 12, by request — "لاحظ بقية
+/// الميزات التي لم نذكرها") — confirmed live that the reference site
+/// adds a `pd-high` class (`color: red !important`) to a PD input once
+/// its value reaches 4 (tested 3/4/5/6/7 to find the exact threshold).
+bool _isPdHigh(dynamic value) {
+  final n = double.tryParse('$value');
+  return n != null && n >= 4;
+}
 String _furcationMarkerSvg(AdvancedPerioChartField field, int tooth, String zone) {
   final grade = '${field._getSite(tooth, zone, 'furcation', 0)}';
   const y = _kFurcationMarkerY;
@@ -291,6 +316,16 @@ String _archSvg(List<(int, String)> arch, bool isUpper, AdvancedPerioChartField 
       buffer.write(_furcationMarkerSvg(field, tooth, zone));
     }
     buffer.write('</g>');
+  }
+
+  // Drawn last (on top of the tooth shapes) so the grid visibly crosses
+  // the roots — see `_mmGridlineYs`'s own doc comment for why this
+  // component needs the grid *after* the tooth loop even though the
+  // reference site's own SVG draws its lines first (its tooth artwork is
+  // a separate raster image behind the whole SVG, not vector content
+  // inside it, so paint order there doesn't carry the same meaning).
+  for (final y in _mmGridlineYs(isUpper, gumlineY)) {
+    buffer.write('<line x1="0" y1="$y" x2="$width" y2="$y" stroke="#000000" stroke-width="1.25"/>');
   }
 
   buffer.write('</svg>');
@@ -704,6 +739,9 @@ class _ArchBlock extends StatelessWidget {
         ),
       );
     }
+    // Probing Depth ≥4mm highlight (revision 12) — see this file's own
+    // `_isPdHigh` doc comment for the live-confirmed threshold.
+    final highPd = metric == 'pd' && _isPdHigh(value);
     return Container(
       height: 20,
       margin: const EdgeInsets.all(0.5),
@@ -714,7 +752,7 @@ class _ArchBlock extends StatelessWidget {
         textAlign: TextAlign.center,
         keyboardType: const TextInputType.numberWithOptions(signed: true),
         maxLength: 3,
-        style: const TextStyle(fontSize: 10),
+        style: TextStyle(fontSize: 10, color: highPd ? Colors.red : null, fontWeight: highPd ? FontWeight.bold : null),
         decoration: const InputDecoration(counterText: '', contentPadding: EdgeInsets.zero, border: OutlineInputBorder(borderRadius: BorderRadius.zero)),
         onChanged: (v) => field._setSite(tooth, zone, metric, pos, v),
       ),

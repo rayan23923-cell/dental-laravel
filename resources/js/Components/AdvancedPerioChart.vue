@@ -402,6 +402,16 @@ const POCKET_SCALE = 6.45;
 const POCKET_BASELINE_Y = 45;
 const POCKET_X = [-16, 0, 16];
 
+// Probing Depth ≥4mm highlight (revision 12, by request — "لاحظ بقية
+// الميزات التي لم نذكرها"): confirmed live that the reference site adds
+// a `pd-high` class (`color: red !important`) to a PD input once its
+// value reaches 4 — tested `3` (plain), `4`/`5`/`6`/`7` (all red) to
+// find the exact threshold rather than guessing at a round number.
+const isPdHigh = (value) => {
+    const n = parseFloat(value);
+    return !Number.isNaN(n) && n >= 4;
+};
+
 const gmLocalY = (tooth, zone, pos) => {
     const gm = parseFloat(getSite(tooth, zone, 'gm', pos));
     return POCKET_BASELINE_Y - (Number.isNaN(gm) ? 0 : gm) * POCKET_SCALE;
@@ -538,6 +548,44 @@ const toothTransform = (isUpper, idx) => {
     return isUpper ? `translate(${cx},164) scale(1,-1)` : `translate(${cx},25)`;
 };
 const gumlineY = (isUpper) => (isUpper ? 119 : 70);
+
+// mm-ruler gridlines across the roots (revision 12, by request — "اضف
+// كذلك الخطوط التي تغطي الجذور بنفس السمك والطول والمواقع... قارن مع
+// الموقع"): confirmed live against periodontalchart-online.com's own
+// SVG (not the earlier static reference asset — the user explicitly
+// redirected to the live site: "اقصد الموقع وليس الملف") that each
+// quadrant's tooth row draws 17 solid `<line>` elements spanning the
+// *entire* row width, evenly spaced by exactly `POCKET_SCALE` (6.45,
+// i.e. one per mm), starting at the gumline baseline (mm 0, the same y
+// as the dashed gumline this component already draws) and continuing 16
+// mm apically — real DOM attributes read directly, not guessed:
+// `stroke="#000"` `stroke-width="1.25"` `opacity="1"`, no dash. These
+// sit *underneath* the reference's own `perio-*` overlay in that SVG's
+// child order, but the reference's tooth artwork itself is a separate
+// raster `<img class="background-image">` behind the whole SVG, not
+// vector content in it — so visually the grid already reads as "on top
+// of the roots" there. This component draws its roots as vector `<path>`
+// content *inside* the same SVG, so reproducing "lines that cover the
+// roots" here means drawing the grid *after* the tooth `<g>` loop in the
+// template (later paint order = on top), not copying the reference's own
+// DOM position literally.
+//
+// Mapped into this component's own coordinate system the same way the
+// GM/PD pocket overlay already is (see its own doc comment): the tooth
+// shapes' local space runs apical=increasing local y, while the arch-
+// level `gumlineY` is in *screen* space after each tooth's own
+// transform — for the upper arch (`scale(1,-1)`) apical is screen-y
+// *decreasing* from the gumline; for the lower arch (no flip) apical is
+// screen-y *increasing*. `POCKET_MAX_MM` (16) matches the reference's
+// own 16mm span (17 lines total there, including its own mm-0 line —
+// this component already has that one as the dashed red gumline, so
+// only mm 1–16 are added here).
+const POCKET_MAX_MM = 16;
+const mmGridlineYs = (isUpper) => {
+    const dir = isUpper ? -1 : 1;
+    const base = gumlineY(isUpper);
+    return Array.from({ length: POCKET_MAX_MM }, (_, i) => base + dir * (i + 1) * POCKET_SCALE);
+};
 </script>
 
 <template>
@@ -629,6 +677,7 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                                         maxlength="3"
                                         :disabled="disabled || isSiteDisabled(tooth, row.key)"
                                         class="h-5 w-[15px] border-0 p-0 text-center text-[9px] focus:ring-1 focus:ring-indigo-400"
+                                        :class="row.key === 'pd' && isPdHigh(getSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos)) ? 'text-red-600 font-bold' : ''"
                                         :value="getSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos)"
                                         @input="setSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos, $event.target.value)"
                                     />
@@ -740,6 +789,22 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                                         stroke-linecap="round"
                                     />
                                 </g>
+                                <!-- mm-ruler gridlines across the roots (revision 12) — drawn last
+                                     (on top of the tooth shapes) so they visibly cross the roots,
+                                     matching the reference's own visual result there (its own grid
+                                     sits over a raster tooth image; here it sits over vector root
+                                     paths) — see `mmGridlineYs`'s own doc comment for the exact
+                                     stroke/spacing captured live and the per-arch direction math. -->
+                                <line
+                                    v-for="y in mmGridlineYs(isUpper)"
+                                    :key="y"
+                                    x1="0"
+                                    :x2="ARCH_WIDTH"
+                                    :y1="y"
+                                    :y2="y"
+                                    stroke="#000"
+                                    stroke-width="1.25"
+                                />
                             </svg>
                         </td>
                     </tr>
@@ -776,6 +841,7 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                                         maxlength="3"
                                         :disabled="disabled || isSiteDisabled(tooth, row.key)"
                                         class="h-5 w-[15px] border-0 p-0 text-center text-[9px] focus:ring-1 focus:ring-indigo-400"
+                                        :class="row.key === 'pd' && isPdHigh(getSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos)) ? 'text-red-600 font-bold' : ''"
                                         :value="getSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos)"
                                         @input="setSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos, $event.target.value)"
                                     />

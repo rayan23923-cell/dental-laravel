@@ -5874,3 +5874,34 @@ Verified live against the real web build in the browser (same reasoning
 as revision 9's entry). `flutter analyze
 lib/features/perio_chart/presentation/advanced_perio_chart_field.dart`
 clean, no issues found.
+
+## Advanced Periodontal Chart, revision 12: mm-ruler gridlines over the roots + a PD≥4mm highlight (2026-08-31)
+
+Same live-confirmed features and reasoning as `dental_laravel/README.md`'s
+matching entry — read that one for the full derivation (17 plain
+`<line>` elements per quadrant on the reference site, `stroke="#000"`
+`stroke-width="1.25"`, spaced by 6.45 per mm; the `pd-high` CSS class
+appearing at PD ≥4, tested exactly rather than assumed; and the survey
+of other reference-site features intentionally left unimplemented —
+Classification/PRA, Overview/Analysis/Interval/3D, QR Code, Calibration
+— as standalone candidates for a future request). This entry covers only
+the Flutter-specific port.
+
+- **`_mmGridlineYs(isUpper, gumlineY)`** — a new top-level function
+  mirroring the web side's `mmGridlineYs`, returning 16 arch-level y
+  values (mm 1–16) using the same screen-space direction already
+  established for `_archSvg`'s own upper/lower flip. Appended as
+  `<line>` elements at the very end of `_archSvg`'s per-tooth loop (after
+  `</g>`, before `</svg>`) so they paint over the tooth shapes, same
+  reasoning as the web side (this component's roots are vector content
+  inside the SVG, unlike the reference's raster background image, so
+  paint order matters here in a way it doesn't there).
+- **`_isPdHigh(value)`** — mirrors `isPdHigh`; wired into `_siteCell`'s
+  `'number'` branch, only for `metric == 'pd'`, setting the
+  `TextFormField`'s style to `Colors.red` + `FontWeight.bold` instead of
+  the plain default.
+
+Verified live against the real web build in the browser (same reasoning
+as revision 9's entry). `flutter analyze
+lib/features/perio_chart/presentation/advanced_perio_chart_field.dart`
+clean, no issues found.
