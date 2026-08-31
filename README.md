@@ -7500,3 +7500,36 @@ instruction, not visually inspected in a browser — correctness of the
 cross-check above), and correctness of the *layout* rests on `table-fixed`
 + percentage columns being a well-established CSS technique for this
 exact "never overflow" guarantee, not on a rendered screenshot.
+
+## Advanced Periodontal Chart, revision 3: two diagrams per arch (Labial + Lingual) (2026-08-31)
+
+Same day, another follow-up with the reference file attached again: "لكل
+فك هناك مخططان labial/lingual كما موضح بالملف المرفق والصورة" — the
+reference site actually shows *two* tooth-row diagrams per arch, labeled
+"MAXILLA · LABIAL" and "MAXILLA · LINGUAL" (confirmed directly from the
+reference asset's own row-label text, not assumed), not the single
+combined graphic revision 2 shipped.
+
+Re-read the reference asset's lingual-view tooth groups (`data-surface=
+"lingual"`) to check whether they needed their own separate shape
+library — they don't: their `crown`/`root` `d` attributes are
+byte-for-byte identical to the labial view's (tooth 17's lingual crown
+path is the exact same string as its labial crown path); only the
+decorative surface-detail lines differ (`.detail` vs `.lingual-detail`,
+showing cusp/fossa texture from each angle), and this component was
+already skipping that decorative layer entirely (see revision 2's entry).
+So the "two diagrams" is a real structural change — two separate `<tr>`
+rows, each with its own "Labial"/"Palatal · Lingual" caption — drawing
+from the *same* shape data, which correctly reflects that the outline
+itself doesn't change between viewing angles at this simplification
+level.
+
+**Implant sync across both views, by request** ("عند اختيار زرعه لسن
+معين تظهر الزرعة ويختفي التاج ويتم اختيار الجهة المعاكسة ولي نفس العمود
+المختار"): both rows call the exact same `getSingle(tooth, 'implant')`
+for a given tooth, so toggling Implant swaps *both* the Labial and
+Lingual drawings for that column to the fixture graphic together — no
+extra sync code was needed, this fell out of both rows reading the same
+underlying reactive data.
+
+Verified: `npm run build` clean.

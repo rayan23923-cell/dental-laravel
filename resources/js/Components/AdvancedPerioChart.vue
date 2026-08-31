@@ -28,6 +28,17 @@
  * in place of its normal crown+root, mirroring the reference site's own
  * per-tooth implant-mode swap.
  *
+ * Two diagrams per arch (revision 3, same day, by request — "لكل فك هناك
+ * مخططان labial/lingual"): each arch now renders TWO tooth-row graphics,
+ * labeled "Labial" and "Palatal / Lingual" (or "Lingual" for the lower
+ * arch), matching the reference site's own "MAXILLA · LABIAL" / "MAXILLA
+ * · LINGUAL" structure — see the template's own comment for why both
+ * draw from the same crown+root shape data (the reference asset's lingual-
+ * view groups carry byte-for-byte identical crown/root paths to its
+ * labial view) and why toggling Implant for a tooth updates both rows
+ * automatically with no extra sync code ("يتم اختيار الجهة المعاكسة ولي
+ * نفس العمود المختار").
+ *
  * Layout (revision 2, by request — "بدون سكرول افقي"): the previous
  * revision used a fixed-pixel-width table inside an `overflow-x-auto`
  * wrapper, which is exactly what forces horizontal scrolling on a phone.
@@ -363,9 +374,27 @@ const toothX = (idx) => 45 + idx * TOOTH_SLOT;
                         </td>
                     </tr>
 
-                    <!-- Tooth-row graphic — one responsive SVG, see this component's own doc comment. An implant-flagged tooth shows the fixture graphic instead of its crown+root. -->
-                    <tr>
-                        <th class="border border-gray-300 bg-white"></th>
+                    <!--
+                        Two tooth-row diagrams per arch — Labial and Lingual/Palatal
+                        views, matching the reference site's own "MAXILLA · LABIAL" /
+                        "MAXILLA · LINGUAL" structure (confirmed directly from the
+                        reference asset's own row labels, by request). Both views draw
+                        from the *same* crown+root outline data — the reference asset's
+                        own lingual-view groups carry byte-for-byte identical crown/root
+                        `d` paths to the labial view (only their decorative surface-detail
+                        lines differ, which this component doesn't draw at either view —
+                        see the shape-library doc comment above), so there is no separate
+                        "lingual shape" to extract; the two rows are visually the outline
+                        twice, correctly reflecting that the outline itself doesn't change
+                        between viewing angles at this level of simplification.
+
+                        Both rows read the exact same `getSingle(tooth, 'implant')` call,
+                        so toggling Implant for a tooth swaps *both* rows' drawing for
+                        that column together, automatically — no extra sync code needed,
+                        by request ("يتم اختيار الجهة المعاكسة ولي نفس العمود المختار").
+                    -->
+                    <tr v-for="view in ['Labial', isUpper ? 'Palatal / Lingual' : 'Lingual']" :key="view">
+                        <th class="border border-gray-300 bg-white px-1 text-right text-[9px] font-medium text-gray-400">{{ view }}</th>
                         <td colspan="48" class="border border-gray-300 bg-white p-1">
                             <svg width="100%" height="auto" :viewBox="`0 0 ${ARCH_WIDTH} ${ARCH_HEIGHT}`" preserveAspectRatio="xMidYMin meet">
                                 <line :x2="ARCH_WIDTH" :y1="GUMLINE_Y" :y2="GUMLINE_Y" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="4,3" />

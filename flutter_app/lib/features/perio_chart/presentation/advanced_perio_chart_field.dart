@@ -339,22 +339,40 @@ class _ArchBlock extends StatelessWidget {
             if (isUpper) ..._singleRows(teeth),
             for (final (key, label, signed) in _kSiteRows) _siteRow(teeth, firstZone, '$firstLabel — $label', key, signed),
             _numberRow(teeth),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                children: [
-                  const SizedBox(width: 78),
-                  Expanded(
-                    child: SvgPicture.string(_archSvg(teeth, isUpper, field._teeth), fit: BoxFit.fitWidth),
-                  ),
-                ],
-              ),
-            ),
+            // Two tooth-row diagrams per arch — Labial and Lingual/Palatal
+            // views, matching the reference site's own "MAXILLA · LABIAL" /
+            // "MAXILLA · LINGUAL" structure (by request). Both draw from
+            // the same crown+root outline data (the reference asset's own
+            // lingual-view groups carry byte-for-byte identical crown/root
+            // paths to the labial view — see the shape library's own doc
+            // comment), and both read the same `field._teeth` implant
+            // data, so toggling Implant for a tooth swaps *both* rows'
+            // drawing for that column together automatically.
+            _toothRowGraphic('Labial'),
+            _toothRowGraphic(isUpper ? 'Palatal / Lingual' : 'Lingual'),
             for (final (key, label, signed) in _kSiteRows.reversed) _siteRow(teeth, secondZone, '$secondLabel — $label', key, signed),
             _noteRow(teeth),
             if (!isUpper) ..._singleRows(teeth),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _toothRowGraphic(String label) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 78,
+            child: Text(label, style: const TextStyle(fontSize: 9, color: Colors.grey), textAlign: TextAlign.right, overflow: TextOverflow.ellipsis),
+          ),
+          Expanded(
+            child: SvgPicture.string(_archSvg(teeth, isUpper, field._teeth), fit: BoxFit.fitWidth),
+          ),
+        ],
       ),
     );
   }

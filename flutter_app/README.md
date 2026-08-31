@@ -5622,3 +5622,27 @@ executes cleanly for both cases; also asserted the computed stats text
 ("Avg. Probing Depth: 2.2 mm") matched the hand-calculated expected value
 for the seeded data. `flutter analyze` clean, both scoped to the file and
 run project-wide afterward.
+
+## Advanced Periodontal Chart, revision 3: two diagrams per arch (Labial + Lingual) (2026-08-31)
+
+Same feature/request as `dental_laravel/README.md`'s matching entry —
+read that one for the full rationale (the reference site's real "MAXILLA
+· LABIAL" / "MAXILLA · LINGUAL" structure; why both views draw from the
+same crown/root shape data with no separate lingual library needed).
+This entry covers only the Flutter-specific implementation.
+
+`_ArchBlock` gained a `_toothRowGraphic(String label)` helper — a
+labeled `Row` (fixed-width label + `Expanded` `SvgPicture.string`) built
+from the existing `_archSvg()` — and now calls it twice per arch
+(`'Labial'` and `isUpper ? 'Palatal / Lingual' : 'Lingual'`) instead of
+once. Both calls pass the same `field._teeth` map into `_archSvg()`, so
+an implant toggle for any tooth is picked up by both rows on the next
+rebuild automatically — no new sync logic, same as the web side.
+
+Verified with a temporary `flutter_test` (deleted after use): pumped
+`AdvancedPerioChartField` with one implant tooth (`46`, lower arch),
+asserted `tester.takeException()` was `null`, that both `'Labial'` and
+`'Lingual'`/`'Palatal / Lingual'` caption texts appear (2 arches × their
+respective labels), and that exactly 4 `SvgPicture` widgets render (2
+arches × 2 views) — confirming the dual-diagram structure builds
+successfully end to end. `flutter analyze` clean.
