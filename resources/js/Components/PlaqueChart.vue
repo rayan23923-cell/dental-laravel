@@ -6,15 +6,19 @@
  * top-level key (see `App\Support\PlaqueChart`'s own doc comment for why
  * the two features live side by side rather than merged).
  *
- * Deliberately a plain checkbox grid rather than the original's own
- * tap-a-curved-tooth-diagram editor (`dental_clinics2/doctor/
- * periodontal_chart.php`'s `createToothSVG`, click-to-toggle on an actual
- * anatomical shape): this is a boolean present/absent mark per surface,
- * not a multi-status picker the way ToothOdontogram.vue's flower chart
- * is, so a checkbox conveys the same information with far less code and
- * no SVG-hit-testing to build. The *printed* chart still draws the
- * original's real curved tooth shapes (see the print Blade partial) —
- * this simplification is on-screen only.
+ * Interactive real-tooth-shape SVG (2026-08-31, by request) — the original
+ * `dental_clinics2/doctor/periodontal_chart.php`'s `createToothForVisit()`
+ * draws each tooth as its real curved outline clipped over 4 quadrant
+ * triangles (buccal/distal/lingual/mesial), click-to-toggle per triangle.
+ * This ports that exact shape/geometry (also shared with the print-side
+ * Blade partial and Flutter's `periodontal_plaque_chart_svg.dart`, so all
+ * three surfaces draw identical art), simplified from the original's
+ * desktop-click-vs-mobile-modal-vs-Surface/Extract-mode-toggle into one
+ * direct interaction that works the same on every device: tap a quadrant
+ * triangle to mark/unmark it, tap the small "✕" chip under a tooth to
+ * mark it extracted (extracted teeth stop accepting surface taps, mirroring
+ * `App\Support\PlaqueChart::visitData()`'s own "extracted teeth never
+ * count" rule).
  *
  * `modelValue` is `chart_data.dentalCharts` as already-decoded JSON:
  *   { visit2: { teeth: { '11': { extracted: bool, surfaces: {...} } } }, ... }
@@ -29,13 +33,37 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue']);
 
-const UPPER = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
-const LOWER = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
-const SURFACES = [
-    { key: 'buccal', label: 'B' },
-    { key: 'distal', label: 'D' },
-    { key: 'lingual', label: 'L' },
-    { key: 'mesial', label: 'M' },
+// Tooth shapes and FDI→type maps — copied verbatim from
+// App\Support\PlaqueChart::TOOTH_SHAPES/UPPER_TEETH/LOWER_TEETH and mirrored
+// in periodontal_plaque_chart_svg.dart's kPlaqueToothShapes/kPlaqueUpperTeeth/
+// kPlaqueLowerTeeth, so all three surfaces draw the identical outlines.
+const TOOTH_SHAPES = {
+    molar: 'M 5,10 Q 20,0 35,10 Q 40,20 35,35 Q 20,40 5,35 Q 0,20 5,10 Z',
+    premolar: 'M 5,10 Q 20,2 35,10 Q 38,25 30,35 Q 20,38 10,35 Q 2,25 5,10 Z',
+    canine: 'M 5,15 L 20,2 L 35,15 L 30,35 L 10,35 Z',
+    incisorUpper: 'M 0,0 L 40,0 L 34,40 L 6,40 Z',
+    incisorLower: 'M 5,2 L 35,2 L 32,38 L 8,38 Z',
+};
+
+const UPPER = [
+    [18, 'molar'], [17, 'molar'], [16, 'molar'], [15, 'premolar'], [14, 'premolar'], [13, 'canine'],
+    [12, 'incisorUpper'], [11, 'incisorUpper'], [21, 'incisorUpper'], [22, 'incisorUpper'],
+    [23, 'canine'], [24, 'premolar'], [25, 'premolar'], [26, 'molar'], [27, 'molar'], [28, 'molar'],
+];
+const LOWER = [
+    [48, 'molar'], [47, 'molar'], [46, 'molar'], [45, 'premolar'], [44, 'premolar'], [43, 'canine'],
+    [42, 'incisorLower'], [41, 'incisorLower'], [31, 'incisorLower'], [32, 'incisorLower'],
+    [33, 'canine'], [34, 'premolar'], [35, 'premolar'], [36, 'molar'], [37, 'molar'], [38, 'molar'],
+];
+
+// The 4 quadrant sectors, as triangles fanning out from the tooth's centre
+// (20,20) in a 0–40 box — same points the print Blade partial's
+// `$sectorPoints` and Flutter's `kPlaqueSectorPoints` use.
+const SECTORS = [
+    { key: 'buccal', label: 'Buccal', points: '0,0 40,0 20,20' },
+    { key: 'distal', label: 'Distal', points: '40,0 40,40 20,20' },
+    { key: 'lingual', label: 'Lingual', points: '40,40 0,40 20,20' },
+    { key: 'mesial', label: 'Mesial', points: '0,40 0,0 20,20' },
 ];
 
 const openVisit = ref(props.visits[0]?.key ?? null);
@@ -55,12 +83,14 @@ const setTooth = (visitKey, tooth, data) => {
 };
 
 const toggleExtracted = (visitKey, tooth) => {
+    if (props.disabled) return;
     const data = { ...toothData(visitKey, tooth) };
     data.extracted = !data.extracted;
     setTooth(visitKey, tooth, data);
 };
 
 const toggleSurface = (visitKey, tooth, surface) => {
+    if (props.disabled || isExtracted(visitKey, tooth)) return;
     const data = { ...toothData(visitKey, tooth) };
     data.surfaces = { ...(data.surfaces ?? {}), [surface]: !data.surfaces?.[surface] };
     setTooth(visitKey, tooth, data);
@@ -71,10 +101,10 @@ const toggleSurface = (visitKey, tooth, surface) => {
 const stats = (visitKey) => {
     let marked = 0;
     let total = 0;
-    for (const tooth of [...UPPER, ...LOWER]) {
+    for (const [tooth] of [...UPPER, ...LOWER]) {
         if (isExtracted(visitKey, tooth)) continue;
         total += 4;
-        for (const s of SURFACES) {
+        for (const s of SECTORS) {
             if (isMarked(visitKey, tooth, s.key)) marked++;
         }
     }
@@ -82,6 +112,9 @@ const stats = (visitKey) => {
 };
 
 const visitStats = computed(() => Object.fromEntries(props.visits.map((v) => [v.key, stats(v.key)])));
+
+const sectorFill = (visitKey, tooth, surface) => (isMarked(visitKey, tooth, surface) ? '#4caf50' : '#ffffff');
+const sectorOpacity = (visitKey, tooth, surface) => (isMarked(visitKey, tooth, surface) ? 0.7 : 0);
 </script>
 
 <template>
@@ -99,41 +132,52 @@ const visitStats = computed(() => Object.fromEntries(props.visits.map((v) => [v.
             </button>
 
             <div v-if="openVisit === visit.key" class="space-y-4 p-4">
+                <p class="text-xs text-gray-400">اضغط على أي جزء من السن لتحديد السطح المصاب باللويحة، واضغط ✕ لتحديد سن مخلوع.</p>
+
                 <div v-for="(arch, archLabel) in { 'Upper Arch': UPPER, 'Lower Arch': LOWER }" :key="archLabel">
                     <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">{{ archLabel }}</div>
-                    <div class="space-y-1">
-                        <div v-for="tooth in arch" :key="tooth" class="flex items-center gap-2 text-sm">
-                            <span class="w-6 font-semibold text-gray-700">{{ tooth }}</span>
-                            <label
-                                v-for="surface in SURFACES"
-                                :key="surface.key"
-                                class="flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs"
-                                :class="!isExtracted(visit.key, tooth) && isMarked(visit.key, tooth, surface.key)
-                                    ? 'border-green-500 bg-green-50 text-green-700'
-                                    : 'border-gray-200 text-gray-500'"
-                            >
-                                <input
-                                    type="checkbox"
-                                    class="sr-only"
-                                    :disabled="disabled || isExtracted(visit.key, tooth)"
-                                    :checked="!isExtracted(visit.key, tooth) && isMarked(visit.key, tooth, surface.key)"
-                                    @change="toggleSurface(visit.key, tooth, surface.key)"
-                                />
-                                {{ surface.label }}
-                            </label>
-                            <label
-                                class="flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs"
-                                :class="isExtracted(visit.key, tooth) ? 'border-red-500 bg-red-50 text-red-700' : 'border-gray-200 text-gray-500'"
-                            >
-                                <input
-                                    type="checkbox"
-                                    class="sr-only"
+                    <div class="overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
+                        <div class="flex w-max gap-1 pb-1">
+                            <div v-for="[tooth, type] in arch" :key="tooth" class="flex shrink-0 flex-col items-center gap-0.5">
+                                <svg width="34" height="34" viewBox="0 0 40 40" class="drop-shadow-sm" :style="{ opacity: isExtracted(visit.key, tooth) ? 0.4 : 1 }">
+                                    <defs>
+                                        <clipPath :id="`plaque-clip-${visit.key}-${tooth}`">
+                                            <path :d="TOOTH_SHAPES[type]" />
+                                        </clipPath>
+                                    </defs>
+                                    <g :clip-path="`url(#plaque-clip-${visit.key}-${tooth})`">
+                                        <polygon
+                                            v-for="sector in SECTORS"
+                                            :key="sector.key"
+                                            :points="sector.points"
+                                            :fill="sectorFill(visit.key, tooth, sector.key)"
+                                            :fill-opacity="sectorOpacity(visit.key, tooth, sector.key)"
+                                            stroke="none"
+                                            :class="{ 'cursor-pointer': !disabled && !isExtracted(visit.key, tooth) }"
+                                            :title="sector.label"
+                                            @click="toggleSurface(visit.key, tooth, sector.key)"
+                                        />
+                                    </g>
+                                    <path :d="TOOTH_SHAPES[type]" fill="none" stroke="#333" stroke-width="1.5" vector-effect="non-scaling-stroke" />
+                                    <path
+                                        v-if="isExtracted(visit.key, tooth)"
+                                        d="M 0,0 L 40,40 M 40,0 L 0,40"
+                                        stroke="#dc2626"
+                                        stroke-width="2.5"
+                                        stroke-linecap="round"
+                                    />
+                                </svg>
+                                <span class="text-[10px] leading-none text-gray-600">{{ tooth }}</span>
+                                <button
+                                    type="button"
                                     :disabled="disabled"
-                                    :checked="isExtracted(visit.key, tooth)"
-                                    @change="toggleExtracted(visit.key, tooth)"
-                                />
-                                Extracted
-                            </label>
+                                    class="rounded px-1 text-[9px] leading-tight"
+                                    :class="isExtracted(visit.key, tooth) ? 'bg-red-100 text-red-700' : 'text-gray-400 hover:bg-gray-100'"
+                                    @click="toggleExtracted(visit.key, tooth)"
+                                >
+                                    ✕
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

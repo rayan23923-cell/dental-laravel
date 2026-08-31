@@ -5415,3 +5415,50 @@ with the plaque chart section builds successfully. Also confirmed via
 via `tinker`, then reverted afterward) — that the JSON matches the
 backend's own `PlaqueChart::visitData()` computation exactly. `flutter
 analyze` clean on the whole project throughout.
+
+## Plaque Index on-screen editor: from chips to a real tappable tooth shape (2026-08-31)
+
+Reported on production (web side): the Plaque Index editor didn't show
+an SVG chart, because it deliberately didn't have one (see the entry
+above — a `FilterChip` grid, real SVG only in print). Asked the user
+directly and confirmed: yes, upgrade the on-screen editor itself to a
+real interactive tooth diagram, matching the original's own
+`createToothForVisit()` click-to-toggle editor, and matching what the
+web side (`dental_laravel/README.md`'s own entry) got at the same time.
+
+Rewrote `PlaqueChartField`: each of the 32 teeth per visit is now a
+`_ToothTile` — a `CustomPaint` drawing the real curved
+molar/premolar/canine/incisor outline (`_toothPath()`, the same
+quadratic-Bezier coordinates as `App\Support\PlaqueChart::TOOTH_SHAPES`
+and `periodontal_plaque_chart_svg.dart`'s `kPlaqueToothShapes`, just
+expressed as `Path.quadraticBezierTo()` calls instead of an SVG path
+string since this widget paints and hit-tests directly rather than
+handing the shape to `pw.SvgImage`), clipped over 4 quadrant triangles
+(green when marked, same `#4CAF50`/0.7-alpha every surface uses) inside
+a `GestureDetector` — `onTapDown` converts the tap's local offset into
+the 0–40 tooth-box coordinate space and `_sectorAt()` picks the quadrant
+by comparing the point against the box's two diagonals (`dy < dx` /
+`dy < 40 - dx`), the same 4-way split `kPlaqueSectorPoints` draws. A
+small "مخلوع" chip below each tooth still toggles `extracted` — kept as
+a discrete tap target rather than folded into the SVG hit-test, since the
+4 triangles already tile the tooth's entire bounding box with no
+leftover "tooth body" region to bind a separate extract-tap to (the
+original needed a whole separate Surface/Extract mode toggle button to
+resolve that same ambiguity; a dedicated chip sidesteps it entirely).
+Data shape, `_stats()`'s marked/total math, and `onChanged`'s payload are
+byte-for-byte unchanged from the chip version — this was a rendering/
+interaction rewrite only.
+
+Verified with `flutter analyze` (clean, one initial `withOpacity`
+deprecation warning fixed to `withValues(alpha:)`) — the quadrant
+math in `_sectorAt()` was hand-verified against the 4 known interior
+points of each triangle (e.g. `(20,5)` → buccal, `(35,20)` → distal,
+`(20,35)` → lingual, `(5,20)` → mesial) rather than run through a
+`flutter_test`, since the function is a private top-level helper not
+exposed for import. Per this session's standing "no
+emulator/simulator" instruction, not run on-device; the same
+`_toothPath()` coordinates are already visually confirmed correct via
+the print-side `buildPlaqueToothSvg()` (identical source shapes, proven
+by the `flutter_test` in the entry above), so only the new hit-testing
+and `CustomPainter` wiring here were unverified beyond static analysis
+and manual geometry review.

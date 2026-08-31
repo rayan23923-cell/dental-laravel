@@ -7211,3 +7211,41 @@ a plain JSON response the way `Api\CaseSheetFormController`'s are).
 Each of these follows the same pattern established so far: Eloquent model →
 web controller + Inertia Vue pages → matching API controller + Resource +
 routes in `routes/api.php`.
+
+## Plaque Index on-screen editor: from checkboxes to a real tappable tooth SVG (2026-08-31)
+
+Reported on production (`/periodontal-charts/create?task_id=30`):
+"المخطط لايظهر svg" (the chart doesn't show as SVG). The Plaque Index
+editor added the day before was deliberately a checkbox grid on screen —
+no `<svg>` at all, by design (see that entry above) — with real SVG only
+in the print output. Re-checked the whole chain (`PlaqueChart.vue`,
+`SectionedForm.vue`'s prop-passing, `PeriodontalChartController::form()`,
+the schema JSON) for an actual rendering bug first and found none; asked
+the user directly whether they wanted the on-screen editor itself
+upgraded to a real interactive tooth diagram (matching the original's own
+`createToothForVisit()` click-to-toggle editor) rather than guessing and
+rebuilding blind — confirmed yes.
+
+Rewrote `PlaqueChart.vue`: each of the 32 teeth per visit now renders as
+its own small `<svg>` (viewBox `0 0 40 40`), the real curved
+molar/premolar/canine/incisor outline from `App\Support\PlaqueChart::
+TOOTH_SHAPES` as a `<clipPath>`, with 4 quadrant-triangle `<polygon>`s
+inside (green fill when marked, same `#4caf50`/0.7-opacity the print
+Blade partial and Flutter both use) — clicking a triangle directly
+toggles that surface. A small "✕" chip below each tooth toggles
+`extracted` (kept as a discrete control rather than an SVG click target,
+since the original's own click model needed a whole separate "Surface
+Mode"/"Extract Mode" toggle to disambiguate a tooth-body click from a
+surface click — the 4 triangles here already tile the entire 40×40 box
+with no empty "tooth body" region left to click). `charts.dentalCharts`'
+data shape, `stats()`'s marked/total math, and the `chart_data` submit
+path are all unchanged — this was a template/rendering rewrite only, no
+change to what gets posted or how the print side reads it.
+
+Verified with `npm run build` (Vite/Rollup catches Vue SFC template and
+`<script setup>` syntax errors even without a browser) — clean build, no
+errors. Per this session's standing "no browser/emulator" instruction,
+did not load the page in a browser to visually confirm; the geometry
+(tooth outline paths, quadrant triangle points) is copied verbatim from
+the same `App\Support\PlaqueChart` constants the print renderer already
+uses and has been visually confirmed correct there.
