@@ -7897,3 +7897,60 @@ after use): confirmed the Buccal — Furcation row now renders 16 cells
 that the tooth's own `<g>` gained a `circle[r="5.75"]` at grade 1, the
 half-circle wedge path at grade 2, a `circle[r="7"]` at grade 3, and no
 marker at all back at grade 0. `npm run build` clean throughout.
+
+## Advanced Periodontal Chart, revision 11: fixed the furcation marker's (and GM's) y-direction (2026-08-31)
+
+By request: "موقع الfurcation بنهاية الجذر من عند التاج قارن مع الموقع"
+— revision 10's furcation marker was on the wrong side of the gumline:
+it read the reference's own `cy=95` vs. baseline `106` as "toward the
+crown" and subtracted the offset, which actually placed the marker
+*coronal* to the gumline (into the crown), when a furcation entrance is
+apical (into the root, just past the CEJ).
+
+Root cause: this component's own local tooth-shape space and the
+reference site's raw SVG y-axis run in **opposite** directions, and
+revision 9/10 both copied the reference's arithmetic sign directly
+without accounting for that. Pinned down the reference's actual
+direction unambiguously this time (rather than assuming) by probing a
+large, unambiguous value: `pd_18_b = 10` (probing depth can only extend
+*further into* the sulcus, i.e. apically — there's no other physical
+reading) moved that site's y from baseline `106` down to `41.5`. That
+proves **decreasing y = apical** on the reference's own axis. Re-reading
+every earlier live measurement against that rule:
+- The reference's furcation marker (`cy = 95`, 11 less than baseline
+  `106`) is therefore apical, not coronal — sitting just inside the
+  root, a few mm past the CEJ, matching real anatomy.
+- The reference's GM formula (`gm_y = baseline + GM*scale`) means
+  positive GM moves *coronally* (increasing y) and negative GM moves
+  *apically* (decreasing y) — i.e. negative = recession, exactly the
+  documented clinical convention, so GM's own *meaning* was never wrong,
+  only how its offset got carried into this component's own coordinate
+  space.
+
+This component's own local tooth-shape space runs the opposite way
+(crown tip at local y≈-24, root tip at local y≈150-207, gumline at 45 —
+apical = *increasing* local y). Both revision 9's `gmLocalY` (`baseline
++ gm*scale`) and revision 10's `FURCATION_MARKER_Y` (`baseline - 11`)
+had copied the reference's raw arithmetic sign as-is, which silently
+flipped the *direction* of both while still reproducing the reference's
+raw *numbers* — a bug that a numeric-only comparison (matching `points`
+values) couldn't have caught, only a directional/anatomical check could.
+
+Fixed both:
+- `gmLocalY`: `baseline - gm*scale` (was `+`) — positive GM now moves
+  toward the crown, negative GM (recession) now moves toward the root,
+  in this component's own space. `pdLocalY` needed no change — PD is
+  always ≥0 and must always extend further apical than GM regardless of
+  which way "apical" points in a given coordinate system, so adding to
+  `gmLocalY` (increasing local y = apical here) was already correct.
+- `FURCATION_MARKER_Y`: `baseline + 11` = `56` (was `baseline - 11` =
+  `34`) — the marker now sits apical (root-ward) of the gumline instead
+  of coronal (crown-ward).
+
+Verified live end-to-end (a fresh temporary doctor account, deleted
+after use): graded tooth 18's furcation to 1 and confirmed the marker's
+`cy` is now `56` (was `34`); entered `gm_18_b = -2` (recession) and
+confirmed the GM polyline's mid-point is now `y = 57.9` — *larger* than
+the `45` baseline (apical, into the root) rather than smaller (which
+would be coronal, into the crown) as it incorrectly was before this fix.
+`npm run build` clean throughout.

@@ -147,13 +147,25 @@ String _furcationSvg(String grade) {
 /// baseline; Attachment Level has no visual effect on the reference
 /// site's own graphic, confirmed by isolated live testing, so it isn't
 /// drawn here either).
+///
+/// Direction fix (revision 11 — see `_furcationMarkerSvg`'s own doc
+/// comment for the full derivation): this component's own local tooth
+/// space runs apical=increasing local y, the opposite of the reference's
+/// own raw y-axis (apical=decreasing, confirmed via a `pd_18_b=10` test
+/// there). `_gmLocalY` originally added `gm*scale` straight from the
+/// reference's own formula, reproducing its *numbers* but flipping the
+/// *direction* — subtracting instead makes positive GM correctly move
+/// toward the crown and negative GM (recession) move toward the root in
+/// this component's own space. `_pdLocalY` needed no change: PD is
+/// always ≥0 and must always extend further apical than GM regardless of
+/// which way "apical" points, so adding to `_gmLocalY` was already right.
 const _kPocketScale = 6.45;
 const _kPocketBaselineY = 45.0;
 const _kPocketX = [-16.0, 0.0, 16.0];
 
 double _gmLocalY(AdvancedPerioChartField field, int tooth, String zone, int pos) {
   final gm = double.tryParse('${field._getSite(tooth, zone, 'gm', pos)}') ?? 0;
-  return _kPocketBaselineY + gm * _kPocketScale;
+  return _kPocketBaselineY - gm * _kPocketScale;
 }
 
 double _pdLocalY(AdvancedPerioChartField field, int tooth, String zone, int pos) {
@@ -180,7 +192,21 @@ String _pocketOverlaySvg(AdvancedPerioChartField field, int tooth, String zone) 
 /// grade 3 is a bigger fully filled circle. One marker per zone per
 /// tooth (not per site), matching this app's own single-furcation-field
 /// simplification.
-const _kFurcationMarkerY = 34.0; // _kPocketBaselineY (45) - 11, matching the reference's own baseline-relative offset
+///
+/// Direction fix (revision 11, by request — "موقع الfurcation بنهاية
+/// الجذر من عند التاج"): revision 10 placed this 11 units *toward the
+/// crown* from the gumline — wrong. The reference draws its own marker
+/// at y=95 against its own baseline of 106; probing a large
+/// `pd_18_b=10` there (unambiguously apical — depth can only extend
+/// further into the sulcus) moved that site's y from 106 down to 41.5,
+/// proving *decreasing* y is apical in the reference's own axis, so its
+/// marker (95 < 106) is actually apical too — just inside the root, a
+/// few mm past the CEJ, matching real furcation anatomy. This
+/// component's own local tooth space runs the opposite way (apical =
+/// *increasing* local y — root tip at local y≈150-207, crown tip at
+/// y≈-24, gumline at 45), so reproducing "11 units apical" here means
+/// *adding* to the baseline, not subtracting.
+const _kFurcationMarkerY = 56.0; // _kPocketBaselineY (45) + 11, apical (root-ward) of the gumline, matching the reference's own offset direction
 String _furcationMarkerSvg(AdvancedPerioChartField field, int tooth, String zone) {
   final grade = '${field._getSite(tooth, zone, 'furcation', 0)}';
   const y = _kFurcationMarkerY;

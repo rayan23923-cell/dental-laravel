@@ -317,14 +317,26 @@ const furcationIcon = (grade) => FURCATION_ICON[grade] ?? '';
 // filled half-circle `<path d="M cx,cy-7 A 7 7 0 0 0 cx,cy+7 L cx,cy Z">`
 // wedge; grade 3 is a bigger fully filled `<circle r="7">` (no ring on
 // top). The reference draws this at its own tooth-18 buccal mid-site x
-// (30.5) a little coronal of that view's own baseline y (95 vs. the
-// baseline 106) — translated here into this component's own local tooth
-// space at x=0 (the tooth's own local center, matching a single
-// per-zone value rather than 3 site positions) and
-// `POCKET_BASELINE_Y - 11` (the same coronal offset, scaled to this
-// component's own gumline-relative y rather than copying the
-// reference's raw pixel number).
-const FURCATION_MARKER_Y = 34; // POCKET_BASELINE_Y (45) - 11, matching the reference's own baseline-relative offset
+// (30.5), offset 11 units from that view's own baseline y (95 vs. 106).
+//
+// Direction fix (revision 11, by request — "موقع الfurcation بنهاية
+// الجذر من عند التاج"): revision 10 read that offset as "toward the
+// crown" and subtracted it from `POCKET_BASELINE_Y`, which actually
+// placed the marker *coronal* to the gumline (into the crown) — wrong.
+// Re-derived the reference's own y-axis direction from data already on
+// hand: probing a large `pd_18_b=10` (unambiguously apical — a probe can
+// only go deeper *into* the sulcus, toward the root) moved that site's y
+// from baseline 106 down to 41.5 — i.e. *decreasing* y is apical/root-
+// ward in the reference's own coordinate system, so the furcation
+// marker's y=95 (*less* than baseline 106) is actually apical too,
+// sitting just inside the root, matching real anatomy (a furcation entry
+// is only a few mm apical to the CEJ, not deep at the root apex). This
+// component's own *local* tooth-shape space runs the opposite way
+// (crown tip at local y≈-24, root tip at local y≈150-207, gumline at 45
+// — i.e. *increasing* local y is apical here), so reproducing "11 units
+// apical" correctly means *adding* to `POCKET_BASELINE_Y`, not
+// subtracting.
+const FURCATION_MARKER_Y = 56; // POCKET_BASELINE_Y (45) + 11, apical (root-ward) of the gumline, matching the reference's own offset direction
 const FURCATION_MARKER = {
     '1': `<circle cx="0" cy="${FURCATION_MARKER_Y}" r="5.75" fill="none" stroke="#000" stroke-width="2.5"/>`,
     '2': `<circle cx="0" cy="${FURCATION_MARKER_Y}" r="5.75" fill="none" stroke="#000" stroke-width="2.5"/><path d="M 0 ${FURCATION_MARKER_Y - 7} A 7 7 0 0 0 0 ${FURCATION_MARKER_Y + 7} L 0 ${FURCATION_MARKER_Y} Z" fill="#000"/>`,
@@ -343,14 +355,19 @@ const furcationMarker = (tooth, zone) => FURCATION_MARKER[getSite(tooth, zone, '
 // semi-transparent band tracing the GM line forward and the PD line
 // backward — the "pocket" fill between them). Measured live: baseline
 // (all values 0) sits at a fixed y with every site flattened onto it;
-// GM=+3 moved that site's y *away* from the crown by exactly 3×6.45px
-// (GM=-2 moved it 2×6.45px *toward* the crown — confirmed both directions
-// against real DOM `points` attributes, matching the standard clinical
-// sign convention: negative = margin coronal to the CEJ, positive =
-// recession); PD is measured *from* the GM line, not the fixed baseline
-// (pd=6 alone landed 6×6.45px past baseline, but the same pd=6 alongside
-// gm=-2 landed a further 2×6.45px off *from GM's own point*, not from
-// baseline — i.e. `pd_y = gm_y + pd*scale`). Attachment Level was tested
+// GM=+3 moved that site's y *toward the crown* (coronal) by exactly
+// 3×6.45px (GM=-2 moved it 2×6.45px *toward the root* (apical) —
+// confirmed both directions against real DOM `points` attributes: the
+// reference's own y-axis runs apical=decreasing/coronal=increasing (see
+// `FURCATION_MARKER_Y`'s own doc comment for how this was pinned down
+// unambiguously via a large `pd_18_b=10` test), so GM=+3 pushing y from
+// 106 to 125.35 is a *coronal* move, matching the standard clinical sign
+// convention: negative = recession (margin apical to the CEJ), positive
+// = margin coronal to the CEJ. PD is measured *from* the GM line, not
+// the fixed baseline (pd=6 alone landed 6×6.45px past baseline, but the
+// same pd=6 alongside gm=-2 landed a further 2×6.45px off *from GM's own
+// point*, not from baseline — i.e. `pd_y = gm_y - pd*scale` in the
+// reference's own coordinate system). Attachment Level was tested
 // in isolation (`al_18_b` changed with gm/pd held at 0) and produced zero
 // DOM change — confirmed AL has no visual representation on the reference
 // site's own tooth graphic, only in its summary stats, so it's
@@ -365,13 +382,29 @@ const furcationMarker = (tooth, zone) => FURCATION_MARKER[getSite(tooth, zone, '
 // anatomical mesial/distal labeling isn't needed, only that the graphic's
 // site order matches the data-entry columns' order, which it does by
 // construction.
+//
+// Direction fix (revision 11 — see `FURCATION_MARKER_Y`'s own doc
+// comment for the full derivation): this component's own local tooth
+// space runs *apical=increasing* local y (root tip at local y≈150-207,
+// crown tip at y≈-24), the opposite of the reference's own raw y-axis
+// (apical=decreasing). `gmLocalY` originally *added* `gm*scale` straight
+// from the reference's own formula, which correctly reproduced the
+// reference's *numbers* but silently flipped the *direction* — a
+// positive (coronal) GM value was rendering apically instead. Fixed by
+// subtracting instead, so positive GM now correctly moves *toward the
+// crown* (decreasing local y) and negative GM (recession) moves
+// *toward the root* (increasing local y) in this component's own space.
+// `pdLocalY` needed no change: PD is always ≥0 and must always extend
+// further apical than GM regardless of which way "apical" points in a
+// given coordinate system, so *adding* to `gmLocalY` (increasing local
+// y = apical here) was already correct.
 const POCKET_SCALE = 6.45;
 const POCKET_BASELINE_Y = 45;
 const POCKET_X = [-16, 0, 16];
 
 const gmLocalY = (tooth, zone, pos) => {
     const gm = parseFloat(getSite(tooth, zone, 'gm', pos));
-    return POCKET_BASELINE_Y + (Number.isNaN(gm) ? 0 : gm) * POCKET_SCALE;
+    return POCKET_BASELINE_Y - (Number.isNaN(gm) ? 0 : gm) * POCKET_SCALE;
 };
 const pdLocalY = (tooth, zone, pos) => {
     const pd = parseFloat(getSite(tooth, zone, 'pd', pos));

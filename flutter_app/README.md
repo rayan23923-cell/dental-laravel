@@ -5853,3 +5853,24 @@ as revision 9's entry — the two apps share the identical JSON shape and
 interaction logic by construction). `flutter analyze
 lib/features/perio_chart/presentation/advanced_perio_chart_field.dart`
 clean, no issues found.
+
+## Advanced Periodontal Chart, revision 11: fixed the furcation marker's (and GM's) y-direction (2026-08-31)
+
+Same bug and fix as `dental_laravel/README.md`'s matching entry — read
+that one for the full derivation (a large `pd_18_b=10` probe on the
+reference proving *decreasing* y is apical on *its* axis, while this
+app's own local tooth space runs the opposite way, apical=increasing;
+revisions 9 and 10 had both copied the reference's raw arithmetic sign
+without correcting for that, silently flipping the *direction* of the
+GM line and the furcation marker while still reproducing the reference's
+raw numbers).
+
+- **`_gmLocalY`**: `_kPocketBaselineY - gm * _kPocketScale` (was `+`).
+  `_pdLocalY` needed no change.
+- **`_kFurcationMarkerY`**: `56.0` (was `34.0`) — `_kPocketBaselineY
+  (45) + 11`, apical/root-ward instead of coronal/crown-ward.
+
+Verified live against the real web build in the browser (same reasoning
+as revision 9's entry). `flutter analyze
+lib/features/perio_chart/presentation/advanced_perio_chart_field.dart`
+clean, no issues found.
