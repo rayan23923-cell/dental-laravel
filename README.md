@@ -7839,3 +7839,61 @@ confirmed the tooth's `<g>` gained the expected `<polygon>`/`<polyline>`
 elements with `points` matching the derived formula exactly
 (`-16,32.1 0,45 16,45` for the GM line, `-16,70.8 0,45 16,45` for the
 PD line). `npm run build` clean throughout.
+
+## Advanced Periodontal Chart, revision 10: furcation is one field per tooth, drawn on the tooth itself (2026-08-31)
+
+By request, immediately after revision 9 shipped: "كل سن يحتوي حقل
+furcation واحد ويطبق تأثير على السن اي يرسم كذلك على السن" — a real
+correction to revision 9's own furcation model, which had (matching
+BOP/Plaque/GM/PD/AL's own 3-site-per-zone structure) 3 furcation
+positions per zone and only showed the grade as an icon inside its own
+table cell, never on the tooth graphic itself.
+
+Went back to the live reference site to confirm the actual structure
+rather than guessing at the simplification: its buccal furcation button
+(`data-furcation="furcation_18_b"`) carries a `single-button` CSS class
+its own mesiopalatal/distopalatal buttons don't — one furcation grade
+for the buccal aspect, not three site positions. (The palatal aspect
+there actually uses *two* buttons, mesiopalatal + distopalatal, an
+anatomical asymmetry real molar furcation grading has — but the user's
+own phrasing asked for one field per tooth, a deliberate simplification
+this revision follows rather than replicating that asymmetry.)
+
+More importantly, diffing the tooth-18 SVG before/after clicking that
+button confirmed the grade is drawn **directly on the tooth**, not only
+in the table cell: grading it to 1 appends
+`<g class="furkation-marker-18"><circle cx="30.5" cy="95" r="5.75"
+fill="none" stroke="black" stroke-width="2.5"></circle></g>` straight
+into that tooth's own SVG group; grade 2 adds a second `<path>` drawing
+a filled half-circle wedge across the same ring
+(`M 30.5 88 A 7 7 0 0 0 30.5 102 L 30.5 95 Z`); grade 3 replaces both
+with a single bigger filled circle (`r="7"`, no ring). Grade 0 removes
+the marker `<g>` from the DOM entirely — confirmed by clicking back down
+and checking it was gone, not just hidden.
+
+**Data model** — furcation's `getSite`/`setSite` storage (still a
+3-element array under the hood, to avoid touching the shared array-based
+plumbing every other site metric leans on) is now only ever read/written
+at position 0; the template renders one `colspan="3"` cell per tooth
+(`SITE_ROWS`' furcation entry gained a `single: true` flag the template
+branches on) instead of three separate 15px cells, matching the width
+Mobility/Implant's own once-per-tooth cells already use.
+
+**On-tooth marker** — reused the exact live-captured shapes
+(`FURCATION_MARKER`), translated from the reference's own raw pixel
+numbers into this component's own local tooth-coordinate space: x=0 (the
+tooth's own local center, since there's only one value now, not 3 sites
+to spread across x positions) and y = 34 (`POCKET_BASELINE_Y` (45) minus
+11, preserving the reference's own coronal offset from *its* baseline
+(95 vs. 106) rather than copying its raw y=95). Drawn inside the same
+per-tooth `<g>` as the GM/PD pocket overlay, reading each view's own
+zone (Labial → buccal, Palatal/Lingual → lingual) the same way the
+pocket overlay already does, and skipped for an extracted tooth.
+
+Verified live end-to-end (a fresh temporary doctor account, deleted
+after use): confirmed the Buccal — Furcation row now renders 16 cells
+(one per tooth, `colspan="3"`, 48px wide) instead of 48; cycled tooth
+18's furcation button through grades 1→2→3→0 and confirmed via the DOM
+that the tooth's own `<g>` gained a `circle[r="5.75"]` at grade 1, the
+half-circle wedge path at grade 2, a `circle[r="7"]` at grade 3, and no
+marker at all back at grade 0. `npm run build` clean throughout.

@@ -172,6 +172,31 @@ String _pocketOverlaySvg(AdvancedPerioChartField field, int tooth, String zone) 
   return buffer.toString();
 }
 
+/// Furcation marker drawn directly on the tooth graphic (revision 10, by
+/// request — "يطبق تأثير على السن اي يرسم كذلك على السن") — Flutter port
+/// of the same live-captured reference-site markup documented in full on
+/// `AdvancedPerioChart.vue`'s own `FURCATION_MARKER` doc comment: grade 1
+/// is a hollow-ring circle, grade 2 adds a filled half-circle wedge,
+/// grade 3 is a bigger fully filled circle. One marker per zone per
+/// tooth (not per site), matching this app's own single-furcation-field
+/// simplification.
+const _kFurcationMarkerY = 34.0; // _kPocketBaselineY (45) - 11, matching the reference's own baseline-relative offset
+String _furcationMarkerSvg(AdvancedPerioChartField field, int tooth, String zone) {
+  final grade = '${field._getSite(tooth, zone, 'furcation', 0)}';
+  const y = _kFurcationMarkerY;
+  switch (grade) {
+    case '1':
+      return '<circle cx="0" cy="$y" r="5.75" fill="none" stroke="#000000" stroke-width="2.5"/>';
+    case '2':
+      return '<circle cx="0" cy="$y" r="5.75" fill="none" stroke="#000000" stroke-width="2.5"/>'
+          '<path d="M 0 ${y - 7} A 7 7 0 0 0 0 ${y + 7} L 0 $y Z" fill="#000000"/>';
+    case '3':
+      return '<circle cx="0" cy="$y" r="7" fill="#000000"/>';
+    default:
+      return '';
+  }
+}
+
 /// Builds the whole arch's tooth-row graphic as one SVG document string,
 /// rendered via `flutter_svg`'s `SvgPicture.string` rather than hand-
 /// translated `Path` commands — the source paths use cubic Béziers
@@ -237,6 +262,7 @@ String _archSvg(List<(int, String)> arch, bool isUpper, AdvancedPerioChartField 
       buffer.write('<path d="M -25,-15 L 25,175 M 25,-15 L -25,175" stroke="#dc2626" stroke-width="3" stroke-linecap="round"/>');
     } else {
       buffer.write(_pocketOverlaySvg(field, tooth, zone));
+      buffer.write(_furcationMarkerSvg(field, tooth, zone));
     }
     buffer.write('</g>');
   }
@@ -436,13 +462,17 @@ class AdvancedPerioChartField extends StatelessWidget {
 // 'kind' drives the cell widget: 'toggle' (BOP/Plaque, boolean), 'cycle'
 // (Furcation, tap-to-cycle 0–3 grade — confirmed live against the
 // reference site's own click behavior), or 'number' (GM/PD/AL, free-typed).
+// 'single' (revision 10, by request — "كل سن يحتوي حقل furcation واحد")
+// — Furcation is one value per zone per tooth, not 3 site positions like
+// the other metrics; see `_furcationMarkerSvg`'s own doc comment for the
+// live-confirmed reasoning.
 const _kSiteRows = [
-  ('bop', 'BOP', 'toggle'),
-  ('plaque', 'Plaque', 'toggle'),
-  ('furcation', 'Furcation', 'cycle'),
-  ('gm', 'GM', 'number'),
-  ('pd', 'PD', 'number'),
-  ('al', 'AL', 'number'),
+  ('bop', 'BOP', 'toggle', false),
+  ('plaque', 'Plaque', 'toggle', false),
+  ('furcation', 'Furcation', 'cycle', true),
+  ('gm', 'GM', 'number', false),
+  ('pd', 'PD', 'number', false),
+  ('al', 'AL', 'number', false),
 ];
 
 const _kSingleRows = [
@@ -487,7 +517,7 @@ class _ArchBlock extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (isUpper) ..._singleRows(teeth),
-              for (final (key, label, kind) in _kSiteRows) _siteRow(teeth, firstZone, '$firstLabel — $label', key, kind),
+              for (final (key, label, kind, single) in _kSiteRows) _siteRow(teeth, firstZone, '$firstLabel — $label', key, kind, single),
               _numberRow(teeth),
               // Two tooth-row diagrams per arch — Labial and Lingual/Palatal
               // views, matching the reference site's own "MAXILLA · LABIAL" /
@@ -500,7 +530,7 @@ class _ArchBlock extends StatelessWidget {
               // drawing for that column together automatically.
               _toothRowGraphic('Labial', 'buccal'),
               _toothRowGraphic(isUpper ? 'Palatal / Lingual' : 'Lingual', 'lingual'),
-              for (final (key, label, kind) in _kSiteRows.reversed) _siteRow(teeth, secondZone, '$secondLabel — $label', key, kind),
+              for (final (key, label, kind, single) in _kSiteRows.reversed) _siteRow(teeth, secondZone, '$secondLabel — $label', key, kind, single),
               _noteRow(teeth),
               if (!isUpper) ..._singleRows(teeth),
             ],
@@ -593,14 +623,17 @@ class _ArchBlock extends StatelessWidget {
     );
   }
 
-  Widget _siteRow(List<(int, String)> teeth, String zone, String label, String metric, String kind) {
+  Widget _siteRow(List<(int, String)> teeth, String zone, String label, String metric, String kind, bool single) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 1),
       child: Row(
         children: [
           _rowLabel(label),
-          for (final (tooth, _) in teeth)
-            for (var pos = 0; pos < 3; pos++) SizedBox(width: _cellSize, child: _siteCell(tooth, zone, metric, pos, kind)),
+          if (single)
+            for (final (tooth, _) in teeth) SizedBox(width: _cellSize * 3, child: _siteCell(tooth, zone, metric, 0, kind))
+          else
+            for (final (tooth, _) in teeth)
+              for (var pos = 0; pos < 3; pos++) SizedBox(width: _cellSize, child: _siteCell(tooth, zone, metric, pos, kind)),
         ],
       ),
     );

@@ -226,7 +226,16 @@ const shapeFor = (isUpper, type) => (isUpper ? UPPER_SHAPES : LOWER_SHAPES)[type
 const SITE_ROWS = [
     { key: 'bop', label: 'Bleeding on Probing', kind: 'toggle' },
     { key: 'plaque', label: 'Plaque', kind: 'toggle' },
-    { key: 'furcation', label: 'Furcation', kind: 'cycle' },
+    // Furcation (revision 10, by request — "كل سن يحتوي حقل furcation
+    // واحد ويطبق تأثير على السن اي يرسم كذلك على السن"): one value per
+    // zone per tooth, not 3 site positions like the other metrics —
+    // confirmed live the reference site's own buccal furcation button
+    // carries a `single-button` CSS class (versus the plain
+    // `furcation-button` class its mesiopalatal/distopalatal buttons
+    // use), and its grade is drawn directly on the tooth graphic itself
+    // (see `FURCATION_MARKER` below) rather than only shown in this
+    // table row's own cell.
+    { key: 'furcation', label: 'Furcation', kind: 'cycle', single: true },
     { key: 'gm', label: 'Gingival Margin', kind: 'number', signed: true },
     { key: 'pd', label: 'Probing Depth', kind: 'number' },
     { key: 'al', label: 'Attachment Level', kind: 'number' },
@@ -298,6 +307,30 @@ const FURCATION_ICON = {
     '3': `<svg viewBox="0 0 15 15" width="10" height="10"><circle cx="7.5" cy="7.5" r="6.5" fill="#000"/>${FURCATION_RING}</svg>`,
 };
 const furcationIcon = (grade) => FURCATION_ICON[grade] ?? '';
+
+// Furcation marker drawn directly on the tooth graphic (revision 10, by
+// request — "يطبق تأثير على السن اي يرسم كذلك على السن"): confirmed live
+// that grading the reference site's own buccal furcation button to 1/2/3
+// appends a `<g class="furkation-marker-18">` straight into that tooth's
+// own SVG group — grade 1 is a hollow-ring `<circle r="5.75" fill="none"
+// stroke="black" stroke-width="2.5">`; grade 2 is the same ring plus a
+// filled half-circle `<path d="M cx,cy-7 A 7 7 0 0 0 cx,cy+7 L cx,cy Z">`
+// wedge; grade 3 is a bigger fully filled `<circle r="7">` (no ring on
+// top). The reference draws this at its own tooth-18 buccal mid-site x
+// (30.5) a little coronal of that view's own baseline y (95 vs. the
+// baseline 106) — translated here into this component's own local tooth
+// space at x=0 (the tooth's own local center, matching a single
+// per-zone value rather than 3 site positions) and
+// `POCKET_BASELINE_Y - 11` (the same coronal offset, scaled to this
+// component's own gumline-relative y rather than copying the
+// reference's raw pixel number).
+const FURCATION_MARKER_Y = 34; // POCKET_BASELINE_Y (45) - 11, matching the reference's own baseline-relative offset
+const FURCATION_MARKER = {
+    '1': `<circle cx="0" cy="${FURCATION_MARKER_Y}" r="5.75" fill="none" stroke="#000" stroke-width="2.5"/>`,
+    '2': `<circle cx="0" cy="${FURCATION_MARKER_Y}" r="5.75" fill="none" stroke="#000" stroke-width="2.5"/><path d="M 0 ${FURCATION_MARKER_Y - 7} A 7 7 0 0 0 0 ${FURCATION_MARKER_Y + 7} L 0 ${FURCATION_MARKER_Y} Z" fill="#000"/>`,
+    '3': `<circle cx="0" cy="${FURCATION_MARKER_Y}" r="7" fill="#000"/>`,
+};
+const furcationMarker = (tooth, zone) => FURCATION_MARKER[getSite(tooth, zone, 'furcation', 0)] ?? '';
 
 // Gingival Margin / Probing Depth "pocket" overlay on the tooth graphic
 // (revision 9, by request — "gingival margin attachment lebel وتأثيرها
@@ -538,7 +571,16 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                                 {{ archLabel(isUpper, isUpper ? 'buccal' : 'lingual') }} — {{ row.label }}
                             </th>
                             <template v-for="[tooth] in (isUpper ? UPPER : LOWER)" :key="tooth">
-                                <td v-for="pos in [0, 1, 2]" :key="pos" class="border border-gray-300 p-0">
+                                <td v-if="row.single" class="border border-gray-300 p-0" colspan="3">
+                                    <button
+                                        type="button"
+                                        class="flex h-5 w-[45px] items-center justify-center bg-gray-100 hover:bg-gray-200"
+                                        :disabled="disabled || isSiteDisabled(tooth, row.key)"
+                                        v-html="furcationIcon(getSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, 0))"
+                                        @click="cycleFurcation(tooth, isUpper ? 'buccal' : 'lingual', 0)"
+                                    ></button>
+                                </td>
+                                <td v-else v-for="pos in [0, 1, 2]" :key="pos" class="border border-gray-300 p-0">
                                     <button
                                         v-if="row.kind === 'toggle'"
                                         type="button"
@@ -546,14 +588,6 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                                         :class="getSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos) ? (row.key === 'bop' ? 'bg-red-500 text-white' : 'bg-yellow-400') : 'bg-white hover:bg-gray-100'"
                                         :disabled="disabled || isSiteDisabled(tooth, row.key)"
                                         @click="setSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos, !getSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos))"
-                                    ></button>
-                                    <button
-                                        v-else-if="row.kind === 'cycle'"
-                                        type="button"
-                                        class="flex h-5 w-[15px] items-center justify-center bg-gray-100 hover:bg-gray-200"
-                                        :disabled="disabled || isSiteDisabled(tooth, row.key)"
-                                        v-html="furcationIcon(getSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos))"
-                                        @click="cycleFurcation(tooth, isUpper ? 'buccal' : 'lingual', pos)"
                                     ></button>
                                     <input
                                         v-else
@@ -659,6 +693,10 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                                             stroke="#dc2626"
                                             stroke-width="2"
                                         />
+                                        <!-- Furcation marker, drawn on the tooth itself (revision 10) —
+                                             see `FURCATION_MARKER`'s own doc comment above for the live-
+                                             captured circle/wedge/filled-dot shapes this reproduces. -->
+                                        <g v-html="furcationMarker(tooth, view === 'Labial' ? 'buccal' : 'lingual')"></g>
                                     </template>
                                     <!-- Extracted marker — a red cross over the whole tooth, same "dim + X" convention `PlaqueChart.vue` already established. -->
                                     <path
@@ -680,7 +718,16 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                                 {{ archLabel(isUpper, isUpper ? 'lingual' : 'buccal') }} — {{ row.label }}
                             </th>
                             <template v-for="[tooth] in (isUpper ? UPPER : LOWER)" :key="tooth">
-                                <td v-for="pos in [0, 1, 2]" :key="pos" class="border border-gray-300 p-0">
+                                <td v-if="row.single" class="border border-gray-300 p-0" colspan="3">
+                                    <button
+                                        type="button"
+                                        class="flex h-5 w-[45px] items-center justify-center bg-gray-100 hover:bg-gray-200"
+                                        :disabled="disabled || isSiteDisabled(tooth, row.key)"
+                                        v-html="furcationIcon(getSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, 0))"
+                                        @click="cycleFurcation(tooth, isUpper ? 'lingual' : 'buccal', 0)"
+                                    ></button>
+                                </td>
+                                <td v-else v-for="pos in [0, 1, 2]" :key="pos" class="border border-gray-300 p-0">
                                     <button
                                         v-if="row.kind === 'toggle'"
                                         type="button"
@@ -688,14 +735,6 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                                         :class="getSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos) ? (row.key === 'bop' ? 'bg-red-500 text-white' : 'bg-yellow-400') : 'bg-white hover:bg-gray-100'"
                                         :disabled="disabled || isSiteDisabled(tooth, row.key)"
                                         @click="setSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos, !getSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos))"
-                                    ></button>
-                                    <button
-                                        v-else-if="row.kind === 'cycle'"
-                                        type="button"
-                                        class="flex h-5 w-[15px] items-center justify-center bg-gray-100 hover:bg-gray-200"
-                                        :disabled="disabled || isSiteDisabled(tooth, row.key)"
-                                        v-html="furcationIcon(getSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos))"
-                                        @click="cycleFurcation(tooth, isUpper ? 'lingual' : 'buccal', pos)"
                                     ></button>
                                     <input
                                         v-else

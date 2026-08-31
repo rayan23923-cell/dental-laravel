@@ -5819,3 +5819,37 @@ entry — covers the actual GM/PD/furcation mechanics; the Flutter side
 only needed confirming it builds and renders without throwing).
 `flutter analyze lib/features/perio_chart/presentation/advanced_perio_chart_field.dart`
 clean, no issues found.
+
+## Advanced Periodontal Chart, revision 10: furcation is one field per tooth, drawn on the tooth itself (2026-08-31)
+
+Same correction and live re-verification as `dental_laravel/README.md`'s
+matching entry — read that one for the full rationale (the reference
+site's own `single-button` CSS class on its buccal furcation button, and
+the live-diffed `<g class="furkation-marker-18">` proving the grade is
+drawn on the tooth's own SVG, not only in its table cell). This entry
+covers only the Flutter-specific port.
+
+- **`_kSiteRows`** — each tuple gained a 4th `bool single` element
+  (`furcation` is the only `true`); every call site
+  (`for (final (key, label, kind, single) in _kSiteRows)`, both the
+  first and reversed/second zone blocks) and `_siteRow()`'s own
+  signature updated to match.
+- **`_siteRow(..., bool single)`** — when `single`, renders one
+  `SizedBox(width: _cellSize * 3, ...)` per tooth (calling `_siteCell`
+  with `pos: 0` always) instead of the usual 3 `_cellSize`-wide cells —
+  matching the web side's `colspan="3"` treatment and
+  `_kSingleRows`' own once-per-tooth cell width.
+- **`_furcationMarkerSvg(field, tooth, zone)`** — a new top-level
+  function alongside `_pocketOverlaySvg`, building the same
+  `<circle>`/`<path>` marker strings `AdvancedPerioChart.vue`'s
+  `FURCATION_MARKER` does (grade 1: hollow ring; grade 2: ring + filled
+  half-circle wedge; grade 3: bigger filled circle, no ring), at the
+  same local `(0, 34)` position. Appended inside `_archSvg()`'s per-
+  tooth loop right after `_pocketOverlaySvg`, inside the same
+  `if (!extracted)` branch.
+
+Verified live against the real web build in the browser (same reasoning
+as revision 9's entry — the two apps share the identical JSON shape and
+interaction logic by construction). `flutter analyze
+lib/features/perio_chart/presentation/advanced_perio_chart_field.dart`
+clean, no issues found.
