@@ -7592,3 +7592,73 @@ every other per-tooth grid in this app.
 No data-model or artwork changes — purely the CSS layout mechanism
 reverted from "shrink to never overflow" back to "fixed size, scroll if
 needed." Verified: `npm run build` clean.
+
+## Advanced Periodontal Chart, revision 6: matched real reference measurements, found and fixed two live bugs (2026-08-31)
+
+By request: "الاسنان كبيرة جدا قارن حجم الجداول والاسنان مع هذا الموقع
+واجعلها نسخة مطابقة ... بدون تحمين اوهلوسة" — explicitly asked to compare
+against the live reference site rather than estimate, so this revision
+was done with the site open in the browser tool rather than reasoned
+from the SVG source file alone.
+
+**Real measurements, read from the reference's own DOM via
+`getBoundingClientRect()`/`getComputedStyle()`** (not eyeballed): a
+site-cell `<input>` is exactly **15px** wide, every data row is exactly
+**20px** tall, the row-label column is **130px**, and both use a 14px
+font. My own previous cell size (`w-6`/`h-6` = 24px, `text-[10px]`) was
+meaningfully larger than the real thing across the board — confirming
+the complaint. Resized to match: site cells `w-[15px]`/`h-5`, label
+column `w-[140px]` (a little more than the reference's 130px since this
+component's labels are longer combined strings, e.g. "Buccal — Bleeding
+on Probing" vs. the reference's plain "Bleeding on Probing"), base table
+font `text-[9px]`.
+
+**Bug #1, found live while checking the resize**: the tooth-row graphic
+rendered enormous — close to its raw 1440×235 viewBox pixel size —
+towering over the now-tiny data grid instead of shrinking to match it.
+Root cause: the single-value/Note row `<input>`s used `w-full`, which
+inside an `auto`-layout `<table>` is a circular sizing dependency
+(the cell's width depends on its widest content, but `100%` needs the
+cell's width to already be known) that browsers resolve by falling back
+to the `<input>`'s own HTML default — `size="20"`, ~170px — which then
+forced every sibling site-column sharing those column-index slots wide
+too, and the `<svg width="100%">` inherited that same inflated width.
+Fixed by giving those cells an explicit `w-[45px]` (3 × 15px) instead of
+`w-full`, removing the ambiguity for every row at once.
+
+**Bug #2, found live in the same pass**: once the widths were fixed,
+teeth appeared in the *wrong* horizontal position relative to their own
+data columns — sometimes entirely blank at a given scroll position.
+Root cause: this app is RTL (Arabic UI), so the table's own columns
+reverse visual order under RTL (tooth "18" ends up on the *right*), but
+the SVG graphic's internal coordinates are absolute and always draw
+tooth "18" at `x=0` (the *left*) regardless of page direction — the two
+systems were pointing at opposite ends of the row. Confirmed directly
+via the live DOM (tooth "18"'s data column measured at a negative
+x-offset from the graphic's own "18" — a mirror-image mismatch, not a
+rounding error) before fixing it, rather than guessed. Fixed by forcing
+`dir="ltr"` on each arch's wrapping `<div>`, the same "FDI order is a
+fixed international convention, not something that should flip with UI
+language" reasoning `perio_chart_table.dart`'s own `_archBlock` already
+documents on the Flutter side — this is the first time that same
+reasoning was needed on the web side, since no earlier Vue component
+combined one absolutely-positioned graphic with a full RTL data table
+this way.
+
+With both bugs fixed, `width="100%"` on the `<svg>` (reverted from an
+intermediate hand-computed-pixel-width attempt) now resolves correctly,
+since the columns it depends on are no longer ambiguous — confirmed live
+(measured drift of ~4px on either edge across a ~750px-wide graphic,
+down from being off by hundreds of pixels and mirrored before the fix).
+
+Verified end-to-end in the browser tool against a temporary doctor
+account (created via `tinker`, deleted afterward): logged in, opened the
+real `/advanced-periodontal-charts/create` page, measured actual
+rendered pixel dimensions via `getBoundingClientRect()` before and after
+each fix, and clicked a live Bleeding-on-Probing cell — confirmed it
+toggled red and the stats bar updated to "BOP: 0.5% (1 / 192)" in real
+time. This is the one part of the whole Advanced Periodontal Chart
+feature actually exercised in a browser this session, because the user
+explicitly asked for a size comparison against a live site rather than
+a code-level change — everything else in this feature was verified via
+`tinker`/`curl`/`npm run build` per the standing "no browser" instruction.

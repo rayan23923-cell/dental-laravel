@@ -5688,3 +5688,28 @@ view size, confirmed `tester.takeException()` was `null`, all 4
 (one per arch) — confirming the scrollable structure is actually in
 place, not just that nothing crashed. `flutter analyze` clean,
 project-wide.
+
+## Advanced Periodontal Chart, revision 6: matched real reference measurements (2026-08-31)
+
+Same request as `dental_laravel/README.md`'s matching entry — read that
+one for the two real bugs found and fixed live in the browser (an
+oversized graphic caused by an `w-full`-in-auto-table sizing ambiguity,
+and a tooth/data mismatch caused by RTL column reversal) — both are web-
+only issues (HTML `<table>` auto-layout, CSS `dir`) that don't apply to
+Flutter's own `Row`/`SizedBox`-based layout, which was never broken.
+This entry covers only the Flutter-specific resize.
+
+`_cellSize` dropped from `26.0` to `15.0` and `_labelWidth` became an
+independent `140.0` constant (previously `_cellSize * 3`) — both taken
+directly from periodontalchart-online.com's own live-measured DOM
+(a site-cell `<input>` is 15px wide there, the label column 130px; 140
+here since this app's combined labels, e.g. "Buccal — Bleeding on
+Probing", run longer than the reference's plain "Bleeding on Probing").
+Every cell's fixed `height: 22` became `height: 20`, matching the
+reference's own measured row height exactly.
+
+Verified with a temporary `flutter_test` (deleted after use): pumped
+`AdvancedPerioChartField` with empty tooth data, confirmed
+`tester.takeException()` was `null`, all 4 `SvgPicture` graphics still
+render, and both `'18'` and `'28'` tooth-number labels are present.
+`flutter analyze` clean, project-wide.

@@ -385,8 +385,16 @@ class _ArchBlock extends StatelessWidget {
     );
   }
 
-  static const _cellSize = 26.0;
-  static double get _labelWidth => _cellSize * 3;
+  // Matches periodontalchart-online.com's own live-measured dimensions
+  // (revision 6, "قارن حجم الجداول والاسنان مع هذا الموقع... بدون تخمين
+  // اوهلوسة" — read directly from its DOM via the browser rather than
+  // guessed): a site-cell `<input>` is 15px wide there, and the label
+  // column is 130px — `_labelWidth` is independent of `_cellSize` for the
+  // same reason (this app's combined labels, e.g. "Buccal — Bleeding on
+  // Probing", are longer than the reference's plain "Bleeding on
+  // Probing", so it gets a little more room: 140 vs. their 130).
+  static const _cellSize = 15.0;
+  static const _labelWidth = 140.0;
   double get _archWidth => teeth.length * _cellSize * 3;
 
   Widget _toothRowGraphic(String label) {
@@ -433,7 +441,7 @@ class _ArchBlock extends StatelessWidget {
     final value = field._getSingle(tooth, key);
     final isToggle = key == 'implant';
     return Container(
-      height: 22,
+      height: 20,
       margin: const EdgeInsets.all(0.5),
       decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade400)),
       child: isToggle
@@ -480,7 +488,7 @@ class _ArchBlock extends StatelessWidget {
       final marked = value == true;
       final color = metric == 'bop' ? Colors.red.shade600 : Colors.amber.shade600;
       return Container(
-        height: 22,
+        height: 20,
         margin: const EdgeInsets.all(0.5),
         decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade400)),
         child: Material(
@@ -490,7 +498,7 @@ class _ArchBlock extends StatelessWidget {
       );
     }
     return Container(
-      height: 22,
+      height: 20,
       margin: const EdgeInsets.all(0.5),
       child: TextFormField(
         key: ValueKey('site-$tooth-$zone-$metric-$pos-$value'),
@@ -521,7 +529,7 @@ class _ArchBlock extends StatelessWidget {
   Widget _noteCell(int tooth) {
     final value = field._getSingle(tooth, 'note');
     return Container(
-      height: 22,
+      height: 20,
       margin: const EdgeInsets.all(0.5),
       child: TextFormField(
         key: ValueKey('note-$tooth-$value'),

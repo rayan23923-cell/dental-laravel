@@ -297,6 +297,23 @@ const ARCH_WIDTH = 16 * TOOTH_SLOT;
 const ARCH_HEIGHT = 235;
 const toothX = (idx) => 45 + idx * TOOTH_SLOT;
 
+// The graphic's *rendered* pixel size, computed explicitly rather than
+// `width="100%"` — percentage sizing on a replaced element (the `<svg>`)
+// inside an auto-layout `<table>` is a circular dependency the browser
+// can't reliably resolve (the cell's width depends on its content's
+// width, which depends on the cell's width), and confirmed broken live:
+// the graphic rendered at something close to its raw 1440×235 viewBox
+// instead of shrinking to match the 15px site cells, towering over the
+// actual data grid. `SITE_CELL_PX` matches the real site-cell width
+// below (`w-[15px]`, itself measured directly from periodontalchart-
+// online.com's own live DOM — 15px input width, 20px row height — rather
+// than guessed), so the graphic's pixel width tracks the data columns
+// exactly: 16 teeth × 3 sites × 15px = 720px, with height derived from
+// the same aspect ratio the viewBox already defines.
+const SITE_CELL_PX = 15;
+const archPixelWidth = (teethCount) => teethCount * 3 * SITE_CELL_PX;
+const archPixelHeight = (teethCount) => Math.round(archPixelWidth(teethCount) * (ARCH_HEIGHT / ARCH_WIDTH));
+
 // The lower arch draws crown-up/root-down (a tooth's own path data is
 // already in that orientation, so no flip needed: `translate(cx, 25)`).
 // The upper arch needs the opposite — crown hanging down, root pointing
@@ -328,18 +345,34 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
             <span>PI: <strong>{{ stats.plaquePct }}%</strong> ({{ stats.plaqueMarked }} / {{ stats.totalSites }})</span>
         </div>
 
-        <div v-for="isUpper in [true, false]" :key="isUpper ? 'upper' : 'lower'" class="overflow-x-auto rounded-lg border border-gray-200" style="-webkit-overflow-scrolling: touch;">
-            <table class="min-w-max border-collapse text-center text-[10px]">
+        <!--
+            Forced LTR (revision 6, fixing a real bug caught live) — the SVG
+            tooth-row graphic draws in a fixed internal coordinate order
+            (tooth "18" always at x=0) regardless of the page's own RTL
+            (Arabic) direction, since SVG viewBox coordinates aren't
+            direction-aware. Without `dir="ltr"` here, the surrounding table
+            cells reverse their visual column order under RTL while the SVG
+            doesn't, so the graphic and the data grid ended up pointing at
+            completely different teeth once scrolled — confirmed live via
+            the browser (data columns for "18" measured at a *negative*
+            x-offset from the graphic's own "18" position). Same FDI-order-
+            must-not-flip reasoning `perio_chart_table.dart`'s own
+            `_archBlock` already documents on the Flutter side (tooth
+            numbering is a fixed international convention, not something
+            that should mirror with UI language).
+        -->
+        <div v-for="isUpper in [true, false]" :key="isUpper ? 'upper' : 'lower'" dir="ltr" class="overflow-x-auto rounded-lg border border-gray-200" style="-webkit-overflow-scrolling: touch;">
+            <table class="min-w-max border-collapse text-center text-[9px]">
                 <tbody>
                     <!-- Mobility / Implant: once per arch, outer edge. -->
                     <template v-if="isUpper">
                         <tr v-for="row in SINGLE_ROWS" :key="`single-${row.key}`">
-                            <th class="truncate border border-gray-300 bg-gray-50 px-1 text-right font-medium text-gray-500">{{ row.label }}</th>
+                            <th class="w-[140px] truncate border border-gray-300 bg-gray-50 px-1 text-right font-medium text-gray-500">{{ row.label }}</th>
                             <td v-for="[tooth] in UPPER" :key="tooth" colspan="3" class="border border-gray-300 p-0">
                                 <button
                                     v-if="row.kind === 'toggle'"
                                     type="button"
-                                    class="h-5 w-full"
+                                    class="h-5 w-[45px]"
                                     :class="getSingle(tooth, row.key) ? 'bg-indigo-500 text-white' : 'bg-white hover:bg-gray-100'"
                                     :disabled="disabled"
                                     @click="setSingle(tooth, row.key, !getSingle(tooth, row.key))"
@@ -352,7 +385,7 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                                     inputmode="numeric"
                                     :maxlength="1"
                                     :disabled="disabled"
-                                    class="h-5 w-full border-0 p-0 text-center focus:ring-1 focus:ring-indigo-400"
+                                    class="h-5 w-[45px] border-0 p-0 text-center focus:ring-1 focus:ring-indigo-400"
                                     :value="getSingle(tooth, row.key)"
                                     @input="setSingle(tooth, row.key, $event.target.value)"
                                 />
@@ -363,7 +396,7 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                     <!-- Outer zone (buccal for upper; palatal/lingual for lower) — the two tongue-facing rows sit adjacent across the arch boundary, same convention PerioChart.vue uses. -->
                     <template v-for="row in SITE_ROWS" :key="`first-${row.key}`">
                         <tr>
-                            <th class="truncate border border-gray-300 bg-gray-50 px-1 text-right font-medium text-gray-500">
+                            <th class="w-[140px] truncate border border-gray-300 bg-gray-50 px-1 text-right font-medium text-gray-500">
                                 {{ archLabel(isUpper, isUpper ? 'buccal' : 'lingual') }} — {{ row.label }}
                             </th>
                             <template v-for="[tooth] in (isUpper ? UPPER : LOWER)" :key="tooth">
@@ -371,7 +404,7 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                                     <button
                                         v-if="row.kind === 'toggle'"
                                         type="button"
-                                        class="h-6 w-6"
+                                        class="h-5 w-[15px]"
                                         :class="getSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos) ? (row.key === 'bop' ? 'bg-red-500 text-white' : 'bg-yellow-400') : 'bg-white hover:bg-gray-100'"
                                         :disabled="disabled"
                                         @click="setSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos, !getSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos))"
@@ -382,7 +415,7 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                                         inputmode="numeric"
                                         maxlength="3"
                                         :disabled="disabled"
-                                        class="h-6 w-6 border-0 p-0 text-center text-[10px] focus:ring-1 focus:ring-indigo-400"
+                                        class="h-5 w-[15px] border-0 p-0 text-center text-[9px] focus:ring-1 focus:ring-indigo-400"
                                         :value="getSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos)"
                                         @input="setSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos, $event.target.value)"
                                     />
@@ -421,7 +454,7 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                     <tr v-for="view in ['Labial', isUpper ? 'Palatal / Lingual' : 'Lingual']" :key="view">
                         <th class="border border-gray-300 bg-white px-1 text-right text-[9px] font-medium text-gray-400">{{ view }}</th>
                         <td colspan="48" class="border border-gray-300 bg-white p-1">
-                            <svg width="100%" height="auto" :viewBox="`0 0 ${ARCH_WIDTH} ${ARCH_HEIGHT}`" preserveAspectRatio="xMidYMin meet">
+                            <svg width="100%" height="auto" :viewBox="`0 0 ${ARCH_WIDTH} ${ARCH_HEIGHT}`" preserveAspectRatio="xMidYMin meet" style="display: block">
                                 <line :x2="ARCH_WIDTH" :y1="gumlineY(isUpper)" :y2="gumlineY(isUpper)" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="4,3" />
                                 <g v-for="([tooth, type], idx) in (isUpper ? UPPER : LOWER)" :key="tooth" :transform="toothTransform(isUpper, idx)">
                                     <template v-if="getSingle(tooth, 'implant')">
@@ -444,7 +477,7 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                     <!-- Inner zone (palatal/lingual for upper; buccal for lower). -->
                     <template v-for="row in [...SITE_ROWS].reverse()" :key="`second-${row.key}`">
                         <tr>
-                            <th class="truncate border border-gray-300 bg-gray-50 px-1 text-right font-medium text-gray-500">
+                            <th class="w-[140px] truncate border border-gray-300 bg-gray-50 px-1 text-right font-medium text-gray-500">
                                 {{ archLabel(isUpper, isUpper ? 'lingual' : 'buccal') }} — {{ row.label }}
                             </th>
                             <template v-for="[tooth] in (isUpper ? UPPER : LOWER)" :key="tooth">
@@ -452,7 +485,7 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                                     <button
                                         v-if="row.kind === 'toggle'"
                                         type="button"
-                                        class="h-6 w-6"
+                                        class="h-5 w-[15px]"
                                         :class="getSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos) ? (row.key === 'bop' ? 'bg-red-500 text-white' : 'bg-yellow-400') : 'bg-white hover:bg-gray-100'"
                                         :disabled="disabled"
                                         @click="setSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos, !getSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos))"
@@ -463,7 +496,7 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                                         inputmode="numeric"
                                         maxlength="3"
                                         :disabled="disabled"
-                                        class="h-6 w-6 border-0 p-0 text-center text-[10px] focus:ring-1 focus:ring-indigo-400"
+                                        class="h-5 w-[15px] border-0 p-0 text-center text-[9px] focus:ring-1 focus:ring-indigo-400"
                                         :value="getSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos)"
                                         @input="setSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos, $event.target.value)"
                                     />
@@ -474,12 +507,12 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
 
                     <!-- Note — once per arch, next to the block nearest the graphic. -->
                     <tr>
-                        <th class="truncate border border-gray-300 bg-gray-50 px-1 text-right font-medium text-gray-500">Note</th>
+                        <th class="w-[140px] truncate border border-gray-300 bg-gray-50 px-1 text-right font-medium text-gray-500">Note</th>
                         <td v-for="[tooth] in (isUpper ? UPPER : LOWER)" :key="tooth" colspan="3" class="border border-gray-300 p-0">
                             <input
                                 type="text"
                                 :disabled="disabled"
-                                class="h-5 w-full border-0 p-0 text-center focus:ring-1 focus:ring-indigo-400"
+                                class="h-5 w-[45px] border-0 p-0 text-center focus:ring-1 focus:ring-indigo-400"
                                 :value="getSingle(tooth, 'note')"
                                 @input="setSingle(tooth, 'note', $event.target.value)"
                             />
@@ -488,12 +521,12 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
 
                     <template v-if="!isUpper">
                         <tr v-for="row in SINGLE_ROWS" :key="`single-${row.key}`">
-                            <th class="truncate border border-gray-300 bg-gray-50 px-1 text-right font-medium text-gray-500">{{ row.label }}</th>
+                            <th class="w-[140px] truncate border border-gray-300 bg-gray-50 px-1 text-right font-medium text-gray-500">{{ row.label }}</th>
                             <td v-for="[tooth] in LOWER" :key="tooth" colspan="3" class="border border-gray-300 p-0">
                                 <button
                                     v-if="row.kind === 'toggle'"
                                     type="button"
-                                    class="h-5 w-full"
+                                    class="h-5 w-[45px]"
                                     :class="getSingle(tooth, row.key) ? 'bg-indigo-500 text-white' : 'bg-white hover:bg-gray-100'"
                                     :disabled="disabled"
                                     @click="setSingle(tooth, row.key, !getSingle(tooth, row.key))"
@@ -506,7 +539,7 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                                     inputmode="numeric"
                                     :maxlength="1"
                                     :disabled="disabled"
-                                    class="h-5 w-full border-0 p-0 text-center focus:ring-1 focus:ring-indigo-400"
+                                    class="h-5 w-[45px] border-0 p-0 text-center focus:ring-1 focus:ring-indigo-400"
                                     :value="getSingle(tooth, row.key)"
                                     @input="setSingle(tooth, row.key, $event.target.value)"
                                 />
