@@ -5475,3 +5475,32 @@ entries via 5 separate reads of `_teethFor(v.key)` off the field's own
 `value` (each visit's `surfaces` map is read and rewritten unchanged,
 only `extracted` is touched) before a single `onChanged` call with the
 fully updated map. `flutter analyze` clean.
+
+### Extraction now also syncs into the BOP/PPD/CAL tables' tooth columns (2026-08-31)
+
+Same conversation as the web side's matching entry (see
+`dental_laravel/README.md` for the "why", `syncDentalToPerio()`/
+`syncPerioFromDental()`, one-way and visual-only). Threaded an
+`extractedTeeth: List<int>` down the whole chain:
+
+- **`DynamicSectionForm`** gained an `_extractedTeeth` getter — walks
+  `_chartValue['dentalCharts']` across every `widget.schema.plaqueVisits`
+  entry, collecting any tooth id with `extracted == true` into a `Set`,
+  same "read every visit, belt-and-braces" reasoning as the web side's
+  `computed`. Passed into `PerioChartGroupsField(..., extractedTeeth:
+  _extractedTeeth)`.
+- **`PerioChartGroupsField`** gained the same-named prop, forwarded
+  as-is to every `PerioChartTable` it builds.
+- **`PerioChartTable`** gained the prop and an `_isExtracted(tooth)`
+  helper. `_cell()` wraps its `Container`/`SizedBox` in `Opacity(opacity:
+  0.4)` and greys the background (`Colors.grey.shade300`, via the BOP
+  cell's `Container.color` or the PPD/CAL `TextFormField`'s
+  `InputDecoration.filled`/`fillColor`) for an extracted tooth's site
+  cells; `_numberRow()` swaps that tooth's number container to
+  `Colors.red.shade100` with red bold text and an appended " ✕". Same
+  "visual only, still editable" rule as the original's own `.missing`
+  class and as the web side's port — no `enabled: false`, no value
+  clearing.
+
+Verified: `flutter analyze` clean across `lib/features/perio_chart/` and
+`dynamic_section_form.dart`.

@@ -30,6 +30,7 @@ class PerioChartTable extends StatelessWidget {
     required this.value,
     required this.onChanged,
     required this.readOnly,
+    this.extractedTeeth = const [],
   });
 
   final String label;
@@ -37,8 +38,15 @@ class PerioChartTable extends StatelessWidget {
   final Map<String, dynamic> value;
   final ValueChanged<Map<String, dynamic>> onChanged;
   final bool readOnly;
+  // FDI tooth numbers marked extracted in the Plaque Index chart — greys
+  // out that tooth's whole column here, port of the original's own
+  // syncDentalToPerio()/syncPerioFromDental() (`.tooth-col.missing`).
+  // Visual only, same as the original: doesn't clear or disable the
+  // tooth's existing site values.
+  final List<int> extractedTeeth;
 
   bool get _isBop => type == 'bop';
+  bool _isExtracted(int tooth) => extractedTeeth.contains(tooth);
 
   String _siteValue(int tooth, String zone, int pos) {
     final entry = value[tooth.toString()] as Map<String, dynamic>?;
@@ -63,43 +71,55 @@ class PerioChartTable extends StatelessWidget {
 
   Widget _cell(BuildContext context, int tooth, String zone, int pos) {
     final current = _siteValue(tooth, zone, pos);
+    final extracted = _isExtracted(tooth);
     if (_isBop) {
       final marked = current == '+';
-      return Container(
-        width: _cellSize,
-        height: _cellSize,
-        decoration: BoxDecoration(border: Border.all(color: Theme.of(context).colorScheme.outline)),
-        child: Material(
-          color: marked ? Colors.red.shade600 : Colors.transparent,
-          child: InkWell(
-            onTap: readOnly ? null : () => _setSite(tooth, zone, pos, marked ? '' : '+'),
-            child: Center(
-              child: Text(
-                marked ? '+' : '',
-                style: TextStyle(fontSize: 11, color: marked ? Colors.white : null, fontWeight: FontWeight.bold),
+      return Opacity(
+        opacity: extracted ? 0.4 : 1,
+        child: Container(
+          width: _cellSize,
+          height: _cellSize,
+          decoration: BoxDecoration(
+            border: Border.all(color: Theme.of(context).colorScheme.outline),
+            color: extracted ? Colors.grey.shade300 : null,
+          ),
+          child: Material(
+            color: marked ? Colors.red.shade600 : Colors.transparent,
+            child: InkWell(
+              onTap: readOnly ? null : () => _setSite(tooth, zone, pos, marked ? '' : '+'),
+              child: Center(
+                child: Text(
+                  marked ? '+' : '',
+                  style: TextStyle(fontSize: 11, color: marked ? Colors.white : null, fontWeight: FontWeight.bold),
+                ),
               ),
             ),
           ),
         ),
       );
     }
-    return SizedBox(
-      width: _cellSize,
-      height: _cellSize,
-      child: TextFormField(
-        key: ValueKey('$tooth-$zone-$pos-$current'),
-        initialValue: current,
-        enabled: !readOnly,
-        textAlign: TextAlign.center,
-        keyboardType: TextInputType.number,
-        maxLength: 2,
-        style: const TextStyle(fontSize: 11),
-        decoration: const InputDecoration(
-          counterText: '',
-          contentPadding: EdgeInsets.zero,
-          border: OutlineInputBorder(borderRadius: BorderRadius.zero),
+    return Opacity(
+      opacity: extracted ? 0.4 : 1,
+      child: SizedBox(
+        width: _cellSize,
+        height: _cellSize,
+        child: TextFormField(
+          key: ValueKey('$tooth-$zone-$pos-$current'),
+          initialValue: current,
+          enabled: !readOnly,
+          textAlign: TextAlign.center,
+          keyboardType: TextInputType.number,
+          maxLength: 2,
+          style: const TextStyle(fontSize: 11),
+          decoration: InputDecoration(
+            counterText: '',
+            contentPadding: EdgeInsets.zero,
+            border: const OutlineInputBorder(borderRadius: BorderRadius.zero),
+            filled: extracted,
+            fillColor: Colors.grey.shade300,
+          ),
+          onChanged: (v) => _setSite(tooth, zone, pos, v),
         ),
-        onChanged: (v) => _setSite(tooth, zone, pos, v),
       ),
     );
   }
@@ -123,8 +143,15 @@ class PerioChartTable extends StatelessWidget {
               width: _cellSize * 3,
               height: 20,
               alignment: Alignment.center,
-              color: Colors.grey.withValues(alpha: 0.15),
-              child: Text(tooth.toString(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+              color: _isExtracted(tooth) ? Colors.red.shade100 : Colors.grey.withValues(alpha: 0.15),
+              child: Text(
+                _isExtracted(tooth) ? '$tooth ✕' : tooth.toString(),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: _isExtracted(tooth) ? Colors.red.shade700 : null,
+                ),
+              ),
             ),
         ],
       );

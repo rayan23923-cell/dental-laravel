@@ -21,7 +21,17 @@ const props = defineProps({
     type: { type: String, default: 'ppd' },
     label: String,
     disabled: Boolean,
+    // FDI tooth numbers marked extracted in the Plaque Index chart
+    // (PlaqueChart.vue, same chart_data.dentalCharts column) — greys out
+    // that tooth's whole column here, port of the original's own
+    // syncDentalToPerio()/syncPerioFromDental() (`.tooth-col.missing`).
+    // Visual only, same as the original: doesn't clear or disable the
+    // tooth's existing site values, just flags "don't bother measuring
+    // this one".
+    extractedTeeth: { type: Array, default: () => [] },
 });
+
+const isExtracted = (tooth) => props.extractedTeeth.includes(tooth);
 
 const emit = defineEmits(['update:modelValue']);
 
@@ -84,7 +94,7 @@ const stats = computed(() => {
                                 <tr>
                                     <th class="whitespace-nowrap px-1 text-right text-[10px] font-medium text-gray-500">Buccal</th>
                                     <template v-for="tooth in arch.teeth" :key="`ub-${tooth}`">
-                                        <td v-for="pos in [0, 1, 2]" :key="`ub-${tooth}-${pos}`" class="border border-gray-300 p-0">
+                                        <td v-for="pos in [0, 1, 2]" :key="`ub-${tooth}-${pos}`" class="border border-gray-300 p-0" :class="{ 'bg-gray-200 opacity-50': isExtracted(tooth) }">
                                             <button
                                                 v-if="type === 'bop'"
                                                 type="button"
@@ -109,8 +119,14 @@ const stats = computed(() => {
                                 </tr>
                                 <tr>
                                     <th class="px-1"></th>
-                                    <td v-for="tooth in arch.teeth" :key="`un-${tooth}`" colspan="3" class="border border-gray-400 bg-gray-100 px-1 py-0.5 font-semibold">
-                                        {{ tooth }}
+                                    <td
+                                        v-for="tooth in arch.teeth"
+                                        :key="`un-${tooth}`"
+                                        colspan="3"
+                                        class="border border-gray-400 px-1 py-0.5 font-semibold"
+                                        :class="isExtracted(tooth) ? 'bg-red-100 text-red-700' : 'bg-gray-100'"
+                                    >
+                                        {{ tooth }}<span v-if="isExtracted(tooth)"> ✕</span>
                                     </td>
                                 </tr>
                             </template>
@@ -118,7 +134,7 @@ const stats = computed(() => {
                             <tr>
                                 <th class="whitespace-nowrap px-1 text-right text-[10px] font-medium text-gray-500">{{ innerLabel(arch.upper) }}</th>
                                 <template v-for="tooth in arch.teeth" :key="`l-${tooth}`">
-                                    <td v-for="pos in [0, 1, 2]" :key="`l-${tooth}-${pos}`" class="border border-gray-300 p-0">
+                                    <td v-for="pos in [0, 1, 2]" :key="`l-${tooth}-${pos}`" class="border border-gray-300 p-0" :class="{ 'bg-gray-200 opacity-50': isExtracted(tooth) }">
                                         <button
                                             v-if="type === 'bop'"
                                             type="button"
@@ -146,14 +162,20 @@ const stats = computed(() => {
                             <template v-if="!arch.upper">
                                 <tr>
                                     <th class="px-1"></th>
-                                    <td v-for="tooth in arch.teeth" :key="`ln-${tooth}`" colspan="3" class="border border-gray-400 bg-gray-100 px-1 py-0.5 font-semibold">
-                                        {{ tooth }}
+                                    <td
+                                        v-for="tooth in arch.teeth"
+                                        :key="`ln-${tooth}`"
+                                        colspan="3"
+                                        class="border border-gray-400 px-1 py-0.5 font-semibold"
+                                        :class="isExtracted(tooth) ? 'bg-red-100 text-red-700' : 'bg-gray-100'"
+                                    >
+                                        {{ tooth }}<span v-if="isExtracted(tooth)"> ✕</span>
                                     </td>
                                 </tr>
                                 <tr>
                                     <th class="whitespace-nowrap px-1 text-right text-[10px] font-medium text-gray-500">Buccal</th>
                                     <template v-for="tooth in arch.teeth" :key="`lb-${tooth}`">
-                                        <td v-for="pos in [0, 1, 2]" :key="`lb-${tooth}-${pos}`" class="border border-gray-300 p-0">
+                                        <td v-for="pos in [0, 1, 2]" :key="`lb-${tooth}-${pos}`" class="border border-gray-300 p-0" :class="{ 'bg-gray-200 opacity-50': isExtracted(tooth) }">
                                             <button
                                                 v-if="type === 'bop'"
                                                 type="button"

@@ -374,6 +374,29 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
     }
   }
 
+  /// FDI tooth numbers marked extracted in the Plaque Index chart, fed into
+  /// `PerioChartGroupsField`'s BOP/PPD/CAL tables so a pulled tooth shows
+  /// the same greyed-out column everywhere — port of the original's own
+  /// `syncDentalToPerio()`/`syncPerioFromDental()`. All 5 visits already
+  /// carry the same `extracted` flag in sync with each other
+  /// (`PlaqueChartField._toggleExtractedAllVisits()`), so reading across
+  /// every visit here is belt-and-braces rather than strictly necessary.
+  List<int> get _extractedTeeth {
+    final dentalCharts = _chartValue['dentalCharts'] as Map<String, dynamic>?;
+    if (dentalCharts == null) return const [];
+    final ids = <int>{};
+    for (final visit in widget.schema.plaqueVisits) {
+      final teeth = (dentalCharts[visit.key] as Map<String, dynamic>?)?['teeth'] as Map<String, dynamic>?;
+      teeth?.forEach((id, data) {
+        if (data is Map && data['extracted'] == true) {
+          final n = int.tryParse(id);
+          if (n != null) ids.add(n);
+        }
+      });
+    }
+    return ids.toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Form(
@@ -389,6 +412,7 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
               value: _chartValue,
               readOnly: widget.readonly,
               onChanged: (next) => setState(() => _chartValue = next),
+              extractedTeeth: _extractedTeeth,
             ),
           if (widget.schema.plaqueVisits.isNotEmpty)
             PlaqueChartField(

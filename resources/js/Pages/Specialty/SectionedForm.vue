@@ -328,6 +328,24 @@ if (props.plaqueVisits.length) {
     charts.dentalCharts = props.chartData?.dentalCharts ?? {};
 }
 
+// FDI tooth numbers marked extracted in the Plaque Index chart — fed into
+// every PerioChart (BOP/PPD/CAL) table below so a tooth pulled at any
+// visit shows the same "missing" greyed-out column everywhere, port of
+// the original's own syncDentalToPerio()/syncPerioFromDental(). All 5
+// visits are kept in sync with each other already (PlaqueChart.vue's own
+// toggleExtractedAllVisits()), so reading across every visit here is
+// belt-and-braces rather than strictly necessary.
+const extractedTeeth = computed(() => {
+    const ids = new Set();
+    for (const visit of props.plaqueVisits) {
+        const teeth = charts.dentalCharts?.[visit.key]?.teeth ?? {};
+        for (const [id, data] of Object.entries(teeth)) {
+            if (data?.extracted === true) ids.add(Number(id));
+        }
+    }
+    return [...ids];
+});
+
 const submit = () => {
     // Re-assemble grouped subkeys into their JSON column.
     const groups = {};
@@ -827,6 +845,7 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                                 :type="table.type"
                                 :label="table.label"
                                 :disabled="readonly"
+                                :extracted-teeth="extractedTeeth"
                             />
                         </div>
                     </div>

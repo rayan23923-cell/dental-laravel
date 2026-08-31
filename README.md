@@ -7267,3 +7267,42 @@ two-visit-populated model (`visit2`/`visit4` each with their own
 `surfaces`, only `visit4`'s tooth 11 extracted-toggled): all 5 visits'
 tooth 11 came back `extracted: true`, `visit2` and `visit4` each kept
 their own pre-existing `surfaces` data intact. `npm run build` clean.
+
+### Extraction now also syncs into the BOP/PPD/CAL tables' tooth columns (2026-08-31)
+
+Same conversation, next request: "كذلك الجداول تكون متزامنة بالنسبة
+للقلع" — the BOP/PPD/CAL grid tables (`PerioChart.vue`, driven by
+`chartGroups`, shown as "Periodontal Chart — Initial" / "After Hygiene
+Phase" / "Follow-up" in the screenshots) should reflect the same
+extraction status too. Port of the original's own
+`syncDentalToPerio()`/`syncPerioFromDental()` (`.tooth-col.missing`):
+visual-only, one-way (Plaque Index → grid) — the original's own grid has
+its own separate "Mark Extracted" control inside a per-tooth modal this
+app never ported (`PerioChart.vue` has always been direct inline-cell
+editing, no tooth modal), so there's no second control here to sync
+*from*; it just displays the same state the Plaque Index chart already
+owns.
+
+- **`PerioChart.vue`** gained an `extractedTeeth: number[]` prop and an
+  `isExtracted(tooth)` helper. Every site `<td>` (buccal/lingual/palatal,
+  3 sites × 2 rows) for an extracted tooth gets `bg-gray-200 opacity-50`;
+  the tooth-number `<td colspan="3">` gets `bg-red-100 text-red-700` and
+  an appended " ✕" instead of the usual grey `bg-gray-100`. Matches the
+  original's `.tooth-col.missing` intent (grey + dimmed + a strike
+  indicator) without trying to reproduce its diagonal-cross `::after`
+  pixel-for-pixel across a multi-row `<table>` layout — not worth the
+  complexity for a purely decorative flourish. Deliberately **not**
+  disabled: the original's own `.missing` class never disables its
+  cells either (a clinician can still record a value against a "missing"
+  tooth if they choose to — the app doesn't stop them, only warns them).
+- **`SectionedForm.vue`** computes `extractedTeeth` from
+  `charts.dentalCharts` (a `computed` walking every `plaqueVisits` entry's
+  `teeth`, collecting any tooth with `extracted === true` into a `Set` —
+  reading across all 5 visits rather than just one, belt-and-braces
+  since `PlaqueChart.vue`'s own sync already keeps them identical) and
+  passes it to every `<PerioChart>` in the `chartGroups` loop.
+
+Verified: `npm run build` clean, and the union-computation logic
+hand-run standalone in Node against a 2-visit, 2-tooth model — correctly
+returned `[11, 12]` deduplicated from teeth appearing (with `extracted:
+true`) across different visits.

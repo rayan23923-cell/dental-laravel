@@ -25,12 +25,17 @@ class PerioChartGroupsField extends StatelessWidget {
     required this.value,
     required this.onChanged,
     required this.readOnly,
+    this.extractedTeeth = const [],
   });
 
   final List<PerioChartGroupSchema> groups;
   final Map<String, dynamic> value;
   final ValueChanged<Map<String, dynamic>> onChanged;
   final bool readOnly;
+  // FDI tooth numbers marked extracted in the Plaque Index chart — see
+  // DynamicSectionForm._extractedTeeth's own doc comment for why this
+  // greys out that tooth's column in every table below.
+  final List<int> extractedTeeth;
 
   Map<String, dynamic> _tableValue(String groupKey, String tableKey) {
     final group = value[groupKey] as Map<String, dynamic>?;
@@ -66,6 +71,7 @@ class PerioChartGroupsField extends StatelessWidget {
                       value: _tableValue(group.key, table.key),
                       readOnly: readOnly,
                       onChanged: (next) => _setTableValue(group.key, table.key, next),
+                      extractedTeeth: extractedTeeth,
                     ),
                   ),
               ],
