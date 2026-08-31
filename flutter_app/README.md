@@ -5562,3 +5562,63 @@ into the Inertia page and back) verified via `tinker`/`curl` on the web
 side — see the matching README entry; not separately re-verified against
 a running Flutter client, per this session's standing "no
 emulator/simulator" instruction.
+
+## Advanced Periodontal Chart, revision 2: real tooth/implant artwork, no horizontal scroll (2026-08-31)
+
+Same feature/request as `dental_laravel/README.md`'s matching entry —
+read that one for the full rationale (the user-supplied, independently-
+designed reference asset used to sidestep any copyright question; only 8
+unique tooth positions per arch needed since the asset itself reuses
+identical path data for mirrored teeth; the row-structure changes —
+Furcation now duplicated per zone, a new Note field). This entry covers
+only the Flutter-specific implementation.
+
+**Rendering the artwork**: rather than hand-translating ~40 cubic-Bézier
+SVG paths into `Path.cubicTo()` calls (the previous revision's simple
+`_toothPath()` only needed `quadraticBezierTo`/`lineTo`, which these
+richer paths don't fit), added the `flutter_svg` package
+(`flutter pub add flutter_svg`) and render the *exact same* path strings
+as the web side via `SvgPicture.string()` — `_archSvg()` builds one
+complete SVG document per arch (gumline + 16 `<g transform="translate(...)">`
+tooth groups, each either the crown+root paths or, when that tooth's
+`implant` flag is true, the shared implant fixture paths) and hands the
+whole string to `SvgPicture.string`. Reusing the identical path data this
+way is both simpler and structurally safer than a manual per-shape
+translation would have been — same reasoning `pw.SvgImage` was chosen
+for print art earlier in this session, just applied to on-screen
+rendering for the first time (this is the first Flutter *on-screen*
+widget in the app to use an SVG-string renderer rather than
+`CustomPainter`/hand-built `Path`s).
+
+Verified the transcription itself, not just eyeballed it: the same
+Node cross-check used for the web side's path strings was re-run against
+this file's `UPPER_SHAPES`/`LOWER_SHAPES`/`IMPLANT_SHAPE`/`_kImplant*`
+constants — all 41 path strings (37 tooth + 4 implant) matched the
+original reference file byte-for-byte.
+
+**No horizontal scroll**: replaced the previous `SingleChildScrollView(
+scrollDirection: Axis.horizontal)` + fixed-pixel-width cells with a
+`Row` of `Expanded` cells throughout (`flex: 3` per tooth for the once-
+per-tooth Mobility/Implant/Note rows, `flex: 1` per site for the 3-site
+metric rows) — an `Expanded` cell always takes exactly its share of the
+*available* width, so the whole arch structurally cannot exceed the
+screen width and a horizontal scrollbar can never appear; the same
+`table-fixed` + percentage-`<colgroup>` tradeoff the web side makes for
+the same reason (cells shrink together on a narrow phone rather than the
+row overflowing).
+
+Verified: added `flutter pub add flutter_svg` (confirmed via `pubspec.yaml`
+diff — `flutter_svg`/`vector_graphics`/`vector_graphics_codec`/
+`vector_graphics_compiler` added). A `flutter_test` widget test (temporary,
+deleted after use per this session's convention) pumped
+`AdvancedPerioChartField` with one plain tooth (`11`, populated BOP/
+Plaque/GM/PD/AL data) and one implant tooth (`46`) inside a
+`MaterialApp`/`Scaffold`, called `pumpAndSettle()`, and asserted
+`tester.takeException()` was `null` — confirming both the generated SVG
+strings parse successfully through `flutter_svg`'s real vector-graphics
+pipeline (not just "is well-formed XML" but "flutter_svg actually
+renders it without throwing") and that the implant-vs-crown branch
+executes cleanly for both cases; also asserted the computed stats text
+("Avg. Probing Depth: 2.2 mm") matched the hand-calculated expected value
+for the seeded data. `flutter analyze` clean, both scoped to the file and
+run project-wide afterward.

@@ -1,31 +1,59 @@
 <script setup>
 /**
- * "Advanced Periodontal Chart" (2026-08-31, by request) — a 32-tooth,
- * 6-site-per-tooth periodontal charting grid, functionally modeled on
- * periodontalchart-online.com's own charting tool (same field set —
- * Mobility/Implant/Furcation/Bleeding on Probing/Plaque/Gingival Margin/
- * Probing Depth/Attachment Level — and the same "192 sites" denominator
- * for BOP%/Plaque Index%, i.e. 32 teeth × 2 zones × 3 sites, no tooth
- * ever excluded since this chart has no extraction/missing-tooth concept
- * of its own).
+ * "Advanced Periodontal Chart" (2026-08-31, revised same day by request) —
+ * a 32-tooth, 6-site-per-tooth periodontal charting grid, functionally
+ * modeled on periodontalchart-online.com's own charting tool.
  *
- * The tooth-row artwork below is this app's OWN vector art — the same
- * curved molar/premolar/canine/incisor outlines already built for
- * `PlaqueChart.vue`/`App\Support\PlaqueChart::TOOTH_SHAPES`, reused here
- * rather than attempting to reproduce periodontalchart-online.com's own
- * detailed crown/root illustrations, which sidesteps any copyright concern
- * entirely (the layout concept — two arch rows, a horizontal gumline, a
- * metric grid above/below — is a generic charting convention used by many
- * such tools, not something any one of them owns). Decorative only, not
- * interactive: unlike the odontogram/Plaque Index charts, entry here
- * happens through the row cells below, not by tapping the artwork.
+ * Tooth/implant artwork (2026-08-31, revision 2, by request): replaced the
+ * original 5-blob-shape placeholder art with real crown+root outlines and
+ * a real implant-fixture graphic, both supplied by the user as an
+ * independently-designed reference asset (a standalone anatomical SVG
+ * chart built specifically to avoid any copyright question — see the
+ * user's own note: "تم تصميم الاسنان بصورة مستقلة وتم الاعتماد عليهما
+ * للتخلص من مشكلة الحقوق"). Only the raw `<path>` geometry (crown + root
+ * outlines, the implant abutment/body/thread/highlight) was extracted;
+ * decorative canal/furcation linework, probing-point dots, and the
+ * reference asset's own JS/interaction layer were left behind — this
+ * component keeps its own existing data model and stats logic untouched.
+ * 8 tooth "positions" per arch (3rd molar down to central incisor) cover
+ * all 32 teeth: the reference asset's own path data confirms each
+ * position's shape is reused byte-for-byte on the mirrored side (11's
+ * `d` attribute is identical to 21's, etc.), so `UPPER_SHAPES`/
+ * `LOWER_SHAPES` below hold exactly 8 entries each rather than 16 — the
+ * same "shared type, mirrored across the arch" structure this component
+ * already had, just with 8 real per-position shapes instead of 5 generic
+ * blob categories. The implant graphic is identical across every tooth in
+ * the source asset, so `IMPLANT_SHAPE` is a single shared constant:
+ * a tooth marked "Implant" in the data now visibly renders as a fixture
+ * in place of its normal crown+root, mirroring the reference site's own
+ * per-tooth implant-mode swap.
+ *
+ * Layout (revision 2, by request — "بدون سكرول افقي"): the previous
+ * revision used a fixed-pixel-width table inside an `overflow-x-auto`
+ * wrapper, which is exactly what forces horizontal scrolling on a phone.
+ * Replaced with a `table-fixed` table at `w-full` and a `<colgroup>`
+ * whose 48 site-columns are percentage-widthed (not pixel-widthed) — CSS
+ * table-layout:fixed then distributes 100% of the container's actual
+ * width across them regardless of viewport size, so the table can never
+ * exceed its container and a horizontal scrollbar structurally cannot
+ * appear (cells simply shrink together on a narrow screen, the same
+ * `width:100%`-on-one-big-SVG technique the reference site's own chart
+ * uses for the same reason). The tooth-row graphic is one responsive
+ * `<svg width="100%">` per arch for the same reason.
+ *
+ * Row structure closer to the reference site's own logic (revision 2):
+ * Mobility/Implant appear once per arch, at the outer edge; Bleeding on
+ * Probing/Plaque/Furcation/Gingival Margin/Probing Depth/Attachment Level
+ * each appear twice per arch (once for the buccal sites, once for the
+ * palatal/lingual sites — furcation is clinically assessed from both
+ * aspects on a multi-rooted tooth, same as the other site metrics); a
+ * free-text per-tooth Note field appears once per arch, next to the
+ * block nearest the tooth-row graphic.
  *
  * `modelValue` is `chart_data.advancedChart` as already-decoded JSON:
- *   { teeth: { '18': { mobility, implant, furcation,
- *       buccal: { bop: [b,b,b], plaque: [b,b,b], gm: [n,n,n], pd: [n,n,n], al: [n,n,n] },
+ *   { teeth: { '18': { mobility, implant, note, furcation-per-zone...,
+ *       buccal: { bop: [b,b,b], plaque: [b,b,b], furcation: [n,n,n], gm: [n,n,n], pd: [n,n,n], al: [n,n,n] },
  *       lingual: { ...same shape... } }, ... } }
- * Sparse — only touched teeth get an entry, same convention as
- * `ToothOdontogram.vue`/`PlaqueChart.vue`.
  */
 import { computed } from 'vue';
 
@@ -36,41 +64,131 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue']);
 
-const TOOTH_SHAPES = {
-    molar: 'M 5,10 Q 20,0 35,10 Q 40,20 35,35 Q 20,40 5,35 Q 0,20 5,10 Z',
-    premolar: 'M 5,10 Q 20,2 35,10 Q 38,25 30,35 Q 20,38 10,35 Q 2,25 5,10 Z',
-    canine: 'M 5,15 L 20,2 L 35,15 L 30,35 L 10,35 Z',
-    incisorUpper: 'M 0,0 L 40,0 L 34,40 L 6,40 Z',
-    incisorLower: 'M 5,2 L 35,2 L 32,38 L 8,38 Z',
+// The implant fixture graphic — identical across every tooth in the
+// source reference asset, so one shared shape suffices. Coordinates are
+// already in each tooth's own local space (no extra transform needed,
+// unlike the root paths below).
+const IMPLANT_SHAPE = {
+    abutment: 'M-7,31 L7,31 L6,45 L-6,45 Z',
+    body: 'M-6,45 L6,45 L10,58 L8,175 C7,185 3,191 0,194 C-3,191 -7,185 -8,175 L-10,58 Z',
+    thread: 'M-9,62 L9,62 M-9,72 L9,72 M-9,82 L9,82 M-9,92 L9,92 M-9,102 L9,102 M-9,112 L9,112 M-9,122 L9,122 M-9,132 L9,132 M-8,142 L8,142 M-8,152 L8,152 M-7,162 L7,162 M-6,172 L6,172',
+    highlight: 'M-3,53 L-4,169',
+};
+
+// 8 tooth positions, 3rd molar (M3) to central incisor (I1) — crown paths
+// are in the tooth's own local space; root paths need the same
+// `translate(0,10) scale(1.15,.74)` the reference asset applies to them
+// (see the `<g>` wrapper in the template).
+const UPPER_SHAPES = {
+    M3: {
+        crown: 'M-27,5 C-33,-8 -25,-20 -13,-19 L-4,-16 L4,-21 L16,-17 C27,-15 31,-5 28,7 C26,26 17,41 5,46 L-3,44 L-11,47 C-20,39 -27,24 -27,5 Z',
+        roots: ['M-13,43 C-18,79 -20,120 -13,151 C-9,167 -2,176 0,179 C4,174 8,163 9,148 C10,116 14,78 13,43 Z'],
+    },
+    M2: {
+        crown: 'M-29,6 C-32,-6 -26,-17 -16,-18 L-7,-15 L0,-21 L8,-15 L17,-18 C27,-16 32,-7 29,6 C28,26 18,42 7,48 L0,45 L-7,48 C-18,42 -28,26 -29,6 Z',
+        roots: [
+            'M-17,43 C-21,80 -27,123 -25,158 C-24,174 -18,185 -12,191 C-14,148 -11,91 -6,43 Z',
+            'M-5,43 C-8,87 -9,137 -4,177 C-2,188 0,196 3,201 C6,192 7,183 6,172 C4,128 4,82 4,43 Z',
+            'M8,43 C13,84 19,129 17,163 C21,160 26,153 27,143 C28,116 23,79 18,43 Z',
+        ],
+    },
+    M1: {
+        crown: 'M-31,5 C-34,-7 -28,-19 -18,-19 L-8,-16 L0,-24 L8,-16 L18,-20 C28,-18 34,-8 31,5 C30,26 20,44 7,50 L0,47 L-7,50 C-20,44 -30,26 -31,5 Z',
+        roots: [
+            'M-18,43 C-22,80 -29,126 -27,163 C-26,179 -20,191 -13,198 C-15,151 -12,91 -6,43 Z',
+            'M-6,43 C-9,86 -11,139 -6,181 C-4,194 -1,202 2,207 C5,199 7,190 7,178 C5,132 4,83 4,43 Z',
+            'M7,43 C13,86 21,134 19,171 C24,168 30,159 31,148 C32,119 26,80 20,43 Z',
+        ],
+    },
+    PM2: {
+        crown: 'M-23,3 C-23,-8 -15,-14 -7,-11 L0,-19 L7,-11 C15,-14 23,-8 23,3 C22,24 15,38 6,44 L0,41 L-6,44 C-15,38 -22,24 -23,3 Z',
+        roots: ['M-12,40 C-15,79 -18,121 -14,158 C-12,174 -6,185 0,192 C4,183 7,169 9,148 C12,111 12,72 11,40 Z'],
+    },
+    PM1: {
+        crown: 'M-25,2 C-25,-9 -17,-15 -9,-12 L0,-22 L9,-12 C17,-15 25,-9 25,2 C24,24 17,40 7,46 L0,43 L-7,46 C-17,40 -24,24 -25,2 Z',
+        roots: [
+            'M-14,40 C-18,79 -23,119 -20,154 C-18,171 -11,184 -5,190 C-7,147 -4,91 -1,40 Z',
+            'M2,40 C5,84 9,134 7,171 C11,166 18,157 20,145 C23,112 18,76 14,40 Z',
+        ],
+    },
+    C: {
+        crown: 'M-17,4 C-18,-8 -11,-16 0,-21 C11,-16 18,-8 17,4 L14,40 C9,48 4,52 0,53 C-4,52 -9,48 -14,40 Z',
+        roots: ['M-11,40 C-14,80 -17,123 -12,164 C-9,184 -3,199 0,207 C4,199 9,184 13,164 C17,123 14,80 11,40 Z'],
+    },
+    I2: {
+        crown: 'M-16,5 C-17,-7 -12,-14 -6,-14 L7,-14 C13,-13 17,-7 16,5 L15,36 C10,43 5,46 0,46 C-5,46 -10,43 -15,36 Z',
+        roots: ['M-8,35 C-11,71 -12,111 -7,150 C-5,167 -2,181 0,191 C3,181 6,167 8,150 C12,111 11,71 8,35 Z'],
+    },
+    I1: {
+        crown: 'M-19,4 C-20,-8 -16,-15 -9,-14 L9,-14 C16,-15 20,-8 19,4 L18,38 C12,45 6,48 0,48 C-6,48 -12,45 -18,38 Z',
+        roots: ['M-9,35 C-12,72 -13,112 -8,151 C-6,169 -2,184 0,194 C3,184 7,169 9,151 C13,112 12,72 9,35 Z'],
+    },
+};
+
+const LOWER_SHAPES = {
+    M3: UPPER_SHAPES.M3, // the reference asset's own "var" 3rd-molar simplification is shared verbatim across 18/28/38/48
+    M2: {
+        crown: 'M-32,4 C-34,-8 -27,-18 -17,-19 L-8,-16 L0,-22 L8,-16 L17,-19 C27,-17 34,-8 32,4 C31,26 20,44 7,49 L0,46 L-7,49 C-20,44 -31,26 -32,4 Z',
+        roots: [
+            'M-16,43 C-21,83 -26,125 -23,161 C-21,178 -16,188 -10,196 C-13,149 -10,91 -5,43 Z',
+            'M6,43 C11,91 14,149 11,188 C16,183 21,174 23,160 C26,125 21,83 17,43 Z',
+        ],
+    },
+    M1: {
+        crown: 'M-34,4 C-36,-8 -30,-19 -20,-20 L-10,-17 L-2,-23 L7,-17 L17,-20 C29,-18 35,-8 34,4 C33,27 21,45 8,51 L0,48 L-8,51 C-21,45 -33,27 -34,4 Z',
+        roots: [
+            'M-17,43 C-23,83 -28,126 -25,163 C-23,181 -17,193 -11,201 C-14,153 -11,91 -6,43 Z',
+            'M7,43 C12,91 15,151 12,190 C17,185 23,176 25,161 C28,126 23,83 18,43 Z',
+        ],
+    },
+    PM2: {
+        crown: 'M-25,3 C-25,-9 -16,-15 -7,-13 L0,-19 L7,-13 C16,-15 25,-9 25,3 C24,24 15,40 6,45 L0,42 L-6,45 C-15,40 -24,24 -25,3 Z',
+        roots: ['M-12,41 C-15,82 -16,123 -11,162 C-8,180 -3,194 0,202 C3,194 8,180 11,162 C15,123 14,82 12,41 Z'],
+    },
+    PM1: {
+        crown: 'M-24,5 C-25,-10 -14,-17 -3,-15 L4,-20 L12,-11 C21,-8 24,2 22,14 C20,29 12,41 3,45 L-5,43 C-15,36 -22,22 -24,5 Z',
+        roots: ['M-11,41 C-14,82 -15,122 -10,160 C-7,179 -2,193 0,201 C3,193 8,179 11,160 C15,122 14,82 11,41 Z'],
+    },
+    C: {
+        crown: 'M-14,4 C-15,-7 -9,-14 0,-19 C9,-14 15,-7 14,4 L12,38 C8,46 3,50 0,51 C-3,50 -8,46 -12,38 Z',
+        roots: ['M-10,40 C-13,81 -14,123 -9,163 C-6,183 -2,198 0,207 C3,198 7,183 10,163 C14,123 13,81 10,40 Z'],
+    },
+    I2: {
+        crown: 'M-13,4 C-14,-7 -10,-13 -4,-13 L5,-13 C10,-12 14,-6 13,4 L12,37 C8,43 3,46 0,46 C-4,46 -8,43 -12,37 Z',
+        roots: ['M-9,35 C-12,72 -12,111 -7,151 C-5,169 -2,184 0,194 C3,184 6,169 8,151 C12,111 12,72 9,35 Z'],
+    },
+    I1: {
+        crown: 'M-12,3 C-13,-7 -9,-12 -4,-12 L4,-12 C9,-12 13,-7 12,3 L11,36 C7,42 3,44 0,44 C-3,44 -7,42 -11,36 Z',
+        roots: ['M-8,35 C-11,72 -11,111 -7,150 C-5,168 -2,183 0,193 C3,183 6,168 8,150 C11,111 11,72 8,35 Z'],
+    },
 };
 
 const UPPER = [
-    [18, 'molar'], [17, 'molar'], [16, 'molar'], [15, 'premolar'], [14, 'premolar'], [13, 'canine'],
-    [12, 'incisorUpper'], [11, 'incisorUpper'], [21, 'incisorUpper'], [22, 'incisorUpper'],
-    [23, 'canine'], [24, 'premolar'], [25, 'premolar'], [26, 'molar'], [27, 'molar'], [28, 'molar'],
+    [18, 'M3'], [17, 'M2'], [16, 'M1'], [15, 'PM2'], [14, 'PM1'], [13, 'C'], [12, 'I2'], [11, 'I1'],
+    [21, 'I1'], [22, 'I2'], [23, 'C'], [24, 'PM1'], [25, 'PM2'], [26, 'M1'], [27, 'M2'], [28, 'M3'],
 ];
 const LOWER = [
-    [48, 'molar'], [47, 'molar'], [46, 'molar'], [45, 'premolar'], [44, 'premolar'], [43, 'canine'],
-    [42, 'incisorLower'], [41, 'incisorLower'], [31, 'incisorLower'], [32, 'incisorLower'],
-    [33, 'canine'], [34, 'premolar'], [35, 'premolar'], [36, 'molar'], [37, 'molar'], [38, 'molar'],
+    [48, 'M3'], [47, 'M2'], [46, 'M1'], [45, 'PM2'], [44, 'PM1'], [43, 'C'], [42, 'I2'], [41, 'I1'],
+    [31, 'I1'], [32, 'I2'], [33, 'C'], [34, 'PM1'], [35, 'PM2'], [36, 'M1'], [37, 'M2'], [38, 'M3'],
 ];
 
-// The 5 per-site metrics, in the order rendered outward-in from each arch's
-// buccal row (upper) / lingual row (lower) — see the template for why the
-// two arches render this list in opposite directions.
+const shapeFor = (isUpper, type) => (isUpper ? UPPER_SHAPES : LOWER_SHAPES)[type];
+
+// The 6 per-site metrics, rendered once for the buccal sites and once for
+// the palatal/lingual sites.
 const SITE_ROWS = [
     { key: 'bop', label: 'Bleeding on Probing', kind: 'toggle' },
     { key: 'plaque', label: 'Plaque', kind: 'toggle' },
+    { key: 'furcation', label: 'Furcation', kind: 'number' },
     { key: 'gm', label: 'Gingival Margin', kind: 'number', signed: true },
     { key: 'pd', label: 'Probing Depth', kind: 'number' },
     { key: 'al', label: 'Attachment Level', kind: 'number' },
 ];
 
-// The 3 once-per-tooth metrics (not per site).
+// The 2 once-per-tooth metrics.
 const SINGLE_ROWS = [
     { key: 'mobility', label: 'Mobility', kind: 'number', max: 3 },
     { key: 'implant', label: 'Implant', kind: 'toggle' },
-    { key: 'furcation', label: 'Furcation', kind: 'number', max: 3 },
 ];
 
 const teeth = computed(() => props.modelValue?.teeth ?? {});
@@ -149,6 +267,16 @@ const archLabel = (isUpper, zone) => {
     if (zone === 'buccal') return 'Buccal';
     return isUpper ? 'Palatal' : 'Lingual';
 };
+
+// Graphic row geometry — a single responsive SVG per arch (see this
+// component's own doc comment for why: `width="100%"` lets it shrink to
+// any container width, the same technique the reference site's own chart
+// uses, so a horizontal scrollbar can never appear).
+const TOOTH_SLOT = 90;
+const ARCH_WIDTH = 16 * TOOTH_SLOT;
+const ARCH_HEIGHT = 235;
+const GUMLINE_Y = 70;
+const toothX = (idx) => 45 + idx * TOOTH_SLOT;
 </script>
 
 <template>
@@ -160,18 +288,22 @@ const archLabel = (isUpper, zone) => {
             <span>PI: <strong>{{ stats.plaquePct }}%</strong> ({{ stats.plaqueMarked }} / {{ stats.totalSites }})</span>
         </div>
 
-        <div v-for="isUpper in [true, false]" :key="isUpper ? 'upper' : 'lower'" class="overflow-x-auto rounded-lg border border-gray-200" style="-webkit-overflow-scrolling: touch;">
-            <table class="min-w-max border-collapse text-center text-[10px]">
+        <div v-for="isUpper in [true, false]" :key="isUpper ? 'upper' : 'lower'" class="rounded-lg border border-gray-200">
+            <table class="w-full table-fixed border-collapse text-center text-[9px] sm:text-[10px]">
+                <colgroup>
+                    <col style="width: 15%" />
+                    <col v-for="n in 48" :key="n" :style="{ width: `${85 / 48}%` }" />
+                </colgroup>
                 <tbody>
-                    <!-- Single-per-tooth rows: above the arch for upper, below for lower — mirrors the reference tool's own "framing" without duplicating the same 3 rows on both sides of one arch. -->
+                    <!-- Mobility / Implant: once per arch, outer edge. -->
                     <template v-if="isUpper">
                         <tr v-for="row in SINGLE_ROWS" :key="`single-${row.key}`">
-                            <th class="whitespace-nowrap border border-gray-300 bg-gray-50 px-1 text-right font-medium text-gray-500">{{ row.label }}</th>
-                            <td v-for="[tooth] in UPPER" :key="tooth" class="border border-gray-300 p-0">
+                            <th class="truncate border border-gray-300 bg-gray-50 px-1 text-right font-medium text-gray-500">{{ row.label }}</th>
+                            <td v-for="[tooth] in UPPER" :key="tooth" colspan="3" class="border border-gray-300 p-0">
                                 <button
                                     v-if="row.kind === 'toggle'"
                                     type="button"
-                                    class="h-5 w-11"
+                                    class="h-5 w-full"
                                     :class="getSingle(tooth, row.key) ? 'bg-indigo-500 text-white' : 'bg-white hover:bg-gray-100'"
                                     :disabled="disabled"
                                     @click="setSingle(tooth, row.key, !getSingle(tooth, row.key))"
@@ -184,7 +316,7 @@ const archLabel = (isUpper, zone) => {
                                     inputmode="numeric"
                                     :maxlength="1"
                                     :disabled="disabled"
-                                    class="h-5 w-11 border-0 p-0 text-center text-[10px] focus:ring-1 focus:ring-indigo-400"
+                                    class="h-5 w-full border-0 p-0 text-center focus:ring-1 focus:ring-indigo-400"
                                     :value="getSingle(tooth, row.key)"
                                     @input="setSingle(tooth, row.key, $event.target.value)"
                                 />
@@ -192,10 +324,10 @@ const archLabel = (isUpper, zone) => {
                         </tr>
                     </template>
 
-                    <!-- Outer zone (buccal for both arches) for upper; inner zone (lingual/palatal) first for lower — matches the anatomical row order PerioChart.vue already established (the two tongue-facing rows sit adjacent to the arch boundary). -->
-                    <template v-for="row in (isUpper ? SITE_ROWS : [...SITE_ROWS].reverse())" :key="`${isUpper ? 'buccal' : 'lingual'}-${row.key}`">
+                    <!-- Outer zone (buccal for upper; palatal/lingual for lower) — the two tongue-facing rows sit adjacent across the arch boundary, same convention PerioChart.vue uses. -->
+                    <template v-for="row in SITE_ROWS" :key="`first-${row.key}`">
                         <tr>
-                            <th class="whitespace-nowrap border border-gray-300 bg-gray-50 px-1 text-right font-medium text-gray-500">
+                            <th class="truncate border border-gray-300 bg-gray-50 px-1 text-right font-medium text-gray-500">
                                 {{ archLabel(isUpper, isUpper ? 'buccal' : 'lingual') }} — {{ row.label }}
                             </th>
                             <template v-for="[tooth] in (isUpper ? UPPER : LOWER)" :key="tooth">
@@ -203,7 +335,7 @@ const archLabel = (isUpper, zone) => {
                                     <button
                                         v-if="row.kind === 'toggle'"
                                         type="button"
-                                        class="h-5 w-5"
+                                        class="h-5 w-full"
                                         :class="getSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos) ? (row.key === 'bop' ? 'bg-red-500 text-white' : 'bg-yellow-400') : 'bg-white hover:bg-gray-100'"
                                         :disabled="disabled"
                                         @click="setSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos, !getSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos))"
@@ -214,7 +346,7 @@ const archLabel = (isUpper, zone) => {
                                         inputmode="numeric"
                                         maxlength="3"
                                         :disabled="disabled"
-                                        class="h-5 w-5 border-0 p-0 text-center text-[10px] focus:ring-1 focus:ring-indigo-400"
+                                        class="h-5 w-full border-0 p-0 text-center focus:ring-1 focus:ring-indigo-400"
                                         :value="getSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos)"
                                         @input="setSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos, $event.target.value)"
                                     />
@@ -231,23 +363,35 @@ const archLabel = (isUpper, zone) => {
                         </td>
                     </tr>
 
-                    <!-- Decorative tooth-row artwork — see this component's own doc comment for why it's non-interactive and original artwork. -->
+                    <!-- Tooth-row graphic — one responsive SVG, see this component's own doc comment. An implant-flagged tooth shows the fixture graphic instead of its crown+root. -->
                     <tr>
                         <th class="border border-gray-300 bg-white"></th>
-                        <td :colspan="(isUpper ? UPPER : LOWER).length * 3" class="border border-gray-300 bg-white p-1">
-                            <svg :width="(isUpper ? UPPER : LOWER).length * 40" height="46" :viewBox="`0 0 ${(isUpper ? UPPER : LOWER).length * 40} 46`">
-                                <line x1="0" y1="23" :x2="(isUpper ? UPPER : LOWER).length * 40" y2="23" stroke="#dc2626" stroke-width="1" stroke-dasharray="2,2" />
-                                <g v-for="([tooth, type], idx) in (isUpper ? UPPER : LOWER)" :key="tooth" :transform="`translate(${idx * 40}, 3)`">
-                                    <path :d="TOOTH_SHAPES[type]" fill="#f4f4f5" stroke="#9ca3af" stroke-width="1" />
+                        <td colspan="48" class="border border-gray-300 bg-white p-1">
+                            <svg width="100%" height="auto" :viewBox="`0 0 ${ARCH_WIDTH} ${ARCH_HEIGHT}`" preserveAspectRatio="xMidYMin meet">
+                                <line :x2="ARCH_WIDTH" :y1="GUMLINE_Y" :y2="GUMLINE_Y" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="4,3" />
+                                <g v-for="([tooth, type], idx) in (isUpper ? UPPER : LOWER)" :key="tooth" :transform="`translate(${toothX(idx)}, 25)`">
+                                    <template v-if="getSingle(tooth, 'implant')">
+                                        <path :d="IMPLANT_SHAPE.body" fill="#d7d9db" stroke="#20272b" stroke-width="1.4" />
+                                        <path :d="IMPLANT_SHAPE.abutment" fill="#eceeef" stroke="#20272b" stroke-width="1.4" />
+                                        <path :d="IMPLANT_SHAPE.thread" fill="none" stroke="#3b4246" stroke-width="1" />
+                                        <path :d="IMPLANT_SHAPE.highlight" fill="none" stroke="#fff" stroke-width="1" opacity="0.7" />
+                                    </template>
+                                    <template v-else>
+                                        <g transform="translate(0,10) scale(1.15,0.74)">
+                                            <path v-for="(r, ri) in shapeFor(isUpper, type).roots" :key="ri" :d="r" fill="#fff" stroke="#37474f" stroke-width="1.3" />
+                                        </g>
+                                        <path :d="shapeFor(isUpper, type).crown" fill="#fff" stroke="#20272b" stroke-width="1.6" stroke-linejoin="round" />
+                                    </template>
+                                    <text text-anchor="middle" x="0" y="-8" style="font: 700 11px system-ui; fill: #37474f">{{ tooth }}</text>
                                 </g>
                             </svg>
                         </td>
                     </tr>
 
-                    <!-- Inner zone (lingual/palatal) for upper; outer zone (buccal) for lower. -->
-                    <template v-for="row in (isUpper ? SITE_ROWS : [...SITE_ROWS].reverse())" :key="`${isUpper ? 'lingual' : 'buccal'}-${row.key}`">
+                    <!-- Inner zone (palatal/lingual for upper; buccal for lower). -->
+                    <template v-for="row in [...SITE_ROWS].reverse()" :key="`second-${row.key}`">
                         <tr>
-                            <th class="whitespace-nowrap border border-gray-300 bg-gray-50 px-1 text-right font-medium text-gray-500">
+                            <th class="truncate border border-gray-300 bg-gray-50 px-1 text-right font-medium text-gray-500">
                                 {{ archLabel(isUpper, isUpper ? 'lingual' : 'buccal') }} — {{ row.label }}
                             </th>
                             <template v-for="[tooth] in (isUpper ? UPPER : LOWER)" :key="tooth">
@@ -255,7 +399,7 @@ const archLabel = (isUpper, zone) => {
                                     <button
                                         v-if="row.kind === 'toggle'"
                                         type="button"
-                                        class="h-5 w-5"
+                                        class="h-5 w-full"
                                         :class="getSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos) ? (row.key === 'bop' ? 'bg-red-500 text-white' : 'bg-yellow-400') : 'bg-white hover:bg-gray-100'"
                                         :disabled="disabled"
                                         @click="setSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos, !getSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos))"
@@ -266,7 +410,7 @@ const archLabel = (isUpper, zone) => {
                                         inputmode="numeric"
                                         maxlength="3"
                                         :disabled="disabled"
-                                        class="h-5 w-5 border-0 p-0 text-center text-[10px] focus:ring-1 focus:ring-indigo-400"
+                                        class="h-5 w-full border-0 p-0 text-center focus:ring-1 focus:ring-indigo-400"
                                         :value="getSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos)"
                                         @input="setSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos, $event.target.value)"
                                     />
@@ -275,14 +419,28 @@ const archLabel = (isUpper, zone) => {
                         </tr>
                     </template>
 
+                    <!-- Note — once per arch, next to the block nearest the graphic. -->
+                    <tr>
+                        <th class="truncate border border-gray-300 bg-gray-50 px-1 text-right font-medium text-gray-500">Note</th>
+                        <td v-for="[tooth] in (isUpper ? UPPER : LOWER)" :key="tooth" colspan="3" class="border border-gray-300 p-0">
+                            <input
+                                type="text"
+                                :disabled="disabled"
+                                class="h-5 w-full border-0 p-0 text-center focus:ring-1 focus:ring-indigo-400"
+                                :value="getSingle(tooth, 'note')"
+                                @input="setSingle(tooth, 'note', $event.target.value)"
+                            />
+                        </td>
+                    </tr>
+
                     <template v-if="!isUpper">
                         <tr v-for="row in SINGLE_ROWS" :key="`single-${row.key}`">
-                            <th class="whitespace-nowrap border border-gray-300 bg-gray-50 px-1 text-right font-medium text-gray-500">{{ row.label }}</th>
-                            <td v-for="[tooth] in LOWER" :key="tooth" class="border border-gray-300 p-0">
+                            <th class="truncate border border-gray-300 bg-gray-50 px-1 text-right font-medium text-gray-500">{{ row.label }}</th>
+                            <td v-for="[tooth] in LOWER" :key="tooth" colspan="3" class="border border-gray-300 p-0">
                                 <button
                                     v-if="row.kind === 'toggle'"
                                     type="button"
-                                    class="h-5 w-11"
+                                    class="h-5 w-full"
                                     :class="getSingle(tooth, row.key) ? 'bg-indigo-500 text-white' : 'bg-white hover:bg-gray-100'"
                                     :disabled="disabled"
                                     @click="setSingle(tooth, row.key, !getSingle(tooth, row.key))"
@@ -295,7 +453,7 @@ const archLabel = (isUpper, zone) => {
                                     inputmode="numeric"
                                     :maxlength="1"
                                     :disabled="disabled"
-                                    class="h-5 w-11 border-0 p-0 text-center text-[10px] focus:ring-1 focus:ring-indigo-400"
+                                    class="h-5 w-full border-0 p-0 text-center focus:ring-1 focus:ring-indigo-400"
                                     :value="getSingle(tooth, row.key)"
                                     @input="setSingle(tooth, row.key, $event.target.value)"
                                 />
@@ -307,7 +465,7 @@ const archLabel = (isUpper, zone) => {
         </div>
 
         <p class="text-xs text-gray-400">
-            Bleeding on Probing / Plaque: click a site to toggle. Gingival Margin (mm, negative = recession) / Probing Depth (mm) / Attachment Level (mm): enter a value per site. Mobility (0–3) / Furcation (0–3): one value per tooth. Implant: click to toggle.
+            Bleeding on Probing / Plaque: click a site to toggle. Furcation (0–3) / Gingival Margin (mm, negative = recession) / Probing Depth (mm) / Attachment Level (mm): enter a value per site. Mobility (0–3): one value per tooth. Implant: click to toggle — the tooth's own drawing switches to a fixture graphic. Note: free text per tooth.
         </p>
     </div>
 </template>

@@ -7426,3 +7426,77 @@ exercised against a real existing task (temporarily repointed to the new
 resolved to `advanced-periodontal-charts`. All test patients/records/
 tokens deleted afterward. `php -l` clean on every PHP file touched,
 `npm run build` clean.
+
+## Advanced Periodontal Chart, revision 2: real tooth/implant artwork, no horizontal scroll (2026-08-31)
+
+Same day, follow-up request with an attached reference HTML file — a
+standalone anatomical periodontal chart the user commissioned
+specifically so its artwork could be reused here without a copyright
+question ("تم تصميم الاسنان بصورة مستقلة وتم الاعتماد عليهما للتخلص من
+مشكلة الحقوق"). Two other asks alongside it: match the reference *site*'s
+own layout logic more closely, and eliminate horizontal scrolling on the
+chart/tables entirely.
+
+**Artwork.** The attached asset turned out to model each of the 32 teeth
+individually, but its own `d` path data proved that only 8 "positions"
+per arch are actually unique — 11's crown/root path is byte-for-byte
+identical to 21's, 12 to 22, and so on, the same "shared type, mirrored
+across the arch" structure this component already had, just with 8 real
+per-position shapes (3rd molar down to central incisor) instead of 5
+generic blob categories. The implant fixture graphic
+(abutment/body/thread/highlight) is identical across every tooth in the
+source, so it's one shared constant. Extracted only the crown+root
+outline paths and the implant paths — left behind the source asset's
+decorative canal/furcation linework, probing-point dots, and its own JS
+interaction layer, none of which this component needs (it already has
+its own data model and stats logic).
+
+Verified the extraction itself rather than trusting a manual transcription:
+a Node script pulled every `d="..."` string out of the new
+`UPPER_SHAPES`/`LOWER_SHAPES`/`IMPLANT_SHAPE` constants in
+`AdvancedPerioChart.vue` and confirmed each one appears byte-for-byte in
+the original reference file — all 37 tooth paths + 4 implant paths
+matched exactly, catching what a purely visual check of ~40 multi-curve
+path strings could easily have gotten subtly wrong.
+
+**Implant rendering now reflects real data**, not just a checkbox: the
+tooth-row graphic checks each tooth's own `implant` flag and swaps its
+normal crown+root drawing for the fixture graphic when true — previously
+this row was purely decorative and never read the record's own data at
+all.
+
+**No horizontal scroll.** The previous revision used a fixed-pixel-width
+`<table>` inside an `overflow-x-auto` wrapper — exactly what forces
+scrolling on a phone. Replaced with `table-fixed` at `w-full` plus a
+`<colgroup>` whose 48 site-columns are percentage-widthed rather than
+pixel-widthed: `table-layout: fixed` then distributes 100% of the
+container's actual width across them regardless of viewport size, so the
+table structurally cannot exceed its container and a scrollbar cannot
+appear — cells simply shrink together on a narrow screen. The tooth-row
+graphic became one responsive `<svg width="100%">` per arch for the same
+reason — the same technique the reference site's own chart uses (its
+CSS: `svg{width:100%;height:auto}`), confirmed by reading its stylesheet
+directly rather than assumed.
+
+**Row structure closer to the reference site's own logic:** Mobility and
+Implant now appear once per arch (the outer edge only); Bleeding on
+Probing/Plaque/Gingival Margin/Probing Depth/Attachment Level, plus a
+newly-added Furcation row, all appear *twice* per arch (once for buccal
+sites, once for palatal/lingual sites — furcation is clinically assessed
+from both aspects on a multi-rooted tooth, same as the other site
+metrics, and the reference site's own layout shows it duplicated the same
+way); a new free-text per-tooth Note field appears once per arch, next to
+the block nearest the graphic. Previously Furcation was a single once-
+per-arch value and there was no Note field at all — this is a genuine
+data-shape change (`buccal.furcation`/`lingual.furcation` arrays, plus a
+top-level `note` string), harmless since the resource is brand-new with
+no real records yet.
+
+Verified: `npm run build` clean; the create page was re-rendered directly
+via `tinker` (same technique as the resource's own launch entry) to
+confirm no server-side regression. Per this session's standing
+instruction, not visually inspected in a browser — correctness of the
+*artwork* was instead verified structurally (the byte-for-byte path
+cross-check above), and correctness of the *layout* rests on `table-fixed`
++ percentage columns being a well-established CSS technique for this
+exact "never overflow" guarantee, not on a rendered screenshot.
