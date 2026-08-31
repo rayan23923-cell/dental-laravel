@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\PatientRegistrationController;
 use App\Http\Controllers\Api\PatientRegistrationQrController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\AdvancedPeriodontalChartController;
 use App\Http\Controllers\Api\PeriodontalChartController;
 use App\Http\Controllers\Api\PreventionRecordController;
 use App\Http\Controllers\Api\ProfileController;
@@ -327,6 +328,7 @@ Route::name('api.')->prefix('v1')->group(function () {
         // and why.
         Route::middleware('case-sheet')->group(function () {
             foreach ([
+                'advanced-periodontal-charts' => AdvancedPeriodontalChartController::class,
                 'complete-denture-records' => CompleteDentureRecordController::class,
                 'oral-medicine-charts' => OralMedicineChartController::class,
                 'orthodontics-records' => OrthodonticsRecordController::class,

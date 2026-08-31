@@ -60,6 +60,11 @@ class CaseSheetFormController extends Controller
 
         $chartGroups = method_exists($formClass, 'chartGroups') ? $formClass::chartGroups() : [];
         $stages = method_exists($formClass, 'stages') ? $formClass::stages() : [];
+        // "Advanced Periodontal Chart" (2026-08-31) — a completely separate
+        // 32-tooth grid mechanism from `chartGroups` (this resource has
+        // none), rendered by AdvancedPerioChart.vue/AdvancedPerioChartField
+        // directly against `chart_data`. advanced-periodontal-charts only.
+        $advancedPerioChart = $resource === 'advanced-periodontal-charts';
 
         return response()->json([
             'resource' => $resource,
@@ -68,17 +73,20 @@ class CaseSheetFormController extends Controller
             'groupColumns' => $groupColumns,
             'chartGroups' => $chartGroups,
             // Every sheet that has per-tooth charts stores them in
-            // `chart_data` — true today only for `periodontal-charts`
-            // (the sole `chartGroups()` implementer); same hard-coded
-            // column name the print controllers already assume rather
-            // than inventing a new per-form "chart column" static for a
-            // fact that's been constant across every sheet built so far.
-            'chartField' => $chartGroups ? 'chart_data' : null,
+            // `chart_data` — true for `periodontal-charts` (the sole
+            // `chartGroups()` implementer) and now `advanced-periodontal-charts`
+            // (no `chartGroups()`, but its own big grid lives in the same
+            // column) — same hard-coded column name the print controllers
+            // already assume rather than inventing a new per-form "chart
+            // column" static for a fact that's been constant across every
+            // sheet built so far.
+            'chartField' => ($chartGroups || $advancedPerioChart) ? 'chart_data' : null,
             // "Plaque Index" — a completely separate feature from
             // `chartGroups` above despite sharing the same `chart_data`
             // column (see App\Support\PlaqueChart's own doc comment).
             // periodontal-charts only, same gate as chartField.
             'plaqueVisits' => $resource === 'periodontal-charts' ? PlaqueChart::VISITS : [],
+            'advancedPerioChart' => $advancedPerioChart,
             'stages' => $stages,
             // The canonical list from App\Support\CaseSheetSupervisorFields
             // — unlike Api\CaseSheetController::open()'s per-viewer

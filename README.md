@@ -7306,3 +7306,123 @@ Verified: `npm run build` clean, and the union-computation logic
 hand-run standalone in Node against a 2-visit, 2-tooth model — correctly
 returned `[11, 12]` deduplicated from teeth appearing (with `extracted:
 true`) across different visits.
+
+## "Advanced Periodontal Chart" — a brand-new case-sheet type, no legacy counterpart (2026-08-31)
+
+By request, functionally modeled on periodontalchart-online.com's own
+charting tool (screenshotted by the user): patient info + Initial
+Examination/Re-evaluation toggle, a 32-tooth × 6-site probing grid
+(Mobility, Implant, Furcation, Bleeding on Probing, Plaque, Gingival
+Margin, Probing Depth, Attachment Level per tooth, "192 sites" = 32 × 2
+zones × 3 sites as the BOP%/PI% denominator, matching that site's own
+displayed fraction), and a tooth-row diagram with a gumline. Explicitly
+asked to draw the artwork "similar to it" rather than copy it — the SVG
+here reuses this app's own already-original tooth outlines (`App\Support\
+PlaqueChart::TOOTH_SHAPES`, built for the Plaque Index feature, not
+periodontalchart-online.com's own detailed crown/root illustrations),
+which sidesteps any copyright concern entirely: the layout *concept*
+(two arch rows, a gumline, a metric grid) is a generic charting
+convention no single tool owns, and the actual line art is this app's
+own.
+
+Two scope decisions confirmed with the user up front via `AskUserQuestion`
+before building anything this large: (1) a **full case-sheet
+resource** — its own DB table, linked to a patient/doctor/task like the
+existing 8, not a bolt-on to `periodontal-charts` — over a lighter
+standalone/unsaved calculator; (2) **both web and Flutter** together, not
+web-only.
+
+**Registration checklist** — first spawned an Explore agent to map every
+place the existing `periodontal-charts` resource is wired in (7
+categories: routes, permissions, task-type resolution, supervisor
+fields, other PHP registries, Flutter, the DB origin), used as a
+checklist so nothing was missed:
+
+- **DB**: `database/migrations/2026_08_31_090000_create_advanced_periodontal_charts_table.php`
+  — the first case-sheet table in this whole rebuild with a real
+  `Schema::create` migration rather than a `schema_import.sql` row (every
+  other case sheet is a legacy table; this one has no legacy counterpart
+  at all). A second migration,
+  `..._090100_seed_advanced_periodontal_case_sheet_type.php`, inserts the
+  new `case_sheet_types` row (`type_code = 'advanced_periodontal'`) via
+  `insertOrIgnore` — `Database\Seeders\CaseSheetTypeSeeder` (which seeds
+  the original 9 legacy type_codes) is confirmed never invoked
+  automatically on this app's deploy pipeline, so a migration is the only
+  thing that reliably runs on production without a manual admin-UI step.
+- **Model/Form/Controllers**: `App\Models\AdvancedPeriodontalChart`,
+  `App\Support\AdvancedPeriodontalChartForm` (just 2 small sections —
+  patient info + notes/signature; the big grid isn't a `sections()` field
+  at all, same reason Plaque Index isn't), `AdvancedPeriodontalChartController`
+  (web) + `Api\AdvancedPeriodontalChartController` + `AdvancedPeriodontalChartResource`
+  — structurally direct copies of `PeriodontalChartController`'s own
+  plumbing (task linkage, auto-captured signature, patient resolution)
+  minus the medical-history sections this resource doesn't have.
+- **Registries updated**: `routes/web.php`/`routes/api.php` (resource
+  route + `/clinical-records` hub entry), `App\Support\CaseSheetResolver`
+  (`ROUTES`/`MODELS`), `App\Support\CaseSheetPrint::SHEETS` (required —
+  this also gates the Flutter schema endpoint, not just print, see
+  below), `CaseSheetSupervisorFields`/`CaseSheetSignatures` (`senior_signature`),
+  `Api\CaseSheetFormController` (new `advancedPerioChart` boolean flag,
+  `chartField` now also set when this flag is true, not just when
+  `chartGroups` is non-empty), `ClinicalRecords/Index.vue`'s `TAILORED`
+  array, `AuthenticatedLayout.vue`'s `clinicalRoutes` nav-highlight array.
+  Confirmed **no** change was needed to the permission system
+  (case sheets are gated by the generic `case-sheet` middleware /
+  `CaseSheetAccess`, not a per-resource `PermissionMatrix` module) or to
+  any Flutter routing (the picker screen and `/case-sheets/:resource`
+  route are already fully generic, server-driven).
+- **The big grid's own mechanism**: exactly parallels how Plaque Index
+  rides inside `periodontal-charts`' `chart_data` under its own
+  `dentalCharts` key — here it's `chart_data.advancedChart` (`{teeth:
+  {'18': {mobility, implant, furcation, buccal: {bop, plaque, gm, pd,
+  al}, lingual: {...}}, ...}}`, sparse — only touched teeth stored). A new
+  boolean schema flag (`advancedPerioChart`, mirroring the `plaqueVisits`
+  precedent but simpler since there's no "visits" variability — one
+  record is one chart snapshot, `exam_type` just labels which kind) drives
+  both `SectionedForm.vue` and Flutter's generic `_chartValue`/`chartField`
+  machinery with **zero changes** needed to either's submit-payload
+  spreading — the exact same "new sibling key rides along automatically"
+  property Plaque Index already established.
+- **`AdvancedPerioChart.vue`**: two `<table>` arch blocks (Upper/Lower),
+  each built from a small data-driven `SITE_ROWS`/`SINGLE_ROWS` config
+  rather than 8 hand-written near-duplicate row blocks — 5 per-site
+  metrics (BOP/Plaque as toggle cells, Gingival Margin/Probing
+  Depth/Attachment Level as numeric inputs, GM allowing a leading `-` for
+  recession) × 2 zones (`buccal`/`lingual` — the stored key names, same
+  convention `PerioChart.vue` already uses; the *display* label is
+  "Palatal" for upper vs "Lingual" for lower, the data key never
+  changes), plus 3 once-per-tooth metrics (Mobility/Furcation 0–3,
+  Implant a toggle) framing each arch on the side nearer the arch
+  boundary (above the upper arch's outer row, below the lower arch's
+  outer row) rather than mirrored on both sides of every arch like the
+  reference — a deliberate simplification, same "informationally complete,
+  visually simpler" tradeoff this session made repeatedly. Row order
+  flips per arch the same way `PerioChart.vue` already does (the two
+  tongue-facing rows sit adjacent across the arch boundary). A live stats
+  bar (Avg. Probing Depth/Avg. Attachment Level/BOP%/PI%) computes the
+  same way client-side, no backend call.
+- **Print**: deliberately **not** built this round — `CaseSheetPrint::SHEETS`
+  needed an entry regardless (Flutter's schema endpoint depends on it),
+  but its generic renderer only knows `sections()`, so a print of this
+  resource today would show patient info/notes only, missing the actual
+  32-tooth grid — worse than no button. Suppressed the print button for
+  just this one resource on both platforms rather than shipping a
+  misleadingly incomplete printout: `HandleInertiaRequests` now excludes
+  it from `printableCaseSheets` via `array_diff`, and Flutter's
+  `kCaseSheetPrintableResources` simply omits it — both documented inline
+  as "add back once print support for the big grid is built."
+
+Verified end-to-end via `tinker`/`curl` (no browser, per this session's
+standing instruction): migrations ran clean locally; `route:list` showed
+all 12 new routes; `GET /api/v1/case-sheet-forms/advanced-periodontal-charts`
+returned the exact expected schema (`advancedPerioChart: true`,
+`chartField: "chart_data"`); a real `POST` created a record (with nested
+per-tooth `chart_data`) and a `GET` read it back byte-for-byte; the web
+`create`/`edit` Inertia responses were rendered directly and their
+`data-page` JSON decoded to confirm `chartData.advancedChart.teeth['11']`
+round-trips correctly; `CaseSheetResolver::resourceForTask()` was
+exercised against a real existing task (temporarily repointed to the new
+`case_sheet_type_id`, then reverted to its original value) and correctly
+resolved to `advanced-periodontal-charts`. All test patients/records/
+tokens deleted afterward. `php -l` clean on every PHP file touched,
+`npm run build` clean.

@@ -34,6 +34,7 @@ class CaseSheetFormSchema {
     required this.chartGroups,
     required this.chartField,
     required this.plaqueVisits,
+    required this.advancedPerioChart,
     required this.supervisorFields,
   });
 
@@ -58,6 +59,12 @@ class CaseSheetFormSchema {
             .whereType<Map<String, dynamic>>()
             .map(PlaqueVisitSchema.fromJson)
             .toList(),
+        // "Advanced Periodontal Chart" (2026-08-31) — a completely separate
+        // 32-tooth grid mechanism from chartGroups/plaqueVisits above (this
+        // resource has neither), sharing the same `chart_data` column
+        // under its own `advancedChart` key. See AdvancedPerioChartField's
+        // own doc comment. advanced-periodontal-charts only.
+        advancedPerioChart: json['advancedPerioChart'] as bool? ?? false,
         // App\Support\CaseSheetSupervisorFields's canonical, unconditional
         // list for this resource (2026-08-29) — see
         // Api\CaseSheetFormController::show()'s doc comment for why this
@@ -77,6 +84,7 @@ class CaseSheetFormSchema {
   final List<PerioChartGroupSchema> chartGroups;
   final String? chartField;
   final List<PlaqueVisitSchema> plaqueVisits;
+  final bool advancedPerioChart;
   final List<String> supervisorFields;
 
   /// Every field across every section, flattened — used to walk the
@@ -103,6 +111,7 @@ const kCaseSheetCreatableResources = {
   'prosthodontics-records',
   'surgeries',
   'periodontal-charts',
+  'advanced-periodontal-charts',
 };
 
 /// The same 8 resources as `App\Support\CaseSheetPrint::SHEETS` — a
@@ -111,6 +120,14 @@ const kCaseSheetCreatableResources = {
 /// [kCaseSheetCreatableResources] even though the two sets happen to be
 /// identical today: one is "can create", the other is "has a print
 /// design," and there's no rule that keeps them in lockstep going forward.
+// NOTE: `advanced-periodontal-charts` is deliberately NOT in this set yet
+// (2026-08-31) — its backend `CaseSheetPrint::SHEETS` entry exists (it has
+// to, that registry also gates the schema endpoint this whole app relies
+// on), but the print renderer only knows about `sections()`/`chartGroups()`,
+// not this resource's own `chart_data.advancedChart` 32-tooth grid, so a
+// print button here would produce a patient-info-only page missing the
+// actual chart — worse than no button. Add it once print support for the
+// big grid is built.
 const kCaseSheetPrintableResources = {
   'dental-charts',
   'prosthodontics-records',

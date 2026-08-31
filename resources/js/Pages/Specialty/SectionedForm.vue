@@ -4,6 +4,7 @@ import DoctorLayout from '@/Layouts/DoctorLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import Modal from '@/Components/Modal.vue';
+import AdvancedPerioChart from '@/Components/AdvancedPerioChart.vue';
 import PerioChart from '@/Components/PerioChart.vue';
 import PlaqueChart from '@/Components/PlaqueChart.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
@@ -44,6 +45,12 @@ const props = defineProps({
     // `dentalCharts` key (see App\Support\PlaqueChart). periodontal-charts
     // only, same gate as chartGroups.
     plaqueVisits: { type: Array, default: () => [] },
+    // "Advanced Periodontal Chart" (2026-08-31) — a completely separate
+    // 32-tooth grid mechanism from chartGroups/plaqueVisits above (this
+    // resource has neither), sharing the same chart_data column under its
+    // own `advancedChart` key. See AdvancedPerioChart.vue's own doc
+    // comment. advanced-periodontal-charts only.
+    advancedPerioChart: Boolean,
     // Only sheets with a per-stage signature/date/grade table pass this.
     stages: { type: Array, default: () => [] },
     doctors: Array,
@@ -326,6 +333,9 @@ props.chartGroups.forEach((group) => {
 // handling needed.
 if (props.plaqueVisits.length) {
     charts.dentalCharts = props.chartData?.dentalCharts ?? {};
+}
+if (props.advancedPerioChart) {
+    charts.advancedChart = props.chartData?.advancedChart ?? { teeth: {} };
 }
 
 // FDI tooth numbers marked extracted in the Plaque Index chart — fed into
@@ -856,6 +866,12 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                     <div v-if="plaqueVisits.length" class="rounded-lg bg-white p-6 shadow-sm">
                         <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">Plaque Index (%)</h3>
                         <PlaqueChart v-model="charts.dentalCharts" :visits="plaqueVisits" :disabled="readonly" />
+                    </div>
+
+                    <!-- "Advanced Periodontal Chart" — see AdvancedPerioChart.vue's own doc comment. -->
+                    <div v-if="advancedPerioChart" class="rounded-lg bg-white p-6 shadow-sm">
+                        <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">Periodontal Chart</h3>
+                        <AdvancedPerioChart v-model="charts.advancedChart" :disabled="readonly" />
                     </div>
 
                     <div v-if="canSubmit" class="flex justify-end">

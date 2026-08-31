@@ -1,0 +1,138 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\AdvancedPeriodontalChart;
+use App\Models\Doctor;
+use App\Models\Patient;
+use App\Services\CaseSheetAccess;
+use App\Support\AdvancedPeriodontalChartForm;
+use App\Support\CaseSheetSignatures;
+use App\Support\CaseSheetSupervisorFields;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
+
+/**
+ * "Advanced Periodontal Chart" — see App\Support\AdvancedPeriodontalChartForm's
+ * own doc comment. Structurally a copy of PeriodontalChartController (same
+ * task-linkage, signature, and supervisor-field plumbing every case sheet
+ * shares) minus the medical-history sections this resource doesn't have.
+ */
+class AdvancedPeriodontalChartController extends Controller
+{
+    public function index(): Response
+    {
+        return Inertia::render('Specialty/Index', [
+            'resource' => 'advanced-periodontal-charts',
+            'title' => 'Advanced Periodontal Charts',
+            'titleField' => 'patient_last_name',
+            'records' => CaseSheetAccess::scope(AdvancedPeriodontalChart::with('doctor'))->latest('id')->paginate(15),
+        ]);
+    }
+
+    public function create(Request $request): Response
+    {
+        return $this->form(
+            null,
+            taskInstanceId: $request->integer('task_instances_id') ?: null,
+            taskId: $request->integer('task_id') ?: null,
+        );
+    }
+
+    public function edit(AdvancedPeriodontalChart $record): Response
+    {
+        return $this->form($record);
+    }
+
+    public function show(AdvancedPeriodontalChart $record): Response
+    {
+        return $this->form($record, readonly: true);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $data = $this->validateRecord($request);
+        $data = CaseSheetSignatures::applyPending('advanced-periodontal-charts', $data, null, CaseSheetSignatures::signerName($request));
+        $data['patient_id'] = $this->resolvePatientId($data);
+
+        AdvancedPeriodontalChart::create($data);
+
+        return redirect()->route('advanced-periodontal-charts.index')->with('success', 'Advanced periodontal chart created.');
+    }
+
+    public function update(Request $request, AdvancedPeriodontalChart $record): RedirectResponse
+    {
+        $data = $this->validateRecord($request);
+        $data = CaseSheetSignatures::applyPending('advanced-periodontal-charts', $data, $record, CaseSheetSignatures::signerName($request));
+        $data['patient_id'] = $this->resolvePatientId($data, $record->patient_id);
+
+        $record->update($data);
+
+        return redirect()->route('advanced-periodontal-charts.index')->with('success', 'Advanced periodontal chart updated.');
+    }
+
+    public function destroy(AdvancedPeriodontalChart $record): RedirectResponse
+    {
+        $record->delete();
+
+        return redirect()->route('advanced-periodontal-charts.index')->with('success', 'Advanced periodontal chart deleted.');
+    }
+
+    private function form(?AdvancedPeriodontalChart $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null): Response
+    {
+        return Inertia::render('Specialty/SectionedForm', [
+            'resource' => 'advanced-periodontal-charts',
+            'title' => 'Advanced Periodontal Chart',
+            'sections' => AdvancedPeriodontalChartForm::sections(),
+            'chartField' => 'chart_data',
+            // The 32-tooth grid — a completely separate mechanism from
+            // `chartGroups`/`plaqueVisits` (this resource has neither),
+            // see AdvancedPerioChart.vue's own doc comment.
+            'advancedPerioChart' => true,
+            'doctors' => Doctor::orderBy('name')->get(['id', 'name']),
+            'record' => $record,
+            'chartData' => $record?->chart_data ? json_decode($record->chart_data, true) : null,
+            'readonly' => $readonly || CaseSheetAccess::isViewOnly(),
+            'supervisorEditableFields' => CaseSheetAccess::isViewOnly() ? CaseSheetSupervisorFields::fieldsFor('advanced-periodontal-charts') : [],
+            'supervisorFields' => CaseSheetSupervisorFields::fieldsFor('advanced-periodontal-charts'),
+            'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
+            'taskId' => $record?->task_id ?? $taskId,
+        ]);
+    }
+
+    /** Same resolvePatientId pattern every case-sheet controller uses — see PeriodontalChartController's own copy. */
+    private function resolvePatientId(array $data, ?int $currentId = null): ?int
+    {
+        $name = trim(($data['patient_first_name'] ?? '').' '.($data['patient_last_name'] ?? ''));
+        if ($name === '') {
+            return $currentId;
+        }
+
+        $patient = Patient::where('name', $name)->first();
+
+        if (! $patient) {
+            $patient = Patient::create(['name' => $name]);
+        }
+
+        return $patient->id;
+    }
+
+    private function validateRecord(Request $request): array
+    {
+        return $request->validate([
+            'doctor_id' => ['required', 'exists:doctors,id'],
+            'task_instances_id' => ['nullable', 'integer'],
+            'task_id' => ['nullable', 'integer'],
+            'patient_last_name' => ['required', 'string', 'max:255'],
+            'patient_first_name' => ['required', 'string', 'max:255'],
+            'patient_dob' => ['nullable', 'date'],
+            'chart_date' => ['required', 'date'],
+            'exam_type' => ['nullable', 'in:initial,re_evaluation'],
+            'notes' => ['nullable', 'string'],
+            'senior_signature' => ['nullable', 'string'],
+            'chart_data' => ['nullable', 'string'],
+        ]);
+    }
+}

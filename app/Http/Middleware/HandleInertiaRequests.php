@@ -53,7 +53,17 @@ class HandleInertiaRequests extends Middleware
             // "طباعة" button can never appear on a sheet with no print page
             // — the satellite sheets (follow-ups, images, treatment plans)
             // have none, matching the original.
-            'printableCaseSheets' => array_keys(CaseSheetPrint::SHEETS),
+            // `advanced-periodontal-charts` is excluded here (2026-08-31)
+            // even though it's a real `CaseSheetPrint::SHEETS` entry — that
+            // registry also gates the Flutter schema endpoint, which this
+            // resource needs, but its print renderer only knows about
+            // `sections()`, not this resource's own `chart_data.advancedChart`
+            // 32-tooth grid, so a print button here would produce a
+            // patient-info-only page missing the actual chart. Same
+            // exclusion as `kCaseSheetPrintableResources` on the Flutter
+            // side — add both back once print support for the big grid is
+            // built.
+            'printableCaseSheets' => array_diff(array_keys(CaseSheetPrint::SHEETS), ['advanced-periodontal-charts']),
             // Gates the "Sign in with Google" button on both login screens —
             // see App\Http\Controllers\Auth\GoogleAuthController. Hidden
             // outright until GOOGLE_CLIENT_ID/SECRET are set, so an

@@ -9,7 +9,7 @@ defineProps({
 // Specialties whose form has been rebuilt as a faithful port of the
 // original app's own case sheet (real sections, labels, option sets and
 // per-tooth charts) rather than the generic column-driven form.
-const TAILORED = ['periodontal-charts', 'complete-denture-records', 'prosthodontics-records', 'oral-medicine-charts', 'prevention-records', 'orthodontics-records', 'surgeries', 'surgery-follow-ups', 'surgery-images', 'surgery-medications', 'treatment-plans', 'treatment-materials', 'dental-charts'];
+const TAILORED = ['periodontal-charts', 'advanced-periodontal-charts', 'complete-denture-records', 'prosthodontics-records', 'oral-medicine-charts', 'prevention-records', 'orthodontics-records', 'surgeries', 'surgery-follow-ups', 'surgery-images', 'surgery-medications', 'treatment-plans', 'treatment-materials', 'dental-charts'];
 </script>
 
 <template>

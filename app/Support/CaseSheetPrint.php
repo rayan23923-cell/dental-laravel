@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\AdvancedPeriodontalChart;
 use App\Models\CompleteDentureRecord;
 use App\Models\DentalChart;
 use App\Models\OralMedicineChart;
@@ -108,6 +109,21 @@ class CaseSheetPrint
             'form' => PeriodontalChartForm::class,
             'title' => 'Periodontal Chart',
             'formTitle' => 'Periodontal Chart',
+            'department' => 'Department of Periodontics',
+        ],
+        // "Advanced Periodontal Chart" (2026-08-31) — registered here so
+        // Api\CaseSheetFormController can serve its schema to Flutter (that
+        // endpoint is gated on this registry, not just print); the print
+        // button this unavoidably also enables only renders this resource's
+        // plain `sections()` fields today (patient info/notes), not the
+        // 32-tooth grid — that lives entirely in `chart_data`, read only by
+        // AdvancedPerioChart.vue/AdvancedPerioChartField directly, with no
+        // print-side renderer built yet (not requested this round).
+        'advanced-periodontal-charts' => [
+            'model' => AdvancedPeriodontalChart::class,
+            'form' => AdvancedPeriodontalChartForm::class,
+            'title' => 'Advanced Periodontal Chart',
+            'formTitle' => 'Advanced Periodontal Chart',
             'department' => 'Department of Periodontics',
         ],
         'orthodontics-records' => [

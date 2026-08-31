@@ -46,7 +46,7 @@ const isAdmin = computed(() => ['super_admin', 'admin'].includes(page.props.auth
  *    register-settings, department-roles, backup) stay behind `isAdmin`.
  */
 const clinicalRoutes = [
-    'complete-denture-records', 'oral-medicine-charts', 'orthodontics-records',
+    'advanced-periodontal-charts', 'complete-denture-records', 'oral-medicine-charts', 'orthodontics-records',
     'periodontal-charts', 'prevention-records', 'prosthodontics-records',
     'surgeries', 'surgery-follow-ups', 'surgery-images', 'surgery-medications',
     'treatment-plans', 'treatment-materials',

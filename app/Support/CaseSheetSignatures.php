@@ -49,7 +49,7 @@ class CaseSheetSignatures
     public static function fieldsFor(string $resource): array
     {
         return match ($resource) {
-            'dental-charts', 'surgeries', 'periodontal-charts' => [['key' => 'senior_signature']],
+            'dental-charts', 'surgeries', 'periodontal-charts', 'advanced-periodontal-charts' => [['key' => 'senior_signature']],
             'orthodontics-records' => [['key' => 'supervisor_signature']],
             'prevention-records' => [
                 ['key' => 'senior_name', 'group' => 'patient_data'],

@@ -91,6 +91,7 @@ class CaseSheetSupervisorFields
             'dental-charts' => ['treatment_plan_notes', 'notes', 'senior_doctor_name', 'senior_signature'],
             'surgeries' => ['notes', 'senior_doctor_name', 'approval_date', 'senior_signature'],
             'periodontal-charts' => ['notes', 'clinical_notes', 'senior_doctor_name', 'approval_date', 'senior_signature'],
+            'advanced-periodontal-charts' => ['senior_signature'],
             'prosthodontics-records' => [...self::stageFields(self::PROSTHODONTICS_STAGES), 'diagnosis_starting', 'diagnosis_grade'],
             'complete-denture-records' => self::stageFields(self::COMPLETE_DENTURE_STAGES),
             'orthodontics-records' => ['diagnosis', 'treatment_plan', 'treatment_stages', 'appliance_designs', 'supervisor_notes', 'supervisor_signature'],

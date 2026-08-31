@@ -5504,3 +5504,61 @@ Same conversation as the web side's matching entry (see
 
 Verified: `flutter analyze` clean across `lib/features/perio_chart/` and
 `dynamic_section_form.dart`.
+
+## "Advanced Periodontal Chart" — a brand-new case-sheet type (2026-08-31)
+
+Same feature as `dental_laravel/README.md`'s matching entry — read that
+one for the full design rationale (functional port of
+periodontalchart-online.com's own charting tool, original tooth-shape
+artwork reused from Plaque Index rather than that site's own
+illustrations, the DB/registry wiring, why print isn't built yet). This
+entry covers only the Flutter-specific pieces.
+
+- **`CaseSheetFormSchema`** gained an `advancedPerioChart` boolean
+  (mirrors the `plaqueVisits` gate) parsed from the new schema field.
+  `kCaseSheetCreatableResources` gained the resource;
+  `kCaseSheetPrintableResources` deliberately did **not** (see the web
+  README entry — print would be misleadingly incomplete today). No
+  change needed to the case-sheet picker screen, routing, or
+  `kCaseSheetPatientFieldMap` (this resource has no phone/age/sex/
+  address/occupation fields to autofill, same as the reference tool
+  itself, so it's simply absent from that map — `case_sheet_form_screen.dart`'s
+  own `.containsKey(resource)` gate already hides the scan button
+  gracefully for any unmapped resource).
+- **`AdvancedPerioChartField`** (`flutter_app/lib/features/perio_chart/presentation/`)
+  — port of `AdvancedPerioChart.vue`: two `_ArchBlock`s (Upper/Lower),
+  each a horizontally-scrollable `Column` of `Row`s built from the same
+  `_kSiteRows`/`_kSingleRows` config the web side uses, reusing
+  `PlaqueChartField`'s own tooth-outline `Path` data (`_toothPath()`,
+  duplicated locally rather than imported since that file's version is
+  private — the same tradeoff already made three times over for this
+  shape data across PHP/Vue/Dart). The decorative tooth-row graphic is a
+  `CustomPainter` (`_ArchRowPainter`) rather than `pw.SvgImage` — unlike
+  the print-side Plaque Index art, this one is on-screen only and never
+  touches the `pdf` package, so a plain `Canvas` draw is simpler than
+  building an SVG string just to hand it back to Flutter's own renderer.
+  Zone key convention (`buccal`/`lingual`, row order flips per arch so
+  the two tongue-facing rows sit adjacent across the arch boundary) ported
+  exactly from the web side and from this app's own
+  `perio_chart_table.dart` precedent — caught and fixed one real ordering
+  bug during review, where an first draft always rendered "Buccal" first
+  and "Lingual" second regardless of arch (should flip for the lower
+  arch); fixed to compute `firstZone`/`firstLabel`/`firstRows` from
+  `isUpper` the same way the web version already does.
+- **`DynamicSectionForm`** gained the `AdvancedPerioChartField` wiring,
+  reading/writing `_chartValue['advancedChart']` — no change needed to
+  `_chartValue`'s seeding or `buildSubmitPayload()`'s existing spread,
+  same "new sibling key rides along automatically" property every
+  chart-in-`chart_data` feature has had since Plaque Index established
+  it.
+
+Verified: `flutter analyze` clean, both scoped to the touched files and
+run project-wide afterward to confirm the shared `CaseSheetFormSchema`
+change didn't break any other call site (grepped for every
+`CaseSheetFormSchema(` construction first — only `fromJson` builds it
+anywhere in the app, so no other site needed updating). Backend
+round-trip (a real record's `chart_data.advancedChart` decoding correctly
+into the Inertia page and back) verified via `tinker`/`curl` on the web
+side — see the matching README entry; not separately re-verified against
+a running Flutter client, per this session's standing "no
+emulator/simulator" instruction.

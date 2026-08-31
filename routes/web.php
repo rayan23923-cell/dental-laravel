@@ -34,6 +34,7 @@ use App\Http\Controllers\PatientController;
 use App\Http\Controllers\PatientRegistrationController;
 use App\Http\Controllers\PatientRegistrationPrintController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\AdvancedPeriodontalChartController;
 use App\Http\Controllers\PeriodontalChartController;
 use App\Http\Controllers\PreventionRecordController;
 use App\Http\Controllers\ProfileController;
@@ -453,6 +454,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/clinical-records', function () {
             return Inertia::render('ClinicalRecords/Index', [
                 'entries' => [
+                    ['route' => 'advanced-periodontal-charts', 'title' => 'Advanced Periodontal Charts'],
                     ['route' => 'complete-denture-records', 'title' => 'Complete Denture Records'],
                     ['route' => 'oral-medicine-charts', 'title' => 'Oral Medicine Charts'],
                     ['route' => 'orthodontics-records', 'title' => 'Orthodontics Records'],
@@ -493,6 +495,7 @@ Route::middleware('auth')->group(function () {
  */
 Route::middleware(['auth:web,doctor', 'case-sheet'])->group(function () {
     foreach ([
+        'advanced-periodontal-charts' => AdvancedPeriodontalChartController::class,
         'complete-denture-records' => CompleteDentureRecordController::class,
         'oral-medicine-charts' => OralMedicineChartController::class,
         'orthodontics-records' => OrthodonticsRecordController::class,

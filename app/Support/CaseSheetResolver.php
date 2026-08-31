@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\AdvancedPeriodontalChart;
 use App\Models\CompleteDentureRecord;
 use App\Models\DentalChart;
 use App\Models\OralMedicineChart;
@@ -37,6 +38,7 @@ class CaseSheetResolver
         'complete_denture' => 'complete-denture-records',
         'surgery' => 'surgeries',
         'periodontal' => 'periodontal-charts',
+        'advanced_periodontal' => 'advanced-periodontal-charts',
         'orthodontics' => 'orthodontics-records',
         'prevention' => 'prevention-records',
         'oral_medicine' => 'oral-medicine-charts',
@@ -48,6 +50,7 @@ class CaseSheetResolver
         'complete-denture-records' => CompleteDentureRecord::class,
         'surgeries' => Surgery::class,
         'periodontal-charts' => PeriodontalChart::class,
+        'advanced-periodontal-charts' => AdvancedPeriodontalChart::class,
         'orthodontics-records' => OrthodonticsRecord::class,
         'prevention-records' => PreventionRecord::class,
         'oral-medicine-charts' => OralMedicineChart::class,

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../dental_chart/presentation/tooth_odontogram_field.dart';
 import '../../endodontics/presentation/endodontics_field.dart';
+import '../../perio_chart/presentation/advanced_perio_chart_field.dart';
 import '../../perio_chart/presentation/perio_chart_groups_field.dart';
 import '../../perio_chart/presentation/plaque_chart_field.dart';
 import '../domain/case_sheet_field.dart';
@@ -427,6 +428,19 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
               value: (_chartValue['dentalCharts'] as Map<String, dynamic>?) ?? const {},
               readOnly: widget.readonly,
               onChanged: (next) => setState(() => _chartValue = {..._chartValue, 'dentalCharts': next}),
+            ),
+          if (widget.schema.advancedPerioChart)
+            // "Advanced Periodontal Chart" — a completely separate 32-tooth
+            // grid mechanism from chartGroups/plaqueVisits above (this
+            // resource has neither), sharing the same `_chartValue`/
+            // `chart_data` map under its own `advancedChart` key. See
+            // AdvancedPerioChartField's own doc comment. No change needed
+            // to buildSubmitPayload()'s existing spread, same reasoning as
+            // `dentalCharts` above.
+            AdvancedPerioChartField(
+              value: (_chartValue['advancedChart'] as Map<String, dynamic>?) ?? const {},
+              readOnly: widget.readonly,
+              onChanged: (next) => setState(() => _chartValue = {..._chartValue, 'advancedChart': next}),
             ),
           if (canSubmit) ...[
             const SizedBox(height: 8),
