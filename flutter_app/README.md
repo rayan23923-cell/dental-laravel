@@ -5734,3 +5734,43 @@ entry), so the actual dual-path (crown + implant both present) output
 was independently confirmed against the identical Vue logic live in the
 browser instead; this test confirms the Dart buffer-writing logic
 itself doesn't throw. `flutter analyze` clean, project-wide.
+
+## Advanced Periodontal Chart, revision 8: extraction, and Furcation as a tap-cycle (2026-08-31)
+
+Same feature/request as `dental_laravel/README.md`'s matching entry —
+read that one for the full rationale, all confirmed live against
+periodontalchart-online.com's own DOM/CSS before writing any code (its
+real `tooth-missing`/`furcation-button` behavior, the `0→1→2→3→0`
+grade cycle, and the implant-locks-furcation-but-not-the-rest rule).
+This entry covers only the Flutter-specific implementation.
+
+- **`_isExtracted`/`_toggleExtracted`** — new methods on
+  `AdvancedPerioChartField`, reading/writing a top-level `extracted`
+  flag exactly like `_getSingle`/`_setSingle` already do for
+  `mobility`/`implant`/`note`.
+- **`_isSiteDisabled(tooth, metric)`** — `_isExtracted(tooth) ||
+  (metric == 'furcation' && _getSingle(tooth, 'implant') == true)`,
+  threaded into every site cell's `enabled`/`onTap` and into
+  `_archSvg()`'s per-tooth `opacity`/red-cross-overlay.
+- **`_cycleFurcation`** — `(int.tryParse(current) ?? 0 + 1) % 4`,
+  wired to a new `'cycle'` branch in `_siteCell()` (a `Material`/
+  `InkWell` styled like the BOP/Plaque toggle cells, colored by grade:
+  yellow/orange/red for 1/2/3). `_kSiteRows`' tuple shape changed from
+  `(key, label, bool signed)` — `signed` was actually unused dead code
+  — to `(key, label, String kind)` so the row-builder can dispatch to
+  `'toggle'`/`'cycle'`/`'number'` per metric.
+- **`_numberRow`** — the plain `Container` became a tappable
+  `Material`/`InkWell` calling `_toggleExtracted`, styled red/strike-
+  through when extracted (mirrors `PlaqueChartField`'s own tooth-number
+  tap treatment).
+- **`_stats`** — `totalSites` is now computed (32 − extracted count) × 6
+  instead of the fixed `_kTotalSites` constant, which was removed.
+
+Verified with a temporary `flutter_test` (deleted after use, 3 cases):
+furcation's default-grade `'0'` text renders; tapping a tooth-number
+sets `value['teeth']['18']['extracted']` to `true` with no exception;
+an implant-flagged tooth still builds all 4 `SvgPicture` graphics
+without throwing. The furcation-locks-for-implant interaction itself
+was verified live against the identical Vue logic in the browser (see
+the web README entry) rather than re-derived in a Flutter-specific
+test. `flutter analyze` clean, project-wide.

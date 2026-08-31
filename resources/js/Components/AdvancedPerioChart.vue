@@ -75,9 +75,27 @@
  * free-text per-tooth Note field appears once per arch, next to the
  * block nearest the tooth-row graphic.
  *
+ * Extraction, and Furcation as a tap-cycle (revision 8, by request — "اضف
+ * سلوك القلع وال furcation وbleeding on probing و plaque"): there was no
+ * way at all to mark a tooth extracted before this — added by making the
+ * tooth-*number* itself the toggle (same interaction this session already
+ * established for the Plaque Index chart, `PlaqueChart.vue`'s own
+ * `toggleExtractedAllVisits`), overlaying a red X + dimming the tooth's
+ * drawing when set (visible in *both* the Labial and Lingual rows
+ * automatically, same "one shared data source, no extra sync code"
+ * property every other per-tooth flag here already has), and disabling +
+ * excluding from the stats every one of the 6 site metrics (Bleeding on
+ * Probing, Plaque, Furcation, Gingival Margin, Probing Depth, Attachment
+ * Level) for that tooth — an extracted tooth has no periodontal sites
+ * left to measure, matching `App\Support\PlaqueChart::visitData()`'s own
+ * "extracted teeth never count" rule. Furcation changed from a free-typed
+ * number to a tap-to-cycle grade button (blank → 1 → 2 → 3 → blank),
+ * matching the tap-based interaction Bleeding on Probing/Plaque already
+ * use rather than typing a 0–3 clinical grade by hand.
+ *
  * `modelValue` is `chart_data.advancedChart` as already-decoded JSON:
- *   { teeth: { '18': { mobility, implant, note, furcation-per-zone...,
- *       buccal: { bop: [b,b,b], plaque: [b,b,b], furcation: [n,n,n], gm: [n,n,n], pd: [n,n,n], al: [n,n,n] },
+ *   { teeth: { '18': { mobility, implant, note, extracted,
+ *       buccal: { bop: [b,b,b], plaque: [b,b,b], furcation: [g,g,g], gm: [n,n,n], pd: [n,n,n], al: [n,n,n] },
  *       lingual: { ...same shape... } }, ... } }
  */
 import { computed } from 'vue';
@@ -200,11 +218,15 @@ const LOWER = [
 const shapeFor = (isUpper, type) => (isUpper ? UPPER_SHAPES : LOWER_SHAPES)[type];
 
 // The 6 per-site metrics, rendered once for the buccal sites and once for
-// the palatal/lingual sites.
+// the palatal/lingual sites. Furcation is a tap-to-cycle 0–3 grade
+// (confirmed live against the reference site's own `data-grade`
+// attribute and click behavior — 0→1→2→3→0 — rather than a free-typed
+// number), not a boolean toggle like BOP/Plaque or a free-typed number
+// like GM/PD/AL.
 const SITE_ROWS = [
     { key: 'bop', label: 'Bleeding on Probing', kind: 'toggle' },
     { key: 'plaque', label: 'Plaque', kind: 'toggle' },
-    { key: 'furcation', label: 'Furcation', kind: 'number' },
+    { key: 'furcation', label: 'Furcation', kind: 'cycle' },
     { key: 'gm', label: 'Gingival Margin', kind: 'number', signed: true },
     { key: 'pd', label: 'Probing Depth', kind: 'number' },
     { key: 'al', label: 'Attachment Level', kind: 'number' },
@@ -235,7 +257,10 @@ const setSingle = (tooth, key, value) => {
 
 const getSite = (tooth, zone, metric, pos) => {
     const arr = toothData(tooth)[zone]?.[metric] ?? [];
-    return arr[pos] ?? (metric === 'bop' || metric === 'plaque' ? false : '');
+    if (arr[pos] !== undefined) return arr[pos];
+    if (metric === 'bop' || metric === 'plaque') return false;
+    if (metric === 'furcation') return '0'; // reference site's own default grade, confirmed live
+    return '';
 };
 
 const setSite = (tooth, zone, metric, pos, value) => {
@@ -248,8 +273,43 @@ const setSite = (tooth, zone, metric, pos, value) => {
     setTooth(tooth, { ...t, [zone]: z });
 };
 
-const TOTAL_SITES = (UPPER.length + LOWER.length) * 2 * 3; // 32 teeth x 2 zones x 3 sites = 192
+const cycleFurcation = (tooth, zone, pos) => {
+    if (props.disabled || isSiteDisabled(tooth, 'furcation')) return;
+    const current = parseInt(getSite(tooth, zone, 'furcation', pos), 10) || 0;
+    setSite(tooth, zone, 'furcation', pos, String((current + 1) % 4));
+};
 
+const FURCATION_COLOR = { '1': 'bg-yellow-200', '2': 'bg-orange-400', '3': 'bg-red-500 text-white' };
+const furcationClass = (grade) => FURCATION_COLOR[grade] ?? 'bg-white hover:bg-gray-100';
+
+// Extraction (revision 8, by request — see this component's own doc
+// comment) — toggled by tapping the tooth's own number, same convention
+// `PlaqueChart.vue`'s `toggleExtractedAllVisits` already established.
+// Only one visit's worth of data exists per tooth here (unlike Plaque
+// Index's 5 visits), so there's nothing to sync across — both the Labial
+// and Lingual rows already read this same flag automatically.
+const isExtracted = (tooth) => getSingle(tooth, 'extracted') === true;
+const toggleExtracted = (tooth) => {
+    if (props.disabled) return;
+    setSingle(tooth, 'extracted', !isExtracted(tooth));
+};
+
+// A site metric is locked when the tooth is extracted (nothing left to
+// measure) or — furcation only, confirmed live against the reference
+// site's own `.implant-active .furcation-button { display: none }` rule
+// — when the tooth is an implant (a fixture has no natural furcation).
+// Bleeding on Probing/Plaque/Gingival Margin/Probing Depth/Attachment
+// Level stay active around an implant (peri-implant tissue is still
+// measured the same way), matching the reference's own behavior exactly
+// rather than assumed uniform.
+const isSiteDisabled = (tooth, metric) =>
+    isExtracted(tooth) || (metric === 'furcation' && getSingle(tooth, 'implant') === true);
+
+// 32 teeth x 2 zones x 3 sites = 192 — the reference site's own denominator
+// (its stats bar literally shows "(0 / 192)"), but only while every tooth
+// is present. An extracted tooth has no sites left to measure, so it's
+// dropped from the denominator too — same "extracted teeth never count"
+// rule `App\Support\PlaqueChart::visitData()` already applies.
 const stats = computed(() => {
     let bopMarked = 0;
     let plaqueMarked = 0;
@@ -257,8 +317,11 @@ const stats = computed(() => {
     let pdCount = 0;
     let alSum = 0;
     let alCount = 0;
+    let totalSites = 0;
 
     for (const [tooth] of [...UPPER, ...LOWER]) {
+        if (isExtracted(tooth)) continue;
+        totalSites += 6;
         for (const zone of ['buccal', 'lingual']) {
             for (let pos = 0; pos < 3; pos++) {
                 if (getSite(tooth, zone, 'bop', pos) === true) bopMarked++;
@@ -280,11 +343,11 @@ const stats = computed(() => {
     return {
         avgPd: pdCount > 0 ? (pdSum / pdCount).toFixed(1) : '0.0',
         avgAl: alCount > 0 ? (alSum / alCount).toFixed(1) : '0.0',
-        bopPct: ((bopMarked / TOTAL_SITES) * 100).toFixed(1),
-        plaquePct: ((plaqueMarked / TOTAL_SITES) * 100).toFixed(1),
+        bopPct: totalSites > 0 ? ((bopMarked / totalSites) * 100).toFixed(1) : '0.0',
+        plaquePct: totalSites > 0 ? ((plaqueMarked / totalSites) * 100).toFixed(1) : '0.0',
         bopMarked,
         plaqueMarked,
-        totalSites: TOTAL_SITES,
+        totalSites,
     };
 });
 
@@ -411,15 +474,23 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                                         type="button"
                                         class="h-5 w-[15px]"
                                         :class="getSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos) ? (row.key === 'bop' ? 'bg-red-500 text-white' : 'bg-yellow-400') : 'bg-white hover:bg-gray-100'"
-                                        :disabled="disabled"
+                                        :disabled="disabled || isSiteDisabled(tooth, row.key)"
                                         @click="setSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos, !getSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos))"
                                     ></button>
+                                    <button
+                                        v-else-if="row.kind === 'cycle'"
+                                        type="button"
+                                        class="h-5 w-[15px]"
+                                        :class="furcationClass(getSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos))"
+                                        :disabled="disabled || isSiteDisabled(tooth, row.key)"
+                                        @click="cycleFurcation(tooth, isUpper ? 'buccal' : 'lingual', pos)"
+                                    >{{ getSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos) }}</button>
                                     <input
                                         v-else
                                         type="text"
                                         inputmode="numeric"
                                         maxlength="3"
-                                        :disabled="disabled"
+                                        :disabled="disabled || isSiteDisabled(tooth, row.key)"
                                         class="h-5 w-[15px] border-0 p-0 text-center text-[9px] focus:ring-1 focus:ring-indigo-400"
                                         :value="getSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos)"
                                         @input="setSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos, $event.target.value)"
@@ -429,11 +500,20 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                         </tr>
                     </template>
 
-                    <!-- Tooth numbers -->
+                    <!-- Tooth numbers — tap to toggle extracted (revision 8, by request: "عند الضغط على رقم سن يؤشر عليه انه مقلوع"). -->
                     <tr>
                         <th class="border border-gray-300 bg-gray-100"></th>
-                        <td v-for="[tooth] in (isUpper ? UPPER : LOWER)" :key="tooth" colspan="3" class="border border-gray-400 bg-gray-100 px-1 py-0.5 font-semibold">
-                            {{ tooth }}
+                        <td v-for="[tooth] in (isUpper ? UPPER : LOWER)" :key="tooth" colspan="3" class="border border-gray-400 p-0">
+                            <button
+                                type="button"
+                                :disabled="disabled"
+                                class="h-5 w-[45px] font-semibold"
+                                :class="isExtracted(tooth) ? 'bg-red-100 text-red-700 line-through' : 'bg-gray-100 text-gray-900 hover:bg-gray-200'"
+                                :title="isExtracted(tooth) ? 'مقلوع — اضغط لإلغاء' : 'اضغط لتحديده كمقلوع'"
+                                @click="toggleExtracted(tooth)"
+                            >
+                                {{ tooth }}
+                            </button>
                         </td>
                     </tr>
 
@@ -461,7 +541,12 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                         <td colspan="48" class="border border-gray-300 bg-white p-1">
                             <svg width="100%" height="auto" :viewBox="`0 0 ${ARCH_WIDTH} ${ARCH_HEIGHT}`" preserveAspectRatio="xMidYMin meet" style="display: block">
                                 <line :x2="ARCH_WIDTH" :y1="gumlineY(isUpper)" :y2="gumlineY(isUpper)" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="4,3" />
-                                <g v-for="([tooth, type], idx) in (isUpper ? UPPER : LOWER)" :key="tooth" :transform="toothTransform(isUpper, idx)">
+                                <g
+                                    v-for="([tooth, type], idx) in (isUpper ? UPPER : LOWER)"
+                                    :key="tooth"
+                                    :transform="toothTransform(isUpper, idx)"
+                                    :opacity="isExtracted(tooth) ? 0.35 : 1"
+                                >
                                     <!-- The crown always renders, implant or not — see this
                                          component's own doc comment for why: only the
                                          *root* is ever replaced by the implant fixture,
@@ -478,6 +563,14 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                                         <path v-for="(r, ri) in shapeFor(isUpper, type).roots" :key="ri" :d="r" fill="#fff" stroke="#37474f" stroke-width="1.3" />
                                     </g>
                                     <path :d="shapeFor(isUpper, type).crown" fill="#fff" stroke="#20272b" stroke-width="1.6" stroke-linejoin="round" />
+                                    <!-- Extracted marker — a red cross over the whole tooth, same "dim + X" convention `PlaqueChart.vue` already established. -->
+                                    <path
+                                        v-if="isExtracted(tooth)"
+                                        d="M -25,-15 L 25,175 M 25,-15 L -25,175"
+                                        stroke="#dc2626"
+                                        stroke-width="3"
+                                        stroke-linecap="round"
+                                    />
                                 </g>
                             </svg>
                         </td>
@@ -496,15 +589,23 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                                         type="button"
                                         class="h-5 w-[15px]"
                                         :class="getSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos) ? (row.key === 'bop' ? 'bg-red-500 text-white' : 'bg-yellow-400') : 'bg-white hover:bg-gray-100'"
-                                        :disabled="disabled"
+                                        :disabled="disabled || isSiteDisabled(tooth, row.key)"
                                         @click="setSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos, !getSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos))"
                                     ></button>
+                                    <button
+                                        v-else-if="row.kind === 'cycle'"
+                                        type="button"
+                                        class="h-5 w-[15px]"
+                                        :class="furcationClass(getSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos))"
+                                        :disabled="disabled || isSiteDisabled(tooth, row.key)"
+                                        @click="cycleFurcation(tooth, isUpper ? 'lingual' : 'buccal', pos)"
+                                    >{{ getSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos) }}</button>
                                     <input
                                         v-else
                                         type="text"
                                         inputmode="numeric"
                                         maxlength="3"
-                                        :disabled="disabled"
+                                        :disabled="disabled || isSiteDisabled(tooth, row.key)"
                                         class="h-5 w-[15px] border-0 p-0 text-center text-[9px] focus:ring-1 focus:ring-indigo-400"
                                         :value="getSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos)"
                                         @input="setSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos, $event.target.value)"
@@ -560,7 +661,7 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
         </div>
 
         <p class="text-xs text-gray-400">
-            Bleeding on Probing / Plaque: click a site to toggle. Furcation (0–3) / Gingival Margin (mm, negative = recession) / Probing Depth (mm) / Attachment Level (mm): enter a value per site. Mobility (0–3): one value per tooth. Implant: click to toggle — the tooth's own drawing switches to a fixture graphic. Note: free text per tooth.
+            Bleeding on Probing / Plaque: click a site to toggle. Furcation: click a site to cycle its grade (0–3). Gingival Margin (mm, negative = recession) / Probing Depth (mm) / Attachment Level (mm): enter a value per site. Mobility (0–3): one value per tooth. Implant: click to toggle — the tooth's own drawing switches to a fixture graphic and locks its Furcation sites. Extracted: click the tooth's own number — its drawing dims with a red cross and every site metric locks and drops out of the stats. Note: free text per tooth.
         </p>
     </div>
 </template>

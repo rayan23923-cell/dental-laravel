@@ -7688,3 +7688,69 @@ SVG `<g>` contents via `querySelectorAll('path')` — confirmed 5 paths
 present simultaneously: the implant body, abutment, thread, and
 highlight, *and* tooth 18's own crown path — rather than trusting the
 code change on sight.
+
+## Advanced Periodontal Chart, revision 8: extraction, and Furcation as a tap-cycle (2026-08-31)
+
+By request: "اضف سلوك القلع وال furcation وbleeding on probing و
+plaque", followed mid-turn by "قارن مع
+https://www.periodontalchart-online.com/" and "عند الضغط على رقم سن
+يؤشر عليه انه مقلوع" — so this was built against the live reference
+site again rather than assumed, using the browser tool to inspect its
+actual DOM/CSS/click behavior before writing any code.
+
+**Extraction** — there was no way to mark a tooth extracted at all
+before this. Confirmed live: clicking a tooth's own `.tooth-number`
+element on the reference site adds a `tooth-missing` class, whose real
+CSS rules (read via `document.styleSheets`, not guessed) are:
+`.tooth-missing .tooth-inner-content { display: none !important; }`,
+`.tooth-number.tooth-missing { opacity: 0.45; }`, and
+`.tooth-missing .furcation-button, [data-bop], [data-pi], input {
+pointer-events: none; }`. Ported the same interaction — tapping the
+tooth *number* toggles `extracted` — reusing the exact convention this
+session already established for the Plaque Index chart
+(`PlaqueChart.vue`'s `toggleExtractedAllVisits`). Visually: the tooth's
+own drawing dims to 35% opacity with a red cross overlay (this app's own
+established "dim + X" convention, not copied from the reference, which
+instead hides the graphic's inner controls); every one of the 6 site
+metrics (Bleeding on Probing, Plaque, Furcation, Gingival Margin,
+Probing Depth, Attachment Level) locks and stops contributing to the
+stats — the "192 sites" denominator now shrinks by 6 per extracted
+tooth, same "extracted teeth never count" rule
+`App\Support\PlaqueChart::visitData()` already applies. Only one data
+snapshot exists per tooth here (unlike Plaque Index's 5 visits), so
+there's nothing to sync across visits — the Labial and Lingual rows
+already read the same flag automatically, the same "one shared source"
+property every other per-tooth flag on this chart already has.
+
+**Furcation as a tap-to-cycle grade** — was a free-typed number field;
+confirmed live it should instead be a button matching BOP/Plaque's own
+tap-based interaction. Read the reference's own `.furcation-button`
+elements directly (`data-furcation="furcation_18_b"`, `data-grade="0"`)
+and clicked one through several cycles: `0 → 1 → 2 → 3 → 0`, confirmed
+via the button's own `dataset.grade` before/after each click — not
+inferred from CSS alone. Ported exactly: tapping a Furcation site now
+cycles its grade `'0'` through `'3'` (defaulting to `'0'`, not blank,
+matching the reference's own default) instead of typing a number, with
+a severity color ramp (yellow → orange → red) replacing the reference's
+own SVG grade icons (not extracted — a different, original visual
+convention, avoiding the same copyright question this whole feature has
+been careful about from the start).
+
+**Furcation also locks for an implant tooth** (found while reading the
+same CSS pass): `.implant-active .furcation-button { display: none
+!important; }` — a fixture has no natural furcation. The other 5 site
+metrics deliberately do *not* lock for an implant (confirmed by its
+absence from that same CSS rule) — peri-implant tissue is still probed,
+bled-on, and plaque-scored the normal way; only furcation is anatomically
+meaningless once the natural root is gone.
+
+Verified end-to-end live (a fresh temporary doctor account, deleted
+after use, plus the reference site itself in a separate tab): toggled
+tooth 18's extraction and confirmed via the DOM that its Bleeding-on-
+Probing button became `disabled`, the stats denominator dropped from 192
+to 186, the tooth's `<g>` gained `opacity="0.35"`, and the red-cross path
+was present; cycled a Furcation button through `0→1→2→3→0` directly;
+toggled Implant on a tooth and confirmed (after ruling out a stale-DOM
+artifact from an earlier un-reloaded test step by reloading fresh) that
+its Furcation button became `disabled` while its Bleeding-on-Probing
+button stayed enabled. `npm run build` clean throughout.

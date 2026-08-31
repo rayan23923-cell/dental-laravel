@@ -150,10 +150,13 @@ String _archSvg(List<(int, String)> arch, bool isUpper, Map<String, dynamic> tee
     final cx = 45 + i * slot;
     final toothMap = teeth['$tooth'] as Map<String, dynamic>?;
     final implant = toothMap?['implant'] == true;
+    final extracted = toothMap?['extracted'] == true;
     final transform = isUpper ? 'translate($cx,164) scale(1,-1)' : 'translate($cx,25)';
 
     final shape = shapes[type]!;
-    buffer.write('<g transform="$transform">');
+    // Dim + a red cross overlay for an extracted tooth — same convention
+    // `PlaqueChartField`'s own graphic already established.
+    buffer.write('<g transform="$transform" opacity="${extracted ? 0.35 : 1}">');
     // The crown always renders, implant or not — only the *root* is ever
     // replaced by the implant fixture (revision 7, by request: "اجعله لا
     // يختفي بكل الاحوال" — the crown must never disappear), matching the
@@ -173,9 +176,11 @@ String _archSvg(List<(int, String)> arch, bool isUpper, Map<String, dynamic> tee
       }
       buffer.write('</g>');
     }
-    buffer
-      ..write('<path d="${shape.crown}" fill="#ffffff" stroke="#20272b" stroke-width="1.6" stroke-linejoin="round"/>')
-      ..write('</g>');
+    buffer.write('<path d="${shape.crown}" fill="#ffffff" stroke="#20272b" stroke-width="1.6" stroke-linejoin="round"/>');
+    if (extracted) {
+      buffer.write('<path d="M -25,-15 L 25,175 M 25,-15 L -25,175" stroke="#dc2626" stroke-width="3" stroke-linecap="round"/>');
+    }
+    buffer.write('</g>');
   }
 
   buffer.write('</svg>');
@@ -191,6 +196,23 @@ String _archSvg(List<(int, String)> arch, bool isUpper, Map<String, dynamic> tee
 /// once per arch, Bleeding on Probing/Plaque/Furcation/Gingival Margin/
 /// Probing Depth/Attachment Level twice per arch, a free-text Note once
 /// per arch).
+///
+/// Extraction, and Furcation as a tap-cycle (revision 8, by request —
+/// "اضف سلوك القلع وال furcation وbleeding on probing و plaque"): there
+/// was no way to mark a tooth extracted before this — added by making
+/// the tooth-*number* itself the toggle (same interaction
+/// `PlaqueChartField`'s own `_toggleExtractedAllVisits` already
+/// established), overlaying a red cross + dimming the drawing when set
+/// (visible in both the Labial and Lingual rows automatically, same
+/// "one shared data source" property every other per-tooth flag here
+/// already has), and locking + excluding from the stats every one of
+/// the 6 site metrics for that tooth. Furcation changed from a free-typed
+/// number to a tap-to-cycle grade (blank... actually `'0'` → `'1'` →
+/// `'2'` → `'3'` → `'0'`, confirmed live against the reference site's own
+/// `data-grade` click behavior), and locks specifically (not the other 5
+/// metrics) when the tooth is an implant, confirmed live against the
+/// reference's own `.implant-active .furcation-button { display: none }`
+/// rule.
 ///
 /// Layout (revision 5, reversed from the earlier "no horizontal scroll"
 /// request): that revision used `Expanded` flex cells so the arch could
@@ -234,8 +256,10 @@ class AdvancedPerioChartField extends StatelessWidget {
   dynamic _getSite(int tooth, String zone, String metric, int pos) {
     final z = _toothData(tooth)[zone] as Map<String, dynamic>?;
     final arr = z?[metric] as List<dynamic>?;
-    if (arr != null && pos < arr.length) return arr[pos];
-    return metric == 'bop' || metric == 'plaque' ? false : '';
+    if (arr != null && pos < arr.length && arr[pos] != null) return arr[pos];
+    if (metric == 'bop' || metric == 'plaque') return false;
+    if (metric == 'furcation') return '0'; // reference site's own default grade, confirmed live
+    return '';
   }
 
   void _setSite(int tooth, String zone, String metric, int pos, dynamic v) {
@@ -249,12 +273,45 @@ class AdvancedPerioChartField extends StatelessWidget {
     _setTooth(tooth, t);
   }
 
-  static const _kTotalSites = (16 + 16) * 2 * 3; // 32 teeth x 2 zones x 3 sites = 192
+  void _cycleFurcation(int tooth, String zone, int pos) {
+    if (readOnly || _isSiteDisabled(tooth, 'furcation')) return;
+    final current = int.tryParse('${_getSite(tooth, zone, 'furcation', pos)}') ?? 0;
+    _setSite(tooth, zone, 'furcation', pos, '${(current + 1) % 4}');
+  }
 
-  ({String avgPd, String avgAl, String bopPct, String plaquePct, int bopMarked, int plaqueMarked}) get _stats {
-    var bopMarked = 0, plaqueMarked = 0, pdCount = 0, alCount = 0;
+  // Extraction (revision 8, by request — "عند الضغط على رقم سن يؤشر عليه
+  // انه مقلوع") — toggled by tapping the tooth's own number, same
+  // convention `PlaqueChartField`'s own `_toggleExtractedAllVisits`
+  // already established. Only one snapshot's worth of data exists per
+  // tooth here (unlike Plaque Index's 5 visits), so both the Labial and
+  // Lingual graphics already read this same flag automatically.
+  bool _isExtracted(int tooth) => _getSingle(tooth, 'extracted') == true;
+  void _toggleExtracted(int tooth) {
+    if (readOnly) return;
+    _setSingle(tooth, 'extracted', !_isExtracted(tooth));
+  }
+
+  // A site metric is locked when the tooth is extracted (nothing left to
+  // measure) or — furcation only, confirmed live against the reference
+  // site's own `.implant-active .furcation-button { display: none }` rule
+  // — when the tooth is an implant (a fixture has no natural furcation).
+  // Bleeding on Probing/Plaque/Gingival Margin/Probing Depth/Attachment
+  // Level stay active around an implant, matching the reference's own
+  // behavior exactly rather than assumed uniform.
+  bool _isSiteDisabled(int tooth, String metric) =>
+      _isExtracted(tooth) || (metric == 'furcation' && _getSingle(tooth, 'implant') == true);
+
+  // 32 teeth x 2 zones x 3 sites = 192 — the reference site's own
+  // denominator, but only while every tooth is present. An extracted
+  // tooth has no sites left to measure, so it's dropped too — same
+  // "extracted teeth never count" rule `PlaqueChart`/`AdvancedPerioChart.vue`
+  // already apply.
+  ({String avgPd, String avgAl, String bopPct, String plaquePct, int bopMarked, int plaqueMarked, int totalSites}) get _stats {
+    var bopMarked = 0, plaqueMarked = 0, pdCount = 0, alCount = 0, totalSites = 0;
     var pdSum = 0.0, alSum = 0.0;
     for (final (tooth, _) in [..._kUpper, ..._kLower]) {
+      if (_isExtracted(tooth)) continue;
+      totalSites += 6;
       for (final zone in ['buccal', 'lingual']) {
         for (var pos = 0; pos < 3; pos++) {
           if (_getSite(tooth, zone, 'bop', pos) == true) bopMarked++;
@@ -275,10 +332,11 @@ class AdvancedPerioChartField extends StatelessWidget {
     return (
       avgPd: pdCount > 0 ? (pdSum / pdCount).toStringAsFixed(1) : '0.0',
       avgAl: alCount > 0 ? (alSum / alCount).toStringAsFixed(1) : '0.0',
-      bopPct: (bopMarked / _kTotalSites * 100).toStringAsFixed(1),
-      plaquePct: (plaqueMarked / _kTotalSites * 100).toStringAsFixed(1),
+      bopPct: totalSites > 0 ? (bopMarked / totalSites * 100).toStringAsFixed(1) : '0.0',
+      plaquePct: totalSites > 0 ? (plaqueMarked / totalSites * 100).toStringAsFixed(1) : '0.0',
       bopMarked: bopMarked,
       plaqueMarked: plaqueMarked,
+      totalSites: totalSites,
     );
   }
 
@@ -298,8 +356,8 @@ class AdvancedPerioChartField extends StatelessWidget {
             children: [
               Text('Avg. Probing Depth: ${s.avgPd} mm'),
               Text('Avg. Attachment Level: ${s.avgAl} mm'),
-              Text('BOP: ${s.bopPct}% (${s.bopMarked} / $_kTotalSites)'),
-              Text('PI: ${s.plaquePct}% (${s.plaqueMarked} / $_kTotalSites)'),
+              Text('BOP: ${s.bopPct}% (${s.bopMarked} / ${s.totalSites})'),
+              Text('PI: ${s.plaquePct}% (${s.plaqueMarked} / ${s.totalSites})'),
             ],
           ),
         ),
@@ -309,7 +367,7 @@ class AdvancedPerioChartField extends StatelessWidget {
         _ArchBlock(field: this, teeth: _kLower, isUpper: false),
         const SizedBox(height: 6),
         const Text(
-          'Bleeding on Probing / Plaque: tap a site to toggle. Furcation (0–3) / Gingival Margin (mm, negative = recession) / Probing Depth (mm) / Attachment Level (mm): enter a value per site. Mobility (0–3): one value per tooth. Implant: tap to toggle — the tooth\'s own drawing switches to a fixture graphic. Note: free text per tooth.',
+          'Bleeding on Probing / Plaque: tap a site to toggle. Furcation: tap a site to cycle its grade (0–3). Gingival Margin (mm, negative = recession) / Probing Depth (mm) / Attachment Level (mm): enter a value per site. Mobility (0–3): one value per tooth. Implant: tap to toggle — the tooth\'s own drawing switches to a fixture graphic and locks its Furcation sites. Extracted: tap the tooth\'s own number — its drawing dims with a red cross and every site metric locks and drops out of the stats. Note: free text per tooth.',
           style: TextStyle(fontSize: 11, color: Colors.black54),
         ),
       ],
@@ -317,13 +375,16 @@ class AdvancedPerioChartField extends StatelessWidget {
   }
 }
 
+// 'kind' drives the cell widget: 'toggle' (BOP/Plaque, boolean), 'cycle'
+// (Furcation, tap-to-cycle 0–3 grade — confirmed live against the
+// reference site's own click behavior), or 'number' (GM/PD/AL, free-typed).
 const _kSiteRows = [
-  ('bop', 'BOP', false),
-  ('plaque', 'Plaque', false),
-  ('furcation', 'Furcation', false),
-  ('gm', 'GM', true),
-  ('pd', 'PD', false),
-  ('al', 'AL', false),
+  ('bop', 'BOP', 'toggle'),
+  ('plaque', 'Plaque', 'toggle'),
+  ('furcation', 'Furcation', 'cycle'),
+  ('gm', 'GM', 'number'),
+  ('pd', 'PD', 'number'),
+  ('al', 'AL', 'number'),
 ];
 
 const _kSingleRows = [
@@ -368,7 +429,7 @@ class _ArchBlock extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (isUpper) ..._singleRows(teeth),
-              for (final (key, label, signed) in _kSiteRows) _siteRow(teeth, firstZone, '$firstLabel — $label', key, signed),
+              for (final (key, label, kind) in _kSiteRows) _siteRow(teeth, firstZone, '$firstLabel — $label', key, kind),
               _numberRow(teeth),
               // Two tooth-row diagrams per arch — Labial and Lingual/Palatal
               // views, matching the reference site's own "MAXILLA · LABIAL" /
@@ -381,7 +442,7 @@ class _ArchBlock extends StatelessWidget {
               // drawing for that column together automatically.
               _toothRowGraphic('Labial'),
               _toothRowGraphic(isUpper ? 'Palatal / Lingual' : 'Lingual'),
-              for (final (key, label, signed) in _kSiteRows.reversed) _siteRow(teeth, secondZone, '$secondLabel — $label', key, signed),
+              for (final (key, label, kind) in _kSiteRows.reversed) _siteRow(teeth, secondZone, '$secondLabel — $label', key, kind),
               _noteRow(teeth),
               if (!isUpper) ..._singleRows(teeth),
             ],
@@ -474,32 +535,64 @@ class _ArchBlock extends StatelessWidget {
     );
   }
 
-  Widget _siteRow(List<(int, String)> teeth, String zone, String label, String metric, bool signed) {
+  Widget _siteRow(List<(int, String)> teeth, String zone, String label, String metric, String kind) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 1),
       child: Row(
         children: [
           _rowLabel(label),
           for (final (tooth, _) in teeth)
-            for (var pos = 0; pos < 3; pos++) SizedBox(width: _cellSize, child: _siteCell(tooth, zone, metric, pos)),
+            for (var pos = 0; pos < 3; pos++) SizedBox(width: _cellSize, child: _siteCell(tooth, zone, metric, pos, kind)),
         ],
       ),
     );
   }
 
-  Widget _siteCell(int tooth, String zone, String metric, int pos) {
+  static const _kFurcationColor = {
+    '1': Colors.yellow,
+    '2': Colors.orange,
+    '3': Colors.red,
+  };
+
+  Widget _siteCell(int tooth, String zone, String metric, int pos, String kind) {
     final value = field._getSite(tooth, zone, metric, pos);
-    final isToggle = metric == 'bop' || metric == 'plaque';
-    if (isToggle) {
-      final marked = value == true;
+    final locked = field._isSiteDisabled(tooth, metric);
+    if (kind == 'toggle') {
+      final marked = value == true && !locked;
       final color = metric == 'bop' ? Colors.red.shade600 : Colors.amber.shade600;
       return Container(
         height: 20,
         margin: const EdgeInsets.all(0.5),
         decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade400)),
-        child: Material(
-          color: marked ? color : Colors.transparent,
-          child: InkWell(onTap: field.readOnly ? null : () => field._setSite(tooth, zone, metric, pos, !marked)),
+        child: Opacity(
+          opacity: locked ? 0.35 : 1,
+          child: Material(
+            color: marked ? color : Colors.transparent,
+            child: InkWell(
+              onTap: field.readOnly || locked ? null : () => field._setSite(tooth, zone, metric, pos, !(value == true)),
+            ),
+          ),
+        ),
+      );
+    }
+    if (kind == 'cycle') {
+      final grade = '$value';
+      final color = _kFurcationColor[grade];
+      return Container(
+        height: 20,
+        margin: const EdgeInsets.all(0.5),
+        decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade400)),
+        child: Opacity(
+          opacity: locked ? 0.35 : 1,
+          child: Material(
+            color: color ?? Colors.transparent,
+            child: InkWell(
+              onTap: field.readOnly || locked ? null : () => field._cycleFurcation(tooth, zone, pos),
+              child: Center(
+                child: Text(grade, style: TextStyle(fontSize: 10, color: color == Colors.red ? Colors.white : null)),
+              ),
+            ),
+          ),
         ),
       );
     }
@@ -509,9 +602,9 @@ class _ArchBlock extends StatelessWidget {
       child: TextFormField(
         key: ValueKey('site-$tooth-$zone-$metric-$pos-$value'),
         initialValue: '$value' == 'null' ? '' : '$value',
-        enabled: !field.readOnly,
+        enabled: !field.readOnly && !locked,
         textAlign: TextAlign.center,
-        keyboardType: TextInputType.numberWithOptions(signed: true),
+        keyboardType: const TextInputType.numberWithOptions(signed: true),
         maxLength: 3,
         style: const TextStyle(fontSize: 10),
         decoration: const InputDecoration(counterText: '', contentPadding: EdgeInsets.zero, border: OutlineInputBorder(borderRadius: BorderRadius.zero)),
@@ -549,17 +642,37 @@ class _ArchBlock extends StatelessWidget {
     );
   }
 
+  // Tap a tooth's own number to toggle it extracted (revision 8, by
+  // request: "عند الضغط على رقم سن يؤشر عليه انه مقلوع") — same
+  // convention `PlaqueChartField`'s own tooth-number tap already
+  // established.
   Widget _numberRow(List<(int, String)> teeth) => Row(
         children: [
           SizedBox(width: _labelWidth),
           for (final (tooth, _) in teeth)
             SizedBox(
               width: _cellSize * 3,
-              child: Container(
-                height: 20,
-                alignment: Alignment.center,
-                color: Colors.grey.withValues(alpha: 0.15),
-                child: FittedBox(child: Text('$tooth', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+              child: Material(
+                color: field._isExtracted(tooth) ? Colors.red.shade100 : Colors.grey.withValues(alpha: 0.15),
+                child: InkWell(
+                  onTap: field.readOnly ? null : () => field._toggleExtracted(tooth),
+                  child: SizedBox(
+                    height: 20,
+                    child: Center(
+                      child: FittedBox(
+                        child: Text(
+                          '$tooth',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: field._isExtracted(tooth) ? Colors.red.shade700 : null,
+                            decoration: field._isExtracted(tooth) ? TextDecoration.lineThrough : null,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
         ],
