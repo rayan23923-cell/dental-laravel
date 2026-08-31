@@ -7754,3 +7754,88 @@ toggled Implant on a tooth and confirmed (after ruling out a stale-DOM
 artifact from an earlier un-reloaded test step by reloading fresh) that
 its Furcation button became `disabled` while its Bleeding-on-Probing
 button stayed enabled. `npm run build` clean throughout.
+
+## Advanced Periodontal Chart, revision 9: real furcation grade icons + a GM/PD "pocket" overlay on the tooth graphic (2026-08-31)
+
+By request: "عند عمل furcation حسب الدرجات دائرة فارغة نصف دائرة دائرة
+مملوئة الخ… قارنها مع الموقع وكذلك gingival margin attachment lebel
+وتأثيرها على الخطوط والمنحنيات والجيوب قارنها بكل التفاصيل مع الموقع
+بدون تخمين او هلوسة" — both parts investigated live against
+periodontalchart-online.com before writing any code, since revision 8's
+own severity-color-ramp furcation buttons and the graphic's total lack
+of any GM/PD-driven overlay were both acknowledged approximations at the
+time, not yet compared against the real thing.
+
+**Furcation icons** — clicked the reference's own furcation button
+through its real `0→1→2→3→0` cycle and read `btn.innerHTML` at each
+grade rather than guessing: grade 0 has *no* icon markup at all (a blank
+cell); grade 1 is a single hollow-ring `<path>` (an annulus, black fill,
+no stroke, `viewBox 0 0 15 15`); grade 2 is the same ring `<path>` plus a
+second `<path>` drawing a filled half-circle across it; grade 3 replaces
+the half-circle with a `<circle>` (a full filled disc) while keeping the
+ring outline on top. Reused these exact `d` strings verbatim (this is
+plain geometric iconography — a ring/half-circle/disc — not the
+copyright-sensitive tooth artwork the rest of this feature has been
+careful about), replacing revision 8's own yellow/orange/red color-ramp
+digits. `AdvancedPerioChart.vue` injects them via `v-html` from a small
+`FURCATION_ICON` lookup so the markup isn't duplicated across the
+Buccal/Palatal site-row blocks; `advanced_perio_chart_field.dart` builds
+the same strings and renders them with `SvgPicture.string`.
+
+**Gingival Margin / Probing Depth "pocket" overlay** — the reference
+site's tooth graphic wasn't just static crown/root outlines; each tooth
+carries three live SVG elements per zone (`polygon.perio-poly`,
+`polyline.perio-pd`, `polyline.perio-gm`) that redraw as GM/PD/AL values
+are entered. Reverse-engineered the actual mechanics by setting values
+on the live site and diffing the tooth-18 SVG's `outerHTML` before/after
+(not inferred from any static screenshot):
+- Baseline (all values 0): every site sits flat at a fixed y.
+- `gm_18_b = 3` moved that site's marker *away* from the baseline by
+  exactly `3 × 6.45px`; `gm_18_b = -2` moved it the *opposite* direction
+  by `2 × 6.45px` — confirmed both signs against real DOM `points`
+  coordinates, matching the standard clinical convention (negative =
+  margin coronal to the CEJ, positive = recession).
+- `pd_18_b` is measured **from the GM line, not the fixed baseline** —
+  `pd = 6` alone landed `6 × 6.45px` past baseline, but the *same*
+  `pd = 6` alongside `gm = -2` landed a further `2 × 6.45px` off from
+  GM's own point, not from baseline (i.e. `pd_y = gm_y + pd × scale`,
+  verified by testing PD in isolation, then GM in isolation, then both
+  together and diffing all three results against each other).
+- Tested `al_18_b` in isolation (GM/PD held at 0): **zero DOM change** —
+  Attachment Level has no visual representation on the reference site's
+  own graphic at all, only in its summary stats. Confirmed by checking
+  the SVG's exact character length before/after, not just a visual
+  glance.
+- Tested all three sites (mesial/mid/distal) with distinct PD values
+  simultaneously and confirmed the polygon/polylines plot all three
+  independently, each site's own x-position picking up its own value.
+
+Ported the same mechanics into both apps' own tooth-graphic coordinate
+space rather than copying the reference's raw pixel numbers (a
+differently-sized viewBox): `POCKET_SCALE = 6.45` (px/mm, reusing the
+reference's own measured ratio, a reasonable fit for this component's
+comparably-scaled root-length coordinates), `POCKET_BASELINE_Y = 45`
+(the same crown/root-boundary local y this component's dashed gumline
+marker already uses), `POCKET_X = [-16, 0, 16]` spacing the 3 sites
+left-to-right in the same column order already used for the GM/PD/AL
+number inputs (no anatomical mesial/distal labeling needed — only that
+the graphic's site order matches the data-entry columns, which it does
+by construction). Each view draws its *own* zone's data — the Labial row
+reads the buccal sites, the Palatal/Lingual row reads the lingual sites
+— so a tooth can show two different pocket profiles for its two aspects,
+same as the reference. The overlay is skipped entirely for an extracted
+tooth (nothing left to measure). AL deliberately gets no polyline of its
+own, matching the reference's own confirmed behavior.
+
+Verified live end-to-end (a fresh temporary doctor account, deleted
+after use): cycled a Furcation button through all 4 grades and confirmed
+the injected `<svg>` markup matched the reference's captured icons
+byte-for-byte at every grade; set `gm_18_b = -2` and `pd_18_b = 6` on the
+Buccal — Gingival Margin / Probing Depth inputs (with a real tick
+between each field, not a synchronous double-dispatch — an initial
+same-tick test produced a stale-overwrite false negative, the same class
+of test-script artifact revision 8 already ran into, not a real bug) and
+confirmed the tooth's `<g>` gained the expected `<polygon>`/`<polyline>`
+elements with `points` matching the derived formula exactly
+(`-16,32.1 0,45 16,45` for the GM line, `-16,70.8 0,45 16,45` for the
+PD line). `npm run build` clean throughout.

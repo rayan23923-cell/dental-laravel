@@ -5774,3 +5774,48 @@ without throwing. The furcation-locks-for-implant interaction itself
 was verified live against the identical Vue logic in the browser (see
 the web README entry) rather than re-derived in a Flutter-specific
 test. `flutter analyze` clean, project-wide.
+
+## Advanced Periodontal Chart, revision 9: real furcation grade icons + a GM/PD "pocket" overlay (2026-08-31)
+
+Same feature/request and live-reverse-engineering as
+`dental_laravel/README.md`'s matching entry — read that one for the
+full rationale, the exact furcation-icon SVG markup captured from the
+reference site at each grade, and the derived GM/PD pocket-overlay
+formula (`pd_y = gm_y + pd × scale`, AL confirmed to have no visual
+effect at all). This entry covers only the Flutter-specific port.
+
+- **`_furcationSvg(grade)`** — a top-level function returning the same
+  `<svg viewBox="0 0 15 15">` markup as the web side's `FURCATION_ICON`
+  lookup (blank for `'0'`, a hollow-ring `<path>` for `'1'`, the ring
+  plus a half-circle `<path>` for `'2'`, a filled `<circle>` plus the
+  ring for `'3'`), rendered via `SvgPicture.string` in `_siteCell()`'s
+  `'cycle'` branch — replacing the `_kFurcationColor` yellow/orange/red
+  digit background from revision 8.
+- **`_pocketOverlaySvg(field, tooth, zone)`** — a top-level function
+  building the same `<polygon class="perio-poly">`-equivalent (navy,
+  35% opacity) plus GM (red) and PD (blue) `<polyline>` strings as the
+  Vue side's `pocketPolygonPoints`/`gmPolylinePoints`/`pdPolylinePoints`,
+  using the same `_kPocketScale = 6.45`, `_kPocketBaselineY = 45`,
+  `_kPocketX = [-16, 0, 16]` constants. Needs `field`'s own
+  `_getSite`/`_isExtracted` (private members), so `_archSvg()`'s
+  signature changed from taking a raw `Map<String, dynamic> teeth` to
+  taking the `AdvancedPerioChartField field` itself plus a `String zone`
+  — both top-level functions living in the same library file as the
+  class, so accessing its private (`_`-prefixed) methods is legal Dart,
+  same pattern the file already relied on elsewhere.
+- **`_toothRowGraphic(label, zone)`** — gained a `zone` parameter so the
+  Labial row passes `'buccal'` and the Palatal/Lingual row passes
+  `'lingual'` through to `_archSvg`, so each row's overlay reflects its
+  own aspect's data (a tooth can show two different pocket profiles for
+  its two views, matching the reference).
+- The overlay is only appended when `!extracted` inside `_archSvg`'s
+  per-tooth loop (an extracted tooth still gets its red-cross overlay,
+  never both).
+
+Verified live against the real web build in the browser (this feature's
+JSON shape and interaction logic are identical between apps by
+construction, so the Vue side's live verification — see the web README
+entry — covers the actual GM/PD/furcation mechanics; the Flutter side
+only needed confirming it builds and renders without throwing).
+`flutter analyze lib/features/perio_chart/presentation/advanced_perio_chart_field.dart`
+clean, no issues found.

@@ -279,8 +279,78 @@ const cycleFurcation = (tooth, zone, pos) => {
     setSite(tooth, zone, 'furcation', pos, String((current + 1) % 4));
 };
 
-const FURCATION_COLOR = { '1': 'bg-yellow-200', '2': 'bg-orange-400', '3': 'bg-red-500 text-white' };
-const furcationClass = (grade) => FURCATION_COLOR[grade] ?? 'bg-white hover:bg-gray-100';
+// Furcation grade icons (revision 9, by request — "دائرة فارغة نصف دائرة
+// دائرة مملوئة") — the exact `<svg>` markup captured live from the
+// reference site's own furcation buttons at each grade (`btn.innerHTML`,
+// clicked through the real 0→1→2→3→0 cycle and read back: grade 0 has no
+// icon content at all — a blank cell; grade 1 is a hollow ring (an
+// annulus path, black fill, no stroke); grade 2 is the same ring plus a
+// second path drawing a filled half-circle across it; grade 3 replaces
+// the half-circle with a fully filled disc while keeping the ring outline
+// on top). Injected with `v-html` rather than re-typed inline in the
+// template so the real path data (viewBox 0 0 15 15) isn't duplicated
+// across the two site-row blocks below.
+const FURCATION_RING = '<path d="M7.5,2A5.5,5.5,0,1,1,2,7.5a5.51,5.51,0,0,1,5.5-5.5m0-2A7.5,7.5,0,1,0,15,7.5,7.5,7.5,0,0,0,7.5,0Z" fill="#000"/>';
+const FURCATION_ICON = {
+    '0': '',
+    '1': `<svg viewBox="0 0 15 15" width="10" height="10">${FURCATION_RING}</svg>`,
+    '2': `<svg viewBox="0 0 15 15" width="10" height="10">${FURCATION_RING}<path d="M7.5,15a7.5,7.5,0,1,1,0-15" fill="#000"/></svg>`,
+    '3': `<svg viewBox="0 0 15 15" width="10" height="10"><circle cx="7.5" cy="7.5" r="6.5" fill="#000"/>${FURCATION_RING}</svg>`,
+};
+const furcationIcon = (grade) => FURCATION_ICON[grade] ?? '';
+
+// Gingival Margin / Probing Depth "pocket" overlay on the tooth graphic
+// (revision 9, by request — "gingival margin attachment lebel وتأثيرها
+// على الخطوط والمنحنيات والجيوب"), reverse-engineered live from the
+// reference site rather than guessed: setting `gm_18_b`/`pd_18_b` there
+// and diffing the tooth-18 SVG before/after showed three per-zone
+// elements driven directly by the entered mm values — a `polyline.perio-gm`
+// (red, the gingival margin line across the 3 sites), a `polyline.perio-pd`
+// (blue, the probing-depth line), and a `polygon.perio-poly` (a navy
+// semi-transparent band tracing the GM line forward and the PD line
+// backward — the "pocket" fill between them). Measured live: baseline
+// (all values 0) sits at a fixed y with every site flattened onto it;
+// GM=+3 moved that site's y *away* from the crown by exactly 3×6.45px
+// (GM=-2 moved it 2×6.45px *toward* the crown — confirmed both directions
+// against real DOM `points` attributes, matching the standard clinical
+// sign convention: negative = margin coronal to the CEJ, positive =
+// recession); PD is measured *from* the GM line, not the fixed baseline
+// (pd=6 alone landed 6×6.45px past baseline, but the same pd=6 alongside
+// gm=-2 landed a further 2×6.45px off *from GM's own point*, not from
+// baseline — i.e. `pd_y = gm_y + pd*scale`). Attachment Level was tested
+// in isolation (`al_18_b` changed with gm/pd held at 0) and produced zero
+// DOM change — confirmed AL has no visual representation on the reference
+// site's own tooth graphic, only in its summary stats, so it's
+// deliberately not drawn here either. `POCKET_SCALE` reuses the reference
+// site's own measured 6.45px/mm (rounded), since this component's tooth
+// shapes sit in a comparably-scaled local coordinate space (root length
+// ~150-200 units, same order of magnitude as the reference's own
+// viewBox); `POCKET_BASELINE_Y` matches the crown/root boundary local y
+// (45) this component already uses for the dashed gumline marker, and
+// `POCKET_X` spaces the 3 sites left-to-right in the same column order
+// already used for the GM/PD/AL number inputs above/below the graphic —
+// anatomical mesial/distal labeling isn't needed, only that the graphic's
+// site order matches the data-entry columns' order, which it does by
+// construction.
+const POCKET_SCALE = 6.45;
+const POCKET_BASELINE_Y = 45;
+const POCKET_X = [-16, 0, 16];
+
+const gmLocalY = (tooth, zone, pos) => {
+    const gm = parseFloat(getSite(tooth, zone, 'gm', pos));
+    return POCKET_BASELINE_Y + (Number.isNaN(gm) ? 0 : gm) * POCKET_SCALE;
+};
+const pdLocalY = (tooth, zone, pos) => {
+    const pd = parseFloat(getSite(tooth, zone, 'pd', pos));
+    return gmLocalY(tooth, zone, pos) + (Number.isNaN(pd) ? 0 : Math.max(0, pd)) * POCKET_SCALE;
+};
+const gmPolylinePoints = (tooth, zone) => POCKET_X.map((x, pos) => `${x},${gmLocalY(tooth, zone, pos)}`).join(' ');
+const pdPolylinePoints = (tooth, zone) => POCKET_X.map((x, pos) => `${x},${pdLocalY(tooth, zone, pos)}`).join(' ');
+const pocketPolygonPoints = (tooth, zone) => {
+    const gmPts = POCKET_X.map((x, pos) => `${x},${gmLocalY(tooth, zone, pos)}`);
+    const pdPts = [...POCKET_X].reverse().map((x, i) => `${x},${pdLocalY(tooth, zone, 2 - i)}`);
+    return [...gmPts, ...pdPts].join(' ');
+};
 
 // Extraction (revision 8, by request — see this component's own doc
 // comment) — toggled by tapping the tooth's own number, same convention
@@ -480,11 +550,11 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                                     <button
                                         v-else-if="row.kind === 'cycle'"
                                         type="button"
-                                        class="h-5 w-[15px]"
-                                        :class="furcationClass(getSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos))"
+                                        class="flex h-5 w-[15px] items-center justify-center bg-gray-100 hover:bg-gray-200"
                                         :disabled="disabled || isSiteDisabled(tooth, row.key)"
+                                        v-html="furcationIcon(getSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos))"
                                         @click="cycleFurcation(tooth, isUpper ? 'buccal' : 'lingual', pos)"
-                                    >{{ getSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos) }}</button>
+                                    ></button>
                                     <input
                                         v-else
                                         type="text"
@@ -563,6 +633,33 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                                         <path v-for="(r, ri) in shapeFor(isUpper, type).roots" :key="ri" :d="r" fill="#fff" stroke="#37474f" stroke-width="1.3" />
                                     </g>
                                     <path :d="shapeFor(isUpper, type).crown" fill="#fff" stroke="#20272b" stroke-width="1.6" stroke-linejoin="round" />
+                                    <!-- Gingival Margin / Probing Depth "pocket" overlay (revision 9) —
+                                         see this component's own doc comment above `POCKET_SCALE` for the
+                                         live-measured mechanics this reproduces: a navy semi-transparent
+                                         band between the GM and PD lines, plus the GM (red) and PD (blue)
+                                         lines themselves, both driven by this view's own zone data (Labial
+                                         view reads the buccal sites, Lingual/Palatal view reads the
+                                         lingual sites) so each row shows its own aspect's pocket depth. -->
+                                    <template v-if="!isExtracted(tooth)">
+                                        <polygon
+                                            :points="pocketPolygonPoints(tooth, view === 'Labial' ? 'buccal' : 'lingual')"
+                                            fill="#000080"
+                                            fill-opacity="0.35"
+                                            stroke="none"
+                                        />
+                                        <polyline
+                                            :points="pdPolylinePoints(tooth, view === 'Labial' ? 'buccal' : 'lingual')"
+                                            fill="none"
+                                            stroke="#2563eb"
+                                            stroke-width="2"
+                                        />
+                                        <polyline
+                                            :points="gmPolylinePoints(tooth, view === 'Labial' ? 'buccal' : 'lingual')"
+                                            fill="none"
+                                            stroke="#dc2626"
+                                            stroke-width="2"
+                                        />
+                                    </template>
                                     <!-- Extracted marker — a red cross over the whole tooth, same "dim + X" convention `PlaqueChart.vue` already established. -->
                                     <path
                                         v-if="isExtracted(tooth)"
@@ -595,11 +692,11 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                                     <button
                                         v-else-if="row.kind === 'cycle'"
                                         type="button"
-                                        class="h-5 w-[15px]"
-                                        :class="furcationClass(getSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos))"
+                                        class="flex h-5 w-[15px] items-center justify-center bg-gray-100 hover:bg-gray-200"
                                         :disabled="disabled || isSiteDisabled(tooth, row.key)"
+                                        v-html="furcationIcon(getSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos))"
                                         @click="cycleFurcation(tooth, isUpper ? 'lingual' : 'buccal', pos)"
-                                    >{{ getSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos) }}</button>
+                                    ></button>
                                     <input
                                         v-else
                                         type="text"

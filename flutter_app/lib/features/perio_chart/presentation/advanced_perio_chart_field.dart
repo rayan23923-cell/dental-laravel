@@ -115,13 +115,70 @@ const _kLower = <(int, String)>[
   (31, 'I1'), (32, 'I2'), (33, 'C'), (34, 'PM1'), (35, 'PM2'), (36, 'M1'), (37, 'M2'), (38, 'M3'),
 ];
 
+/// Furcation grade icons (revision 9, by request — "دائرة فارغة نصف دائرة
+/// دائرة مملوئة") — the exact `<svg>` markup captured live from the
+/// reference site's own furcation buttons at each grade (see
+/// `AdvancedPerioChart.vue`'s own doc comment for the full live-capture
+/// method): grade 0 has no icon at all (blank cell); grade 1 is a hollow
+/// ring; grade 2 is the same ring plus a filled half-circle; grade 3 is a
+/// fully filled disc with the ring outline on top.
+const _kFurcationRing =
+    '<path d="M7.5,2A5.5,5.5,0,1,1,2,7.5a5.51,5.51,0,0,1,5.5-5.5m0-2A7.5,7.5,0,1,0,15,7.5,7.5,7.5,0,0,0,7.5,0Z" fill="#000000"/>';
+String _furcationSvg(String grade) {
+  switch (grade) {
+    case '1':
+      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 15 15">$_kFurcationRing</svg>';
+    case '2':
+      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 15 15">$_kFurcationRing<path d="M7.5,15a7.5,7.5,0,1,1,0-15" fill="#000000"/></svg>';
+    case '3':
+      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 15 15"><circle cx="7.5" cy="7.5" r="6.5" fill="#000000"/>$_kFurcationRing</svg>';
+    default:
+      return '';
+  }
+}
+
+/// Gingival Margin / Probing Depth "pocket" overlay on the tooth graphic
+/// (revision 9, by request — "gingival margin attachment lebel وتأثيرها
+/// على الخطوط والمنحنيات والجيوب") — Flutter port of the same live-
+/// reverse-engineered mechanics documented in full on
+/// `AdvancedPerioChart.vue` (a red GM polyline, a blue PD polyline, and a
+/// navy semi-transparent polygon band between them, all driven by the
+/// per-site mm values; PD is measured *from* the GM line, not a fixed
+/// baseline; Attachment Level has no visual effect on the reference
+/// site's own graphic, confirmed by isolated live testing, so it isn't
+/// drawn here either).
+const _kPocketScale = 6.45;
+const _kPocketBaselineY = 45.0;
+const _kPocketX = [-16.0, 0.0, 16.0];
+
+double _gmLocalY(AdvancedPerioChartField field, int tooth, String zone, int pos) {
+  final gm = double.tryParse('${field._getSite(tooth, zone, 'gm', pos)}') ?? 0;
+  return _kPocketBaselineY + gm * _kPocketScale;
+}
+
+double _pdLocalY(AdvancedPerioChartField field, int tooth, String zone, int pos) {
+  final pd = double.tryParse('${field._getSite(tooth, zone, 'pd', pos)}') ?? 0;
+  return _gmLocalY(field, tooth, zone, pos) + (pd < 0 ? 0 : pd) * _kPocketScale;
+}
+
+String _pocketOverlaySvg(AdvancedPerioChartField field, int tooth, String zone) {
+  final gmPts = [for (var pos = 0; pos < 3; pos++) '${_kPocketX[pos]},${_gmLocalY(field, tooth, zone, pos)}'];
+  final pdPts = [for (var pos = 0; pos < 3; pos++) '${_kPocketX[pos]},${_pdLocalY(field, tooth, zone, pos)}'];
+  final polygonPts = [...gmPts, ...pdPts.reversed].join(' ');
+  final buffer = StringBuffer()
+    ..write('<polygon points="$polygonPts" fill="#000080" fill-opacity="0.35" stroke="none"/>')
+    ..write('<polyline points="${pdPts.join(' ')}" fill="none" stroke="#2563eb" stroke-width="2"/>')
+    ..write('<polyline points="${gmPts.join(' ')}" fill="none" stroke="#dc2626" stroke-width="2"/>');
+  return buffer.toString();
+}
+
 /// Builds the whole arch's tooth-row graphic as one SVG document string,
 /// rendered via `flutter_svg`'s `SvgPicture.string` rather than hand-
 /// translated `Path` commands — the source paths use cubic Béziers
 /// (`C`), and reusing the exact same path strings this way (matching the
 /// web side's `AdvancedPerioChart.vue` byte-for-byte) is both simpler and
 /// lower-risk than a manual `Path.cubicTo()` transcription of ~40 curves.
-String _archSvg(List<(int, String)> arch, bool isUpper, Map<String, dynamic> teeth) {
+String _archSvg(List<(int, String)> arch, bool isUpper, AdvancedPerioChartField field, String zone) {
   const slot = 90.0;
   final width = arch.length * slot;
   const height = 235.0;
@@ -148,9 +205,8 @@ String _archSvg(List<(int, String)> arch, bool isUpper, Map<String, dynamic> tee
   for (var i = 0; i < arch.length; i++) {
     final (tooth, type) = arch[i];
     final cx = 45 + i * slot;
-    final toothMap = teeth['$tooth'] as Map<String, dynamic>?;
-    final implant = toothMap?['implant'] == true;
-    final extracted = toothMap?['extracted'] == true;
+    final implant = field._getSingle(tooth, 'implant') == true;
+    final extracted = field._isExtracted(tooth);
     final transform = isUpper ? 'translate($cx,164) scale(1,-1)' : 'translate($cx,25)';
 
     final shape = shapes[type]!;
@@ -179,6 +235,8 @@ String _archSvg(List<(int, String)> arch, bool isUpper, Map<String, dynamic> tee
     buffer.write('<path d="${shape.crown}" fill="#ffffff" stroke="#20272b" stroke-width="1.6" stroke-linejoin="round"/>');
     if (extracted) {
       buffer.write('<path d="M -25,-15 L 25,175 M 25,-15 L -25,175" stroke="#dc2626" stroke-width="3" stroke-linecap="round"/>');
+    } else {
+      buffer.write(_pocketOverlaySvg(field, tooth, zone));
     }
     buffer.write('</g>');
   }
@@ -440,8 +498,8 @@ class _ArchBlock extends StatelessWidget {
               // comment), and both read the same `field._teeth` implant
               // data, so toggling Implant for a tooth swaps *both* rows'
               // drawing for that column together automatically.
-              _toothRowGraphic('Labial'),
-              _toothRowGraphic(isUpper ? 'Palatal / Lingual' : 'Lingual'),
+              _toothRowGraphic('Labial', 'buccal'),
+              _toothRowGraphic(isUpper ? 'Palatal / Lingual' : 'Lingual', 'lingual'),
               for (final (key, label, kind) in _kSiteRows.reversed) _siteRow(teeth, secondZone, '$secondLabel — $label', key, kind),
               _noteRow(teeth),
               if (!isUpper) ..._singleRows(teeth),
@@ -464,7 +522,7 @@ class _ArchBlock extends StatelessWidget {
   static const _labelWidth = 140.0;
   double get _archWidth => teeth.length * _cellSize * 3;
 
-  Widget _toothRowGraphic(String label) {
+  Widget _toothRowGraphic(String label, String zone) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
@@ -476,7 +534,7 @@ class _ArchBlock extends StatelessWidget {
           ),
           SizedBox(
             width: _archWidth,
-            child: SvgPicture.string(_archSvg(teeth, isUpper, field._teeth), fit: BoxFit.fitWidth),
+            child: SvgPicture.string(_archSvg(teeth, isUpper, field, zone), fit: BoxFit.fitWidth),
           ),
         ],
       ),
@@ -548,12 +606,6 @@ class _ArchBlock extends StatelessWidget {
     );
   }
 
-  static const _kFurcationColor = {
-    '1': Colors.yellow,
-    '2': Colors.orange,
-    '3': Colors.red,
-  };
-
   Widget _siteCell(int tooth, String zone, String metric, int pos, String kind) {
     final value = field._getSite(tooth, zone, metric, pos);
     final locked = field._isSiteDisabled(tooth, metric);
@@ -577,20 +629,17 @@ class _ArchBlock extends StatelessWidget {
     }
     if (kind == 'cycle') {
       final grade = '$value';
-      final color = _kFurcationColor[grade];
       return Container(
         height: 20,
         margin: const EdgeInsets.all(0.5),
-        decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade400)),
+        decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade400), color: Colors.grey.shade100),
         child: Opacity(
           opacity: locked ? 0.35 : 1,
           child: Material(
-            color: color ?? Colors.transparent,
+            color: Colors.transparent,
             child: InkWell(
               onTap: field.readOnly || locked ? null : () => field._cycleFurcation(tooth, zone, pos),
-              child: Center(
-                child: Text(grade, style: TextStyle(fontSize: 10, color: color == Colors.red ? Colors.white : null)),
-              ),
+              child: grade == '0' ? null : Center(child: SvgPicture.string(_furcationSvg(grade), width: 10, height: 10)),
             ),
           ),
         ),
