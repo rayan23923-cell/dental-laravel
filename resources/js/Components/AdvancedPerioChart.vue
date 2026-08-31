@@ -48,18 +48,18 @@
  * (upper included) rendered crown-up. See `toothTransform()`/`gumlineY()`
  * below for the fix and the exact reflection math.
  *
- * Layout (revision 2, by request — "بدون سكرول افقي"): the previous
- * revision used a fixed-pixel-width table inside an `overflow-x-auto`
- * wrapper, which is exactly what forces horizontal scrolling on a phone.
- * Replaced with a `table-fixed` table at `w-full` and a `<colgroup>`
- * whose 48 site-columns are percentage-widthed (not pixel-widthed) — CSS
- * table-layout:fixed then distributes 100% of the container's actual
- * width across them regardless of viewport size, so the table can never
- * exceed its container and a horizontal scrollbar structurally cannot
- * appear (cells simply shrink together on a narrow screen, the same
- * `width:100%`-on-one-big-SVG technique the reference site's own chart
- * uses for the same reason). The tooth-row graphic is one responsive
- * `<svg width="100%">` per arch for the same reason.
+ * Layout (revision 5, by request — reversed from revision 2's "بدون
+ * سكرول افقي"): revision 2 tried a `table-fixed` + percentage-`<colgroup>`
+ * table that could never overflow its container, shrinking every cell
+ * together to fit any viewport — technically no-scroll, but on a phone
+ * that meant 48 site-columns squeezed into ~7px each, unusable for actual
+ * data entry. Reverted to a fixed-pixel-width table (`h-6 w-6` per site
+ * cell, matching `PerioChart.vue`'s own established sizing) inside an
+ * `overflow-x-auto` wrapper: desktop/tablet show as many teeth as fit at
+ * a legible, tappable size; a phone scrolls horizontally for the rest —
+ * the same tradeoff `PerioChart.vue`/`PlaqueChart.vue` already make
+ * elsewhere in this app, explicitly requested this time ("اجعل المخطط
+ * قابل للسكرول ومتوافق مع الاجهزة اللوحية والموبايل والحاسوب").
  *
  * Row structure closer to the reference site's own logic (revision 2):
  * Mobility/Implant appear once per arch, at the outer edge; Bleeding on
@@ -328,12 +328,8 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
             <span>PI: <strong>{{ stats.plaquePct }}%</strong> ({{ stats.plaqueMarked }} / {{ stats.totalSites }})</span>
         </div>
 
-        <div v-for="isUpper in [true, false]" :key="isUpper ? 'upper' : 'lower'" class="rounded-lg border border-gray-200">
-            <table class="w-full table-fixed border-collapse text-center text-[9px] sm:text-[10px]">
-                <colgroup>
-                    <col style="width: 15%" />
-                    <col v-for="n in 48" :key="n" :style="{ width: `${85 / 48}%` }" />
-                </colgroup>
+        <div v-for="isUpper in [true, false]" :key="isUpper ? 'upper' : 'lower'" class="overflow-x-auto rounded-lg border border-gray-200" style="-webkit-overflow-scrolling: touch;">
+            <table class="min-w-max border-collapse text-center text-[10px]">
                 <tbody>
                     <!-- Mobility / Implant: once per arch, outer edge. -->
                     <template v-if="isUpper">
@@ -375,7 +371,7 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                                     <button
                                         v-if="row.kind === 'toggle'"
                                         type="button"
-                                        class="h-5 w-full"
+                                        class="h-6 w-6"
                                         :class="getSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos) ? (row.key === 'bop' ? 'bg-red-500 text-white' : 'bg-yellow-400') : 'bg-white hover:bg-gray-100'"
                                         :disabled="disabled"
                                         @click="setSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos, !getSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos))"
@@ -386,7 +382,7 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                                         inputmode="numeric"
                                         maxlength="3"
                                         :disabled="disabled"
-                                        class="h-5 w-full border-0 p-0 text-center focus:ring-1 focus:ring-indigo-400"
+                                        class="h-6 w-6 border-0 p-0 text-center text-[10px] focus:ring-1 focus:ring-indigo-400"
                                         :value="getSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos)"
                                         @input="setSite(tooth, isUpper ? 'buccal' : 'lingual', row.key, pos, $event.target.value)"
                                     />
@@ -456,7 +452,7 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                                     <button
                                         v-if="row.kind === 'toggle'"
                                         type="button"
-                                        class="h-5 w-full"
+                                        class="h-6 w-6"
                                         :class="getSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos) ? (row.key === 'bop' ? 'bg-red-500 text-white' : 'bg-yellow-400') : 'bg-white hover:bg-gray-100'"
                                         :disabled="disabled"
                                         @click="setSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos, !getSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos))"
@@ -467,7 +463,7 @@ const gumlineY = (isUpper) => (isUpper ? 119 : 70);
                                         inputmode="numeric"
                                         maxlength="3"
                                         :disabled="disabled"
-                                        class="h-5 w-full border-0 p-0 text-center focus:ring-1 focus:ring-indigo-400"
+                                        class="h-6 w-6 border-0 p-0 text-center text-[10px] focus:ring-1 focus:ring-indigo-400"
                                         :value="getSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos)"
                                         @input="setSite(tooth, isUpper ? 'lingual' : 'buccal', row.key, pos, $event.target.value)"
                                     />

@@ -7572,3 +7572,23 @@ not visually re-inspected in a browser — the fix is a closed-form
 reflection derived from the same source-verified coordinate extremes
 revision 2's byte-for-byte path cross-check already confirmed, not a
 tuned/eyeballed number.
+
+## Advanced Periodontal Chart, revision 5: scrollable again, reversing "no horizontal scroll" (2026-08-31)
+
+By request: "اجعل المخطط قابل للسكرول ومتوافق مع الاجهزة اللوحية والموبايل
+والحاسوب" — the opposite of revision 2's brief. Revision 2's `table-fixed`
++ percentage-`<colgroup>` table genuinely never overflows its container,
+but the tradeoff is every one of the 48 site-columns shrinking together
+to fit any viewport — on a phone that's ~7px per cell, well below any
+usable tap-target or legible-number size. Reverted to a fixed-pixel-width
+table (`h-6 w-6` per site cell, `text-[10px]`) inside an `overflow-x-auto`
+wrapper, dropping `table-fixed` and the `<colgroup>` entirely — the exact
+layout mechanism `PerioChart.vue`/`PlaqueChart.vue` already use elsewhere
+in this app. Desktop and tablet now show as many of the 16 teeth as fit
+at a legible size without any scrolling at all (a reasonably wide screen
+fits the whole arch); a phone scrolls horizontally for the rest, same as
+every other per-tooth grid in this app.
+
+No data-model or artwork changes — purely the CSS layout mechanism
+reverted from "shrink to never overflow" back to "fixed size, scroll if
+needed." Verified: `npm run build` clean.

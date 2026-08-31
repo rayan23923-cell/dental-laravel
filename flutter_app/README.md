@@ -5662,3 +5662,29 @@ Verified with a temporary `flutter_test` (deleted after use): pumped
 `tester.takeException()` was `null` and all 4 `SvgPicture` widgets (2
 arches × 2 views) still render after the transform change. `flutter
 analyze` clean, project-wide.
+
+## Advanced Periodontal Chart, revision 5: scrollable again, reversing "no horizontal scroll" (2026-08-31)
+
+Same feature/request as `dental_laravel/README.md`'s matching entry —
+read that one for the full rationale. `_ArchBlock` reverted from `Row`s
+of `Expanded` cells back to fixed-pixel-width `SizedBox` cells
+(`_cellSize = 26`, matching `perio_chart_table.dart`'s own established
+sizing) wrapped in one `SingleChildScrollView(scrollDirection:
+Axis.horizontal)` per arch — same convention that file already uses:
+the row label scrolls *with* its row rather than staying pinned, so
+every row (labels included) stays aligned to the same scroll position.
+The tooth-row graphics (`_toothRowGraphic`) now size their `SvgPicture`
+to an explicit `_archWidth` (`teeth.length * _cellSize * 3`) instead of
+`Expanded`, so the graphic's width tracks the data columns beneath it
+exactly rather than stretching to fill unconstrained space inside a
+scroll view (which `Expanded` cannot do — this needed the explicit
+width, not just dropping `Expanded`).
+
+Verified with a temporary `flutter_test` (deleted after use): pumped
+`AdvancedPerioChartField` at an explicit 375×1200 (iPhone-width) test
+view size, confirmed `tester.takeException()` was `null`, all 4
+`SvgPicture` graphics still render, and exactly 2
+`SingleChildScrollView`s with `scrollDirection: Axis.horizontal` exist
+(one per arch) — confirming the scrollable structure is actually in
+place, not just that nothing crashed. `flutter analyze` clean,
+project-wide.

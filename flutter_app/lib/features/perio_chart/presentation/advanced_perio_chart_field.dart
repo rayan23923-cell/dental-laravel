@@ -186,15 +186,18 @@ String _archSvg(List<(int, String)> arch, bool isUpper, Map<String, dynamic> tee
 /// Probing Depth/Attachment Level twice per arch, a free-text Note once
 /// per arch).
 ///
-/// Layout ("no horizontal scroll", by request): every row is a `Row` of
-/// `Expanded` cells (flex 3 per tooth for once-per-tooth metrics, flex 1
-/// per site for the 3-site metrics) instead of the previous fixed-pixel-
-/// width `SingleChildScrollView(scrollDirection: Axis.horizontal)` — an
-/// `Expanded` cell always shares exactly its slice of the *available*
-/// width, so the whole arch structurally cannot exceed the screen width
-/// and a horizontal scrollbar can never appear; cells simply shrink
-/// together on a narrow phone, the same tradeoff the web side's
-/// `table-fixed` + percentage `<colgroup>` makes for the same reason.
+/// Layout (revision 5, reversed from the earlier "no horizontal scroll"
+/// request): that revision used `Expanded` flex cells so the arch could
+/// never overflow the screen width — technically no-scroll, but on a
+/// phone that meant every cell shrank to a few pixels, unusable for
+/// actual data entry. Reverted to fixed-pixel-width cells (`_cellSize`,
+/// matching `perio_chart_table.dart`'s own established sizing) inside a
+/// `SingleChildScrollView(scrollDirection: Axis.horizontal)` wrapping the
+/// whole arch's `Column` — desktop/tablet show as many teeth as fit at a
+/// legible, tappable size; a phone scrolls horizontally for the rest,
+/// explicitly requested this time ("اجعل المخطط قابل للسكرول ومتوافق مع
+/// الاجهزة اللوحية والموبايل والحاسوب"). Same tradeoff the web side's
+/// `AdvancedPerioChart.vue` makes for the same reason.
 ///
 /// [value] is `chart_data.advancedChart` as already-decoded JSON — see
 /// `AdvancedPerioChart.vue`'s own doc comment for the exact shape.
@@ -340,36 +343,51 @@ class _ArchBlock extends StatelessWidget {
     final secondZone = isUpper ? 'lingual' : 'buccal';
     final secondLabel = isUpper ? innerLabel : 'Buccal';
 
+    // Fixed-pixel-width cells inside one shared horizontal scroll — see
+    // this file's own doc comment (revision 5) for why: a fluid layout
+    // that could never overflow left every cell too small to actually
+    // tap/type into on a phone. `_cellSize`/`_labelWidth` match
+    // `perio_chart_table.dart`'s own established sizing, and — same
+    // precedent as that file — the row label scrolls *with* the row
+    // rather than staying pinned, so every row (including the label)
+    // stays aligned to the same horizontal scroll position.
     return Directionality(
       textDirection: TextDirection.ltr,
       child: Container(
         decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(6)),
         padding: const EdgeInsets.all(2),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (isUpper) ..._singleRows(teeth),
-            for (final (key, label, signed) in _kSiteRows) _siteRow(teeth, firstZone, '$firstLabel — $label', key, signed),
-            _numberRow(teeth),
-            // Two tooth-row diagrams per arch — Labial and Lingual/Palatal
-            // views, matching the reference site's own "MAXILLA · LABIAL" /
-            // "MAXILLA · LINGUAL" structure (by request). Both draw from
-            // the same crown+root outline data (the reference asset's own
-            // lingual-view groups carry byte-for-byte identical crown/root
-            // paths to the labial view — see the shape library's own doc
-            // comment), and both read the same `field._teeth` implant
-            // data, so toggling Implant for a tooth swaps *both* rows'
-            // drawing for that column together automatically.
-            _toothRowGraphic('Labial'),
-            _toothRowGraphic(isUpper ? 'Palatal / Lingual' : 'Lingual'),
-            for (final (key, label, signed) in _kSiteRows.reversed) _siteRow(teeth, secondZone, '$secondLabel — $label', key, signed),
-            _noteRow(teeth),
-            if (!isUpper) ..._singleRows(teeth),
-          ],
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (isUpper) ..._singleRows(teeth),
+              for (final (key, label, signed) in _kSiteRows) _siteRow(teeth, firstZone, '$firstLabel — $label', key, signed),
+              _numberRow(teeth),
+              // Two tooth-row diagrams per arch — Labial and Lingual/Palatal
+              // views, matching the reference site's own "MAXILLA · LABIAL" /
+              // "MAXILLA · LINGUAL" structure (by request). Both draw from
+              // the same crown+root outline data (the reference asset's own
+              // lingual-view groups carry byte-for-byte identical crown/root
+              // paths to the labial view — see the shape library's own doc
+              // comment), and both read the same `field._teeth` implant
+              // data, so toggling Implant for a tooth swaps *both* rows'
+              // drawing for that column together automatically.
+              _toothRowGraphic('Labial'),
+              _toothRowGraphic(isUpper ? 'Palatal / Lingual' : 'Lingual'),
+              for (final (key, label, signed) in _kSiteRows.reversed) _siteRow(teeth, secondZone, '$secondLabel — $label', key, signed),
+              _noteRow(teeth),
+              if (!isUpper) ..._singleRows(teeth),
+            ],
+          ),
         ),
       ),
     );
   }
+
+  static const _cellSize = 26.0;
+  static double get _labelWidth => _cellSize * 3;
+  double get _archWidth => teeth.length * _cellSize * 3;
 
   Widget _toothRowGraphic(String label) {
     return Padding(
@@ -378,10 +396,11 @@ class _ArchBlock extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 78,
+            width: _labelWidth,
             child: Text(label, style: const TextStyle(fontSize: 9, color: Colors.grey), textAlign: TextAlign.right, overflow: TextOverflow.ellipsis),
           ),
-          Expanded(
+          SizedBox(
+            width: _archWidth,
             child: SvgPicture.string(_archSvg(teeth, isUpper, field._teeth), fit: BoxFit.fitWidth),
           ),
         ],
@@ -394,7 +413,7 @@ class _ArchBlock extends StatelessWidget {
       ];
 
   Widget _rowLabel(String label) => SizedBox(
-        width: 78,
+        width: _labelWidth,
         child: Text(label, style: const TextStyle(fontSize: 9, color: Colors.grey), textAlign: TextAlign.right, overflow: TextOverflow.ellipsis),
       );
 
@@ -404,7 +423,7 @@ class _ArchBlock extends StatelessWidget {
       child: Row(
         children: [
           _rowLabel(label),
-          for (final (tooth, _) in teeth) Expanded(flex: 3, child: _singleCell(tooth, key)),
+          for (final (tooth, _) in teeth) SizedBox(width: _cellSize * 3, child: _singleCell(tooth, key)),
         ],
       ),
     );
@@ -414,7 +433,7 @@ class _ArchBlock extends StatelessWidget {
     final value = field._getSingle(tooth, key);
     final isToggle = key == 'implant';
     return Container(
-      height: 20,
+      height: 22,
       margin: const EdgeInsets.all(0.5),
       decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade400)),
       child: isToggle
@@ -434,7 +453,7 @@ class _ArchBlock extends StatelessWidget {
               textAlign: TextAlign.center,
               keyboardType: TextInputType.number,
               maxLength: 1,
-              style: const TextStyle(fontSize: 10),
+              style: const TextStyle(fontSize: 11),
               decoration: const InputDecoration(counterText: '', contentPadding: EdgeInsets.zero, border: InputBorder.none),
               onChanged: (v) => field._setSingle(tooth, key, v),
             ),
@@ -448,7 +467,7 @@ class _ArchBlock extends StatelessWidget {
         children: [
           _rowLabel(label),
           for (final (tooth, _) in teeth)
-            for (var pos = 0; pos < 3; pos++) Expanded(child: _siteCell(tooth, zone, metric, pos)),
+            for (var pos = 0; pos < 3; pos++) SizedBox(width: _cellSize, child: _siteCell(tooth, zone, metric, pos)),
         ],
       ),
     );
@@ -461,7 +480,7 @@ class _ArchBlock extends StatelessWidget {
       final marked = value == true;
       final color = metric == 'bop' ? Colors.red.shade600 : Colors.amber.shade600;
       return Container(
-        height: 20,
+        height: 22,
         margin: const EdgeInsets.all(0.5),
         decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade400)),
         child: Material(
@@ -471,7 +490,7 @@ class _ArchBlock extends StatelessWidget {
       );
     }
     return Container(
-      height: 20,
+      height: 22,
       margin: const EdgeInsets.all(0.5),
       child: TextFormField(
         key: ValueKey('site-$tooth-$zone-$metric-$pos-$value'),
@@ -480,7 +499,7 @@ class _ArchBlock extends StatelessWidget {
         textAlign: TextAlign.center,
         keyboardType: TextInputType.numberWithOptions(signed: true),
         maxLength: 3,
-        style: const TextStyle(fontSize: 9),
+        style: const TextStyle(fontSize: 10),
         decoration: const InputDecoration(counterText: '', contentPadding: EdgeInsets.zero, border: OutlineInputBorder(borderRadius: BorderRadius.zero)),
         onChanged: (v) => field._setSite(tooth, zone, metric, pos, v),
       ),
@@ -493,7 +512,7 @@ class _ArchBlock extends StatelessWidget {
       child: Row(
         children: [
           _rowLabel('Note'),
-          for (final (tooth, _) in teeth) Expanded(flex: 3, child: _noteCell(tooth)),
+          for (final (tooth, _) in teeth) SizedBox(width: _cellSize * 3, child: _noteCell(tooth)),
         ],
       ),
     );
@@ -502,14 +521,14 @@ class _ArchBlock extends StatelessWidget {
   Widget _noteCell(int tooth) {
     final value = field._getSingle(tooth, 'note');
     return Container(
-      height: 20,
+      height: 22,
       margin: const EdgeInsets.all(0.5),
       child: TextFormField(
         key: ValueKey('note-$tooth-$value'),
         initialValue: '$value' == 'null' ? '' : '$value',
         enabled: !field.readOnly,
         textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 9),
+        style: const TextStyle(fontSize: 10),
         decoration: const InputDecoration(counterText: '', contentPadding: EdgeInsets.zero, border: OutlineInputBorder(borderRadius: BorderRadius.zero)),
         onChanged: (v) => field._setSingle(tooth, 'note', v),
       ),
@@ -518,15 +537,15 @@ class _ArchBlock extends StatelessWidget {
 
   Widget _numberRow(List<(int, String)> teeth) => Row(
         children: [
-          const SizedBox(width: 78),
+          SizedBox(width: _labelWidth),
           for (final (tooth, _) in teeth)
-            Expanded(
-              flex: 3,
+            SizedBox(
+              width: _cellSize * 3,
               child: Container(
-                height: 18,
+                height: 20,
                 alignment: Alignment.center,
                 color: Colors.grey.withValues(alpha: 0.15),
-                child: FittedBox(child: Text('$tooth', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+                child: FittedBox(child: Text('$tooth', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
               ),
             ),
         ],
