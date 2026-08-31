@@ -5646,3 +5646,19 @@ asserted `tester.takeException()` was `null`, that both `'Labial'` and
 respective labels), and that exactly 4 `SvgPicture` widgets render (2
 arches × 2 views) — confirming the dual-diagram structure builds
 successfully end to end. `flutter analyze` clean.
+
+## Advanced Periodontal Chart, revision 4: upper-arch orientation bug (2026-08-31)
+
+Same bug/fix as `dental_laravel/README.md`'s matching entry — read that
+one for the root cause and the reflection math (`translate(cx,164)
+scale(1,-1)` for the upper arch, `gumlineY` 119 vs. 70). `_archSvg()`
+now takes the same `isUpper`-conditioned `transform` string per tooth
+group; the in-graphic tooth-number `<text>` element was removed
+entirely (redundant with the existing number row, and removing it
+sidesteps having to counter-flip it for the upper arch).
+
+Verified with a temporary `flutter_test` (deleted after use): pumped
+`AdvancedPerioChartField` with empty tooth data and confirmed
+`tester.takeException()` was `null` and all 4 `SvgPicture` widgets (2
+arches × 2 views) still render after the transform change. `flutter
+analyze` clean, project-wide.

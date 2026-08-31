@@ -7533,3 +7533,42 @@ extra sync code was needed, this fell out of both rows reading the same
 underlying reactive data.
 
 Verified: `npm run build` clean.
+
+## Advanced Periodontal Chart, revision 4: upper-arch orientation bug (2026-08-31)
+
+Reported live from production with a screenshot: every tooth in every row
+— including the upper arch — was rendering crown-up/root-down, when the
+upper arch should render crown-down/root-up ("كل المخططات تتجه للاسفل").
+
+Root cause: the extracted tooth path data is authored crown-up/root-down
+(matching the *lower* jaw's natural orientation) — that's simply how the
+reference asset draws a tooth's local coordinates. The reference asset's
+own upper-arch tooth groups counter this with an extra `scale(1,-1)`
+transform (confirmed by re-reading its `<g transform="... scale(1,-1)">`
+wrapper on the upper-arch groups, present but not on the lower-arch
+ones) to flip them the other way. Revision 2 extracted only the raw
+`crown`/`root` `d` path strings, not each view's own outer wrapper
+transform, so this flip was silently lost — every arch ended up drawing
+in the lower jaw's orientation.
+
+Fixed via `toothTransform(isUpper, idx)`: the lower arch keeps its
+existing `translate(cx,25)`; the upper arch now gets
+`translate(cx,164) scale(1,-1)` — a reflection chosen so the flipped
+tooth's footprint lands in the exact same screen-y range [1,188] the
+unflipped lower-arch tooth already occupies (derived from the shape
+data's own extremes: crown tip at local y=-24, the tallest root's
+post-transform tip at local y≈163), keeping the two arches visually
+consistent in size/position, just correctly mirrored — worked out
+algebraically (two equations, one unknown, from wanting both extremes to
+land in the same target range) rather than eyeballed. The gumline moves
+with it (`gumlineY()`: 70 for lower, 119 for upper). Also removed the
+in-graphic tooth-number `<text>` label entirely rather than fixing it to
+counter-flip for the upper arch — it duplicated the existing dedicated
+number row above the graphic, so dropping it sidesteps the whole
+"un-flip just the text" problem for no loss of information.
+
+Verified: `npm run build` clean. Per this session's standing instruction,
+not visually re-inspected in a browser — the fix is a closed-form
+reflection derived from the same source-verified coordinate extremes
+revision 2's byte-for-byte path cross-check already confirmed, not a
+tuned/eyeballed number.

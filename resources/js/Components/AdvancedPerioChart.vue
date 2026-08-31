@@ -39,6 +39,15 @@
  * automatically with no extra sync code ("يتم اختيار الجهة المعاكسة ولي
  * نفس العمود المختار").
  *
+ * Upper-arch orientation fix (revision 4, same day — reported live from
+ * production: "كل المخططات تتجه للاسفل"): every tooth's raw path data is
+ * authored crown-up/root-down (matching the *lower* jaw's natural
+ * orientation) — the reference asset's own upper-arch groups counter this
+ * with an extra `scale(1,-1)` flip so the upper arch renders crown-down/
+ * root-up instead, which this component had omitted, so every arch
+ * (upper included) rendered crown-up. See `toothTransform()`/`gumlineY()`
+ * below for the fix and the exact reflection math.
+ *
  * Layout (revision 2, by request — "بدون سكرول افقي"): the previous
  * revision used a fixed-pixel-width table inside an `overflow-x-auto`
  * wrapper, which is exactly what forces horizontal scrolling on a phone.
@@ -286,8 +295,28 @@ const archLabel = (isUpper, zone) => {
 const TOOTH_SLOT = 90;
 const ARCH_WIDTH = 16 * TOOTH_SLOT;
 const ARCH_HEIGHT = 235;
-const GUMLINE_Y = 70;
 const toothX = (idx) => 45 + idx * TOOTH_SLOT;
+
+// The lower arch draws crown-up/root-down (a tooth's own path data is
+// already in that orientation, so no flip needed: `translate(cx, 25)`).
+// The upper arch needs the opposite — crown hanging down, root pointing
+// up — the same vertical flip the reference asset's own upper-arch groups
+// apply (`scale(1,-1)`), which the previous revision omitted, leaving
+// every arch rendering crown-up regardless of jaw (reported live:
+// "كل المخططات تتجه للاسفل"). `translate(cx, 164) scale(1,-1)` reflects
+// the tooth about screen-y 164 — chosen so the flipped footprint lands in
+// the exact same [1,188] range the unflipped lower-arch tooth already
+// occupies (crown tip at local y=-24, the tallest root's own transformed
+// tip at local y≈163 — both source-verified from the shape data above),
+// so upper and lower stay visually consistent in overall size/position,
+// just mirrored. The gumline (the crown/root boundary, local y≈45) moves
+// with it: 164-45=119 for the upper arch, vs. the lower arch's own
+// 25+45=70.
+const toothTransform = (isUpper, idx) => {
+    const cx = toothX(idx);
+    return isUpper ? `translate(${cx},164) scale(1,-1)` : `translate(${cx},25)`;
+};
+const gumlineY = (isUpper) => (isUpper ? 119 : 70);
 </script>
 
 <template>
@@ -397,8 +426,8 @@ const toothX = (idx) => 45 + idx * TOOTH_SLOT;
                         <th class="border border-gray-300 bg-white px-1 text-right text-[9px] font-medium text-gray-400">{{ view }}</th>
                         <td colspan="48" class="border border-gray-300 bg-white p-1">
                             <svg width="100%" height="auto" :viewBox="`0 0 ${ARCH_WIDTH} ${ARCH_HEIGHT}`" preserveAspectRatio="xMidYMin meet">
-                                <line :x2="ARCH_WIDTH" :y1="GUMLINE_Y" :y2="GUMLINE_Y" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="4,3" />
-                                <g v-for="([tooth, type], idx) in (isUpper ? UPPER : LOWER)" :key="tooth" :transform="`translate(${toothX(idx)}, 25)`">
+                                <line :x2="ARCH_WIDTH" :y1="gumlineY(isUpper)" :y2="gumlineY(isUpper)" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="4,3" />
+                                <g v-for="([tooth, type], idx) in (isUpper ? UPPER : LOWER)" :key="tooth" :transform="toothTransform(isUpper, idx)">
                                     <template v-if="getSingle(tooth, 'implant')">
                                         <path :d="IMPLANT_SHAPE.body" fill="#d7d9db" stroke="#20272b" stroke-width="1.4" />
                                         <path :d="IMPLANT_SHAPE.abutment" fill="#eceeef" stroke="#20272b" stroke-width="1.4" />
@@ -411,7 +440,6 @@ const toothX = (idx) => 45 + idx * TOOTH_SLOT;
                                         </g>
                                         <path :d="shapeFor(isUpper, type).crown" fill="#fff" stroke="#20272b" stroke-width="1.6" stroke-linejoin="round" />
                                     </template>
-                                    <text text-anchor="middle" x="0" y="-8" style="font: 700 11px system-ui; fill: #37474f">{{ tooth }}</text>
                                 </g>
                             </svg>
                         </td>

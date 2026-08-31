@@ -125,8 +125,21 @@ String _archSvg(List<(int, String)> arch, bool isUpper, Map<String, dynamic> tee
   const slot = 90.0;
   final width = arch.length * slot;
   const height = 235.0;
-  const gumlineY = 70.0;
   final shapes = isUpper ? _kUpperShapes : _kLowerShapes;
+
+  // The lower arch draws crown-up/root-down (a tooth's own path data is
+  // already in that orientation, no flip needed). The upper arch needs
+  // the opposite — crown hanging down, root pointing up — the same
+  // vertical flip the reference asset's own upper-arch groups apply
+  // (`scale(1,-1)`), which an earlier revision omitted, leaving every
+  // arch rendering crown-up regardless of jaw (reported live from
+  // production: "كل المخططات تتجه للاسفل"). `translate(cx,164) scale(1,-1)`
+  // reflects the tooth about screen-y 164 — chosen so the flipped
+  // footprint lands in the same [1,188] range the unflipped lower-arch
+  // tooth already occupies (crown tip at local y=-24, the tallest root's
+  // own transformed tip at local y≈163 — both source-verified from the
+  // shape data above), matching `AdvancedPerioChart.vue`'s identical fix.
+  final gumlineY = isUpper ? 119.0 : 70.0;
 
   final buffer = StringBuffer()
     ..write('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 $width $height">')
@@ -137,8 +150,9 @@ String _archSvg(List<(int, String)> arch, bool isUpper, Map<String, dynamic> tee
     final cx = 45 + i * slot;
     final toothMap = teeth['$tooth'] as Map<String, dynamic>?;
     final implant = toothMap?['implant'] == true;
+    final transform = isUpper ? 'translate($cx,164) scale(1,-1)' : 'translate($cx,25)';
 
-    buffer.write('<g transform="translate($cx,25)">');
+    buffer.write('<g transform="$transform">');
     if (implant) {
       buffer
         ..write('<path d="$_kImplantBody" fill="#d7d9db" stroke="#20272b" stroke-width="1.4"/>')
@@ -155,9 +169,7 @@ String _archSvg(List<(int, String)> arch, bool isUpper, Map<String, dynamic> tee
         ..write('</g>')
         ..write('<path d="${shape.crown}" fill="#ffffff" stroke="#20272b" stroke-width="1.6" stroke-linejoin="round"/>');
     }
-    buffer
-      ..write('<text x="0" y="-8" text-anchor="middle" font-size="11" font-weight="700" fill="#37474f">$tooth</text>')
-      ..write('</g>');
+    buffer.write('</g>');
   }
 
   buffer.write('</svg>');
