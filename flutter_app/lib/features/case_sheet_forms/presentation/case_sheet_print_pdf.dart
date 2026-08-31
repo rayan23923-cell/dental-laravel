@@ -5,6 +5,7 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../../../core/pdf/pdf_letterhead.dart';
 import '../../clinic_settings/domain/clinic_settings.dart';
+import 'prosthodontics_dental_arch_svg.dart';
 
 /// Builds a printable case-sheet PDF from
 /// `Api\CaseSheetPrintController::show()`'s JSON — the *rendered document
@@ -31,6 +32,7 @@ Future<Uint8List> buildCaseSheetPrintPdf({
   final charts = (doc['charts'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>();
   final dentalChart = (doc['dental_chart'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>();
   final toothMarkerCharts = (doc['tooth_marker_charts'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>();
+  final dentalArch = doc['dental_arch'] as Map<String, dynamic>?;
   final stages = (doc['stages'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>();
 
   final department = header['department'] as String?;
@@ -70,6 +72,7 @@ Future<Uint8List> buildCaseSheetPrintPdf({
         for (final chartGroup in charts) _chartBlock(letterhead, chartGroup),
         if (dentalChart.isNotEmpty) _dentalChartBlock(letterhead, dentalChart),
         if (toothMarkerCharts.isNotEmpty) _toothMarkerChartsBlock(letterhead, toothMarkerCharts),
+        if (dentalArch != null) _dentalArchIllustration(dentalArch),
         if (stages.isNotEmpty) _stagesBlock(letterhead, stages),
         pw.SizedBox(height: 8),
         _rowTable(letterhead, [
@@ -476,6 +479,27 @@ pw.Widget _circledToothMarker(PdfLetterhead lh, int number, bool selected) {
       alignment: pw.Alignment.center,
       decoration: pw.BoxDecoration(shape: pw.BoxShape.circle, border: pw.Border.all(color: PdfColors.black, width: 1.1)),
       child: pw.Text('$number', style: pw.TextStyle(font: lh.bold, fontSize: 7)),
+    ),
+  );
+}
+
+/// Prosthodontics' decorative anatomical arch illustration — always shown
+/// when `dental_arch` is present in the document JSON (matching the
+/// original, which renders this unconditionally too, and the web Blade
+/// partial's own behaviour), with the missing/carious colouring applied
+/// only where there's actual data for it. See
+/// `prosthodontics_dental_arch_svg.dart`'s doc comment for the artwork's
+/// source and why it's coloured via direct string substitution rather
+/// than a `<style>` block.
+pw.Widget _dentalArchIllustration(Map<String, dynamic> dentalArch) {
+  final missing = (dentalArch['missing'] as List<dynamic>? ?? const []).map((n) => (n as num).toInt()).toList();
+  final caries = (dentalArch['caries'] as List<dynamic>? ?? const []).map((n) => (n as num).toInt()).toList();
+  final svg = buildProsthodonticsDentalArchSvg(missingFdi: missing, cariousFdi: caries);
+
+  return pw.Center(
+    child: pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 4),
+      child: pw.SvgImage(svg: svg, width: 200),
     ),
   );
 }

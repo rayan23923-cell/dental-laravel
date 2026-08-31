@@ -431,6 +431,19 @@
             @endforeach
         @endif
 
+        @if ($dentalArch)
+            {{-- Prosthodontics' decorative anatomical arch illustration —
+                 always shown for this sheet (matching the original, which
+                 renders it unconditionally too), the missing/carious
+                 colouring applied only when there's data for it. See
+                 resources/views/print/partials/prosthodontics-dental-arch.blade.php's
+                 own doc comment for where this artwork came from. --}}
+            @include('print.partials.prosthodontics-dental-arch', [
+                'missingFdi' => $dentalArch['missing'],
+                'cariousFdi' => $dentalArch['caries'],
+            ])
+        @endif
+
         @if (! empty($stages))
             {{-- Per-stage signature/date/grade table, as printed by the
                  prosthodontics and complete-denture sheets. --}}

@@ -69,6 +69,15 @@ class CaseSheetPrintController extends Controller
             ->flatMap(fn ($c) => array_filter([$c['key'], $c['fallbackKey'] ?? null]))
             ->all();
 
+        // Prosthodontics' decorative anatomical arch illustration — see
+        // CaseSheetPrintRenderer::prosthodonticsDentalArch()'s doc comment.
+        // The Flutter side embeds the same static SVG asset the web Blade
+        // partial does (`case_sheet_print_pdf.dart`'s own `_dentalArchSvg`
+        // constant), coloured from these FDI lists the same way.
+        $dentalArch = $resource === 'prosthodontics-records'
+            ? CaseSheetPrintRenderer::prosthodonticsDentalArch($sheet)
+            : null;
+
         return response()->json([
             'header' => [
                 'university_name' => $settings->university_name ?: 'University of Baghdad',
@@ -95,6 +104,7 @@ class CaseSheetPrintController extends Controller
             // odontogram block.
             'dental_chart' => CaseSheetPrintRenderer::dentalChart($formClass::sections(), $sheet),
             'tooth_marker_charts' => CaseSheetPrintRenderer::toothMarkerCharts($config, $sheet),
+            'dental_arch' => $dentalArch,
             'stages' => CaseSheetPrintRenderer::stages($stages, $sheet),
         ]);
     }

@@ -399,6 +399,44 @@ class CaseSheetPrintRenderer
     }
 
     /**
+     * FDI tooth numbers (11-48) for prosthodontics' decorative anatomical
+     * arch illustration (`resources/views/print/partials/prosthodontics-dental-arch.blade.php`)
+     * — the one graphic among the 8 sheets this renderer doesn't hand back
+     * as structured cell/chart data, since the illustration itself is a
+     * static asset the Blade partial embeds directly; this only needs to
+     * say *which* teeth to colour, in the FDI numbering that static
+     * asset's `tooth-{n}-parent`/`tooth-{n}`/`tooth-{n}-text` CSS classes
+     * are keyed by (not this app's own `UR8`-style codes — see
+     * normalizeToothCode()'s doc comment for why those differ).
+     *
+     * @return array{missing: array<int, int>, caries: array<int, int>}
+     */
+    public static function prosthodonticsDentalArch(Model $sheet): array
+    {
+        $toFdiList = fn (mixed $raw) => collect(explode(',', (string) $raw))
+            ->map(fn ($code) => self::normalizeToothCode($code))
+            ->filter()
+            ->map(fn ($code) => self::quadrantCodeToFdi($code))
+            ->filter()
+            ->values()
+            ->all();
+
+        return [
+            'missing' => $toFdiList($sheet->missing_teeth ?? null),
+            'caries' => $toFdiList($sheet->caries_teeth ?? null),
+        ];
+    }
+
+    private static function quadrantCodeToFdi(string $code): ?int
+    {
+        if (! preg_match('/^(UR|UL|LL|LR)([1-8])$/', $code, $m)) {
+            return null;
+        }
+
+        return ['UR' => 1, 'UL' => 2, 'LL' => 3, 'LR' => 4][$m[1]] * 10 + (int) $m[2];
+    }
+
+    /**
      * Stage rows for the sheets that have them; columns follow the
      * original's `stage_{key}_{signature,date,grade}` naming.
      */

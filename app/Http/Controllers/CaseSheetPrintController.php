@@ -68,6 +68,13 @@ class CaseSheetPrintController extends Controller
             ->flatMap(fn ($c) => array_filter([$c['key'], $c['fallbackKey'] ?? null]))
             ->all();
 
+        // The decorative anatomical arch illustration — prosthodontics
+        // only, matching the original (see CaseSheetPrintRenderer::
+        // prosthodonticsDentalArch()'s doc comment).
+        $dentalArch = $resource === 'prosthodontics-records'
+            ? CaseSheetPrintRenderer::prosthodonticsDentalArch($sheet)
+            : null;
+
         return view('print.case-sheet', [
             'settings' => $settings,
             'sheet' => $sheet,
@@ -76,6 +83,7 @@ class CaseSheetPrintController extends Controller
             'charts' => CaseSheetPrintRenderer::charts($chartGroups, $chartData),
             'dentalChart' => CaseSheetPrintRenderer::dentalChart($formClass::sections(), $sheet),
             'toothMarkerCharts' => $toothMarkerCharts,
+            'dentalArch' => $dentalArch,
             'title' => $config['title'],
             'department' => $config['department'] ?? null,
             'headerDepartment' => $config['headerDepartment'] ?? null,

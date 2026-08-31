@@ -5291,3 +5291,66 @@ Verified the same way as the odontogram entry above: a `flutter_test`
 `tooth_marker_charts` — confirmed the PDF still builds (`%PDF-1.5`, no
 exceptions) with both a dental-chart and a tooth-marker-chart section in
 the same document. `flutter analyze` clean.
+
+## Prosthodontics' decorative anatomical arch illustration (2026-08-31)
+
+By request, after confirming the two entries above covered every sheet's
+*functional* graphic: prosthodontics' original print page also has a
+large static, hand-illustrated "Human Dental Arches" SVG (32 teeth, each
+several detailed Bezier-curve paths — real anatomical line art, not a
+geometric shape), dynamically tinted by the original's `syncDentalChart()`
+JS based on the same missing/carious data the circled markers already
+show. Purely decorative — the circled markers already convey the same
+information — but asked for explicitly. See `dental_laravel/README.md`'s
+matching entry for the backend half
+(`CaseSheetPrintRenderer::prosthodonticsDentalArch()`, returning FDI
+tooth numbers rather than this app's own `UR8`-style codes, since that's
+what the artwork's own CSS classes are keyed by).
+
+- **`prosthodontics_dental_arch_svg.dart`** — the artwork itself, copied
+  verbatim (paths + text labels; the original's unused Inkscape
+  `<defs>`/`<marker>`/`<metadata>` block was confirmed dead — no path
+  anywhere references it via `url(#...)` — and dropped) from the same
+  source `resources/views/print/partials/prosthodontics-dental-arch.blade.php`
+  copies for the web side, so both surfaces embed the identical
+  illustration. `buildProsthodonticsDentalArchSvg()` colours it via
+  direct string substitution on each affected element's `style="..."`
+  attribute — **not** a `<style>` block with class selectors, after
+  reading `pdf-3.12.0/lib/src/svg/parser.dart` directly and confirming
+  its `SvgParser` only ever reads a `style` *attribute*
+  (`element.getAttribute('style')`); it has no concept of a `<style>`
+  tag or CSS class selectors at all, so that approach would have parsed
+  without error and rendered every tooth uncoloured.
+- Embedded in `case_sheet_print_pdf.dart` via `pw.SvgImage(svg: ...)` —
+  real vector SVG-to-PDF rendering already built into the `pdf` package
+  this app already depends on, not a rasterized image.
+
+**A second real specificity bug, caught before it reached this side**:
+the web Blade partial's first draft generated a `<style>` block with
+plain class-selector rules for the missing/carious colouring — which
+silently would have had *zero visual effect* in a real browser, since
+every path/text in the original artwork already carries its own inline
+`style="fill:none;stroke:#000000;..."`, and per the CSS cascade an
+inline `style` attribute always outranks any selector-based rule
+regardless of source order. Caught by reasoning through the cascade
+before shipping (not by a failing test — a `str_contains()` check on the
+rendered HTML doesn't catch "the rule exists but has no visual effect");
+fixed by making every declaration `!important`. Documented here because
+the *Flutter* side needed the opposite fix for a related reason (no
+`<style>`-block support at all, so direct attribute substitution instead
+of `!important`) — two different bugs from the same root cause (existing
+inline styles on every element), two different fixes per platform's
+actual rendering engine.
+
+Verified: `flutter_test` (host-run) confirmed
+`buildProsthodonticsDentalArchSvg()` produces valid XML where a
+missing+carious tooth gets the correct salmon fill, a carious-only tooth
+gets pink with no opacity override, and an untouched tooth's original
+inline style is left completely unchanged; a second test built a full
+prosthodontics PDF through `pw.SvgImage` with real illustration data —
+succeeded with no exception, which is itself a meaningful check here
+(confirms the `pdf` package's `SvgParser` actually parses this specific
+84 KB of real path/text markup without choking on anything). Also
+verified via `curl` against the live API that `dental_arch` returns the
+correct FDI-numbered lists for a real prosthodontics record.
+`flutter analyze` clean.

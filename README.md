@@ -7054,6 +7054,58 @@ text in its section. Also confirmed via `curl` against the live API that
 `tooth_marker_charts` appears correctly and the field is excluded from
 `sections`. `php -l` clean.
 
+## Prosthodontics' decorative anatomical arch illustration (2026-08-31)
+
+The one remaining graphic difference from the original, asked for
+explicitly after confirming the circled-marker work above closed every
+*functional* gap: `prosthodontics_print_html.php` also embeds a large
+static, hand-illustrated "Human Dental Arches" SVG (32 teeth, real
+anatomical Bezier-curve line art, not a geometric shape), which its own
+`syncDentalChart()` JS tints based on the same missing/carious data the
+circled markers already show. Purely decorative — redundant with the
+markers — but ported anyway since it's part of matching the original.
+
+- **`resources/views/print/partials/prosthodontics-dental-arch.blade.php`** —
+  the artwork copied verbatim from the original's own inline SVG (paths +
+  tooth-number labels; the unused Inkscape `<defs>`/`<marker>`/`<metadata>`
+  block was confirmed dead — no path anywhere references it via
+  `url(#...)` — and dropped), included only for `prosthodontics-records`.
+  Every `<text>` label gained a real `tooth-{FDI}-text` CSS class the
+  original doesn't have — the original only finds these via a jQuery
+  `.filter()` on rendered text *content*, which needs a script to have
+  already run; a real class lets this be styled with plain, server-
+  rendered CSS instead (same "print must not depend on a script having
+  executed before Ctrl+P" rule `CaseSheetPrintRenderer::charts()`'s own
+  doc comment already states).
+- **`CaseSheetPrintRenderer::prosthodonticsDentalArch()`** — new, returns
+  FDI tooth numbers (11-48) rather than this app's own `UR8`-style
+  canonical codes, since that's what the artwork's own CSS classes are
+  keyed by; converts via a new `quadrantCodeToFdi()` reusing
+  `normalizeToothCode()` (so it inherits that method's handling of all
+  three real-world formats — see the previous entry).
+
+**A real CSS-specificity bug, caught by reasoning through the cascade
+before shipping, not by a passing test**: the first draft generated
+plain class-selector rules (`.tooth-16-parent { fill: #999999; }`) in a
+`<style>` block. Every path/text in the original artwork already carries
+its own inline `style="fill:none;stroke:#000000;..."` — and per the CSS
+cascade, an inline `style` attribute always outranks a class selector in
+a `<style>` block regardless of source order, `!important` aside. The
+generated rules would have been syntactically correct, present in the
+rendered HTML, and completely invisible — exactly the kind of failure a
+`str_contains()`-on-rendered-HTML check (this session's usual
+verification method) cannot catch, since the text is there either way.
+Fixed by adding `!important` to every declaration.
+
+Verified: rendering the Blade partial directly via `tinker` confirmed
+`!important` present in the generated rules and, against the real
+`prosthodontics-records` row #14, that `prosthodonticsDentalArch()`
+converts its `missing_teeth`/`caries_teeth` (`UR1, UR2, UR3, ...`) to the
+correct FDI lists (`[11,12,13,...]`); a full print-view render for that
+same record confirmed all 182 real illustration paths present and a
+style rule generated for a genuinely mixed-state tooth (both missing and
+carious). `php -l` clean.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the
