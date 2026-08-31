@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Support\CaseSheetPrint;
 use App\Support\CaseSheetPrintRenderer;
 use App\Support\CaseSheetSupervisorFields;
+use App\Support\PlaqueChart;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -73,6 +74,11 @@ class CaseSheetFormController extends Controller
             // than inventing a new per-form "chart column" static for a
             // fact that's been constant across every sheet built so far.
             'chartField' => $chartGroups ? 'chart_data' : null,
+            // "Plaque Index" — a completely separate feature from
+            // `chartGroups` above despite sharing the same `chart_data`
+            // column (see App\Support\PlaqueChart's own doc comment).
+            // periodontal-charts only, same gate as chartField.
+            'plaqueVisits' => $resource === 'periodontal-charts' ? PlaqueChart::VISITS : [],
             'stages' => $stages,
             // The canonical list from App\Support\CaseSheetSupervisorFields
             // — unlike Api\CaseSheetController::open()'s per-viewer

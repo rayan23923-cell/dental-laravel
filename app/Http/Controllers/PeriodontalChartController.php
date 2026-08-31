@@ -9,6 +9,7 @@ use App\Services\CaseSheetAccess;
 use App\Support\CaseSheetSignatures;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\PeriodontalChartForm;
+use App\Support\PlaqueChart;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -92,6 +93,10 @@ class PeriodontalChartController extends Controller
             'sections' => PeriodontalChartForm::sections(),
             'chartGroups' => PeriodontalChartForm::chartGroups(),
             'chartField' => 'chart_data',
+            // "Plaque Index" per visit — a separate feature from
+            // chartGroups above, sharing the same chart_data column under
+            // its own `dentalCharts` key (see App\Support\PlaqueChart).
+            'plaqueVisits' => PlaqueChart::VISITS,
             'doctors' => Doctor::orderBy('name')->get(['id', 'name']),
             'record' => $record,
             // chart_data is a longtext column holding JSON; decoded here so

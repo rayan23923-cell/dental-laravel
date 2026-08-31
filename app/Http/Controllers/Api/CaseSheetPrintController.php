@@ -8,6 +8,7 @@ use App\Models\Doctor;
 use App\Services\PermissionManager;
 use App\Support\CaseSheetPrint;
 use App\Support\CaseSheetPrintRenderer;
+use App\Support\PlaqueChart;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -74,6 +75,17 @@ class CaseSheetPrintController extends Controller
         // The Flutter side embeds the same static SVG asset the web Blade
         // partial does (`case_sheet_print_pdf.dart`'s own `_dentalArchSvg`
         // constant), coloured from these FDI lists the same way.
+        // "Plaque Index" per-visit chart — periodontal-charts only, a
+        // separate feature from `$chartGroups` above despite sharing the
+        // same decoded `$chartData`. Only visits with actual data included.
+        $plaqueVisits = $resource === 'periodontal-charts'
+            ? collect(PlaqueChart::VISITS)
+                ->map(fn ($visit) => ['label' => $visit['label'], 'data' => PlaqueChart::visitData($chartData ?? [], $visit['key'])])
+                ->filter(fn ($visit) => $visit['data'] !== null)
+                ->values()
+                ->all()
+            : [];
+
         $dentalArch = $resource === 'prosthodontics-records'
             ? CaseSheetPrintRenderer::prosthodonticsDentalArch($sheet)
             : null;
@@ -105,6 +117,7 @@ class CaseSheetPrintController extends Controller
             'dental_chart' => CaseSheetPrintRenderer::dentalChart($formClass::sections(), $sheet),
             'tooth_marker_charts' => CaseSheetPrintRenderer::toothMarkerCharts($config, $sheet),
             'dental_arch' => $dentalArch,
+            'plaque_visits' => $plaqueVisits,
             'stages' => CaseSheetPrintRenderer::stages($stages, $sheet),
         ]);
     }

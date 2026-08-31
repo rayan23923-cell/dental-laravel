@@ -5,6 +5,7 @@ import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import Modal from '@/Components/Modal.vue';
 import PerioChart from '@/Components/PerioChart.vue';
+import PlaqueChart from '@/Components/PlaqueChart.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import QuadrantTeeth from '@/Components/QuadrantTeeth.vue';
 import ToothOdontogram from '@/Components/ToothOdontogram.vue';
@@ -38,6 +39,11 @@ const props = defineProps({
     // Only sheets with per-tooth charts pass these.
     chartGroups: { type: Array, default: () => [] },
     chartField: { type: String, default: null }, // column the chart JSON lands in
+    // "Plaque Index" per visit — a separate feature from chartGroups
+    // despite sharing the same chart_data column, under its own
+    // `dentalCharts` key (see App\Support\PlaqueChart). periodontal-charts
+    // only, same gate as chartGroups.
+    plaqueVisits: { type: Array, default: () => [] },
     // Only sheets with a per-stage signature/date/grade table pass this.
     stages: { type: Array, default: () => [] },
     doctors: Array,
@@ -314,6 +320,13 @@ props.chartGroups.forEach((group) => {
         charts[group.key][table.key] = props.chartData?.[group.key]?.[table.key] ?? {};
     });
 });
+// "Plaque Index" — a sibling top-level key in the same `charts` object
+// (see PlaqueChart.vue's own doc comment), so it rides along with the
+// `{ teeth: {}, ...charts }` spread at submit below with no extra
+// handling needed.
+if (props.plaqueVisits.length) {
+    charts.dentalCharts = props.chartData?.dentalCharts ?? {};
+}
 
 const submit = () => {
     // Re-assemble grouped subkeys into their JSON column.
@@ -816,6 +829,14 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                                 :disabled="readonly"
                             />
                         </div>
+                    </div>
+
+                    <!-- "Plaque Index" per visit — separate feature from
+                         the chartGroups tables above, see PlaqueChart.vue's
+                         own doc comment. -->
+                    <div v-if="plaqueVisits.length" class="rounded-lg bg-white p-6 shadow-sm">
+                        <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">Plaque Index (%)</h3>
+                        <PlaqueChart v-model="charts.dentalCharts" :visits="plaqueVisits" :disabled="readonly" />
                     </div>
 
                     <div v-if="canSubmit" class="flex justify-end">

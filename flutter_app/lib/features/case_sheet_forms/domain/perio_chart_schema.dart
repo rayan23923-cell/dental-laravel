@@ -37,3 +37,21 @@ class PerioChartGroupSchema {
   final String title;
   final List<PerioChartTableSchema> tables;
 }
+
+/// One Plaque Index visit — e.g. `{key: 'visit2', label: 'Second Visit'}`.
+/// `App\Support\PlaqueChart::VISITS` is the only source (periodontal-charts
+/// only, same as [PerioChartGroupSchema] above) — a completely separate
+/// feature from the BOP/PPD/CAL groups despite living in the same
+/// `chart_data` column, under its own `dentalCharts` top-level key (see
+/// `PlaqueChartField`'s own doc comment for why).
+class PlaqueVisitSchema {
+  const PlaqueVisitSchema({required this.key, required this.label});
+
+  factory PlaqueVisitSchema.fromJson(Map<String, dynamic> json) => PlaqueVisitSchema(
+        key: json['key'] as String? ?? '',
+        label: json['label'] as String? ?? '',
+      );
+
+  final String key;
+  final String label;
+}

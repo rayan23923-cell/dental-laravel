@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../dental_chart/presentation/tooth_odontogram_field.dart';
 import '../../endodontics/presentation/endodontics_field.dart';
 import '../../perio_chart/presentation/perio_chart_groups_field.dart';
+import '../../perio_chart/presentation/plaque_chart_field.dart';
 import '../domain/case_sheet_field.dart';
 import '../domain/case_sheet_form_schema.dart';
 import 'extraoral_intraoral_exam_field.dart';
@@ -388,6 +389,20 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
               value: _chartValue,
               readOnly: widget.readonly,
               onChanged: (next) => setState(() => _chartValue = next),
+            ),
+          if (widget.schema.plaqueVisits.isNotEmpty)
+            PlaqueChartField(
+              visits: widget.schema.plaqueVisits,
+              // Lives under its own `dentalCharts` top-level key inside the
+              // same `_chartValue`/`chart_data` map `PerioChartGroupsField`
+              // above already reads/writes — see PlaqueChartField's own doc
+              // comment for why it's a sibling key rather than a separate
+              // form field/column. No change needed to buildSubmitPayload()'s
+              // `{'teeth': {}, ..._chartValue}` spread: this key rides along
+              // with every other `_chartValue` entry automatically.
+              value: (_chartValue['dentalCharts'] as Map<String, dynamic>?) ?? const {},
+              readOnly: widget.readonly,
+              onChanged: (next) => setState(() => _chartValue = {..._chartValue, 'dentalCharts': next}),
             ),
           if (canSubmit) ...[
             const SizedBox(height: 8),

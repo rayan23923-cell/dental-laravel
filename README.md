@@ -7106,6 +7106,72 @@ same record confirmed all 182 real illustration paths present and a
 style rule generated for a genuinely mixed-state tooth (both missing and
 carious). `php -l` clean.
 
+## Periodontal "Plaque Index" — a genuinely new feature (2026-08-31)
+
+Every case-sheet-print entry above ported an *existing* on-screen
+capability to a better print surface. This one is different: asked "هل
+كان مخطط SVG في periodontal chart؟" ("was there an SVG chart in
+periodontal chart?"), checked the original directly and found a
+completely separate per-visit "Plaque Index" dental chart
+(`periodontal_chart_print_html.php`'s `createToothSVG()`/
+`renderDentalChartJS()`, 5 visits — `visit2`–`visit5`, `followup` — each
+a curved-tooth diagram of 4 quadrant surfaces per tooth, plaque
+present/absent, with a live percentage) that this app had **never
+captured at all**, on either platform — no field, no column, no editor.
+A real new feature, not a print-fidelity fix.
+
+**A real architectural fork surfaced and confirmed before building
+anything**: this app's existing BOP/PPD/CAL periodontal tables
+(`PeriodontalChartForm::chartGroups()`) already condense the original's
+notion of "visit" into 3 stages (`perioChart`/`perioChartPostHygiene`/
+`perioChartFollowup`) rather than the original's 5. Asked directly
+whether the new Plaque Index feature should follow that existing
+3-stage convention or the original's own 5 named visits — confirmed: the
+original's 5, exactly, even though it introduces a second, different
+"visit" concept living in the same `chart_data` column. Both features
+now coexist there under separate top-level keys (`perioChart`/... vs.
+`dentalCharts`) — deliberately not merged, since they track genuinely
+different things in the original.
+
+- **`App\Support\PlaqueChart`** (new) — the visit list, tooth-shape
+  vocabulary (FDI number → molar/premolar/canine/incisor, plus each
+  shape's actual curved-outline path data, copied verbatim from the
+  original's own `toothShapes`), and `visitData()`, which recomputes the
+  plaque-index percentage/marked-surface count the same way the
+  original's `renderDentalChartJS()` does at render time (an extracted
+  tooth's surfaces never count toward the total — recalculated rather
+  than trusted from storage, so that stays true even if `extracted` was
+  toggled after surfaces were marked).
+- **Web on-screen editor**: `resources/js/Components/PlaqueChart.vue` —
+  a visit-by-visit collapsible list, plain checkboxes per quadrant rather
+  than the original's tap-a-curved-diagram interaction (see
+  `flutter_app/README.md`'s matching entry for why — the same tradeoff
+  on both platforms). Lives inside `SectionedForm.vue`'s existing
+  `charts` reactive object under a `dentalCharts` key, riding along with
+  its existing `{ teeth: {}, ...charts }` submit spread with no changes
+  needed there.
+- **Web print**: `resources/views/print/partials/periodontal-plaque-chart.blade.php` —
+  real inline SVG per tooth, each clipped to its actual curved outline
+  (`<clipPath>` + the same quadratic-Bezier `toothShapes` paths the
+  original uses) with 4 coloured quadrant triangles inside, server-
+  rendered PHP building the SVG string per tooth (same "must not depend
+  on a script having run before Ctrl+P" rule as every other chart in this
+  renderer family).
+
+Verified against real data, not just synthetic: wrote test plaque data
+into a live `periodontal_charts` row's `chart_data.dentalCharts` via
+`tinker` (merged in, not overwriting the row's existing BOP/PPD/CAL
+data), confirmed `PlaqueChart::visitData()`'s stats (124 total surfaces
+for 31 non-extracted teeth × 4, 2 marked, 1.6% index) and a full
+Blade-view render (32 tooth SVGs, correct stat line, green marked-surface
+fill, red extracted-tooth X) — then reverted the test data afterward so
+the real row was left exactly as found. Also confirmed the web edit
+page's own Inertia response actually carries the new `plaqueVisits` prop
+by extracting and decoding its `data-page` JSON directly (Inertia falls
+back to a full HTML page outside an XHR request, so the props aren't in
+a plain JSON response the way `Api\CaseSheetFormController`'s are).
+`php -l` clean.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the

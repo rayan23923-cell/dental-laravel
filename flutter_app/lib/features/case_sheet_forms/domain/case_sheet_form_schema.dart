@@ -33,6 +33,7 @@ class CaseSheetFormSchema {
     required this.stages,
     required this.chartGroups,
     required this.chartField,
+    required this.plaqueVisits,
     required this.supervisorFields,
   });
 
@@ -53,6 +54,10 @@ class CaseSheetFormSchema {
             .map(PerioChartGroupSchema.fromJson)
             .toList(),
         chartField: json['chartField'] as String?,
+        plaqueVisits: (json['plaqueVisits'] as List<dynamic>? ?? [])
+            .whereType<Map<String, dynamic>>()
+            .map(PlaqueVisitSchema.fromJson)
+            .toList(),
         // App\Support\CaseSheetSupervisorFields's canonical, unconditional
         // list for this resource (2026-08-29) — see
         // Api\CaseSheetFormController::show()'s doc comment for why this
@@ -71,6 +76,7 @@ class CaseSheetFormSchema {
   final List<Map<String, dynamic>> stages;
   final List<PerioChartGroupSchema> chartGroups;
   final String? chartField;
+  final List<PlaqueVisitSchema> plaqueVisits;
   final List<String> supervisorFields;
 
   /// Every field across every section, flattened — used to walk the

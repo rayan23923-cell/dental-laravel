@@ -7,6 +7,7 @@ use App\Models\Doctor;
 use App\Services\PermissionManager;
 use App\Support\CaseSheetPrint;
 use App\Support\CaseSheetPrintRenderer;
+use App\Support\PlaqueChart;
 use Endroid\QrCode\ErrorCorrectionLevel;
 use Endroid\QrCode\QrCode;
 use Endroid\QrCode\Writer\PngWriter;
@@ -75,12 +76,25 @@ class CaseSheetPrintController extends Controller
             ? CaseSheetPrintRenderer::prosthodonticsDentalArch($sheet)
             : null;
 
+        // "Plaque Index" per-visit chart — periodontal-charts only, a
+        // separate feature from `$chartGroups` above despite sharing the
+        // same decoded `$chartData`. Only visits that actually have data
+        // are included (see PlaqueChart::visitData()'s own doc comment).
+        $plaqueVisits = $resource === 'periodontal-charts'
+            ? collect(PlaqueChart::VISITS)
+                ->map(fn ($visit) => ['label' => $visit['label'], 'data' => PlaqueChart::visitData($chartData ?? [], $visit['key'])])
+                ->filter(fn ($visit) => $visit['data'] !== null)
+                ->values()
+                ->all()
+            : [];
+
         return view('print.case-sheet', [
             'settings' => $settings,
             'sheet' => $sheet,
             'sections' => CaseSheetPrintRenderer::sections($formClass::sections(), $sheet, $groupColumns, $excludeKeys),
             'stages' => CaseSheetPrintRenderer::stages($stages, $sheet),
             'charts' => CaseSheetPrintRenderer::charts($chartGroups, $chartData),
+            'plaqueVisits' => $plaqueVisits,
             'dentalChart' => CaseSheetPrintRenderer::dentalChart($formClass::sections(), $sheet),
             'toothMarkerCharts' => $toothMarkerCharts,
             'dentalArch' => $dentalArch,

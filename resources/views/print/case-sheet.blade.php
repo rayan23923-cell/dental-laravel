@@ -302,6 +302,10 @@
             @endforeach
         @endforeach
 
+        @if (! empty($plaqueVisits))
+            @include('print.partials.periodontal-plaque-chart', ['visits' => $plaqueVisits])
+        @endif
+
         @if (! empty($dentalChart))
             {{-- Real odontogram — a full 32-tooth arch chart drawn as inline
                  SVG per tooth (the original's operative_print_html.php

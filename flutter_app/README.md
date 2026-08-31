@@ -5354,3 +5354,64 @@ succeeded with no exception, which is itself a meaningful check here
 verified via `curl` against the live API that `dental_arch` returns the
 correct FDI-numbered lists for a real prosthodontics record.
 `flutter analyze` clean.
+
+## Periodontal "Plaque Index": a genuinely new feature, not a print port (2026-08-31)
+
+Every case-sheet print entry above was print-layer work reusing data this
+app already captured. This one isn't: the original
+(`periodontal_chart_print_html.php`) has a completely separate per-visit
+"Plaque Index" dental chart (5 visits — `visit2`–`visit5`, `followup` —
+each a curved-tooth diagram showing which of 4 quadrant surfaces per
+tooth has plaque, plus a live percentage), and this app had **no field,
+no data, and no editor for it at all**, on either platform, before this
+entry. Confirmed directly with the user before building anything: which
+visit structure to use (the original's own 5 named visits, not this
+app's existing 3-stage `perioChart`/`perioChartPostHygiene`/
+`perioChartFollowup` grouping the BOP/PPD/CAL tables use for a related
+but distinct purpose — see `dental_laravel/README.md`'s matching entry
+for why those two features don't share a structure despite sharing a
+column).
+
+- **`PlaqueChartField`** (`flutter_app/lib/features/perio_chart/presentation/`)
+  — the on-screen editor: one `ExpansionTile` per visit (mirrors
+  `PerioChartGroupsField`'s own collapsed-by-default pattern), each
+  holding a 32-tooth list with a `FilterChip` per quadrant
+  (buccal/distal/lingual/mesial) plus an "مخلوع" (extracted) chip, and a
+  live-computed "Plaque Index: X%" in the tile's subtitle. Deliberately a
+  plain checkbox/chip grid rather than the original's own tap-a-curved-
+  tooth-diagram editor — this is a boolean present/absent mark per
+  surface, not a multi-status picker the way the Operative sheet's flower
+  odontogram is, so a chip conveys the same information with far less
+  code and no SVG-hit-testing to build. The *printed* chart still draws
+  the original's real curved shapes (below) — this simplification is
+  on-screen only, the web side makes the identical tradeoff (see its own
+  README entry).
+- **Where the data lives**: rides inside the same `_chartValue` map
+  `PerioChartGroupsField` already reads/writes, under its own
+  `dentalCharts` key (`_chartValue['dentalCharts']`) — no change needed
+  to `buildSubmitPayload()`'s existing `{'teeth': {}, ..._chartValue}`
+  spread at all, since a new top-level key in that map rides along
+  automatically. `CaseSheetFormSchema` gained a `plaqueVisits` list
+  (`[{key, label}]`, periodontal-charts only) from a new
+  `plaqueVisits` field on `Api\CaseSheetFormController::show()`'s JSON.
+- **Print** (`case_sheet_print_pdf.dart`) — `periodontal_plaque_chart_svg.dart`
+  reimplements the original's own `createToothSVG()` (curved
+  molar/premolar/canine/incisor outlines via quadratic Bezier paths, four
+  triangular quadrant sectors clipped to that outline, green fill when
+  marked) as a small self-contained SVG string per tooth, fed to
+  `pw.SvgImage(svg: ...)` — the same technique already proven for the
+  prosthodontics anatomical illustration, reused here rather than
+  hand-tracing curves through `PdfGraphics` directly. Up to 32 teeth × 5
+  visits, each its own tiny vector image.
+
+Verified: a `flutter_test` confirmed `buildPlaqueToothSvg()` produces
+correctly-coloured XML (a marked surface green, an unmarked one
+transparent-but-present, an extracted tooth's red X with no green
+regardless of its stored surface data) and that a full periodontal PDF
+with the plaque chart section builds successfully. Also confirmed via
+`curl` against the live API — both `GET /case-sheet-forms/periodontal-charts`
+(the 5 visits) and `GET /case-sheet-prints/periodontal-charts/{id}`
+(with real test data written into a live record's `chart_data.dentalCharts`
+via `tinker`, then reverted afterward) — that the JSON matches the
+backend's own `PlaqueChart::visitData()` computation exactly. `flutter
+analyze` clean on the whole project throughout.
