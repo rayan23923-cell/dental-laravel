@@ -6955,6 +6955,53 @@ call (already used by the web controller) and the same
 reads directly — no new rendering logic, just two fields the endpoint
 had simply never returned.
 
+## Case-sheet printing: a real odontogram instead of a text table (2026-08-31)
+
+By request: the printed dental chart should match `dental_clinics2`'s
+own print pages, which draw an actual per-tooth SVG odontogram
+(`operative_print_html.php`'s `renderToothSvg()` — a "flower" of five
+polygon surface zones per tooth, coloured by status, with red-X/orange-
+ring/black-ring overlays for extracted/retained_root/crown), not the
+text table (`"Tooth 11: Present — Top: Cavity"`) this print view had
+instead. The web app already has this exact geometry ported once
+already, for the on-screen editor — `Components/ToothOdontogram.vue`'s
+`SURFACE_POINTS`, itself read directly out of the original's own SVG —
+so this reuses that geometry rather than re-deriving it.
+
+- **`App\Support\CaseSheetPrintRenderer`** gained public
+  `SURFACE_POINTS`/`SURFACE_COLORS`/`ROOT_COLORS`/`TOOTH_LEVEL_FILL`/
+  `TOOTH_LEVEL_OPACITY`/`UPPER_ARCH`/`LOWER_ARCH` constants — the same
+  values `ToothOdontogram.vue` and the Flutter app's
+  `odontogram_vocabulary.dart` already carry, now available to PHP too.
+- **`dentalChart()` changed shape**: it used to pre-flatten each tooth
+  into a formatted label string (`'status' => 'Present'`, `'surfaces' =>
+  'Top: Cavity, Center: Filling'`) for the old text table. A real
+  graphical renderer needs the *raw* `tooth_status`/`polygons` values to
+  feed the same surface→colour lookup the on-screen editor uses, so it
+  now returns those instead. This is a breaking shape change to the
+  `dental_chart` field both print surfaces consume (the Blade view here,
+  and the Flutter PDF — see `flutter_app/README.md`'s matching entry) —
+  both were updated in the same pass, so nothing was left reading the old
+  shape.
+- **`resources/views/print/case-sheet.blade.php`**: the odontogram block
+  is now inline SVG generated per tooth from a `@php` closure (Blade has
+  no component system worth building for something this small and
+  print-page-specific), drawing the full 32-tooth arch — every tooth, not
+  just the marked ones, matching what the on-screen chart and the
+  original both show — with a compact notes table underneath for any
+  tooth that actually has one. Also fixed the section's title, which
+  printed "المخطط السني" (Arabic) even though this printout is English
+  throughout, matching the original's own English print pages — now
+  "Dental Chart".
+
+Verified via `tinker`, rendering the Blade view directly against a real
+`dental_charts` record (7 marked teeth, including one `non_vital` and one
+`missing` tooth): confirmed 32 tooth SVGs in the output, the `non_vital`
+tooth's dark-red tooth-level fill, and the `missing` tooth's reduced
+opacity, all at the correct positions in the rendered HTML — not run
+through an actual browser, by request (this session's emulator/browser
+verification was skipped for this pass). `php -l` clean.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the

@@ -195,31 +195,55 @@ class CaseSheetPrintRenderer
         ];
     }
 
-    /** Arabic labels for the odontogram vocabulary — matches Components/ToothOdontogram.vue exactly. */
-    private const TOOTH_STATUS_LABELS = [
-        'present' => 'سليم', 'non_vital' => 'ميت العصب', 'missing' => 'مفقود',
-        'extracted' => 'مخلوع', 'retained_root' => 'جذر محتجز', 'crown' => 'تاج',
+    /**
+     * The odontogram's drawing vocabulary — copied point-for-point from
+     * `Components/ToothOdontogram.vue`'s `SURFACE_POINTS` (itself read out
+     * of the original `dental_clinics2/doctor/operative.php`'s SVG), so the
+     * printed chart, the on-screen Vue editor, and the Flutter PDF's own
+     * vector drawing (`case_sheet_print_pdf.dart`) all draw the exact same
+     * shapes from the exact same source of truth. A 0–30 square per tooth,
+     * five surfaces in a "flower" target pattern.
+     */
+    public const SURFACE_POINTS = [
+        'top' => [[0, 0], [30, 0], [20, 10], [10, 10]],
+        'left' => [[0, 0], [10, 10], [10, 20], [0, 30]],
+        'bottom' => [[0, 30], [10, 20], [20, 20], [30, 30]],
+        'right' => [[30, 0], [20, 10], [20, 20], [30, 30]],
+        'center' => [[10, 10], [20, 10], [20, 20], [10, 20]],
     ];
 
-    private const SURFACE_STATUS_LABELS = [
-        'healthy' => 'سليم', 'cavity' => 'تسوس', 'filling' => 'حشوة',
-        'crown' => 'تاج', 'bridge' => 'جسر', 'root_canal' => 'علاج عصب',
-        'infected' => 'ملتهب', 'treated' => 'مُعالَج',
+    public const SURFACE_COLORS = [
+        'healthy' => '#ffffff', 'cavity' => '#ffc107', 'filling' => '#000000',
+        'crown' => '#17a2b8', 'bridge' => '#6f42c1',
     ];
 
-    private const SURFACE_LABELS = [
-        'top' => 'علوي', 'bottom' => 'سفلي', 'left' => 'أيسر', 'right' => 'أيمن', 'center' => 'وسط',
-        'root-1' => 'جذر 1', 'root-2' => 'جذر 2', 'root-3' => 'جذر 3',
+    public const ROOT_COLORS = [
+        'healthy' => '#ffffff', 'root_canal' => '#dc3545', 'infected' => '#ff9800', 'treated' => '#4caf50',
     ];
+
+    /** Overrides every surface uniformly — see ToothOdontogram.vue's own TOOTH_LEVEL_FILL. */
+    public const TOOTH_LEVEL_FILL = [
+        'missing' => '#6c757d', 'extracted' => '#6c757d', 'non_vital' => '#8b0000',
+    ];
+
+    public const TOOTH_LEVEL_OPACITY = [
+        'missing' => 0.15, 'extracted' => 0.35,
+    ];
+
+    /** FDI numbering, right-to-left across each arch — matches ToothOdontogram.vue's UPPER/LOWER. */
+    public const UPPER_ARCH = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
+
+    public const LOWER_ARCH = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
 
     /**
-     * The odontogram, printed as a compact table of only the *marked*
-     * teeth — the original's print page (operative_print_html.php) builds
-     * the equivalent `teethDetails` map and renders a small static chart;
-     * a text table carries the same information without a second SVG
-     * renderer duplicated in Blade. Returns [] when the sheet has no
-     * dental_chart field or nothing's been marked, so the section prints
-     * nothing rather than an empty table.
+     * The odontogram's raw per-tooth data (only the *marked* teeth) — kept
+     * as `tooth_status`/`polygons` rather than pre-flattened English/Arabic
+     * labels, so both print surfaces (the Blade SVG chart below and the
+     * Flutter PDF's own vector chart) can feed it straight into the same
+     * `SURFACE_POINTS`/`*_COLORS` lookups the on-screen editors already
+     * use, instead of re-parsing a formatted string. Returns [] when the
+     * sheet has no `dental_chart` field, so the section prints nothing
+     * rather than a chart with no data behind it.
      */
     public static function dentalChart(array $sections, Model $sheet): array
     {
@@ -243,15 +267,14 @@ class CaseSheetPrintRenderer
         return collect($teeth)
             ->filter(fn ($t) => ! empty($t['number']))
             ->map(fn ($t) => [
-                'number' => $t['number'],
-                'status' => self::TOOTH_STATUS_LABELS[$t['toothStatus'] ?? ''] ?? ($t['toothStatus'] ?? ''),
-                'surfaces' => collect($t['polygons'] ?? [])
-                    ->map(fn ($p, $surfaceId) => (self::SURFACE_LABELS[$surfaceId] ?? $surfaceId).': '.
-                        (self::SURFACE_STATUS_LABELS[$p['status'] ?? ''] ?? ($p['status'] ?? '')))
-                    ->implode('، '),
+                'number' => (string) $t['number'],
+                'tooth_status' => $t['toothStatus'] ?? null,
+                'polygons' => collect($t['polygons'] ?? [])
+                    ->map(fn ($p) => $p['status'] ?? null)
+                    ->filter()
+                    ->all(),
                 'notes' => (string) ($t['notes'] ?? ''),
             ])
-            ->sortBy('number')
             ->values()
             ->all();
     }

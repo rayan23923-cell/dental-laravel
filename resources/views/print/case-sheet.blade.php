@@ -164,6 +164,12 @@
         .perio-table .site { width: 33.33%; display: inline-block; }
         .perio-arch-title { font-weight: bold; font-size: 8pt; margin: 4px 0 2px; }
 
+        /* Odontogram — one <td> per tooth, table-layout: fixed so all 16
+           columns per arch stay equal width regardless of content. */
+        .dental-chart-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 4px; }
+        .dental-chart-table td { text-align: center; padding: 1px; border: none; }
+        .dental-chart-table .tooth-number { font-size: 7pt; font-weight: bold; }
+
         .footer-signature { margin-top: 8px; font-size: 9pt; }
         .footer-signature td { padding-top: 12px; }
 
@@ -297,25 +303,89 @@
         @endforeach
 
         @if (! empty($dentalChart))
-            {{-- Odontogram, printed as a compact table of only the marked
-                 teeth — see App\Support\CaseSheetPrintRenderer::dentalChart(). --}}
-            <div class="section-title">المخطط السني</div>
-            <table class="table-bordered mini">
-                <tr class="table-heading">
-                    <th style="width:8%">السن</th>
-                    <th style="width:20%">الحالة</th>
-                    <th>الأسطح</th>
-                    <th style="width:22%">ملاحظات</th>
+            {{-- Real odontogram — a full 32-tooth arch chart drawn as inline
+                 SVG per tooth (the original's operative_print_html.php
+                 technique: a polygon "flower" of surface zones per tooth,
+                 laid out in an HTML table), not the text table this used to
+                 be. Same SURFACE_POINTS/*_COLORS the on-screen Vue editor
+                 (ToothOdontogram.vue) and the Flutter PDF's own vector
+                 chart draw from — see App\Support\CaseSheetPrintRenderer's
+                 class docblock. --}}
+            <div class="section-title">Dental Chart</div>
+            @php
+                $byNumber = collect($dentalChart)->keyBy('number');
+                $surfacePoints = \App\Support\CaseSheetPrintRenderer::SURFACE_POINTS;
+                $surfaceColors = \App\Support\CaseSheetPrintRenderer::SURFACE_COLORS;
+                $rootColors = \App\Support\CaseSheetPrintRenderer::ROOT_COLORS;
+                $toothLevelFill = \App\Support\CaseSheetPrintRenderer::TOOTH_LEVEL_FILL;
+                $toothLevelOpacity = \App\Support\CaseSheetPrintRenderer::TOOTH_LEVEL_OPACITY;
+
+                $renderTooth = function ($number) use ($byNumber, $surfacePoints, $surfaceColors, $rootColors, $toothLevelFill, $toothLevelOpacity) {
+                    $tooth = $byNumber->get((string) $number);
+                    $status = $tooth['tooth_status'] ?? null;
+                    $polygons = $tooth['polygons'] ?? [];
+                    $levelFill = $toothLevelFill[$status] ?? null;
+                    $opacity = $toothLevelOpacity[$status] ?? 1;
+
+                    $svg = '<svg width="26" height="26" viewBox="0 0 30 30" style="opacity:'.$opacity.'">';
+                    foreach ($surfacePoints as $surfaceId => $points) {
+                        $pointsAttr = implode(' ', array_map(fn ($p) => $p[0].','.$p[1], $points));
+                        if ($levelFill !== null) {
+                            $color = $levelFill;
+                        } else {
+                            $surfaceStatus = $polygons[$surfaceId] ?? null;
+                            $pool = str_starts_with($surfaceId, 'root-') ? $rootColors : $surfaceColors;
+                            $color = $surfaceStatus ? ($pool[$surfaceStatus] ?? '#ffffff') : '#ffffff';
+                        }
+                        $svg .= '<polygon points="'.$pointsAttr.'" fill="'.$color.'" stroke="black" stroke-width="1"/>';
+                    }
+                    if ($status === 'extracted') {
+                        $svg .= '<line x1="3" y1="3" x2="27" y2="27" stroke="#dc3545" stroke-width="2.5"/>';
+                        $svg .= '<line x1="27" y1="3" x2="3" y2="27" stroke="#dc3545" stroke-width="2.5"/>';
+                    } elseif ($status === 'retained_root') {
+                        $svg .= '<circle cx="15" cy="15" r="13" fill="none" stroke="#fd7e14" stroke-width="1.5"/>';
+                    } elseif ($status === 'crown') {
+                        $svg .= '<circle cx="15" cy="15" r="13" fill="none" stroke="black" stroke-width="1.5"/>';
+                    }
+
+                    return $svg.'</svg>';
+                };
+
+                $upperArch = \App\Support\CaseSheetPrintRenderer::UPPER_ARCH;
+                $lowerArch = \App\Support\CaseSheetPrintRenderer::LOWER_ARCH;
+                $notedTeeth = collect($dentalChart)->filter(fn ($t) => trim($t['notes'] ?? '') !== '');
+            @endphp
+
+            <table class="dental-chart-table">
+                <tr>
+                    @foreach ($upperArch as $n)<td class="tooth-number">{{ $n }}</td>@endforeach
                 </tr>
-                @foreach ($dentalChart as $tooth)
-                    <tr>
-                        <td class="text-bold">{{ $tooth['number'] }}</td>
-                        <td>{{ $tooth['status'] }}</td>
-                        <td>{{ $tooth['surfaces'] ?: '—' }}</td>
-                        <td>{{ $tooth['notes'] ?: '' }}</td>
-                    </tr>
-                @endforeach
+                <tr>
+                    @foreach ($upperArch as $n)<td>{!! $renderTooth($n) !!}</td>@endforeach
+                </tr>
+                <tr><td colspan="{{ count($upperArch) }}" style="height:6px;"></td></tr>
+                <tr>
+                    @foreach ($lowerArch as $n)<td>{!! $renderTooth($n) !!}</td>@endforeach
+                </tr>
+                <tr>
+                    @foreach ($lowerArch as $n)<td class="tooth-number">{{ $n }}</td>@endforeach
+                </tr>
             </table>
+
+            @if ($notedTeeth->isNotEmpty())
+                <table class="table-bordered mini" style="margin-top:4px;">
+                    <tr class="table-heading">
+                        <th style="width:12%">Tooth</th>
+                        <th>Notes</th>
+                    </tr>
+                    @foreach ($notedTeeth as $t)
+                        <tr>
+                            <td class="text-bold">{{ $t['number'] }}</td>
+                            <td>{{ $t['notes'] }}</td>
+                        </tr>
+                    @endforeach
+                </table>
+            @endif
         @endif
 
         @if (! empty($stages))

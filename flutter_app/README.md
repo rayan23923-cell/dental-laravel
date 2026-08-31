@@ -5163,3 +5163,90 @@ camera access, so that last visual check is left for the next real-device
 Codemagic build. `flutter analyze` clean on the whole project throughout;
 the doctor test account's temporary password and Sanctum token were
 cleaned up afterward.
+
+## Case-sheet printing: a real odontogram, not a text table (2026-08-31)
+
+The dental chart section of both print surfaces (web Blade, and the
+Flutter PDF built in the entry above) was a text table — "Tooth 11:
+Present — Top: Cavity, Center: Filling". The original app
+(`dental_clinics2/doctor/operative_print_html.php`) draws an actual
+per-tooth SVG odontogram instead: a "flower" of five polygon zones per
+tooth, coloured by surface status, with whole-tooth overlays (a red X for
+extracted, an orange ring for retained_root, a black ring for crown).
+This app already has that exact drawing logic *twice* — once in
+`Components/ToothOdontogram.vue` for the web on-screen editor, once in
+`tooth_flower_painter.dart`'s `ToothFlowerPainter` (`dart:ui.Canvas`) for
+the Flutter on-screen editor — both explicitly built as ports of the
+original's SVG. Neither could be reused directly for *printing*: Blade
+print is server-rendered PHP with no Vue runtime, and a `pw.Document`
+draws through the `pdf` package's own `PdfGraphics` API, not
+`dart:ui.Canvas`. So this is a third parallel implementation of the same
+geometry — see `dental_laravel/README.md`'s matching entry for the
+backend half (`App\Support\CaseSheetPrintRenderer` now exposes
+`SURFACE_POINTS`/`*_COLORS` as public constants, and `dentalChart()`
+returns raw `tooth_status`/`polygons` instead of pre-flattened label
+strings, so a real renderer has something to draw from).
+
+- **`_toothGraphic()`** in `case_sheet_print_pdf.dart` — one `pw.CustomPaint`
+  per tooth, tracing the same `SURFACE_POINTS` coordinates (copied from
+  `CaseSheetPrintRenderer::SURFACE_POINTS`, itself copied from the Vue
+  component) into `PdfGraphics` `moveTo`/`lineTo`/`closePath` calls, then
+  `fillPath()`/`strokePath()` per surface. **The one real gotcha**:
+  `PdfGraphics`' coordinate origin is bottom-left with y increasing
+  *upward* — the opposite of the SVG/`dart:ui.Canvas` convention every
+  other copy of this geometry is expressed in — so every point's y is
+  flipped (`size.y - localY * scale`) when traced in. Missing/extracted's
+  reduced opacity has no direct `PdfGraphics` equivalent to `dart:ui`'s
+  `Canvas.saveLayer`, so it's approximated by blending the fill colour
+  toward white at the given ratio before drawing — visually identical on
+  a plain white printed page.
+- **`_dentalChartBlock()`** now draws the full 32-tooth arch (both arches,
+  FDI order, numbers alongside each tooth) instead of only the *marked*
+  teeth — matching what the on-screen editor and the original both show
+  (a blank chart is still a chart), with a compact notes table underneath
+  for any tooth that actually has a note (nothing else carries that text
+  once the table's gone).
+- Fixed the odontogram section's title along the way — it was printing
+  "المخطط السني" (Arabic) even though this app's case-sheet printouts are
+  English throughout, matching the original's own English print pages
+  (per the user's explicit request that the printout match the original
+  in English). Now "Dental Chart", same as the equivalent English label
+  the original's own surgery/prosthodontics print pages use.
+
+**A real bug caught by testing, not by `flutter analyze`**: the first cut
+of `_toothGraphic()` did `tooth?['polygons'] as Map<String, dynamic>?` —
+statically valid Dart, so `flutter analyze` had nothing to say about it,
+but it throws at runtime whenever the incoming map isn't *exactly*
+`Map<String, dynamic>` (a Dart map literal built in a fully-dynamic
+context infers as `Map<dynamic, dynamic>` instead, and — confirmed via a
+live `curl` against a real dental-chart record — a PHP empty associative
+array serializes as JSON `[]`, not `{}`, so an untouched tooth's
+`polygons` decodes to an empty **List**, not a Map, and the direct cast
+would have thrown on every single blank tooth in the chart). Caught by a
+throwaway `flutter_test` (host-run, not a device/emulator — the
+sandboxed browser used earlier in this session for the on-screen QR/print
+work blocks camera and print-dialog rendering, so a real execution test
+was the only way to actually exercise this code without a physical
+device) built with synthetic data covering every overlay path
+(cavity/filling surfaces, extracted, retained_root, crown, missing,
+non_vital) — the very first run threw exactly this exception. Fixed by
+checking `rawPolygons is Map` and converting via `Map<String,
+dynamic>.from(...)` rather than casting directly; deleted the test file
+afterward (not meant to be committed, just this session's verification
+harness).
+
+Verified: the web Blade view was rendered directly through `tinker`
+(not a browser) against a real `dental_charts` record with 7 marked
+teeth, including one `non_vital` tooth and one `missing` tooth — confirmed
+the output contains 32 tooth SVGs, the `non_vital` dark-red tooth-level
+fill (`#8b0000`), and the `missing` tooth's reduced opacity
+(`opacity:0.15`) at the correct string positions. The Flutter PDF builder
+was verified the same way once the polygons-cast bug above was fixed: a
+`flutter_test` run produced a genuine multi-hundred-KB `%PDF-1.5` file
+with no exceptions, covering every dental-chart overlay branch in one
+document. Neither check used a browser, emulator, or physical device —
+by request, this session's emulator-based UI verification was skipped for
+this pass; a visual check of the actual printed page layout (does the
+32-tooth grid actually look right at print size, do the flipped
+PdfGraphics coordinates land where intended) is left for the next real
+build/print. `flutter analyze` clean on the whole project throughout.

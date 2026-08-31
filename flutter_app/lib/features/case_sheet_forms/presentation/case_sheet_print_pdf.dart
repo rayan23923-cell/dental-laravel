@@ -234,42 +234,173 @@ pw.Widget _archCell(String text, pw.Font font, {bool header = false}) => pw.Padd
       ),
     );
 
-/// The odontogram, printed as a compact table of only the marked teeth —
-/// see `App\Support\CaseSheetPrintRenderer::dentalChart()`'s doc comment
-/// for why a text table stands in for a second SVG renderer here.
+/// The surface "flower" polygon layout every tooth draws, in a 0–30 square —
+/// copied point-for-point from `App\Support\CaseSheetPrintRenderer::SURFACE_POINTS`
+/// (itself copied from `Components/ToothOdontogram.vue`'s `SURFACE_POINTS`,
+/// which came from the original `dental_clinics2/doctor/operative.php`'s
+/// SVG) and from this app's own `tooth_flower_painter.dart`, which draws
+/// the identical shape for the on-screen editor via `dart:ui.Canvas`. This
+/// is a separate, parallel implementation rather than a reuse of that
+/// painter: a `pw.Document` draws through the `pdf` package's own
+/// `PdfGraphics` API, not `dart:ui`, so the same geometry has to be
+/// re-traced through a different drawing surface.
+const _surfacePoints = <String, List<List<double>>>{
+  'top': [[0, 0], [30, 0], [20, 10], [10, 10]],
+  'left': [[0, 0], [10, 10], [10, 20], [0, 30]],
+  'bottom': [[0, 30], [10, 20], [20, 20], [30, 30]],
+  'right': [[30, 0], [20, 10], [20, 20], [30, 30]],
+  'center': [[10, 10], [20, 10], [20, 20], [10, 20]],
+};
+
+const _surfaceColors = {
+  'healthy': '#ffffff', 'cavity': '#ffc107', 'filling': '#000000',
+  'crown': '#17a2b8', 'bridge': '#6f42c1',
+};
+
+const _rootColors = {
+  'healthy': '#ffffff', 'root_canal': '#dc3545', 'infected': '#ff9800', 'treated': '#4caf50',
+};
+
+const _toothLevelFillHex = {'missing': '#6c757d', 'extracted': '#6c757d', 'non_vital': '#8b0000'};
+
+const _toothLevelOpacity = {'missing': 0.15, 'extracted': 0.35};
+
+const _upperArch = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
+const _lowerArch = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
+
+/// The real odontogram — a full 32-tooth arch chart, each tooth its own
+/// small vector drawing via `pw.CustomPaint`, matching the original's
+/// `operative_print_html.php` technique (an SVG polygon "flower" per
+/// tooth) and this app's own on-screen editor exactly, instead of the text
+/// table this used to be. `PdfGraphics`' coordinate origin is bottom-left
+/// with y increasing *upward* — the opposite of the SVG/`dart:ui.Canvas`
+/// convention `_surfacePoints` is expressed in — so every point's y is
+/// flipped (`size.y - localY * scale`) when traced into the canvas.
 pw.Widget _dentalChartBlock(PdfLetterhead lh, List<Map<String, dynamic>> teeth) {
+  final byNumber = {for (final t in teeth) (t['number']).toString(): t};
+  final notedTeeth = teeth.where((t) => ((t['notes'] as String?) ?? '').trim().isNotEmpty).toList();
+
+  pw.Widget archTable(List<int> arch, {required bool numbersOnTop}) {
+    final numberRow = pw.TableRow(children: [
+      for (final n in arch) pw.Center(child: pw.Text('$n', style: pw.TextStyle(font: lh.bold, fontSize: 6))),
+    ]);
+    final graphicRow = pw.TableRow(children: [
+      for (final n in arch) pw.Center(child: _toothGraphic(byNumber[n.toString()])),
+    ]);
+
+    return pw.Table(
+      columnWidths: {for (var i = 0; i < arch.length; i++) i: const pw.FlexColumnWidth(1)},
+      children: numbersOnTop ? [numberRow, graphicRow] : [graphicRow, numberRow],
+    );
+  }
+
   return pw.Column(
     crossAxisAlignment: pw.CrossAxisAlignment.start,
     children: [
-      _sectionTitle(lh, 'المخطط السني'),
-      pw.Table(
-        border: pw.TableBorder.all(color: PdfColors.black, width: 0.5),
-        columnWidths: const {
-          0: pw.FlexColumnWidth(0.8),
-          1: pw.FlexColumnWidth(2),
-          2: pw.FlexColumnWidth(3),
-          3: pw.FlexColumnWidth(2.2),
-        },
-        children: [
-          pw.TableRow(
-            decoration: const pw.BoxDecoration(color: PdfColors.grey200),
-            children: [
-              for (final h in ['السن', 'الحالة', 'الأسطح', 'ملاحظات'])
-                pw.Padding(padding: const pw.EdgeInsets.all(3), child: pw.Text(h, style: pw.TextStyle(font: lh.bold, fontSize: 8))),
-            ],
-          ),
-          for (final tooth in teeth)
-            pw.TableRow(children: [
-              _cell('${tooth['number'] ?? ''}', lh.bold),
-              _cell('${tooth['status'] ?? ''}', lh.regular),
-              _cell(((tooth['surfaces'] as String?)?.isNotEmpty ?? false) ? tooth['surfaces'] as String : '—', lh.regular),
-              _cell('${tooth['notes'] ?? ''}', lh.regular),
-            ]),
-        ],
-      ),
+      _sectionTitle(lh, 'Dental Chart'),
+      pw.Padding(padding: const pw.EdgeInsets.only(bottom: 6), child: archTable(_upperArch, numbersOnTop: true)),
+      archTable(_lowerArch, numbersOnTop: false),
+      if (notedTeeth.isNotEmpty) ...[
+        pw.SizedBox(height: 6),
+        pw.Table(
+          border: pw.TableBorder.all(color: PdfColors.black, width: 0.5),
+          columnWidths: const {0: pw.FlexColumnWidth(0.7), 1: pw.FlexColumnWidth(5)},
+          children: [
+            pw.TableRow(
+              decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+              children: [_cell('Tooth', lh.bold), _cell('Notes', lh.bold)],
+            ),
+            for (final t in notedTeeth) pw.TableRow(children: [_cell('${t['number']}', lh.bold), _cell('${t['notes']}', lh.regular)]),
+          ],
+        ),
+      ],
     ],
   );
 }
+
+pw.Widget _toothGraphic(Map<String, dynamic>? tooth) {
+  final status = tooth?['tooth_status'] as String?;
+  // Not a direct `as Map<String, dynamic>?` cast: `jsonDecode` always types
+  // a nested object that way, but this function also runs against
+  // synthetic/test data built as Dart map literals, which the type
+  // inferrer can widen to `Map<dynamic, dynamic>` depending on the
+  // surrounding context — a direct cast throws there even though the
+  // runtime values are perfectly fine to read.
+  final rawPolygons = tooth?['polygons'];
+  final polygons = rawPolygons is Map ? Map<String, dynamic>.from(rawPolygons) : const <String, dynamic>{};
+
+  return pw.SizedBox(
+    width: 15,
+    height: 15,
+    child: pw.CustomPaint(
+      size: const PdfPoint(15, 15),
+      painter: (canvas, size) {
+        final scale = size.x / 30;
+        final opacity = _toothLevelOpacity[status] ?? 1.0;
+        final levelFill = _toothLevelFillHex[status];
+
+        void trace(List<List<double>> points) {
+          canvas.moveTo(points.first[0] * scale, size.y - points.first[1] * scale);
+          for (final p in points.skip(1)) {
+            canvas.lineTo(p[0] * scale, size.y - p[1] * scale);
+          }
+          canvas.closePath();
+        }
+
+        for (final entry in _surfacePoints.entries) {
+          PdfColor color;
+          if (levelFill != null) {
+            color = PdfColor.fromHex(levelFill);
+          } else {
+            final surfaceStatus = polygons[entry.key] as String?;
+            final pool = entry.key.startsWith('root-') ? _rootColors : _surfaceColors;
+            color = PdfColor.fromHex(surfaceStatus != null ? (pool[surfaceStatus] ?? '#ffffff') : '#ffffff');
+          }
+          if (opacity < 1) color = _blendWithWhite(color, opacity);
+
+          trace(entry.value);
+          canvas.setFillColor(color);
+          canvas.fillPath();
+          trace(entry.value);
+          canvas.setStrokeColor(PdfColors.black);
+          canvas.setLineWidth(0.4);
+          canvas.strokePath();
+        }
+
+        if (status == 'extracted') {
+          canvas.setStrokeColor(PdfColor.fromHex('#dc3545'));
+          canvas.setLineWidth(1.2);
+          canvas.moveTo(size.x * 0.1, size.y * 0.9);
+          canvas.lineTo(size.x * 0.9, size.y * 0.1);
+          canvas.strokePath();
+          canvas.moveTo(size.x * 0.9, size.y * 0.9);
+          canvas.lineTo(size.x * 0.1, size.y * 0.1);
+          canvas.strokePath();
+        } else if (status == 'retained_root') {
+          canvas.setStrokeColor(PdfColor.fromHex('#fd7e14'));
+          canvas.setLineWidth(0.8);
+          canvas.drawEllipse(size.x / 2, size.y / 2, size.x * 0.45, size.y * 0.45);
+          canvas.strokePath();
+        } else if (status == 'crown') {
+          canvas.setStrokeColor(PdfColors.black);
+          canvas.setLineWidth(0.8);
+          canvas.drawEllipse(size.x / 2, size.y / 2, size.x * 0.45, size.y * 0.45);
+          canvas.strokePath();
+        }
+      },
+    ),
+  );
+}
+
+/// `PdfGraphics` has no per-shape opacity of its own here — this composites
+/// the fill colour against a white page background at the given opacity
+/// directly, the same visual result `dart:ui.Canvas.saveLayer` achieves for
+/// the on-screen painter, since the printed page is white regardless.
+PdfColor _blendWithWhite(PdfColor color, double opacity) => PdfColor(
+      color.red * opacity + (1 - opacity),
+      color.green * opacity + (1 - opacity),
+      color.blue * opacity + (1 - opacity),
+    );
 
 pw.Widget _stagesBlock(PdfLetterhead lh, List<Map<String, dynamic>> stages) {
   return pw.Column(
