@@ -63,6 +63,17 @@ class CaseSheetPrint
             'title' => 'Partial Denture Case Sheet',
             'formTitle' => 'Prosthodontics Record',
             'department' => 'PROSTHODONTIC',
+            // The original (prosthodontics_print_html.php) draws these two
+            // as circled-tooth-number grids under a "Dental Chart - Adult
+            // Teeth" heading rather than the plain comma list `sections()`
+            // would otherwise print for a `teeth`-type field — see
+            // CaseSheetPrintRenderer::toothMarkerCharts(). `key` is
+            // excluded from the generic section rendering so it isn't
+            // printed twice.
+            'toothMarkerCharts' => [
+                ['key' => 'missing_teeth', 'label' => 'Missing teeth'],
+                ['key' => 'caries_teeth', 'label' => 'Carious teeth'],
+            ],
         ],
         'complete-denture-records' => [
             'model' => CompleteDentureRecord::class,
@@ -70,6 +81,17 @@ class CaseSheetPrint
             'title' => 'Complete Denture Case Sheet',
             'formTitle' => 'Complete Denture Record',
             'department' => 'PROSTHODONTIC',
+            // The original falls back to `last_tooth_extracted_teeth` when
+            // `teeth_to_extract` is empty (complete_denture_print_html.php's
+            // own `$teethToExtract = $lastToothExtractedTeeth` fallback) —
+            // same rule here, via `fallbackKey`. `missing_teeth` is parsed
+            // by the original too but never actually rendered anywhere in
+            // its own print page (a dead variable there), so it's left as
+            // a plain `sections()` cell here rather than invented a grid
+            // for it that the original itself doesn't have.
+            'toothMarkerCharts' => [
+                ['key' => 'teeth_to_extract', 'fallbackKey' => 'last_tooth_extracted_teeth', 'label' => 'Teeth to be extracted'],
+            ],
         ],
         'surgeries' => [
             'model' => Surgery::class,
@@ -77,6 +99,9 @@ class CaseSheetPrint
             'title' => 'Surgical Case Sheet',
             'formTitle' => 'Surgery',
             'department' => 'Department of Oral & Maxillofacial Surgery',
+            'toothMarkerCharts' => [
+                ['key' => 'selected_teeth', 'label' => 'Dental Chart - Selected Teeth'],
+            ],
         ],
         'periodontal-charts' => [
             'model' => PeriodontalChart::class,

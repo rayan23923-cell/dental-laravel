@@ -60,13 +60,22 @@ class CaseSheetPrintController extends Controller
             ? json_decode((string) $sheet->chart_data, true)
             : null;
 
+        // Which fields (if any) print as a circled-tooth-number marker
+        // chart instead of a plain comma list — see
+        // CaseSheetPrintRenderer::toothMarkerCharts()'s doc comment.
+        $toothMarkerCharts = CaseSheetPrintRenderer::toothMarkerCharts($config, $sheet);
+        $excludeKeys = collect($config['toothMarkerCharts'] ?? [])
+            ->flatMap(fn ($c) => array_filter([$c['key'], $c['fallbackKey'] ?? null]))
+            ->all();
+
         return view('print.case-sheet', [
             'settings' => $settings,
             'sheet' => $sheet,
-            'sections' => CaseSheetPrintRenderer::sections($formClass::sections(), $sheet, $groupColumns),
+            'sections' => CaseSheetPrintRenderer::sections($formClass::sections(), $sheet, $groupColumns, $excludeKeys),
             'stages' => CaseSheetPrintRenderer::stages($stages, $sheet),
             'charts' => CaseSheetPrintRenderer::charts($chartGroups, $chartData),
             'dentalChart' => CaseSheetPrintRenderer::dentalChart($formClass::sections(), $sheet),
+            'toothMarkerCharts' => $toothMarkerCharts,
             'title' => $config['title'],
             'department' => $config['department'] ?? null,
             'headerDepartment' => $config['headerDepartment'] ?? null,

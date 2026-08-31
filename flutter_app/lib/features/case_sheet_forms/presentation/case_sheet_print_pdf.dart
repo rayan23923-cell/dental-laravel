@@ -30,6 +30,7 @@ Future<Uint8List> buildCaseSheetPrintPdf({
   final sections = (doc['sections'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>();
   final charts = (doc['charts'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>();
   final dentalChart = (doc['dental_chart'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>();
+  final toothMarkerCharts = (doc['tooth_marker_charts'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>();
   final stages = (doc['stages'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>();
 
   final department = header['department'] as String?;
@@ -68,6 +69,7 @@ Future<Uint8List> buildCaseSheetPrintPdf({
         for (final section in sections) _sectionBlock(letterhead, section),
         for (final chartGroup in charts) _chartBlock(letterhead, chartGroup),
         if (dentalChart.isNotEmpty) _dentalChartBlock(letterhead, dentalChart),
+        if (toothMarkerCharts.isNotEmpty) _toothMarkerChartsBlock(letterhead, toothMarkerCharts),
         if (stages.isNotEmpty) _stagesBlock(letterhead, stages),
         pw.SizedBox(height: 8),
         _rowTable(letterhead, [
@@ -401,6 +403,82 @@ PdfColor _blendWithWhite(PdfColor color, double opacity) => PdfColor(
       color.green * opacity + (1 - opacity),
       color.blue * opacity + (1 - opacity),
     );
+
+/// The original's simpler odontogram graphic (`surgery_print_html.php`'s
+/// "Dental Chart - Selected Teeth", `complete_denture_print_html.php`'s
+/// "Teeth to be extracted", `prosthodontics_print_html.php`'s "Missing
+/// teeth"/"Carious teeth"): a plain circle around each selected tooth's
+/// number, not the full per-surface flower [_toothGraphic] draws — used
+/// for a handful of `teeth`-type fields, config-driven server-side (see
+/// `App\Support\CaseSheetPrint::SHEETS[...]['toothMarkerCharts']`), never
+/// every `teeth` field (Orthodontics' many tooth-position fields still
+/// print as plain text, matching the original there too). The API already
+/// normalizes every code to this app's own `UR8`/`UL1`/`LR6`/`LL3`
+/// quadrant convention (`CaseSheetPrintRenderer::normalizeToothCode()`),
+/// so this only has to lay that out — no format detection needed here.
+const _quadrants = <String, List<int>>{
+  'UR': [8, 7, 6, 5, 4, 3, 2, 1],
+  'UL': [1, 2, 3, 4, 5, 6, 7, 8],
+  'LR': [8, 7, 6, 5, 4, 3, 2, 1],
+  'LL': [1, 2, 3, 4, 5, 6, 7, 8],
+};
+
+pw.Widget _toothMarkerChartsBlock(PdfLetterhead lh, List<Map<String, dynamic>> charts) {
+  return pw.Column(
+    crossAxisAlignment: pw.CrossAxisAlignment.start,
+    children: [
+      _sectionTitle(lh, 'Dental Chart'),
+      for (final chart in charts) _toothMarkerChart(lh, chart),
+    ],
+  );
+}
+
+pw.Widget _toothMarkerChart(PdfLetterhead lh, Map<String, dynamic> chart) {
+  final label = (chart['label'] as String?) ?? '';
+  final selected = (chart['selected'] as List<dynamic>? ?? const []).map((c) => c.toString().toUpperCase()).toSet();
+
+  pw.Widget quadrantRow(List<String> pair) => pw.Row(
+        children: [
+          for (final q in pair)
+            for (final n in _quadrants[q]!) pw.Expanded(child: _circledToothMarker(lh, n, selected.contains('$q$n'))),
+        ],
+      );
+
+  return pw.Padding(
+    padding: const pw.EdgeInsets.only(bottom: 4),
+    child: pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(label, style: pw.TextStyle(font: lh.bold, fontSize: 7.5)),
+        pw.SizedBox(height: 2),
+        quadrantRow(['UR', 'UL']),
+        quadrantRow(['LR', 'LL']),
+      ],
+    ),
+  );
+}
+
+pw.Widget _circledToothMarker(PdfLetterhead lh, int number, bool selected) {
+  if (!selected) {
+    return pw.Container(
+      height: 18,
+      alignment: pw.Alignment.center,
+      child: pw.Text('$number', style: pw.TextStyle(font: lh.regular, fontSize: 7)),
+    );
+  }
+
+  return pw.Container(
+    height: 18,
+    alignment: pw.Alignment.center,
+    child: pw.Container(
+      width: 15,
+      height: 15,
+      alignment: pw.Alignment.center,
+      decoration: pw.BoxDecoration(shape: pw.BoxShape.circle, border: pw.Border.all(color: PdfColors.black, width: 1.1)),
+      child: pw.Text('$number', style: pw.TextStyle(font: lh.bold, fontSize: 7)),
+    ),
+  );
+}
 
 pw.Widget _stagesBlock(PdfLetterhead lh, List<Map<String, dynamic>> stages) {
   return pw.Column(

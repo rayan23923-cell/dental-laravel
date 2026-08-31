@@ -7002,6 +7002,58 @@ opacity, all at the correct positions in the rendered HTML — not run
 through an actual browser, by request (this session's emulator/browser
 verification was skipped for this pass). `php -l` clean.
 
+## Case-sheet printing: circled-tooth graphic for the other 3 marked sheets (2026-08-31)
+
+Asked directly whether the odontogram work above covered all 8 printable
+sheets — it didn't; only `dental-charts` has a full per-surface chart in
+the original. Checked the original's other seven print pages directly:
+three more (`surgery_print_html.php`, `complete_denture_print_html.php`,
+`prosthodontics_print_html.php`) draw a simpler graphic for a handful of
+their `teeth`-type fields — a plain circle around each selected tooth's
+number — which this rebuild was still printing as a comma list. The
+remaining four sheets print exactly like their own originals already do
+(periodontal's measurement table, or plain text with no graphic at all
+for orthodontics/prevention/oral-medicine) — confirmed by reading each
+print page, not assumed.
+
+- **`App\Support\CaseSheetPrint::SHEETS`** gained an optional
+  `toothMarkerCharts` config entry per sheet — which field(s) get the
+  circled-graphic treatment, and (for complete-denture's `teeth_to_extract`)
+  a fallback field, matching the original's own `$teethToExtract =
+  $lastToothExtractedTeeth` fallback when the primary field is empty.
+  `prosthodontics-records` gets two (`missing_teeth`/`caries_teeth`),
+  `surgeries` and `complete-denture-records` one each.
+- **A real cross-format data problem, found before it shipped**: this
+  app's own tooth-picker (`QuadrantTeeth.vue`) stores codes like `UR8`,
+  but a live query against the real `surgeries` table showed its 16 real
+  rows — imported from the original database, predating that picker —
+  hold `selected_teeth` in the *original* surgery page's own bespoke
+  `U1`–`U16`/`L1`–`L16` scheme instead (e.g. `"U1,U9,L1,L9"`). Matching
+  those directly against the canonical `UR/UL/LR/LL` form would have
+  silently rendered every legacy-imported surgery sheet's chart
+  completely blank. `CaseSheetPrintRenderer::normalizeToothCode()` now
+  accepts all three formats actually in play (this app's own quadrant
+  codes, surgery's legacy `U`/`L` scheme, and a raw FDI two-digit tooth
+  number — the original's `complete_denture_print_html.php` accepts that
+  third form too, via its own `convertQuadrantCodesToToothNumbers()`) and
+  normalizes every one to the same canonical form before either print
+  surface ever sees it.
+- `sections()` gained an `$excludeKeys` parameter so a field promoted to
+  its own graphical chart doesn't also print as a plain-text cell in its
+  normal section — both controllers pass the configured field (and
+  fallback field) keys through.
+
+Verified against real data end-to-end, not synthetic: `tinker` against
+the real `surgeries` row #109 (the legacy `"U1,U9,L1,L9"` one) confirmed
+`normalizeToothCode()` correctly resolves it to `UR1`/`UL1`/`LR1`/`LL1`
+(all four central incisors — anatomically correct, since U1/L1 sit at the
+midline next to U9/L9 in the original's own numbering); rendering the
+full Blade view for that same record confirmed exactly 4 circled markers
+in the output and that `selected_teeth` no longer also prints as plain
+text in its section. Also confirmed via `curl` against the live API that
+`tooth_marker_charts` appears correctly and the field is excluded from
+`sections`. `php -l` clean.
+
 ## Project layout notes
 
 - `database/schema_import.sql` — structure-only DDL extracted from the

@@ -59,10 +59,16 @@ class CaseSheetPrintRenderer
     }
 
     /**
+     * @param  array<int, string>  $excludeKeys  Field keys printed elsewhere
+     *                                            as their own graphical block
+     *                                            (see toothMarkerCharts()
+     *                                            below) — skipped here so
+     *                                            they don't also print as a
+     *                                            plain comma-list cell.
      * @return array<int, array{title: string, rows: array}> sections that
      *                                                      have at least one printable field
      */
-    public static function sections(array $sections, Model $sheet, array $groupColumns = []): array
+    public static function sections(array $sections, Model $sheet, array $groupColumns = [], array $excludeKeys = []): array
     {
         $groups = self::decodeGroups($sheet, $groupColumns);
         $out = [];
@@ -71,6 +77,10 @@ class CaseSheetPrintRenderer
             $cells = [];
 
             foreach ($section['fields'] ?? [] as $field) {
+                if (in_array($field['key'] ?? null, $excludeKeys, true)) {
+                    continue;
+                }
+
                 // `file` fields are upload widgets — the original's print
                 // pages never render them, and a stored path on paper is
                 // meaningless. `dental_chart` (the odontogram) is printed
@@ -277,6 +287,115 @@ class CaseSheetPrintRenderer
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * Quadrant + number tooth codes (`UR8`, `UL1`, `LR6`, `LL3`, …) — this
+     * app's own unified tooth-picker convention (`QuadrantTeeth.vue`,
+     * shared by every `teeth`-type field across all 8 sheets), read
+     * outer-to-inner on the right quadrants and inner-to-outer on the
+     * left, matching that component's own `QUADRANTS` layout so a printed
+     * chart lines up with what the doctor actually clicked on screen. Not
+     * the same numbering the *original* app's own print pages used for
+     * these same fields (`operative.php`'s FDI two-digit codes,
+     * `surgery_print_html.php`'s own bespoke `U1`–`U16`/`L1`–`L16`) — this
+     * rebuild deliberately replaced those inconsistent per-page schemes
+     * with one shared picker, so the print chart follows that, not the
+     * original's now-defunct numbering.
+     */
+    public const QUADRANTS = [
+        'UR' => [8, 7, 6, 5, 4, 3, 2, 1],
+        'UL' => [1, 2, 3, 4, 5, 6, 7, 8],
+        'LR' => [8, 7, 6, 5, 4, 3, 2, 1],
+        'LL' => [1, 2, 3, 4, 5, 6, 7, 8],
+    ];
+
+    /**
+     * Circled-tooth-number marker charts — the simpler graphic the
+     * original draws on `surgery_print_html.php`/`complete_denture_print_html.php`/
+     * `prosthodontics_print_html.php` for a handful of `teeth`-type fields
+     * (a plain circle around each selected tooth's number, not a full
+     * per-surface odontogram like `dentalChart()`'s). Which fields get
+     * this treatment, on which of the 8 sheets, is config-driven —
+     * `App\Support\CaseSheetPrint::SHEETS[...]['toothMarkerCharts']` — since
+     * the original doesn't graph *every* `teeth` field this way (Orthodontics'
+     * many tooth-position fields, for one, print as plain text there too).
+     *
+     * @param  array  $config  One `CaseSheetPrint::SHEETS` entry.
+     * @return array<int, array{label: string, selected: array<int, string>}>
+     *               Charts with at least one selected tooth — an empty
+     *               chart is omitted rather than printed blank.
+     */
+    public static function toothMarkerCharts(array $config, Model $sheet): array
+    {
+        return collect($config['toothMarkerCharts'] ?? [])
+            ->map(function ($chart) use ($sheet) {
+                $raw = $sheet->{$chart['key']} ?? null;
+                if (empty($raw) && ! empty($chart['fallbackKey'])) {
+                    $raw = $sheet->{$chart['fallbackKey']} ?? null;
+                }
+
+                $selected = collect(explode(',', (string) $raw))
+                    ->map(fn ($code) => self::normalizeToothCode($code))
+                    ->filter()
+                    ->values()
+                    ->all();
+
+                return ['label' => $chart['label'], 'selected' => $selected];
+            })
+            ->filter(fn ($chart) => $chart['selected'] !== [])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Normalizes one tooth code to this app's own `{UR|UL|LR|LL}{1-8}`
+     * convention, whatever format it actually arrived in. **Real,
+     * confirmed-live data problem, not a theoretical one**: this app's own
+     * `QuadrantTeeth.vue` picker only ever writes the canonical form, but
+     * the `surgeries` table's 16 real rows (imported from the original
+     * database, predating that picker) hold `selected_teeth` in the
+     * *original* surgery print page's own bespoke `U1`–`U16`/`L1`–`L16`
+     * scheme instead (confirmed via a live query, e.g. `"U1,U9,L1,L9"`) —
+     * matching those against the canonical form directly would have
+     * silently shown every legacy-imported surgery sheet's chart as
+     * completely blank. Also accepts a raw FDI two-digit tooth number
+     * (`"16"`, `"38"`), since `complete_denture_print_html.php`'s own
+     * `convertQuadrantCodesToToothNumbers()` shows the original treats
+     * that as valid input for these same fields too.
+     */
+    private static function normalizeToothCode(string $code): ?string
+    {
+        $code = strtoupper(trim($code));
+
+        if ($code === '') {
+            return null;
+        }
+
+        // Already canonical: UR8, UL1, LR6, LL3.
+        if (preg_match('/^(UR|UL|LR|LL)([1-8])$/', $code, $m)) {
+            return $m[1].$m[2];
+        }
+
+        // surgery_print_html.php's own U1-U16 / L1-L16 (1-8 = right
+        // quadrant reading outer-to-inner, 9-16 = left quadrant reading
+        // inner-to-outer — see this method's own doc comment).
+        if (preg_match('/^([UL])(1[0-6]|[1-9])$/', $code, $m)) {
+            $n = (int) $m[2];
+
+            return $m[1].($n <= 8 ? 'R' : 'L').($n <= 8 ? $n : $n - 8);
+        }
+
+        // Raw FDI two-digit tooth number (11-48) — quadrant from the first
+        // digit, in-quadrant position from the second (FDI's own '1' is
+        // the innermost/central tooth, same as this app's own position 1).
+        if (preg_match('/^([1-4])([1-8])$/', $code, $m)) {
+            $quadrant = ['1' => 'UR', '2' => 'UL', '3' => 'LL', '4' => 'LR'][$m[1]];
+
+            return $quadrant.$m[2];
+        }
+
+        return null;
     }
 
     /**

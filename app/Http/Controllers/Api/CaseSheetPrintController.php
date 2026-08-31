@@ -62,6 +62,13 @@ class CaseSheetPrintController extends Controller
 
         $settings = ClinicSetting::current();
 
+        // Which fields (if any) print as a circled-tooth-number marker
+        // chart instead of a plain comma list — see
+        // CaseSheetPrintRenderer::toothMarkerCharts()'s doc comment.
+        $excludeKeys = collect($config['toothMarkerCharts'] ?? [])
+            ->flatMap(fn ($c) => array_filter([$c['key'], $c['fallbackKey'] ?? null]))
+            ->all();
+
         return response()->json([
             'header' => [
                 'university_name' => $settings->university_name ?: 'University of Baghdad',
@@ -80,13 +87,14 @@ class CaseSheetPrintController extends Controller
             'student_name' => $sheet->student_name ?? null,
             'grade_group' => $sheet->grade_group ?? null,
             'printed_at' => now()->toDateString(),
-            'sections' => CaseSheetPrintRenderer::sections($formClass::sections(), $sheet, $groupColumns),
+            'sections' => CaseSheetPrintRenderer::sections($formClass::sections(), $sheet, $groupColumns, $excludeKeys),
             'charts' => CaseSheetPrintRenderer::charts($chartGroups, $chartData),
             // Added alongside the Flutter print feature (2026-08-30) — the
             // web controller has always included this; the JSON mirror
             // simply hadn't needed it until a client actually rendered the
             // odontogram block.
             'dental_chart' => CaseSheetPrintRenderer::dentalChart($formClass::sections(), $sheet),
+            'tooth_marker_charts' => CaseSheetPrintRenderer::toothMarkerCharts($config, $sheet),
             'stages' => CaseSheetPrintRenderer::stages($stages, $sheet),
         ]);
     }

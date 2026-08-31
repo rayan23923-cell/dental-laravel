@@ -5250,3 +5250,44 @@ this pass; a visual check of the actual printed page layout (does the
 32-tooth grid actually look right at print size, do the flipped
 PdfGraphics coordinates land where intended) is left for the next real
 build/print. `flutter analyze` clean on the whole project throughout.
+
+## Case-sheet printing: the 3 sheets with the simpler circled-tooth graphic (2026-08-31)
+
+Closes the rest of the gap the previous entry left open — asked directly
+("هل تم التعديل لكل الكيس شيت الـ8؟"), only 1 of the 8 printable sheets
+(`dental-charts`) actually has a full per-surface odontogram in the
+original app. Three more (`surgeries`, `complete-denture-records`,
+`prosthodontics-records`) draw a simpler graphic there instead — a plain
+circle around each selected tooth's number
+(`surgery_print_html.php`'s "Dental Chart - Selected Teeth",
+`complete_denture_print_html.php`'s "Teeth to be extracted",
+`prosthodontics_print_html.php`'s "Missing teeth"/"Carious teeth") — which
+this rebuild's `teeth`-type fields were still printing as a plain comma
+list on both surfaces. The remaining 4 sheets print exactly like their
+own original pages already did (periodontal's own measurement table, or
+plain text with no graphic at all for orthodontics/prevention/oral-medicine)
+— nothing to change there. See `dental_laravel/README.md`'s matching entry
+for the backend half — `App\Support\CaseSheetPrintRenderer::toothMarkerCharts()`,
+config-driven per sheet via `App\Support\CaseSheetPrint::SHEETS`, already
+returns the normalized `{label, selected: [UR1, UL2, ...]}` shape both
+print surfaces consume.
+
+- **`_toothMarkerChartsBlock()`/`_toothMarkerChart()`/`_circledToothMarker()`**
+  in `case_sheet_print_pdf.dart` — a `pw.Container` per tooth,
+  `pw.BoxDecoration(shape: pw.BoxShape.circle, border: ...)` around the
+  number when selected, laid out over the same `UR/UL/LR/LL` quadrant grid
+  `QuadrantTeeth.vue` (this app's own shared tooth picker, used by all 8
+  sheets' `teeth`-type fields) already uses on screen. No format-detection
+  logic needed on this side — the API already normalizes whatever the
+  stored value's original format was (see the backend entry) before this
+  ever sees it.
+- Nothing needed changing in `case_sheet_form_screen.dart` — the print
+  button was already resource-agnostic; these three sheets already had
+  it, they just print more now.
+
+Verified the same way as the odontogram entry above: a `flutter_test`
+(host-run) built with the exact JSON shape
+`Api\CaseSheetPrintController::show()` now emits for
+`tooth_marker_charts` — confirmed the PDF still builds (`%PDF-1.5`, no
+exceptions) with both a dental-chart and a tooth-marker-chart section in
+the same document. `flutter analyze` clean.

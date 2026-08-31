@@ -388,6 +388,49 @@
             @endif
         @endif
 
+        @if (! empty($toothMarkerCharts))
+            {{-- The simpler graphic the original draws for a handful of
+                 `teeth`-type fields (surgery's "Selected teeth", complete
+                 denture's "Teeth to be extracted", prosthodontics'
+                 "Missing"/"Carious teeth"): a plain circle around each
+                 selected tooth's number, laid out over this app's own
+                 quadrant grid (UR/UL/LR/LL — see
+                 App\Support\CaseSheetPrintRenderer::QUADRANTS's doc
+                 comment for why that's a different numbering than the
+                 original's own per-page scheme for these same fields).
+                 See App\Support\CaseSheetPrint::SHEETS's `toothMarkerCharts`
+                 config for which fields get this treatment on which sheet. --}}
+            <div class="section-title">Dental Chart</div>
+            @php
+                $quadrants = \App\Support\CaseSheetPrintRenderer::QUADRANTS;
+                $markerCell = function ($n, $selected) {
+                    if (! $selected) {
+                        return '<span style="font-size:8pt;">'.$n.'</span>';
+                    }
+
+                    return '<div style="position:relative;width:20px;height:20px;margin:0 auto;">'
+                        .'<svg viewBox="0 0 30 30" style="position:absolute;top:0;left:0;width:20px;height:20px;">'
+                        .'<circle cx="15" cy="15" r="13" fill="none" stroke="black" stroke-width="3"/></svg>'
+                        .'<span style="position:relative;display:flex;align-items:center;justify-content:center;height:20px;font-weight:bold;font-size:8pt;">'.$n.'</span>'
+                        .'</div>';
+                };
+            @endphp
+            @foreach ($toothMarkerCharts as $chart)
+                <div style="font-weight:bold;font-size:7.5pt;margin:4px 0 2px;">{{ $chart['label'] }}</div>
+                <table class="dental-chart-table">
+                    @foreach ([['UR', 'UL'], ['LR', 'LL']] as $pair)
+                        <tr>
+                            @foreach ($pair as $q)
+                                @foreach ($quadrants[$q] as $n)
+                                    <td>{!! $markerCell($n, in_array($q.$n, $chart['selected'], true)) !!}</td>
+                                @endforeach
+                            @endforeach
+                        </tr>
+                    @endforeach
+                </table>
+            @endforeach
+        @endif
+
         @if (! empty($stages))
             {{-- Per-stage signature/date/grade table, as printed by the
                  prosthodontics and complete-denture sheets. --}}
