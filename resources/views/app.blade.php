@@ -43,6 +43,50 @@
     <body class="font-sans antialiased">
         @inertia
 
+        <!-- iOS "Add to Home Screen" hint (by request, 2026-09-01) — Safari
+             on iOS has no `beforeinstallprompt` equivalent at all (Apple
+             never implemented it, on any iOS browser, since they all run on
+             WebKit); the only path to installing is the user manually
+             opening the Share sheet and tapping "Add to Home Screen"
+             themselves, with no way to trigger that programmatically. This
+             banner exists only to point that path out, once, dismissibly —
+             it does not and cannot install anything itself. Uses the same
+             theme-picker tokens (`surface`/`content`/`hairline`/`accent`,
+             `tailwind.config.js`) the rest of the authenticated app uses,
+             not the fixed `ig-*` tokens — unlike the PWA manifest/icons
+             (a one-time OS-level identity, see PwaManifestController's own
+             docblock), this banner is an ordinary in-app UI element visible
+             to logged-in users on whatever theme is active, the same
+             reasoning that keeps the dashboard/admin panels on the
+             theme-picker instead of the fixed guest-page palette. -->
+        <div
+            id="ios-a2hs-hint"
+            style="display:none"
+            class="fixed inset-x-0 bottom-0 z-50 border-t border-hairline bg-surface px-4 py-3 shadow-panel"
+        >
+            <div class="mx-auto flex max-w-md items-center gap-3">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" class="shrink-0 text-accent" aria-hidden="true">
+                    <path d="M12 3v12m0-12 4 4m-4-4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <p class="flex-1 text-xs leading-snug text-content">
+                    ثبّت هذا التطبيق على شاشتك الرئيسية: اضغط زر
+                    <strong>المشاركة</strong> بالأسفل، ثم اختر
+                    <strong>"إضافة إلى الشاشة الرئيسية"</strong>.
+                </p>
+                <button
+                    type="button"
+                    id="ios-a2hs-hint-close"
+                    aria-label="إغلاق"
+                    class="shrink-0 rounded-full p-1 text-muted hover:bg-app-soft"
+                >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
         <script>
             // Service-worker registration — inline (not routed through the
             // Vite bundle) so it runs unconditionally and its URL is
@@ -57,6 +101,36 @@
                     });
                 });
             }
+
+            // iOS "Add to Home Screen" hint — shown only when: (1) this is
+            // Safari on iOS/iPadOS specifically (not Chrome/Firefox-on-iOS,
+            // which carry their own "CriOS"/"FxiOS" UA tokens even though
+            // they're WebKit underneath — the Share-sheet flow described
+            // above is Safari's own UI, not necessarily identical in
+            // those); (2) it isn't already running as an installed
+            // standalone app (`navigator.standalone` is Safari's own
+            // pre-standard flag for exactly this, still the only reliable
+            // signal on iOS); (3) the user hasn't dismissed it before
+            // (localStorage, permanent — this is a one-time tip, not a
+            // recurring nag).
+            (function () {
+                var ua = navigator.userAgent;
+                var isIos = /iPad|iPhone|iPod/.test(ua) ||
+                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPadOS 13+ reports as "Macintosh"
+                var isSafari = /^((?!CriOS|FxiOS|EdgiOS|OPiOS).)*Safari/.test(ua);
+                var isStandalone = window.navigator.standalone === true ||
+                    window.matchMedia('(display-mode: standalone)').matches;
+                var dismissed = localStorage.getItem('ios-a2hs-hint-dismissed') === '1';
+
+                if (isIos && isSafari && !isStandalone && !dismissed) {
+                    var el = document.getElementById('ios-a2hs-hint');
+                    el.style.display = 'block';
+                    document.getElementById('ios-a2hs-hint-close').addEventListener('click', function () {
+                        el.style.display = 'none';
+                        localStorage.setItem('ios-a2hs-hint-dismissed', '1');
+                    });
+                }
+            })();
         </script>
     </body>
 </html>

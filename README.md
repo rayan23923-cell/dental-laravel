@@ -8092,3 +8092,65 @@ generic "unknown error fetching the script" in that sandboxed environment,
 pointing at a service-worker restriction in that particular automation
 context rather than a bug in `sw.js` or its registration script; a real
 browser should register it normally. `npm run build` clean throughout.
+
+**Follow-up, same day** — confirmed live against the real production site
+(`https://cdclinics.com`, not just the local dev environment) that
+everything above actually works end-to-end: manifest resolves with fully
+correct domain-root URLs, all three icons return `200`/`image/png`, and —
+the one thing the sandboxed tool couldn't confirm earlier — the service
+worker is genuinely **registered and `activated`** (confirmed via
+`navigator.serviceWorker.getRegistrations()`), settling that the earlier
+non-registration was specifically a restriction of the automation
+environment, not a defect in `sw.js`.
+
+## iOS "Add to Home Screen" hint (2026-09-01)
+
+By request, after explaining that Safari on iOS has no
+`beforeinstallprompt` equivalent at all — Apple never implemented that API
+on *any* iOS browser, since they all run on WebKit, so there is no way to
+trigger or even detect installability programmatically there the way
+Chrome/Edge allow. The only path on iOS is the user manually opening
+Safari's Share sheet and tapping "Add to Home Screen" themselves. Added a
+small, dismissible, one-time banner in `resources/views/app.blade.php`
+pointing that path out — it cannot install anything itself, only tells the
+user where to look.
+
+**Detection** (inline `<script>`, vanilla JS, no framework dependency):
+shows only when *all* of — (1) iOS/iPadOS specifically: `/iPad|iPhone|
+iPod/` in the UA, **or** `navigator.platform === 'MacIntel' &&
+navigator.maxTouchPoints > 1` (iPadOS 13+ reports as a plain "Macintosh"
+UA by default, the touch-points check is the standard workaround); (2)
+actually Safari, not another WebKit-based iOS browser that carries its own
+UA token (`CriOS`/`FxiOS`/`EdgiOS`/`OPiOS` all explicitly excluded) — those
+don't necessarily expose the same Share-sheet option; (3) not already
+running installed (`navigator.standalone === true`, Safari's own
+pre-standard flag for exactly this, still the only reliable signal on
+iOS); (4) not previously dismissed (`localStorage`, permanent — a one-time
+tip, not a recurring nag). Verified all 6 cases live (real iPhone Safari
+UA, iPhone Chrome/`CriOS`, iPadOS-as-Mac UA, Android Chrome, desktop
+Chrome, and an already-installed iPhone Safari) each resolve to the
+correct show/hide decision.
+
+**Styling** — deliberately uses the app's ordinary theme-picker tokens
+(`surface`/`content`/`hairline`/`accent`/`app-soft`, `tailwind.config.js`),
+*not* the fixed `ig-*` tokens the PWA manifest/icons use. Those are a
+one-time OS-level identity (see `PwaManifestController`'s own docblock for
+why they're pinned); this banner is an ordinary in-app UI element a
+logged-in user sees on whichever theme (`App\Support\ThemePalette`) is
+actually active, the same reasoning that already keeps the dashboard/admin
+panels off the fixed guest-page palette. Since `app.blade.php` is itself a
+`.blade.php` file already covered by `tailwind.config.js`'s own `content`
+glob, writing Tailwind classes directly in this markup picks them up
+correctly with no extra config — confirmed by grepping the built CSS for
+each class used here after `npm run build`.
+
+Verified live: forced the banner visible and confirmed it renders as a
+full-width bottom bar with the correct Arabic copy, share-icon, and a
+working position (`fixed; inset-x-0; bottom-0`) once tested at a real
+viewport size (an initial check returned a nonsensical 32px-wide box —
+traced to the *test tab* itself reporting `innerWidth: 0` at that moment,
+not a CSS bug, resolved by resizing the tab to a real viewport before
+re-checking); confirmed the dismiss handler's exact logic (hide + set the
+`localStorage` flag) behaves correctly in isolation. `npm run build`
+clean, and the new Tailwind utility classes confirmed present in the
+compiled CSS output.
