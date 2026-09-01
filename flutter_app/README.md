@@ -6265,3 +6265,39 @@ Verified via direct `curl` calls against the live local API with both a
 fresh doctor token (200, real data — confirming the endpoint itself was
 never broken for its actual intended caller) and a fresh staff token
 (reproduced the exact crash before the fix, confirmed a clean 403 after).
+
+## Fixed a second crash on "رموز المهام المعلقة" — a graded task (2026-09-01)
+
+By request — "same problem" persisted for a real doctor account even
+after the 403 fix above, this time with a *real* task grade set (matching
+the "الدرجة: 100.00" the user's own very first screenshot of this session
+showed). Reproduced directly rather than guessed: set a task's `grade` to
+`85.5` and confirmed via `curl` that `GET /pending-tasks` returns
+`"grade":"85.50"` — a JSON **string**, not a number, because `Task.grade`
+is cast `decimal:2` server-side, and Laravel serializes `decimal` casts as
+strings to preserve precision.
+
+`PendingTask.fromJson` (added in the very first pass at this feature)
+parsed it with a plain `json['grade'] as num?`, which throws a runtime
+type error on any string value — every task used while building and
+testing this screen earlier happened to have `grade: null`, so the bug
+never surfaced until a real graded task did.
+
+This is a **recurring bug class already fixed once in this exact
+codebase** — `TaskInstance.fromJson` (`domain/task_instance.dart`) has
+its own doc comment describing the identical issue for its own `grade`
+field, plus a note that `TaskAdmin.grade` and `Payment.amount` hit the
+same thing. `PendingTask` should have followed that established pattern
+from the start and didn't. Fixed the same way: `grade: double.tryParse(
+json['grade']?.toString() ?? '')`, `grade`'s type changed from `num?` to
+`double?` to match.
+
+Verified via direct API calls (a real UI re-verification hit severe
+browser-automation flakiness this round — a recurring theme this
+session, see several earlier entries — so this was confirmed at the
+data layer instead, which is where the actual bug lived): set a task's
+grade to `85.5`, confirmed the API returns it as the string `"85.50"`
+matching the live-observed shape exactly, and confirmed the fixed
+parsing logic (`double.tryParse`) is the identical, already-proven
+pattern `TaskInstance.grade` uses for the same server-side cast.
+`flutter analyze` clean.
