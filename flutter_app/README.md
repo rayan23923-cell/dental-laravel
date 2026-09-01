@@ -6160,3 +6160,37 @@ decoded to a real PNG file and read as an image) wherever a screenshot
 result looked suspicious, which is what caught and confirmed both this
 screen's correctness and the earlier drag-sidebar layout bug. `flutter
 analyze` across the whole `lib/` tree: no issues found.
+
+## Fixed the narrow-mode menu toggle overlapping the iPhone status bar (2026-09-01)
+
+By request, with a real iPhone screenshot showing the blue circular menu
+button sitting on top of the clock/battery/signal icons: "الايقونة
+بالاعلى مرتفعه زيادة تغطي الوقت بالايفون". Root cause, found in
+`core/widgets/app_shell.dart`'s narrow-mode branch: the toggle button is
+a `Positioned(top: 8, ...)` inside the pushed-content `Stack`, which sits
+*outside* the `SafeArea` that only wraps `widget.child` itself (see the
+`AnimatedBuilder`'s own `child:` — `SafeArea(child: widget.child)`, not
+the whole returned `Stack`). A bare `top: 8` is therefore measured from
+the physical top of the screen, under the status bar/notch, rather than
+below it — invisible in every `flutter run -d web-server` check this
+whole sidebar feature was verified with, since a desktop browser tab has
+no status bar/notch to overlap (`MediaQuery.paddingOf(context).top` is
+`0` there), so nothing in the live-canvas verification this session
+already did for the sidebar surfaced it.
+
+Fixed by adding the real inset: `final topInset =
+MediaQuery.paddingOf(context).top;`, then `top: topInset + 8` instead of
+the bare `top: 8`. Deliberately not a second nested `SafeArea` around
+just the button (which would also need `left`/`right`/`bottom: false` to
+avoid double-insetting a button that's already manually offset by 8px on
+its own side) — a plain top-inset addition is simpler and exactly as
+correct, since `SafeArea` itself is only ever reading this same
+`MediaQuery` value internally.
+
+Not independently re-verified live this time (no access to a real iPhone,
+and the earlier web-based canvas-capture technique that verified the rest
+of this sidebar feature can't reproduce a real device's status-bar inset
+at all — `MediaQuery.paddingOf` is always `0` in that environment, which
+is exactly why this shipped unnoticed the first time). The fix reads
+directly from Flutter's own inset API rather than a guessed pixel value,
+and `flutter analyze` is clean.

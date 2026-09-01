@@ -111,6 +111,16 @@ class _AppShellState extends State<AppShell>
     }
 
     final rtl = Directionality.of(context) == TextDirection.rtl;
+    // The toggle button lives inside the pushed-content Stack, which sits
+    // *outside* `content`'s own `SafeArea` (only `widget.child` itself is
+    // wrapped — see the `AnimatedBuilder.child` comment below for why).
+    // A bare `top: 8` therefore measured from the physical screen edge,
+    // under the status bar/notch — confirmed live on a real iPhone: the
+    // button visibly overlapped the clock/battery icons. Adding the real
+    // top inset here fixes it without wrapping the button in its own
+    // nested `SafeArea` (which would also have needed `right`/`left: false`
+    // to avoid double-insetting a button that's already offset by 8px).
+    final topInset = MediaQuery.paddingOf(context).top;
 
     return ColoredBox(
       color: theme.scaffoldBackgroundColor,
@@ -178,7 +188,7 @@ class _AppShellState extends State<AppShell>
                         // with HomeScreen's/TaskListScreen's own bottom-end
                         // FABs). Icon swaps to a close "X" once open.
                         Positioned(
-                          top: 8,
+                          top: topInset + 8,
                           left: rtl ? null : 8,
                           right: rtl ? 8 : null,
                           child: Material(
