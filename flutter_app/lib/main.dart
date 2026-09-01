@@ -11,7 +11,7 @@ Future<void> main() async {
   // Firebase section. Push notifications simply stay inactive until then;
   // nothing else in the app depends on this succeeding.
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp().timeout(const Duration(seconds: 3));
   } catch (_) {
     // Not configured yet — fine, PushNotificationService no-ops too.
   }

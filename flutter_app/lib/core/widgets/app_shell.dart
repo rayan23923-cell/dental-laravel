@@ -192,13 +192,21 @@ class _AppShellState extends State<AppShell>
                               ),
                             ),
                           ),
-                        // Top-leading menu toggle — not bottom (would collide
-                        // with HomeScreen's/TaskListScreen's own bottom-end
-                        // FABs). Icon swaps to a close "X" once open.
+                        // Menu toggle — pinned to the *trailing* corner
+                        // (same side an AppBar puts its `actions`), not the
+                        // leading one. It used to sit on the leading corner,
+                        // which in RTL is exactly where Flutter's automatic
+                        // AppBar back arrow also renders — a real regression
+                        // reported live ("اختفى زر الرجوع"): on any screen
+                        // reached by a push (a real back stack to pop), this
+                        // button was painted directly on top of that arrow,
+                        // hiding it. Not bottom either (would collide with
+                        // HomeScreen's/TaskListScreen's own bottom-end FABs).
+                        // Icon swaps to a close "X" once open.
                         Positioned(
                           top: topInset + 8,
-                          left: rtl ? null : 8,
-                          right: rtl ? 8 : null,
+                          left: rtl ? 8 : null,
+                          right: rtl ? null : 8,
                           child: Material(
                             color: theme.colorScheme.primary,
                             shape: const CircleBorder(),

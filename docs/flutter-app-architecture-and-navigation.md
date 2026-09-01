@@ -371,3 +371,46 @@ Flutter: `PendingTask` domain model, `pendingTasksQrProvider`, and
 task, a "رمز QR" button reusing the existing generic `showQrDialog`
 helper rather than a second QR modal). Added to the sidebar as the
 doctor account type's 4th destination, matching the web nav's placement.
+
+## Fixed: the narrow-mode menu toggle was covering the AppBar's own back arrow (2026-09-01)
+
+Reported live ("اختفى زر الرجوع" — the back button disappeared) after the
+drag-drawer sidebar shipped. Root cause: the floating menu-toggle button
+(`AppShell`'s narrow-mode branch) was pinned to the *leading* corner —
+`top, right: 8` in RTL — which is exactly where Flutter's `AppBar`
+automatically renders its own back arrow in RTL (the `leading` slot
+mirrors to the visually-right side under RTL `Directionality`, the same
+side `right: 8` targets). On any screen reached by a real push (a
+genuine back stack to pop — drilling from a hub screen into a list, for
+example), the 44px toggle button painted directly on top of that arrow,
+hiding it completely; on screens with no back stack (fresh from a sidebar
+tap) there was nothing to hide, which is why the bug didn't show up on
+every screen and was easy to miss in earlier testing.
+
+Fixed by moving the toggle to the *trailing* corner instead — the same
+side an `AppBar`'s own `actions` render on, not its `leading` slot —
+`left: 8` in RTL, `right: 8` in LTR (the reverse of before). This can't
+collide with a back arrow in either direction; a screen's own AppBar
+`actions` (rare on the hub/list screens this shell wraps) are the only
+remaining, much less consequential, collision risk.
+
+Also hardened, found while investigating: `main.dart` awaits
+`Firebase.initializeApp()` before `runApp()`, wrapped in a try/catch —
+but a *hang* (never resolving, as opposed to a quick rejection) rather
+than a thrown error would block the entire app from ever rendering, with
+nothing shown to the user. Added `.timeout(const Duration(seconds: 3))`
+so a slow/unreachable Firebase backend can no longer block startup
+indefinitely — the existing catch-and-continue (`PushNotificationService`
+already no-ops without Firebase) handles the timeout exactly like any
+other failure.
+
+Not independently re-verified live this time — the local Flutter web-test
+environment was unusually slow to render across several attempts this
+session (unrelated to this fix; even a trivial reload was taking
+30-60s+, likely accumulated resource pressure from many earlier test
+runs in the same long session) and didn't finish rendering before time
+was called on it. The fix is a straightforward, deterministic coordinate
+swap (confirmed by re-reading `AppShell`'s exact `Positioned` values
+against `AppBar`'s own well-documented RTL `leading` placement), not
+something contingent on runtime behavior, so it was shipped on that
+analysis rather than a live screenshot. `flutter analyze` clean.
