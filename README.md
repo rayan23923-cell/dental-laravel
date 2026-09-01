@@ -8023,3 +8023,72 @@ n×6.45` for the upper arch), spanning the full arch width, appended after
 every tooth `<g>` so they paint on top; set a PD site to `3` (stayed
 `rgb(0,0,0)`) and `4` (turned `rgb(220,38,38)`, Tailwind's `red-600`).
 `npm run build` clean throughout.
+
+## Web app becomes an installable PWA (2026-09-01)
+
+By request: "انشئ pwa" (scoped to the web app only — the Flutter app's
+matching request was a separate, unrelated sidebar redesign, see that
+app's own README entry). This is a *clinical* app — patient records, case
+sheets, task workflows — so the whole design leans away from the usual
+"offline-first app shell" PWA pattern: a stale cached page showing
+outdated case-sheet data would be actively dangerous, worse than showing
+nothing. The only things this PWA setup ever caches are the site's own
+hashed, content-addressed, immutable `/build/*` JS/CSS/font output —
+never HTML, never `/api/*`.
+
+**Manifest via a route, not a static file** — `App\Http\Controllers\
+PwaManifestController` (`GET /manifest.webmanifest`, named `pwa.manifest`)
+builds the manifest with `url()`/`asset()` rather than a static
+`public/manifest.json`, because this app is served from a sub-directory
+(`APP_URL=http://192.168.1.155/dental_laravel/public`, the same
+constraint `vite.config.js`'s own `base: './'` comment already documents)
+— a static file's `start_url`/`scope`/icon URLs would need hand-keeping in
+sync with wherever this gets deployed; a route resolves them correctly for
+free, and picking up the request's actual host means it also works
+correctly from `127.0.0.1`, a LAN IP, or a real domain without caring
+which. `theme_color` is fixed Instagram blue (`#0095F6`) rather than the
+admin-configurable `App\Support\ThemePalette` — the installed app's
+icon/splash chrome is a one-time OS-level identity, not something that
+should shift every time an admin picks a new in-app theme, the same "one
+fixed look regardless of active theme" reasoning `GuestLayout.vue`'s own
+docblock already gives for hardcoding `ig-*` on public pages.
+
+**Icons** — `public/icons/icon-source.svg` and `icon-source-maskable.svg`
+reproduce `resources/js/Components/BrandMark.vue`'s own tooth path
+verbatim (not redrawn/approximated) against the exact same 5-stop
+Instagram gradient `tailwind.config.js`'s `ig-gradient` already defines,
+scaled to a 512×512 canvas (the maskable variant keeps the glyph inside a
+~80% safe zone, background full-bleed, so OS icon masking doesn't clip
+it). Rasterized to the actual PNGs the manifest references (`icon-192.png`,
+`icon-512.png`, `icon-512-maskable.png`) via a new `scripts/
+generate-pwa-icons.mjs` (uses `sharp`, a new devDependency) — run manually
+(`npm run generate:pwa-icons`), not wired into `npm run build`, since
+branding rarely changes and sharp's native binary shouldn't be a
+build-time cost on every CI run.
+
+**Service worker** (`public/sw.js`) — deliberately minimal: caches only
+`GET` requests whose URL contains `/build/` (cache-first, populate on
+miss); every other request — every HTML/navigation load, every `/api/*`
+call, `storage/*` — has no `respondWith` at all and falls straight through
+to the network untouched, and there's no `navigateFallback`, so a network
+failure shows the browser's own offline error rather than any custom
+cached page that could look like a working-but-stale app. Registered
+inline in `resources/views/app.blade.php` (not routed through the Vite
+bundle) via Blade's own `asset()` helper, so its URL is server-computed
+sub-directory-safe without depending on Vite's `base: './'` relative-URL
+rewriting — the same reason that file already inlines other PHP-computed
+values (`ThemePalette::cssVariables`) directly rather than through JS.
+
+Verified: `/manifest.webmanifest` returns valid JSON with fully-resolved,
+sub-directory-correct URLs (confirmed live — `start_url`/`scope`/icon URLs
+all came back as `http://127.0.0.1/dental_laravel/public/...` matching
+the request's own host); `npm run generate:pwa-icons` produced all three
+PNGs, visually confirmed correct (gradient + white tooth glyph, maskable
+variant not clipped); `sw.js` fetches with `200` and the correct
+`text/javascript` content-type. Service-worker *registration* itself
+could not be confirmed via the in-app Browser tool specifically — even a
+trivial control file (`favicon.ico`) failed to register with the same
+generic "unknown error fetching the script" in that sandboxed environment,
+pointing at a service-worker restriction in that particular automation
+context rather than a bug in `sw.js` or its registration script; a real
+browser should register it normally. `npm run build` clean throughout.

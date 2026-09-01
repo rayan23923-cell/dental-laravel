@@ -7,7 +7,6 @@ import '../../auth/domain/account_type.dart';
 import '../../auth/domain/auth_account.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../auth/presentation/auth_state.dart';
-import '../../notifications/presentation/notifications_providers.dart';
 import '../../task_instances/presentation/my_tasks_screen.dart';
 
 /// A doctor's home *is* their task list (`/my-task-progress` is
@@ -28,51 +27,13 @@ class HomeScreen extends ConsumerWidget {
     final authState = ref.watch(authControllerProvider).valueOrNull;
     final account = authState is Authenticated ? authState.account : null;
     final isDoctor = account?.accountType == AccountType.doctor;
-    final unreadCount = ref.watch(unreadNotificationCountProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(isDoctor ? 'مهامي' : 'الرئيسية'),
-        actions: [
-          if (isDoctor)
-            IconButton(
-              icon: const Icon(Icons.description_outlined),
-              tooltip: 'النماذج السريرية',
-              onPressed: () => context.push('/case-sheets'),
-            ),
-          if (!isDoctor)
-            IconButton(
-              icon: const Icon(Icons.folder_shared_outlined),
-              tooltip: 'السجلات',
-              onPressed: () => context.push('/records'),
-            ),
-          if (!isDoctor)
-            IconButton(
-              icon: const Icon(Icons.admin_panel_settings_outlined),
-              tooltip: 'الإدارة',
-              onPressed: () => context.push('/admin'),
-            ),
-          IconButton(
-            icon: Badge(
-              label: Text('$unreadCount'),
-              isLabelVisible: unreadCount > 0,
-              child: const Icon(Icons.notifications_outlined),
-            ),
-            tooltip: 'الإشعارات',
-            onPressed: () => context.push('/notifications'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.person_outline),
-            tooltip: 'الملف الشخصي',
-            onPressed: () => context.push('/profile'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'تسجيل الخروج',
-            onPressed: () => ref.read(authControllerProvider.notifier).logout(),
-          ),
-        ],
-      ),
+      // Records/admin/notifications/profile/logout all now live in the
+      // persistent sidebar (AppSidebar) — see this file's own doc comment
+      // above for the account-type branching that already drove these same
+      // destinations, now surfaced once in the sidebar instead of per-screen.
+      appBar: AppBar(title: Text(isDoctor ? 'مهامي' : 'الرئيسية')),
       floatingActionButton: isDoctor
           ? FloatingActionButton.extended(
               onPressed: () => context.push('/scan'),

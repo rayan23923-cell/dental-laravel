@@ -1,0 +1,40 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="عيادة الأسنان">
+    <!--
+        PWA app icon source (512x512), full-bleed — rasterized to PNG by
+        scripts/generate-pwa-icons.mjs. Reproduces the same brand mark
+        already shown on the login page (resources/js/Components/BrandMark.vue,
+        a hand-drawn molar in a 0 0 48 48 viewBox) against the same 5-stop
+        Instagram gradient tailwind.config.js defines as `ig-gradient`
+        (#FEDA75 -> #FA7E1E -> #D62976 -> #962FBF -> #4F5BD5), scaled up
+        10.6667x (512/48) to fill this canvas — not a redrawn/approximated
+        mark, the identical path data.
+    -->
+    <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#FEDA75" />
+            <stop offset="25%" stop-color="#FA7E1E" />
+            <stop offset="50%" stop-color="#D62976" />
+            <stop offset="75%" stop-color="#962FBF" />
+            <stop offset="100%" stop-color="#4F5BD5" />
+        </linearGradient>
+    </defs>
+
+    <rect x="0" y="0" width="512" height="512" fill="url(#bg)" />
+
+    <g transform="scale(10.666667)">
+        <!-- Molar — identical path data to BrandMark.vue's own crown/root shape. -->
+        <path
+            d="M24 10.4c-2.5-2.6-5.6-3.9-8.7-3.4-4.3.7-6.9 4.4-6.9 9.6 0 3.3.7 6.3 1.6 9.6.7 2.5 1.2 5 1.5 7.6l.6 5.2c.2 1.6 1.5 2.8 3.1 2.8 1.5 0 2.8-1.1 3.1-2.6l1.6-8.6c.3-1.7 1.8-2.9 3.5-2.9h1.6c1.7 0 3.2 1.2 3.5 2.9l1.6 8.6c.3 1.5 1.6 2.6 3.1 2.6 1.6 0 2.9-1.2 3.1-2.8l.6-5.2c.3-2.6.8-5.1 1.5-7.6.9-3.3 1.6-6.3 1.6-9.6 0-5.2-2.6-8.9-6.9-9.6-3.1-.5-6.2.8-8.7 3.4Z"
+            fill="#FFFFFF"
+        />
+        <!-- Central fissure — stroked in a translucent dark tone rather than
+             BrandMark.vue's own "page background colour" (meaningless here
+             against a gradient fill, not a flat page background). -->
+        <path
+            d="M24 12.2v12"
+            stroke="rgba(0,0,0,0.25)"
+            stroke-width="2.4"
+            stroke-linecap="round"
+        />
+    </g>
+</svg>

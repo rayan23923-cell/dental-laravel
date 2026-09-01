@@ -49,6 +49,7 @@ import '../../features/tasks_admin/presentation/task_form_screen.dart';
 import '../../features/tasks_admin/presentation/task_list_screen.dart';
 import '../../features/taxonomy_admin/domain/taxonomy_item.dart';
 import '../../features/taxonomy_admin/presentation/taxonomy_list_screen.dart';
+import '../widgets/app_shell.dart';
 
 /// Bridges Riverpod's `authControllerProvider` to go_router's
 /// `refreshListenable` — the mechanism that re-evaluates `redirect()`
@@ -80,31 +81,36 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/splash',
     refreshListenable: refreshListenable,
     routes: [
+      // "Outside" routes — full-screen, no persistent sidebar: splash/login,
+      // plus every form/detail/scan screen (a focused single-record task
+      // doesn't need 280px of nav chrome eating its width). Declared before
+      // the ShellRoute below on purpose — see the `/case-sheets/scan-patient`
+      // comment further down for why the relative order still matters even
+      // though these are no longer textually adjacent to `/case-sheets/:resource`.
       GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
-      GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
       GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
       GoRoute(
         path: '/tasks/:id',
         builder: (context, state) => TaskInstanceDetailScreen(taskInstanceId: int.parse(state.pathParameters['id']!)),
       ),
       GoRoute(path: '/scan', builder: (context, state) => const QrScanScreen()),
-      GoRoute(path: '/notifications', builder: (context, state) => const NotificationInboxScreen()),
-      GoRoute(path: '/case-sheets', builder: (context, state) => const CaseSheetTypesScreen()),
-      // Must be registered before `/case-sheets/:resource` below — go_router
-      // matches sibling routes in registration order, so a `:resource`
-      // route registered first would otherwise swallow this static path,
-      // capturing `resource: 'scan-patient'` and routing to the record-list
-      // screen instead (a real bug found live: the scan button opened a
-      // blank "scan-patient" list that then failed fetching a nonexistent
-      // API resource).
+      // Must be registered before the ShellRoute's own `/case-sheets/:resource`
+      // below — go_router matches routes in overall declaration order, so a
+      // `:resource` route reached first would otherwise swallow this static
+      // path, capturing `resource: 'scan-patient'` and routing to the
+      // record-list screen instead (a real bug found live: the scan button
+      // opened a blank "scan-patient" list that then failed fetching a
+      // nonexistent API resource). Sidebar-shell split (this revision) moved
+      // `/case-sheets/:resource` inside the ShellRoute below since it's a
+      // list screen, while this one stays outside (it's a full-screen camera
+      // flow) — no longer textually adjacent, so this comment is the only
+      // thing preserving the ordering rule; do not reorder either route
+      // without re-checking `/case-sheets/scan-patient` still resolves to
+      // QrScanScreen, not CaseSheetRecordListScreen.
       GoRoute(
         path: '/case-sheets/scan-patient',
         builder: (context, state) => const QrScanScreen(mode: QrScanMode.caseSheetPatientAutofill),
-      ),
-      GoRoute(
-        path: '/case-sheets/:resource',
-        builder: (context, state) => CaseSheetRecordListScreen(resource: state.pathParameters['resource']!),
       ),
       GoRoute(
         path: '/case-sheets/:resource/new',
@@ -128,8 +134,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           supervisorEditableFields: _listQueryParam(state, 'supervisor_fields'),
         ),
       ),
-      GoRoute(path: '/records', builder: (context, state) => const RecordsHubScreen()),
-      GoRoute(path: '/records/patients', builder: (context, state) => const PatientListScreen()),
       GoRoute(
         path: '/records/patients/new',
         builder: (context, state) => const PatientFormScreen(),
@@ -138,7 +142,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/records/patients/:id',
         builder: (context, state) => PatientFormScreen(patientId: int.parse(state.pathParameters['id']!)),
       ),
-      GoRoute(path: '/records/appointments', builder: (context, state) => const AppointmentListScreen()),
       GoRoute(
         path: '/records/appointments/new',
         builder: (context, state) => const AppointmentFormScreen(),
@@ -146,10 +149,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/records/appointments/:id',
         builder: (context, state) => AppointmentFormScreen(appointmentId: int.parse(state.pathParameters['id']!)),
-      ),
-      GoRoute(
-        path: '/records/patient-registrations',
-        builder: (context, state) => const PatientRegistrationListScreen(),
       ),
       GoRoute(
         path: '/records/patient-registrations/new',
@@ -187,7 +186,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/records/patient-registrations/scan-for-payment',
         builder: (context, state) => const QrScanScreen(mode: QrScanMode.paymentPatientLink),
       ),
-      GoRoute(path: '/records/payments', builder: (context, state) => const PaymentListScreen()),
       GoRoute(
         path: '/records/payments/new',
         builder: (context, state) => const PaymentFormScreen(),
@@ -196,8 +194,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/records/payments/:id',
         builder: (context, state) => PaymentFormScreen(paymentId: int.parse(state.pathParameters['id']!)),
       ),
-      GoRoute(path: '/admin', builder: (context, state) => const AdminHubScreen()),
-      GoRoute(path: '/admin/doctors', builder: (context, state) => const DoctorListScreen()),
       GoRoute(
         path: '/admin/doctors/new',
         builder: (context, state) => const DoctorFormScreen(),
@@ -206,9 +202,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/admin/doctors/:id',
         builder: (context, state) => DoctorFormScreen(doctorId: int.parse(state.pathParameters['id']!)),
       ),
-      GoRoute(path: '/admin/task-progress', builder: (context, state) => const TaskProgressScreen()),
-      GoRoute(path: '/admin/printer-settings', builder: (context, state) => const PrinterSettingsScreen()),
-      GoRoute(path: '/admin/groups', builder: (context, state) => const GroupListScreen()),
       GoRoute(
         path: '/admin/groups/new',
         builder: (context, state) => const GroupFormScreen(),
@@ -221,7 +214,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/admin/groups/:id',
         builder: (context, state) => GroupDetailScreen(groupId: int.parse(state.pathParameters['id']!)),
       ),
-      GoRoute(path: '/admin/tasks', builder: (context, state) => const TaskListScreen()),
       GoRoute(
         path: '/admin/tasks/new',
         // Carries the list screen's current filter over (see
@@ -240,19 +232,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => TaskFormScreen(taskId: int.parse(state.pathParameters['id']!)),
       ),
       GoRoute(
-        path: '/admin/education-types',
-        builder: (context, state) => const TaxonomyListScreen(kind: TaxonomyKind.educationType),
-      ),
-      GoRoute(
-        path: '/admin/stages',
-        builder: (context, state) => const TaxonomyListScreen(kind: TaxonomyKind.stage),
-      ),
-      GoRoute(
-        path: '/admin/departments',
-        builder: (context, state) => const TaxonomyListScreen(kind: TaxonomyKind.department),
-      ),
-      GoRoute(path: '/admin/academic-sessions', builder: (context, state) => const AcademicSessionListScreen()),
-      GoRoute(
         path: '/admin/academic-sessions/new',
         builder: (context, state) => const AcademicSessionFormScreen(),
       ),
@@ -264,19 +243,67 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/admin/academic-sessions/:id',
         builder: (context, state) => AcademicSessionDetailScreen(sessionId: int.parse(state.pathParameters['id']!)),
       ),
-      GoRoute(
-        path: '/admin/case-sheet-types',
-        builder: (context, state) => const CaseSheetTypeListScreen(),
-      ),
-      GoRoute(path: '/admin/permissions', builder: (context, state) => const PermissionUserListScreen()),
       GoRoute(path: '/admin/users/new', builder: (context, state) => const UserFormScreen()),
       GoRoute(
         path: '/admin/permissions/:id',
         builder: (context, state) => PermissionEditScreen(userId: int.parse(state.pathParameters['id']!)),
       ),
-      GoRoute(path: '/admin/backup', builder: (context, state) => const BackupScreen()),
-      GoRoute(path: '/admin/activity-log', builder: (context, state) => const ActivityLogListScreen()),
-      GoRoute(path: '/admin/clinic-settings', builder: (context, state) => const ClinicSettingsEditScreen()),
+
+      // "Inside" routes — hub/list/settings screens, wrapped in the
+      // persistent sidebar (by request: "سايد بار مشابه لواجهة chatgbt").
+      // See `AppShell`'s own doc comment: it's a plain Row/Stack, not a
+      // Scaffold, so none of these screens' own Scaffold/AppBar needed to
+      // change for this wrap.
+      ShellRoute(
+        builder: (context, state, child) => AppShell(child: child),
+        routes: [
+          GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
+          GoRoute(path: '/notifications', builder: (context, state) => const NotificationInboxScreen()),
+          GoRoute(path: '/case-sheets', builder: (context, state) => const CaseSheetTypesScreen()),
+          GoRoute(
+            path: '/case-sheets/:resource',
+            builder: (context, state) => CaseSheetRecordListScreen(resource: state.pathParameters['resource']!),
+          ),
+          GoRoute(path: '/records', builder: (context, state) => const RecordsHubScreen()),
+          GoRoute(path: '/records/patients', builder: (context, state) => const PatientListScreen()),
+          GoRoute(path: '/records/appointments', builder: (context, state) => const AppointmentListScreen()),
+          GoRoute(
+            path: '/records/patient-registrations',
+            builder: (context, state) => const PatientRegistrationListScreen(),
+          ),
+          GoRoute(path: '/records/payments', builder: (context, state) => const PaymentListScreen()),
+          GoRoute(path: '/admin', builder: (context, state) => const AdminHubScreen()),
+          GoRoute(path: '/admin/doctors', builder: (context, state) => const DoctorListScreen()),
+          GoRoute(path: '/admin/groups', builder: (context, state) => const GroupListScreen()),
+          GoRoute(path: '/admin/tasks', builder: (context, state) => const TaskListScreen()),
+          GoRoute(
+            path: '/admin/education-types',
+            builder: (context, state) => const TaxonomyListScreen(kind: TaxonomyKind.educationType),
+          ),
+          GoRoute(
+            path: '/admin/stages',
+            builder: (context, state) => const TaxonomyListScreen(kind: TaxonomyKind.stage),
+          ),
+          GoRoute(
+            path: '/admin/departments',
+            builder: (context, state) => const TaxonomyListScreen(kind: TaxonomyKind.department),
+          ),
+          GoRoute(
+            path: '/admin/academic-sessions',
+            builder: (context, state) => const AcademicSessionListScreen(),
+          ),
+          GoRoute(
+            path: '/admin/case-sheet-types',
+            builder: (context, state) => const CaseSheetTypeListScreen(),
+          ),
+          GoRoute(path: '/admin/permissions', builder: (context, state) => const PermissionUserListScreen()),
+          GoRoute(path: '/admin/task-progress', builder: (context, state) => const TaskProgressScreen()),
+          GoRoute(path: '/admin/printer-settings', builder: (context, state) => const PrinterSettingsScreen()),
+          GoRoute(path: '/admin/clinic-settings', builder: (context, state) => const ClinicSettingsEditScreen()),
+          GoRoute(path: '/admin/activity-log', builder: (context, state) => const ActivityLogListScreen()),
+          GoRoute(path: '/admin/backup', builder: (context, state) => const BackupScreen()),
+        ],
+      ),
     ],
     redirect: (context, state) {
       // `read`, not `watch` — this provider must not itself depend on

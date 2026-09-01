@@ -5905,3 +5905,114 @@ Verified live against the real web build in the browser (same reasoning
 as revision 9's entry). `flutter analyze
 lib/features/perio_chart/presentation/advanced_perio_chart_field.dart`
 clean, no issues found.
+
+## Persistent ChatGPT-style sidebar replaces all navigation (2026-09-01)
+
+By request: "بالنسبة لواجهة التطبيق فلتر قسمها الى سايد بار مشابه لواجهة
+chatgbt من حيث بروفايل والإعدادات بطريق سهله لسهولة الاستخدام واعتد ألوان
+انستجرام" — the app had no persistent navigation at all before this: all
+~43 screens built their own independent `Scaffold`, and users navigated
+through an ad-hoc hub-and-spoke chain (`HomeScreen` → `AdminHubScreen`/
+`RecordsHubScreen`/`CaseSheetTypesScreen` → leaf screens). Replaced
+entirely with a permanent left sidebar (a slide-in overlay on narrow
+screens) containing account-type-aware nav destinations and a pinned
+bottom profile/settings/logout area, matching ChatGPT's own layout
+convention. Clarified via `AskUserQuestion` beforehand: PWA → web app
+only (separate, unrelated request — see `dental_laravel/README.md`'s own
+entry); sidebar → full navigation replacement; colors → the full
+Instagram gradient treatment.
+
+**Instagram gradient finally used, not just defined** — `InstagramColors.
+gradient` (`core/theme/app_theme.dart`) has existed since this app's
+theme was first built but had zero usages anywhere in the codebase before
+this (grep-confirmed during planning). Promoted it into exactly three
+small, accent-only spots — matching the same restraint the web app's own
+`GuestLayout.vue`/`BrandMark.vue` already established for this identical
+gradient (logo + highlight, never a full-UI repaint): the sidebar header's
+logo badge, a 3–4px bar marking the selected nav item, and a thin "story
+ring" around the pinned profile card's avatar.
+
+**New files**:
+- `core/router/nav_destinations.dart` — `NavDestination`/
+  `navDestinationsFor(AccountType, {required unreadNotifications})`,
+  mirroring `admin_hub_screen.dart`'s own `_AdminItem`/`_AdminGroup`
+  pattern rather than inventing a new shape. Doctor: الرئيسية،
+  النماذج السريرية، مسح QR، الإشعارات. Staff: الرئيسية، السجلات،
+  الإدارة، الإشعارات — the exact same account-type branching
+  `HomeScreen` already did per-screen, now surfaced once as a standing
+  nav list.
+- `core/widgets/app_sidebar.dart` — the sidebar's content: header badge,
+  nav list (selected = current route prefix match against
+  `GoRouterState.of(context).matchedLocation`), pinned bottom profile row
+  (tap → `/profile`), a settings row (**staff only** — doctors have no
+  admin settings, only their own `/profile`) opening a bottom sheet, and
+  a logout row that now asks for confirmation via `AlertDialog` before
+  calling `ref.read(authControllerProvider.notifier).logout()` — a
+  deliberate small UX addition over the old instant-fire `HomeScreen`
+  AppBar button, justified because the sidebar makes logout more
+  prominent/reachable, raising the cost of an accidental tap.
+- `core/widgets/settings_menu_sheet.dart` — `showAdminSettingsSheet`, a
+  `showModalBottomSheet` deep-linking the exact 5 items already grouped
+  under `AdminHubScreen`'s own "الإعدادات" heading
+  (`/admin/printer-settings`, `/admin/clinic-settings`,
+  `/admin/permissions`, `/admin/activity-log`, `/admin/backup`) — no new
+  screens, just reuses what already existed.
+- `core/widgets/app_shell.dart` — the responsive composition.
+  **Deliberately not a `Scaffold`** — a plain `Row`/`Stack` inside
+  `SafeArea`, so every routed screen keeps its own existing
+  `Scaffold`/`AppBar` completely untouched (this is what made the retrofit
+  low-touch: zero required changes to any of the ~20 screens now rendered
+  inside the shell). `≥900px` width: permanent 280px sidebar +
+  `VerticalDivider` + the routed content. `<900px`: sidebar collapses to
+  a small top-leading circular menu toggle (not bottom — would collide
+  with `HomeScreen`'s/`TaskListScreen`'s existing bottom-end FABs) that
+  slides the same `AppSidebar` widget in as an overlay with a
+  dismiss-on-tap-outside barrier.
+
+**Router integration** (`core/router/app_router.dart`) — wrapped the
+hub/list/settings routes in one plain `ShellRoute` (not
+`StatefulShellRoute.indexedStack` — that's built for a small fixed set of
+independently-stacked tabs; with ~55 routes and normal top-level nav
+semantics, like ChatGPT's own sidebar, that structure would be
+disproportionate effort for no real benefit here). Forms/leaf/full-bleed
+screens (every `*/new`, every `*/:id` detail/edit screen, `/profile`,
+`/scan`, `/tasks/:id`, the QR-scan flows) stay outside the shell,
+full-screen, exactly as before — a focused single-record task doesn't
+need 280px of nav chrome eating its width.
+
+⚠️ **Ordering risk, preserved carefully**: `/case-sheets/scan-patient`
+must still resolve before `/case-sheets/:resource` can swallow it (a real
+historical bug, already documented in this file: `:resource` capturing
+`resource: 'scan-patient'` and routing to the record-list screen instead,
+which opened a blank list that then 404'd fetching a nonexistent API
+resource). This split now puts the two routes on opposite sides of the
+shell boundary — no longer textually adjacent — so all "outside" routes
+were kept declared *before* the single `ShellRoute` node in the top-level
+`routes:` list, preserving the original static-before-dynamic ordering
+rule. Verified live (see below) rather than assumed.
+
+**`home_screen.dart`** — removed the now-redundant AppBar `IconButton`s
+(records/admin/notifications/profile/logout, all superseded by the
+sidebar); kept the doctor-only scan FAB and body content
+(`MyTasksScreen`/`_StaffDashboard`) unchanged.
+
+No new dependencies — `go_router ^14.6.2` (already in `pubspec.yaml`)
+supports `ShellRoute` natively.
+
+Verified live end-to-end via `flutter run -d web-server` (two fresh
+temporary accounts — one doctor, one staff, both deleted after use):
+confirmed the doctor sidebar shows الرئيسية/النماذج السريرية/مسح QR/
+الإشعارات with no settings row; confirmed the staff sidebar shows
+الرئيسية/السجلات/الإدارة/الإشعارات *with* a settings row, and that
+tapping it opens the bottom sheet listing all 5 admin settings items,
+each navigating correctly (confirmed `/admin/clinic-settings` renders
+with the sidebar still visible, as designed — it's an "inside" route);
+confirmed the gradient header badge, selected-item bar, and avatar story
+ring all render; confirmed logout shows the "تسجيل الخروج؟" confirmation
+dialog and, once confirmed, actually logs out to `/login`; confirmed
+navigating directly to `/case-sheets/scan-patient` triggers a camera
+permission request (i.e. resolves to `QrScanScreen`, not
+`CaseSheetRecordListScreen`) — the flagged ordering risk holds; resized
+the viewport below 900px and confirmed the permanent sidebar collapses to
+the top-leading menu toggle, which opens the same sidebar as a slide-in
+overlay. `flutter analyze` across the whole `lib/` tree: no issues found.

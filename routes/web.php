@@ -38,6 +38,7 @@ use App\Http\Controllers\AdvancedPeriodontalChartController;
 use App\Http\Controllers\PeriodontalChartController;
 use App\Http\Controllers\PreventionRecordController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PwaManifestController;
 use App\Http\Controllers\ProsthodonticsRecordController;
 use App\Http\Controllers\RegisterSettingsController;
 use App\Http\Controllers\StageController;
@@ -91,6 +92,11 @@ Route::get('/', function () {
         ],
     ]);
 });
+
+// PWA install manifest — no auth (must be fetchable before login, like the
+// icons it references), see PwaManifestController's own doc comment for
+// why this is a route rather than a static public/manifest.json.
+Route::get('/manifest.webmanifest', [PwaManifestController::class, 'show'])->name('pwa.manifest');
 
 // Public waiting-room display — no auth, matches the original app's
 // tv_patients.php being a public screen, not part of the admin app.
