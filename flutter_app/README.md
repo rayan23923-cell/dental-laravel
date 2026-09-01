@@ -6226,3 +6226,42 @@ and native iOS rendering, so a before/after web comparison risked being
 inconclusive either way (the artifact may not even reproduce identically
 on web). The fix is correct by construction regardless: an elevation of
 `0` has no shadow to bleed under any renderer. `flutter analyze` clean.
+
+## Fixed a crash when a staff account reaches "رموز المهام المعلقة" (2026-09-01)
+
+By request, from a screenshot showing "حدث خطأ غير متوقع" (an unexpected
+error) on the new pending-tasks-QR screen. Reproduced directly against
+the live API rather than guessed: `App\Support\PendingTaskFinder::
+forDoctor()` is typed `Doctor $doctor`, and `Api\PendingTaskQrController::
+index()` passed `$request->user()` straight through without checking its
+type first — a staff account's session (a `User`, not a `Doctor`) reaching
+this endpoint threw a raw `TypeError`, a 500 with no clean JSON body,
+which Flutter's `ApiException` mapping falls through to
+`UnknownApiException` for — hence the generic fallback message rather
+than anything useful. Confirmed live with `curl`: a staff token against
+`GET /pending-tasks` reproduced the exact `TypeError` before the fix, and
+a clean `403` after it.
+
+The Flutter sidebar never *offers* this destination to a staff account
+(`nav_destinations.dart` only lists it for `AccountType.doctor`), but the
+route itself carried no server-side guard against a direct call reaching
+it anyway — the same class of gap `Api\TaskProgressController::mine()`
+already guards against for the identical `Doctor`-vs-`User` mismatch.
+Fixed both `index()` and `show()` in `Api\PendingTaskQrController` with
+the same `abort_unless($doctor instanceof Doctor, 403, ...)` pattern that
+file already established — `show()`'s own `$doctor->stage_id` comparison
+happened to fail safe already (a `User` has no such column, so the
+comparison was incidentally always false), but got the explicit guard
+too for consistency rather than relying on that accident.
+
+No Flutter-side change was needed: `ApiExceptionPresentation.userMessage`
+already maps a `403`/`ForbiddenException` to a clean, generic Arabic
+message ("لا تملك صلاحية القيام بهذا الإجراء") regardless of the server's
+own message text, so once the backend stopped crashing, the existing
+error UI (already built into `PendingTasksQrScreen`, with its retry
+button) started showing the right thing automatically.
+
+Verified via direct `curl` calls against the live local API with both a
+fresh doctor token (200, real data — confirming the endpoint itself was
+never broken for its actual intended caller) and a fresh staff token
+(reproduced the exact crash before the fix, confirmed a clean 403 after).
