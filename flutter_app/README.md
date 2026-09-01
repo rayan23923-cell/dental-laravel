@@ -6016,3 +6016,85 @@ permission request (i.e. resolves to `QrScanScreen`, not
 the viewport below 900px and confirmed the permanent sidebar collapses to
 the top-leading menu toggle, which opens the same sidebar as a slide-in
 overlay. `flutter analyze` across the whole `lib/` tree: no issues found.
+
+## Sidebar becomes a drag-to-reveal push drawer on narrow screens (2026-09-01)
+
+By request: "فعل وضعية السحب للسايدبار للمشاهدة والإخفاء وعند السحب يتحرك
+الداشبورد او الواجهة المعروضه كما في جي بيتي او تطبيق كلاود ويكون على طول
+الشاشة السايدبار" — the previous revision's narrow-mode sidebar was a tap-
+only overlay: a toggle button opened a panel that slid on top of a dimmed,
+otherwise-static screen. ChatGPT's and Claude's own mobile apps don't work
+that way — the sidebar sits *behind* the content, and dragging the content
+itself (from anywhere on screen, not just an edge) slides it aside in
+real-time sync with the finger, revealing the sidebar underneath. Rebuilt
+`core/widgets/app_shell.dart`'s narrow-mode branch entirely around that
+interaction.
+
+**Mechanics** — a plain `AnimationController` (0 = closed, 1 = open),
+driven two ways: manually during a drag (`GestureDetector.
+onHorizontalDragUpdate` adds `primaryDelta / sidebarWidth` straight onto
+`controller.value`, so the panel tracks the finger exactly, not an
+eased/delayed follow) and by `animateTo(0|1)` on drag release (snaps
+based on whichever is closer — value past 0.5 or a fling past 300px/s
+— to `_open()`/`_close()`) or on tapping the toggle button. The same
+technique Flutter's own built-in `Drawer` uses internally; exposed
+directly here since `Scaffold.drawer` can't be wired without a shared
+`Scaffold` across the ~20 screens this shell wraps (see the class's own
+"Deliberately NOT a `Scaffold`" doc note for why that's fine — every
+routed screen still owns its own `Scaffold`/`AppBar` untouched).
+
+**RTL-aware, both for the drag and the layout** — this app is Arabic/RTL,
+and the sidebar sits at the trailing (visually right) edge, matching
+where the permanent wide-screen sidebar already sits via Flutter's own
+`Row` mirroring. A physical drag distinguishes "open" vs "close" by
+*direction*, not just magnitude, so `Directionality.of(context)` flips
+the sign of `primaryDelta`/fling velocity before applying it — confirmed
+live that dragging content toward the leading edge (right-to-left, the
+natural "reveal what's behind me on the right" gesture in RTL) opens it,
+matching the same physical-motion convention an LTR app gets from
+dragging left-to-right.
+
+**Full screen height, ignoring the outer `SafeArea`** (by request: "يكون
+على طول الشاشة السايدبار") — the sidebar `Positioned` spans `top: 0,
+bottom: 0` directly, with its own *internal* `SafeArea` wrapping just
+`AppSidebar` so the header/nav list still clear the status bar/notch
+without shrinking the panel's own edge-to-edge background.
+
+**A real layout bug caught only by pulling actual rendered pixels, not by
+inspection** — the first pass wrapped the pushed content in a bare
+`Transform.translate(child: Stack(...))`; live testing showed the routed
+screen rendering at a fraction of the real screen width instead of
+filling it. Root cause: `Transform`'s non-positioned position inside the
+outer `Stack` only receives *loose* constraints, and passes them through
+unchanged to its own child, so nothing downstream was ever told to
+actually fill the available space. Fixed by wrapping the inner `Stack` in
+`SizedBox.expand()`, which forces it to claim the full bound the loose
+constraints allow rather than shrink-wrapping. Caught and confirmed fixed
+by capturing the actual `<canvas>` pixels directly
+(`canvas.toDataURL('image/png')`, saved to a real PNG and read as an
+image) rather than relying on the browser-automation tool's own
+screenshot action, which was independently confirmed to be producing
+corrupted/partial captures for this canvas-rendered content all
+session — a tool-side rendering artifact, not a code bug, but one that
+would have hidden this *real* bug too if trusted instead of
+cross-checked against the raw canvas.
+
+**Icon swap** — the toggle button shows `Icons.menu` closed, `Icons.close`
+once more than halfway open, both states confirmed live via the same raw-
+canvas capture technique.
+
+Verified live end-to-end (a fresh temporary doctor account, deleted after
+use, via `flutter run -d web-server`, narrow viewport): a real
+multi-step drag gesture (synthetic `pointerdown` → many incremental
+`pointermove` steps → `pointerup`, needed because Flutter's drag
+recognizer computes delta from real movement events, not a single jump)
+correctly pushed the content aside and revealed the full-height sidebar
+— header gradient badge, all four doctor nav destinations with النماذج
+السريرية selected-item gradient indicator bar, the pinned profile card
+with its gradient "story ring," and (correctly, doctor accounts have no
+admin settings) no settings row — captured directly from the `<canvas>`
+element and visually confirmed pixel-for-pixel correct; tapping the
+close (X) button afterward returned the canvas to a byte-for-byte
+identical capture as the original closed state, confirming the close
+path is lossless. `flutter analyze` across the whole `lib/` tree: no
+issues found.
