@@ -33,6 +33,7 @@ use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ProsthodonticsRecordController;
 use App\Http\Controllers\Api\RegisterDayController;
 use App\Http\Controllers\Api\ServiceController;
+use App\Http\Controllers\Api\SessionController;
 use App\Http\Controllers\Api\SurgeryController;
 use App\Http\Controllers\Api\SurgeryFollowUpController;
 use App\Http\Controllers\Api\SurgeryImageController;
@@ -277,6 +278,13 @@ Route::name('api.')->prefix('v1')->group(function () {
         // docblock.
         Route::get('/pending-tasks', [PendingTaskQrController::class, 'index']);
         Route::get('/pending-tasks/{task}/qr', [PendingTaskQrController::class, 'show']);
+
+        // "Active sessions" (2026-09-01) — see Api\SessionController's own
+        // docblock for why this lists Sanctum tokens only, not the web
+        // app's separate session-cookie auth.
+        Route::get('/sessions', [SessionController::class, 'index']);
+        Route::delete('/sessions/{id}', [SessionController::class, 'destroy']);
+        Route::post('/sessions/logout-all', [SessionController::class, 'logoutAll']);
 
         // NFC doctor lookup — Flutter-only (browsers can't read NFC), the
         // web's session-based /task-progress/scan stays QR-only and is

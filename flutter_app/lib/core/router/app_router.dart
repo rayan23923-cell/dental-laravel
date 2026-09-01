@@ -24,6 +24,7 @@ import '../../features/patient_registration/presentation/register_settings_scree
 import '../../features/permissions_admin/presentation/permission_edit_screen.dart';
 import '../../features/permissions_admin/presentation/permission_user_list_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/sessions/presentation/sessions_screen.dart';
 import '../../features/users_admin/presentation/user_form_screen.dart';
 import '../../features/case_sheet_forms/presentation/case_sheet_record_list_screen.dart';
 import '../../features/case_sheet_forms/presentation/case_sheet_types_screen.dart';
@@ -96,6 +97,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile',
         builder: (context, state) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: '/sessions',
+        builder: (context, state) => const SessionsScreen(),
       ),
       GoRoute(
         path: '/tasks/:id',

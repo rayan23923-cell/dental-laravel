@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/network/api_exception.dart';
@@ -261,6 +262,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       : const Text('تغيير كلمة المرور'),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          const Divider(),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.devices_outlined),
+              title: const Text('الأجهزة النشطة'),
+              subtitle: const Text('إدارة الأجهزة المسجّل الدخول منها إلى هذا الحساب'),
+              trailing: const Icon(Icons.chevron_left),
+              onTap: () => context.push('/sessions'),
             ),
           ),
         ],

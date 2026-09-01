@@ -7,6 +7,7 @@ use App\Http\Resources\DoctorResource;
 use App\Http\Resources\UserResource;
 use App\Models\Doctor;
 use App\Models\User;
+use App\Support\IpGeolocator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -41,10 +42,11 @@ class AuthController extends Controller
         $user = User::where($field, $credentials['login'])->first();
 
         if ($user && Hash::check($credentials['password'], $user->password)) {
-            $token = $user->createToken($credentials['device_name'])->plainTextToken;
+            $token = $user->createToken($credentials['device_name']);
+            $this->recordSessionMeta($token->accessToken, $request);
 
             return response()->json([
-                'token' => $token,
+                'token' => $token->plainTextToken,
                 'account_type' => 'staff',
                 'user' => new UserResource($user),
             ]);
@@ -53,10 +55,11 @@ class AuthController extends Controller
         $doctor = Doctor::where($field, $credentials['login'])->first();
 
         if ($doctor && Hash::check($credentials['password'], $doctor->password)) {
-            $token = $doctor->createToken($credentials['device_name'])->plainTextToken;
+            $token = $doctor->createToken($credentials['device_name']);
+            $this->recordSessionMeta($token->accessToken, $request);
 
             return response()->json([
-                'token' => $token,
+                'token' => $token->plainTextToken,
                 'account_type' => 'doctor',
                 'doctor' => new DoctorResource($doctor),
             ]);
@@ -65,6 +68,23 @@ class AuthController extends Controller
         throw ValidationException::withMessages([
             'login' => ['The provided credentials are incorrect.'],
         ]);
+    }
+
+    /**
+     * IP + best-effort location, captured once at token creation for the
+     * "Active sessions" screen (`Api\SessionController`) — see
+     * `App\Support\IpGeolocator`'s own doc comment for why this is a
+     * cached, one-time lookup rather than resolved live on every list
+     * request.
+     */
+    private function recordSessionMeta(\Laravel\Sanctum\PersonalAccessToken $token, Request $request): void
+    {
+        $ip = $request->ip();
+
+        $token->forceFill([
+            'ip_address' => $ip,
+            'location' => IpGeolocator::locate($ip),
+        ])->save();
     }
 
     public function logout(Request $request): JsonResponse

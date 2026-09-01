@@ -12,6 +12,7 @@ import TextInput from '@/Components/TextInput.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import Icon from '@/Components/Icon.vue';
+import ActiveSessionsPanel from '@/Components/ActiveSessionsPanel.vue';
 
 const props = defineProps({
     profile: Object,
@@ -129,5 +130,9 @@ const submitPassword = () =>
                 <PrimaryButton :disabled="passwordForm.processing">تغيير كلمة المرور</PrimaryButton>
             </div>
         </form>
+
+        <div class="mt-4">
+            <ActiveSessionsPanel />
+        </div>
     </DoctorLayout>
 </template>

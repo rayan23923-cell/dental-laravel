@@ -305,3 +305,83 @@ same Share-sheet option); (3) not already running standalone
 tokens, not the fixed `ig-*` PWA-icon tokens — this banner is regular in-app
 UI a logged-in user sees under whichever theme is active, not a one-time OS
 identity element.
+
+## Active sessions (Instagram-style, 2026-09-01)
+
+By request: "اضف جلسات تسجيل الدخول نوع الجهاز والموقع وبقية التفاصيل وعدد
+الاجهزة... وخروج من جميع الاجهزة كما موجود في انستغرام" — a device-management
+screen listing every login, with location, and a "log out everywhere" action.
+
+**Scoped to Sanctum tokens, not the `sessions` table.** A "session" here is
+one `personal_access_tokens` row (i.e. one mobile/API `device_name` login).
+Laravel's own database session driver (the web app's cookie login) was
+deliberately excluded: `DatabaseSessionHandler` only ever records
+`sessions.user_id` from the app's *default* guard, which is empty for a
+`doctor`-guard web login in this two-guard setup — trying to list "web
+sessions" would silently omit every doctor's own web login, so the feature
+doesn't claim to track something it can't reliably attribute. This is
+documented directly in `Api\SessionController`'s docblock for future
+maintainers, not just here.
+
+**Backend** (`app/Http/Controllers/Api/SessionController.php`, new): `GET
+/sessions` (list, newest `last_used_at` first), `DELETE /sessions/{id}`
+(scoped through `$request->user()->tokens()->findOrFail($id)` so one account
+can never revoke another's token by guessing an id), `POST
+/sessions/logout-all` (`$request->user()->tokens()->delete()`, matching
+Instagram's own "Log Out of All Sessions" — this also invalidates the token
+making the very request). `App\Http\Resources\SessionResource` derives a
+coarse `device_type` (android/ios/windows/macos/linux/web/other) from the
+existing `device_name`'s `"<platform> • dental_clinic_app"` prefix rather
+than storing a new column — display-only classification of data that
+already exists.
+
+**Location, captured once at login.** New nullable `ip_address`/`location`
+columns on `personal_access_tokens`. `App\Support\IpGeolocator::locate()`
+calls the free `ip-api.com` (no key, 2s timeout) once inside
+`AuthController::login()`'s `recordSessionMeta()`, right after
+`createToken()` — not resolved live on every list read, since an IP a token
+logged in from doesn't change after the fact. Private/loopback/reserved IPs
+(`FILTER_FLAG_NO_PRIV_RANGE|FILTER_FLAG_NO_RES_RANGE`) skip the network call
+entirely rather than spending a request on a guaranteed-empty result — every
+local-dev login would otherwise hit the API. Any failure (unreachable,
+rate-limited, private IP) just leaves `location` null; it never blocks or
+throws through login itself.
+
+**Web UI reaches the same tokens through a second, cookie-authenticated
+controller** (`App\Http\Controllers\AccountSessionController`, behind the
+existing `auth:web,doctor` combined-guard group — the same one the
+case-sheet print routes already share), not the Sanctum-gated
+`Api\SessionController` — a web session-cookie request has no bearer token
+to send. Same three actions, same `SessionResource`, resolving the account
+via `Auth::guard('web')->user() ?? Auth::guard('doctor')->user()`. Because
+the web session itself is never one of the listed rows (see above),
+`is_current` is always `false` there — this panel only ever shows *other*
+(mobile/API) devices, which is correct, not a bug. Embedded as
+`Components/ActiveSessionsPanel.vue` in both `Pages/Profile/Edit.vue` (staff)
+and `Pages/Doctor/Profile.vue`, self-fetching on mount, with a plain
+`confirm()` per end/logout-all action — matching this codebase's existing
+destructive-action convention (`Groups/Index.vue`) rather than introducing a
+custom modal for just this feature. Deliberately does **not** use the
+reserved `ig-*` tokens (Instagram colors are scoped to public-facing
+Login/Welcome surfaces only, per this doc's own opening rule) — plain
+Tailwind grays/reds, matching the rest of the authenticated Profile page.
+
+**Flutter** mirrors it as a dedicated `/sessions` route
+(`features/sessions/`: `domain/account_session.dart`,
+`data/sessions_repository.dart` hitting the same `Api\SessionController`
+endpoints the Flutter app already authenticates against, `presentation/
+sessions_providers.dart` — a `FutureProvider.autoDispose`, and
+`presentation/sessions_screen.dart`), reached from a new "الأجهزة النشطة"
+list tile on `ProfileScreen`. Unlike the web panel, `is_current` **is**
+meaningful here (the Flutter app's own request carries the bearer token
+being asked about), so the current device gets a "هذا الجهاز" badge and no
+end button in its row, matching how Instagram itself never offers "log out"
+on the row for the device you're using — ending every other session is
+still reachable via the "تسجيل الخروج من جميع الأجهزة" button, which also
+signs out the current device (by design, matching the backend). Confirmations
+use a real `AlertDialog` rather than `confirm()` (no browser dialog on
+mobile). Verified live end-to-end in both platforms: created temporary
+accounts, generated multiple token sessions via direct API logins, confirmed
+correct device icons/names/badges render, confirmed ending a session removes
+it from the list immediately, confirmed logout-all clears the list and
+invalidates the token that issued the request (`401` on the next call).

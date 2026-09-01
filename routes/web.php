@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AcademicSessionController;
+use App\Http\Controllers\AccountSessionController;
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\BackupController;
@@ -190,6 +191,12 @@ Route::middleware('auth:web,doctor')->group(function () {
     Route::get('/case-sheets/instances/{taskInstance}/qr', [TaskInstanceController::class, 'qr'])
         ->middleware('case-sheet')
         ->name('case-sheets.instance-qr');
+
+    // "Active sessions" panel embedded in both Profile pages — see
+    // AccountSessionController's own docblock.
+    Route::get('/account/sessions', [AccountSessionController::class, 'index'])->name('account.sessions.index');
+    Route::delete('/account/sessions/{id}', [AccountSessionController::class, 'destroy'])->name('account.sessions.destroy');
+    Route::post('/account/sessions/logout-all', [AccountSessionController::class, 'logoutAll'])->name('account.sessions.logout-all');
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
