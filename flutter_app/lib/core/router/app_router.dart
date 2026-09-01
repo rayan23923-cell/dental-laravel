@@ -43,6 +43,7 @@ import '../../features/records/presentation/patients/patient_list_screen.dart';
 import '../../features/records/presentation/payments/payment_form_screen.dart';
 import '../../features/records/presentation/payments/payment_list_screen.dart';
 import '../../features/records/presentation/records_hub_screen.dart';
+import '../../features/task_instances/presentation/pending_tasks_qr_screen.dart';
 import '../../features/task_instances/presentation/qr_scan_screen.dart';
 import '../../features/task_instances/presentation/task_instance_detail_screen.dart';
 import '../../features/tasks_admin/presentation/task_form_screen.dart';
@@ -87,12 +88,20 @@ final routerProvider = Provider<GoRouter>((ref) {
       // the ShellRoute below on purpose — see the `/case-sheets/scan-patient`
       // comment further down for why the relative order still matters even
       // though these are no longer textually adjacent to `/case-sheets/:resource`.
-      GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
-      GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
+      GoRoute(
+        path: '/profile',
+        builder: (context, state) => const ProfileScreen(),
+      ),
       GoRoute(
         path: '/tasks/:id',
-        builder: (context, state) => TaskInstanceDetailScreen(taskInstanceId: int.parse(state.pathParameters['id']!)),
+        builder: (context, state) => TaskInstanceDetailScreen(
+          taskInstanceId: int.parse(state.pathParameters['id']!),
+        ),
       ),
       GoRoute(path: '/scan', builder: (context, state) => const QrScanScreen()),
       // Must be registered before the ShellRoute's own `/case-sheets/:resource`
@@ -110,7 +119,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       // QrScanScreen, not CaseSheetRecordListScreen.
       GoRoute(
         path: '/case-sheets/scan-patient',
-        builder: (context, state) => const QrScanScreen(mode: QrScanMode.caseSheetPatientAutofill),
+        builder: (context, state) =>
+            const QrScanScreen(mode: QrScanMode.caseSheetPatientAutofill),
       ),
       GoRoute(
         path: '/case-sheets/:resource/new',
@@ -140,7 +150,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/records/patients/:id',
-        builder: (context, state) => PatientFormScreen(patientId: int.parse(state.pathParameters['id']!)),
+        builder: (context, state) => PatientFormScreen(
+          patientId: int.parse(state.pathParameters['id']!),
+        ),
       ),
       GoRoute(
         path: '/records/appointments/new',
@@ -148,7 +160,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/records/appointments/:id',
-        builder: (context, state) => AppointmentFormScreen(appointmentId: int.parse(state.pathParameters['id']!)),
+        builder: (context, state) => AppointmentFormScreen(
+          appointmentId: int.parse(state.pathParameters['id']!),
+        ),
       ),
       GoRoute(
         path: '/records/patient-registrations/new',
@@ -160,31 +174,37 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/records/patient-registrations/scan',
-        builder: (context, state) => const QrScanScreen(mode: QrScanMode.patientRegistrationPayment),
+        builder: (context, state) =>
+            const QrScanScreen(mode: QrScanMode.patientRegistrationPayment),
       ),
       GoRoute(
         path: '/records/patient-registrations/payment',
-        builder: (context, state) =>
-            PatientRegistrationPaymentScreen(initial: state.extra! as RegistrationPaymentState),
+        builder: (context, state) => PatientRegistrationPaymentScreen(
+          initial: state.extra! as RegistrationPaymentState,
+        ),
       ),
       // Infectious-disease screening gate (2026-08-26) — mirrors the
       // scan/payment route pair immediately above.
       GoRoute(
         path: '/records/patient-registrations/scan-screening',
-        builder: (context, state) => const QrScanScreen(mode: QrScanMode.patientRegistrationScreening),
+        builder: (context, state) =>
+            const QrScanScreen(mode: QrScanMode.patientRegistrationScreening),
       ),
       GoRoute(
         path: '/records/patient-registrations/screening',
-        builder: (context, state) =>
-            PatientRegistrationScreeningScreen(initial: state.extra! as RegistrationPaymentState),
+        builder: (context, state) => PatientRegistrationScreeningScreen(
+          initial: state.extra! as RegistrationPaymentState,
+        ),
       ),
       GoRoute(
         path: '/records/patient-registrations/scan-for-task',
-        builder: (context, state) => const QrScanScreen(mode: QrScanMode.taskPatientLink),
+        builder: (context, state) =>
+            const QrScanScreen(mode: QrScanMode.taskPatientLink),
       ),
       GoRoute(
         path: '/records/patient-registrations/scan-for-payment',
-        builder: (context, state) => const QrScanScreen(mode: QrScanMode.paymentPatientLink),
+        builder: (context, state) =>
+            const QrScanScreen(mode: QrScanMode.paymentPatientLink),
       ),
       GoRoute(
         path: '/records/payments/new',
@@ -192,7 +212,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/records/payments/:id',
-        builder: (context, state) => PaymentFormScreen(paymentId: int.parse(state.pathParameters['id']!)),
+        builder: (context, state) => PaymentFormScreen(
+          paymentId: int.parse(state.pathParameters['id']!),
+        ),
       ),
       GoRoute(
         path: '/admin/doctors/new',
@@ -200,7 +222,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/admin/doctors/:id',
-        builder: (context, state) => DoctorFormScreen(doctorId: int.parse(state.pathParameters['id']!)),
+        builder: (context, state) =>
+            DoctorFormScreen(doctorId: int.parse(state.pathParameters['id']!)),
       ),
       GoRoute(
         path: '/admin/groups/new',
@@ -208,11 +231,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/admin/groups/:id/edit',
-        builder: (context, state) => GroupFormScreen(groupId: int.parse(state.pathParameters['id']!)),
+        builder: (context, state) =>
+            GroupFormScreen(groupId: int.parse(state.pathParameters['id']!)),
       ),
       GoRoute(
         path: '/admin/groups/:id',
-        builder: (context, state) => GroupDetailScreen(groupId: int.parse(state.pathParameters['id']!)),
+        builder: (context, state) =>
+            GroupDetailScreen(groupId: int.parse(state.pathParameters['id']!)),
       ),
       GoRoute(
         path: '/admin/tasks/new',
@@ -229,7 +254,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/admin/tasks/:id',
-        builder: (context, state) => TaskFormScreen(taskId: int.parse(state.pathParameters['id']!)),
+        builder: (context, state) =>
+            TaskFormScreen(taskId: int.parse(state.pathParameters['id']!)),
       ),
       GoRoute(
         path: '/admin/academic-sessions/new',
@@ -237,16 +263,25 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/admin/academic-sessions/:id/edit',
-        builder: (context, state) => AcademicSessionFormScreen(sessionId: int.parse(state.pathParameters['id']!)),
+        builder: (context, state) => AcademicSessionFormScreen(
+          sessionId: int.parse(state.pathParameters['id']!),
+        ),
       ),
       GoRoute(
         path: '/admin/academic-sessions/:id',
-        builder: (context, state) => AcademicSessionDetailScreen(sessionId: int.parse(state.pathParameters['id']!)),
+        builder: (context, state) => AcademicSessionDetailScreen(
+          sessionId: int.parse(state.pathParameters['id']!),
+        ),
       ),
-      GoRoute(path: '/admin/users/new', builder: (context, state) => const UserFormScreen()),
+      GoRoute(
+        path: '/admin/users/new',
+        builder: (context, state) => const UserFormScreen(),
+      ),
       GoRoute(
         path: '/admin/permissions/:id',
-        builder: (context, state) => PermissionEditScreen(userId: int.parse(state.pathParameters['id']!)),
+        builder: (context, state) => PermissionEditScreen(
+          userId: int.parse(state.pathParameters['id']!),
+        ),
       ),
 
       // "Inside" routes — hub/list/settings screens, wrapped in the
@@ -257,36 +292,82 @@ final routerProvider = Provider<GoRouter>((ref) {
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),
         routes: [
-          GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
-          GoRoute(path: '/notifications', builder: (context, state) => const NotificationInboxScreen()),
-          GoRoute(path: '/case-sheets', builder: (context, state) => const CaseSheetTypesScreen()),
+          GoRoute(
+            path: '/home',
+            builder: (context, state) => const HomeScreen(),
+          ),
+          GoRoute(
+            path: '/notifications',
+            builder: (context, state) => const NotificationInboxScreen(),
+          ),
+          // "رموز المهام المعلقة" — doctor-only, see PendingTasksQrScreen's
+          // own doc comment. `PendingTaskQrController::index()` scopes the
+          // list to the requesting doctor's own stage server-side, so no
+          // extra guard is needed here beyond normal auth.
+          GoRoute(
+            path: '/pending-tasks-qr',
+            builder: (context, state) => const PendingTasksQrScreen(),
+          ),
+          GoRoute(
+            path: '/case-sheets',
+            builder: (context, state) => const CaseSheetTypesScreen(),
+          ),
           GoRoute(
             path: '/case-sheets/:resource',
-            builder: (context, state) => CaseSheetRecordListScreen(resource: state.pathParameters['resource']!),
+            builder: (context, state) => CaseSheetRecordListScreen(
+              resource: state.pathParameters['resource']!,
+            ),
           ),
-          GoRoute(path: '/records', builder: (context, state) => const RecordsHubScreen()),
-          GoRoute(path: '/records/patients', builder: (context, state) => const PatientListScreen()),
-          GoRoute(path: '/records/appointments', builder: (context, state) => const AppointmentListScreen()),
+          GoRoute(
+            path: '/records',
+            builder: (context, state) => const RecordsHubScreen(),
+          ),
+          GoRoute(
+            path: '/records/patients',
+            builder: (context, state) => const PatientListScreen(),
+          ),
+          GoRoute(
+            path: '/records/appointments',
+            builder: (context, state) => const AppointmentListScreen(),
+          ),
           GoRoute(
             path: '/records/patient-registrations',
             builder: (context, state) => const PatientRegistrationListScreen(),
           ),
-          GoRoute(path: '/records/payments', builder: (context, state) => const PaymentListScreen()),
-          GoRoute(path: '/admin', builder: (context, state) => const AdminHubScreen()),
-          GoRoute(path: '/admin/doctors', builder: (context, state) => const DoctorListScreen()),
-          GoRoute(path: '/admin/groups', builder: (context, state) => const GroupListScreen()),
-          GoRoute(path: '/admin/tasks', builder: (context, state) => const TaskListScreen()),
+          GoRoute(
+            path: '/records/payments',
+            builder: (context, state) => const PaymentListScreen(),
+          ),
+          GoRoute(
+            path: '/admin',
+            builder: (context, state) => const AdminHubScreen(),
+          ),
+          GoRoute(
+            path: '/admin/doctors',
+            builder: (context, state) => const DoctorListScreen(),
+          ),
+          GoRoute(
+            path: '/admin/groups',
+            builder: (context, state) => const GroupListScreen(),
+          ),
+          GoRoute(
+            path: '/admin/tasks',
+            builder: (context, state) => const TaskListScreen(),
+          ),
           GoRoute(
             path: '/admin/education-types',
-            builder: (context, state) => const TaxonomyListScreen(kind: TaxonomyKind.educationType),
+            builder: (context, state) =>
+                const TaxonomyListScreen(kind: TaxonomyKind.educationType),
           ),
           GoRoute(
             path: '/admin/stages',
-            builder: (context, state) => const TaxonomyListScreen(kind: TaxonomyKind.stage),
+            builder: (context, state) =>
+                const TaxonomyListScreen(kind: TaxonomyKind.stage),
           ),
           GoRoute(
             path: '/admin/departments',
-            builder: (context, state) => const TaxonomyListScreen(kind: TaxonomyKind.department),
+            builder: (context, state) =>
+                const TaxonomyListScreen(kind: TaxonomyKind.department),
           ),
           GoRoute(
             path: '/admin/academic-sessions',
@@ -296,12 +377,30 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/admin/case-sheet-types',
             builder: (context, state) => const CaseSheetTypeListScreen(),
           ),
-          GoRoute(path: '/admin/permissions', builder: (context, state) => const PermissionUserListScreen()),
-          GoRoute(path: '/admin/task-progress', builder: (context, state) => const TaskProgressScreen()),
-          GoRoute(path: '/admin/printer-settings', builder: (context, state) => const PrinterSettingsScreen()),
-          GoRoute(path: '/admin/clinic-settings', builder: (context, state) => const ClinicSettingsEditScreen()),
-          GoRoute(path: '/admin/activity-log', builder: (context, state) => const ActivityLogListScreen()),
-          GoRoute(path: '/admin/backup', builder: (context, state) => const BackupScreen()),
+          GoRoute(
+            path: '/admin/permissions',
+            builder: (context, state) => const PermissionUserListScreen(),
+          ),
+          GoRoute(
+            path: '/admin/task-progress',
+            builder: (context, state) => const TaskProgressScreen(),
+          ),
+          GoRoute(
+            path: '/admin/printer-settings',
+            builder: (context, state) => const PrinterSettingsScreen(),
+          ),
+          GoRoute(
+            path: '/admin/clinic-settings',
+            builder: (context, state) => const ClinicSettingsEditScreen(),
+          ),
+          GoRoute(
+            path: '/admin/activity-log',
+            builder: (context, state) => const ActivityLogListScreen(),
+          ),
+          GoRoute(
+            path: '/admin/backup',
+            builder: (context, state) => const BackupScreen(),
+          ),
         ],
       ),
     ],

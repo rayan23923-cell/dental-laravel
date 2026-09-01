@@ -6098,3 +6098,65 @@ close (X) button afterward returned the canvas to a byte-for-byte
 identical capture as the original closed state, confirming the close
 path is lossless. `flutter analyze` across the whole `lib/` tree: no
 issues found.
+
+## "رموز المهام المعلقة" — a dedicated pending-tasks-QR screen (2026-09-01)
+
+By request: the user shared a phone screenshot of the web app's own
+dedicated "رموز المهام المعلقة" page (`resources/js/Pages/Doctor/
+PendingTasksQr.vue`, reached from `DoctorLayout.vue`'s nav) and asked to
+add it to the Flutter app — "اضفها للتطبيق". The *data* already had a
+Flutter path (each unstarted row in `MyTasksScreen`'s "مهامي" list
+already shows an inline QR button, added 2026-08-27 — see that
+controller's own docblock), but the *dedicated grid screen* the
+screenshot showed, matching the web nav's own top-level entry, had no
+Flutter counterpart at all.
+
+**Backend** — `Api\PendingTaskQrController` gained an `index()` method
+(`GET /pending-tasks`), reusing `PendingTaskFinder::forDoctor()` — the
+exact same query `Doctor\PendingTasksQrController::index()` already
+uses for the web page, so both surfaces stay in sync by construction
+rather than by two independently-maintained queries. Returns the same
+fields the web's own `tasks` prop does (id/title/department/
+required_count/notes/grade). The existing `show()` PNG endpoint
+(`/pending-tasks/{task}/qr`) was already Flutter-reachable; only the
+list was missing.
+
+**Flutter**:
+- `features/task_instances/domain/pending_task.dart` — `PendingTask`,
+  mirroring the API shape exactly.
+- `TaskInstanceRepository.pendingTasksQr()` / `pendingTasksQrProvider` —
+  same `getJson` + `FutureProvider.autoDispose` pattern every other list
+  in this feature already uses (`mineProgress()`/`myTaskProgressProvider`
+  right above it).
+- `features/task_instances/presentation/pending_tasks_qr_screen.dart` —
+  `PendingTasksQrScreen`: the same description line, empty state, and
+  per-task card content (title, department, required count, grade,
+  notes, a "رمز QR" button) as the web page, reusing the *existing*
+  `showQrDialog` helper (`core/widgets/qr_dialog.dart`, already generic
+  over `imagePath` for exactly this — the per-instance and per-pending-
+  task QR dialogs were already meant to share one implementation) rather
+  than building a second QR modal.
+- Route `/pending-tasks-qr` added **inside** the `ShellRoute` (a list/hub
+  screen, not a form) in `app_router.dart`.
+- `nav_destinations.dart` — added as the doctor account type's 4th
+  destination (before الإشعارات), matching where `DoctorLayout.vue`
+  places it in the web nav.
+
+Verified live end-to-end (a fresh temporary doctor account with one real
+unstarted task in its stage, deleted after use, via `flutter run -d
+web-server`): opened the sidebar, confirmed "رموز المهام المعلقة" appears
+with the QR icon, navigated to it and confirmed the description text,
+the task card (title/department/"المطلوب: 1"), and the "رمز QR" button
+all render correctly; tapped it and confirmed the dialog opens with a
+*real* QR PNG loaded from the live API endpoint (not a placeholder),
+the correct caption, and a working close button.
+
+Verification method note: `computer`-tool screenshots proved unreliable
+again partway through this session (intermittent timeouts, and one
+confirmed corrupted/partial capture that briefly looked like a real
+layout bug in the previous revision's work) — settled by capturing the
+actual `<canvas>` pixels directly (`canvas.toDataURL('image/png')`,
+decoded to a real PNG file and read as an image) wherever a screenshot
+result looked suspicious, which is what caught and confirmed both this
+screen's correctness and the earlier drag-sidebar layout bug. `flutter
+analyze` across the whole `lib/` tree: no issues found.

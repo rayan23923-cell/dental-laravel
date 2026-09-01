@@ -272,6 +272,10 @@ Route::name('api.')->prefix('v1')->group(function () {
         // — see Doctor\PendingTasksQrController's docblock for why "pending"
         // means something different here than task_instances.status). New
         // 2026-08-27: Flutter had no way to generate this PNG at all before.
+        // `index` (2026-09-01) is the dedicated "رموز المهام المعلقة" list
+        // itself, not just the per-task PNG — see the controller's own
+        // docblock.
+        Route::get('/pending-tasks', [PendingTaskQrController::class, 'index']);
         Route::get('/pending-tasks/{task}/qr', [PendingTaskQrController::class, 'show']);
 
         // NFC doctor lookup — Flutter-only (browsers can't read NFC), the
