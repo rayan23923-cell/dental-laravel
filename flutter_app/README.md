@@ -6194,3 +6194,35 @@ at all — `MediaQuery.paddingOf` is always `0` in that environment, which
 is exactly why this shipped unnoticed the first time). The fix reads
 directly from Flutter's own inset API rather than a guessed pixel value,
 and `flutter analyze` is clean.
+
+## Fixed a faint shadow line bleeding through at the sidebar's edge (2026-09-01)
+
+By request, from the same iPhone screenshot as the status-bar fix above:
+"هناك حد خط اسود شفاف عند نهاية السايد بار قم بازالته" — a thin,
+semi-transparent vertical line running the full screen height at
+(measured from the screenshot) almost exactly where the closed sidebar's
+own edge sits on that device's screen width.
+
+Root cause: the sidebar's `Material(elevation: 4, ...)` in
+`core/widgets/app_shell.dart` used a *constant* elevation regardless of
+the drag animation's own `t` value (0 closed, 1 fully open) — so even at
+`t = 0`, fully closed and entirely covered by the pushed content painted
+on top of it in the same `Stack`, Flutter still computed and painted a
+drop shadow for it. That shadow is meant to only be visible while the
+sidebar is actually sliding out from behind the content (a nice touch
+while dragging/open), not while fully hidden.
+
+Fixed by scaling elevation with the same `t` the rest of the drag
+animation already uses: `elevation: 4 * t` instead of the constant `4` —
+at `t = 0` there is now no shadow being computed at all, removing the
+possibility of any bleed-through by construction rather than depending
+on the content layer to fully mask a shadow that shouldn't be there in
+the first place.
+
+Not independently re-verified live this time — elevation/shadow
+compositing can differ between Flutter's web (CanvasKit) renderer, which
+is all `flutter run -d web-server` testing in this session has ever used,
+and native iOS rendering, so a before/after web comparison risked being
+inconclusive either way (the artifact may not even reproduce identically
+on web). The fix is correct by construction regardless: an elevation of
+`0` has no shadow to bleed under any renderer. `flutter analyze` clean.

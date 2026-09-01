@@ -157,8 +157,16 @@ class _AppShellState extends State<AppShell>
                   left: rtl ? null : 0,
                   right: rtl ? 0 : null,
                   width: AppShell._sidebarWidth,
+                  // Elevation only while at least partly visible — a
+                  // constant `elevation: 4` here was found live to bleed a
+                  // faint shadow line through at the sidebar's edge even
+                  // fully closed (t=0), when the pushed content sitting
+                  // *above* it in this Stack should have hidden it
+                  // completely; scaling elevation down to 0 with `t` removes
+                  // any shadow to bleed in the first place rather than
+                  // relying on the content layer to fully mask it.
                   child: Material(
-                    elevation: 4,
+                    elevation: 4 * t,
                     child: SafeArea(child: AppSidebar(onNavigate: _close)),
                   ),
                 ),
