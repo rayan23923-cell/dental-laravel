@@ -6301,3 +6301,35 @@ matching the live-observed shape exactly, and confirmed the fixed
 parsing logic (`double.tryParse`) is the identical, already-proven
 pattern `TaskInstance.grade` uses for the same server-side cast.
 `flutter analyze` clean.
+
+## Instagram-style gradient loading spinner on the login button (2026-09-01)
+
+Same request and reasoning as `dental_laravel/README.md`'s matching
+entry — read that one for the full rationale (a loading spinner as
+another small, recognisable "gradient = accent" moment, matching how
+`InstagramColors.gradient` is already spent on the sidebar header badge
+and the profile "story ring," never a full-UI repaint). This entry
+covers only the Flutter-specific port.
+
+New `lib/core/widgets/instagram_spinner.dart`: `InstagramSpinner`, a
+`RotationTransition` driving a `CustomPainter` that strokes a ring with a
+`SweepGradient` (a `LinearGradient` like `InstagramColors.gradient`
+itself can't wrap a full circle — a `SweepGradient` is the shape that
+can; the *colours* are read directly from `InstagramColors.gradient.
+colors` rather than duplicated, with the first colour repeated once at
+the end so the ring's start/end meet without a hard seam, which a
+`SweepGradient` needs and a `LinearGradient` doesn't carry). Replaces the
+plain `CircularProgressIndicator` in both `login_screen.dart` spots — the
+main "تسجيل الدخول" button and the "forgot password" dialog's
+send/save button, the same "auth flow" scope the button itself sits in.
+
+Verified live via `flutter run -d web-server`: patched `XMLHttpRequest`/
+`fetch` to delay the `/login` call, submitted the form, and captured the
+actual `<canvas>` pixels directly (`canvas.toDataURL('image/png')`,
+decoded to a real PNG and read as an image — the same technique that
+caught real bugs earlier in this session, more reliable here than the
+browser-automation tool's own screenshot action) — the gradient ring
+renders clearly and correctly inside the button. `flutter analyze`
+clean (aside from 8 pre-existing, unrelated `curly_braces_in_flow_
+control_structures` info-lints in this same file's untouched
+"forgot password" validators).

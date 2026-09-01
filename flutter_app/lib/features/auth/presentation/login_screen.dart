@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/instagram_spinner.dart';
 import '../data/auth_repository.dart';
 import '../data/branding_repository.dart';
 import 'auth_controller.dart';
@@ -54,7 +55,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    await ref.read(authControllerProvider.notifier).login(
+    await ref
+        .read(authControllerProvider.notifier)
+        .login(
           identifier: _identifierController.text.trim(),
           password: _passwordController.text,
         );
@@ -94,10 +97,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         enabled: !sending,
                         keyboardType: TextInputType.emailAddress,
                         autofillHints: const [AutofillHints.email],
-                        decoration: const InputDecoration(labelText: 'البريد الإلكتروني'),
+                        decoration: const InputDecoration(
+                          labelText: 'البريد الإلكتروني',
+                        ),
                         validator: (value) {
-                          if (value == null || value.trim().isEmpty) return 'هذا الحقل مطلوب';
-                          if (!value.contains('@')) return 'بريد إلكتروني غير صالح';
+                          if (value == null || value.trim().isEmpty)
+                            return 'هذا الحقل مطلوب';
+                          if (!value.contains('@'))
+                            return 'بريد إلكتروني غير صالح';
                           return null;
                         },
                       ),
@@ -114,9 +121,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         enabled: !sending,
                         keyboardType: TextInputType.number,
                         maxLength: 6,
-                        decoration: const InputDecoration(labelText: 'رمز التحقق', counterText: ''),
+                        decoration: const InputDecoration(
+                          labelText: 'رمز التحقق',
+                          counterText: '',
+                        ),
                         validator: (value) {
-                          if (value == null || value.trim().length != 6) return 'أدخل رمزاً مكوناً من 6 أرقام';
+                          if (value == null || value.trim().length != 6)
+                            return 'أدخل رمزاً مكوناً من 6 أرقام';
                           return null;
                         },
                       ),
@@ -127,12 +138,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         decoration: InputDecoration(
                           labelText: 'كلمة المرور الجديدة',
                           suffixIcon: IconButton(
-                            icon: Icon(obscurePassword ? Icons.visibility : Icons.visibility_off),
-                            onPressed: () => setDialogState(() => obscurePassword = !obscurePassword),
+                            icon: Icon(
+                              obscurePassword
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                            ),
+                            onPressed: () => setDialogState(
+                              () => obscurePassword = !obscurePassword,
+                            ),
                           ),
                         ),
                         validator: (value) {
-                          if (value == null || value.length < 6) return 'كلمة المرور قصيرة جداً (6 أحرف على الأقل)';
+                          if (value == null || value.length < 6)
+                            return 'كلمة المرور قصيرة جداً (6 أحرف على الأقل)';
                           return null;
                         },
                       ),
@@ -140,9 +158,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         controller: passwordConfirmController,
                         enabled: !sending,
                         obscureText: obscurePassword,
-                        decoration: const InputDecoration(labelText: 'تأكيد كلمة المرور'),
+                        decoration: const InputDecoration(
+                          labelText: 'تأكيد كلمة المرور',
+                        ),
                         validator: (value) {
-                          if (value != passwordController.text) return 'كلمتا المرور غير متطابقتين';
+                          if (value != passwordController.text)
+                            return 'كلمتا المرور غير متطابقتين';
                           return null;
                         },
                       ),
@@ -151,7 +172,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: sending ? null : () => Navigator.of(dialogContext).pop(),
+              onPressed: sending
+                  ? null
+                  : () => Navigator.of(dialogContext).pop(),
               child: const Text('إلغاء'),
             ),
             FilledButton(
@@ -164,25 +187,37 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         if (step == 1) {
                           final message = await ref
                               .read(authRepositoryProvider)
-                              .sendPasswordResetCode(emailController.text.trim());
+                              .sendPasswordResetCode(
+                                emailController.text.trim(),
+                              );
                           setDialogState(() {
                             sending = false;
                             step = 2;
                           });
                           if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+                            ScaffoldMessenger.of(
+                              context,
+                            ).showSnackBar(SnackBar(content: Text(message)));
                           }
                         } else {
-                          await ref.read(authRepositoryProvider).resetPasswordWithOtp(
+                          await ref
+                              .read(authRepositoryProvider)
+                              .resetPasswordWithOtp(
                                 email: emailController.text.trim(),
                                 otp: otpController.text.trim(),
                                 password: passwordController.text,
-                                passwordConfirmation: passwordConfirmController.text,
+                                passwordConfirmation:
+                                    passwordConfirmController.text,
                               );
-                          if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+                          if (dialogContext.mounted)
+                            Navigator.of(dialogContext).pop();
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('تم تغيير كلمة المرور بنجاح، يمكنك تسجيل الدخول الآن.')),
+                              const SnackBar(
+                                content: Text(
+                                  'تم تغيير كلمة المرور بنجاح، يمكنك تسجيل الدخول الآن.',
+                                ),
+                              ),
                             );
                           }
                         }
@@ -190,13 +225,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         setDialogState(() => sending = false);
                         if (dialogContext.mounted) {
                           ScaffoldMessenger.of(dialogContext).showSnackBar(
-                            SnackBar(content: Text(e is ApiException ? e.userMessage : 'تعذر إتمام الطلب.')),
+                            SnackBar(
+                              content: Text(
+                                e is ApiException
+                                    ? e.userMessage
+                                    : 'تعذر إتمام الطلب.',
+                              ),
+                            ),
                           );
                         }
                       }
                     },
               child: sending
-                  ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const InstagramSpinner(size: 18, strokeWidth: 2)
                   : Text(step == 1 ? 'إرسال الرمز' : 'حفظ كلمة المرور'),
             ),
           ],
@@ -230,7 +271,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           } else if (error is NetworkException) {
             setState(() => _networkErrorMessage = error.userMessage);
           } else if (error is ApiException) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.userMessage)));
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(error.userMessage)));
           }
         },
       );
@@ -272,7 +315,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         content: Text(_networkErrorMessage!),
                         actions: [
                           TextButton(
-                            onPressed: () => setState(() => _networkErrorMessage = null),
+                            onPressed: () =>
+                                setState(() => _networkErrorMessage = null),
                             child: const Text('إغلاق'),
                           ),
                         ],
@@ -283,14 +327,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       controller: _identifierController,
                       enabled: !isLoading,
                       keyboardType: TextInputType.emailAddress,
-                      autofillHints: const [AutofillHints.username, AutofillHints.email],
+                      autofillHints: const [
+                        AutofillHints.username,
+                        AutofillHints.email,
+                      ],
                       textInputAction: TextInputAction.next,
                       decoration: InputDecoration(
                         labelText: 'البريد الإلكتروني أو اسم المستخدم',
                         errorText: _fieldErrors['login'],
                       ),
                       validator: (value) {
-                        if (value == null || value.trim().isEmpty) return 'هذا الحقل مطلوب';
+                        if (value == null || value.trim().isEmpty)
+                          return 'هذا الحقل مطلوب';
                         return null;
                       },
                     ),
@@ -306,14 +354,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         errorText: _fieldErrors['password'],
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                            _obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
                             color: InstagramColors.gray,
                           ),
-                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
                         ),
                       ),
                       validator: (value) {
-                        if (value == null || value.isEmpty) return 'هذا الحقل مطلوب';
+                        if (value == null || value.isEmpty)
+                          return 'هذا الحقل مطلوب';
                         return null;
                       },
                     ),
@@ -328,11 +381,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     FilledButton(
                       onPressed: isLoading ? null : _submit,
                       child: isLoading
-                          ? SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: theme.colorScheme.onPrimary),
-                            )
+                          ? const InstagramSpinner(size: 20, strokeWidth: 2)
                           : const Text('تسجيل الدخول'),
                     ),
                   ],

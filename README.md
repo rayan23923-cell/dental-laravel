@@ -8154,3 +8154,35 @@ re-checking); confirmed the dismiss handler's exact logic (hide + set the
 `localStorage` flag) behaves correctly in isolation. `npm run build`
 clean, and the new Tailwind utility classes confirmed present in the
 compiled CSS output.
+
+## Instagram-style gradient loading spinner on the login button (2026-09-01)
+
+By request: "عدل loading animation عند تسجيل الدخول واجعلها متوافقة مع
+instagram loading". The login button's spinner was a plain single-colour
+Material Symbols glyph (`progress_activity`) spun with `animate-spin` — no
+different from any other loading icon anywhere else in the app.
+
+New `resources/js/Components/IgSpinner.vue`: a rotating gradient ring —
+Instagram's own "story ring" look — built from a `conic-gradient`
+(the same 5 stops/order as `ig-gradient` in `tailwind.config.js`) masked
+down to a ring via `radial-gradient` (CSS has no native "gradient
+stroke" for a plain element, so cutting a disc's centre out is the
+standard way to fake one), spun with the same `animate-spin` utility the
+old icon already used. Swapped into `Login.vue` in place of the old
+`<Icon name="progress_activity">` (which was the file's only remaining
+use of `Icon.vue`, so that import was dropped too).
+
+Deliberately reuses the *exact* gradient already spent elsewhere as an
+accent (`BrandMark.vue`'s login-page badge) rather than inventing a new
+one — a loading spinner is the same kind of small, recognisable highlight
+moment, matching this app's own established "gradient = accent only"
+rule (see `GuestLayout.vue`'s own docblock) rather than breaking it.
+
+Verified live: patched `XMLHttpRequest`/`fetch` in the browser to
+artificially delay the `/login` request, submitted the form, and read
+the spinner element's real computed styles mid-flight — confirmed
+`background-image` is the exact conic-gradient with the 5 correct RGB
+values in order, `-webkit-mask-image` is the expected ring-cutout
+radial-gradient, `animation-name: spin` at `1s`, and correct
+16px/circular sizing — rather than trusting a screenshot alone. `npm run
+build` clean.
