@@ -372,6 +372,38 @@ Stages of treatment/Appliance type & Design (previously an "unsupported"
 placeholder) before a supervisor could actually use their new editing
 rights; built as `TeethSquaresGridField`/`QuadrantRepeaterField`.
 
+**Bug — a doctor's very first save of a brand-new Prosthodontics/Complete-
+Denture record always 403'd (found live, 2026-09-02).** Reported as
+"cdclinics.com — تظهر رسالة عند حفظ كيس شيت prosthodontics للطبيب" ("this
+message appears when a doctor saves a prosthodontics case sheet"), with the
+exact `EnforceCaseSheetAccess` rule-3 message. Root cause: `changedFields()`
+diffs a submission against the *stored* record to tell a real edit apart
+from an unchanged resubmit — but on `store` (no record exists yet) it fell
+back to treating every posted key as "changed." `SectionedForm.vue` always
+submits the *whole* form, seeded with `''` defaults for every field
+including every one of Prosthodontics' 30 supervisor-only fields
+(`diagnosis_starting`/`diagnosis_grade` + 9 stages' signature/date/grade) —
+so that fallback always intersected with `$supervisorFields`, 403-ing any
+doctor's first save regardless of what they'd actually touched. Fixed by
+letting `changedFields()` accept a nullable record and diff against `null`
+when there isn't one yet (via the same `differs()` rule an update already
+uses) — a still-blank field on create now correctly reads as "unchanged";
+an actual attempt to set a supervisor field's value at creation time is
+still correctly blocked (verified with a direct authenticated `fetch()`
+POST carrying `diagnosis_grade`, confirmed still 403).
+
+**A second, unrelated bug blocked verifying the above**: opening any
+case-sheet edit/show page rendered a blank page,
+`(x.props.printableCaseSheets ?? []).includes is not a function`. The
+shared Inertia prop `printableCaseSheets`
+(`HandleInertiaRequests`) is built via `array_diff(array_keys(CaseSheetPrint::SHEETS),
+['advanced-periodontal-charts'])` — `array_diff()` preserves original
+array keys, and `advanced-periodontal-charts` isn't the last entry in
+`SHEETS`, so removing it left a gap in the numeric keys. PHP's
+`json_encode()` only produces a JSON *array* for a sequential-from-0 key
+list; anything else becomes an object, which has no `.includes()` in JS.
+Fixed with `array_values()` to reindex before returning.
+
 ## Case-sheet printing
 
 The original app had nine standalone `*_print_html.php` pages (34–150 KB

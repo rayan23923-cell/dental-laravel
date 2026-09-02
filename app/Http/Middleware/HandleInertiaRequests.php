@@ -63,7 +63,16 @@ class HandleInertiaRequests extends Middleware
             // exclusion as `kCaseSheetPrintableResources` on the Flutter
             // side — add both back once print support for the big grid is
             // built.
-            'printableCaseSheets' => array_diff(array_keys(CaseSheetPrint::SHEETS), ['advanced-periodontal-charts']),
+            // `array_values()` matters here, not just style: `array_diff()`
+            // preserves the original keys, and removing a middle entry
+            // (`advanced-periodontal-charts` isn't last) leaves a gap —
+            // `json_encode()` on a non-sequential-from-0 array produces a
+            // JS *object*, not an array, breaking any `.includes()` call
+            // on this prop with a blank-page crash. Found live (2026-09-02):
+            // any case-sheet edit/show page failed to render at all,
+            // `TypeError: (x.props.printableCaseSheets ?? []).includes is
+            // not a function`.
+            'printableCaseSheets' => array_values(array_diff(array_keys(CaseSheetPrint::SHEETS), ['advanced-periodontal-charts'])),
             // Gates the "Sign in with Google" button on both login screens —
             // see App\Http\Controllers\Auth\GoogleAuthController. Hidden
             // outright until GOOGLE_CLIENT_ID/SECRET are set, so an

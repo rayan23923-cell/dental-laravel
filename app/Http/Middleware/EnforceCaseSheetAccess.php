@@ -58,7 +58,25 @@ class EnforceCaseSheetAccess
         // is which values *changed* from what's already stored, so that's
         // what rules 1 and 3 check, via `changedFields()` below — not
         // "which keys exist in the payload."
-        $changedFields = $boundRecord ? $this->changedFields($request, $boundRecord) : array_keys($request->except(['_token', '_method']));
+        //
+        // **Real bug, found live (2026-09-02)**: on `store` (no bound
+        // record yet), this used to fall back to treating every posted
+        // key as "changed" — but `SectionedForm.vue` seeds every field,
+        // including every supervisor-only one, with an empty-string
+        // default (see its `initial` construction), so that fallback
+        // always intersected with `$supervisorFields`. Every doctor's
+        // very first save of a brand-new Prosthodontics/Complete-Denture
+        // record (30+ supervisor fields between diagnosis_*/9 stages'
+        // signature+date+grade) was unconditionally 403'd, even though
+        // nothing supervisor-only had actually been touched — there was
+        // simply no stored record yet to diff against. `changedFields()`
+        // now accepts a nullable record and diffs against `null` when
+        // there isn't one yet, so a still-blank field (the normal case on
+        // create) correctly reads as "unchanged" — same `differs()` rule
+        // an update already uses — while a doctor who *does* try to set
+        // an actual value into a supervisor field at creation time is
+        // still correctly blocked.
+        $changedFields = $this->changedFields($request, $boundRecord);
 
         // Rule 1 — staff may change only the supervisor fields.
         if ($isWrite && CaseSheetAccess::isViewOnly()) {
@@ -178,11 +196,11 @@ class EnforceCaseSheetAccess
      * `json_encode()` instead of a string cast, everything else keeps the
      * original string-cast comparison.
      */
-    private function changedFields(Request $request, Model $record): array
+    private function changedFields(Request $request, ?Model $record): array
     {
         $changed = [];
         foreach ($request->except(['_token', '_method']) as $key => $value) {
-            $stored = $record->getAttribute($key);
+            $stored = $record?->getAttribute($key);
             $storedDecoded = is_string($stored) ? json_decode($stored, true) : null;
             $valueDecoded = is_string($value) ? json_decode($value, true) : null;
 
