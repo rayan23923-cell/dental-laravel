@@ -93,6 +93,20 @@ const props = defineProps({
     // visible, just locked: "فقط اظهر ملاحظات ومعلومات المشرف لكن لايمكن
     // تعديلها من الطبيب" (show it, just make it non-editable for a doctor).
     supervisorFields: { type: Array, default: () => [] },
+    // Patient fields to seed a brand-new sheet with (2026-09-02, by
+    // request — "عند بدء مهمة من قبل المشرف ومسح كيوار المريض يتم ملئ
+    // معلومات المريض الى الكيس شيت بصورة تلقائية"), resolved server-side
+    // from whichever patient TaskStarter::start() already tied this task
+    // instance to (see App\Support\CaseSheetPatientFieldMap) — a doctor
+    // opening a brand-new sheet for an already-started task no longer has
+    // to re-scan the same patient's registration QR by hand the way the
+    // standalone "مسح رمز المريض" flow below still does when there's no
+    // task instance to resolve a patient from at all. Deliberately a
+    // *separate* prop from `record`, never merged into it — `isEdit`
+    // above is `props.record !== null`, so a non-null `record` on a
+    // create would misreport edit mode (wrong title/button text, and a
+    // PUT to `/undefined` since a plain prefill object has no `id`).
+    patientPrefill: { type: Object, default: () => ({}) },
 });
 
 const page = usePage();
@@ -233,10 +247,14 @@ props.sections.forEach((section) => {
     section.fields.forEach((f) => {
         let value;
         if (f.group) {
-            groupCache[f.group] ??= parseGroup(props.record?.[f.group]);
+            // `patientPrefill` only ever carries a *whole* group object
+            // (e.g. `{patient_data: {child_name: '...'}}`), never
+            // individual scalar fields — matching the grouped shape a
+            // real record's own column would already have.
+            groupCache[f.group] ??= parseGroup(props.record?.[f.group] ?? props.patientPrefill?.[f.group]);
             value = groupCache[f.group][f.key] ?? '';
         } else {
-            value = props.record ? props.record[f.key] : null;
+            value = props.record ? props.record[f.key] : (props.patientPrefill?.[f.key] ?? null);
         }
 
         if (f.type === 'file') {

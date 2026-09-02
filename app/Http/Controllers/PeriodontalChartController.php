@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\PeriodontalChart;
+use App\Models\TaskInstance;
 use App\Services\CaseSheetAccess;
+use App\Support\CaseSheetPatientFieldMap;
 use App\Support\CaseSheetSignatures;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\PeriodontalChartForm;
@@ -39,10 +41,13 @@ class PeriodontalChartController extends Controller
     {
         // See README "task_instances_id wiring" — a blank sheet opened
         // from a task instance must stay linked to it.
+        $taskInstanceId = $request->integer('task_instances_id') ?: null;
+
         return $this->form(
             null,
-            taskInstanceId: $request->integer('task_instances_id') ?: null,
+            taskInstanceId: $taskInstanceId,
             taskId: $request->integer('task_id') ?: null,
+            prefill: CaseSheetPatientFieldMap::prefillFor('periodontal-charts', $taskInstanceId ? TaskInstance::find($taskInstanceId) : null),
         );
     }
 
@@ -85,7 +90,7 @@ class PeriodontalChartController extends Controller
         return redirect()->route('periodontal-charts.index')->with('success', 'Periodontal chart deleted.');
     }
 
-    private function form(?PeriodontalChart $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null): Response
+    private function form(?PeriodontalChart $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null, array $prefill = []): Response
     {
         return Inertia::render('Specialty/SectionedForm', [
             'resource' => 'periodontal-charts',
@@ -99,6 +104,9 @@ class PeriodontalChartController extends Controller
             'plaqueVisits' => PlaqueChart::VISITS,
             'doctors' => Doctor::orderBy('name')->get(['id', 'name']),
             'record' => $record,
+            // See ProsthodonticsRecordController's matching comment for
+            // why this stays a separate prop rather than merged into `record`.
+            'patientPrefill' => $prefill,
             // chart_data is a longtext column holding JSON; decoded here so
             // the page gets a real object rather than a string to re-parse.
             'chartData' => $record?->chart_data ? json_decode($record->chart_data, true) : null,

@@ -8,6 +8,7 @@ use App\Models\Doctor;
 use App\Models\Task;
 use App\Models\TaskInstance;
 use App\Services\PermissionManager;
+use App\Support\CaseSheetPatientFieldMap;
 use App\Support\CaseSheetResolver;
 use App\Support\CaseSheetSupervisorFields;
 use Illuminate\Http\JsonResponse;
@@ -44,6 +45,13 @@ class CaseSheetController extends Controller
         return response()->json([
             'resource' => $resource,
             'record_id' => $recordId,
+            // Auto-fills the new sheet's patient fields (2026-09-02, by
+            // request) from whichever patient TaskStarter::start() already
+            // tied this task instance to — see CaseSheetPatientFieldMap's
+            // own doc comment. Only meaningful (and only computed) when
+            // there's no existing record yet; Flutter merges this into the
+            // blank record it seeds `DynamicSectionForm` with on create.
+            'patient_prefill' => $recordId === null ? CaseSheetPatientFieldMap::prefillFor($resource, $taskInstance) : [],
             'case_sheet_type' => $caseSheetType ? [
                 'id' => $caseSheetType->id,
                 'name_ar' => $caseSheetType->name_ar,

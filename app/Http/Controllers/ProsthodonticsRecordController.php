@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Doctor;
 use App\Models\ProsthodonticsRecord;
+use App\Models\TaskInstance;
 use App\Services\CaseSheetAccess;
+use App\Support\CaseSheetPatientFieldMap;
 use App\Support\CaseSheetSignatures;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\ProsthodonticsForm;
@@ -34,10 +36,16 @@ class ProsthodonticsRecordController extends Controller
     {
         // See README "task_instances_id wiring" — a blank sheet opened
         // from a task instance must stay linked to it.
+        $taskInstanceId = $request->integer('task_instances_id') ?: null;
+
         return $this->form(
             null,
-            taskInstanceId: $request->integer('task_instances_id') ?: null,
+            taskInstanceId: $taskInstanceId,
             taskId: $request->integer('task_id') ?: null,
+            // Auto-fills the patient fields from whichever patient
+            // TaskStarter::start() already tied this task instance to —
+            // see CaseSheetPatientFieldMap's own doc comment.
+            prefill: CaseSheetPatientFieldMap::prefillFor('prosthodontics-records', $taskInstanceId ? TaskInstance::find($taskInstanceId) : null),
         );
     }
 
@@ -72,7 +80,7 @@ class ProsthodonticsRecordController extends Controller
         return redirect()->route('prosthodontics-records.index')->with('success', 'Prosthodontics record deleted.');
     }
 
-    private function form(?ProsthodonticsRecord $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null): Response
+    private function form(?ProsthodonticsRecord $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null, array $prefill = []): Response
     {
         return Inertia::render('Specialty/SectionedForm', [
             'resource' => 'prosthodontics-records',
@@ -81,6 +89,12 @@ class ProsthodonticsRecordController extends Controller
             'stages' => ProsthodonticsForm::stages(),
             'doctors' => Doctor::orderBy('name')->get(['id', 'name']),
             'record' => $record,
+            // Kept separate from `record` deliberately — `SectionedForm.vue`'s
+            // `isEdit` is `props.record !== null`, so merging this into
+            // `record` on a create would make the page think it's editing
+            // (wrong title/button text, and `props.record.id` being
+            // undefined would build a broken PUT to `/undefined`).
+            'patientPrefill' => $prefill,
             // Staff view but never save (App\Services\CaseSheetAccess);
             // the original disables every input for them.
             'readonly' => $readonly || CaseSheetAccess::isViewOnly(),

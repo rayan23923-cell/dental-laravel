@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\DentalChart;
 use App\Models\Doctor;
+use App\Models\TaskInstance;
 use App\Services\CaseSheetAccess;
+use App\Support\CaseSheetPatientFieldMap;
 use App\Support\CaseSheetSignatures;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\OperativeForm;
@@ -39,10 +41,13 @@ class DentalChartController extends Controller
 
     public function create(Request $request): Response
     {
+        $taskInstanceId = $request->integer('task_instances_id') ?: null;
+
         return $this->form(
             null,
-            taskInstanceId: $request->integer('task_instances_id') ?: null,
+            taskInstanceId: $taskInstanceId,
             taskId: $request->integer('task_id') ?: null,
+            prefill: CaseSheetPatientFieldMap::prefillFor('dental-charts', $taskInstanceId ? TaskInstance::find($taskInstanceId) : null),
         );
     }
 
@@ -79,7 +84,7 @@ class DentalChartController extends Controller
         return redirect()->route('dental-charts.index')->with('success', 'تم حذف المخطط السني.');
     }
 
-    private function form(?DentalChart $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null): Response
+    private function form(?DentalChart $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null, array $prefill = []): Response
     {
         return Inertia::render('Specialty/SectionedForm', [
             'resource' => 'dental-charts',
@@ -87,6 +92,9 @@ class DentalChartController extends Controller
             'sections' => OperativeForm::sections(),
             'doctors' => Doctor::orderBy('name')->get(['id', 'name']),
             'record' => $record,
+            // See ProsthodonticsRecordController's matching comment for
+            // why this stays a separate prop rather than merged into `record`.
+            'patientPrefill' => $prefill,
             // Staff view but never save (App\Services\CaseSheetAccess);
             // the original disables every input for them.
             'readonly' => $readonly || CaseSheetAccess::isViewOnly(),

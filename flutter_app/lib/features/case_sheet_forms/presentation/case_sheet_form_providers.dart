@@ -22,3 +22,15 @@ final caseSheetRecordProvider =
     FutureProvider.autoDispose.family<Map<String, dynamic>, (String resource, int id)>((ref, args) {
   return ref.watch(caseSheetRecordRepositoryProvider).fetch(args.$1, args.$2);
 });
+
+/// A brand-new sheet's patient-field prefill, resolved from whichever
+/// patient this task instance was started for (2026-09-02) — see
+/// `CaseSheetOpenResult.patientPrefill`'s own doc comment.
+/// `CaseSheetFormScreen` watches this only when actually creating
+/// (`recordId == null`) with a known `taskInstanceId`; `openFor()` already
+/// has its own offline-cache fallback, so this needs none of its own.
+final caseSheetPatientPrefillProvider =
+    FutureProvider.autoDispose.family<Map<String, dynamic>, int>((ref, taskInstanceId) async {
+  final result = await ref.watch(caseSheetRecordRepositoryProvider).openFor(taskInstanceId);
+  return result.patientPrefill;
+});

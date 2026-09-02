@@ -104,6 +104,12 @@ class CaseSheetRecordRepository {
         recordId: recordId,
         readonly: data['readonly'] as bool? ?? false,
         supervisorEditableFields: (data['supervisor_editable_fields'] as List<dynamic>?)?.cast<String>() ?? const [],
+        // Auto-fills a brand-new sheet's patient fields from whichever
+        // patient TaskStarter::start() already tied this task instance
+        // to (2026-09-02) — see Api\CaseSheetController::open()'s own doc
+        // comment. Empty when a record already exists (nothing to
+        // prefill) or this task instance somehow has no linked patient.
+        patientPrefill: (data['patient_prefill'] as Map<String, dynamic>?) ?? const {},
       );
     } on NetworkException {
       final cached = await _offline.readTaskResolution(taskInstanceId);
@@ -112,6 +118,10 @@ class CaseSheetRecordRepository {
       // `openFor()` call (never a staff preview — see `openForTask`'s own
       // doc comment on the API side), so `readonly`/`supervisorEditableFields`
       // are safe to default here the same way `openForTask` always does.
+      // `patientPrefill` isn't cached — a genuinely offline-first create
+      // (never seen online before) has nothing to prefill from anyway,
+      // and re-opening a since-created record instead reads the prefilled
+      // values back from its own cached record, not from here.
       return CaseSheetOpenResult(resource: cached.$1, recordId: cached.$2);
     }
   }
@@ -145,9 +155,14 @@ class CaseSheetOpenResult {
     required this.recordId,
     this.readonly = false,
     this.supervisorEditableFields = const [],
+    this.patientPrefill = const {},
   });
   final String resource;
   final int? recordId;
+
+  /// Patient fields to seed a brand-new record with — only ever non-empty
+  /// when [recordId] is null (see [openFor]'s own doc comment).
+  final Map<String, dynamic> patientPrefill;
 
   /// Set only by [openFor] — a staff viewer previewing an existing case
   /// (see `Api\CaseSheetController::open()`'s `readonly`). Always false

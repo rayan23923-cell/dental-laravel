@@ -90,8 +90,16 @@ class CaseSheetFormScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final schemaAsync = ref.watch(caseSheetFormSchemaProvider(resource));
     final isCreate = recordId == null;
-    final recordAsync =
-        isCreate ? const AsyncValue<Map<String, dynamic>>.data({}) : ref.watch(caseSheetRecordProvider((resource, recordId!)));
+    // A blank create seeds from the task instance's own already-linked
+    // patient when there is one (see caseSheetPatientPrefillProvider's own
+    // doc comment) — falls back to a plain empty map when there's no task
+    // instance at all (the standalone "browse my records" create flow,
+    // where "مسح رمز المريض" stays the only way to fill patient identity).
+    final recordAsync = isCreate
+        ? (taskInstanceId != null
+            ? ref.watch(caseSheetPatientPrefillProvider(taskInstanceId!))
+            : const AsyncValue<Map<String, dynamic>>.data({}))
+        : ref.watch(caseSheetRecordProvider((resource, recordId!)));
 
     return Scaffold(
       appBar: AppBar(

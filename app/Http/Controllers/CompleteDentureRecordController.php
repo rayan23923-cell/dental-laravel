@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\CompleteDentureRecord;
 use App\Models\Doctor;
+use App\Models\TaskInstance;
 use App\Services\CaseSheetAccess;
+use App\Support\CaseSheetPatientFieldMap;
 use App\Support\CaseSheetSignatures;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\CompleteDentureForm;
@@ -36,10 +38,13 @@ class CompleteDentureRecordController extends Controller
     {
         // See README "task_instances_id wiring" — a blank sheet opened
         // from a task instance must stay linked to it.
+        $taskInstanceId = $request->integer('task_instances_id') ?: null;
+
         return $this->form(
             null,
-            taskInstanceId: $request->integer('task_instances_id') ?: null,
+            taskInstanceId: $taskInstanceId,
             taskId: $request->integer('task_id') ?: null,
+            prefill: CaseSheetPatientFieldMap::prefillFor('complete-denture-records', $taskInstanceId ? TaskInstance::find($taskInstanceId) : null),
         );
     }
 
@@ -76,7 +81,7 @@ class CompleteDentureRecordController extends Controller
         return redirect()->route('complete-denture-records.index')->with('success', 'Complete denture record deleted.');
     }
 
-    private function form(?CompleteDentureRecord $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null): Response
+    private function form(?CompleteDentureRecord $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null, array $prefill = []): Response
     {
         return Inertia::render('Specialty/SectionedForm', [
             'resource' => 'complete-denture-records',
@@ -85,6 +90,9 @@ class CompleteDentureRecordController extends Controller
             'stages' => CompleteDentureForm::stages(),
             'doctors' => Doctor::orderBy('name')->get(['id', 'name']),
             'record' => $record,
+            // See ProsthodonticsRecordController's matching comment for
+            // why this stays a separate prop rather than merged into `record`.
+            'patientPrefill' => $prefill,
             // Staff view but never save (App\Services\CaseSheetAccess);
             // the original disables every input for them.
             'readonly' => $readonly || CaseSheetAccess::isViewOnly(),

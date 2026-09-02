@@ -110,6 +110,63 @@ altering a production column default is a schema-level decision left for a
 future pass; other `datetime`/`timestamp` columns from the same import
 should be treated as suspect until individually verified.
 
+**Patient fields auto-fill on create when the task instance already has a
+patient (2026-09-02, by request — "عند بدء مهمة من قبل المشرف ومسح كيوار
+المريض يتم ملئ معلومات المريض الى الكيس شيت بصورة تلقائية").**
+`TaskStarter::start()` has always *required* a `PatientRegistration` to
+start a task at all — every task instance reaching a doctor's "نموذج سريري"
+button already has one linked (`task_instances.patient_registration_id`),
+whether the supervisor started it via the web admin or a QR scan. Until
+now that linkage was never read back out when opening a brand-new sheet,
+so a doctor still had to manually re-scan the same patient's registration
+ticket via the separate, pre-existing "مسح رمز المريض" feature
+(`kCaseSheetPatientFieldMap` / `PATIENT_FIELD_MAP`) just to re-enter data
+already on file.
+
+New `App\Support\CaseSheetPatientFieldMap` — a third copy of the same
+small per-resource column map those two already duplicate (same
+established reasoning: static, small, per-resource, not worth a shared
+endpoint), plus one method neither had: `prefillFor(string $resource,
+?TaskInstance $taskInstance): array`, resolving `$taskInstance
+?->patientRegistration` and mapping its `name`/`phone`/`age`/`sex`/
+`address`/`occupation` into that resource's real columns (or, for
+`prevention-records`' JSON-blob `patient_data` group, a nested array under
+that one key — matching what a real record's own grouped column already
+looks like to both `SectionedForm.vue`'s and Dart's `parseGroup()`).
+`advanced-periodontal-charts` has no entry, matching
+`kCaseSheetPatientFieldMap`'s own scope — no patient-identity fields of
+its own to fill.
+
+Wired into all 8 web `*Controller::create()`/`form()` pairs and
+`Api\CaseSheetController::open()`. **Real bug caught before shipping, not
+after**: the first pass merged the prefill straight into the `record`
+prop, since `SectionedForm.vue`'s existing initial-value seeding already
+reads `props.record?.[key]` — reusing that verbatim would have needed zero
+Vue changes. But `const isEdit = computed(() => props.record !== null)`
+also drives off that same prop, so a non-null `record` on a genuine create
+would have flipped the page into thinking it was editing — wrong title/
+button text, and worse, `form.put(route('...update', props.record.id))`
+building a broken PUT to `/undefined` (a plain prefill object has no
+`id`). Fixed by keeping it a fully separate `patientPrefill` prop
+instead, read only as a fallback *after* `record` at each seeding site —
+`isEdit` stays correctly tied to `record` alone, and a create with a
+resolvable patient behaves identically to any other create except for
+which fields start non-blank. Flutter's `CaseSheetOpenResult` needed no
+equivalent split — `isCreate` there is `recordId == null` on
+`CaseSheetFormScreen` itself, entirely independent of what the record map
+contains.
+
+Verified live end-to-end on both platforms via `TaskStarter::start()`
+called directly (the same call a supervisor's web/QR start-task flow
+already makes) against a fresh `PatientRegistration`: opening the
+resulting brand-new sheet showed every mapped field — name, phone (into
+Prosthodontics' `telephone` column specifically, matching the pre-
+existing manual-scan map exactly, not the differently-labeled
+`patient_phone` field), age, gender, address, occupation — already
+filled, the page correctly still titled "New ..." (not "Edit"), and
+saving correctly `POST`ed a new record (not a broken `PUT`) with the
+prefilled values persisted.
+
 ## The odontogram (tooth chart)
 
 `dental_charts.tooth_data` is the real per-surface odontogram behind the

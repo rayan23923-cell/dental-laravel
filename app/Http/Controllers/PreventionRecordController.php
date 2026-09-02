@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Doctor;
 use App\Models\PreventionRecord;
+use App\Models\TaskInstance;
 use App\Services\CaseSheetAccess;
+use App\Support\CaseSheetPatientFieldMap;
 use App\Support\CaseSheetSignatures;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\PreventionForm;
@@ -41,10 +43,13 @@ class PreventionRecordController extends Controller
     {
         // See README "task_instances_id wiring" — a blank sheet opened
         // from a task instance must stay linked to it.
+        $taskInstanceId = $request->integer('task_instances_id') ?: null;
+
         return $this->form(
             null,
-            taskInstanceId: $request->integer('task_instances_id') ?: null,
+            taskInstanceId: $taskInstanceId,
             taskId: $request->integer('task_id') ?: null,
+            prefill: CaseSheetPatientFieldMap::prefillFor('prevention-records', $taskInstanceId ? TaskInstance::find($taskInstanceId) : null),
         );
     }
 
@@ -79,7 +84,7 @@ class PreventionRecordController extends Controller
         return redirect()->route('prevention-records.index')->with('success', 'Prevention record deleted.');
     }
 
-    private function form(?PreventionRecord $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null): Response
+    private function form(?PreventionRecord $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null, array $prefill = []): Response
     {
         // Flatten the stored examination_data back out so the form's
         // grouping can seed `questions` / `dmfs_indices` / `dietary_recall`
@@ -96,6 +101,14 @@ class PreventionRecordController extends Controller
             'sections' => PreventionForm::sections(),
             'doctors' => Doctor::orderBy('name')->get(['id', 'name']),
             'record' => $record ? $seed : null,
+            // See ProsthodonticsRecordController's matching comment for
+            // why this stays a separate prop rather than merged into
+            // `record`/`$seed` — `isEdit` in SectionedForm.vue is
+            // `props.record !== null`. `$prefill` here is already
+            // `['patient_data' => [...]]` (grouped, per
+            // CaseSheetPatientFieldMap), matching what `patient_data`
+            // itself would look like on a real record.
+            'patientPrefill' => $prefill,
             // Staff view but never save (App\Services\CaseSheetAccess);
             // the original disables every input for them.
             'readonly' => $readonly || CaseSheetAccess::isViewOnly(),
