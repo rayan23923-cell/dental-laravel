@@ -22,3 +22,12 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Defense-in-depth: flutter_app/android/.gitignore already covers
+# key.properties/*.jks/*.keystore under android/, but a keystore
+# generated from the repo root (e.g. by running keytool without cd-ing
+# into flutter_app/android first — a real near-miss, 2026-09-02) isn't
+# covered by that scoped .gitignore at all. Never commit a signing key.
+*.jks
+*.keystore
+key.properties
