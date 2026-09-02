@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/qr_dialog.dart';
+import '../../case_sheet_forms/data/case_sheet_record_repository.dart';
 import '../domain/pending_task.dart';
 import 'task_instances_providers.dart';
 
@@ -94,9 +96,43 @@ class _PendingTasksBody extends StatelessWidget {
   }
 }
 
-class _PendingTaskCard extends StatelessWidget {
+class _PendingTaskCard extends ConsumerStatefulWidget {
   const _PendingTaskCard({required this.task});
   final PendingTask task;
+
+  @override
+  ConsumerState<_PendingTaskCard> createState() => _PendingTaskCardState();
+}
+
+class _PendingTaskCardState extends ConsumerState<_PendingTaskCard> {
+  PendingTask get task => widget.task;
+  bool _openingCaseSheet = false;
+
+  /// Same pre-instance draft as `MyTasksScreen`'s own
+  /// `_openCaseSheetForTask()` (`Api\CaseSheetController::openForTask()`) —
+  /// lets the doctor start filling the sheet before the task is even
+  /// assigned, without needing the QR-scan/screening flow this screen's own
+  /// QR button still triggers.
+  Future<void> _openCaseSheetForTask() async {
+    setState(() => _openingCaseSheet = true);
+    try {
+      final result = await ref.read(caseSheetRecordRepositoryProvider).openForTask(task.id);
+      if (!mounted) return;
+      final query = '?task_id=${task.id}';
+      context.push(
+        result.recordId != null
+            ? '/case-sheets/${result.resource}/${result.recordId}$query'
+            : '/case-sheets/${result.resource}/new$query',
+      );
+    } catch (e) {
+      if (mounted) {
+        final message = e is ApiException ? e.userMessage : 'تعذر فتح كيس الشيت.';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } finally {
+      if (mounted) setState(() => _openingCaseSheet = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -142,19 +178,34 @@ class _PendingTaskCard extends StatelessWidget {
               Text(task.notes!, style: theme.textTheme.bodySmall),
             ],
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                icon: const Icon(Icons.qr_code_2),
-                label: const Text('رمز QR'),
-                onPressed: () => showQrDialog(
-                  context,
-                  imagePath: '/pending-tasks/${task.id}/qr',
-                  title: 'رمز المهمة المعلقة',
-                  caption:
-                      'اعرض هذا الرمز على المشرف لبدء المهمة وتخصيص حالة لك.',
+            Row(
+              children: [
+                Expanded(
+                  child: _openingCaseSheet
+                      ? const Center(
+                          child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                        )
+                      : OutlinedButton.icon(
+                          icon: const Icon(Icons.description_outlined),
+                          label: const Text('فتح كيس شيت'),
+                          onPressed: _openCaseSheetForTask,
+                        ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.icon(
+                    icon: const Icon(Icons.qr_code_2),
+                    label: const Text('رمز QR'),
+                    onPressed: () => showQrDialog(
+                      context,
+                      imagePath: '/pending-tasks/${task.id}/qr',
+                      title: 'رمز المهمة المعلقة',
+                      caption:
+                          'اعرض هذا الرمز على المشرف لبدء المهمة وتخصيص حالة لك.',
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

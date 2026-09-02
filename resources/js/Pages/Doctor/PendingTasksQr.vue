@@ -2,7 +2,7 @@
 import DoctorLayout from '@/Layouts/DoctorLayout.vue';
 import Modal from '@/Components/Modal.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import Icon from '@/Components/Icon.vue';
 
@@ -35,9 +35,21 @@ const showing = ref(null);
                     <span v-if="task.grade" class="rounded-full bg-indigo-100 px-2 py-0.5 text-indigo-800">الدرجة: {{ task.grade }}</span>
                 </div>
                 <p v-if="task.notes" class="mt-2 text-xs text-gray-500">{{ task.notes }}</p>
-                <button type="button" class="mt-3 w-full rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700" @click="showing = task">
-                    <Icon name="qr_code_2" class="ml-1" />رمز QR
-                </button>
+                <!-- فتح كيس شيت — same pre-instance draft as RequiredTasks.vue's
+                     "فتح النموذج" (CaseSheetController::openForTask()): lets the
+                     doctor start filling the sheet before the task is even
+                     assigned, without needing the QR-scan/screening flow. -->
+                <div class="mt-3 grid grid-cols-2 gap-1">
+                    <Link
+                        :href="route('doctor.case-sheet.for-task', task.id)"
+                        class="block rounded-lg bg-indigo-600 px-3 py-2 text-center text-sm font-medium text-white hover:bg-indigo-700"
+                    >
+                        <Icon name="description" class="ml-1" />فتح كيس شيت
+                    </Link>
+                    <button type="button" class="rounded-lg bg-gray-700 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800" @click="showing = task">
+                        <Icon name="qr_code_2" class="ml-1" />رمز QR
+                    </button>
+                </div>
             </div>
         </div>
 

@@ -372,6 +372,25 @@ task, a "رمز QR" button reusing the existing generic `showQrDialog`
 helper rather than a second QR modal). Added to the sidebar as the
 doctor account type's 4th destination, matching the web nav's placement.
 
+**"فتح كيس شيت" button added to both pending-tasks-QR screens (2026-09-02).**
+By request. No new backend needed — reused the existing pre-instance draft
+mechanism (`CaseSheetController::openForTask()`/`Api\CaseSheetController::openForTask()`,
+`GET /doctor/case-sheet/for-task/{task}` web, `GET /tasks/{task}/case-sheet-draft`
+API) already wired into `RequiredTasks.vue`'s "فتح النموذج" and
+`MyTasksScreen`'s `_openCaseSheetForTask()` for not-yet-started slots — a
+task on the pending-QR screen is by definition not-yet-started (no
+`TaskInstance` exists at all yet), so it's the same case exactly, just a
+different list. Web: `PendingTasksQr.vue` gained a second button per card
+(`Link` to `route('doctor.case-sheet.for-task', task.id)`), same
+indigo/gray-700 pairing as `RequiredTasks.vue`. Flutter:
+`_PendingTaskCard` converted from `StatelessWidget` to
+`ConsumerStatefulWidget` to carry the same loading-state/navigation logic
+as `MyTasksScreen`'s `_SlotRowState._openCaseSheetForTask()`, verbatim
+except keyed off `task.id` instead of `slot.taskId`. Verified live on both
+platforms: opening the button for an "operative" task correctly landed on
+a blank "المخطط السني (Operative)" draft form on both web and Flutter,
+with the same "مسودة اختيارية غير مرتبطة بحالة مهمة بعد" notice.
+
 ## Fixed: the narrow-mode menu toggle was covering the AppBar's own back arrow (2026-09-01)
 
 Reported live ("اختفى زر الرجوع" — the back button disappeared) after the
