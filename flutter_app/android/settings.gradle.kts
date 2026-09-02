@@ -20,7 +20,7 @@ pluginManagement {
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
     id("com.android.application") version "8.11.1" apply false
-    id("org.jetbrains.kotlin.android") version "2.1.0" apply false
+    id("org.jetbrains.kotlin.android") version "2.2.20" apply false
     // Firebase (push notifications) — classpath only, "apply false" here.
     // Actually applied conditionally in app/build.gradle.kts, only once a
     // real google-services.json exists. See that file's comment.
