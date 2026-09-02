@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../core/push/push_notification_service.dart';
 import '../../../core/storage/token_storage.dart';
 import '../data/auth_repository.dart';
@@ -34,11 +35,23 @@ class AuthController extends AsyncNotifier<AuthState> {
       // Fire-and-forget — never block session restore on push registration.
       unawaited(PushNotificationService(ref).init());
       return Authenticated(account);
-    } catch (_) {
-      // A failed session restore (expired/revoked token, or a transient
-      // network hiccup at startup) is a normal "not logged in" outcome the
-      // login screen handles — not an app-level error the user can't act on.
+    } on UnauthorizedException {
+      // A genuinely invalid/expired/revoked token — the one case that
+      // really is "not logged in," so clearing local state is correct.
       await storage.clear();
+      return const Unauthenticated();
+    } catch (_) {
+      // Real bug, found live (2026-09-02): this used to clear the token on
+      // *any* failure here, including a pure connectivity error —
+      // `AuthRepository.fetchMe()` already falls back to a cached account
+      // on a `NetworkException` (see its own doc comment), so reaching
+      // this branch at all means either that fallback had nothing cached
+      // (a install that's never had a successful login while online, or a
+      // non-network, non-401 failure) — either way, the token might still
+      // be perfectly valid, so it's left alone rather than discarded. A
+      // later retry with connectivity can still restore the session
+      // instead of a network blip at the wrong moment silently logging a
+      // doctor out.
       return const Unauthenticated();
     }
   }

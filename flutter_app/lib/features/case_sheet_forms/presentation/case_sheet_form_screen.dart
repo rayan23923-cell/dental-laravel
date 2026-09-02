@@ -15,12 +15,15 @@ import '../../auth/presentation/auth_controller.dart';
 import '../../auth/presentation/auth_state.dart';
 import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../../patient_registration/domain/registration_payment_state.dart';
+import '../data/case_sheet_offline_store.dart';
 import '../data/case_sheet_record_repository.dart';
 import '../domain/case_sheet_form_schema.dart';
 import '../domain/case_sheet_patient_field_map.dart';
+import '../domain/case_sheet_sync_status.dart';
 import 'case_sheet_form_providers.dart';
 import 'case_sheet_print_pdf.dart';
 import 'dynamic_section_form.dart';
+import 'sync_status_badge.dart';
 
 /// Fetches a resource's layout schema and (when editing) one of its real
 /// records, then renders `DynamicSectionForm` bound to both.
@@ -94,6 +97,10 @@ class CaseSheetFormScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(schemaAsync.valueOrNull?.title ?? '...'),
         actions: [
+          if (!isCreate) ...[
+            SyncStatusBadge(resource: resource, id: recordId!),
+            const SizedBox(width: 8),
+          ],
           // "طباعة" (2026-08-30) — mirrors the web's SectionedForm.vue
           // print link: only once a record actually exists (`!isCreate`,
           // matching its own `isEdit`) and only for the 8 resources
@@ -157,8 +164,19 @@ class CaseSheetFormScreen extends ConsumerWidget {
         await ref.read(caseSheetRecordRepositoryProvider).update(resource, id, payload);
         ref.invalidate(caseSheetRecordProvider((resource, id)));
         ref.invalidate(caseSheetRecordListProvider(resource));
+        ref.invalidate(caseSheetPendingStatusProvider((resource, id)));
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم الحفظ بنجاح.')));
+          // A `NetworkException` never reaches this catch block — the
+          // repository's `update()` queues it locally and returns
+          // normally instead (see its own doc comment) — so a queued-vs-
+          // synced save both land in this same success path, and the
+          // pending-status provider (just invalidated above) is what
+          // actually tells them apart for the message shown here.
+          final queued = await ref.read(caseSheetPendingStatusProvider((resource, id)).future) is CaseSheetSyncPending;
+          final message = queued ? 'تم الحفظ محليًا، سيُزامن تلقائيًا عند توفر الاتصال.' : 'تم الحفظ بنجاح.';
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+          }
         }
       } catch (e) {
         if (context.mounted) {

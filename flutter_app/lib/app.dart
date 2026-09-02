@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'features/case_sheet_forms/data/case_sheet_sync_service.dart';
 
 class App extends ConsumerWidget {
   const App({super.key});
@@ -11,6 +12,12 @@ class App extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    // Keeps the offline case-sheet sync listener alive for the app's whole
+    // lifetime — see CaseSheetSyncService's own doc comment. `watch`, not
+    // `read`: a plain `Provider` is never recreated by this widget's own
+    // rebuilds either way, but `watch` is what keeps it from being torn
+    // down if nothing else is holding a reference.
+    ref.watch(caseSheetSyncServiceProvider);
 
     return MaterialApp.router(
       title: 'العيادة التعليمية',

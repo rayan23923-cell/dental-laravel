@@ -4,11 +4,13 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/network/api_exception.dart';
 import '../domain/account_type.dart';
 import '../domain/auth_account.dart';
+import 'auth_offline_cache.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepository(ref.watch(apiClientProvider));
+  return AuthRepository(ref.watch(apiClientProvider), ref.watch(authOfflineCacheProvider));
 });
 
 /// `device_name` sent with every login — no `device_info_plus`/
@@ -22,8 +24,9 @@ String _deviceName() {
 }
 
 class AuthRepository {
-  AuthRepository(this._client);
+  AuthRepository(this._client, this._offlineCache);
   final ApiClient _client;
+  final AuthOfflineCache _offlineCache;
 
   /// One field, either the account's email or its username — mirrors
   /// `App\Http\Requests\Auth\LoginRequest`'s web form exactly. The server
@@ -43,9 +46,13 @@ class AuthRepository {
 
     final token = data['token'] as String;
     final type = data['account_type'] == 'doctor' ? AccountType.doctor : AccountType.staff;
-    final account = type == AccountType.doctor
-        ? DoctorAccount.fromJson(data['doctor'] as Map<String, dynamic>)
-        : StaffAccount.fromJson(data['user'] as Map<String, dynamic>);
+    final accountJson = (type == AccountType.doctor ? data['doctor'] : data['user']) as Map<String, dynamic>;
+    // Cached here too, not just in `fetchMe()` — a doctor who logs in and
+    // then loses connectivity before the next `/me` call (e.g. an app
+    // restart) would otherwise have nothing cached despite having just
+    // authenticated successfully.
+    await _offlineCache.cacheAccount(type, accountJson);
+    final account = _parse(type, accountJson);
 
     return (token, type, account);
   }
@@ -82,14 +89,29 @@ class AuthRepository {
     return data['message'] as String;
   }
 
+  /// Offline-aware (2026-09-02, see "Offline mode for Flutter case
+  /// sheets"): caches the raw response on every success, and on a pure
+  /// connectivity failure returns whatever was last cached instead of
+  /// throwing, so `AuthController.build()`'s session restore survives a
+  /// cold app launch with no network. Still throws — nothing to fall back
+  /// to — for a brand-new install/account that's never had a successful
+  /// login while connected.
   Future<AuthAccount> fetchMe(AccountType type) async {
-    final data = await _client.getJson('/me') as Map<String, dynamic>;
-
-    return switch (type) {
-      AccountType.staff => StaffAccount.fromJson(data),
-      AccountType.doctor => DoctorAccount.fromJson(data),
-    };
+    try {
+      final data = await _client.getJson('/me') as Map<String, dynamic>;
+      await _offlineCache.cacheAccount(type, data);
+      return _parse(type, data);
+    } on NetworkException {
+      final cached = await _offlineCache.readAccount(type);
+      if (cached != null) return _parse(type, cached);
+      rethrow;
+    }
   }
+
+  AuthAccount _parse(AccountType type, Map<String, dynamic> data) => switch (type) {
+        AccountType.staff => StaffAccount.fromJson(data),
+        AccountType.doctor => DoctorAccount.fromJson(data),
+      };
 
   /// Best-effort: an already-expired/revoked token may itself 401 here, but
   /// the caller (`AuthController.logout`) clears local state regardless.

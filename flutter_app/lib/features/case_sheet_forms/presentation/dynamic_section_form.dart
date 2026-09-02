@@ -268,6 +268,29 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
 
     for (final field in widget.schema.allFields) {
       if (!field.isSupported) continue; // leave unsupported fields untouched — see class doc.
+      // A field this viewer can't edit (`fieldDisabled()` — most often a
+      // doctor looking at a supervisor-only grade/signature) is left out
+      // of the payload entirely rather than echoed back, matching this
+      // endpoint's own `sometimes`-validated partial-update contract (see
+      // `CaseSheetRecordRepository.update()`'s doc comment): omitted means
+      // "untouched," never "clear this." Echoing it back used to be
+      // harmless when the echoed value was always fresh, but a real
+      // production bug this session (`EnforceCaseSheetAccess` 403-ing a
+      // doctor's own save) showed that isn't guaranteed even online, and
+      // matters much more once a save can queue offline for hours against
+      // a cached, possibly-stale value. **Grouped fields are the one
+      // exception** — a group's whole JSON blob is always resubmitted
+      // below regardless (`groupBuckets`), so an individual disabled
+      // subkey still rides along unchanged from `_groupOriginals`; omitting
+      // just that subkey from the blob would read as "clear it," not
+      // "unchanged" (`EnforceCaseSheetAccess::changedFields()`'s grouped
+      // diff treats a missing subkey as `''`). Only 2 of the 8 resources
+      // have a supervisor-only *grouped* subkey at all
+      // (`prevention-records`/`oral-medicine-charts`), and this doesn't
+      // make their existing staleness exposure any worse than an ordinary
+      // stale page reload already was — a real fix needs a fresher
+      // baseline than this form has, not a payload-shape change.
+      if (fieldDisabled(field)) continue;
       final value = _values[field.formKey];
 
       if (field.group != null) {
@@ -296,10 +319,16 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
     }
 
     // Stage rows — see `_seed()`'s matching comment; flat top-level
-    // columns like everything else here, never grouped.
+    // columns like everything else here, never grouped. Same
+    // fieldDisabled()-skip reasoning as above, via `stageFieldDisabled()`
+    // — every stage's signature/date/grade is supervisor-only on the two
+    // resources that have stages at all (Prosthodontics/Complete Denture),
+    // so unconditionally echoing these back was exactly what triggered the
+    // real 403 bug this fix traces back to.
     for (final stage in widget.schema.stages) {
       final key = stage['key'] as String;
       for (final part in ['signature', 'date', 'grade']) {
+        if (stageFieldDisabled(key, part)) continue;
         final formKey = 'stage_${key}_$part';
         payload[formKey] = _values[formKey];
       }

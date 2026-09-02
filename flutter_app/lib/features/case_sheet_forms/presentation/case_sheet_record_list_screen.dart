@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/api_exception.dart';
 import '../domain/case_sheet_form_schema.dart';
 import 'case_sheet_form_providers.dart';
+import 'sync_status_badge.dart';
 
 /// A resource's own records (`GET /{resource}` — already scoped to the
 /// authenticated doctor server-side, see e.g. `Api\SurgeryController::
@@ -52,7 +53,14 @@ class CaseSheetRecordListScreen extends ConsumerWidget {
                 return Card(
                   child: ListTile(
                     title: Text(_label(record)),
-                    trailing: const Icon(Icons.chevron_left),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SyncStatusBadge(resource: resource, id: record['id'] as int),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.chevron_left),
+                      ],
+                    ),
                     onTap: () => context.push('/case-sheets/$resource/${record['id']}'),
                   ),
                 );

@@ -433,3 +433,103 @@ swap (confirmed by re-reading `AppShell`'s exact `Positioned` values
 against `AppBar`'s own well-documented RTL `leading` placement), not
 something contingent on runtime behavior, so it was shipped on that
 analysis rather than a live screenshot. `flutter analyze` clean.
+
+## Offline mode for case sheets (2026-09-02)
+
+By request — clinic wifi drops sometimes, and a doctor mid-case-sheet
+shouldn't lose their work or get logged out over it. Scoped up front with
+the user: Flutter only (not the web app); a simple synced/pending/failed
+badge per record, not a numeric percentage (a case sheet submits as one
+whole payload, so there's only ever one pending edit per record — nothing
+to divide); continuing an *already-opened* case sheet, not creating a
+brand-new one offline; all 8 case-sheet resource types at once, via the
+existing shared `DynamicSectionForm`/`CaseSheetRecordRepository` engine.
+Explicitly **not** covered: the task list (`GET /my-task-progress`), the
+record list screen's own initial load, and starting a task via QR scan all
+still need connectivity — only the case-sheet form screen and the auth
+session itself got offline resilience. "Opening the app offline" means
+"stay logged in and reach a previously-visited case sheet," not "every
+screen works with zero connectivity."
+
+**Three real problems, not one.** Before this, (1) `AuthController.build()`
+treated *any* `/me` failure — including a pure connectivity error — as an
+invalid session and cleared the stored token, logging a doctor out just
+because the network hiccuped at the wrong moment on cold start; (2) a save
+made while offline threw and lost the edit; (3) nothing distinguished
+"saved to the server" from "not saved at all."
+
+**Repository-level, not screen-level.** `CaseSheetRecordRepository`,
+`CaseSheetFormRepository`, and `AuthRepository` each got a small offline
+layer wrapped around their existing network calls — `fetch()` write-through
+caches on success and falls back to cache on a connectivity failure;
+`update()` queues the edit locally instead of throwing. Screens
+(`CaseSheetFormScreen`, `DynamicSectionForm`, all 8 resources) needed zero
+awareness of offline mode beyond one new badge widget — the same shared
+code path every resource already goes through is what makes "all 8 types"
+essentially free. The online/offline *decision* for any call was already
+answerable for free: `ApiException.fromDioException` already produces a
+distinct `NetworkException` for a connection error/timeout, separate from
+`UnauthorizedException`/`ForbiddenException`/`ValidationException`/
+`ServerException` — exactly the split needed, no changes to
+`api_exception.dart`/`api_client.dart` at all.
+
+**New:** `core/offline/local_json_store.dart` (generic JSON-blob-per-key
+cache over `shared_preferences` — the data volume here, a handful of small
+records, doesn't justify a real local database), `core/offline/
+connectivity_service.dart` (`connectivity_plus`, new dependency — a
+`StreamProvider<bool>` used only to *trigger* a sync attempt at the
+connectivity-restored moment, never to decide success/failure on its own),
+`features/case_sheet_forms/data/case_sheet_offline_store.dart` (per-record
+cache + a pending-edit queue, at most one entry per `(resource, id)` — a
+newer offline save overwrites the queued one rather than accumulating),
+`features/case_sheet_forms/data/case_sheet_sync_service.dart`
+(`CaseSheetSyncService.syncAll()`, triggered three ways — immediately on
+creation, since an app that cold-starts already online with something left
+queued from a previous session would otherwise wait for the *next*
+connectivity change that might never come; `connectivity_plus`'s change
+stream; and app-resume, as a defensive fallback for a missed connectivity
+event), `features/case_sheet_forms/presentation/sync_status_badge.dart`,
+`features/auth/data/auth_offline_cache.dart` (caches the *raw* `/me`/login
+JSON, not a parsed `AuthAccount` — round-trips through the existing
+`fromJson` factories unchanged, no new `toJson()` needed anywhere).
+
+**Real correctness fix uncovered along the way, not just offline plumbing.**
+`DynamicSectionForm.buildSubmitPayload()` was unconditionally echoing back
+every field's *current* value, including supervisor-only ones
+(`fieldDisabled()`/`stageFieldDisabled()` already lock them in the UI, but
+the payload builder ignored that) — directly contradicting this endpoint's
+own `sometimes`-validated partial-update contract, and exactly the shape of
+bug that caused the real production 403 fixed earlier this same session
+(`EnforceCaseSheetAccess` rejecting a doctor's own save because a stale
+echoed value looked "changed"). That staleness risk is much larger for a
+queue that might not sync for hours, so `buildSubmitPayload()` now skips
+any field/stage-part the viewer can't edit, for both the online and offline
+paths alike — one fix, not two. (Grouped supervisor fields — only
+`prevention-records`/`oral-medicine-charts` have any — are a known,
+deliberately out-of-scope exception: their whole JSON blob is always
+resubmitted regardless, so an individual disabled subkey still rides along
+from `_groupOriginals` rather than being omitted, which would read as
+"clear it" to the grouped-diff logic. No worse than an ordinary stale page
+reload already was; a real fix needs a fresher baseline than this form
+has, not a payload-shape change.)
+
+**Verified live, temporary doctor account + a real record, XAMPP's Apache
+stopped/restarted to simulate the outage** (a Flutter-web target's own
+`connectivity_plus` reports the OS network adapter, which never actually
+went down this way — only the API origin did — so this exercises the real
+"does this specific call succeed" path, the one that actually matters, not
+the `connectivity_plus` signal): edited a doctor-editable field with Apache
+down, got the queued-locally snackbar with no error and an immediate
+"بانتظار المزامنة" badge; inspected the actual persisted
+`shared_preferences` JSON directly (`localStorage` under Flutter web) and
+confirmed the queued payload correctly excluded every one of the 30
+supervisor-only Prosthodontics fields; restarted Apache and reloaded —
+the queued edit synced automatically with no manual action, confirmed via
+`tinker` that the real column updated and the supervisor-only
+`diagnosis_grade` stayed untouched, and the badge cleared. Separately,
+stopped Apache and did a full cold reload of the app — landed directly on
+the dashboard showing the doctor's own cached name, not the login screen,
+confirming the auth fix. The "sync attempt reached the server and was
+genuinely rejected" (`CaseSheetSyncFailed`) branch was reasoned through
+against the exhaustive, compiler-checked `on NetworkException` / `on
+ApiException` split rather than separately live-reproduced.

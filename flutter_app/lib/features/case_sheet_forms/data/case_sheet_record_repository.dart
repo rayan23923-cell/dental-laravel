@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../core/network/paginated.dart';
+import 'case_sheet_offline_store.dart';
 
 final caseSheetRecordRepositoryProvider = Provider<CaseSheetRecordRepository>((ref) {
-  return CaseSheetRecordRepository(ref.watch(apiClientProvider));
+  return CaseSheetRecordRepository(ref.watch(apiClientProvider), ref.watch(caseSheetOfflineStoreProvider));
 });
 
 /// Generic CRUD against any of the 8 case-sheet REST resources
@@ -12,9 +14,19 @@ final caseSheetRecordRepositoryProvider = Provider<CaseSheetRecordRepository>((r
 /// with the same `{data: {...}}` / paginated-`{data: [...]}` envelope, so
 /// one repository parametrized by resource name covers all 8 instead of 8
 /// near-identical classes.
+///
+/// Also the offline layer for the same 8 resources (see "Offline mode for
+/// Flutter case sheets" — `docs/case-sheets-and-clinical-charting.md`):
+/// `fetch()`/`openFor()` write-through cache on success and fall back to
+/// the cache on a pure connectivity failure; `update()` queues the edit
+/// locally on the same failure instead of throwing. A real rejection
+/// (422/403/etc., anything that isn't [NetworkException]) still throws
+/// normally in every method — only "the network itself is unreachable"
+/// gets the offline treatment, never an actual error response.
 class CaseSheetRecordRepository {
-  CaseSheetRecordRepository(this._client);
+  CaseSheetRecordRepository(this._client, this._offline);
   final ApiClient _client;
+  final CaseSheetOfflineStore _offline;
 
   Future<Paginated<Map<String, dynamic>>> list(String resource, {String? doctorId}) async {
     final data = await _client.getJson('/$resource') as Map<String, dynamic>;
@@ -22,8 +34,16 @@ class CaseSheetRecordRepository {
   }
 
   Future<Map<String, dynamic>> fetch(String resource, int id) async {
-    final data = await _client.getJson('/$resource/$id') as Map<String, dynamic>;
-    return data['data'] as Map<String, dynamic>;
+    try {
+      final data = await _client.getJson('/$resource/$id') as Map<String, dynamic>;
+      final record = data['data'] as Map<String, dynamic>;
+      await _offline.cacheRecord(resource, id, record);
+      return record;
+    } on NetworkException {
+      final cached = await _offline.readRecord(resource, id);
+      if (cached != null) return cached;
+      rethrow; // never seen this record before — nothing to fall back to
+    }
   }
 
   Future<Map<String, dynamic>> create(String resource, Map<String, dynamic> payload) async {
@@ -31,12 +51,41 @@ class CaseSheetRecordRepository {
     return data['data'] as Map<String, dynamic>;
   }
 
+  /// The real network write — throws normally on any failure, including a
+  /// pure connectivity one. [update] (below) is what screens call; this is
+  /// what [CaseSheetSyncService] calls, since syncing a queued edit needs
+  /// to actually distinguish "reached the server and it rejected this" (stop
+  /// retrying, surface the error) from "still offline" (leave it queued) —
+  /// a distinction [update]'s own catch-and-queue behavior deliberately
+  /// erases for its own (screen-facing) callers.
+  Future<Map<String, dynamic>> updateRemote(String resource, int id, Map<String, dynamic> payload) async {
+    final data = await _client.putJson('/$resource/$id', body: payload) as Map<String, dynamic>;
+    return data['data'] as Map<String, dynamic>;
+  }
+
   /// Partial update — only send the keys the form actually edited (every
   /// `update()` on these 8 controllers validates with `sometimes`, so an
   /// omitted key is left untouched server-side, never nulled).
+  ///
+  /// Offline: a [NetworkException] here never propagates to the caller —
+  /// the payload is merged into the locally cached record (so re-reading
+  /// this same record reflects the edit even before it syncs) and queued
+  /// via [CaseSheetOfflineStore.queueEdit], returning the merged record so
+  /// the screen's existing success path (snackbar, navigation) is
+  /// unaffected. Any other failure (a real 403/422/etc.) still throws.
   Future<Map<String, dynamic>> update(String resource, int id, Map<String, dynamic> payload) async {
-    final data = await _client.putJson('/$resource/$id', body: payload) as Map<String, dynamic>;
-    return data['data'] as Map<String, dynamic>;
+    try {
+      final record = await updateRemote(resource, id, payload);
+      await _offline.removePendingEdit(resource, id);
+      await _offline.cacheRecord(resource, id, record);
+      return record;
+    } on NetworkException {
+      final cached = await _offline.readRecord(resource, id) ?? <String, dynamic>{};
+      final merged = {...cached, ...payload};
+      await _offline.cacheRecord(resource, id, merged);
+      await _offline.queueEdit(resource, id, payload);
+      return merged;
+    }
   }
 
   /// Flutter's entry point into the same task-instance → clinical-form
@@ -45,13 +94,26 @@ class CaseSheetRecordRepository {
   /// `task_instances_id` before. Resolves which of the 8 resources this
   /// case's task uses, and whether a record already exists for it.
   Future<CaseSheetOpenResult> openFor(int taskInstanceId) async {
-    final data = await _client.getJson('/task-instances/$taskInstanceId/case-sheet') as Map<String, dynamic>;
-    return CaseSheetOpenResult(
-      resource: data['resource'] as String,
-      recordId: data['record_id'] as int?,
-      readonly: data['readonly'] as bool? ?? false,
-      supervisorEditableFields: (data['supervisor_editable_fields'] as List<dynamic>?)?.cast<String>() ?? const [],
-    );
+    try {
+      final data = await _client.getJson('/task-instances/$taskInstanceId/case-sheet') as Map<String, dynamic>;
+      final resource = data['resource'] as String;
+      final recordId = data['record_id'] as int?;
+      await _offline.cacheTaskResolution(taskInstanceId, resource, recordId);
+      return CaseSheetOpenResult(
+        resource: resource,
+        recordId: recordId,
+        readonly: data['readonly'] as bool? ?? false,
+        supervisorEditableFields: (data['supervisor_editable_fields'] as List<dynamic>?)?.cast<String>() ?? const [],
+      );
+    } on NetworkException {
+      final cached = await _offline.readTaskResolution(taskInstanceId);
+      if (cached == null) rethrow;
+      // A cached resolution only ever came from a doctor's own successful
+      // `openFor()` call (never a staff preview — see `openForTask`'s own
+      // doc comment on the API side), so `readonly`/`supervisorEditableFields`
+      // are safe to default here the same way `openForTask` always does.
+      return CaseSheetOpenResult(resource: cached.$1, recordId: cached.$2);
+    }
   }
 
   /// The optional pre-instance draft (2026-08-28) — same shape as [openFor],
