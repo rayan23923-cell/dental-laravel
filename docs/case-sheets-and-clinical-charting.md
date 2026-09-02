@@ -435,6 +435,61 @@ drifted from the web Blade view — missing the odontogram block and the
 `student_name`/`grade_group` identification-strip fallbacks — closed by
 adding the same calls the web controller already made.
 
+**The anatomical arch moved into the live editable form too (2026-09-02).**
+By request ("كيس شيت الطالب لا يظهر مخطط الاسنان svg اريد اظهاره") — until
+now the arch above only ever rendered in the *printed* document; a student
+filling the sheet never saw it. Added a "Dental Arch" card right after
+"B- Intraoral Examination" (where `missing_teeth`/`caries_teeth` are
+entered) on both platforms, live-reactive to those same two fields as the
+student taps teeth — no new backend, no new columns, same
+`missing_teeth`/`caries_teeth` data the print path already reads.
+
+Web: new `Components/ProsthodonticsDentalArch.vue`, embedded in
+`SectionedForm.vue` behind `resource === 'prosthodontics-records'`
+(matching `Api\CaseSheetPrintController`'s own scoping for the `dental_arch`
+key). Flutter: `_ProsthodonticsDentalArchPreview` added to
+`dynamic_section_form.dart`, gated the same way via a new `resource` prop
+threaded through from `case_sheet_form_screen.dart`.
+
+Both compute the tint **by direct string substitution on each path's own
+`style="..."` attribute** — the same technique
+`buildProsthodonticsDentalArchSvg` (Flutter's print SVG builder, reused
+as-is here) already used, and for the same reason the Blade partial needs
+`!important`: every path in this artwork carries its own inline style.
+Vue's version was tried as a generated `<style>` block first (mirroring the
+Blade partial almost verbatim) but that was found live to vanish from the
+rendered DOM outright — Vue's SFC compiler treats *any* `<style>` tag
+found in the file as one of the file's own top-level blocks and strips it,
+even one written inside `<template>`, nested inside an `<svg>`. Switched to
+the string-substitution approach instead, which also sidesteps a subtler
+problem the `<style>`-block approach would have had anyway: the single
+whole-tooth outline carries **two** classes (`tooth-11 tooth-11-parent`),
+so a `.tooth-11` rule and a `.tooth-11-parent` rule both legitimately match
+it — which one wins becomes a `!important`-tie broken by declaration order,
+not by which one is "meant" for that element. String substitution never
+faces this, since it targets each `<path>` by its own distinguishing class
+combination directly.
+
+**Live-reactivity needed one small state-ownership change on Flutter.**
+Every other field widget in `dynamic_section_form.dart` calls only its own
+local `setState` when a value changes (the parent form only rebuilds on its
+own actions), which is correct for fields with no sibling depending on
+their value — but `missing_teeth`/`caries_teeth` now have exactly that
+sibling. `_QuadrantTeethFieldWidgetState`'s `onChanged` was changed to call
+the *parent* `DynamicSectionFormState`'s `setState` instead, so tapping a
+tooth also rebuilds the new preview card. Web needed no equivalent change —
+`form` is already one shared reactive object (`useForm()`), so a computed
+property watching `form.missing_teeth`/`form.caries_teeth` updates on its
+own.
+
+Verified live on both platforms: the full 32-tooth artwork renders
+completely (182 paths + 32 number labels — confirmed by count, after an
+early draft of the Vue version shipped with roughly a third of the teeth
+missing, an accidental manual-transcription error caught before commit by
+comparing path/text counts against the source Blade partial), and tapping
+a tooth in the missing-teeth picker visibly greys it out in the preview
+immediately, before saving.
+
 ## Periodontal Plaque Index
 
 A genuinely new feature (2026-08-31), not a print-fidelity port: the

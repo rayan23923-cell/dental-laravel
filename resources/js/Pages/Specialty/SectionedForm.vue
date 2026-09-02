@@ -9,6 +9,7 @@ import PerioChart from '@/Components/PerioChart.vue';
 import PlaqueChart from '@/Components/PlaqueChart.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import QuadrantTeeth from '@/Components/QuadrantTeeth.vue';
+import ProsthodonticsDentalArch from '@/Components/ProsthodonticsDentalArch.vue';
 import ToothOdontogram from '@/Components/ToothOdontogram.vue';
 import EndodonticsSection from '@/Components/EndodonticsSection.vue';
 import HistoryOfComplaintSection from '@/Components/HistoryOfComplaintSection.vue';
@@ -416,6 +417,30 @@ const fieldVisible = (field) => {
 // grouping note above); plain fields bind to their column name directly.
 const formKey = (field) => (field.group ? `${field.group}__${field.key}` : field.key);
 
+/**
+ * `"UR8, UL1"` → `[18, 21]` — same canonical-code rule as
+ * `CaseSheetPrintRenderer::normalizeToothCode()`/`quadrantCodeToFdi()`
+ * (see `ProsthodonticsDentalArch.vue`'s own doc comment). `QuadrantTeeth.vue`
+ * only ever emits this canonical shape, so the legacy `U1-U16`/`L1-L16`
+ * branch that PHP method also handles (surgery sheets' own older format)
+ * doesn't apply here.
+ */
+const quadrantCodesToFdi = (raw) => {
+    const prefixes = { UR: 1, UL: 2, LL: 3, LR: 4 };
+    return (raw ?? '')
+        .split(',')
+        .map((c) => c.trim().toUpperCase())
+        .map((c) => c.match(/^(UR|UL|LR|LL)([1-8])$/))
+        .filter(Boolean)
+        .map((m) => prefixes[m[1]] * 10 + Number(m[2]));
+};
+
+// Live preview of the same anatomical dental-arch illustration the
+// printed document shows — prosthodontics-records only, matching
+// Api\CaseSheetPrintController's own `dental_arch` scoping.
+const missingFdi = computed(() => quadrantCodesToFdi(form.missing_teeth));
+const cariousFdi = computed(() => quadrantCodesToFdi(form.caries_teeth));
+
 const widthClass = (field) =>
     ({ full: 'sm:col-span-4', half: 'sm:col-span-2' }[field.width] ?? 'sm:col-span-1');
 
@@ -784,6 +809,14 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                                 </div>
                             </template>
                         </div>
+                    </div>
+
+                    <!-- Live dental-arch preview — see ProsthodonticsDentalArch.vue's
+                         own doc comment for why this only ever appeared in
+                         the printed document until now. -->
+                    <div v-if="resource === 'prosthodontics-records'" class="rounded-lg bg-white p-6 shadow-sm">
+                        <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500">Dental Arch</h3>
+                        <ProsthodonticsDentalArch :missing-fdi="missingFdi" :carious-fdi="cariousFdi" />
                     </div>
 
                     <!-- Stages and evaluation -->

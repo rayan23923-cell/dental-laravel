@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 
 import '../../dental_chart/presentation/tooth_odontogram_field.dart';
@@ -13,6 +14,7 @@ import '../domain/case_sheet_form_schema.dart';
 import 'extraoral_intraoral_exam_field.dart';
 import 'family_history_field.dart';
 import 'history_of_complaint_field.dart';
+import 'prosthodontics_dental_arch_svg.dart';
 import 'quadrant_repeater_field.dart';
 import 'quadrant_teeth_field.dart';
 import 'social_history_field.dart';
@@ -76,12 +78,20 @@ const _jsonBlobFieldTypes = {
 class DynamicSectionForm extends StatefulWidget {
   const DynamicSectionForm({
     super.key,
+    required this.resource,
     required this.schema,
     required this.record,
     required this.readonly,
     required this.onSubmit,
     this.supervisorEditableFields = const [],
   });
+
+  /// The case-sheet resource slug (e.g. `"prosthodontics-records"`) — used
+  /// only to gate the resource-specific extras below `sections()`
+  /// (currently just the prosthodontics dental-arch preview), matching how
+  /// `Api\CaseSheetPrintController` scopes its own `dental_arch` key the
+  /// same way.
+  final String resource;
 
   final CaseSheetFormSchema schema;
 
@@ -406,6 +416,7 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (final section in widget.schema.sections) _SectionCard(section: section, state: this),
+          if (widget.resource == 'prosthodontics-records') _ProsthodonticsDentalArchPreview(state: this),
           if (widget.schema.stages.isNotEmpty) _StageEvaluationTable(stages: widget.schema.stages, state: this),
           if (widget.schema.chartGroups.isNotEmpty)
             PerioChartGroupsField(
@@ -687,6 +698,45 @@ class _SectionCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: _FieldWidget(field: field, state: state),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Live preview of the same anatomical dental-arch SVG the printed
+/// document shows (`buildProsthodonticsDentalArchSvg`, also used by
+/// `case_sheet_print_pdf.dart` and the web `prosthodontics-dental-arch.blade.php`
+/// partial) — added inline in the editable form too (by request, "كيس شيت
+/// الطالب لا يظهر مخطط الاسنان svg"), so a student sees the same coloured
+/// chart while filling the sheet, not only after printing. Reads straight
+/// from `state._values` (the "Missing Teeth"/"Caries teeth" quadrant
+/// pickers in "B- Intraoral Examination" above), converted to FDI the same
+/// way `CaseSheetPrintRenderer::prosthodonticsDentalArch()` does —
+/// `_QuadrantTeethFieldWidgetState` routes its `onChanged` through this
+/// state's own `setState` (not just its own) specifically so toggling a
+/// tooth there rebuilds this preview live.
+class _ProsthodonticsDentalArchPreview extends StatelessWidget {
+  const _ProsthodonticsDentalArchPreview({required this.state});
+  final DynamicSectionFormState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final missing = quadrantCodesToFdi(state._values['missing_teeth'] as String? ?? '');
+    final caries = quadrantCodesToFdi(state._values['caries_teeth'] as String? ?? '');
+    final svg = buildProsthodonticsDentalArchSvg(missingFdi: missing, cariousFdi: caries);
+
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Dental Arch', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Center(child: SizedBox(width: 220, child: SvgPicture.string(svg))),
           ],
         ),
       ),
@@ -1121,7 +1171,13 @@ class _QuadrantTeethFieldWidgetState extends State<_QuadrantTeethFieldWidget> {
         QuadrantTeethField(
           value: value,
           readOnly: widget.state.fieldDisabled(widget.field),
-          onChanged: (next) => setState(() => widget.state._values[widget.field.formKey] = next),
+          // Routed through the *parent* form's setState, not just this
+          // widget's own — every other field widget in this file only
+          // calls its own local setState, but `missing_teeth`/
+          // `caries_teeth` specifically need to rebuild a sibling
+          // (`_ProsthodonticsDentalArchPreview`), which only the parent
+          // form's rebuild reaches.
+          onChanged: (next) => widget.state.setState(() => widget.state._values[widget.field.formKey] = next),
         ),
       ],
     );

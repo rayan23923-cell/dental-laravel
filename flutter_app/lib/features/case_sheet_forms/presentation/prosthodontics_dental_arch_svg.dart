@@ -288,3 +288,22 @@ String buildProsthodonticsDentalArchSvg({required List<int> missingFdi, required
 
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 289.61084 370.54398">$body</svg>';
 }
+
+final _quadrantCodePattern = RegExp(r'^(UR|UL|LR|LL)([1-8])$');
+const _quadrantFdiPrefix = {'UR': 1, 'UL': 2, 'LL': 3, 'LR': 4};
+
+/// `"UR8, UL1"` → `[18, 21]` — same canonical-code branch as
+/// `CaseSheetPrintRenderer::normalizeToothCode()`/`quadrantCodeToFdi()`.
+/// `QuadrantTeethField` only ever emits this canonical shape (see its own
+/// doc comment), so the legacy `U1-U16`/`L1-L16` branch that PHP method
+/// also handles (surgery sheets' own older format) doesn't apply here.
+List<int> quadrantCodesToFdi(String raw) {
+  final result = <int>[];
+  for (final code in raw.split(',').map((c) => c.trim().toUpperCase())) {
+    final match = _quadrantCodePattern.firstMatch(code);
+    if (match == null) continue;
+    final prefix = _quadrantFdiPrefix[match.group(1)!]!;
+    result.add(prefix * 10 + int.parse(match.group(2)!));
+  }
+  return result;
+}

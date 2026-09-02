@@ -136,6 +136,7 @@ class CaseSheetFormScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(12),
             child: DynamicSectionForm(
               key: _formStateKey,
+              resource: resource,
               schema: schema,
               record: record,
               readonly: readonly,
