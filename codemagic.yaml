@@ -67,6 +67,23 @@ workflows:
     scripts:
       - name: Get Flutter packages
         script: flutter pub get
+      - name: Set up release signing (key.properties)
+        # `android_signing` above makes Codemagic decode the uploaded
+        # keystore onto the build machine and expose its path/passwords as
+        # CM_KEYSTORE_PATH/CM_KEYSTORE_PASSWORD/CM_KEY_ALIAS/CM_KEY_PASSWORD
+        # env vars — but nothing reads them automatically. build.gradle.kts
+        # only looks at android/key.properties, so without this step the
+        # release build silently falls back to debug signing (which is
+        # exactly what happened: Play Console rejected the first upload as
+        # "signed in debug mode"). This file lives only on the ephemeral
+        # build machine — never committed, never logged.
+        script: |
+          cat >android/key.properties <<EOF
+          storePassword=$CM_KEYSTORE_PASSWORD
+          keyPassword=$CM_KEY_PASSWORD
+          keyAlias=$CM_KEY_ALIAS
+          storeFile=$CM_KEYSTORE_PATH
+          EOF
       - name: Build Android App Bundle (release, signed)
         script: flutter build appbundle --release --dart-define=API_BASE_URL=https://cdclinics.com/api/v1
     artifacts:
