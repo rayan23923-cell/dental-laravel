@@ -1,8 +1,29 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// Release signing (2026-09-02, for the Google Play internal-testing
+// upload) — reads from `android/key.properties`, never committed
+// (already covered by android/.gitignore's `key.properties`/`*.jks`/
+// `*.keystore` entries) so the actual keystore password never touches
+// version control or CI logs. Deliberately optional: a build with no
+// `key.properties` present still succeeds — see the release
+// signingConfig below, which falls back to the debug key exactly like
+// this file did before, so a plain local `flutter run --release` for
+// day-to-day dev work is unaffected. Only a build that explicitly needs
+// to be uploadable to Play Console (Codemagic's release workflow) needs
+// this file to actually exist.
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties()
+val hasReleaseKeystore = keystorePropertiesFile.exists()
+if (hasReleaseKeystore) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
 // Firebase (push notifications) — only applied once a real
@@ -47,11 +68,24 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Real release signing once android/key.properties exists
+            // (see its own doc comment above) — falls back to the debug
+            // key otherwise, unchanged from before, so this never blocks
+            // a plain local release build.
+            signingConfig = if (hasReleaseKeystore) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
         }
     }
 }

@@ -99,6 +99,14 @@ Route::get('/', function () {
 // why this is a route rather than a static public/manifest.json.
 Route::get('/manifest.webmanifest', [PwaManifestController::class, 'show'])->name('pwa.manifest');
 
+// Plain Blade, not Inertia — a one-off legal page needs no JS bundle at
+// all. Added 2026-09-02 specifically to give Google Play Console's "App
+// content" section a real, public privacy-policy URL (required even for
+// Internal Testing) for the Flutter app.
+Route::get('/privacy-policy', function () {
+    return view('privacy-policy', ['clinic' => ClinicSetting::current()]);
+})->name('privacy-policy');
+
 // Public waiting-room display — no auth, matches the original app's
 // tv_patients.php being a public screen, not part of the admin app.
 Route::get('/tv', function () {
