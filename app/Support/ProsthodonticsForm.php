@@ -75,7 +75,13 @@ class ProsthodonticsForm
                     ['key' => 'soft_tissue_condition', 'label' => 'C- Condition of soft tissue', 'type' => 'text', 'width' => 'half'],
                     ['key' => 'abnormal_lesion', 'label' => 'D- Presence of any abnormal lesion', 'type' => 'text', 'width' => 'half'],
                     ['key' => 'abutments_mobility', 'label' => 'E- Mobility of abutments', 'type' => 'text', 'width' => 'half'],
-                    ['key' => 'teeth_extraction', 'label' => 'F- Teeth to be extracted', 'type' => 'text', 'width' => 'half'],
+                    // 'text' → 'teeth' (2026-09-02, by request — "Teeth to
+                    // be extracted حولها dental chart كما في الاعلى"): same
+                    // quadrant tooth-picker as missing_teeth/caries_teeth
+                    // above, not a separate widget — both platforms read
+                    // this schema live, so this one-line change was the
+                    // entire fix.
+                    ['key' => 'teeth_extraction', 'label' => 'F- Teeth to be extracted', 'type' => 'teeth', 'width' => 'full'],
                     ['key' => 'preprosthetic_treatment', 'label' => 'G- Pre-prosthetic treatment required', 'type' => 'textarea', 'width' => 'full'],
                 ],
             ],
