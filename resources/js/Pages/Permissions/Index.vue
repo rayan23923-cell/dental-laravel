@@ -1,5 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import DataTable from '@/Components/DataTable.vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 
 defineProps({
@@ -7,6 +8,12 @@ defineProps({
 });
 
 const page = usePage();
+
+const columns = [
+    { key: 'full_name', label: 'Name', sortable: true },
+    { key: 'role', label: 'Role', sortable: true },
+    { key: 'actions', label: 'Actions', align: 'right' },
+];
 </script>
 
 <template>
@@ -37,29 +44,17 @@ const page = usePage();
                     has every permission. See <code>App\Services\PermissionManager</code>.
                 </p>
 
-                <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Name</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Role</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200 bg-white">
-                            <tr v-for="user in users" :key="user.id">
-                                <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">{{ user.full_name }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ user.role }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
-                                    <Link :href="route('permissions.edit', user.id)" class="text-indigo-600 hover:text-indigo-900">Manage</Link>
-                                </td>
-                            </tr>
-                            <tr v-if="users.length === 0">
-                                <td colspan="3" class="px-6 py-8 text-center text-sm text-gray-500">No staff users yet.</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                <DataTable
+                    :columns="columns"
+                    :rows="users"
+                    searchable
+                    search-placeholder="ابحث بالاسم أو الدور..."
+                    empty-text="No staff users yet."
+                >
+                    <template #cell-actions="{ row: user }">
+                        <Link :href="route('permissions.edit', user.id)" class="text-indigo-600 hover:text-indigo-900">Manage</Link>
+                    </template>
+                </DataTable>
             </div>
         </div>
     </AuthenticatedLayout>

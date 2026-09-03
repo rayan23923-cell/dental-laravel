@@ -1,5 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import DataTable from '@/Components/DataTable.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import Modal from '@/Components/Modal.vue';
@@ -46,6 +47,12 @@ const destroy = (type) => {
         router.delete(route('education-types.destroy', type.id));
     }
 };
+
+const columns = [
+    { key: 'name', label: 'Name', sortable: true },
+    { key: 'stages_count', label: 'Stages', sortable: true },
+    { key: 'actions', label: 'Actions', align: 'right' },
+];
 </script>
 
 <template>
@@ -90,32 +97,16 @@ const destroy = (type) => {
                     <SecondaryButton @click="applySearch">بحث</SecondaryButton>
                 </div>
 
-                <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Name</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Stages</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200 bg-white">
-                            <tr v-for="type in educationTypes" :key="type.id">
-                                <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">{{ type.name }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ type.stages_count }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
-                                    <button @click="openEdit(type)" class="text-indigo-600 hover:text-indigo-900">Edit</button>
-                                    <button @click="destroy(type)" class="ml-4 text-red-600 hover:text-red-900">Delete</button>
-                                </td>
-                            </tr>
-                            <tr v-if="educationTypes.length === 0">
-                                <td colspan="3" class="px-6 py-8 text-center text-sm text-gray-500">
-                                    {{ search ? 'لا توجد نتائج مطابقة.' : 'No education types yet.' }}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                <DataTable
+                    :columns="columns"
+                    :rows="educationTypes"
+                    :empty-text="search ? 'لا توجد نتائج مطابقة.' : 'No education types yet.'"
+                >
+                    <template #cell-actions="{ row: type }">
+                        <button @click="openEdit(type)" class="text-indigo-600 hover:text-indigo-900">Edit</button>
+                        <button @click="destroy(type)" class="ml-4 text-red-600 hover:text-red-900">Delete</button>
+                    </template>
+                </DataTable>
             </div>
         </div>
 

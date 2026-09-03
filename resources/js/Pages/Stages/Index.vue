@@ -1,5 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import DataTable from '@/Components/DataTable.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import Modal from '@/Components/Modal.vue';
@@ -53,6 +54,13 @@ const destroy = (stage) => {
         router.delete(route('stages.destroy', stage.id));
     }
 };
+
+const columns = [
+    { key: 'name', label: 'Name', sortable: true },
+    { key: 'education_type.name', label: 'Education Type', sortable: true },
+    { key: 'departments_count', label: 'Departments', sortable: true },
+    { key: 'actions', label: 'Actions', align: 'right' },
+];
 </script>
 
 <template>
@@ -112,34 +120,16 @@ const destroy = (stage) => {
                     <SecondaryButton @click="applyFilters">بحث</SecondaryButton>
                 </div>
 
-                <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Name</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Education Type</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Departments</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200 bg-white">
-                            <tr v-for="stage in stages" :key="stage.id">
-                                <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">{{ stage.name }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ stage.education_type?.name ?? '—' }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ stage.departments_count }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
-                                    <button @click="openEdit(stage)" class="text-indigo-600 hover:text-indigo-900">Edit</button>
-                                    <button @click="destroy(stage)" class="ml-4 text-red-600 hover:text-red-900">Delete</button>
-                                </td>
-                            </tr>
-                            <tr v-if="stages.length === 0">
-                                <td colspan="4" class="px-6 py-8 text-center text-sm text-gray-500">
-                                    {{ search || filterEducationTypeId ? 'لا توجد نتائج مطابقة.' : 'No stages yet.' }}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                <DataTable
+                    :columns="columns"
+                    :rows="stages"
+                    :empty-text="search || filterEducationTypeId ? 'لا توجد نتائج مطابقة.' : 'No stages yet.'"
+                >
+                    <template #cell-actions="{ row: stage }">
+                        <button @click="openEdit(stage)" class="text-indigo-600 hover:text-indigo-900">Edit</button>
+                        <button @click="destroy(stage)" class="ml-4 text-red-600 hover:text-red-900">Delete</button>
+                    </template>
+                </DataTable>
             </div>
         </div>
 
