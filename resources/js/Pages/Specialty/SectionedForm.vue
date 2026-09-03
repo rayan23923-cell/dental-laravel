@@ -166,6 +166,16 @@ const PATIENT_FIELD_MAP = {
     'complete-denture-records': { name: 'patient_name', phone: 'telephone', age: 'age', sex: 'sex', address: 'address', occupation: 'occupation' },
     'orthodontics-records': { name: 'patient_name', phone: 'patient_phone', age: 'patient_age', sex: 'patient_sex', address: 'patient_address' },
     'prevention-records': { name: 'patient_data__child_name', phone: 'patient_data__phone_number', age: 'patient_data__patient_age', sex: 'patient_data__patient_gender' },
+    // Only `sex` is a plain single-field target here — this resource
+    // splits the patient's name into `patient_first_name`/
+    // `patient_last_name` rather than one `name` column, so filling it
+    // from a scan needs an actual split, handled as a special case in
+    // onPatientDecoded() below (mirrors
+    // App\Support\CaseSheetPatientFieldMap::advancedPeriodontalPrefill()
+    // on the server) rather than by this map's flat shape. Still needs an
+    // entry here so `patientFieldMap` keeps gating the scan button on for
+    // this resource too.
+    'advanced-periodontal-charts': { sex: 'patient_gender' },
 };
 const patientFieldMap = computed(() => PATIENT_FIELD_MAP[props.resource] ?? null);
 
@@ -195,7 +205,17 @@ const onPatientDecoded = async (text) => {
         const r = data.data.registration;
         const map = patientFieldMap.value;
         if (map) {
-            if (map.name && !form[map.name] && r.name) form[map.name] = r.name;
+            // Advanced Periodontal Chart splits the patient's name into two
+            // fields — see PATIENT_FIELD_MAP's own doc comment on this
+            // resource's entry for why it's handled here instead of via
+            // `map.name`.
+            if (props.resource === 'advanced-periodontal-charts' && r.name) {
+                const parts = String(r.name).trim().split(/\s+/);
+                if (!form.patient_first_name) form.patient_first_name = parts[0];
+                if (!form.patient_last_name && parts.length > 1) form.patient_last_name = parts.slice(1).join(' ');
+            } else if (map.name && !form[map.name] && r.name) {
+                form[map.name] = r.name;
+            }
             if (map.phone && !form[map.phone] && r.phone) form[map.phone] = r.phone;
             if (map.age && !form[map.age] && r.age != null) form[map.age] = r.age;
             if (map.sex && !form[map.sex] && r.sex) form[map.sex] = r.sex;

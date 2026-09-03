@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\AdvancedPeriodontalChart;
 use App\Models\Doctor;
 use App\Models\Patient;
+use App\Models\TaskInstance;
 use App\Services\CaseSheetAccess;
 use App\Support\AdvancedPeriodontalChartForm;
+use App\Support\CaseSheetPatientFieldMap;
 use App\Support\CaseSheetSignatures;
 use App\Support\CaseSheetSupervisorFields;
 use Illuminate\Http\RedirectResponse;
@@ -34,10 +36,20 @@ class AdvancedPeriodontalChartController extends Controller
 
     public function create(Request $request): Response
     {
+        // See README "task_instances_id wiring" — a blank sheet opened
+        // from a task instance must stay linked to it.
+        $taskInstanceId = $request->integer('task_instances_id') ?: null;
+
         return $this->form(
             null,
-            taskInstanceId: $request->integer('task_instances_id') ?: null,
+            taskInstanceId: $taskInstanceId,
             taskId: $request->integer('task_id') ?: null,
+            // "اضف كيو ار لمسح معلومات المريض مثل كيسشيتات البقية"
+            // (2026-09-04) — same auto-fill every other case sheet already
+            // has; see CaseSheetPatientFieldMap's own doc comment for why
+            // this resource needed a dedicated (name-splitting) code path
+            // there rather than a plain MAP entry.
+            prefill: CaseSheetPatientFieldMap::prefillFor('advanced-periodontal-charts', $taskInstanceId ? TaskInstance::find($taskInstanceId) : null),
         );
     }
 
@@ -80,7 +92,7 @@ class AdvancedPeriodontalChartController extends Controller
         return redirect()->route('advanced-periodontal-charts.index')->with('success', 'Advanced periodontal chart deleted.');
     }
 
-    private function form(?AdvancedPeriodontalChart $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null): Response
+    private function form(?AdvancedPeriodontalChart $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null, array $prefill = []): Response
     {
         return Inertia::render('Specialty/SectionedForm', [
             'resource' => 'advanced-periodontal-charts',
@@ -89,10 +101,13 @@ class AdvancedPeriodontalChartController extends Controller
             'chartField' => 'chart_data',
             // The 32-tooth grid — a completely separate mechanism from
             // `chartGroups`/`plaqueVisits` (this resource has neither),
-            // see AdvancedPerioChart.vue's own doc comment.
+            // see AdvancedPerioChartSessions.vue's own doc comment.
             'advancedPerioChart' => true,
             'doctors' => Doctor::orderBy('name')->get(['id', 'name']),
             'record' => $record,
+            // See ProsthodonticsRecordController's matching comment for
+            // why this stays a separate prop rather than merged into `record`.
+            'patientPrefill' => $prefill,
             'chartData' => $record?->chart_data ? json_decode($record->chart_data, true) : null,
             'readonly' => $readonly || CaseSheetAccess::isViewOnly(),
             'supervisorEditableFields' => CaseSheetAccess::isViewOnly() ? CaseSheetSupervisorFields::fieldsFor('advanced-periodontal-charts') : [],

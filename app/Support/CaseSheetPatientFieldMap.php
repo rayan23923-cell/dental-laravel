@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\PatientRegistration;
 use App\Models\TaskInstance;
 
 /**
@@ -27,9 +28,13 @@ use App\Models\TaskInstance;
  * standalone case, where there's no task instance to resolve a patient
  * from at all.
  *
- * `advanced-periodontal-charts` has no entry, matching
- * `kCaseSheetPatientFieldMap`'s own scope — it has no patient-identity
- * fields of its own to fill.
+ * `advanced-periodontal-charts` (2026-09-04, by request — "اضف كيو ار
+ * لمسح معلومات المريض مثل كيسشيتات البقية") is handled separately from
+ * the generic `MAP` loop below rather than added to it: it's the only
+ * resource that splits the patient's name into two columns
+ * (`patient_first_name`/`patient_last_name`) instead of one, so filling
+ * it needs an actual name split, not just a field rename — see
+ * `advancedPeriodontalPrefill()`.
  */
 class CaseSheetPatientFieldMap
 {
@@ -80,10 +85,19 @@ class CaseSheetPatientFieldMap
      */
     public static function prefillFor(string $resource, ?TaskInstance $taskInstance): array
     {
-        $map = self::MAP[$resource] ?? null;
         $registration = $taskInstance?->patientRegistration;
 
-        if (! $map || ! $registration) {
+        if (! $registration) {
+            return [];
+        }
+
+        if ($resource === 'advanced-periodontal-charts') {
+            return self::advancedPeriodontalPrefill($registration);
+        }
+
+        $map = self::MAP[$resource] ?? null;
+
+        if (! $map) {
             return [];
         }
 
@@ -112,5 +126,33 @@ class CaseSheetPatientFieldMap
         }
 
         return $group ? [$group => $values] : $values;
+    }
+
+    /**
+     * First word of the registration's name → `patient_first_name`, the
+     * rest → `patient_last_name` — the reverse of what
+     * `AdvancedPeriodontalChartController::resolvePatientId()` already
+     * does when it recombines these two fields back into one name to
+     * look up/create the `Patient` row. A single-word name fills only
+     * `patient_first_name`, leaving the still-`required` last name for
+     * the doctor to fill by hand rather than guessing a split.
+     */
+    private static function advancedPeriodontalPrefill(PatientRegistration $registration): array
+    {
+        $values = [];
+
+        if (filled($registration->name)) {
+            $parts = preg_split('/\s+/', trim((string) $registration->name), 2);
+            $values['patient_first_name'] = $parts[0];
+            if (isset($parts[1]) && $parts[1] !== '') {
+                $values['patient_last_name'] = $parts[1];
+            }
+        }
+
+        if (filled($registration->sex)) {
+            $values['patient_gender'] = (string) $registration->sex;
+        }
+
+        return $values;
     }
 }

@@ -288,7 +288,22 @@ class CaseSheetFormScreen extends ConsumerWidget {
     if (map == null || formState == null) return;
 
     final r = state.registration;
-    if (map.name != null && r.name.isNotEmpty) formState.setFieldIfBlank(map.name!, r.name);
+
+    // Advanced Periodontal Chart splits the patient's name into two
+    // fields — see kCaseSheetPatientFieldMap's own doc comment on this
+    // resource's entry for why it's handled here instead of via `map.name`.
+    if (resource == 'advanced-periodontal-charts') {
+      if (r.name.isNotEmpty) {
+        final parts = r.name.trim().split(RegExp(r'\s+'));
+        formState.setFieldIfBlank('patient_first_name', parts.first);
+        if (parts.length > 1) {
+          formState.setFieldIfBlank('patient_last_name', parts.sublist(1).join(' '));
+        }
+      }
+    } else if (map.name != null && r.name.isNotEmpty) {
+      formState.setFieldIfBlank(map.name!, r.name);
+    }
+
     if (map.phone != null && r.phone.isNotEmpty) formState.setFieldIfBlank(map.phone!, r.phone);
     if (map.age != null && r.age != null) formState.setFieldIfBlank(map.age!, r.age!.toString());
     if (map.sex != null && r.sex != null) formState.setFieldIfBlank(map.sex!, r.sex!);

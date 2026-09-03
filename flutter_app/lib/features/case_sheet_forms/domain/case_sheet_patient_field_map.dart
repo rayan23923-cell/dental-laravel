@@ -83,4 +83,14 @@ const Map<String, CaseSheetPatientField> kCaseSheetPatientFieldMap = {
     age: 'patient_data__patient_age',
     sex: 'patient_data__patient_gender',
   ),
+  // Only `sex` is a plain single-column target here — this resource
+  // splits the patient's name into `patient_first_name`/
+  // `patient_last_name` rather than one `name` column, so filling it
+  // from a scan needs an actual split, handled as a special case in
+  // `CaseSheetFormScreen._scanPatient()` (mirrors
+  // `App\Support\CaseSheetPatientFieldMap::advancedPeriodontalPrefill()`
+  // on the server) rather than by this map's flat shape. This entry
+  // still needs to exist so `kCaseSheetPatientFieldMap.containsKey(resource)`
+  // keeps gating the QR-scan button on for this resource too.
+  'advanced-periodontal-charts': CaseSheetPatientField(sex: 'patient_gender'),
 };
