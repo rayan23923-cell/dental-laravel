@@ -48,26 +48,26 @@ const toggleListItem = (key, value) => {
 const isChecked = (key, value) => (props.modelValue?.[key] ?? []).includes(value);
 
 const DIAGNOSES = [
-    { value: 'pulpitis', label: 'التهاب اللب (Pulpitis)' },
-    { value: 'acute', label: 'حاد (Acute)' },
-    { value: 'chronic', label: 'مزمن (Chronic)' },
-    { value: 'traumatic', label: 'رضّي (Traumatic)' },
-    { value: 'peri-apical periodontitis', label: 'التهاب اللثة حول الذروة' },
+    { value: 'pulpitis', label: 'Pulpitis' },
+    { value: 'acute', label: 'Acute' },
+    { value: 'chronic', label: 'Chronic' },
+    { value: 'traumatic', label: 'Traumatic' },
+    { value: 'peri-apical periodontitis', label: 'Peri-apical Periodontitis' },
 ];
 
 const FIRST_VISIT_STEPS = [
-    { value: 'access_opening', label: 'فتح الوصول' },
-    { value: 'pulp_extirpation', label: 'استئصال اللب' },
-    { value: 'working_length_estimation', label: 'تقدير طول العمل' },
+    { value: 'access_opening', label: 'Access Opening' },
+    { value: 'pulp_extirpation', label: 'Pulp Extirpation' },
+    { value: 'working_length_estimation', label: 'Working Length Estimation' },
 ];
 
 const TECHNIQUES = [
-    { value: 'conventional', label: 'تقليدي' },
+    { value: 'conventional', label: 'Conventional' },
     { value: 'step_back', label: 'Step Back' },
     { value: 'crown_down', label: 'Crown Down' },
-    { value: 'combination', label: 'مزيج' },
-    { value: 'hand', label: 'يدوي' },
-    { value: 'rotary', label: 'دوّار (Rotary)' },
+    { value: 'combination', label: 'Combination' },
+    { value: 'hand', label: 'Hand' },
+    { value: 'rotary', label: 'Rotary' },
 ];
 
 const thirdVisit = computed(() => props.modelValue?.third_visit_data ?? {});
@@ -78,10 +78,10 @@ const setThirdVisit = (key, value) => set('third_visit_data', { ...thirdVisit.va
     <div class="overflow-hidden rounded-lg border border-gray-200 bg-white">
         <div class="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-3">
             <h3 class="flex items-center gap-2 font-medium text-gray-900">
-                <Icon name="dentistry" />سجل علاج عصب الأسنان (Endodontics)
+                <Icon name="dentistry" />Endodontic Treatment Record
             </h3>
             <label class="flex items-center gap-2 text-sm text-gray-600">
-                <span>تفعيل</span>
+                <span>Enable</span>
                 <IosToggle v-model="enabled" :disabled="disabled" />
             </label>
         </div>
@@ -90,21 +90,21 @@ const setThirdVisit = (key, value) => set('third_visit_data', { ...thirdVisit.va
             <!-- Tooth no. / canal count / diagnosis -->
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div>
-                    <label class="mb-1 block text-xs font-medium text-gray-600">رقم السن</label>
+                    <label class="mb-1 block text-xs font-medium text-gray-600">Tooth Number</label>
                     <input
                         type="text"
                         :disabled="disabled"
                         :value="modelValue.tooth_no ?? ''"
-                        placeholder="مثال: 46"
+                        placeholder="e.g. 46"
                         class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                         @input="set('tooth_no', $event.target.value)"
                     />
                 </div>
 
                 <div>
-                    <label class="mb-1 block text-xs font-medium text-gray-600">عدد القنوات</label>
+                    <label class="mb-1 block text-xs font-medium text-gray-600">Number of Canals</label>
                     <div class="flex flex-wrap gap-2">
-                        <label v-for="opt in [['one','واحدة'],['two','اثنتان'],['three','ثلاث'],['four','أربع']]" :key="opt[0]" class="flex items-center gap-1 text-xs text-gray-700">
+                        <label v-for="opt in [['one','One'],['two','Two'],['three','Three'],['four','Four']]" :key="opt[0]" class="flex items-center gap-1 text-xs text-gray-700">
                             <input
                                 type="radio"
                                 :disabled="disabled"
@@ -118,7 +118,7 @@ const setThirdVisit = (key, value) => set('third_visit_data', { ...thirdVisit.va
                 </div>
 
                 <div>
-                    <label class="mb-1 block text-xs font-medium text-gray-600">التشخيص</label>
+                    <label class="mb-1 block text-xs font-medium text-gray-600">Diagnosis</label>
                     <div class="flex flex-col gap-1">
                         <label v-for="opt in DIAGNOSES" :key="opt.value" class="flex items-center gap-1.5 text-xs text-gray-700">
                             <input
@@ -137,7 +137,7 @@ const setThirdVisit = (key, value) => set('third_visit_data', { ...thirdVisit.va
             <!-- First visit -->
             <div class="border-t border-gray-100 pt-4">
                 <h4 class="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-800">
-                    <Icon name="event_available" size="text-[16px]" />الزيارة الأولى
+                    <Icon name="event_available" size="text-[16px]" />First Visit
                 </h4>
                 <div class="mb-3 flex flex-wrap gap-3">
                     <label v-for="opt in FIRST_VISIT_STEPS" :key="opt.value" class="flex items-center gap-1.5 text-xs text-gray-700">
@@ -155,10 +155,10 @@ const setThirdVisit = (key, value) => set('third_visit_data', { ...thirdVisit.va
                     :model-value="modelValue.first_visit_data ?? {}"
                     :disabled="disabled"
                     :columns="[
-                        { key: 'wl_xray', label: 'صورة الطول' },
-                        { key: 'initial_length', label: 'الطول الأولي' },
-                        { key: 'initial_size', label: 'المقاس الأولي' },
-                        { key: 'final_wl', label: 'الطول النهائي' },
+                        { key: 'wl_xray', label: 'Working Length X-ray' },
+                        { key: 'initial_length', label: 'Initial Length' },
+                        { key: 'initial_size', label: 'Initial Size' },
+                        { key: 'final_wl', label: 'Final Working Length' },
                     ]"
                     @update:model-value="set('first_visit_data', $event)"
                 />
@@ -167,20 +167,20 @@ const setThirdVisit = (key, value) => set('third_visit_data', { ...thirdVisit.va
             <!-- Second visit -->
             <div class="border-t border-gray-100 pt-4">
                 <h4 class="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-800">
-                    <Icon name="event_available" size="text-[16px]" />الزيارة الثانية — التحضير الآلي
+                    <Icon name="event_available" size="text-[16px]" />Second Visit — Instrumentation
                 </h4>
                 <EndodonticsCanalTable
                     :model-value="modelValue.second_visit_data ?? {}"
                     :disabled="disabled"
                     :columns="[
-                        { key: 'wl', label: 'طول العمل' },
-                        { key: 'size', label: 'المقاس' },
+                        { key: 'wl', label: 'Working Length' },
+                        { key: 'size', label: 'Size' },
                         { key: 'rp', label: 'R.P.' },
                     ]"
                     @update:model-value="set('second_visit_data', $event)"
                 />
                 <div class="mt-3">
-                    <label class="mb-1 block text-xs font-medium text-gray-600">تقنية التحضير</label>
+                    <label class="mb-1 block text-xs font-medium text-gray-600">Instrumentation Technique</label>
                     <div class="flex flex-wrap gap-3">
                         <label v-for="opt in TECHNIQUES" :key="opt.value" class="flex items-center gap-1.5 text-xs text-gray-700">
                             <input
@@ -199,33 +199,33 @@ const setThirdVisit = (key, value) => set('third_visit_data', { ...thirdVisit.va
             <!-- Third visit -->
             <div class="border-t border-gray-100 pt-4">
                 <h4 class="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-800">
-                    <Icon name="event_available" size="text-[16px]" />الزيارة الثالثة — الحشو النهائي
+                    <Icon name="event_available" size="text-[16px]" />Third Visit — Obturation
                 </h4>
                 <div class="space-y-2">
                     <div class="flex flex-wrap items-center gap-3">
-                        <span class="text-xs font-medium text-gray-600">فحص المخروط الرئيسي:</span>
+                        <span class="text-xs font-medium text-gray-600">Master Cone Check:</span>
                         <label class="flex items-center gap-1 text-xs text-gray-700">
-                            <input type="checkbox" :disabled="disabled" :checked="!!thirdVisit.master_cone_clinical" class="rounded border-gray-300 text-indigo-600" @change="setThirdVisit('master_cone_clinical', $event.target.checked)" />سريري
+                            <input type="checkbox" :disabled="disabled" :checked="!!thirdVisit.master_cone_clinical" class="rounded border-gray-300 text-indigo-600" @change="setThirdVisit('master_cone_clinical', $event.target.checked)" />Clinical
                         </label>
                         <label class="flex items-center gap-1 text-xs text-gray-700">
-                            <input type="checkbox" :disabled="disabled" :checked="!!thirdVisit.master_cone_radiographical" class="rounded border-gray-300 text-indigo-600" @change="setThirdVisit('master_cone_radiographical', $event.target.checked)" />شعاعي
+                            <input type="checkbox" :disabled="disabled" :checked="!!thirdVisit.master_cone_radiographical" class="rounded border-gray-300 text-indigo-600" @change="setThirdVisit('master_cone_radiographical', $event.target.checked)" />Radiographic
                         </label>
                         <input
-                            type="text" :disabled="disabled" :value="thirdVisit.master_cone_notes ?? ''" placeholder="ملاحظات..."
+                            type="text" :disabled="disabled" :value="thirdVisit.master_cone_notes ?? ''" placeholder="Notes..."
                             class="min-w-[10rem] flex-1 rounded-md border-gray-300 text-xs shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                             @input="setThirdVisit('master_cone_notes', $event.target.value)"
                         />
                     </div>
                     <div class="flex flex-wrap items-center gap-3">
-                        <span class="text-xs font-medium text-gray-600">فحص الحشو النهائي:</span>
+                        <span class="text-xs font-medium text-gray-600">Obturation Check:</span>
                         <label class="flex items-center gap-1 text-xs text-gray-700">
-                            <input type="checkbox" :disabled="disabled" :checked="!!thirdVisit.obturation_clinical" class="rounded border-gray-300 text-indigo-600" @change="setThirdVisit('obturation_clinical', $event.target.checked)" />سريري
+                            <input type="checkbox" :disabled="disabled" :checked="!!thirdVisit.obturation_clinical" class="rounded border-gray-300 text-indigo-600" @change="setThirdVisit('obturation_clinical', $event.target.checked)" />Clinical
                         </label>
                         <label class="flex items-center gap-1 text-xs text-gray-700">
-                            <input type="checkbox" :disabled="disabled" :checked="!!thirdVisit.obturation_radiographical" class="rounded border-gray-300 text-indigo-600" @change="setThirdVisit('obturation_radiographical', $event.target.checked)" />شعاعي
+                            <input type="checkbox" :disabled="disabled" :checked="!!thirdVisit.obturation_radiographical" class="rounded border-gray-300 text-indigo-600" @change="setThirdVisit('obturation_radiographical', $event.target.checked)" />Radiographic
                         </label>
                         <input
-                            type="text" :disabled="disabled" :value="thirdVisit.obturation_notes ?? ''" placeholder="ملاحظات..."
+                            type="text" :disabled="disabled" :value="thirdVisit.obturation_notes ?? ''" placeholder="Notes..."
                             class="min-w-[10rem] flex-1 rounded-md border-gray-300 text-xs shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                             @input="setThirdVisit('obturation_notes', $event.target.value)"
                         />
@@ -236,7 +236,7 @@ const setThirdVisit = (key, value) => set('third_visit_data', { ...thirdVisit.va
             <!-- Signature — plain text, not a drawn signature; see the
                  file-level docblock for why. -->
             <div class="border-t border-gray-100 pt-4">
-                <label class="mb-1 block text-xs font-medium text-gray-600">توقيع المشرف</label>
+                <label class="mb-1 block text-xs font-medium text-gray-600">Supervisor Signature</label>
                 <input
                     type="text"
                     :disabled="disabled"

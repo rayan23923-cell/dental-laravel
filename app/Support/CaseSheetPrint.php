@@ -55,7 +55,7 @@ class CaseSheetPrint
             // deliberately not the same string as `title` above, which is
             // the print letterhead's; kept alongside it here so both stay
             // in one registry instead of two independently-drifting ones.
-            'formTitle' => 'المخطط السني (Operative)',
+            'formTitle' => 'Operative Case Sheet',
             'department' => 'Department of Conservative',
         ],
         'prosthodontics-records' => [

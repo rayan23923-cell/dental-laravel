@@ -172,11 +172,11 @@ class _ToothOdontogramFieldState extends State<ToothOdontogramField> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('الفك العلوي', style: labelStyle),
+        Text('Upper Arch', style: labelStyle),
         const SizedBox(height: 4),
         _archRow(kUpperArch),
         const Divider(height: 24),
-        Text('الفك السفلي', style: labelStyle),
+        Text('Lower Arch', style: labelStyle),
         const SizedBox(height: 4),
         _archRow(kLowerArch),
         const SizedBox(height: 12),
@@ -251,7 +251,7 @@ class _ToothEditorSheetState extends State<_ToothEditorSheet> {
           controller: scrollController,
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
           children: [
-            Center(child: Text('السن رقم ${_entry.number}', style: theme.textTheme.titleMedium)),
+            Center(child: Text('Tooth #${_entry.number}', style: theme.textTheme.titleMedium)),
             const SizedBox(height: 12),
             Center(
               child: GestureDetector(
@@ -279,7 +279,7 @@ class _ToothEditorSheetState extends State<_ToothEditorSheet> {
               ),
             ),
             const SizedBox(height: 20),
-            Text('حالة السن', style: theme.textTheme.labelLarge),
+            Text('General Tooth Status', style: theme.textTheme.labelLarge),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -296,7 +296,7 @@ class _ToothEditorSheetState extends State<_ToothEditorSheet> {
                   .toList(),
             ),
             const SizedBox(height: 20),
-            Text(isNonVital ? 'حالة الجذور' : 'حالة الأسطح', style: theme.textTheme.labelLarge),
+            Text(isNonVital ? 'Root Status' : 'Surface Status', style: theme.textTheme.labelLarge),
             const SizedBox(height: 8),
             ...rows.map((surfaceId) {
               final current = _entry.polygons[surfaceId]?.status ?? 'healthy';
@@ -331,7 +331,7 @@ class _ToothEditorSheetState extends State<_ToothEditorSheet> {
               );
             }),
             const SizedBox(height: 20),
-            Text('حالة العلاج', style: theme.textTheme.labelLarge),
+            Text('Treatment Status', style: theme.textTheme.labelLarge),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -349,13 +349,13 @@ class _ToothEditorSheetState extends State<_ToothEditorSheet> {
             TextField(
               controller: _notesController,
               maxLines: 3,
-              decoration: const InputDecoration(labelText: 'ملاحظات', border: OutlineInputBorder()),
+              decoration: const InputDecoration(labelText: 'Notes', border: OutlineInputBorder()),
               onChanged: (v) => _apply(_entry.copyWith(notes: v)),
             ),
             const SizedBox(height: 20),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('تم'),
+              child: const Text('Done'),
             ),
           ],
         ),

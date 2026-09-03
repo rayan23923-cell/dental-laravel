@@ -62,7 +62,7 @@ class EndodonticsCanalTable extends StatelessWidget {
             children: [
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                child: Text('القناة', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                child: Text('Canal', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
               ),
               for (final (_, label) in columns)
                 Padding(

@@ -31,7 +31,7 @@ class DentalChartController extends Controller
     {
         return Inertia::render('Specialty/Index', [
             'resource' => 'dental-charts',
-            'title' => 'المخططات السنية (Operative)',
+            'title' => 'Operative Case Sheets',
             'titleField' => 'patient_id',
             'records' => CaseSheetAccess::scope(DentalChart::with('doctor'))
                 ->when($request->string('search')->toString(), fn ($q, $s) => $q->where('patient_id', 'like', "%{$s}%"))
@@ -66,7 +66,7 @@ class DentalChartController extends Controller
         $data = CaseSheetSignatures::applyPending('dental-charts', $this->validateRecord($request), null, CaseSheetSignatures::signerName($request));
         DentalChart::create($data);
 
-        return redirect()->route('dental-charts.index')->with('success', 'تم حفظ المخطط السني.');
+        return redirect()->route('dental-charts.index')->with('success', 'Operative case sheet created.');
     }
 
     public function update(Request $request, DentalChart $dentalChart): RedirectResponse
@@ -74,21 +74,21 @@ class DentalChartController extends Controller
         $data = CaseSheetSignatures::applyPending('dental-charts', $this->validateRecord($request), $dentalChart, CaseSheetSignatures::signerName($request));
         $dentalChart->update($data);
 
-        return redirect()->route('dental-charts.index')->with('success', 'تم تحديث المخطط السني.');
+        return redirect()->route('dental-charts.index')->with('success', 'Operative case sheet updated.');
     }
 
     public function destroy(DentalChart $dentalChart): RedirectResponse
     {
         $dentalChart->delete();
 
-        return redirect()->route('dental-charts.index')->with('success', 'تم حذف المخطط السني.');
+        return redirect()->route('dental-charts.index')->with('success', 'Operative case sheet deleted.');
     }
 
     private function form(?DentalChart $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null, array $prefill = []): Response
     {
         return Inertia::render('Specialty/SectionedForm', [
             'resource' => 'dental-charts',
-            'title' => 'المخطط السني (Operative)',
+            'title' => 'Operative Case Sheet',
             'sections' => OperativeForm::sections(),
             'doctors' => Doctor::orderBy('name')->get(['id', 'name']),
             'record' => $record,

@@ -22,34 +22,34 @@ class SurfaceStatusOption {
 }
 
 const List<ToothStatusOption> kToothStatuses = [
-  ToothStatusOption('present', 'سليم', Icons.check_circle, Color(0xFF059669)),
-  ToothStatusOption('non_vital', 'ميت العصب', Icons.dangerous, Color(0xFFB91C1C)),
-  ToothStatusOption('missing', 'مفقود خلقياً', Icons.remove_circle, Color(0xFF6B7280)),
-  ToothStatusOption('extracted', 'مخلوع', Icons.cancel, Color(0xFF4B5563)),
-  ToothStatusOption('retained_root', 'جذر محتجز', Icons.warning_amber, Color(0xFFEA580C)),
-  ToothStatusOption('crown', 'تاج', Icons.emoji_events, Color(0xFF111827)),
+  ToothStatusOption('present', 'Healthy', Icons.check_circle, Color(0xFF059669)),
+  ToothStatusOption('non_vital', 'Non-vital', Icons.dangerous, Color(0xFFB91C1C)),
+  ToothStatusOption('missing', 'Congenitally Missing', Icons.remove_circle, Color(0xFF6B7280)),
+  ToothStatusOption('extracted', 'Extracted', Icons.cancel, Color(0xFF4B5563)),
+  ToothStatusOption('retained_root', 'Retained Root', Icons.warning_amber, Color(0xFFEA580C)),
+  ToothStatusOption('crown', 'Crown', Icons.emoji_events, Color(0xFF111827)),
 ];
 
 const List<SurfaceStatusOption> kSurfaceStatuses = [
-  SurfaceStatusOption('healthy', 'سليم', Color(0xFFFFFFFF)),
-  SurfaceStatusOption('cavity', 'تسوس', Color(0xFFFFC107)),
-  SurfaceStatusOption('filling', 'حشوة', Color(0xFF000000)),
-  SurfaceStatusOption('crown', 'تاج', Color(0xFF17A2B8)),
-  SurfaceStatusOption('bridge', 'جسر', Color(0xFF6F42C1)),
+  SurfaceStatusOption('healthy', 'Healthy', Color(0xFFFFFFFF)),
+  SurfaceStatusOption('cavity', 'Cavity', Color(0xFFFFC107)),
+  SurfaceStatusOption('filling', 'Filling', Color(0xFF000000)),
+  SurfaceStatusOption('crown', 'Crown', Color(0xFF17A2B8)),
+  SurfaceStatusOption('bridge', 'Bridge', Color(0xFF6F42C1)),
 ];
 
 const List<SurfaceStatusOption> kRootStatuses = [
-  SurfaceStatusOption('healthy', 'سليم', Color(0xFFFFFFFF)),
-  SurfaceStatusOption('root_canal', 'علاج عصب', Color(0xFFDC3545)),
-  SurfaceStatusOption('infected', 'ملتهب', Color(0xFFFF9800)),
-  SurfaceStatusOption('treated', 'مُعالَج', Color(0xFF4CAF50)),
+  SurfaceStatusOption('healthy', 'Healthy', Color(0xFFFFFFFF)),
+  SurfaceStatusOption('root_canal', 'Root Canal', Color(0xFFDC3545)),
+  SurfaceStatusOption('infected', 'Infected', Color(0xFFFF9800)),
+  SurfaceStatusOption('treated', 'Treated', Color(0xFF4CAF50)),
 ];
 
 const kTreatmentStatuses = [
-  ('planned', 'مخطط له'),
-  ('in_progress', 'قيد التنفيذ'),
-  ('completed', 'مكتمل'),
-  ('failed', 'فشل'),
+  ('planned', 'Planned'),
+  ('in_progress', 'In Progress'),
+  ('completed', 'Completed'),
+  ('failed', 'Failed'),
 ];
 
 /// Tooth-level fills that override every surface uniformly — a non_vital
@@ -79,14 +79,14 @@ const kSurfaceIds = ['top', 'left', 'bottom', 'right', 'center'];
 const kRootIds = ['root-1', 'root-2', 'root-3'];
 
 String surfaceLabel(String surfaceId) => const {
-      'top': 'الجزء العلوي',
-      'bottom': 'الجزء السفلي',
-      'left': 'الجانب الأيسر',
-      'right': 'الجانب الأيمن',
-      'center': 'الوسط',
-      'root-1': 'الجذر الأول',
-      'root-2': 'الجذر الثاني',
-      'root-3': 'الجذر الثالث',
+      'top': 'Top',
+      'bottom': 'Bottom',
+      'left': 'Left',
+      'right': 'Right',
+      'center': 'Center',
+      'root-1': 'Root 1',
+      'root-2': 'Root 2',
+      'root-3': 'Root 3',
     }[surfaceId] ??
     surfaceId;
 

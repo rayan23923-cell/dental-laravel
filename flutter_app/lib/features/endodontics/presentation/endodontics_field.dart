@@ -44,33 +44,33 @@ class EndodonticsField extends StatefulWidget {
 }
 
 const _diagnoses = [
-  ('pulpitis', 'التهاب اللب (Pulpitis)'),
-  ('acute', 'حاد (Acute)'),
-  ('chronic', 'مزمن (Chronic)'),
-  ('traumatic', 'رضّي (Traumatic)'),
-  ('peri-apical periodontitis', 'التهاب اللثة حول الذروة'),
+  ('pulpitis', 'Pulpitis'),
+  ('acute', 'Acute'),
+  ('chronic', 'Chronic'),
+  ('traumatic', 'Traumatic'),
+  ('peri-apical periodontitis', 'Peri-apical Periodontitis'),
 ];
 
 const _firstVisitSteps = [
-  ('access_opening', 'فتح الوصول'),
-  ('pulp_extirpation', 'استئصال اللب'),
-  ('working_length_estimation', 'تقدير طول العمل'),
+  ('access_opening', 'Access Opening'),
+  ('pulp_extirpation', 'Pulp Extirpation'),
+  ('working_length_estimation', 'Working Length Estimation'),
 ];
 
 const _techniques = [
-  ('conventional', 'تقليدي'),
+  ('conventional', 'Conventional'),
   ('step_back', 'Step Back'),
   ('crown_down', 'Crown Down'),
-  ('combination', 'مزيج'),
-  ('hand', 'يدوي'),
-  ('rotary', 'دوّار (Rotary)'),
+  ('combination', 'Combination'),
+  ('hand', 'Hand'),
+  ('rotary', 'Rotary'),
 ];
 
 const _canalCounts = [
-  ('one', 'واحدة'),
-  ('two', 'اثنتان'),
-  ('three', 'ثلاث'),
-  ('four', 'أربع'),
+  ('one', 'One'),
+  ('two', 'Two'),
+  ('three', 'Three'),
+  ('four', 'Four'),
 ];
 
 class _EndodonticsFieldState extends State<EndodonticsField> {
@@ -135,7 +135,7 @@ class _EndodonticsFieldState extends State<EndodonticsField> {
               children: [
                 const Icon(Icons.medical_services_outlined, size: 18),
                 const SizedBox(width: 6),
-                const Expanded(child: Text('سجل علاج عصب الأسنان (Endodontics)', style: TextStyle(fontWeight: FontWeight.w600))),
+                const Expanded(child: Text('Endodontic Treatment Record', style: TextStyle(fontWeight: FontWeight.w600))),
                 Switch(value: _enabled, onChanged: widget.readOnly ? null : _toggleEnabled),
               ],
             ),
@@ -144,11 +144,11 @@ class _EndodonticsFieldState extends State<EndodonticsField> {
               TextFormField(
                 controller: _toothNoController,
                 enabled: !widget.readOnly,
-                decoration: const InputDecoration(labelText: 'رقم السن', hintText: 'مثال: 46', isDense: true, border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: 'Tooth Number', hintText: 'e.g. 46', isDense: true, border: OutlineInputBorder()),
                 onChanged: (v) => _set('tooth_no', v),
               ),
               const SizedBox(height: 12),
-              const Text('عدد القنوات', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              const Text('Number of Canals', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
               const SizedBox(height: 4),
               Wrap(
                 spacing: 8,
@@ -162,13 +162,13 @@ class _EndodonticsFieldState extends State<EndodonticsField> {
                 ],
               ),
               const SizedBox(height: 12),
-              const Text('التشخيص', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              const Text('Diagnosis', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
               const SizedBox(height: 4),
               _checkboxGroup('diagnosis', _diagnoses),
 
               const Divider(height: 32),
               Row(
-                children: const [Icon(Icons.event_available_outlined, size: 16), SizedBox(width: 4), Text('الزيارة الأولى', style: TextStyle(fontWeight: FontWeight.w600))],
+                children: const [Icon(Icons.event_available_outlined, size: 16), SizedBox(width: 4), Text('First Visit', style: TextStyle(fontWeight: FontWeight.w600))],
               ),
               const SizedBox(height: 8),
               _checkboxGroup('first_visit', _firstVisitSteps),
@@ -176,10 +176,10 @@ class _EndodonticsFieldState extends State<EndodonticsField> {
               EndodonticsCanalTable(
                 value: (widget.value['first_visit_data'] as Map<String, dynamic>?) ?? {},
                 columns: const [
-                  ('wl_xray', 'صورة الطول'),
-                  ('initial_length', 'الطول الأولي'),
-                  ('initial_size', 'المقاس الأولي'),
-                  ('final_wl', 'الطول النهائي'),
+                  ('wl_xray', 'Working Length X-ray'),
+                  ('initial_length', 'Initial Length'),
+                  ('initial_size', 'Initial Size'),
+                  ('final_wl', 'Final Working Length'),
                 ],
                 onChanged: (next) => _set('first_visit_data', next),
                 readOnly: widget.readOnly,
@@ -187,31 +187,31 @@ class _EndodonticsFieldState extends State<EndodonticsField> {
 
               const Divider(height: 32),
               Row(
-                children: const [Icon(Icons.event_available_outlined, size: 16), SizedBox(width: 4), Text('الزيارة الثانية — التحضير الآلي', style: TextStyle(fontWeight: FontWeight.w600))],
+                children: const [Icon(Icons.event_available_outlined, size: 16), SizedBox(width: 4), Text('Second Visit — Instrumentation', style: TextStyle(fontWeight: FontWeight.w600))],
               ),
               const SizedBox(height: 8),
               EndodonticsCanalTable(
                 value: (widget.value['second_visit_data'] as Map<String, dynamic>?) ?? {},
                 columns: const [
-                  ('wl', 'طول العمل'),
-                  ('size', 'المقاس'),
+                  ('wl', 'Working Length'),
+                  ('size', 'Size'),
                   ('rp', 'R.P.'),
                 ],
                 onChanged: (next) => _set('second_visit_data', next),
                 readOnly: widget.readOnly,
               ),
               const SizedBox(height: 8),
-              const Text('تقنية التحضير', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              const Text('Instrumentation Technique', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
               const SizedBox(height: 4),
               _checkboxGroup('technique', _techniques),
 
               const Divider(height: 32),
               Row(
-                children: const [Icon(Icons.event_available_outlined, size: 16), SizedBox(width: 4), Text('الزيارة الثالثة — الحشو النهائي', style: TextStyle(fontWeight: FontWeight.w600))],
+                children: const [Icon(Icons.event_available_outlined, size: 16), SizedBox(width: 4), Text('Third Visit — Obturation', style: TextStyle(fontWeight: FontWeight.w600))],
               ),
               const SizedBox(height: 8),
               _ThirdVisitCheckRow(
-                label: 'فحص المخروط الرئيسي',
+                label: 'Master Cone Check',
                 clinical: _thirdVisit['master_cone_clinical'] as bool? ?? false,
                 radiographical: _thirdVisit['master_cone_radiographical'] as bool? ?? false,
                 notesController: _masterConeNotesController,
@@ -222,7 +222,7 @@ class _EndodonticsFieldState extends State<EndodonticsField> {
               ),
               const SizedBox(height: 8),
               _ThirdVisitCheckRow(
-                label: 'فحص الحشو النهائي',
+                label: 'Obturation Check',
                 clinical: _thirdVisit['obturation_clinical'] as bool? ?? false,
                 radiographical: _thirdVisit['obturation_radiographical'] as bool? ?? false,
                 notesController: _obturationNotesController,
@@ -236,7 +236,7 @@ class _EndodonticsFieldState extends State<EndodonticsField> {
               TextFormField(
                 initialValue: widget.value['signature'] as String? ?? '',
                 enabled: !widget.readOnly,
-                decoration: const InputDecoration(labelText: 'توقيع المشرف', isDense: true, border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: 'Supervisor Signature', isDense: true, border: OutlineInputBorder()),
                 onChanged: (v) => _set('signature', v),
               ),
             ],
@@ -278,13 +278,13 @@ class _ThirdVisitCheckRow extends StatelessWidget {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             FilterChip(
-              label: const Text('سريري', style: TextStyle(fontSize: 12)),
+              label: const Text('Clinical', style: TextStyle(fontSize: 12)),
               selected: clinical,
               onSelected: readOnly ? null : onClinicalChanged,
             ),
             const SizedBox(width: 4),
             FilterChip(
-              label: const Text('شعاعي', style: TextStyle(fontSize: 12)),
+              label: const Text('Radiographic', style: TextStyle(fontSize: 12)),
               selected: radiographical,
               onSelected: readOnly ? null : onRadiographicalChanged,
             ),
@@ -293,7 +293,7 @@ class _ThirdVisitCheckRow extends StatelessWidget {
         TextFormField(
           controller: notesController,
           enabled: !readOnly,
-          decoration: const InputDecoration(hintText: 'ملاحظات...', isDense: true, border: OutlineInputBorder()),
+          decoration: const InputDecoration(hintText: 'Notes...', isDense: true, border: OutlineInputBorder()),
           onChanged: onNotesChanged,
         ),
       ],

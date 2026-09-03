@@ -55,27 +55,27 @@ const SURFACES = ['top', 'left', 'bottom', 'right', 'center'];
 const ROOTS = ['root-1', 'root-2', 'root-3'];
 
 const TOOTH_STATUSES = [
-    { value: 'present', label: 'سليم', icon: 'check_circle', color: 'text-emerald-600' },
-    { value: 'non_vital', label: 'ميت العصب', icon: 'skull', color: 'text-red-700' },
-    { value: 'missing', label: 'مفقود خلقياً', icon: 'remove_circle', color: 'text-gray-500' },
-    { value: 'extracted', label: 'مخلوع', icon: 'cancel', color: 'text-gray-600' },
-    { value: 'retained_root', label: 'جذر محتجز', icon: 'dentistry', color: 'text-orange-600' },
-    { value: 'crown', label: 'تاج', icon: 'workspace_premium', color: 'text-gray-900' },
+    { value: 'present', label: 'Healthy', icon: 'check_circle', color: 'text-emerald-600' },
+    { value: 'non_vital', label: 'Non-vital', icon: 'skull', color: 'text-red-700' },
+    { value: 'missing', label: 'Congenitally Missing', icon: 'remove_circle', color: 'text-gray-500' },
+    { value: 'extracted', label: 'Extracted', icon: 'cancel', color: 'text-gray-600' },
+    { value: 'retained_root', label: 'Retained Root', icon: 'dentistry', color: 'text-orange-600' },
+    { value: 'crown', label: 'Crown', icon: 'workspace_premium', color: 'text-gray-900' },
 ];
 
 const SURFACE_STATUSES = [
-    { value: 'healthy', label: 'سليم', color: '#ffffff' },
-    { value: 'cavity', label: 'تسوس', color: '#ffc107' },
-    { value: 'filling', label: 'حشوة', color: '#000000' },
-    { value: 'crown', label: 'تاج', color: '#17a2b8' },
-    { value: 'bridge', label: 'جسر', color: '#6f42c1' },
+    { value: 'healthy', label: 'Healthy', color: '#ffffff' },
+    { value: 'cavity', label: 'Cavity', color: '#ffc107' },
+    { value: 'filling', label: 'Filling', color: '#000000' },
+    { value: 'crown', label: 'Crown', color: '#17a2b8' },
+    { value: 'bridge', label: 'Bridge', color: '#6f42c1' },
 ];
 
 const ROOT_STATUSES = [
-    { value: 'healthy', label: 'سليم', color: '#ffffff' },
-    { value: 'root_canal', label: 'علاج عصب', color: '#dc3545' },
-    { value: 'infected', label: 'ملتهب', color: '#ff9800' },
-    { value: 'treated', label: 'مُعالَج', color: '#4caf50' },
+    { value: 'healthy', label: 'Healthy', color: '#ffffff' },
+    { value: 'root_canal', label: 'Root Canal', color: '#dc3545' },
+    { value: 'infected', label: 'Infected', color: '#ff9800' },
+    { value: 'treated', label: 'Treated', color: '#4caf50' },
 ];
 
 const TOOTH_LEVEL_FILL = { missing: '#6c757d', extracted: '#6c757d', non_vital: '#8b0000' };
@@ -174,9 +174,9 @@ const setSurfaceStatus = (surfaceId, status) => {
 
 const surfaceLabel = (surfaceId) => {
     const labels = {
-        top: 'الجزء العلوي', bottom: 'الجزء السفلي', left: 'الجانب الأيسر',
-        right: 'الجانب الأيمن', center: 'الوسط',
-        'root-1': 'الجذر الأول', 'root-2': 'الجذر الثاني', 'root-3': 'الجذر الثالث',
+        top: 'Top', bottom: 'Bottom', left: 'Left',
+        right: 'Right', center: 'Center',
+        'root-1': 'Root 1', 'root-2': 'Root 2', 'root-3': 'Root 3',
     };
     return labels[surfaceId] ?? surfaceId;
 };
@@ -190,8 +190,8 @@ const markedCount = computed(() => (props.modelValue ?? []).length);
 <template>
     <div>
         <div class="mb-2 flex items-center justify-between text-xs text-gray-500">
-            <span>اضغط على أي سن لتحديد حالته وأسطحه.</span>
-            <span v-if="markedCount">{{ markedCount }} سن مسجَّل</span>
+            <span>Tap any tooth to set its status and surfaces.</span>
+            <span v-if="markedCount">{{ markedCount }} teeth recorded</span>
         </div>
 
         <!--
@@ -206,11 +206,11 @@ const markedCount = computed(() => (props.modelValue ?? []).length);
             scroll it.
         -->
         <div class="overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-3" style="-webkit-overflow-scrolling: touch;">
-            <div v-for="(arch, archIdx) in [{ label: 'الفك العلوي', teeth: UPPER }, { label: 'الفك السفلي', teeth: LOWER }]" :key="arch.label" class="w-max min-w-full" :class="archIdx ? 'mt-4' : ''">
+            <div v-for="(arch, archIdx) in [{ label: 'Upper Arch', teeth: UPPER }, { label: 'Lower Arch', teeth: LOWER }]" :key="arch.label" class="w-max min-w-full" :class="archIdx ? 'mt-4' : ''">
                 <div class="mb-1 flex w-full justify-between text-[11px] font-medium text-gray-400">
-                    <span>يمين</span>
+                    <span>Right</span>
                     <span>{{ arch.label }}</span>
-                    <span>يسار</span>
+                    <span>Left</span>
                 </div>
                 <div class="flex w-max justify-center gap-0.5">
                     <button
@@ -260,17 +260,17 @@ const markedCount = computed(() => (props.modelValue ?? []).length);
                 <span class="h-2.5 w-2.5 rounded-sm border border-gray-400" :style="{ backgroundColor: s.color }"></span>{{ s.label }}
             </span>
             <span class="inline-flex items-center gap-1">
-                <span class="h-2.5 w-2.5 rounded-sm border border-gray-400" style="background-color:#8b0000"></span>ميت العصب
+                <span class="h-2.5 w-2.5 rounded-sm border border-gray-400" style="background-color:#8b0000"></span>Non-vital
             </span>
             <span class="inline-flex items-center gap-1">
-                <span class="h-2.5 w-2.5 rounded-sm border border-gray-400 opacity-30" style="background-color:#6c757d"></span>مفقود / مخلوع
+                <span class="h-2.5 w-2.5 rounded-sm border border-gray-400 opacity-30" style="background-color:#6c757d"></span>Missing / Extracted
             </span>
         </div>
 
         <Modal :show="activeNumber !== null" @close="closeModal">
             <div class="p-6" v-if="activeTooth || activeNumber">
                 <div class="mb-4 text-center">
-                    <h3 class="text-lg font-semibold text-gray-900"><Icon name="dentistry" class="ml-1" />السن رقم {{ activeNumber }}</h3>
+                    <h3 class="text-lg font-semibold text-gray-900"><Icon name="dentistry" class="ml-1" />Tooth #{{ activeNumber }}</h3>
                     <p class="text-xs text-gray-500">{{ positionOf(activeNumber ?? 0) }}</p>
                 </div>
 
@@ -304,7 +304,7 @@ const markedCount = computed(() => (props.modelValue ?? []).length);
 
                 <!-- General tooth status -->
                 <div class="mb-4">
-                    <label class="mb-1.5 block text-sm font-medium text-gray-700">الحالة العامة للسن</label>
+                    <label class="mb-1.5 block text-sm font-medium text-gray-700">General Tooth Status</label>
                     <div class="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
                         <button
                             v-for="opt in TOOTH_STATUSES"
@@ -327,7 +327,7 @@ const markedCount = computed(() => (props.modelValue ?? []).length);
                      original's togglePolygonSection(). -->
                 <div v-if="(activeTooth?.toothStatus ?? 'present') === 'present' || isNonVital">
                     <label class="mb-1.5 block text-sm font-medium text-gray-700">
-                        {{ isNonVital ? 'حالة الجذور' : 'حالة الأسطح' }}
+                        {{ isNonVital ? 'Root Status' : 'Surface Status' }}
                     </label>
                     <div class="space-y-2">
                         <div
@@ -359,7 +359,7 @@ const markedCount = computed(() => (props.modelValue ?? []).length);
                 </div>
 
                 <div class="mt-4">
-                    <label class="mb-1 block text-sm font-medium text-gray-700">ملاحظات</label>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">Notes</label>
                     <textarea
                         :value="activeTooth?.notes ?? ''"
                         :disabled="disabled"
@@ -370,22 +370,22 @@ const markedCount = computed(() => (props.modelValue ?? []).length);
                 </div>
 
                 <div class="mt-3">
-                    <label class="mb-1 block text-sm font-medium text-gray-700">حالة العلاج</label>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">Treatment Status</label>
                     <select
                         :value="activeTooth?.status ?? 'planned'"
                         :disabled="disabled"
                         class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                         @change="setTreatmentStatus($event.target.value)"
                     >
-                        <option value="planned">مخطط له</option>
-                        <option value="in_progress">قيد التنفيذ</option>
-                        <option value="completed">مكتمل</option>
-                        <option value="failed">فشل</option>
+                        <option value="planned">Planned</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="completed">Completed</option>
+                        <option value="failed">Failed</option>
                     </select>
                 </div>
 
                 <div class="mt-6 flex justify-end">
-                    <SecondaryButton @click="closeModal">إغلاق</SecondaryButton>
+                    <SecondaryButton @click="closeModal">Close</SecondaryButton>
                 </div>
             </div>
         </Modal>

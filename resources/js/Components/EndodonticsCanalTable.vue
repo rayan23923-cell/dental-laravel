@@ -37,7 +37,7 @@ const setField = (canalId, field, value) => {
         <table class="min-w-full border-collapse text-xs">
             <thead>
                 <tr class="bg-gray-50">
-                    <th class="border border-gray-200 px-2 py-1 text-right font-medium text-gray-600">القناة</th>
+                    <th class="border border-gray-200 px-2 py-1 text-right font-medium text-gray-600">Canal</th>
                     <th v-for="col in columns" :key="col.key" class="border border-gray-200 px-2 py-1 text-right font-medium text-gray-600">
                         {{ col.label }}
                     </th>
