@@ -25,4 +25,11 @@ class AppConfig {
 
   static const Duration connectTimeout = Duration(seconds: 10);
   static const Duration receiveTimeout = Duration(seconds: 10);
+
+  /// Resolves a stored public-disk path (e.g. `endodontics-xrays/abc.jpg`,
+  /// exactly what `Api\EndodonticsXrayController` hands back as `path`) to
+  /// a viewable URL — [baseUrl] minus its `/api/v1` suffix, matching the
+  /// web app's own `/storage/{path}` convention (see DoctorLayout.vue's
+  /// profile photo preview).
+  static String storageUrl(String path) => '${baseUrl.replaceFirst(RegExp(r'/api/v1/?$'), '')}/storage/$path';
 }

@@ -17,6 +17,7 @@ use App\Http\Controllers\DepartmentRoleAssignmentController;
 use App\Http\Controllers\DoctorController;
 use App\Http\Controllers\DoctorPrintController;
 use App\Http\Controllers\DoctorTaskProgressController;
+use App\Http\Controllers\EndodonticsXrayController;
 use App\Http\Controllers\DoctorImportExportController;
 use App\Http\Controllers\Auth\DoctorAuthenticatedSessionController;
 use App\Http\Controllers\Auth\DoctorPasswordResetController;
@@ -539,6 +540,13 @@ Route::middleware(['auth:web,doctor', 'case-sheet'])->group(function () {
     Route::resource('dental-charts', DentalChartController::class)->except('destroy');
     Route::delete('/dental-charts/{dentalChart}', [DentalChartController::class, 'destroy'])
         ->name('dental-charts.destroy');
+
+    // A canal's working-length X-ray on the Operative sheet's Endodontics
+    // section (2026-09-03) — same access rule (any logged-in doctor or
+    // staff), but outside `case-sheet` on purpose: see
+    // `EndodonticsXrayController`'s own doc comment.
+    Route::post('/endodontics-xrays', [EndodonticsXrayController::class, 'store'])
+        ->name('endodontics-xrays.store');
 });
 
 require __DIR__.'/auth.php';

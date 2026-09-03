@@ -124,9 +124,9 @@ class ApiClient {
     }
   }
 
-  /// For endpoints that accept a file upload (only clinic settings' two
-  /// logo fields, currently). Always POSTs with `_method` spoofing rather
-  /// than a real HTTP `PUT`/`PATCH`, matching the web app's own
+  /// For endpoints that *update* a record with a file upload (clinic
+  /// settings' two logo fields). Always POSTs with `_method` spoofing
+  /// rather than a real HTTP `PUT`/`PATCH`, matching the web app's own
   /// `useForm().transform(...).post(...)` pattern — PHP never populates
   /// `$_FILES` on a genuine PUT/PATCH request, only POST, so a real PUT
   /// with a multipart body would silently drop every file field.
@@ -137,6 +137,18 @@ class ApiClient {
   /// no extra `Options` needed here.
   Future<dynamic> postMultipart(String path, {required FormData formData, required String spoofedMethod}) async {
     formData.fields.add(MapEntry('_method', spoofedMethod));
+    try {
+      final response = await _dio.post(path, data: formData);
+      return response.data;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  /// For endpoints that are *just* a file upload — a genuine POST, no
+  /// method spoofing needed (unlike [postMultipart] above). Currently only
+  /// `Api\EndodonticsXrayController`'s single stateless upload.
+  Future<dynamic> postFile(String path, {required FormData formData}) async {
     try {
       final response = await _dio.post(path, data: formData);
       return response.data;

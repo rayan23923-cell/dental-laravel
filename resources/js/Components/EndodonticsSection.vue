@@ -155,7 +155,7 @@ const setThirdVisit = (key, value) => set('third_visit_data', { ...thirdVisit.va
                     :model-value="modelValue.first_visit_data ?? {}"
                     :disabled="disabled"
                     :columns="[
-                        { key: 'wl_xray', label: 'Working Length X-ray' },
+                        { key: 'wl_xray', label: 'Working Length X-ray', type: 'image' },
                         { key: 'initial_length', label: 'Initial Length' },
                         { key: 'initial_size', label: 'Initial Size' },
                         { key: 'final_wl', label: 'Final Working Length' },

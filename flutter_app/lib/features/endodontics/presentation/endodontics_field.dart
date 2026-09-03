@@ -176,10 +176,10 @@ class _EndodonticsFieldState extends State<EndodonticsField> {
               EndodonticsCanalTable(
                 value: (widget.value['first_visit_data'] as Map<String, dynamic>?) ?? {},
                 columns: const [
-                  ('wl_xray', 'Working Length X-ray'),
-                  ('initial_length', 'Initial Length'),
-                  ('initial_size', 'Initial Size'),
-                  ('final_wl', 'Final Working Length'),
+                  ('wl_xray', 'Working Length X-ray', true),
+                  ('initial_length', 'Initial Length', false),
+                  ('initial_size', 'Initial Size', false),
+                  ('final_wl', 'Final Working Length', false),
                 ],
                 onChanged: (next) => _set('first_visit_data', next),
                 readOnly: widget.readOnly,
@@ -193,9 +193,9 @@ class _EndodonticsFieldState extends State<EndodonticsField> {
               EndodonticsCanalTable(
                 value: (widget.value['second_visit_data'] as Map<String, dynamic>?) ?? {},
                 columns: const [
-                  ('wl', 'Working Length'),
-                  ('size', 'Size'),
-                  ('rp', 'R.P.'),
+                  ('wl', 'Working Length', false),
+                  ('size', 'Size', false),
+                  ('rp', 'R.P.', false),
                 ],
                 onChanged: (next) => _set('second_visit_data', next),
                 readOnly: widget.readOnly,

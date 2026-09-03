@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\DeviceTokenController;
 use App\Http\Controllers\Api\DoctorController;
 use App\Http\Controllers\Api\DoctorImportExportController;
 use App\Http\Controllers\Api\DoctorTaskProgressController;
+use App\Http\Controllers\Api\EndodonticsXrayController;
 use App\Http\Controllers\Api\GroupController;
 use App\Http\Controllers\Api\LookupController;
 use App\Http\Controllers\Api\NotificationController;
@@ -317,6 +318,14 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::middleware('case-sheet')->group(function () {
             Route::apiResource('dental-charts', DentalChartController::class);
         });
+
+        // A canal's working-length X-ray on the Operative sheet's
+        // Endodontics section (2026-09-03) — deliberately outside the
+        // `case-sheet` group above: there's no case-sheet record to check
+        // ownership of yet on a create flow, and no `dental-charts`-shaped
+        // route parameter for `EnforceCaseSheetAccess` to bind against.
+        // See `EndodonticsXrayController`'s own doc comment.
+        Route::post('/endodontics-xrays', [EndodonticsXrayController::class, 'store']);
 
         Route::apiResource('appointments', AppointmentController::class);
         Route::apiResource('payments', PaymentController::class);

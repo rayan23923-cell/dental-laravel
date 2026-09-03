@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../../../core/config/app_config.dart';
+import '../data/endodontics_xray_repository.dart';
 
 /// Port of `resources/js/Components/EndodonticsCanalTable.vue` — the
 /// per-canal working-length/size table used twice in the Endodontics
@@ -6,6 +11,13 @@ import 'package:flutter/material.dart';
 /// Instrumentation table): same 10 canals, different columns. Canal ids
 /// and labels copied verbatim from the Vue component (itself copied from
 /// `operative.php`'s own `$canals` array).
+///
+/// One column can be `isImage: true` (First Visit's `wl_xray`, 2026-09-03 —
+/// "صورة الطول تكون عبر رفع صور للاشعة وليس حقل ادخال نصي") instead of the
+/// default plain text field — a real uploaded X-ray, matching the web
+/// component's own image-column treatment. The stored cell value is still
+/// just a string either way, only now it's the path
+/// `EndodonticsXrayRepository.upload()` hands back instead of typed text.
 class EndodonticsCanalTable extends StatelessWidget {
   const EndodonticsCanalTable({
     super.key,
@@ -17,15 +29,15 @@ class EndodonticsCanalTable extends StatelessWidget {
 
   final Map<String, dynamic> value;
 
-  /// Each column: `(key, label)`. `key` is the per-canal data field name
-  /// (e.g. `wl_xray`, `wl`) — matches the web component's own per-visit
-  /// naming exactly.
-  final List<(String, String)> columns;
+  /// Each column: `(key, label, isImage)`. `key` is the per-canal data
+  /// field name (e.g. `wl_xray`, `wl`) — matches the web component's own
+  /// per-visit naming exactly.
+  final List<(String, String, bool)> columns;
   final ValueChanged<Map<String, dynamic>> onChanged;
 
-  /// Disables only the checkbox/text-field edits — not implemented by
-  /// wrapping this widget in `IgnorePointer` at the call site, which broke
-  /// this table's horizontal `SingleChildScrollView` drag gesture too
+  /// Disables only the checkbox/text-field/upload edits — not implemented
+  /// by wrapping this widget in `IgnorePointer` at the call site, which
+  /// broke this table's horizontal `SingleChildScrollView` drag gesture too
   /// (same bug found in `ToothOdontogramField`, see its `readOnly` doc
   /// comment — 2026-08-29).
   final bool readOnly;
@@ -64,7 +76,7 @@ class EndodonticsCanalTable extends StatelessWidget {
                 padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                 child: Text('Canal', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
               ),
-              for (final (_, label) in columns)
+              for (final (_, label, _) in columns)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                   child: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
@@ -88,21 +100,90 @@ class EndodonticsCanalTable extends StatelessWidget {
                     ],
                   ),
                 ),
-                for (final (colKey, _) in columns)
+                for (final (colKey, _, isImage) in columns)
                   Padding(
                     padding: const EdgeInsets.all(2),
-                    child: TextFormField(
-                      initialValue: _rowOf(canalId)[colKey] as String? ?? '',
-                      enabled: !readOnly,
-                      style: const TextStyle(fontSize: 11),
-                      decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 6)),
-                      onChanged: (v) => _setField(canalId, colKey, v),
-                    ),
+                    child: isImage
+                        ? _XrayCell(
+                            path: _rowOf(canalId)[colKey] as String?,
+                            readOnly: readOnly,
+                            onUploaded: (path) => _setField(canalId, colKey, path),
+                          )
+                        : TextFormField(
+                            initialValue: _rowOf(canalId)[colKey] as String? ?? '',
+                            enabled: !readOnly,
+                            style: const TextStyle(fontSize: 11),
+                            decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 6)),
+                            onChanged: (v) => _setField(canalId, colKey, v),
+                          ),
                   ),
               ],
             ),
         ],
       ),
+    );
+  }
+}
+
+class _XrayCell extends ConsumerStatefulWidget {
+  const _XrayCell({required this.path, required this.readOnly, required this.onUploaded});
+
+  final String? path;
+  final bool readOnly;
+  final ValueChanged<String> onUploaded;
+
+  @override
+  ConsumerState<_XrayCell> createState() => _XrayCellState();
+}
+
+class _XrayCellState extends ConsumerState<_XrayCell> {
+  bool _uploading = false;
+
+  Future<void> _pick() async {
+    final image = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (image == null) return;
+
+    setState(() => _uploading = true);
+    try {
+      final path = await ref.read(endodonticsXrayRepositoryProvider).upload(image);
+      widget.onUploaded(path);
+    } catch (_) {
+      // A failed upload leaves the cell unchanged — the doctor sees no new
+      // thumbnail and can just try again, no separate error UI to build
+      // for what's a rare network hiccup.
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final disabled = widget.readOnly || _uploading;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (widget.path != null)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: Image.network(AppConfig.storageUrl(widget.path!), width: 24, height: 24, fit: BoxFit.cover),
+          ),
+        const SizedBox(width: 2),
+        InkWell(
+          onTap: disabled ? null : _pick,
+          child: Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            alignment: Alignment.center,
+            child: _uploading
+                ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5))
+                : Icon(Icons.add_a_photo_outlined, size: 14, color: Theme.of(context).colorScheme.outline),
+          ),
+        ),
+      ],
     );
   }
 }
