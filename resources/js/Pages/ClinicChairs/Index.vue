@@ -149,54 +149,61 @@ const viewing = ref(null);
                         </div>
                     </div>
 
-                    <!-- Chair grid -->
-                    <div class="flex-1 space-y-4 rounded-lg bg-white p-4 shadow-sm">
-                        <div v-for="row in rows" :key="row.rowNumber" class="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-4 last:border-0">
-                            <span class="w-6 shrink-0 text-xs font-medium text-gray-400">{{ row.rowNumber }}</span>
-                            <div
-                                v-for="chair in row.chairs"
-                                :key="chair.id"
-                                draggable="true"
-                                @dragstart="onDragChairStart(chair)"
-                                @dragend="onDragEnd"
-                                @dragover.prevent="dragOverChairId = chair.id"
-                                @dragleave="dragOverChairId === chair.id && (dragOverChairId = null)"
-                                @drop.prevent="onDrop(chair)"
-                                class="group relative w-36 cursor-grab rounded-lg border-2 p-2.5 text-xs transition active:cursor-grabbing"
-                                :class="[
-                                    dragOverChairId === chair.id ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200',
-                                    chair.group ? 'bg-emerald-50' : 'bg-gray-50',
-                                ]"
-                                @click="chair.group && (viewing = chair)"
-                            >
-                                <button
-                                    type="button"
-                                    @click.stop="removeChair(chair)"
-                                    class="absolute -right-1.5 -top-1.5 hidden h-4 w-4 items-center justify-center rounded-full bg-gray-400 text-[10px] leading-none text-white hover:bg-red-500 group-hover:flex"
-                                    title="Remove chair"
+                    <!-- Chair grid — visual design supplied by the user directly
+                         (station card: avatar + side-view dental chair drawing),
+                         swapped in for the plain boxes this used to render.
+                         Row-by-row grouping/drag-drop/click wiring is unchanged. -->
+                    <div class="flex-1 space-y-6 rounded-lg bg-white p-4 shadow-sm">
+                        <div v-for="row in rows" :key="row.rowNumber" class="border-b border-gray-100 pb-6 last:border-0">
+                            <span class="mb-2 block text-xs font-medium text-gray-400">Row {{ row.rowNumber }}</span>
+                            <div class="chairs-row">
+                                <div
+                                    v-for="chair in row.chairs"
+                                    :key="chair.id"
+                                    draggable="true"
+                                    @dragstart="onDragChairStart(chair)"
+                                    @dragend="onDragEnd"
+                                    @dragover.prevent="dragOverChairId = chair.id"
+                                    @dragleave="dragOverChairId === chair.id && (dragOverChairId = null)"
+                                    @drop.prevent="onDrop(chair)"
+                                    class="station"
+                                    :class="{ 'station--dragover': dragOverChairId === chair.id }"
+                                    @click="chair.group && (viewing = chair)"
                                 >
-                                    &times;
-                                </button>
-                                <div class="mb-1 flex items-center gap-1 text-gray-400">
-                                    <span class="material-symbols-outlined text-[16px]" aria-hidden="true">chair</span>
-                                    <span>{{ chair.label ?? `${chair.row_number}-${chair.column_number}` }}</span>
+                                    <button type="button" @click.stop="removeChair(chair)" class="station-remove" title="Remove chair">&times;</button>
+
+                                    <div class="avatar-wrapper">
+                                        <div class="avatar" :class="{ 'avatar--empty': !chair.group }">
+                                            <svg viewBox="0 0 40 40">
+                                                <circle cx="20" cy="13" r="7" fill="white" />
+                                                <path d="M8 35 C9 26 14 22 20 22 C26 22 31 26 32 35 Z" fill="white" />
+                                            </svg>
+                                        </div>
+                                        <div class="name">
+                                            <template v-if="chair.group">
+                                                {{ chair.group.name }}
+                                                <button type="button" @click.stop="unassign(chair)" class="unassign-x" title="Unassign">&times;</button>
+                                            </template>
+                                            <template v-else>Empty</template>
+                                        </div>
+                                    </div>
+
+                                    <div class="dental-chair">
+                                        <div class="head"></div>
+                                        <div class="back"></div>
+                                        <div class="seat"></div>
+                                        <div class="foot"></div>
+                                        <div class="arm"></div>
+                                        <div class="column"></div>
+                                        <div class="base"></div>
+                                        <div class="base-center"></div>
+                                        <div class="status" :class="{ 'status--empty': !chair.group }"></div>
+                                        <div class="number">{{ chair.label ?? `${chair.row_number}-${chair.column_number}` }}</div>
+                                    </div>
                                 </div>
-                                <div v-if="chair.group" class="font-medium text-emerald-800">
-                                    {{ chair.group.name }}
-                                    <button type="button" @click.stop="unassign(chair)" class="ml-1 text-emerald-600 hover:text-emerald-900" title="Unassign">
-                                        &times;
-                                    </button>
-                                </div>
-                                <div v-else class="text-gray-400">Empty</div>
+
+                                <button type="button" @click="addChair(row.rowNumber)" class="add-chair-btn" title="Add chair to this row">+</button>
                             </div>
-                            <button
-                                type="button"
-                                @click="addChair(row.rowNumber)"
-                                class="flex h-[4.5rem] w-10 shrink-0 items-center justify-center rounded-lg border-2 border-dashed border-gray-200 text-gray-400 hover:border-indigo-300 hover:text-indigo-500"
-                                title="Add chair to this row"
-                            >
-                                +
-                            </button>
                         </div>
 
                         <div v-if="rows.length === 0" class="py-8 text-center text-sm text-gray-400">No chairs yet — start a row below.</div>
@@ -225,3 +232,250 @@ const viewing = ref(null);
         </Modal>
     </AuthenticatedLayout>
 </template>
+
+<style scoped>
+/* Station card visual — supplied by the user directly (avatar + a
+   side-view dental chair drawn in plain CSS shapes) to replace the
+   plain rectangular chair boxes this page used to render. Row-by-row
+   grouping and every drag/drop/click handler stayed in the template
+   above unchanged; only this per-chair appearance is new. */
+
+.chairs-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 32px;
+}
+
+.station {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: grab;
+    transition: 0.25s;
+    padding-top: 8px;
+}
+.station:active {
+    cursor: grabbing;
+}
+.station:hover {
+    transform: translateY(-4px);
+}
+.station--dragover {
+    outline: 2px solid #6366f1;
+    outline-offset: 4px;
+    border-radius: 12px;
+}
+
+.station-remove {
+    position: absolute;
+    right: -4px;
+    top: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 9999px;
+    background: #9ca3af;
+    color: white;
+    font-size: 10px;
+    line-height: 1;
+    z-index: 6;
+}
+.station:hover .station-remove {
+    display: flex;
+}
+.station-remove:hover {
+    background: #ef4444;
+}
+
+.avatar-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 10px;
+    position: relative;
+    z-index: 5;
+}
+
+.avatar {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #833ab4, #e1306c);
+    border: 3px solid white;
+    box-shadow: 0 5px 15px rgba(40, 20, 50, 0.18);
+}
+.avatar--empty {
+    background: linear-gradient(135deg, #b9b9c2, #d8d5df);
+}
+.avatar svg {
+    width: 26px;
+    height: 26px;
+}
+
+.name {
+    margin-top: 5px;
+    padding: 3px 9px;
+    background: white;
+    border: 1px solid #e8e2ed;
+    border-radius: 20px;
+    font-size: 10px;
+    box-shadow: 0 3px 8px rgba(30, 20, 40, 0.07);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 130px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.unassign-x {
+    color: #91899e;
+    font-size: 11px;
+    line-height: 1;
+}
+.unassign-x:hover {
+    color: #e1306c;
+}
+
+.dental-chair {
+    position: relative;
+    width: 130px;
+    height: 165px;
+    transform: scale(0.87);
+    transform-origin: top center;
+}
+
+.head {
+    position: absolute;
+    left: 35px;
+    top: 5px;
+    width: 28px;
+    height: 23px;
+    border-radius: 12px 12px 7px 7px;
+    background: linear-gradient(135deg, #075da5, #147dcc);
+}
+
+.back {
+    position: absolute;
+    left: 45px;
+    top: 25px;
+    width: 35px;
+    height: 82px;
+    border-radius: 18px 18px 8px 8px;
+    background: linear-gradient(90deg, #075da5, #1c8ddd);
+    transform: rotate(-8deg);
+    transform-origin: bottom center;
+}
+
+.seat {
+    position: absolute;
+    left: 50px;
+    top: 91px;
+    width: 72px;
+    height: 40px;
+    border-radius: 14px 14px 10px 10px;
+    background: linear-gradient(135deg, #0878d1, #38a2e4);
+}
+
+.foot {
+    position: absolute;
+    left: 102px;
+    top: 112px;
+    width: 42px;
+    height: 24px;
+    border-radius: 8px 12px 10px 8px;
+    background: linear-gradient(135deg, #0869b3, #2295df);
+    transform: rotate(8deg);
+}
+
+.arm {
+    position: absolute;
+    left: 69px;
+    top: 83px;
+    width: 55px;
+    height: 7px;
+    border-radius: 10px;
+    background: #808b99;
+}
+
+.column {
+    position: absolute;
+    left: 80px;
+    top: 127px;
+    width: 15px;
+    height: 35px;
+    background: linear-gradient(90deg, #707b8a, #f4f6f8, #7b8694);
+}
+
+.base {
+    position: absolute;
+    left: 34px;
+    top: 157px;
+    width: 105px;
+    height: 24px;
+    background: linear-gradient(180deg, #eef1f4, #8a95a3);
+    clip-path: polygon(0 55%, 20% 30%, 48% 48%, 70% 25%, 100% 55%, 78% 80%, 55% 65%, 35% 90%, 12% 75%);
+}
+
+.base-center {
+    position: absolute;
+    left: 75px;
+    top: 153px;
+    width: 25px;
+    height: 16px;
+    border-radius: 50%;
+    background: #687382;
+}
+
+.status {
+    position: absolute;
+    left: 108px;
+    top: -2px;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: #18a558;
+    border: 2px solid white;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    z-index: 3;
+}
+.status--empty {
+    background: #b0b6c0;
+}
+
+.number {
+    position: absolute;
+    left: 66px;
+    top: 103px;
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    z-index: 3;
+    pointer-events: none;
+}
+
+.add-chair-btn {
+    align-self: center;
+    display: flex;
+    height: 130px;
+    width: 44px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    border: 2px dashed #e5e7eb;
+    color: #9ca3af;
+    font-size: 20px;
+}
+.add-chair-btn:hover {
+    border-color: #a5b4fc;
+    color: #6366f1;
+}
+</style>
