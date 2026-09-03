@@ -46,6 +46,13 @@ class PermissionMatrix
                 'name' => 'إدارة المجموعات',
                 'permissions' => ['view' => 'عرض', 'create' => 'إنشاء', 'edit' => 'تعديل', 'delete' => 'حذف'],
             ],
+            // New for the clinic seating map (2026-09-03), same precedent
+            // as 'education_types'/'patient_screening' above — no legacy-app
+            // counterpart to inherit a module key from.
+            'clinic_chairs' => [
+                'name' => 'خريطة كراسي العيادة',
+                'permissions' => ['view' => 'عرض', 'create' => 'إنشاء', 'edit' => 'تعديل', 'delete' => 'حذف'],
+            ],
             'stages' => [
                 'name' => 'إدارة المراحل',
                 'permissions' => ['view' => 'عرض', 'create' => 'إنشاء', 'edit' => 'تعديل', 'delete' => 'حذف'],

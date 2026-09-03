@@ -116,6 +116,7 @@ const structureLinks = computed(() => [
     { label: 'الأقسام', icon: 'apartment', href: route('departments.index'), active: route().current('departments.*') },
     { label: 'الأعوام الدراسية', icon: 'calendar_month', href: route('academic-sessions.index'), active: route().current('academic-sessions.*') },
     { label: 'المجموعات', icon: 'groups', href: route('groups.index'), active: route().current('groups.*') },
+    { label: 'خريطة كراسي العيادة', icon: 'chair', href: route('clinic-chairs.index'), active: route().current('clinic-chairs.*') },
     { label: 'أنواع النماذج السريرية', icon: 'description', href: route('case-sheet-types.index'), active: route().current('case-sheet-types.*') },
 ]);
 

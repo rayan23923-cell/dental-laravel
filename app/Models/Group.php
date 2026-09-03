@@ -43,4 +43,9 @@ class Group extends Model
     {
         return $this->hasMany(Patient::class);
     }
+
+    public function chairs(): HasMany
+    {
+        return $this->hasMany(ClinicChair::class);
+    }
 }
