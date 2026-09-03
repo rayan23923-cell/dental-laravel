@@ -18,7 +18,7 @@
  * toggle itself, tooth selection, canal count, diagnosis, all three
  * visits' checkboxes/tables/notes) is fully wired.
  */
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import EndodonticsCanalTable from '@/Components/EndodonticsCanalTable.vue';
 import Icon from '@/Components/Icon.vue';
 import IosToggle from '@/Components/IosToggle.vue';
@@ -33,10 +33,20 @@ const emit = defineEmits(['update:modelValue']);
 // The section only exists once enabled — matches the original exactly
 // (`if (!empty($existing_chart['endodontics_data']))`: an empty/absent
 // value means the toggle starts off).
-const enabled = computed({
-    get: () => Object.keys(props.modelValue ?? {}).length > 0,
-    set: (value) => emit('update:modelValue', value ? { ...(props.modelValue ?? {}) } : {}),
-});
+//
+// Genuine local state, not a computed derived from `Object.keys(modelValue)
+// .length > 0` (found live, 2026-09-03, while verifying the X-ray upload
+// change below — a real bug, not just a Flutter-side risk as this file's
+// own port already flagged: switching the toggle on for a brand-new
+// record emits `{}` right back since nothing has been typed into it yet,
+// so the derived getter recomputes `false` and the toggle visually snaps
+// off before a doctor can enter anything). Mirrors
+// `flutter_app/.../endodontics_field.dart`'s own `_enabled` field exactly.
+const enabled = ref(Object.keys(props.modelValue ?? {}).length > 0);
+const toggleEnabled = (value) => {
+    enabled.value = value;
+    if (!value) emit('update:modelValue', {});
+};
 
 const set = (key, value) => emit('update:modelValue', { ...(props.modelValue ?? {}), [key]: value });
 
@@ -82,7 +92,7 @@ const setThirdVisit = (key, value) => set('third_visit_data', { ...thirdVisit.va
             </h3>
             <label class="flex items-center gap-2 text-sm text-gray-600">
                 <span>Enable</span>
-                <IosToggle v-model="enabled" :disabled="disabled" />
+                <IosToggle :model-value="enabled" @update:model-value="toggleEnabled" :disabled="disabled" />
             </label>
         </div>
 
