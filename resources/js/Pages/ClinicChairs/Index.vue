@@ -1,13 +1,25 @@
 <script setup>
 /**
  * Clinic seating map (2026-09-03, by request) — chairs laid out in
- * straight rows, each optionally assigned to a whole Group (see
- * `ClinicChair`'s own doc comment for why group-level, not per-doctor).
+ * straight rows. A chair can be assigned at the group level (a block of
+ * seats for a whole group, dragged on) or, since 2026-09-04, at the
+ * individual-doctor level: clicking "Distribute" on a group in the
+ * sidebar spreads its doctors across chairs one-per-doctor (existing
+ * empty chairs first, new ones after — see
+ * `ClinicChairController::assignGroup()`), each then showing that
+ * doctor's own name and photo. The same button, clicked again after a
+ * new doctor joins the group, only seats the newcomer — "امكانية تحديث
+ * الكراسي اذا تم اضافة طبيب جديد للنظام" needed no separate action.
+ *
  * Two drag gestures share one native HTML5 DnD implementation (no new
  * dependency — nothing in package.json does this already, and the
  * interaction here is simple enough not to need one):
  *   - dragging a group chip from the sidebar onto a chair assigns it
- *   - dragging a chair onto another chair swaps their positions
+ *     (plain group-level mode)
+ *   - dragging a chair onto another chair swaps their positions —
+ *     including doctor-assigned chairs, so a group's random initial
+ *     layout can be rearranged and the arrangement saved (it's already
+ *     persisted per-drag, no separate "save" step)
  * `dataTransfer` carries a small `{type, id}` JSON payload so `onDrop`
  * can tell which gesture produced a given drop without separate handler
  * wiring per drop target.
@@ -25,6 +37,7 @@ const props = defineProps({
     groups: Array,
     stages: Array,
     currentSession: Object,
+    assignedDoctorIds: { type: Array, default: () => [] },
 });
 
 const page = usePage();
@@ -46,6 +59,23 @@ const filteredGroups = computed(() =>
 );
 
 const assignedGroupIds = computed(() => new Set(props.chairs.filter((c) => c.group_id).map((c) => c.group_id)));
+
+// How many of a group's doctors don't have a chair yet — drives the
+// sidebar's "Distribute" (first time) / "Update (N new)" (a doctor
+// joined since) button label and disabled state together, see
+// assignGroup() below.
+const assignedDoctorIdSet = computed(() => new Set(props.assignedDoctorIds));
+const unseatedCount = (group) => group.doctors.filter((d) => !assignedDoctorIdSet.value.has(d.id)).length;
+
+const assigningGroupId = ref(null);
+const assignGroup = (group) => {
+    assigningGroupId.value = group.id;
+    router.post(
+        route('clinic-chairs.assign-group'),
+        { group_id: group.id },
+        { preserveScroll: true, onFinish: () => (assigningGroupId.value = null) },
+    );
+};
 
 // --- Drag and drop --------------------------------------------------
 const dragging = ref(null); // { type: 'group' | 'chair', id }
@@ -116,7 +146,8 @@ const viewing = ref(null);
                 </div>
 
                 <p class="text-sm text-gray-600">
-                    Drag a group onto a chair to assign it there. Drag a chair onto another chair to swap their positions.
+                    Click "Distribute" on a group to seat each of its doctors on their own chair. Drag a group onto a
+                    chair to assign the whole group there instead. Drag a chair onto another chair to swap positions.
                 </p>
 
                 <div class="flex flex-col gap-4 lg:flex-row">
@@ -144,6 +175,15 @@ const viewing = ref(null);
                             >
                                 <div class="font-medium">{{ group.name }}</div>
                                 <div class="text-xs text-gray-500">{{ group.stage?.name ?? '—' }} · {{ group.doctors.length }} doctor(s)</div>
+                                <button
+                                    v-if="unseatedCount(group) > 0"
+                                    type="button"
+                                    :disabled="assigningGroupId === group.id"
+                                    @click.stop="assignGroup(group)"
+                                    class="mt-1.5 rounded bg-indigo-600 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                                >
+                                    {{ assigningGroupId === group.id ? '…' : (unseatedCount(group) === group.doctors.length ? 'Distribute' : `Update (${unseatedCount(group)} new)`) }}
+                                </button>
                             </div>
                             <p v-if="filteredGroups.length === 0" class="py-4 text-center text-xs text-gray-400">No groups.</p>
                         </div>
@@ -174,18 +214,24 @@ const viewing = ref(null);
 
                                     <div class="avatar-wrapper">
                                         <div class="avatar" :class="{ 'avatar--empty': !chair.group }">
-                                            <svg viewBox="0 0 40 40">
+                                            <img v-if="chair.doctor?.profile_image" :src="`/storage/${chair.doctor.profile_image}`" alt="" />
+                                            <svg v-else viewBox="0 0 40 40">
                                                 <circle cx="20" cy="13" r="7" fill="white" />
                                                 <path d="M8 35 C9 26 14 22 20 22 C26 22 31 26 32 35 Z" fill="white" />
                                             </svg>
                                         </div>
                                         <div class="name">
-                                            <template v-if="chair.group">
+                                            <template v-if="chair.doctor">
+                                                {{ chair.doctor.name }}
+                                                <button type="button" @click.stop="unassign(chair)" class="unassign-x" title="Unassign">&times;</button>
+                                            </template>
+                                            <template v-else-if="chair.group">
                                                 {{ chair.group.name }}
                                                 <button type="button" @click.stop="unassign(chair)" class="unassign-x" title="Unassign">&times;</button>
                                             </template>
                                             <template v-else>Empty</template>
                                         </div>
+                                        <div v-if="chair.doctor && chair.group" class="group-badge">{{ chair.group.name }}</div>
                                     </div>
 
                                     <div class="dental-chair">
@@ -216,10 +262,14 @@ const viewing = ref(null);
 
         <Modal :show="viewing !== null" @close="viewing = null">
             <div class="p-6" v-if="viewing">
-                <h2 class="text-lg font-medium text-gray-900">{{ viewing.group.name }}</h2>
-                <p class="mt-1 text-xs text-gray-500">Chair {{ viewing.label ?? `${viewing.row_number}-${viewing.column_number}` }}</p>
+                <h2 class="text-lg font-medium text-gray-900">{{ viewing.doctor ? viewing.doctor.name : viewing.group.name }}</h2>
+                <p class="mt-1 text-xs text-gray-500">
+                    Chair {{ viewing.label ?? `${viewing.row_number}-${viewing.column_number}` }}
+                    <span v-if="viewing.doctor"> · {{ viewing.group.name }}</span>
+                </p>
+                <p v-if="viewing.doctor" class="mt-3 text-xs font-medium uppercase tracking-wide text-gray-400">Rest of the group</p>
                 <ul class="mt-4 space-y-1.5 text-sm text-gray-700">
-                    <li v-for="doctor in viewing.group.doctors" :key="doctor.id" class="flex items-center gap-2">
+                    <li v-for="doctor in viewing.group.doctors" :key="doctor.id" class="flex items-center gap-2" :class="{ 'font-semibold text-indigo-700': doctor.id === viewing.doctor?.id }">
                         <span class="material-symbols-outlined text-[16px] text-gray-400" aria-hidden="true">person</span>
                         {{ doctor.name }}
                     </li>
@@ -317,6 +367,22 @@ const viewing = ref(null);
 .avatar svg {
     width: 26px;
     height: 26px;
+}
+.avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.group-badge {
+    margin-top: 3px;
+    font-size: 9px;
+    color: #91899e;
+    max-width: 130px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .name {

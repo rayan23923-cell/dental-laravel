@@ -28,7 +28,7 @@ class ClinicChairController extends Controller
         $selectedSession = AcademicSessionHelper::resolve();
         $selectedSessionId = $selectedSession?->id;
 
-        $chairs = ClinicChair::with(['group.stage', 'group.doctors:id,name'])
+        $chairs = ClinicChair::with(['group.stage', 'group.doctors:id,name', 'doctor:id,name,profile_image'])
             ->orderBy('row_number')
             ->orderBy('column_number')
             ->get();
@@ -48,6 +48,13 @@ class ClinicChairController extends Controller
         return Inertia::render('ClinicChairs/Index', [
             'chairs' => $chairs,
             'groups' => $groupsQuery->get(),
+            // Lets the sidebar tell "every doctor already seated" apart
+            // from "N new doctors to distribute" per group, without a
+            // second round-trip when the "Distribute/Update" button is
+            // clicked (see assignGroup() below — same doctor-not-yet-
+            // seated check, just done client-side first for the button
+            // label/disabled state).
+            'assignedDoctorIds' => ClinicChair::whereNotNull('doctor_id')->pluck('doctor_id'),
             'educationTypes' => ScopeHelper::scopeEducationTypes(EducationType::query(), $user)->orderBy('name')->get(['id', 'name']),
             'stages' => ScopeHelper::scopeStages(Stage::query(), $user)->orderBy('name')->get(['id', 'name', 'education_type_id']),
             'currentSession' => $selectedSession?->only('id', 'name'),
@@ -79,17 +86,94 @@ class ClinicChairController extends Controller
         return back()->with('success', 'Chair added.');
     }
 
-    /** Assigns/clears a chair's group (drag a group chip onto a chair). */
+    /**
+     * Assigns/clears a chair's group and/or doctor (drag a group chip onto
+     * a chair for the plain group-level mode; "unassign" clears both
+     * together, since a chair can't sensibly keep a doctor without the
+     * group they were seated as part of).
+     */
     public function update(Request $request, ClinicChair $clinicChair): RedirectResponse
     {
         $validated = $request->validate([
             'group_id' => ['nullable', 'integer', 'exists:groups,id'],
+            'doctor_id' => ['nullable', 'integer', 'exists:doctors,id'],
             'label' => ['nullable', 'string', 'max:50'],
         ]);
+
+        // "Unassign" sends group_id: null with no doctor_id key at all —
+        // clear both explicitly rather than leaving a stale doctor_id
+        // pointing nowhere.
+        if ($request->has('group_id') && $validated['group_id'] === null && ! $request->has('doctor_id')) {
+            $validated['doctor_id'] = null;
+        }
 
         $clinicChair->update($validated);
 
         return back()->with('success', 'Chair updated.');
+    }
+
+    /**
+     * Spreads a group's doctors across chairs, one doctor per chair
+     * (2026-09-04, by request — "عند اختيار مجموعة لم يتم اختيارها من
+     * قبل وزع الكراسي بصورة عشوائية وكل كرسي لاسم طبيب معين"). Only
+     * touches doctors from this group who don't already have a chair
+     * anywhere — the very first click seats everyone, a later click
+     * (e.g. after a new doctor joined the group) seats only the newcomer,
+     * satisfying "امكانية تحديث الكراسي اذا تم اضافة طبيب جديد" with the
+     * same action rather than a separate "sync" button. Existing empty
+     * chairs (no group, no doctor) are filled first; anything left over
+     * gets a brand-new row of chairs. `shuffle()` on the doctor order
+     * before filling is the "عشوائية" — which doctor lands in which
+     * chair position is random, not which chairs exist.
+     */
+    public function assignGroup(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'group_id' => ['required', 'integer', 'exists:groups,id'],
+        ]);
+
+        $group = Group::with('doctors:id')->findOrFail($validated['group_id']);
+        $doctorIds = $group->doctors->pluck('id')->all();
+
+        if ($doctorIds === []) {
+            return back()->with('error', 'This group has no doctors yet.');
+        }
+
+        $alreadySeated = ClinicChair::whereIn('doctor_id', $doctorIds)->pluck('doctor_id')->all();
+        $unseatedDoctorIds = array_values(array_diff($doctorIds, $alreadySeated));
+
+        if ($unseatedDoctorIds === []) {
+            return back()->with('success', 'Every doctor in this group already has a chair.');
+        }
+
+        shuffle($unseatedDoctorIds);
+
+        DB::transaction(function () use ($unseatedDoctorIds, $validated) {
+            $emptyChairs = ClinicChair::whereNull('group_id')->whereNull('doctor_id')
+                ->orderBy('row_number')->orderBy('column_number')->get();
+
+            $toReuse = array_slice($unseatedDoctorIds, 0, $emptyChairs->count());
+            $toCreate = array_slice($unseatedDoctorIds, $emptyChairs->count());
+
+            foreach ($toReuse as $index => $doctorId) {
+                $emptyChairs[$index]->update(['group_id' => $validated['group_id'], 'doctor_id' => $doctorId]);
+            }
+
+            if ($toCreate !== []) {
+                $rowNumber = (int) ClinicChair::max('row_number') + 1;
+                $column = 1;
+                foreach ($toCreate as $doctorId) {
+                    ClinicChair::create([
+                        'row_number' => $rowNumber,
+                        'column_number' => $column++,
+                        'group_id' => $validated['group_id'],
+                        'doctor_id' => $doctorId,
+                    ]);
+                }
+            }
+        });
+
+        return back()->with('success', count($unseatedDoctorIds).' doctor(s) assigned to chairs.');
     }
 
     /**
