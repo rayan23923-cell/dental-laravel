@@ -120,20 +120,23 @@ const kCaseSheetCreatableResources = {
 /// [kCaseSheetCreatableResources] even though the two sets happen to be
 /// identical today: one is "can create", the other is "has a print
 /// design," and there's no rule that keeps them in lockstep going forward.
-// NOTE: `advanced-periodontal-charts` is deliberately NOT in this set yet
-// (2026-08-31) — its backend `CaseSheetPrint::SHEETS` entry exists (it has
-// to, that registry also gates the schema endpoint this whole app relies
-// on), but the print renderer only knows about `sections()`/`chartGroups()`,
-// not this resource's own `chart_data.advancedChart` 32-tooth grid, so a
-// print button here would produce a patient-info-only page missing the
-// actual chart — worse than no button. Add it once print support for the
-// big grid is built.
+// `advanced-periodontal-charts` was deliberately excluded here from
+// 2026-08-31 to 2026-09-03 — the print renderer only knows about
+// `sections()`/`chartGroups()`, and back then `sections()` was
+// patient-info-only, so a print button would've produced a page missing
+// the real content (which lived in `chart_data.advancedChart`'s 32-tooth
+// grid). Now that `AdvancedPeriodontalChartForm::sections()` has every
+// ordinary field merged in from `PeriodontalChartForm` (2026-09-03, by
+// request), the same sections-only print renderer is genuinely useful —
+// only the 32-tooth grid itself still doesn't print, matching the
+// request's own "ماعدا الجدول والمخططات السنية".
 const kCaseSheetPrintableResources = {
   'dental-charts',
   'prosthodontics-records',
   'complete-denture-records',
   'surgeries',
   'periodontal-charts',
+  'advanced-periodontal-charts',
   'orthodontics-records',
   'prevention-records',
   'oral-medicine-charts',

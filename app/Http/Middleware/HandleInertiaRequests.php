@@ -53,26 +53,20 @@ class HandleInertiaRequests extends Middleware
             // "طباعة" button can never appear on a sheet with no print page
             // — the satellite sheets (follow-ups, images, treatment plans)
             // have none, matching the original.
-            // `advanced-periodontal-charts` is excluded here (2026-08-31)
-            // even though it's a real `CaseSheetPrint::SHEETS` entry — that
-            // registry also gates the Flutter schema endpoint, which this
-            // resource needs, but its print renderer only knows about
-            // `sections()`, not this resource's own `chart_data.advancedChart`
-            // 32-tooth grid, so a print button here would produce a
-            // patient-info-only page missing the actual chart. Same
-            // exclusion as `kCaseSheetPrintableResources` on the Flutter
-            // side — add both back once print support for the big grid is
-            // built.
-            // `array_values()` matters here, not just style: `array_diff()`
-            // preserves the original keys, and removing a middle entry
-            // (`advanced-periodontal-charts` isn't last) leaves a gap —
-            // `json_encode()` on a non-sequential-from-0 array produces a
-            // JS *object*, not an array, breaking any `.includes()` call
-            // on this prop with a blank-page crash. Found live (2026-09-02):
-            // any case-sheet edit/show page failed to render at all,
-            // `TypeError: (x.props.printableCaseSheets ?? []).includes is
-            // not a function`.
-            'printableCaseSheets' => array_values(array_diff(array_keys(CaseSheetPrint::SHEETS), ['advanced-periodontal-charts'])),
+            // `advanced-periodontal-charts` was excluded here from
+            // 2026-08-31 to 2026-09-03: its print renderer only knows
+            // `sections()`, and back then `sections()` was patient-info-only
+            // (the real content lived in `chart_data.advancedChart`'s
+            // 32-tooth grid, invisible to the generic print renderer). Now
+            // that `AdvancedPeriodontalChartForm::sections()` has every
+            // ordinary field merged in from `PeriodontalChartForm` (by
+            // request — "اضافة طباعة الى ادفانسد بريو دنتل"), the same
+            // sections-only print renderer produces a genuinely useful page;
+            // only the 32-tooth grid itself still doesn't print, which is
+            // what the request's own "ماعدا الجدول والمخططات السنية"
+            // already excludes. Un-exclude `kCaseSheetPrintableResources` on
+            // the Flutter side to match.
+            'printableCaseSheets' => array_keys(CaseSheetPrint::SHEETS),
             // Gates the "Sign in with Google" button on both login screens —
             // see App\Http\Controllers\Auth\GoogleAuthController. Hidden
             // outright until GOOGLE_CLIENT_ID/SECRET are set, so an

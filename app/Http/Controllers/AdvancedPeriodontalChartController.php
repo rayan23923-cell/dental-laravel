@@ -121,18 +121,45 @@ class AdvancedPeriodontalChartController extends Controller
 
     private function validateRecord(Request $request): array
     {
-        return $request->validate([
+        $rules = [
             'doctor_id' => ['required', 'exists:doctors,id'],
             'task_instances_id' => ['nullable', 'integer'],
             'task_id' => ['nullable', 'integer'],
             'patient_last_name' => ['required', 'string', 'max:255'],
             'patient_first_name' => ['required', 'string', 'max:255'],
             'patient_dob' => ['nullable', 'date'],
+            'patient_gender' => ['nullable', 'in:male,female'],
             'chart_date' => ['required', 'date'],
             'exam_type' => ['nullable', 'in:initial,re_evaluation'],
-            'notes' => ['nullable', 'string'],
-            'senior_signature' => ['nullable', 'string'],
             'chart_data' => ['nullable', 'string'],
-        ]);
+            // Radio fields use PeriodontalChartForm::YND's own value set,
+            // not the generic 'boolean'/'string' the loop below would infer
+            // from `type: 'radio'` — same override
+            // PeriodontalChartController::validateRecord() makes for its
+            // own copy of these three fields.
+            'women_pregnancy' => ['nullable', 'in:yes,no,dk'],
+            'women_birth_control' => ['nullable', 'in:yes,no,dk'],
+            'women_nursing' => ['nullable', 'in:yes,no,dk'],
+        ];
+
+        // Everything else the merged-in sections bind to, typed from its
+        // field spec — same pattern PeriodontalChartController's own
+        // validateRecord() uses, so a field added to either form's
+        // sections() is validated without a rule being hand-written here.
+        foreach (AdvancedPeriodontalChartForm::sections() as $section) {
+            foreach ($section['fields'] as $field) {
+                if (isset($rules[$field['key']])) {
+                    continue;
+                }
+                $rules[$field['key']] = match ($field['type']) {
+                    'boolean' => ['nullable', 'boolean'],
+                    'number' => ['nullable', 'integer'],
+                    'date' => ['nullable', 'date'],
+                    default => ['nullable', 'string'],
+                };
+            }
+        }
+
+        return $request->validate($rules);
     }
 }
