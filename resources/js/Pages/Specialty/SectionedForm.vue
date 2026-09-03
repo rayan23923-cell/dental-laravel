@@ -4,7 +4,7 @@ import DoctorLayout from '@/Layouts/DoctorLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import Modal from '@/Components/Modal.vue';
-import AdvancedPerioChart from '@/Components/AdvancedPerioChart.vue';
+import AdvancedPerioChartSessions from '@/Components/AdvancedPerioChartSessions.vue';
 import PerioChart from '@/Components/PerioChart.vue';
 import PlaqueChart from '@/Components/PlaqueChart.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
@@ -46,11 +46,12 @@ const props = defineProps({
     // `dentalCharts` key (see App\Support\PlaqueChart). periodontal-charts
     // only, same gate as chartGroups.
     plaqueVisits: { type: Array, default: () => [] },
-    // "Advanced Periodontal Chart" (2026-08-31) — a completely separate
-    // 32-tooth grid mechanism from chartGroups/plaqueVisits above (this
-    // resource has neither), sharing the same chart_data column under its
-    // own `advancedChart` key. See AdvancedPerioChart.vue's own doc
-    // comment. advanced-periodontal-charts only.
+    // "Advanced Periodontal Chart" (2026-08-31, sessions added 2026-09-03) —
+    // a completely separate 32-tooth grid mechanism from chartGroups/
+    // plaqueVisits above (this resource has neither), sharing the same
+    // chart_data column under its own `advancedChart` key, which now holds
+    // a doctor-managed list of sessions rather than one snapshot. See
+    // AdvancedPerioChartSessions.vue's own doc comment. advanced-periodontal-charts only.
     advancedPerioChart: Boolean,
     // Only sheets with a per-stage signature/date/grade table pass this.
     stages: { type: Array, default: () => [] },
@@ -919,10 +920,12 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                         <PlaqueChart v-model="charts.dentalCharts" :visits="plaqueVisits" :disabled="readonly" />
                     </div>
 
-                    <!-- "Advanced Periodontal Chart" — see AdvancedPerioChart.vue's own doc comment. -->
+                    <!-- "Advanced Periodontal Chart" — multiple sessions/visits, each its
+                         own 32-tooth grid. See AdvancedPerioChartSessions.vue's own doc
+                         comment; AdvancedPerioChart.vue itself (the grid) is untouched. -->
                     <div v-if="advancedPerioChart" class="rounded-lg bg-white p-6 shadow-sm">
                         <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">Periodontal Chart</h3>
-                        <AdvancedPerioChart v-model="charts.advancedChart" :disabled="readonly" />
+                        <AdvancedPerioChartSessions v-model="charts.advancedChart" :disabled="readonly" />
                     </div>
 
                     <div v-if="canSubmit" class="flex justify-end">
