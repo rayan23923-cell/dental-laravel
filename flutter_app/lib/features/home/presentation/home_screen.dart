@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/widgets/academic_year_banner.dart';
 import '../../auth/domain/account_type.dart';
 import '../../auth/domain/auth_account.dart';
@@ -27,18 +28,19 @@ class HomeScreen extends ConsumerWidget {
     final authState = ref.watch(authControllerProvider).valueOrNull;
     final account = authState is Authenticated ? authState.account : null;
     final isDoctor = account?.accountType == AccountType.doctor;
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
       // Records/admin/notifications/profile/logout all now live in the
       // persistent sidebar (AppSidebar) — see this file's own doc comment
       // above for the account-type branching that already drove these same
       // destinations, now surfaced once in the sidebar instead of per-screen.
-      appBar: AppBar(title: Text(isDoctor ? 'مهامي' : 'الرئيسية')),
+      appBar: AppBar(title: Text(isDoctor ? t['nav.myTasks']! : t['nav.home']!)),
       floatingActionButton: isDoctor
           ? FloatingActionButton.extended(
               onPressed: () => context.push('/scan'),
               icon: const Icon(Icons.qr_code_scanner),
-              label: const Text('مسح QR'),
+              label: Text(t['nav.scanQr']!),
             )
           : null,
       body: isDoctor
@@ -46,6 +48,7 @@ class HomeScreen extends ConsumerWidget {
           : _StaffDashboard(
               displayName: account?.displayName ?? '',
               profileImageUrl: account is StaffAccount ? account.profileImageUrl : null,
+              t: t,
             ),
     );
   }
@@ -57,32 +60,33 @@ class HomeScreen extends ConsumerWidget {
 /// the two module hubs ("السجلات"/"الإدارة") as proper cards instead of
 /// plain buttons.
 class _StaffDashboard extends StatelessWidget {
-  const _StaffDashboard({required this.displayName, required this.profileImageUrl});
+  const _StaffDashboard({required this.displayName, required this.profileImageUrl, required this.t});
 
   final String displayName;
   final String? profileImageUrl;
+  final Map<String, String> t;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final shortcuts = [
-      _Shortcut('تسجيل مريض جديد', Icons.person_add_alt_1_outlined, () => context.push('/records/patient-registrations/new')),
-      _Shortcut('المواعيد', Icons.event_outlined, () => context.push('/records/appointments')),
-      _Shortcut('الدفعات', Icons.payments_outlined, () => context.push('/records/payments')),
+      _Shortcut(t['labels.registerNewPatient']!, Icons.person_add_alt_1_outlined, () => context.push('/records/patient-registrations/new')),
+      _Shortcut(t['labels.appointments']!, Icons.event_outlined, () => context.push('/records/appointments')),
+      _Shortcut(t['labels.payments']!, Icons.payments_outlined, () => context.push('/records/payments')),
       // Real bug found live: this still pointed at the old NFC-only
       // screen's route, removed when it was superseded by the full
       // day→group→department→doctor matrix (see that screen's own
       // docblock) — every tap crashed straight to "Page Not Found"
       // (`GoException: no routes for location: /admin/task-progress/nfc`).
       // The admin hub's own tile was updated at the time; this one was missed.
-      _Shortcut('تقدم المهام', Icons.fact_check_outlined, () => context.push('/admin/task-progress')),
+      _Shortcut(t['labels.taskProgress']!, Icons.fact_check_outlined, () => context.push('/admin/task-progress')),
       // The infectious-disease screening feature (2026-08-25) had no
       // dashboard entry point at all — the only way in was a small icon
       // inside the patient-registrations list, easy to miss. Added
       // (2026-08-26) so "المختبر" is a first-class shortcut like every
       // other daily action here.
       _Shortcut(
-        'المختبر',
+        t['labels.lab']!,
         Icons.coronavirus_outlined,
         () => context.push('/records/patient-registrations/scan-screening'),
       ),
@@ -114,7 +118,7 @@ class _StaffDashboard extends StatelessWidget {
                   children: [
                     Text(displayName, style: Theme.of(context).textTheme.titleLarge),
                     const SizedBox(height: 2),
-                    Text('موظف', style: Theme.of(context).textTheme.bodySmall),
+                    Text(t['home.staffRole']!, style: Theme.of(context).textTheme.bodySmall),
                   ],
                 ),
               ),
@@ -128,7 +132,7 @@ class _StaffDashboard extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Text(
-            'اختصارات سريعة',
+            t['home.quickShortcuts']!,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(color: colors.primary, fontWeight: FontWeight.w700),
           ),
         ),
@@ -147,21 +151,21 @@ class _StaffDashboard extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Text(
-            'الأقسام',
+            t['home.sections']!,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(color: colors.primary, fontWeight: FontWeight.w700),
           ),
         ),
         const SizedBox(height: 8),
         _HubCard(
-          title: 'السجلات',
-          subtitle: 'المرضى، المواعيد، الدفعات',
+          title: t['nav.records']!,
+          subtitle: t['home.recordsSubtitle']!,
           icon: Icons.folder_shared_outlined,
           onTap: () => context.push('/records'),
         ),
         const SizedBox(height: 10),
         _HubCard(
-          title: 'الإدارة',
-          subtitle: 'الأطباء، البيانات الأساسية، الإعدادات',
+          title: t['nav.admin']!,
+          subtitle: t['home.adminSubtitle']!,
           icon: Icons.admin_panel_settings_outlined,
           onTap: () => context.push('/admin'),
         ),

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../../core/i18n/locale_controller.dart';
 
 /// "الإدارة" — staff-only entry point to Phase 3's admin modules, built
 /// incrementally (see flutter_app/README.md's Phase 3 breakdown). Distinct
@@ -24,39 +27,40 @@ class _AdminGroup {
   final List<_AdminItem> items;
 }
 
-class AdminHubScreen extends StatelessWidget {
+class AdminHubScreen extends ConsumerWidget {
   const AdminHubScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider);
     final groups = [
-      const _AdminGroup('إدارة الأطباء', [
-        _AdminItem('الأطباء', Icons.medical_information_outlined, '/admin/doctors'),
-        _AdminItem('المجموعات', Icons.groups_outlined, '/admin/groups'),
-        _AdminItem('خريطة كراسي العيادة', Icons.event_seat_outlined, '/admin/clinic-chairs'),
+      _AdminGroup(t['adminHub.doctorsGroup']!, [
+        _AdminItem(t['adminHub.doctors']!, Icons.medical_information_outlined, '/admin/doctors'),
+        _AdminItem(t['adminHub.groups']!, Icons.groups_outlined, '/admin/groups'),
+        _AdminItem(t['adminHub.clinicChairs']!, Icons.event_seat_outlined, '/admin/clinic-chairs'),
       ]),
-      const _AdminGroup('البيانات الأساسية', [
-        _AdminItem('الأعوام الدراسية', Icons.event_note_outlined, '/admin/academic-sessions'),
-        _AdminItem('أنواع التعليم', Icons.school_outlined, '/admin/education-types'),
-        _AdminItem('المراحل', Icons.layers_outlined, '/admin/stages'),
-        _AdminItem('الأقسام', Icons.apartment_outlined, '/admin/departments'),
-        _AdminItem('المهام', Icons.checklist_outlined, '/admin/tasks'),
-        _AdminItem('أنواع النماذج السريرية', Icons.description_outlined, '/admin/case-sheet-types'),
+      _AdminGroup(t['adminHub.referenceData']!, [
+        _AdminItem(t['adminHub.academicSessions']!, Icons.event_note_outlined, '/admin/academic-sessions'),
+        _AdminItem(t['adminHub.educationTypes']!, Icons.school_outlined, '/admin/education-types'),
+        _AdminItem(t['adminHub.stages']!, Icons.layers_outlined, '/admin/stages'),
+        _AdminItem(t['adminHub.departments']!, Icons.apartment_outlined, '/admin/departments'),
+        _AdminItem(t['adminHub.tasks']!, Icons.checklist_outlined, '/admin/tasks'),
+        _AdminItem(t['adminHub.caseSheetTypes']!, Icons.description_outlined, '/admin/case-sheet-types'),
       ]),
-      const _AdminGroup('سير العمل', [
-        _AdminItem('تقدم المهام', Icons.fact_check_outlined, '/admin/task-progress'),
+      _AdminGroup(t['adminHub.workflow']!, [
+        _AdminItem(t['labels.taskProgress']!, Icons.fact_check_outlined, '/admin/task-progress'),
       ]),
-      const _AdminGroup('الإعدادات', [
-        _AdminItem('إعدادات الطابعة', Icons.print_outlined, '/admin/printer-settings'),
-        _AdminItem('إعدادات العيادة', Icons.settings_outlined, '/admin/clinic-settings'),
-        _AdminItem('الصلاحيات', Icons.lock_outline, '/admin/permissions'),
-        _AdminItem('سجل النشاط', Icons.history_outlined, '/admin/activity-log'),
-        _AdminItem('النسخ الاحتياطي', Icons.backup_outlined, '/admin/backup'),
+      _AdminGroup(t['nav.settings']!, [
+        _AdminItem(t['settingsMenu.printerSettings']!, Icons.print_outlined, '/admin/printer-settings'),
+        _AdminItem(t['settingsMenu.clinicSettings']!, Icons.settings_outlined, '/admin/clinic-settings'),
+        _AdminItem(t['settingsMenu.permissions']!, Icons.lock_outline, '/admin/permissions'),
+        _AdminItem(t['settingsMenu.activityLog']!, Icons.history_outlined, '/admin/activity-log'),
+        _AdminItem(t['settingsMenu.backup']!, Icons.backup_outlined, '/admin/backup'),
       ]),
     ];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('الإدارة')),
+      appBar: AppBar(title: Text(t['nav.admin']!)),
       body: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: groups.length,

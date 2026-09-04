@@ -32,6 +32,7 @@ const Map<String, String> kTranslationsAr = {
   'nav.caseSheets': 'النماذج السريرية',
   'nav.scanQr': 'مسح QR',
   'nav.pendingTasksQr': 'رموز المهام المعلقة',
+  'nav.myTasks': 'مهامي',
 
   'auth.subtitle1': 'المستشفى التعليمي لكلية طب الأسنان',
   'auth.subtitle2': 'جامعة تكريت',
@@ -82,6 +83,32 @@ const Map<String, String> kTranslationsAr = {
   'payment.notPaid': 'لم يتم الدفع',
 
   'academicYear.active': 'العام الدراسي النشط: ',
+
+  'home.staffRole': 'موظف',
+  'home.quickShortcuts': 'اختصارات سريعة',
+  'home.sections': 'الأقسام',
+  'home.recordsSubtitle': 'المرضى، المواعيد، الدفعات',
+  'home.adminSubtitle': 'الأطباء، البيانات الأساسية، الإعدادات',
+
+  'labels.registerNewPatient': 'تسجيل مريض جديد',
+  'labels.registerPatients': 'تسجيل المرضى',
+  'labels.appointments': 'المواعيد',
+  'labels.payments': 'الدفعات',
+  'labels.taskProgress': 'تقدم المهام',
+  'labels.lab': 'المختبر',
+
+  'adminHub.doctorsGroup': 'إدارة الأطباء',
+  'adminHub.doctors': 'الأطباء',
+  'adminHub.groups': 'المجموعات',
+  'adminHub.clinicChairs': 'خريطة كراسي العيادة',
+  'adminHub.referenceData': 'البيانات الأساسية',
+  'adminHub.academicSessions': 'الأعوام الدراسية',
+  'adminHub.educationTypes': 'أنواع التعليم',
+  'adminHub.stages': 'المراحل',
+  'adminHub.departments': 'الأقسام',
+  'adminHub.tasks': 'المهام',
+  'adminHub.caseSheetTypes': 'أنواع النماذج السريرية',
+  'adminHub.workflow': 'سير العمل',
 };
 
 const Map<String, String> kTranslationsEn = {
@@ -98,6 +125,7 @@ const Map<String, String> kTranslationsEn = {
   'nav.caseSheets': 'Case Sheets',
   'nav.scanQr': 'Scan QR',
   'nav.pendingTasksQr': 'Pending Task Codes',
+  'nav.myTasks': 'My Tasks',
 
   'auth.subtitle1': 'Teaching Hospital, College of Dentistry',
   'auth.subtitle2': 'Tikrit University',
@@ -148,4 +176,30 @@ const Map<String, String> kTranslationsEn = {
   'payment.notPaid': 'Not paid',
 
   'academicYear.active': 'Active academic year: ',
+
+  'home.staffRole': 'Staff',
+  'home.quickShortcuts': 'Quick Shortcuts',
+  'home.sections': 'Sections',
+  'home.recordsSubtitle': 'Patients, appointments, payments',
+  'home.adminSubtitle': 'Doctors, reference data, settings',
+
+  'labels.registerNewPatient': 'Register New Patient',
+  'labels.registerPatients': 'Register Patients',
+  'labels.appointments': 'Appointments',
+  'labels.payments': 'Payments',
+  'labels.taskProgress': 'Task Progress',
+  'labels.lab': 'Lab',
+
+  'adminHub.doctorsGroup': 'Doctor Management',
+  'adminHub.doctors': 'Doctors',
+  'adminHub.groups': 'Groups',
+  'adminHub.clinicChairs': 'Clinic Chair Map',
+  'adminHub.referenceData': 'Reference Data',
+  'adminHub.academicSessions': 'Academic Sessions',
+  'adminHub.educationTypes': 'Education Types',
+  'adminHub.stages': 'Stages',
+  'adminHub.departments': 'Departments',
+  'adminHub.tasks': 'Tasks',
+  'adminHub.caseSheetTypes': 'Case Sheet Types',
+  'adminHub.workflow': 'Workflow',
 };
