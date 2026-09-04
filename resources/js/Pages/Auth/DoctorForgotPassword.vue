@@ -3,8 +3,9 @@ import AuthField from '@/Components/AuthField.vue';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import Icon from '@/Components/Icon.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
 
-
+const { t } = useI18n();
 defineProps({
     status: { type: String },
 });
@@ -18,10 +19,10 @@ const submit = () => form.post(route('doctor.password.email'));
 
 <template>
     <GuestLayout>
-        <Head title="استعادة كلمة مرور الطبيب" />
+        <Head :title="t('authPages.doctorForgotPasswordTitle')" />
 
-        <h2 class="text-lg font-semibold text-content">استعادة كلمة المرور</h2>
-        <p class="mt-1 text-sm leading-relaxed text-muted">أدخل البريد الإلكتروني المسجّل باسمك وسنرسل لك رمز تحقق صالحاً لمدة 5 دقائق.</p>
+        <h2 class="text-lg font-semibold text-content">{{ t('authPages.forgotPasswordHeading') }}</h2>
+        <p class="mt-1 text-sm leading-relaxed text-muted">{{ t('authPages.doctorForgotPasswordDescription') }}</p>
 
         <div v-if="status" class="mt-5 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-accent">
             {{ status }}
@@ -31,7 +32,7 @@ const submit = () => form.post(route('doctor.password.email'));
             <AuthField
                 id="email"
                 v-model="form.email"
-                label="البريد الإلكتروني"
+                :label="t('authPages.emailLabel')"
                 type="email"
                 icon="mail"
                 placeholder="name@clinic.local"
@@ -47,11 +48,11 @@ const submit = () => form.post(route('doctor.password.email'));
                 class="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-accent to-accent-deep px-4 py-3 font-semibold text-accent-fg shadow-glow transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
             >
                 <Icon :name="form.processing ? 'progress_activity' : 'send'" :class="form.processing ? 'animate-spin' : ''" />
-                {{ form.processing ? 'جارٍ الإرسال…' : 'إرسال رمز التحقق' }}
+                {{ form.processing ? t('authPages.sendingOtp') : t('authPages.sendOtpButton') }}
             </button>
 
             <Link :href="route('login')" class="block text-center text-sm text-muted transition hover:text-content">
-                العودة لتسجيل الدخول
+                {{ t('authPages.backToLogin') }}
             </Link>
         </form>
     </GuestLayout>

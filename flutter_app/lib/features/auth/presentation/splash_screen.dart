@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/i18n/locale_controller.dart';
 
 /// Shown while `authControllerProvider`'s session-restore is resolving.
 /// Purely decorative — the router redirects away once auth state settles,
 /// so this widget never navigates itself; the animations just loop/hold
 /// until the screen is disposed out from under them.
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
+class _SplashScreenState extends ConsumerState<SplashScreen>
     with TickerProviderStateMixin {
   static const _navyDark = Color(0xFF0A1128);
   static const _navyMid = Color(0xFF13224A);
@@ -63,6 +66,8 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final t = ref.watch(translationsProvider);
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -159,13 +164,13 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                   );
                 },
-                child: const Column(
+                child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'المستشفى التعليمي لكلية طب الأسنان',
+                      t['splash.clinicName']!,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: _goldSoft,
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
@@ -173,8 +178,8 @@ class _SplashScreenState extends State<SplashScreen>
                       ),
                     ),
                     Text(
-                      'جامعة تكريت',
-                      style: TextStyle(
+                      t['splash.universityName']!,
+                      style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 14,
                       ),

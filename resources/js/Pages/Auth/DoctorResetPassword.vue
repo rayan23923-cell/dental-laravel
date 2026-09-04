@@ -3,8 +3,9 @@ import AuthField from '@/Components/AuthField.vue';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import Icon from '@/Components/Icon.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
 
-
+const { t } = useI18n();
 const props = defineProps({
     email: { type: String, default: '' },
     status: { type: String, default: null },
@@ -26,10 +27,10 @@ const submit = () => {
 
 <template>
     <GuestLayout>
-        <Head title="تعيين كلمة مرور جديدة" />
+        <Head :title="t('authPages.resetPasswordTitle')" />
 
-        <h2 class="text-lg font-semibold text-content">تعيين كلمة مرور جديدة</h2>
-        <p class="mt-1 text-sm leading-relaxed text-muted">أدخل رمز التحقق الذي وصلك عبر البريد الإلكتروني، ثم اختر كلمة مرور قوية لحسابك.</p>
+        <h2 class="text-lg font-semibold text-content">{{ t('authPages.resetPasswordHeading') }}</h2>
+        <p class="mt-1 text-sm leading-relaxed text-muted">{{ t('authPages.resetPasswordDescription') }}</p>
 
         <div v-if="status" class="mt-5 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-accent">
             {{ status }}
@@ -39,7 +40,7 @@ const submit = () => {
             <AuthField
                 id="email"
                 v-model="form.email"
-                label="البريد الإلكتروني"
+                :label="t('authPages.emailLabel')"
                 type="email"
                 icon="mail"
                 autocomplete="username"
@@ -51,7 +52,7 @@ const submit = () => {
             <AuthField
                 id="otp"
                 v-model="form.otp"
-                label="رمز التحقق"
+                :label="t('authPages.otpLabel')"
                 type="text"
                 icon="pin"
                 placeholder="123456"
@@ -64,7 +65,7 @@ const submit = () => {
             <AuthField
                 id="password"
                 v-model="form.password"
-                label="كلمة المرور الجديدة"
+                :label="t('authPages.newPasswordLabel')"
                 type="password"
                 icon="lock"
                 placeholder="••••••••"
@@ -76,7 +77,7 @@ const submit = () => {
             <AuthField
                 id="password_confirmation"
                 v-model="form.password_confirmation"
-                label="تأكيد كلمة المرور"
+                :label="t('authPages.confirmPasswordFieldLabel')"
                 type="password"
                 icon="lock_reset"
                 placeholder="••••••••"
@@ -91,15 +92,15 @@ const submit = () => {
                 class="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-accent to-accent-deep px-4 py-3 font-semibold text-accent-fg shadow-glow transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
             >
                 <Icon :name="form.processing ? 'progress_activity' : 'check_circle'" :class="form.processing ? 'animate-spin' : ''" />
-                {{ form.processing ? 'جارٍ الحفظ…' : 'حفظ كلمة المرور' }}
+                {{ form.processing ? t('authPages.saving') : t('authPages.savePasswordButton') }}
             </button>
 
             <Link :href="route('doctor.password.request')" class="block text-center text-sm text-muted transition hover:text-content">
-                لم يصلك الرمز؟ إعادة الإرسال
+                {{ t('authPages.resendOtpLink') }}
             </Link>
 
             <Link :href="route('login')" class="block text-center text-sm text-muted transition hover:text-content">
-                العودة لتسجيل الدخول
+                {{ t('authPages.backToLogin') }}
             </Link>
         </form>
     </GuestLayout>

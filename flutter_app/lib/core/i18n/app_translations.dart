@@ -656,6 +656,11 @@ const Map<String, String> kTranslationsAr = {
   'printerSettingsAdmin.paper58mm': '58 ملم',
   'printerSettingsAdmin.paper80mm': '80 ملم',
   'printerSettingsAdmin.save': 'حفظ',
+
+
+  // Phase 12 — splash screen branding text
+  'splash.clinicName': 'المستشفى التعليمي لكلية طب الأسنان',
+  'splash.universityName': 'جامعة تكريت',
 };
 
 const Map<String, String> kTranslationsEn = {
@@ -1296,4 +1301,9 @@ const Map<String, String> kTranslationsEn = {
   'printerSettingsAdmin.paper58mm': '58mm',
   'printerSettingsAdmin.paper80mm': '80mm',
   'printerSettingsAdmin.save': 'Save',
+
+
+  // Phase 12 — splash screen branding text
+  'splash.clinicName': 'Teaching Hospital of the College of Dentistry',
+  'splash.universityName': 'University of Tikrit',
 };
