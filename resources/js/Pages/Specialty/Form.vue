@@ -4,7 +4,9 @@ import DynamicField from '@/Components/DynamicField.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const props = defineProps({
     resource: String, // route name prefix, e.g. "periodontal-charts"
     title: String,
@@ -48,7 +50,7 @@ const submit = () => {
     <AuthenticatedLayout>
         <template #header>
             <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                {{ isEdit ? `Edit ${title}` : `New ${title}` }}
+                {{ isEdit ? t('specialtyForms.editPrefixTemplate', { title }) : t('specialtyForms.newPrefixTemplate', { title }) }}
             </h2>
         </template>
 
@@ -58,9 +60,9 @@ const submit = () => {
                     <form @submit.prevent="submit" class="space-y-6">
                         <div v-if="doctors" class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                             <div v-if="form.doctor_id !== undefined">
-                                <label class="block text-sm font-medium text-gray-700">Doctor *</label>
+                                <label class="block text-sm font-medium text-gray-700">{{ t('specialtyForms.doctorLabel') }} *</label>
                                 <select v-model="form.doctor_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
-                                    <option value="" disabled>Select a doctor</option>
+                                    <option value="" disabled>{{ t('specialtyForms.selectDoctorPlaceholder') }}</option>
                                     <option v-for="d in doctors" :key="d.id" :value="d.id">{{ d.name }}</option>
                                 </select>
                                 <p v-if="form.errors.doctor_id" class="mt-2 text-sm text-red-600">{{ form.errors.doctor_id }}</p>
@@ -78,7 +80,7 @@ const submit = () => {
                         </div>
 
                         <div class="flex justify-end">
-                            <PrimaryButton :disabled="form.processing">{{ isEdit ? 'Update' : 'Save' }}</PrimaryButton>
+                            <PrimaryButton :disabled="form.processing">{{ isEdit ? t('specialtyForms.updateButton') : t('specialtyForms.saveButton') }}</PrimaryButton>
                         </div>
                     </form>
                 </div>

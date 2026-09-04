@@ -4,7 +4,9 @@ import DoctorLayout from '@/Layouts/DoctorLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const props = defineProps({
     resource: String,
     title: String,
@@ -20,7 +22,7 @@ const isDoctor = computed(() => !!page.props.auth?.doctor);
 const Layout = computed(() => (isDoctor.value ? DoctorLayout : AuthenticatedLayout));
 
 const destroy = (record) => {
-    if (confirm(`Delete this ${props.title.toLowerCase()} record?`)) {
+    if (confirm(t('specialtyForms.deleteConfirmTemplate', { title: props.title.toLowerCase() }))) {
         router.delete(route(`${props.resource}.destroy`, record.id));
     }
 };
@@ -38,7 +40,7 @@ const recordLabel = (record) => record[props.titleField] || `#${record.id}`;
                 <!-- Only the owning doctor may create or delete a case sheet;
                      staff are view-only, as in the original. -->
                 <Link v-if="isDoctor" :href="route(`${resource}.create`)">
-                    <PrimaryButton>Add Record</PrimaryButton>
+                    <PrimaryButton>{{ t('specialtyForms.addRecord') }}</PrimaryButton>
                 </Link>
             </div>
         </template>
@@ -56,9 +58,9 @@ const recordLabel = (record) => record[props.titleField] || `#${record.id}`;
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Record</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Doctor</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Actions</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('specialtyForms.recordCol') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('specialtyForms.doctorCol') }}</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('specialtyForms.actionsCol') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200 bg-white">
@@ -69,13 +71,13 @@ const recordLabel = (record) => record[props.titleField] || `#${record.id}`;
                                 <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ record.doctor?.name ?? '—' }}</td>
                                 <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
                                     <Link :href="route(`${resource}.edit`, record.id)" class="text-indigo-600 hover:text-indigo-900">
-                                        {{ isDoctor ? 'Edit' : 'View' }}
+                                        {{ isDoctor ? t('specialtyForms.editAction') : t('specialtyForms.viewAction') }}
                                     </Link>
-                                    <button v-if="isDoctor" @click="destroy(record)" class="ml-4 text-red-600 hover:text-red-900">Delete</button>
+                                    <button v-if="isDoctor" @click="destroy(record)" class="ml-4 text-red-600 hover:text-red-900">{{ t('specialtyForms.deleteAction') }}</button>
                                 </td>
                             </tr>
                             <tr v-if="records.data.length === 0">
-                                <td colspan="3" class="px-6 py-8 text-center text-sm text-gray-500">No records yet.</td>
+                                <td colspan="3" class="px-6 py-8 text-center text-sm text-gray-500">{{ t('specialtyForms.emptyList') }}</td>
                             </tr>
                         </tbody>
                     </table>

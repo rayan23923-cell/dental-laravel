@@ -2,7 +2,9 @@
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const props = defineProps({
     field: Object, // { key, label, type, required }
     modelValue: [String, Number, Boolean, null],
@@ -33,8 +35,8 @@ const emit = defineEmits(['update:modelValue']);
             @change="emit('update:modelValue', $event.target.value)"
         >
             <option value="">—</option>
-            <option value="1">Yes</option>
-            <option value="0">No</option>
+            <option value="1">{{ t('specialtyForms.yesOption') }}</option>
+            <option value="0">{{ t('specialtyForms.noOption') }}</option>
         </select>
 
         <TextInput

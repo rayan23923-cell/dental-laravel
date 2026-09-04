@@ -27,6 +27,9 @@ import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, reactive, ref } from 'vue';
 import Icon from '@/Components/Icon.vue';
 import axios from 'axios';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 /**
  * Shared renderer for the faithfully-ported case sheets. Each specialty
@@ -225,7 +228,7 @@ const onPatientDecoded = async (text) => {
         patientScannerRef.value?.stop();
         showPatientScan.value = false;
     } catch (e) {
-        patientScanError.value = e?.response?.data?.message ?? 'تعذر قراءة الرمز.';
+        patientScanError.value = e?.response?.data?.message ?? t('specialtyForms.scanReadFailedMsg');
     }
 };
 
@@ -535,13 +538,13 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
 </script>
 
 <template>
-    <Head :title="`${isEdit ? 'Edit' : 'New'} ${title}`" />
+    <Head :title="isEdit ? t('specialtyForms.editPrefixTemplate', { title }) : t('specialtyForms.newPrefixTemplate', { title })" />
 
     <component :is="Layout">
         <template #header>
             <div class="flex items-center justify-between">
                 <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                    {{ readonly ? title : `${isEdit ? 'Edit' : 'New'} ${title}` }}
+                    {{ readonly ? title : (isEdit ? t('specialtyForms.editPrefixTemplate', { title }) : t('specialtyForms.newPrefixTemplate', { title })) }}
                 </h2>
                 <div class="flex items-center gap-3">
                     <!-- Printing needs a saved record, so the button appears
@@ -553,7 +556,7 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                         target="_blank"
                         class="inline-flex items-center rounded-md bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-700"
                     >
-                        <Icon name="print" class="ml-1" />طباعة
+                        <Icon name="print" class="ml-1" />{{ t('specialtyForms.printAction') }}
                     </a>
                     <!-- Same condition as Print in the original (both gated
                          on the existing-record check together) plus needing
@@ -565,7 +568,7 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                         @click="showQr = true"
                         class="inline-flex items-center rounded-md bg-cyan-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-cyan-700"
                     >
-                        <Icon name="qr_code_2" class="ml-1" />رمز QR
+                        <Icon name="qr_code_2" class="ml-1" />{{ t('specialtyForms.qrCodeAction') }}
                     </button>
                     <!-- Autofill patient-identity fields from the same
                          registration ticket QR used for payment/screening,
@@ -577,9 +580,9 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                         @click="openPatientScan"
                         class="inline-flex items-center rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
                     >
-                        <Icon name="qr_code_scanner" class="ml-1" />مسح رمز المريض
+                        <Icon name="qr_code_scanner" class="ml-1" />{{ t('specialtyForms.scanPatientAction') }}
                     </button>
-                    <Link :href="route(`${resource}.index`)" class="text-sm text-indigo-600 hover:underline">Back to list</Link>
+                    <Link :href="route(`${resource}.index`)" class="text-sm text-indigo-600 hover:underline">{{ t('specialtyForms.backToList') }}</Link>
                 </div>
             </div>
         </template>
@@ -596,13 +599,13 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                 <div v-if="staffViewOnly" class="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4">
                     <Icon name="visibility" class="mt-0.5 text-amber-600" />
                     <div class="text-sm text-amber-900">
-                        <strong class="block">وضع العرض فقط</strong>
-                        هذه الحالة يملكها الطبيب المسؤول عنها؛ يمكنك عرضها وطباعتها ولا يمكنك حفظ أي تعديل عليها.
+                        <strong class="block">{{ t('specialtyForms.viewOnlyModeHeading') }}</strong>
+                        {{ t('specialtyForms.viewOnlyModeDesc') }}
                     </div>
                 </div>
 
                 <div v-if="form.task_instances_id" class="rounded-md bg-sky-50 p-3 text-sm text-sky-800">
-                    <Icon name="assignment" class="ml-1" />هذا النموذج مرتبط بحالة المهمة رقم <strong>{{ form.task_instances_id }}</strong> — سيُحفظ باسمها.
+                    <Icon name="assignment" class="ml-1" />{{ t('specialtyForms.linkedTaskPrefix') }} <strong>{{ form.task_instances_id }}</strong> {{ t('specialtyForms.linkedTaskSuffix') }}
                 </div>
 
                 <!-- Optional pre-instance draft (2026-08-28) — see
@@ -610,7 +613,7 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                      linked to a real task case yet, filling it in is
                      optional prep work. -->
                 <div v-else-if="form.task_id" class="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
-                    <Icon name="assignment" class="ml-1" />هذه مسودة اختيارية غير مرتبطة بحالة مهمة بعد — ابدأ المهمة من "مهامي" لربطها رسمياً.
+                    <Icon name="assignment" class="ml-1" />{{ t('specialtyForms.draftNote') }}
                 </div>
 
                 <form @submit.prevent="submit" class="space-y-6">
@@ -619,11 +622,11 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                          from the session, as the original does), so offering
                          a picker would only suggest otherwise. -->
                     <div v-if="!hideDoctor && !isDoctor" class="rounded-lg bg-white p-6 shadow-sm">
-                        <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">Doctor</h3>
+                        <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">{{ t('specialtyForms.doctorLabel') }}</h3>
                         <div>
-                            <InputLabel for="doctor_id" value="Doctor *" />
+                            <InputLabel for="doctor_id" :value="`${t('specialtyForms.doctorLabel')} *`" />
                             <select id="doctor_id" v-model="form.doctor_id" :disabled="readonly" class="mt-1 block w-full max-w-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
-                                <option value="" disabled>Select a doctor</option>
+                                <option value="" disabled>{{ t('specialtyForms.selectDoctorPlaceholder') }}</option>
                                 <option v-for="d in doctors" :key="d.id" :value="d.id">{{ d.name }}</option>
                             </select>
                             <InputError class="mt-2" :message="form.errors.doctor_id" />
@@ -654,7 +657,7 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                                             :disabled="fieldDisabled(field)"
                                             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         >
-                                            <option value="">— Select —</option>
+                                            <option value="">{{ t('specialtyForms.selectOptionPlaceholder') }}</option>
                                             <option v-for="o in field.options" :key="o.value" :value="o.value">{{ o.label }}</option>
                                         </select>
 
@@ -691,7 +694,7 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                                             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                             :required="field.required"
                                         >
-                                            <option value="">— Select —</option>
+                                            <option value="">{{ t('specialtyForms.selectOptionPlaceholder') }}</option>
                                             <option v-for="o in (lookups[field.key] ?? [])" :key="o.id" :value="o.id">{{ o.label }}</option>
                                         </select>
 
@@ -808,8 +811,8 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                                                 <Icon name="verified" class="ml-1" />{{ form[formKey(field)] }}
                                             </p>
                                             <div v-else-if="form[formKey(field)] === '__SIGN__'" class="flex items-center justify-between gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-800">
-                                                سيُسجَّل التوقيع باسمك عند الحفظ
-                                                <button type="button" @click="form[formKey(field)] = ''" class="text-xs text-indigo-600 underline">إلغاء</button>
+                                                {{ t('specialtyForms.willBeRecordedNote') }}
+                                                <button type="button" @click="form[formKey(field)] = ''" class="text-xs text-indigo-600 underline">{{ t('specialtyForms.cancelAction') }}</button>
                                             </div>
                                             <button
                                                 v-else
@@ -818,7 +821,7 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                                                 @click="form[formKey(field)] = '__SIGN__'"
                                                 class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                                             >
-                                                <Icon name="draw" class="ml-1" />توقيع
+                                                <Icon name="draw" class="ml-1" />{{ t('specialtyForms.signButton') }}
                                             </button>
                                         </div>
 
@@ -854,23 +857,23 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                          own doc comment for why this only ever appeared in
                          the printed document until now. -->
                     <div v-if="resource === 'prosthodontics-records'" class="rounded-lg bg-white p-6 shadow-sm">
-                        <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500">Dental Arch</h3>
+                        <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500">{{ t('specialtyForms.dentalArchHeading') }}</h3>
                         <ProsthodonticsDentalArch :missing-fdi="missingFdi" :carious-fdi="cariousFdi" />
                     </div>
 
                     <!-- Stages and evaluation -->
                     <div v-if="stages.length" class="overflow-hidden rounded-lg bg-white shadow-sm">
                         <h3 class="border-b border-gray-200 px-6 py-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
-                            Stages and evaluation
+                            {{ t('specialtyForms.stagesEvaluationHeading') }}
                         </h3>
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
-                                        <th class="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Stage</th>
-                                        <th class="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Signature of instructor</th>
-                                        <th class="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Date</th>
-                                        <th class="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Grade</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">{{ t('specialtyForms.stageCol') }}</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">{{ t('specialtyForms.signatureOfInstructorCol') }}</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">{{ t('specialtyForms.dateCol') }}</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">{{ t('specialtyForms.gradeCol') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-200 bg-white">
@@ -887,21 +890,21 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                                                 {{ form[`stage_${stage.key}_signature`] }}
                                             </p>
                                             <div v-else-if="form[`stage_${stage.key}_signature`] === '__SIGN__'" class="flex items-center justify-between gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs text-indigo-800">
-                                                عند الحفظ
-                                                <button type="button" @click="form[`stage_${stage.key}_signature`] = ''" class="text-indigo-600 underline">إلغاء</button>
+                                                {{ t('specialtyForms.stageSignPendingNote') }}
+                                                <button type="button" @click="form[`stage_${stage.key}_signature`] = ''" class="text-indigo-600 underline">{{ t('specialtyForms.cancelAction') }}</button>
                                             </div>
                                             <button
                                                 v-else
                                                 type="button"
                                                 :disabled="stageFieldDisabled(stage.key, 'signature') || !stageReadyToSign(stage.key)"
-                                                :title="!stageReadyToSign(stage.key) ? 'أكمل الدرجة والتاريخ أولاً' : ''"
+                                                :title="!stageReadyToSign(stage.key) ? t('specialtyForms.completeGradeDateFirst') : ''"
                                                 @click="form[`stage_${stage.key}_signature`] = '__SIGN__'"
                                                 class="w-full rounded-md bg-indigo-600 px-2 py-1 text-xs text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                                             >
-                                                توقيع
+                                                {{ t('specialtyForms.signButton') }}
                                             </button>
                                             <p v-if="!stageFieldDisabled(stage.key, 'signature') && !stageReadyToSign(stage.key)" class="mt-1 text-xs text-gray-400">
-                                                أكمل الدرجة والتاريخ أولاً
+                                                {{ t('specialtyForms.completeGradeDateFirst') }}
                                             </p>
                                         </td>
                                         <td class="px-4 py-2">
@@ -936,7 +939,7 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                          the chartGroups tables above, see PlaqueChart.vue's
                          own doc comment. -->
                     <div v-if="plaqueVisits.length" class="rounded-lg bg-white p-6 shadow-sm">
-                        <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">Plaque Index (%)</h3>
+                        <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">{{ t('specialtyForms.plaqueIndexHeading') }}</h3>
                         <PlaqueChart v-model="charts.dentalCharts" :visits="plaqueVisits" :disabled="readonly" />
                     </div>
 
@@ -944,12 +947,12 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                          own 32-tooth grid. See AdvancedPerioChartSessions.vue's own doc
                          comment; AdvancedPerioChart.vue itself (the grid) is untouched. -->
                     <div v-if="advancedPerioChart" class="rounded-lg bg-white p-6 shadow-sm">
-                        <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">Periodontal Chart</h3>
+                        <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">{{ t('specialtyForms.periodontalChartHeading') }}</h3>
                         <AdvancedPerioChartSessions v-model="charts.advancedChart" :disabled="readonly" />
                     </div>
 
                     <div v-if="canSubmit" class="flex justify-end">
-                        <PrimaryButton :disabled="form.processing">{{ isEdit ? 'Update' : 'Save' }}</PrimaryButton>
+                        <PrimaryButton :disabled="form.processing">{{ isEdit ? t('specialtyForms.updateButton') : t('specialtyForms.saveButton') }}</PrimaryButton>
                     </div>
                 </form>
             </div>
@@ -957,7 +960,7 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
 
         <Modal :show="showQr" @close="showQr = false">
             <div class="p-6 text-center">
-                <h3 class="text-lg font-medium text-gray-900"><Icon name="qr_code_2" class="ml-1" />رمز الحالة</h3>
+                <h3 class="text-lg font-medium text-gray-900"><Icon name="qr_code_2" class="ml-1" />{{ t('specialtyForms.caseCodeModalHeading') }}</h3>
                 <div class="mt-4 flex items-center justify-center rounded-2xl bg-gray-50 p-6">
                     <img
                         v-if="showQr"
@@ -966,23 +969,23 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                         class="h-56 w-56"
                     />
                 </div>
-                <p class="mt-3 text-sm text-gray-500">امسح هذا الرمز لإعادة فتح هذه الحالة مباشرة.</p>
+                <p class="mt-3 text-sm text-gray-500">{{ t('specialtyForms.scanToReopenNote') }}</p>
                 <div class="mt-6 flex justify-center">
-                    <SecondaryButton @click="showQr = false">إغلاق</SecondaryButton>
+                    <SecondaryButton @click="showQr = false">{{ t('specialtyForms.closeAction') }}</SecondaryButton>
                 </div>
             </div>
         </Modal>
 
         <Modal :show="showPatientScan" @close="showPatientScan = false">
             <div class="p-6">
-                <h3 class="text-lg font-medium text-gray-900"><Icon name="qr_code_scanner" class="ml-1" />مسح رمز المريض</h3>
-                <p class="mt-1 text-sm text-gray-500">امسح رمز تذكرة المريض لتعبئة الحقول الفارغة تلقائياً.</p>
+                <h3 class="text-lg font-medium text-gray-900"><Icon name="qr_code_scanner" class="ml-1" />{{ t('specialtyForms.scanPatientAction') }}</h3>
+                <p class="mt-1 text-sm text-gray-500">{{ t('specialtyForms.scanPatientModalDesc') }}</p>
                 <div class="mt-4">
                     <QrScanner v-if="showPatientScan" ref="patientScannerRef" @decoded="onPatientDecoded" />
                 </div>
                 <div v-if="patientScanError" class="mt-3 rounded-md bg-red-50 p-2 text-sm text-red-700">{{ patientScanError }}</div>
                 <div class="mt-6 flex justify-center">
-                    <SecondaryButton @click="showPatientScan = false">إغلاق</SecondaryButton>
+                    <SecondaryButton @click="showPatientScan = false">{{ t('specialtyForms.closeAction') }}</SecondaryButton>
                 </div>
             </div>
         </Modal>
