@@ -9,8 +9,10 @@ import QrScanner from '@/Components/QrScanner.vue';
 import Icon from '@/Components/Icon.vue';
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import axios from 'axios';
 
+const { t } = useI18n();
 defineProps({
     appointments: Array,
 });
@@ -68,7 +70,7 @@ const onDecoded = async (text) => {
         scannerRef.value?.stop();
         scanning.value = false;
     } catch (e) {
-        scanError.value = e?.response?.data?.message ?? 'تعذر قراءة الرمز.';
+        scanError.value = e?.response?.data?.message ?? t('payments.qrReadFailed');
     }
 };
 
@@ -142,11 +144,11 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Record Payment" />
+    <Head :title="t('payments.recordPayment')" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">Record Payment</h2>
+            <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('payments.recordPayment') }}</h2>
         </template>
 
         <div class="py-12">
@@ -161,30 +163,30 @@ const submit = () => {
                     </div>
                     <form @submit.prevent="submit" class="space-y-6">
                         <div>
-                            <InputLabel value="نوع المدفوعة" />
+                            <InputLabel :value="t('payments.paymentType')" />
                             <div class="mt-2 flex items-center gap-6">
                                 <label class="flex items-center gap-2 text-sm text-gray-700">
                                     <input type="radio" value="appointment" v-model="source" class="border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                    موعد
+                                    {{ t('payments.appointmentSource') }}
                                 </label>
                                 <label class="flex items-center gap-2 text-sm text-gray-700">
                                     <input type="radio" value="registration" v-model="source" class="border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                    تسجيل مريض
+                                    {{ t('payments.registrationSource') }}
                                 </label>
                             </div>
                         </div>
 
                         <div v-if="source === 'appointment'">
-                            <InputLabel for="appointment_id" value="Appointment" />
+                            <InputLabel for="appointment_id" :value="t('payments.appointmentLabel')" />
                             <select id="appointment_id" v-model="form.appointment_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
-                                <option value="" disabled>Select an appointment</option>
+                                <option value="" disabled>{{ t('payments.selectAppointment') }}</option>
                                 <option v-for="a in appointments" :key="a.id" :value="a.id">{{ a.full_name }} — {{ a.appointment_date }}</option>
                             </select>
                             <InputError class="mt-2" :message="form.errors.appointment_id" />
                         </div>
 
                         <div v-else>
-                            <InputLabel value="المريض المسجل" />
+                            <InputLabel :value="t('appointments.registeredPatient')" />
 
                             <!-- A patient was found (scan or search) but
                                  isn't screening-clear — block here rather
@@ -201,13 +203,13 @@ const submit = () => {
                                         <p class="text-sm font-medium text-gray-900">{{ selectedRegistration.name }}</p>
                                         <p class="text-xs text-gray-500" dir="ltr">{{ selectedRegistration.phone }}</p>
                                     </div>
-                                    <button type="button" class="text-sm text-indigo-600 hover:underline" @click="clearRegistration">تغيير</button>
+                                    <button type="button" class="text-sm text-indigo-600 hover:underline" @click="clearRegistration">{{ t('payments.change') }}</button>
                                 </div>
                                 <p class="mt-2 text-sm text-red-700">
                                     {{
                                         selectedRegistration.screening_status === 'flagged'
-                                            ? 'لا يمكن الدفع — نتيجة فحص المريض غير سليمة.'
-                                            : 'لا يمكن الدفع قبل تأكيد سلامة المريض من الأمراض المعدية عبر فحص المختبر.'
+                                            ? t('payments.screeningBlockedFlagged')
+                                            : t('payments.screeningBlockedNotChecked')
                                     }}
                                 </p>
                             </div>
@@ -221,14 +223,14 @@ const submit = () => {
                                     <p class="text-sm font-medium text-gray-900">{{ selectedRegistration.name }}</p>
                                     <p class="text-xs text-gray-500" dir="ltr">{{ selectedRegistration.phone }}</p>
                                 </div>
-                                <button type="button" class="text-sm text-indigo-600 hover:underline" @click="clearRegistration">تغيير</button>
+                                <button type="button" class="text-sm text-indigo-600 hover:underline" @click="clearRegistration">{{ t('payments.change') }}</button>
                             </div>
 
                             <!-- Not found yet: scan or search -->
                             <div v-else class="mt-1 space-y-3">
                                 <div v-if="!scanning">
                                     <SecondaryButton type="button" @click="openScanner">
-                                        <Icon name="qr_code_scanner" class="ml-1" />امسح رمز المريض
+                                        <Icon name="qr_code_scanner" class="ml-1" />{{ t('payments.scanPatientCode') }}
                                     </SecondaryButton>
                                 </div>
                                 <QrScanner v-else ref="scannerRef" @decoded="onDecoded" />
@@ -239,7 +241,7 @@ const submit = () => {
                                         v-model="registrationSearch"
                                         @input="onSearchInput"
                                         type="text"
-                                        placeholder="أو ابحث بالاسم أو الهاتف..."
+                                        :placeholder="t('payments.orSearchPlaceholder')"
                                         class="block w-full"
                                     />
                                     <div v-if="registrationResults.length" class="absolute z-10 mt-1 w-full rounded-md border border-gray-200 bg-white shadow-lg">
@@ -253,8 +255,8 @@ const submit = () => {
                                             {{ r.name }} — <span dir="ltr">{{ r.phone }}</span>
                                         </button>
                                     </div>
-                                    <p v-else-if="searching" class="mt-1 text-xs text-gray-400">جارٍ البحث...</p>
-                                    <p v-else-if="registrationSearch.trim()" class="mt-1 text-xs text-gray-400">لا توجد نتائج.</p>
+                                    <p v-else-if="searching" class="mt-1 text-xs text-gray-400">{{ t('payments.searching') }}</p>
+                                    <p v-else-if="registrationSearch.trim()" class="mt-1 text-xs text-gray-400">{{ t('patientReg.noMatchingResults') }}</p>
                                 </div>
                             </div>
                             <InputError class="mt-2" :message="form.errors.patient_registration_id" />
@@ -262,7 +264,7 @@ const submit = () => {
 
                         <template v-if="!registrationBlocked">
                             <div>
-                                <InputLabel for="amount" value="Amount" />
+                                <InputLabel for="amount" :value="t('payments.amountCol')" />
                                 <TextInput id="amount" v-model="form.amount" type="text" inputmode="decimal" class="mt-1 block w-full" dir="ltr" required autofocus />
                                 <div class="mt-2 flex flex-wrap gap-2">
                                     <button
@@ -275,20 +277,20 @@ const submit = () => {
                                         {{ digits }}
                                     </button>
                                     <button type="button" class="rounded-md border border-gray-300 px-4 py-1 text-sm text-gray-700 hover:bg-gray-50" @click="clearAmount">
-                                        مسح
+                                        {{ t('payments.clearAmount') }}
                                     </button>
                                 </div>
                                 <InputError class="mt-2" :message="form.errors.amount" />
                             </div>
 
                             <div>
-                                <InputLabel for="paid_by" value="Paid By" />
+                                <InputLabel for="paid_by" :value="t('payments.paidByCol')" />
                                 <TextInput id="paid_by" v-model="form.paid_by" type="text" class="mt-1 block w-full" />
                                 <InputError class="mt-2" :message="form.errors.paid_by" />
                             </div>
 
                             <div class="flex justify-end">
-                                <PrimaryButton :disabled="form.processing">Save Payment</PrimaryButton>
+                                <PrimaryButton :disabled="form.processing">{{ t('payments.savePayment') }}</PrimaryButton>
                             </div>
                         </template>
                     </form>

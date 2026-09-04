@@ -6,7 +6,9 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const props = defineProps({
     appointment: Object,
     patientRegistrations: Array,
@@ -45,12 +47,12 @@ const submit = () => {
 </script>
 
 <template>
-    <Head :title="isEdit ? 'Edit Appointment' : 'New Appointment'" />
+    <Head :title="isEdit ? t('appointments.editTitle') : t('appointments.newAppointment')" />
 
     <AuthenticatedLayout>
         <template #header>
             <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                {{ isEdit ? 'Edit Appointment' : 'New Appointment' }}
+                {{ isEdit ? t('appointments.editTitle') : t('appointments.newAppointment') }}
             </h2>
         </template>
 
@@ -59,55 +61,55 @@ const submit = () => {
                 <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
                     <form @submit.prevent="submit" class="space-y-6">
                         <div>
-                            <InputLabel for="full_name" value="Full Name" />
+                            <InputLabel for="full_name" :value="t('appointments.fullName')" />
                             <TextInput id="full_name" v-model="form.full_name" type="text" class="mt-1 block w-full" required autofocus />
                             <InputError class="mt-2" :message="form.errors.full_name" />
                         </div>
 
                         <div>
-                            <InputLabel for="patient_registration_id" value="المريض المسجل" />
+                            <InputLabel for="patient_registration_id" :value="t('appointments.registeredPatient')" />
                             <select
                                 id="patient_registration_id"
                                 v-model="form.patient_registration_id"
                                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                 :required="!isEdit"
                             >
-                                <option value="" disabled>اختر مريضًا مسجلاً</option>
+                                <option value="" disabled>{{ t('appointments.chooseRegisteredPatient') }}</option>
                                 <option v-for="p in patientRegistrations" :key="p.id" :value="p.id">{{ p.name }} — {{ p.phone }}</option>
                             </select>
                             <p v-if="isEdit && !a.patient_registration_id" class="mt-1 text-xs text-gray-500">
-                                هذا الموعد قديم ومرتبط بجدول المرضى السابق مباشرة — اتركه فارغًا للإبقاء عليه كما هو، أو اختر مريضًا مسجلاً لربطه من الآن فصاعدًا.
+                                {{ t('appointments.legacyPatientNote') }}
                             </p>
                             <InputError class="mt-2" :message="form.errors.patient_registration_id" />
                         </div>
 
                         <div>
-                            <InputLabel for="doctor_id" value="Doctor (staff user)" />
+                            <InputLabel for="doctor_id" :value="t('appointments.doctorStaffLabel')" />
                             <select id="doctor_id" v-model="form.doctor_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
-                                <option value="" disabled>Select a user</option>
+                                <option value="" disabled>{{ t('appointments.selectUser') }}</option>
                                 <option v-for="u in doctorUsers" :key="u.id" :value="u.id">{{ u.full_name }} ({{ u.role }})</option>
                             </select>
                             <InputError class="mt-2" :message="form.errors.doctor_id" />
                         </div>
 
                         <div>
-                            <InputLabel for="task_id" value="Task" />
+                            <InputLabel for="task_id" :value="t('appointments.taskCol')" />
                             <TextInput
                                 v-if="tasks.length > 6"
                                 v-model="taskFilter"
                                 type="text"
-                                placeholder="Filter tasks..."
+                                :placeholder="t('patientReg.filterTasks')"
                                 class="mt-1 block w-full"
                             />
                             <select id="task_id" v-model="form.task_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
-                                <option value="" disabled>Select a task</option>
-                                <option v-for="t in filteredTasks" :key="t.id" :value="t.id">{{ t.title }}</option>
+                                <option value="" disabled>{{ t('appointments.selectTask') }}</option>
+                                <option v-for="taskOption in filteredTasks" :key="taskOption.id" :value="taskOption.id">{{ taskOption.title }}</option>
                             </select>
                             <InputError class="mt-2" :message="form.errors.task_id" />
                         </div>
 
                         <div>
-                            <InputLabel for="appointment_date" value="Date" />
+                            <InputLabel for="appointment_date" :value="t('appointments.dateCol')" />
                             <TextInput id="appointment_date" v-model="form.appointment_date" type="date" class="mt-1 block w-full" required />
                             <InputError class="mt-2" :message="form.errors.appointment_date" />
                         </div>
@@ -115,16 +117,16 @@ const submit = () => {
                         <div class="flex items-center gap-6">
                             <label class="flex items-center gap-2 text-sm text-gray-700">
                                 <input type="checkbox" v-model="form.confirmed_by_accountant" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" />
-                                Confirmed by accountant
+                                {{ t('appointments.confirmedByAccountant') }}
                             </label>
                             <label class="flex items-center gap-2 text-sm text-gray-700">
                                 <input type="checkbox" v-model="form.pinned" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" />
-                                Pinned
+                                {{ t('appointments.pinned') }}
                             </label>
                         </div>
 
                         <div class="flex justify-end">
-                            <PrimaryButton :disabled="form.processing">{{ isEdit ? 'Update' : 'Save' }} Appointment</PrimaryButton>
+                            <PrimaryButton :disabled="form.processing">{{ isEdit ? t('appointments.updateAppointment') : t('appointments.saveAppointment') }}</PrimaryButton>
                         </div>
                     </form>
                 </div>

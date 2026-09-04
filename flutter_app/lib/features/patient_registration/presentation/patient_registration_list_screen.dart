@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/qr_image.dart';
@@ -87,10 +88,11 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
     final days = daysAsync.valueOrNull ?? const [];
     final selectedDay = days.where((d) => d.id == _registerDayId).firstOrNull;
     final servicesForFilter = selectedDay?.services ?? servicesAsync.valueOrNull ?? const [];
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.pickMode ? 'اختر مريضًا مسجلاً' : 'تسجيل المرضى'),
+        title: Text(widget.pickMode ? t['patientRegFlutter.choosePatient']! : t['patientRegFlutter.title']!),
         actions: widget.pickMode
             ? null
             : [
@@ -99,19 +101,19 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                 // clerk's way in to the scan-to-pay flow (Phase 5, Step 5).
                 IconButton(
                   icon: const Icon(Icons.qr_code_scanner),
-                  tooltip: 'مسح رمز الدفع',
+                  tooltip: t['patientRegFlutter.scanPaymentCode']!,
                   onPressed: () => context.push('/records/patient-registrations/scan'),
                 ),
                 // Infectious-disease screening gate (2026-08-26) — the
                 // lab/reception entry point, same shared ticket QR.
                 IconButton(
                   icon: const Icon(Icons.coronavirus_outlined),
-                  tooltip: 'فحص السلامة من الأمراض المعدية',
+                  tooltip: t['patientRegFlutter.screeningTooltip']!,
                   onPressed: () => context.push('/records/patient-registrations/scan-screening'),
                 ),
                 IconButton(
                   icon: const Icon(Icons.settings_outlined),
-                  tooltip: 'إعدادات الخدمات والأيام',
+                  tooltip: t['patientRegFlutter.settingsTooltip']!,
                   onPressed: () => context.push('/records/patient-registrations/settings'),
                 ),
               ],
@@ -124,7 +126,7 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                 ref.invalidate(patientRegistrationListProvider);
               },
               icon: const Icon(Icons.add),
-              label: const Text('تسجيل مريض'),
+              label: Text(t['patientRegFlutter.newRegistration']!),
             ),
       body: Column(
         children: [
@@ -136,11 +138,11 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                   controller: _searchController,
                   onChanged: _onSearchChanged,
                   decoration: InputDecoration(
-                    labelText: 'بحث بالاسم أو الهاتف',
+                    labelText: t['patientRegFlutter.searchLabel']!,
                     prefixIcon: const Icon(Icons.search),
                     border: const OutlineInputBorder(),
                     suffixIcon: _hasFilters
-                        ? IconButton(icon: const Icon(Icons.clear), tooltip: 'مسح الفلاتر', onPressed: _clearFilters)
+                        ? IconButton(icon: const Icon(Icons.clear), tooltip: t['patientRegFlutter.clearFilters']!, onPressed: _clearFilters)
                         : null,
                   ),
                 ),
@@ -153,7 +155,7 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                         enableFilter: true,
                         requestFocusOnTap: true,
                         expandedInsets: EdgeInsets.zero,
-                        label: const Text('اليوم'),
+                        label: Text(t['patientRegFlutter.dayLabel']!),
                         initialSelection: days.any((d) => d.id == _registerDayId) ? _registerDayId : null,
                         dropdownMenuEntries: [
                           for (final d in days) DropdownMenuEntry(value: d.id, label: d.name),
@@ -171,7 +173,7 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                         enableFilter: true,
                         requestFocusOnTap: true,
                         expandedInsets: EdgeInsets.zero,
-                        label: const Text('الخدمة'),
+                        label: Text(t['patientRegFlutter.serviceLabel']!),
                         initialSelection: servicesForFilter.any((s) => s.id == _serviceId) ? _serviceId : null,
                         dropdownMenuEntries: [
                           for (final s in servicesForFilter) DropdownMenuEntry(value: s.id, label: s.name),
@@ -187,10 +189,10 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
           Expanded(
             child: registrationsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Center(child: Text(error is ApiException ? error.userMessage : 'تعذر التحميل.')),
+              error: (error, _) => Center(child: Text(error is ApiException ? error.userMessage : t['common.loadFailed']!)),
               data: (registrations) {
                 if (registrations.isEmpty) {
-                  return const Center(child: Text('لا يوجد سجلات مطابقة.'));
+                  return Center(child: Text(t['patientRegFlutter.emptyMatching']!));
                 }
                 return RefreshIndicator(
                   onRefresh: () async => ref.invalidate(patientRegistrationListProvider),
@@ -228,12 +230,12 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                                     if (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
                                       IconButton(
                                         icon: const Icon(Icons.print_outlined),
-                                        tooltip: 'إعادة طباعة التكت',
+                                        tooltip: t['patientRegFlutter.reprintTicket']!,
                                         onPressed: () => _reprintTicket(context, r),
                                       ),
                                     IconButton(
                                       icon: const Icon(Icons.qr_code_2),
-                                      tooltip: 'رمز الدفع',
+                                      tooltip: t['patientRegFlutter.paymentCodeTooltip']!,
                                       onPressed: () => _showQrDialog(context, r),
                                     ),
                                   ],
@@ -264,7 +266,8 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
       if (context.mounted) context.push('/records/patient-registrations/payment', extra: state);
     } catch (e) {
       if (context.mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر فتح شاشة الدفع.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['patientRegFlutter.openPaymentFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     }
@@ -275,6 +278,7 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
   /// can be lost or the printer can fail (already observed once this
   /// project, see `PosPrinterService`'s doc comment).
   void _showQrDialog(BuildContext context, PatientRegistration registration) {
+    final t = ref.read(translationsProvider);
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
@@ -284,7 +288,7 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
           child: QrImage(path: '/patient-registrations/${registration.id}/qr', size: 220),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('إغلاق')),
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(t['common.close']!)),
         ],
       ),
     );
@@ -296,6 +300,7 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
   /// this is the same best-effort sequence, triggered from the list
   /// instead. Android-POS-only, same constraint as the original print.
   Future<void> _reprintTicket(BuildContext context, PatientRegistration registration) async {
+    final t = ref.read(translationsProvider);
     Uint8List? qrBytes;
     try {
       final bytes = await ref.read(apiClientProvider).getBytes('/patient-registrations/${registration.id}/qr');
@@ -337,11 +342,11 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
         task: () => ref.read(posPrinterServiceProvider).printTicket(pngBytes),
       );
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تمت إعادة طباعة التكت.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['patientRegFlutter.reprintSuccess']!)));
       }
     } catch (e) {
       if (context.mounted) {
-        showPrinterErrorSnackBar(context, 'تعذرت طباعة التكت.', error: e);
+        showPrinterErrorSnackBar(context, t['patientRegFlutter.printFailed']!, error: e);
       }
     }
   }
@@ -350,17 +355,18 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
 /// Small at-a-glance indicator of the infectious-disease screening result
 /// (2026-08-26) — pure display; the actual gate is server-side
 /// (`PatientScreeningGate`).
-class _ScreeningBadge extends StatelessWidget {
+class _ScreeningBadge extends ConsumerWidget {
   const _ScreeningBadge({required this.status});
 
   final String status;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider);
     final (color, label) = switch (status) {
-      'clear' => (Colors.green, 'سليم'),
-      'flagged' => (Colors.red, 'غير سليم'),
-      _ => (Colors.orange, 'بانتظار الفحص'),
+      'clear' => (Colors.green, t['patientRegFlutter.screeningClear']!),
+      'flagged' => (Colors.red, t['patientRegFlutter.screeningFlagged']!),
+      _ => (Colors.orange, t['patientRegFlutter.screeningPending']!),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),

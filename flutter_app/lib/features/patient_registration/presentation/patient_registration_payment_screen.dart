@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/registration_status_banners.dart';
@@ -73,6 +74,7 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
     final amount = _amount;
     if (amount == null) return;
     setState(() => _paying = true);
+    final t = ref.read(translationsProvider);
 
     try {
       // `patient_registration_id` (not `appointment_id`) — the desk-payment
@@ -87,7 +89,7 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
         _state = updated;
         _amountController.clear();
       });
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تسجيل الدفع.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['payments.paymentRecorded']!)));
 
       if (!kIsWeb && (Platform.isAndroid || Platform.isIOS) && mounted) {
         try {
@@ -130,13 +132,13 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
           // not treated as the operation having failed (same convention
           // as the registration ticket in `patient_registration_form_screen.dart`).
           if (mounted) {
-            showPrinterErrorSnackBar(context, 'تم الدفع، لكن تعذرت طباعة الوصل.', error: e);
+            showPrinterErrorSnackBar(context, t['payments.paidPrintFailed']!, error: e);
           }
         }
       }
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر تسجيل الدفع.';
+        final message = e is ApiException ? e.userMessage : t['payments.recordPaymentFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -147,9 +149,10 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
   @override
   Widget build(BuildContext context) {
     final r = _state.registration;
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('دفع تسجيل مريض')),
+      appBar: AppBar(title: Text(t['payments.registrationPaymentTitle']!)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -174,7 +177,7 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
           if (!r.isScreeningClear) ...[
             ScreeningBlockedBanner(registration: r),
           ] else if (_state.isPaid) ...[
-            Text('الدفعات', style: Theme.of(context).textTheme.titleMedium),
+            Text(t['labels.payments']!, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             for (final p in _state.payments)
               Card(
@@ -184,14 +187,14 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
                 ),
               ),
           ] else ...[
-            Text('إدخال المبلغ', style: Theme.of(context).textTheme.titleMedium),
+            Text(t['payments.enterAmount']!, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             TextField(
               controller: _amountController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               textDirection: TextDirection.ltr,
               textAlign: TextAlign.left,
-              decoration: const InputDecoration(labelText: 'المبلغ', border: OutlineInputBorder()),
+              decoration: InputDecoration(labelText: t['payments.amountLabel']!, border: const OutlineInputBorder()),
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 12),
@@ -204,7 +207,7 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
                 OutlinedButton.icon(
                   onPressed: _clearAmount,
                   icon: const Icon(Icons.backspace_outlined),
-                  label: const Text('مسح'),
+                  label: Text(t['payments.clear']!),
                 ),
               ],
             ),
@@ -213,7 +216,7 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
               onPressed: (_paying || _amount == null) ? null : _confirmPayment,
               child: _paying
                   ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('تأكيد الدفع وطباعة الوصل'),
+                  : Text(t['payments.confirmAndPrint']!),
             ),
           ],
         ],

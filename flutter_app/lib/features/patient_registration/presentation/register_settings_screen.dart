@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../records/presentation/records_providers.dart' show tasksLookupProvider;
 import '../data/patient_registration_repository.dart';
@@ -51,13 +52,14 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
 
   Future<void> _saveTaskDays(int taskId) async {
     setState(() => _savingTaskDays.add(taskId));
+    final t = ref.read(translationsProvider);
     try {
       await ref.read(patientRegistrationRepositoryProvider).updateTaskDays(taskId, _taskDayIds[taskId]!.toList());
       ref.invalidate(registerDaysProvider);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم الحفظ.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['registerSettings.saved']!)));
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الحفظ.';
+        final message = e is ApiException ? e.userMessage : t['profile.saveFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -68,14 +70,15 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
   Future<void> _addDay() async {
     if (_dayNameController.text.trim().isEmpty) return;
     setState(() => _addingDay = true);
+    final t = ref.read(translationsProvider);
     try {
       await ref.read(patientRegistrationRepositoryProvider).createDay(_dayNameController.text.trim());
       _dayNameController.clear();
       ref.invalidate(registerDaysProvider);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تمت إضافة اليوم.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['registerSettings.dayAdded']!)));
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الحفظ.';
+        final message = e is ApiException ? e.userMessage : t['profile.saveFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -90,7 +93,8 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
       ref.invalidate(servicesProvider);
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الحذف.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['registerSettings.deleteFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     }
@@ -99,6 +103,7 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
   Future<void> _addService() async {
     if (_serviceNameController.text.trim().isEmpty) return;
     setState(() => _addingService = true);
+    final t = ref.read(translationsProvider);
     try {
       await ref
           .read(patientRegistrationRepositoryProvider)
@@ -106,10 +111,10 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
       _serviceNameController.clear();
       setState(() => _selectedDayIds.clear());
       ref.invalidate(servicesProvider);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تمت إضافة الخدمة.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['registerSettings.serviceAdded']!)));
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الحفظ.';
+        final message = e is ApiException ? e.userMessage : t['profile.saveFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -123,7 +128,8 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
       ref.invalidate(servicesProvider);
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الحذف.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['registerSettings.deleteFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     }
@@ -134,20 +140,21 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
     final daysAsync = ref.watch(registerDaysProvider);
     final servicesAsync = ref.watch(servicesProvider);
     final tasksAsync = ref.watch(tasksLookupProvider);
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('إعدادات التسجيل')),
+      appBar: AppBar(title: Text(t['registerSettings.title']!)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('الأيام', style: Theme.of(context).textTheme.titleMedium),
+          Text(t['registerSettings.daysHeading']!, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
                 child: TextField(
                   controller: _dayNameController,
-                  decoration: const InputDecoration(labelText: 'اسم اليوم', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: t['registerSettings.dayNameLabel']!, border: const OutlineInputBorder()),
                 ),
               ),
               const SizedBox(width: 8),
@@ -162,7 +169,7 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
               Flexible(
                 child: FilledButton(
                   onPressed: _addingDay ? null : _addDay,
-                  child: const Text('إضافة'),
+                  child: Text(t['registerSettings.add']!),
                 ),
               ),
             ],
@@ -170,7 +177,7 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
           const SizedBox(height: 8),
           daysAsync.when(
             loading: () => const Padding(padding: EdgeInsets.all(16), child: LinearProgressIndicator()),
-            error: (error, _) => Text(error is ApiException ? error.userMessage : 'تعذر التحميل.'),
+            error: (error, _) => Text(error is ApiException ? error.userMessage : t['common.loadFailed']!),
             data: (days) => Column(
               children: [
                 for (final day in days)
@@ -183,18 +190,18 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
                       ),
                     ),
                   ),
-                if (days.isEmpty) const Padding(padding: EdgeInsets.all(12), child: Text('لا توجد أيام بعد.')),
+                if (days.isEmpty) Padding(padding: const EdgeInsets.all(12), child: Text(t['registerSettings.noDaysYet']!)),
               ],
             ),
           ),
           const SizedBox(height: 24),
           const Divider(),
           const SizedBox(height: 8),
-          Text('الخدمات', style: Theme.of(context).textTheme.titleMedium),
+          Text(t['registerSettings.servicesHeading']!, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           TextField(
             controller: _serviceNameController,
-            decoration: const InputDecoration(labelText: 'اسم الخدمة', border: OutlineInputBorder()),
+            decoration: InputDecoration(labelText: t['registerSettings.serviceNameLabel']!, border: const OutlineInputBorder()),
           ),
           const SizedBox(height: 8),
           daysAsync.when(
@@ -214,10 +221,10 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
                   if (days.length > 6) ...[
                     TextField(
                       controller: _dayFilterController,
-                      decoration: const InputDecoration(
-                        labelText: 'تصفية الأيام',
-                        prefixIcon: Icon(Icons.search),
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: t['registerSettings.filterDays']!,
+                        prefixIcon: const Icon(Icons.search),
+                        border: const OutlineInputBorder(),
                         isDense: true,
                       ),
                       onChanged: (_) => setState(() {}),
@@ -248,37 +255,37 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
           const SizedBox(height: 8),
           FilledButton(
             onPressed: _addingService ? null : _addService,
-            child: const Text('إضافة خدمة'),
+            child: Text(t['registerSettings.addService']!),
           ),
           const SizedBox(height: 16),
           servicesAsync.when(
             loading: () => const Padding(padding: EdgeInsets.all(16), child: LinearProgressIndicator()),
-            error: (error, _) => Text(error is ApiException ? error.userMessage : 'تعذر التحميل.'),
+            error: (error, _) => Text(error is ApiException ? error.userMessage : t['common.loadFailed']!),
             data: (services) => Column(
               children: [
                 for (final service in services)
                   Card(
                     child: ListTile(
                       title: Text(service.name),
-                      subtitle: Text(service.days.isEmpty ? '—' : service.days.map((d) => d.name).join('، ')),
+                      subtitle: Text(service.days.isEmpty ? '—' : service.days.map((d) => d.name).join(t['registerSettings.listSeparator']!)),
                       trailing: IconButton(
                         icon: const Icon(Icons.delete_outline),
                         onPressed: () => _deleteService(service),
                       ),
                     ),
                   ),
-                if (services.isEmpty) const Padding(padding: EdgeInsets.all(12), child: Text('لا توجد خدمات بعد.')),
+                if (services.isEmpty) Padding(padding: const EdgeInsets.all(12), child: Text(t['registerSettings.noServicesYet']!)),
               ],
             ),
           ),
           const SizedBox(height: 24),
           const Divider(),
           const SizedBox(height: 8),
-          Text('التشخيص', style: Theme.of(context).textTheme.titleMedium),
+          Text(t['patientRegFlutter.diagnosis']!, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 4),
-          const Text(
-            'أيام كل تشخيص تُدار هنا فقط — إضافة التشخيص نفسه من شاشة المهام. تشخيص بلا أيام محددة يبقى متاحاً كل الأيام.',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
+          Text(
+            t['registerSettings.diagnosisDesc']!,
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
           ),
           const SizedBox(height: 8),
           daysAsync.when(
@@ -286,20 +293,20 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
             error: (_, __) => const SizedBox.shrink(),
             data: (days) => tasksAsync.when(
               loading: () => const Padding(padding: EdgeInsets.all(16), child: LinearProgressIndicator()),
-              error: (error, _) => Text(error is ApiException ? error.userMessage : 'تعذر التحميل.'),
+              error: (error, _) => Text(error is ApiException ? error.userMessage : t['common.loadFailed']!),
               data: (allTasks) {
                 final query = _taskFilterController.text.trim();
-                final tasks = query.isEmpty ? allTasks : allTasks.where((t) => t.name.contains(query)).toList();
+                final tasks = query.isEmpty ? allTasks : allTasks.where((task) => task.name.contains(query)).toList();
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (allTasks.length > 6) ...[
                       TextField(
                         controller: _taskFilterController,
-                        decoration: const InputDecoration(
-                          labelText: 'تصفية التشخيص',
-                          prefixIcon: Icon(Icons.search),
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: t['registerSettings.filterDiagnosis']!,
+                          prefixIcon: const Icon(Icons.search),
+                          border: const OutlineInputBorder(),
                           isDense: true,
                         ),
                         onChanged: (_) => setState(() {}),
@@ -344,14 +351,14 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
                                           width: 16,
                                           child: CircularProgressIndicator(strokeWidth: 2),
                                         )
-                                      : const Text('حفظ'),
+                                      : Text(t['profile.save']!),
                                 ),
                               ),
                             ],
                           ),
                         ),
                       ),
-                    if (tasks.isEmpty) const Padding(padding: EdgeInsets.all(12), child: Text('لا توجد نتائج مطابقة.')),
+                    if (tasks.isEmpty) Padding(padding: const EdgeInsets.all(12), child: Text(t['registerSettings.noMatchingResults']!)),
                   ],
                 );
               },

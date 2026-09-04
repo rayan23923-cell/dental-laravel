@@ -4,7 +4,9 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const props = defineProps({
     patients: Object,
     filters: Object,
@@ -21,23 +23,23 @@ watch(search, (value) => {
 });
 
 const destroy = (patient) => {
-    if (confirm(`Delete patient "${patient.name}"?`)) {
+    if (confirm(t('patients.deleteConfirm', { name: patient.name }))) {
         router.delete(route('patients.destroy', patient.id));
     }
 };
 </script>
 
 <template>
-    <Head title="Patients" />
+    <Head :title="t('nav.patientsList')" />
 
     <AuthenticatedLayout>
         <template #header>
             <div class="flex items-center justify-between">
                 <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                    Patients
+                    {{ t('nav.patientsList') }}
                 </h2>
                 <Link :href="route('patients.create')">
-                    <PrimaryButton>Register Patient</PrimaryButton>
+                    <PrimaryButton>{{ t('patients.addNew') }}</PrimaryButton>
                 </Link>
             </div>
         </template>
@@ -56,7 +58,7 @@ const destroy = (patient) => {
                         <TextInput
                             v-model="search"
                             type="text"
-                            placeholder="Search by name or phone..."
+                            :placeholder="t('patients.searchPlaceholder')"
                             class="w-full max-w-sm"
                         />
                     </div>
@@ -64,11 +66,11 @@ const destroy = (patient) => {
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Name</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Phone</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Stage</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Doctor</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Actions</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('profile.name') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patients.phoneCol') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patients.stageCol') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patients.doctorCol') }}</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patients.actionsCol') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200 bg-white">
@@ -82,19 +84,19 @@ const destroy = (patient) => {
                                         :href="route('patients.edit', patient.id)"
                                         class="text-indigo-600 hover:text-indigo-900"
                                     >
-                                        Edit
+                                        {{ t('common.edit') }}
                                     </Link>
                                     <button
                                         @click="destroy(patient)"
                                         class="ml-4 text-red-600 hover:text-red-900"
                                     >
-                                        Delete
+                                        {{ t('common.delete') }}
                                     </button>
                                 </td>
                             </tr>
                             <tr v-if="patients.data.length === 0">
                                 <td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500">
-                                    No patients found.
+                                    {{ t('patients.empty') }}
                                 </td>
                             </tr>
                         </tbody>

@@ -5,8 +5,10 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import axios from 'axios';
 
+const { t } = useI18n();
 const props = defineProps({
     registrations: Object,
     days: { type: Array, default: () => [] },
@@ -77,7 +79,7 @@ const qrRegistration = ref(null);
 const screeningRegistration = ref(null);
 const screeningSubmitting = ref(false);
 
-const screeningLabel = (status) => ({ clear: 'سليم', flagged: 'غير سليم' }[status] ?? 'بانتظار الفحص');
+const screeningLabel = (status) => ({ clear: t('patientReg.screeningClear'), flagged: t('patientReg.screeningFlagged') }[status] ?? t('patientReg.screeningPending'));
 const screeningBadgeClass = (status) =>
     ({
         clear: 'bg-green-100 text-green-800',
@@ -101,17 +103,17 @@ const confirmScreening = async (status) => {
 </script>
 
 <template>
-    <Head title="Patient Registrations" />
+    <Head :title="t('patientReg.registryTitle')" />
 
     <AuthenticatedLayout>
         <template #header>
             <div class="flex items-center justify-between">
-                <h2 class="text-xl font-semibold leading-tight text-gray-800">سجل تسجيل المرضى</h2>
+                <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('patientReg.registryTitle') }}</h2>
                 <div class="flex items-center gap-4">
                     <Link :href="route('patient-registrations.create')">
-                        <PrimaryButton>+ تسجيل مريض</PrimaryButton>
+                        <PrimaryButton>+ {{ t('patientReg.newRegistration') }}</PrimaryButton>
                     </Link>
-                    <Link :href="route('patient-registrations.settings')" class="text-sm text-indigo-600 hover:underline">إعدادات الخدمات والأيام</Link>
+                    <Link :href="route('patient-registrations.settings')" class="text-sm text-indigo-600 hover:underline">{{ t('patientReg.settingsLink') }}</Link>
                 </div>
             </div>
         </template>
@@ -128,35 +130,35 @@ const confirmScreening = async (status) => {
                         @input="runSearch"
                         @keyup.enter="applyFilters"
                         type="text"
-                        placeholder="بحث بالاسم أو الهاتف..."
+                        :placeholder="t('patientReg.searchPlaceholder')"
                         class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     />
 
                     <select v-model="registerDayId" @change="onDayChange" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                        <option value="">اليوم</option>
+                        <option value="">{{ t('patientReg.dayLabel') }}</option>
                         <option v-for="day in days" :key="day.id" :value="day.id">{{ day.name }}</option>
                     </select>
 
                     <select v-model="serviceId" @change="applyFilters" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                        <option value="">الخدمة</option>
+                        <option value="">{{ t('patientReg.serviceLabel') }}</option>
                         <option v-for="service in servicesForSelectedDay" :key="service.id" :value="service.id">{{ service.name }}</option>
                     </select>
 
-                    <SecondaryButton v-if="hasFilters" @click="clearFilters">مسح الفلاتر</SecondaryButton>
+                    <SecondaryButton v-if="hasFilters" @click="clearFilters">{{ t('patientReg.clearFilters') }}</SecondaryButton>
                 </div>
 
                 <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">الاسم</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">الهاتف</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">الخدمة</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">اليوم</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">التاريخ</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">رمز الدفع</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">التكت</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">الفحص</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('profile.name') }}</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patients.phoneCol') }}</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patientReg.serviceLabel') }}</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patientReg.dayLabel') }}</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('appointments.dateCol') }}</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patientReg.paymentCodeCol') }}</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patientReg.ticketCol') }}</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patientReg.screeningCol') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200 bg-white">
@@ -168,23 +170,23 @@ const confirmScreening = async (status) => {
                                 <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ r.created_at }}</td>
                                 <td class="whitespace-nowrap px-6 py-4 text-sm">
                                     <button type="button" class="text-indigo-600 hover:underline" @click="qrRegistration = r">
-                                        عرض
+                                        {{ t('common.view') }}
                                     </button>
                                 </td>
                                 <td class="whitespace-nowrap px-6 py-4 text-sm">
                                     <a :href="route('patient-registrations.print', r.id)" target="_blank" class="text-indigo-600 hover:underline">
-                                        طباعة
+                                        {{ t('common.print') }}
                                     </a>
                                 </td>
                                 <td class="whitespace-nowrap px-6 py-4 text-sm">
                                     <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="screeningBadgeClass(r.screening_status)">
                                         {{ screeningLabel(r.screening_status) }}
                                     </span>
-                                    <button type="button" class="mr-2 text-indigo-600 hover:underline" @click="screeningRegistration = r">تحديد</button>
+                                    <button type="button" class="mr-2 text-indigo-600 hover:underline" @click="screeningRegistration = r">{{ t('patientReg.setScreening') }}</button>
                                 </td>
                             </tr>
                             <tr v-if="registrations.data.length === 0">
-                                <td colspan="8" class="px-6 py-8 text-center text-sm text-gray-500">لا يوجد سجلات.</td>
+                                <td colspan="8" class="px-6 py-8 text-center text-sm text-gray-500">{{ t('patientReg.emptyLog') }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -208,20 +210,20 @@ const confirmScreening = async (status) => {
                 <h3 class="text-lg font-semibold text-gray-800">{{ qrRegistration.name }}</h3>
                 <img
                     :src="route('patient-registrations.qr', qrRegistration.id)"
-                    :alt="`رمز الدفع — ${qrRegistration.name}`"
+                    :alt="t('patientReg.paymentCodeAlt', { name: qrRegistration.name })"
                     class="h-56 w-56"
                 />
-                <p class="text-sm text-gray-500">يُمسح هذا الرمز عند الدفع</p>
-                <SecondaryButton @click="qrRegistration = null">إغلاق</SecondaryButton>
+                <p class="text-sm text-gray-500">{{ t('patientReg.scanAtPayment') }}</p>
+                <SecondaryButton @click="qrRegistration = null">{{ t('common.close') }}</SecondaryButton>
             </div>
         </Modal>
 
         <!-- Infectious-disease screening gate (2026-08-26) -->
         <Modal :show="!!screeningRegistration" @close="screeningRegistration = null">
             <div class="flex flex-col gap-4 p-6" v-if="screeningRegistration">
-                <h3 class="text-lg font-semibold text-gray-800">فحص السلامة من الأمراض المعدية — {{ screeningRegistration.name }}</h3>
+                <h3 class="text-lg font-semibold text-gray-800">{{ t('patientReg.screeningModalTitle', { name: screeningRegistration.name }) }}</h3>
                 <p class="text-sm text-gray-500">
-                    الحالة الحالية:
+                    {{ t('patientReg.currentStatus') }}
                     <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="screeningBadgeClass(screeningRegistration.screening_status)">
                         {{ screeningLabel(screeningRegistration.screening_status) }}
                     </span>
@@ -233,7 +235,7 @@ const confirmScreening = async (status) => {
                         @click="confirmScreening('clear')"
                         class="flex-1 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
                     >
-                        سليم
+                        {{ t('patientReg.screeningClear') }}
                     </button>
                     <button
                         type="button"
@@ -241,10 +243,10 @@ const confirmScreening = async (status) => {
                         @click="confirmScreening('flagged')"
                         class="flex-1 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
                     >
-                        غير سليم
+                        {{ t('patientReg.screeningFlagged') }}
                     </button>
                 </div>
-                <SecondaryButton @click="screeningRegistration = null">إغلاق</SecondaryButton>
+                <SecondaryButton @click="screeningRegistration = null">{{ t('common.close') }}</SecondaryButton>
             </div>
         </Modal>
     </AuthenticatedLayout>

@@ -4,7 +4,9 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const props = defineProps({
     appointments: Object,
     filters: Object,
@@ -18,7 +20,7 @@ watch(search, (value) => {
 });
 
 const destroy = (appointment) => {
-    if (confirm(`Delete the appointment for "${appointment.full_name}"?`)) {
+    if (confirm(t('appointments.deleteConfirm', { name: appointment.full_name }))) {
         router.delete(route('appointments.destroy', appointment.id));
     }
 };
@@ -31,14 +33,14 @@ const paidTotal = (appointment) => appointment.payments.reduce((sum, p) => sum +
 </script>
 
 <template>
-    <Head title="Appointments" />
+    <Head :title="t('nav.appointments')" />
 
     <AuthenticatedLayout>
         <template #header>
             <div class="flex items-center justify-between">
-                <h2 class="text-xl font-semibold leading-tight text-gray-800">Appointments</h2>
+                <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('nav.appointments') }}</h2>
                 <Link :href="route('appointments.create')">
-                    <PrimaryButton>New Appointment</PrimaryButton>
+                    <PrimaryButton>{{ t('appointments.newAppointment') }}</PrimaryButton>
                 </Link>
             </div>
         </template>
@@ -54,19 +56,19 @@ const paidTotal = (appointment) => appointment.payments.reduce((sum, p) => sum +
 
                 <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                     <div class="border-b border-gray-200 p-4">
-                        <TextInput v-model="search" type="text" placeholder="Search by name..." class="w-full max-w-sm" />
+                        <TextInput v-model="search" type="text" :placeholder="t('appointments.searchPlaceholder')" class="w-full max-w-sm" />
                     </div>
 
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Patient</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Doctor</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Task</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Date</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Paid</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Actions</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('appointments.patientCol') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patients.doctorCol') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('appointments.taskCol') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('appointments.dateCol') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('appointments.paidCol') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('appointments.statusCol') }}</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patients.actionsCol') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200 bg-white">
@@ -77,20 +79,20 @@ const paidTotal = (appointment) => appointment.payments.reduce((sum, p) => sum +
                                 <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ appointment.appointment_date }}</td>
                                 <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ paidTotal(appointment).toFixed(2) }}</td>
                                 <td class="whitespace-nowrap px-6 py-4 text-sm">
-                                    <span v-if="appointment.confirmed_by_accountant" class="rounded-full bg-green-100 px-2 py-1 text-xs text-green-800">Confirmed</span>
-                                    <span v-else class="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600">Pending</span>
-                                    <span v-if="appointment.pinned" class="ml-1 rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-800">Pinned</span>
+                                    <span v-if="appointment.confirmed_by_accountant" class="rounded-full bg-green-100 px-2 py-1 text-xs text-green-800">{{ t('appointments.confirmed') }}</span>
+                                    <span v-else class="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600">{{ t('appointments.pendingStatus') }}</span>
+                                    <span v-if="appointment.pinned" class="ml-1 rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-800">{{ t('appointments.pinned') }}</span>
                                 </td>
                                 <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
                                     <button @click="togglePinned(appointment)" class="text-amber-600 hover:text-amber-900">
-                                        {{ appointment.pinned ? 'Unpin' : 'Pin' }}
+                                        {{ appointment.pinned ? t('appointments.unpin') : t('appointments.pin') }}
                                     </button>
-                                    <Link :href="route('appointments.edit', appointment.id)" class="ml-4 text-indigo-600 hover:text-indigo-900">Edit</Link>
-                                    <button @click="destroy(appointment)" class="ml-4 text-red-600 hover:text-red-900">Delete</button>
+                                    <Link :href="route('appointments.edit', appointment.id)" class="ml-4 text-indigo-600 hover:text-indigo-900">{{ t('common.edit') }}</Link>
+                                    <button @click="destroy(appointment)" class="ml-4 text-red-600 hover:text-red-900">{{ t('common.delete') }}</button>
                                 </td>
                             </tr>
                             <tr v-if="appointments.data.length === 0">
-                                <td colspan="7" class="px-6 py-8 text-center text-sm text-gray-500">No appointments yet.</td>
+                                <td colspan="7" class="px-6 py-8 text-center text-sm text-gray-500">{{ t('appointments.empty') }}</td>
                             </tr>
                         </tbody>
                     </table>

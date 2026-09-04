@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/patient_registration_repository.dart';
 import '../domain/registration_payment_state.dart';
@@ -33,17 +34,18 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
 
   Future<void> _confirm(String status) async {
     setState(() => _submitting = true);
+    final t = ref.read(translationsProvider);
     try {
       final updated =
           await ref.read(patientRegistrationRepositoryProvider).confirmScreening(_state.registration.id, status);
       if (!mounted) return;
       setState(() => _state = updated);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(status == 'clear' ? 'تم تسجيل المريض سليمًا.' : 'تم تسجيل نتيجة الفحص كغير سليمة.'),
+        content: Text(status == 'clear' ? t['screening.markedClear']! : t['screening.markedFlagged']!),
       ));
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر تسجيل نتيجة الفحص.';
+        final message = e is ApiException ? e.userMessage : t['screening.recordFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -54,9 +56,10 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
   @override
   Widget build(BuildContext context) {
     final r = _state.registration;
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('فحص السلامة من الأمراض المعدية')),
+      appBar: AppBar(title: Text(t['patientRegFlutter.screeningTooltip']!)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -78,7 +81,7 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
           const SizedBox(height: 16),
           _StatusBanner(status: r.screeningStatus),
           const SizedBox(height: 24),
-          Text('نتيجة فحص المختبر', style: Theme.of(context).textTheme.titleMedium),
+          Text(t['screening.labResultHeading']!, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -87,7 +90,7 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
                   onPressed: _submitting ? null : () => _confirm('clear'),
                   style: FilledButton.styleFrom(backgroundColor: Colors.green.shade700),
                   icon: const Icon(Icons.check_circle_outline),
-                  label: const Text('سليم'),
+                  label: Text(t['patientRegFlutter.screeningClear']!),
                 ),
               ),
               const SizedBox(width: 12),
@@ -96,7 +99,7 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
                   onPressed: _submitting ? null : () => _confirm('flagged'),
                   style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
                   icon: const Icon(Icons.cancel_outlined),
-                  label: const Text('غير سليم'),
+                  label: Text(t['patientRegFlutter.screeningFlagged']!),
                 ),
               ),
             ],
@@ -107,17 +110,18 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
   }
 }
 
-class _StatusBanner extends StatelessWidget {
+class _StatusBanner extends ConsumerWidget {
   const _StatusBanner({required this.status});
 
   final String status;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider);
     final (color, icon, label) = switch (status) {
-      'clear' => (Colors.green, Icons.check_circle, 'الحالة الحالية: سليم'),
-      'flagged' => (Colors.red, Icons.warning_amber, 'الحالة الحالية: غير سليم'),
-      _ => (Colors.amber, Icons.hourglass_empty, 'الحالة الحالية: بانتظار الفحص'),
+      'clear' => (Colors.green, Icons.check_circle, '${t['patientRegFlutter.currentStatusPrefix']} ${t['patientRegFlutter.screeningClear']}'),
+      'flagged' => (Colors.red, Icons.warning_amber, '${t['patientRegFlutter.currentStatusPrefix']} ${t['patientRegFlutter.screeningFlagged']}'),
+      _ => (Colors.amber, Icons.hourglass_empty, '${t['patientRegFlutter.currentStatusPrefix']} ${t['patientRegFlutter.screeningPending']}'),
     };
     return Container(
       padding: const EdgeInsets.all(12),

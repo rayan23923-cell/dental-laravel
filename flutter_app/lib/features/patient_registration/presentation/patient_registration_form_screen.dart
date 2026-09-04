@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/cascading_dropdown.dart';
@@ -55,6 +56,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
     if (!(_formKey.currentState?.validate() ?? true)) return;
     if (_dayId == null || _serviceId == null) return;
     setState(() => _submitting = true);
+    final t = ref.read(translationsProvider);
 
     try {
       final registration = await ref.read(patientRegistrationRepositoryProvider).create(
@@ -66,7 +68,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
           );
       ref.invalidate(patientRegistrationListProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تسجيل المريض بنجاح.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['patientRegFlutter.registeredSuccess']!)));
       }
 
       if (!kIsWeb && (Platform.isAndroid || Platform.isIOS) && mounted) {
@@ -125,7 +127,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
           // The registration already succeeded — a print failure is
           // reported, not treated as the operation having failed.
           if (mounted) {
-            showPrinterErrorSnackBar(context, 'تم التسجيل، لكن تعذرت طباعة التكت.', error: e);
+            showPrinterErrorSnackBar(context, t['patientRegFlutter.registeredPrintFailed']!, error: e);
           }
         }
       }
@@ -133,7 +135,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر التسجيل.';
+        final message = e is ApiException ? e.userMessage : t['patientRegFlutter.registrationFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -144,12 +146,13 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
   @override
   Widget build(BuildContext context) {
     final daysAsync = ref.watch(registerDaysProvider);
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('تسجيل مريض جديد')),
+      appBar: AppBar(title: Text(t['patientRegFlutter.newRegistrationTitle']!)),
       body: daysAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text(error is ApiException ? error.userMessage : 'تعذر التحميل.')),
+        error: (error, _) => Center(child: Text(error is ApiException ? error.userMessage : t['common.loadFailed']!)),
         data: (days) {
           final selectedDay = days.where((d) => d.id == _dayId).firstOrNull;
           final servicesForDay = selectedDay?.services ?? const [];
@@ -161,16 +164,16 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
               children: [
                 TextFormField(
                   controller: _nameController,
-                  decoration: const InputDecoration(labelText: 'اسم المريض', border: OutlineInputBorder()),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'هذا الحقل مطلوب' : null,
+                  decoration: InputDecoration(labelText: t['patientRegFlutter.patientNameLabel']!, border: const OutlineInputBorder()),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? t['profile.requiredField']! : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _phoneController,
                   textDirection: TextDirection.ltr,
                   keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(labelText: 'رقم الهاتف', border: OutlineInputBorder()),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'هذا الحقل مطلوب' : null,
+                  decoration: InputDecoration(labelText: t['profile.phone']!, border: const OutlineInputBorder()),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? t['profile.requiredField']! : null,
                 ),
                 const SizedBox(height: 16),
                 // DropdownMenu (not DropdownButtonFormField) so a clinic
@@ -180,13 +183,13 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                 // dropdown had — DropdownMenu has no FormField variant.
                 FormField<int>(
                   initialValue: days.any((d) => d.id == _dayId) ? _dayId : null,
-                  validator: (v) => v == null ? 'هذا الحقل مطلوب' : null,
+                  validator: (v) => v == null ? t['profile.requiredField'] : null,
                   builder: (field) => DropdownMenu<int>(
                     initialSelection: field.value,
                     enableFilter: true,
                     requestFocusOnTap: true,
                     expandedInsets: EdgeInsets.zero,
-                    label: const Text('اليوم'),
+                    label: Text(t['patientRegFlutter.dayLabel']!),
                     errorText: field.errorText,
                     dropdownMenuEntries: [
                       for (final d in days) DropdownMenuEntry(value: d.id, label: d.name),
@@ -216,17 +219,17 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                 FormField<int>(
                   key: ValueKey('service-field-$_dayId'),
                   initialValue: servicesForDay.any((s) => s.id == _serviceId) ? _serviceId : null,
-                  validator: (v) => v == null ? 'هذا الحقل مطلوب' : null,
+                  validator: (v) => v == null ? t['profile.requiredField'] : null,
                   builder: (field) => DropdownMenu<int>(
                     initialSelection: field.value,
                     enabled: _dayId != null,
                     enableFilter: true,
                     requestFocusOnTap: true,
                     expandedInsets: EdgeInsets.zero,
-                    label: const Text('الخدمة'),
+                    label: Text(t['patientRegFlutter.serviceLabel']!),
                     helperText: _dayId == null
-                        ? 'اختر اليوم أولاً'
-                        : (servicesForDay.isEmpty ? 'لا توجد خدمات متاحة في هذا اليوم' : null),
+                        ? t['patientRegFlutter.chooseDayFirst']
+                        : (servicesForDay.isEmpty ? t['patientRegFlutter.noServicesForDay'] : null),
                     errorText: field.errorText,
                     dropdownMenuEntries: [
                       for (final s in servicesForDay) DropdownMenuEntry(value: s.id, label: s.name),
@@ -263,7 +266,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                       children: [
                         CascadingDropdown(
                           key: ValueKey('task-$_dayId'),
-                          label: 'التشخيص',
+                          label: t['patientRegFlutter.diagnosis']!,
                           itemsAsync: tasksForDay,
                           value: _taskId,
                           onChanged: (v) => setState(() => _taskId = v),
@@ -288,7 +291,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                   onPressed: _submitting ? null : () => _submit(days),
                   child: _submitting
                       ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Text('تسجيل'),
+                      : Text(t['patientRegFlutter.submit']!),
                 ),
               ],
             ),

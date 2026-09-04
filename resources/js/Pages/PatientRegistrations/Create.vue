@@ -6,7 +6,9 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const props = defineProps({
     days: Array,
     tasks: Array,
@@ -84,13 +86,13 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Register Patient" />
+    <Head :title="t('nav.registerPatient')" />
 
     <AuthenticatedLayout>
         <template #header>
             <div class="flex items-center justify-between">
-                <h2 class="text-xl font-semibold leading-tight text-gray-800">تسجيل مريض جديد</h2>
-                <Link :href="route('patient-registrations.index')" class="text-sm text-indigo-600 hover:underline">السجل &rarr;</Link>
+                <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('nav.registerPatient') }}</h2>
+                <Link :href="route('patient-registrations.index')" class="text-sm text-indigo-600 hover:underline">{{ t('patientReg.registryLink') }} &rarr;</Link>
             </div>
         </template>
 
@@ -99,24 +101,24 @@ const submit = () => {
                 <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
                     <form @submit.prevent="submit" class="space-y-6">
                         <div>
-                            <InputLabel for="name" value="اسم المريض" />
+                            <InputLabel for="name" :value="t('patientReg.patientName')" />
                             <TextInput id="name" v-model="form.name" type="text" class="mt-1 block w-full" required autofocus />
                             <InputError class="mt-2" :message="form.errors.name" />
                         </div>
 
                         <div>
-                            <InputLabel for="phone" value="رقم الهاتف" />
+                            <InputLabel for="phone" :value="t('profile.phone')" />
                             <TextInput id="phone" v-model="form.phone" type="text" class="mt-1 block w-full" dir="ltr" required />
                             <InputError class="mt-2" :message="form.errors.phone" />
                         </div>
 
                         <div>
-                            <InputLabel for="register_day_id" value="اليوم" />
+                            <InputLabel for="register_day_id" :value="t('patientReg.dayLabel')" />
                             <TextInput
                                 v-if="days.length > 6"
                                 v-model="dayFilter"
                                 type="text"
-                                placeholder="تصفية الأيام..."
+                                :placeholder="t('patientReg.filterDays')"
                                 class="mt-1 block w-full"
                             />
                             <select
@@ -126,19 +128,19 @@ const submit = () => {
                                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                 required
                             >
-                                <option value="" disabled>اختر اليوم</option>
+                                <option value="" disabled>{{ t('patientReg.chooseDay') }}</option>
                                 <option v-for="day in filteredDays" :key="day.id" :value="day.id">{{ day.name }}</option>
                             </select>
                             <InputError class="mt-2" :message="form.errors.register_day_id" />
                         </div>
 
                         <div>
-                            <InputLabel for="service_id" value="الخدمة" />
+                            <InputLabel for="service_id" :value="t('patientReg.serviceLabel')" />
                             <TextInput
                                 v-if="servicesForSelectedDay.length > 6"
                                 v-model="serviceFilter"
                                 type="text"
-                                placeholder="تصفية الخدمات..."
+                                :placeholder="t('patientReg.filterServices')"
                                 class="mt-1 block w-full"
                             />
                             <select
@@ -148,22 +150,22 @@ const submit = () => {
                                 :disabled="!form.register_day_id"
                                 required
                             >
-                                <option value="" disabled>{{ form.register_day_id ? 'اختر الخدمة' : 'اختر اليوم أولاً' }}</option>
+                                <option value="" disabled>{{ form.register_day_id ? t('patientReg.chooseService') : t('patientReg.chooseDayFirst') }}</option>
                                 <option v-for="service in filteredServices" :key="service.id" :value="service.id">{{ service.name }}</option>
                             </select>
                             <InputError class="mt-2" :message="form.errors.service_id" />
                             <p v-if="form.register_day_id && servicesForSelectedDay.length === 0" class="mt-2 text-sm text-amber-600">
-                                لا توجد خدمات متاحة في هذا اليوم.
+                                {{ t('patientReg.noServicesForDay') }}
                             </p>
                         </div>
 
                         <div>
-                            <InputLabel for="task_id" value="التشخيص" />
+                            <InputLabel for="task_id" :value="t('patientReg.diagnosis')" />
                             <TextInput
                                 v-if="tasks.length > 6"
                                 v-model="taskFilter"
                                 type="text"
-                                placeholder="تصفية المهام..."
+                                :placeholder="t('patientReg.filterTasks')"
                                 class="mt-1 block w-full"
                             />
                             <select
@@ -171,7 +173,7 @@ const submit = () => {
                                 v-model="form.task_id"
                                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                             >
-                                <option value="">— بدون —</option>
+                                <option value="">{{ t('patientReg.noneOption') }}</option>
                                 <option v-for="task in filteredTasks" :key="task.id" :value="task.id">{{ task.title }}</option>
                             </select>
                             <InputError class="mt-2" :message="form.errors.task_id" />
@@ -182,7 +184,7 @@ const submit = () => {
                         </div>
 
                         <div class="flex justify-end">
-                            <PrimaryButton :disabled="form.processing">تسجيل</PrimaryButton>
+                            <PrimaryButton :disabled="form.processing">{{ t('patientReg.submitRegistration') }}</PrimaryButton>
                         </div>
                     </form>
                 </div>
