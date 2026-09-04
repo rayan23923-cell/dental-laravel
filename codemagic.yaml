@@ -147,7 +147,18 @@ workflows:
         # Same reasoning as the Android workflow's --dart-define: without
         # it, AppConfig.baseUrl falls back to `localhost`, which on a real
         # device means the device itself — never reachable.
-        script: flutter build ios --release --no-codesign --dart-define=API_BASE_URL=https://cdclinics.com/api/v1
+        #
+        # --verbose + tee: three rounds of signing fixes (Podfile
+        # CODE_SIGNING_ALLOWED overrides, disabling Swift Package Manager,
+        # blanking the NFC entitlement) all failed to clear the "requires
+        # a development team" error, and Flutter's own summary hides the
+        # actual xcodebuild error that would say which target is at fault.
+        # If Manual signing on Runner (this commit) doesn't fix it either,
+        # download build_ios_verbose.log from the build artifacts to see
+        # the real underlying xcodebuild failure instead of guessing again.
+        script: |
+          set -o pipefail
+          flutter build ios --release --no-codesign --verbose --dart-define=API_BASE_URL=https://cdclinics.com/api/v1 2>&1 | tee build_ios_verbose.log
       - name: Package as unsigned .ipa
         script: |
           mkdir -p build/ios/ipa_payload/Payload
@@ -156,6 +167,7 @@ workflows:
           zip -r ../../../dental_clinic_app_unsigned.ipa Payload
     artifacts:
       - "**/dental_clinic_app_unsigned.ipa"
+      - "**/build_ios_verbose.log"
     triggering:
       events:
         - push
