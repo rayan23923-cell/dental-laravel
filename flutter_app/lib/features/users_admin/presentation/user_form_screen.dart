@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/users_admin_repository.dart';
 import '../domain/user_admin.dart';
@@ -53,12 +54,14 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
     try {
       final UserAdmin user = await ref.read(usersAdminRepositoryProvider).create(payload);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تمت إضافة المستخدم. حدد صلاحياته.')));
+        final t = ref.read(translationsProvider);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['usersAdmin.addedSuccess']!)));
         context.pushReplacement('/admin/permissions/${user.id}');
       }
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الحفظ.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['usersAdmin.saveFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -68,8 +71,9 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = ref.watch(translationsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('مستخدم جديد')),
+      appBar: AppBar(title: Text(t['usersAdmin.newUserTitle']!)),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -77,34 +81,34 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
           children: [
             TextFormField(
               controller: _fullNameController,
-              decoration: const InputDecoration(labelText: 'الاسم الكامل', border: OutlineInputBorder()),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'هذا الحقل مطلوب' : null,
+              decoration: InputDecoration(labelText: t['usersAdmin.fullNameLabel'], border: const OutlineInputBorder()),
+              validator: (v) => (v == null || v.trim().isEmpty) ? t['usersAdmin.requiredField'] : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _usernameController,
-              decoration: const InputDecoration(labelText: 'اسم المستخدم', border: OutlineInputBorder()),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'هذا الحقل مطلوب' : null,
+              decoration: InputDecoration(labelText: t['usersAdmin.usernameLabel'], border: const OutlineInputBorder()),
+              validator: (v) => (v == null || v.trim().isEmpty) ? t['usersAdmin.requiredField'] : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _emailController,
               textDirection: TextDirection.ltr,
               keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(labelText: 'البريد الإلكتروني', border: OutlineInputBorder()),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'هذا الحقل مطلوب' : null,
+              decoration: InputDecoration(labelText: t['usersAdmin.emailLabel'], border: const OutlineInputBorder()),
+              validator: (v) => (v == null || v.trim().isEmpty) ? t['usersAdmin.requiredField'] : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _phoneController,
               textDirection: TextDirection.ltr,
               keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(labelText: 'رقم الهاتف', border: OutlineInputBorder()),
+              decoration: InputDecoration(labelText: t['usersAdmin.phoneLabel'], border: const OutlineInputBorder()),
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               initialValue: _role,
-              decoration: const InputDecoration(labelText: 'الصلاحية (Role)', border: OutlineInputBorder()),
+              decoration: InputDecoration(labelText: t['usersAdmin.roleLabel'], border: const OutlineInputBorder()),
               items: [for (final r in kAssignableUserRoles) DropdownMenuItem(value: r.$1, child: Text(r.$2))],
               onChanged: (v) => setState(() => _role = v ?? _role),
             ),
@@ -112,15 +116,15 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
             TextFormField(
               controller: _passwordController,
               obscureText: true,
-              decoration: const InputDecoration(labelText: 'كلمة المرور', border: OutlineInputBorder()),
-              validator: (v) => (v == null || v.length < 6) ? 'يجب أن تتكون من 6 أحرف على الأقل' : null,
+              decoration: InputDecoration(labelText: t['usersAdmin.passwordLabel'], border: const OutlineInputBorder()),
+              validator: (v) => (v == null || v.length < 6) ? t['usersAdmin.passwordTooShort'] : null,
             ),
             const SizedBox(height: 24),
             FilledButton(
               onPressed: _submitting ? null : _submit,
               child: _submitting
                   ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('حفظ ومتابعة للصلاحيات'),
+                  : Text(t['usersAdmin.saveAndContinue']!),
             ),
           ],
         ),

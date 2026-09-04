@@ -15,7 +15,9 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const props = defineProps({
     targetUser: Object,
     modules: Array,
@@ -88,16 +90,16 @@ const submit = () => {
 </script>
 
 <template>
-    <Head :title="`الصلاحيات — ${targetUser.full_name}`" />
+    <Head :title="t('permissionsAdmin.editTitle', { name: targetUser.full_name })" />
 
     <AuthenticatedLayout>
         <template #header>
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                    الصلاحيات — {{ targetUser.full_name }}
+                    {{ t('permissionsAdmin.editTitle', { name: targetUser.full_name }) }}
                     <span class="mr-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-600">{{ targetUser.role }}</span>
                 </h2>
-                <Link :href="route('permissions.index')" class="text-sm text-indigo-600 hover:underline">رجوع</Link>
+                <Link :href="route('permissions.index')" class="text-sm text-indigo-600 hover:underline">{{ t('common.back') }}</Link>
             </div>
         </template>
 
@@ -105,12 +107,12 @@ const submit = () => {
             <div class="mx-auto max-w-5xl space-y-4 sm:px-6 lg:px-8">
                 <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white p-4 shadow-sm">
                     <p class="text-sm text-gray-500">
-                        تُمنح الصلاحيات لكل وحدة على حدة — كل وحدة لها إجراءاتها الخاصة كما في النظام الأصلي.
-                        <span class="block text-xs text-gray-400">مستخدمو super_admin يتجاوزون كل الفحوصات ولا تُدار صلاحياتهم من هنا.</span>
+                        {{ t('permissionsAdmin.description') }}
+                        <span class="block text-xs text-gray-400">{{ t('permissionsAdmin.superAdminNote') }}</span>
                     </p>
                     <div class="flex gap-2">
-                        <SecondaryButton @click="selectAll">تحديد الكل</SecondaryButton>
-                        <SecondaryButton @click="clearAll">إلغاء الكل</SecondaryButton>
+                        <SecondaryButton @click="selectAll">{{ t('permissionsAdmin.selectAll') }}</SecondaryButton>
+                        <SecondaryButton @click="clearAll">{{ t('permissionsAdmin.clearAll') }}</SecondaryButton>
                     </div>
                 </div>
 
@@ -121,18 +123,18 @@ const submit = () => {
                          شيء) — نفس قاعدة ScopeHelper. -->
                     <div class="overflow-hidden rounded-lg bg-white shadow-sm">
                         <div class="border-b border-gray-100 bg-gray-50 px-4 py-3">
-                            <span class="font-medium text-gray-900">نطاق الوصول</span>
+                            <span class="font-medium text-gray-900">{{ t('permissionsAdmin.scopeTitle') }}</span>
                             <p class="mt-0.5 text-xs text-gray-500">
-                                يحدد أي بيانات يرى هذا الحساب أصلاً. اترك القسم بلا تحديد ليرى الحساب كل شيء ضمن ذلك البعد.
+                                {{ t('permissionsAdmin.scopeDescription') }}
                             </p>
                         </div>
 
                         <div class="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
                             <div v-for="dim in [
-                                { key: 'departments', label: 'الأقسام', options: scopeOptions.departments },
-                                { key: 'stages', label: 'المراحل', options: scopeOptions.stages },
-                                { key: 'education_types', label: 'أنواع التعليم', options: scopeOptions.educationTypes },
-                                { key: 'academic_sessions', label: 'الأعوام الدراسية', options: scopeOptions.academicSessions },
+                                { key: 'departments', label: t('permissionsAdmin.departmentsLabel'), options: scopeOptions.departments },
+                                { key: 'stages', label: t('permissionsAdmin.stagesLabel'), options: scopeOptions.stages },
+                                { key: 'education_types', label: t('permissionsAdmin.educationTypesLabel'), options: scopeOptions.educationTypes },
+                                { key: 'academic_sessions', label: t('permissionsAdmin.academicSessionsLabel'), options: scopeOptions.academicSessions },
                             ]" :key="dim.key">
                                 <div class="mb-1.5 flex items-center justify-between">
                                     <span class="text-sm font-medium text-gray-700">{{ dim.label }}</span>
@@ -142,7 +144,7 @@ const submit = () => {
                                         @click="clearScope(dim.key)"
                                         class="text-xs text-gray-400 hover:text-gray-600"
                                     >
-                                        إزالة القيد
+                                        {{ t('permissionsAdmin.removeRestriction') }}
                                     </button>
                                 </div>
 
@@ -150,7 +152,7 @@ const submit = () => {
                                     v-if="!form.scope[dim.key].length"
                                     class="rounded-md border border-dashed border-gray-200 px-3 py-2 text-xs text-gray-400"
                                 >
-                                    <Icon name="all_inclusive" size="text-[14px]" class="ml-1" />بلا قيد — يرى الكل
+                                    <Icon name="all_inclusive" size="text-[14px]" class="ml-1" />{{ t('permissionsAdmin.unrestricted') }}
                                 </div>
 
                                 <div class="max-h-40 space-y-1 overflow-y-auto rounded-md border border-gray-200 p-2">
@@ -167,7 +169,7 @@ const submit = () => {
                                         />
                                         {{ opt.name }}
                                     </label>
-                                    <p v-if="!dim.options.length" class="px-1 py-1 text-xs text-gray-400">لا خيارات متاحة.</p>
+                                    <p v-if="!dim.options.length" class="px-1 py-1 text-xs text-gray-400">{{ t('permissionsAdmin.noOptionsAvailable') }}</p>
                                 </div>
                             </div>
                         </div>
@@ -186,7 +188,7 @@ const submit = () => {
                                     @change="toggleModule(module)"
                                     class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                 />
-                                تحديد كل إجراءات الوحدة
+                                {{ t('permissionsAdmin.selectAllModuleActions') }}
                             </label>
                         </div>
 
@@ -209,8 +211,8 @@ const submit = () => {
                     </div>
 
                     <div class="flex items-center justify-between rounded-lg bg-white p-4 shadow-sm">
-                        <span class="text-sm text-gray-500">الصلاحيات الممنوحة: {{ form.grants.length }} من {{ allPairs.length }}</span>
-                        <PrimaryButton :disabled="form.processing">حفظ الصلاحيات</PrimaryButton>
+                        <span class="text-sm text-gray-500">{{ t('permissionsAdmin.grantedSummary', { granted: form.grants.length, total: allPairs.length }) }}</span>
+                        <PrimaryButton :disabled="form.processing">{{ t('permissionsAdmin.savePermissions') }}</PrimaryButton>
                     </div>
                 </form>
             </div>

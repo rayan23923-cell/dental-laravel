@@ -12,8 +12,10 @@ import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import Icon from '@/Components/Icon.vue';
 
+const { t } = useI18n();
 const props = defineProps({
     doctors: Object,
     educationTypes: Array,
@@ -86,14 +88,14 @@ const toggleAll = () => {
 };
 
 const destroy = (doctor) => {
-    if (confirm(`حذف الطبيب "${doctor.name}"؟`)) {
+    if (confirm(t('doctorsAdmin.deleteConfirm', { name: doctor.name }))) {
         router.delete(route('doctors.destroy', doctor.id), { preserveScroll: true });
     }
 };
 
 const destroySelected = () => {
     if (!selected.value.length) return;
-    if (confirm(`حذف ${selected.value.length} طبيب/أطباء؟ لا يمكن التراجع.`)) {
+    if (confirm(t('doctorsAdmin.deleteSelectedConfirm', { n: selected.value.length }))) {
         router.delete(route('doctors.destroy-many'), {
             data: { ids: selected.value },
             preserveScroll: true,
@@ -121,18 +123,18 @@ const printSelectedUrl = computed(() => `${route('doctors.print')}?ids=${selecte
 </script>
 
 <template>
-    <Head title="إدارة الأطباء" />
+    <Head :title="t('doctorsAdmin.title')" />
 
     <AuthenticatedLayout>
         <template #header>
             <div class="flex flex-wrap items-center justify-between gap-2">
-                <h2 class="text-xl font-semibold leading-tight text-gray-800"><Icon name="stethoscope" class="ml-1" />إدارة الأطباء</h2>
+                <h2 class="text-xl font-semibold leading-tight text-gray-800"><Icon name="stethoscope" class="ml-1" />{{ t('doctorsAdmin.title') }}</h2>
                 <div class="flex gap-2">
                     <Link :href="route('doctors.import.show')">
-                        <SecondaryButton class="!bg-green-600 !text-white hover:!bg-green-700"><Icon name="table_view" class="ml-1" />رفع ملف Excel</SecondaryButton>
+                        <SecondaryButton class="!bg-green-600 !text-white hover:!bg-green-700"><Icon name="table_view" class="ml-1" />{{ t('doctorsAdmin.importExcel') }}</SecondaryButton>
                     </Link>
                     <Link :href="route('doctors.create')">
-                        <PrimaryButton><Icon name="add" class="ml-1" />إضافة طبيب</PrimaryButton>
+                        <PrimaryButton><Icon name="add" class="ml-1" />{{ t('doctorsAdmin.addDoctor') }}</PrimaryButton>
                     </Link>
                 </div>
             </div>
@@ -148,37 +150,37 @@ const printSelectedUrl = computed(() => `${route('doctors.print')}?ids=${selecte
                 <div v-if="currentSession" class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
                     <span class="text-sm text-indigo-900">
                         <Icon name="calendar_month" class="ml-1" />
-                        <template v-if="allSessions">عرض أطباء <strong>جميع الأعوام الدراسية</strong></template>
-                        <template v-else>أطباء العام الدراسي <strong>{{ currentSession.name }}</strong></template>
+                        <template v-if="allSessions">{{ t('doctorsAdmin.viewingAllSessionsPrefix') }} <strong>{{ t('doctorsAdmin.allAcademicSessions') }}</strong></template>
+                        <template v-else>{{ t('doctorsAdmin.sessionDoctorsPrefix') }} <strong>{{ currentSession.name }}</strong></template>
                     </span>
                     <label class="flex cursor-pointer items-center gap-2 text-sm text-indigo-900">
                         <input type="checkbox" v-model="allSessions" @change="applyFilters" class="rounded border-gray-300 text-indigo-600" />
-                        عرض جميع الأعوام الدراسية
+                        {{ t('doctorsAdmin.showAllSessions') }}
                     </label>
                 </div>
 
                 <!-- Filters -->
                 <div class="grid grid-cols-1 gap-3 rounded-lg bg-white p-4 shadow-sm md:grid-cols-4">
                     <select v-model="educationType" @change="onEducationTypeChange" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                        <option value="">فلتر حسب نوع الدراسة</option>
-                        <option v-for="t in educationTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
+                        <option value="">{{ t('doctorsAdmin.filterByEducationType') }}</option>
+                        <option v-for="et in educationTypes" :key="et.id" :value="et.id">{{ et.name }}</option>
                     </select>
 
                     <select v-model="stage" @change="applyFilters" :disabled="!educationType" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100">
-                        <option value="">فلتر حسب المرحلة</option>
+                        <option value="">{{ t('doctorsAdmin.filterByStage') }}</option>
                         <option v-for="s in filteredStages" :key="s.id" :value="s.id">{{ s.name }}</option>
                     </select>
 
                     <div class="flex gap-2">
-                        <TextInput v-model="search" type="text" placeholder="البحث في الأطباء..." class="w-full" />
+                        <TextInput v-model="search" type="text" :placeholder="t('doctorsAdmin.searchPlaceholder')" class="w-full" />
                         <SecondaryButton v-if="hasFilters" @click="clearFilters">✕</SecondaryButton>
                     </div>
 
                     <div class="flex gap-2">
                         <a :href="printFilteredUrl" target="_blank" class="flex flex-1 items-center justify-center rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700">
-                            <Icon name="print" class="ml-1" />طباعة الفلتر
+                            <Icon name="print" class="ml-1" />{{ t('doctorsAdmin.printFiltered') }}
                         </a>
-                        <a :href="exportUrl" class="flex items-center justify-center rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700" title="تصدير Excel">
+                        <a :href="exportUrl" class="flex items-center justify-center rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700" :title="t('doctorsAdmin.exportExcelTitle')">
                             <Icon name="table_view" />
                         </a>
                     </div>
@@ -186,13 +188,13 @@ const printSelectedUrl = computed(() => `${route('doctors.print')}?ids=${selecte
 
                 <!-- Bulk bar -->
                 <div v-if="selected.length" class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
-                    <span class="text-sm text-gray-700"><Icon name="warning" class="ml-1" />تم تحديد <strong>{{ selected.length }}</strong> صف</span>
+                    <span class="text-sm text-gray-700"><Icon name="warning" class="ml-1" />{{ t('doctorsAdmin.selectedCount', { n: selected.length }) }}</span>
                     <div class="flex gap-2">
                         <a :href="printSelectedUrl" target="_blank" class="rounded-md bg-amber-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-600">
-                            <Icon name="print" class="ml-1" />طباعة المحدد
+                            <Icon name="print" class="ml-1" />{{ t('doctorsAdmin.printSelected') }}
                         </a>
                         <button type="button" @click="destroySelected" class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">
-                            <Icon name="delete" class="ml-1" />حذف المحدد
+                            <Icon name="delete" class="ml-1" />{{ t('doctorsAdmin.deleteSelected') }}
                         </button>
                     </div>
                 </div>
@@ -206,14 +208,14 @@ const printSelectedUrl = computed(() => `${route('doctors.print')}?ids=${selecte
                                     <th class="px-4 py-3">
                                         <input type="checkbox" :checked="allOnPageSelected" @change="toggleAll" class="rounded border-gray-300" />
                                     </th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">الاسم</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">البريد الإلكتروني</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">نوع الدراسة</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">المرحلة</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('profile.name') }}</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('profile.email') }}</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.educationTypeCol') }}</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.stageCol') }}</th>
                                     <!-- Only meaningful when the session filter is lifted; otherwise
                                          every row carries the session named in the banner above. -->
-                                    <th v-if="allSessions" class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">العام الدراسي</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">العمليات</th>
+                                    <th v-if="allSessions" class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.academicSessionCol') }}</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.actionsCol') }}</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200 bg-white">
@@ -229,7 +231,7 @@ const printSelectedUrl = computed(() => `${route('doctors.print')}?ids=${selecte
                                         <span v-if="doctor.academic_session" class="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800">
                                             {{ doctor.academic_session.name }}
                                         </span>
-                                        <span v-else class="text-xs text-gray-400" title="يظهر في كل الأعوام الدراسية">غير مرتبط</span>
+                                        <span v-else class="text-xs text-gray-400" :title="t('doctorsAdmin.showsInAllSessions')">{{ t('doctorsAdmin.unlinked') }}</span>
                                     </td>
                                     <td class="whitespace-nowrap px-6 py-4 text-sm">
                                         <Link
@@ -237,17 +239,17 @@ const printSelectedUrl = computed(() => `${route('doctors.print')}?ids=${selecte
                                             :href="route('doctors.progress', doctor.id)"
                                             class="text-gray-600 hover:text-gray-900"
                                         >
-                                            التقدم
+                                            {{ t('doctorsAdmin.progressLink') }}
                                         </Link>
-                                        <a :href="route('doctors.card', doctor.id)" target="_blank" class="mr-3 text-gray-600 hover:text-gray-900" title="طباعة بطاقة الطبيب">
+                                        <a :href="route('doctors.card', doctor.id)" target="_blank" class="mr-3 text-gray-600 hover:text-gray-900" :title="t('doctorsAdmin.printCardTitle')">
                                             <Icon name="badge" />
                                         </a>
-                                        <Link :href="route('doctors.edit', doctor.id)" class="mr-3 text-indigo-600 hover:text-indigo-900">تعديل</Link>
-                                        <button @click="destroy(doctor)" class="mr-3 text-red-600 hover:text-red-900">حذف</button>
+                                        <Link :href="route('doctors.edit', doctor.id)" class="mr-3 text-indigo-600 hover:text-indigo-900">{{ t('common.edit') }}</Link>
+                                        <button @click="destroy(doctor)" class="mr-3 text-red-600 hover:text-red-900">{{ t('common.delete') }}</button>
                                     </td>
                                 </tr>
                                 <tr v-if="doctors.data.length === 0">
-                                    <td :colspan="allSessions ? 7 : 6" class="px-6 py-8 text-center text-sm text-gray-500">لا يوجد أطباء مطابقون.</td>
+                                    <td :colspan="allSessions ? 7 : 6" class="px-6 py-8 text-center text-sm text-gray-500">{{ t('doctorsAdmin.emptyList') }}</td>
                                 </tr>
                             </tbody>
                         </table>

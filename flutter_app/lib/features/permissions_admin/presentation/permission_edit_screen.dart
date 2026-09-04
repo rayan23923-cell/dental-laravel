@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/data/lookup_repository.dart';
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/permissions_admin_repository.dart';
 import '../domain/permission_admin.dart';
@@ -70,11 +71,13 @@ class _PermissionEditScreenState extends ConsumerState<PermissionEditScreen> {
       ref.invalidate(permissionsDetailProvider(widget.userId));
       if (mounted) {
         setState(() => _dirty = false);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم حفظ الصلاحيات.')));
+        final t = ref.read(translationsProvider);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['permissionsAdmin.savedSuccess']!)));
       }
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الحفظ.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['permissionsAdmin.saveFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -86,6 +89,7 @@ class _PermissionEditScreenState extends ConsumerState<PermissionEditScreen> {
   Widget build(BuildContext context) {
     final detailAsync = ref.watch(permissionsDetailProvider(widget.userId));
     final usersAsync = ref.watch(permissionUserListProvider);
+    final t = ref.watch(translationsProvider);
     final cachedUsers = usersAsync.valueOrNull ?? const <PermissionUser>[];
     String? userName;
     for (final u in cachedUsers) {
@@ -96,11 +100,11 @@ class _PermissionEditScreenState extends ConsumerState<PermissionEditScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(userName ?? 'الصلاحيات')),
+      appBar: AppBar(title: Text(userName ?? t['permissionsAdmin.title']!)),
       body: detailAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stackTrace) => Center(
-          child: Text(error is ApiException ? error.userMessage : 'تعذر التحميل.'),
+          child: Text(error is ApiException ? error.userMessage : t['permissionsAdmin.loadFailed']!),
         ),
         data: (detail) {
           _seed(detail);
@@ -109,7 +113,7 @@ class _PermissionEditScreenState extends ConsumerState<PermissionEditScreen> {
             children: [
               _ScopeDimensionTile(
                 dimension: 'departments',
-                label: 'الأقسام',
+                label: t['permissionsAdmin.departmentsLabel']!,
                 options: detail.scopeOptions.departments,
                 selected: _scope.departmentIds,
                 onToggle: _toggleScope,
@@ -117,7 +121,7 @@ class _PermissionEditScreenState extends ConsumerState<PermissionEditScreen> {
               ),
               _ScopeDimensionTile(
                 dimension: 'stages',
-                label: 'المراحل',
+                label: t['permissionsAdmin.stagesLabel']!,
                 options: detail.scopeOptions.stages,
                 selected: _scope.stageIds,
                 onToggle: _toggleScope,
@@ -125,7 +129,7 @@ class _PermissionEditScreenState extends ConsumerState<PermissionEditScreen> {
               ),
               _ScopeDimensionTile(
                 dimension: 'education_types',
-                label: 'أنواع التعليم',
+                label: t['permissionsAdmin.educationTypesLabel']!,
                 options: detail.scopeOptions.educationTypes,
                 selected: _scope.educationTypeIds,
                 onToggle: _toggleScope,
@@ -133,7 +137,7 @@ class _PermissionEditScreenState extends ConsumerState<PermissionEditScreen> {
               ),
               _ScopeDimensionTile(
                 dimension: 'academic_sessions',
-                label: 'الأعوام الدراسية',
+                label: t['permissionsAdmin.academicSessionsLabel']!,
                 options: detail.scopeOptions.academicSessions,
                 selected: _scope.academicSessionIds,
                 onToggle: _toggleScope,
@@ -151,7 +155,7 @@ class _PermissionEditScreenState extends ConsumerState<PermissionEditScreen> {
         icon: _submitting
             ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
             : const Icon(Icons.save_outlined),
-        label: const Text('حفظ'),
+        label: Text(t['permissionsAdmin.save']!),
       ),
     );
   }
@@ -197,7 +201,7 @@ class _ModuleTile extends StatelessWidget {
 /// page's per-dimension card: empty selection reads as "بلا قيد" (no
 /// restriction, sees everything within this dimension), matching
 /// `ScopeHelper`'s own "zero rows = unrestricted" rule.
-class _ScopeDimensionTile extends StatelessWidget {
+class _ScopeDimensionTile extends ConsumerWidget {
   const _ScopeDimensionTile({
     required this.dimension,
     required this.label,
@@ -215,24 +219,25 @@ class _ScopeDimensionTile extends StatelessWidget {
   final void Function(String dimension) onClear;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider);
     final restricted = selected.isNotEmpty;
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: ExpansionTile(
         title: Text(label),
-        subtitle: Text(restricted ? 'مقيّد بـ ${selected.length}' : 'بلا قيد — يرى الكل'),
+        subtitle: Text(restricted ? trf(t['permissionsAdmin.restrictedWithCount']!, {'n': selected.length}) : t['permissionsAdmin.unrestricted']!),
         trailing: restricted
             ? TextButton(
                 onPressed: () => onClear(dimension),
-                child: const Text('إزالة القيد'),
+                child: Text(t['permissionsAdmin.removeRestriction']!),
               )
             : const Icon(Icons.expand_more),
         children: [
           if (options.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text('لا خيارات متاحة.', style: TextStyle(color: Colors.grey)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(t['permissionsAdmin.noOptionsAvailable']!, style: const TextStyle(color: Colors.grey)),
             ),
           for (final option in options)
             CheckboxListTile(

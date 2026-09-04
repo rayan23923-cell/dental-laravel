@@ -2,7 +2,9 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 defineProps({
     users: Array,
 });
@@ -10,22 +12,22 @@ defineProps({
 const page = usePage();
 
 const columns = [
-    { key: 'full_name', label: 'Name', sortable: true },
-    { key: 'role', label: 'Role', sortable: true },
-    { key: 'actions', label: 'Actions', align: 'right' },
+    { key: 'full_name', label: t('profile.name'), sortable: true },
+    { key: 'role', label: t('common.role'), sortable: true },
+    { key: 'actions', label: t('doctorsAdmin.actionsCol'), align: 'right' },
 ];
 </script>
 
 <template>
-    <Head title="User Permissions" />
+    <Head :title="t('permissionsAdmin.indexTitle')" />
 
     <AuthenticatedLayout>
         <template #header>
             <div class="flex items-center justify-between">
-                <h2 class="text-xl font-semibold leading-tight text-gray-800">User Permissions</h2>
+                <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('permissionsAdmin.indexTitle') }}</h2>
                 <div class="flex items-center gap-4">
-                    <Link :href="route('users.create')" class="text-sm text-indigo-600 hover:underline">+ Add User</Link>
-                    <Link :href="route('department-roles.index')" class="text-sm text-indigo-600 hover:underline">Department Roles (Senior/HR) &rarr;</Link>
+                    <Link :href="route('users.create')" class="text-sm text-indigo-600 hover:underline">{{ t('permissionsAdmin.addUserLink') }}</Link>
+                    <Link :href="route('department-roles.index')" class="text-sm text-indigo-600 hover:underline">{{ t('permissionsAdmin.departmentRolesLink') }}</Link>
                 </div>
             </div>
         </template>
@@ -40,19 +42,18 @@ const columns = [
                 </div>
 
                 <p class="text-sm text-gray-600">
-                    Grants layer on top of each user's role — <code>super_admin</code> always
-                    has every permission. See <code>App\Services\PermissionManager</code>.
+                    {{ t('permissionsAdmin.grantsDescription') }}
                 </p>
 
                 <DataTable
                     :columns="columns"
                     :rows="users"
                     searchable
-                    search-placeholder="ابحث بالاسم أو الدور..."
-                    empty-text="No staff users yet."
+                    :search-placeholder="t('permissionsAdmin.searchPlaceholder')"
+                    :empty-text="t('permissionsAdmin.emptyUsers')"
                 >
                     <template #cell-actions="{ row: user }">
-                        <Link :href="route('permissions.edit', user.id)" class="text-indigo-600 hover:text-indigo-900">Manage</Link>
+                        <Link :href="route('permissions.edit', user.id)" class="text-indigo-600 hover:text-indigo-900">{{ t('permissionsAdmin.manageLink') }}</Link>
                     </template>
                 </DataTable>
             </div>

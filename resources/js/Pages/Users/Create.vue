@@ -5,7 +5,9 @@ import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, useForm } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const props = defineProps({
     roles: Array,
 });
@@ -25,12 +27,12 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Add User" />
+    <Head :title="t('usersAdmin.addUserTitle')" />
 
     <AuthenticatedLayout>
         <template #header>
             <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                Add User
+                {{ t('usersAdmin.addUserTitle') }}
             </h2>
         </template>
 
@@ -39,31 +41,31 @@ const submit = () => {
                 <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
                     <form @submit.prevent="submit" class="space-y-6">
                         <div>
-                            <InputLabel for="full_name" value="Full Name" />
+                            <InputLabel for="full_name" :value="t('common.fullName')" />
                             <TextInput id="full_name" v-model="form.full_name" type="text" class="mt-1 block w-full" required autofocus />
                             <InputError class="mt-2" :message="form.errors.full_name" />
                         </div>
 
                         <div>
-                            <InputLabel for="username" value="Username" />
+                            <InputLabel for="username" :value="t('common.username')" />
                             <TextInput id="username" v-model="form.username" type="text" class="mt-1 block w-full" required />
                             <InputError class="mt-2" :message="form.errors.username" />
                         </div>
 
                         <div>
-                            <InputLabel for="email" value="Email" />
+                            <InputLabel for="email" :value="t('profile.email')" />
                             <TextInput id="email" v-model="form.email" type="email" class="mt-1 block w-full" required />
                             <InputError class="mt-2" :message="form.errors.email" />
                         </div>
 
                         <div>
-                            <InputLabel for="phone" value="Phone" />
+                            <InputLabel for="phone" :value="t('profile.phone')" />
                             <TextInput id="phone" v-model="form.phone" type="text" class="mt-1 block w-full" />
                             <InputError class="mt-2" :message="form.errors.phone" />
                         </div>
 
                         <div>
-                            <InputLabel for="role" value="Role" />
+                            <InputLabel for="role" :value="t('common.role')" />
                             <select
                                 id="role"
                                 v-model="form.role"
@@ -76,13 +78,13 @@ const submit = () => {
                         </div>
 
                         <div>
-                            <InputLabel for="password" value="Password" />
+                            <InputLabel for="password" :value="t('common.password')" />
                             <TextInput id="password" v-model="form.password" type="password" class="mt-1 block w-full" required />
                             <InputError class="mt-2" :message="form.errors.password" />
                         </div>
 
                         <div class="flex justify-end">
-                            <PrimaryButton :disabled="form.processing">Save User</PrimaryButton>
+                            <PrimaryButton :disabled="form.processing">{{ t('usersAdmin.saveUser') }}</PrimaryButton>
                         </div>
                     </form>
                 </div>

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:printing/printing.dart';
 
 import '../../../core/data/lookup_repository.dart';
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/nfc/nfc_uid_reader.dart';
 import '../../../core/pdf/pdf_letterhead.dart';
@@ -57,7 +58,8 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
       });
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر التعرف على البطاقة.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['doctorsAdmin.nfcScanFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -83,7 +85,8 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
       await Printing.layoutPdf(onLayout: (_) async => bytes, name: 'قائمة الأطباء.pdf');
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تعذر إنشاء ملف PDF: $e')));
+        final t = ref.read(translationsProvider);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trf(t['doctorsAdmin.printFailed']!, {'error': e}))));
       }
     } finally {
       if (mounted) setState(() => _printing = false);
@@ -95,16 +98,17 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
     final educationTypesAsync = ref.watch(doctorEducationTypesProvider);
     final stagesAsync = ref.watch(doctorStagesProvider);
     final doctorsAsync = ref.watch(doctorAdminListProvider(_filter));
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('الأطباء'),
+        title: Text(t['doctorsAdmin.title']!),
         actions: [
           IconButton(
             icon: _printing
                 ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.print_outlined),
-            tooltip: 'طباعة القائمة (PDF)',
+            tooltip: t['doctorsAdmin.printListTooltip'],
             onPressed: _printing || doctorsAsync.valueOrNull == null
                 ? null
                 : () => _printRoster(doctorsAsync.valueOrNull!.items),
@@ -126,7 +130,7 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
                   controller: _searchController,
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.search),
-                    hintText: 'ابحث بالاسم أو البريد الإلكتروني',
+                    hintText: t['doctorsAdmin.searchHint'],
                     border: const OutlineInputBorder(),
                     isDense: true,
                     suffixIcon: _scanningNfc
@@ -134,13 +138,13 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
                             padding: EdgeInsets.all(12),
                             child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
                           )
-                        : IconButton(icon: const Icon(Icons.nfc), tooltip: 'مسح بطاقة طبيب (NFC)', onPressed: _scanNfc),
+                        : IconButton(icon: const Icon(Icons.nfc), tooltip: t['doctorsAdmin.scanNfcTooltip'], onPressed: _scanNfc),
                   ),
                   onSubmitted: (v) => setState(() => _search = v.trim().isEmpty ? null : v.trim()),
                 ),
                 const SizedBox(height: 8),
                 CascadingDropdown(
-                  label: 'نوع التعليم',
+                  label: t['doctorsAdmin.educationTypeLabel']!,
                   itemsAsync: educationTypesAsync,
                   value: _educationTypeId,
                   onChanged: (v) => setState(() {
@@ -151,7 +155,7 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
                 const SizedBox(height: 8),
                 CascadingDropdown(
                   key: ValueKey('stage-$_educationTypeId'),
-                  label: 'المرحلة',
+                  label: t['doctorsAdmin.stageLabel']!,
                   itemsAsync: stagesAsync.whenData(
                     (items) => _educationTypeId == null
                         ? items
@@ -168,11 +172,11 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
             child: doctorsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, stackTrace) => Center(
-                child: Text(error is ApiException ? error.userMessage : 'تعذر التحميل.'),
+                child: Text(error is ApiException ? error.userMessage : t['doctorsAdmin.loadFailed']!),
               ),
               data: (page) {
                 if (page.items.isEmpty) {
-                  return const Center(child: Text('لا يوجد أطباء مطابقون.'));
+                  return Center(child: Text(t['doctorsAdmin.emptyList']!));
                 }
                 return RefreshIndicator(
                   onRefresh: () async => ref.invalidate(doctorAdminListProvider(_filter)),

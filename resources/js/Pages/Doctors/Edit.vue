@@ -6,7 +6,9 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const props = defineProps({
     doctor: Object,
     educationTypes: Array,
@@ -61,12 +63,12 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Edit Doctor" />
+    <Head :title="t('doctorsAdmin.editTitle')" />
 
     <AuthenticatedLayout>
         <template #header>
             <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                Edit Doctor
+                {{ t('doctorsAdmin.editTitle') }}
             </h2>
         </template>
 
@@ -75,31 +77,31 @@ const submit = () => {
                 <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
                     <form @submit.prevent="submit" class="space-y-6">
                         <div>
-                            <InputLabel for="name" value="Name" />
+                            <InputLabel for="name" :value="t('profile.name')" />
                             <TextInput id="name" v-model="form.name" type="text" class="mt-1 block w-full" required autofocus />
                             <InputError class="mt-2" :message="form.errors.name" />
                         </div>
 
                         <div>
-                            <InputLabel for="username" value="Username" />
+                            <InputLabel for="username" :value="t('common.username')" />
                             <TextInput id="username" v-model="form.username" type="text" class="mt-1 block w-full" required />
                             <InputError class="mt-2" :message="form.errors.username" />
                         </div>
 
                         <div>
-                            <InputLabel for="email" value="Email" />
+                            <InputLabel for="email" :value="t('profile.email')" />
                             <TextInput id="email" v-model="form.email" type="email" class="mt-1 block w-full" required />
                             <InputError class="mt-2" :message="form.errors.email" />
                         </div>
 
                         <div>
-                            <InputLabel for="phone" value="Phone" />
+                            <InputLabel for="phone" :value="t('profile.phone')" />
                             <TextInput id="phone" v-model="form.phone" type="text" class="mt-1 block w-full" />
                             <InputError class="mt-2" :message="form.errors.phone" />
                         </div>
 
                         <div>
-                            <InputLabel for="education_type_id" value="Education Type" />
+                            <InputLabel for="education_type_id" :value="t('doctorsAdmin.educationTypeCol')" />
                             <select
                                 id="education_type_id"
                                 v-model="form.education_type_id"
@@ -112,7 +114,7 @@ const submit = () => {
                         </div>
 
                         <div>
-                            <InputLabel for="stage_id" value="Stage" />
+                            <InputLabel for="stage_id" :value="t('doctorsAdmin.stageCol')" />
                             <select
                                 id="stage_id"
                                 v-model="form.stage_id"
@@ -126,35 +128,35 @@ const submit = () => {
                         </div>
 
                         <div v-if="academicSessions.length">
-                            <InputLabel for="academic_session_id" value="العام الدراسي" />
+                            <InputLabel for="academic_session_id" :value="t('doctorsAdmin.academicSessionLabel')" />
                             <select
                                 id="academic_session_id"
                                 v-model="form.academic_session_id"
                                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                             >
-                                <option value="">غير مرتبط (يظهر في كل الفصول)</option>
+                                <option value="">{{ t('doctorsAdmin.unlinkedSessionOption') }}</option>
                                 <option v-for="s in academicSessions" :key="s.id" :value="s.id">{{ s.name }}</option>
                             </select>
                             <InputError class="mt-2" :message="form.errors.academic_session_id" />
                         </div>
 
                         <div>
-                            <InputLabel for="password" value="New Password" />
-                            <TextInput id="password" v-model="form.password" type="password" class="mt-1 block w-full" placeholder="Leave blank to keep current password" />
+                            <InputLabel for="password" :value="t('doctorsAdmin.newPasswordLabel')" />
+                            <TextInput id="password" v-model="form.password" type="password" class="mt-1 block w-full" :placeholder="t('doctorsAdmin.passwordHint')" />
                             <InputError class="mt-2" :message="form.errors.password" />
                         </div>
 
                         <div>
-                            <InputLabel for="nfc_tag_id" value="NFC Tag ID" />
+                            <InputLabel for="nfc_tag_id" :value="t('doctorsAdmin.nfcTagLabel')" />
                             <TextInput id="nfc_tag_id" v-model="form.nfc_tag_id" type="text" class="mt-1 block w-full" dir="ltr" />
                             <p class="mt-1 text-xs text-gray-500">
-                                Only the Flutter app can scan a tag directly — this field is for manual entry/correction.
+                                {{ t('doctorsAdmin.nfcTagHint') }}
                             </p>
                             <InputError class="mt-2" :message="form.errors.nfc_tag_id" />
                         </div>
 
                         <div>
-                            <InputLabel for="profile_image" value="Profile Photo" />
+                            <InputLabel for="profile_image" :value="t('doctorsAdmin.profilePhotoLabel')" />
                             <img
                                 v-if="doctor.profile_image"
                                 :src="`/storage/${doctor.profile_image}`"
@@ -171,7 +173,7 @@ const submit = () => {
                         </div>
 
                         <div class="flex justify-end">
-                            <PrimaryButton :disabled="form.processing">Update Doctor</PrimaryButton>
+                            <PrimaryButton :disabled="form.processing">{{ t('doctorsAdmin.updateDoctor') }}</PrimaryButton>
                         </div>
                     </form>
                 </div>

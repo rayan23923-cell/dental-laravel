@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:printing/printing.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/pdf/pdf_letterhead.dart';
 import '../../clinic_settings/presentation/clinic_settings_providers.dart';
@@ -16,14 +17,15 @@ class GroupDetailScreen extends ConsumerWidget {
   final int groupId;
 
   Future<void> _delete(BuildContext context, WidgetRef ref, GroupAdmin group) async {
+    final t = ref.read(translationsProvider);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('حذف المجموعة'),
-        content: Text('هل أنت متأكد من حذف "${group.name}"؟'),
+        title: Text(t['groupsAdmin.deleteTitle']!),
+        content: Text(trf(t['groupsAdmin.deleteConfirmBody']!, {'name': group.name})),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('إلغاء')),
-          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('حذف')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(t['groupsAdmin.cancel']!)),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(t['doctorsAdmin.delete']!)),
         ],
       ),
     );
@@ -33,12 +35,12 @@ class GroupDetailScreen extends ConsumerWidget {
       await ref.read(groupsAdminRepositoryProvider).delete(groupId);
       ref.invalidate(groupListProvider);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم الحذف.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['groupsAdmin.deletedSuccess']!)));
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (context.mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الحذف.';
+        final message = e is ApiException ? e.userMessage : t['groupsAdmin.deleteFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     }
@@ -51,7 +53,8 @@ class GroupDetailScreen extends ConsumerWidget {
       ref.invalidate(availableDoctorsProvider);
     } catch (e) {
       if (context.mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الإزالة.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['groupsAdmin.removeFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     }
@@ -74,7 +77,8 @@ class GroupDetailScreen extends ConsumerWidget {
       await Printing.layoutPdf(onLayout: (_) async => bytes, name: '${group.name}.pdf');
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تعذر إنشاء ملف PDF: $e')));
+        final t = ref.read(translationsProvider);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trf(t['groupsAdmin.printFailed']!, {'error': e}))));
       }
     }
   }
@@ -82,12 +86,13 @@ class GroupDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final groupAsync = ref.watch(groupProvider(groupId));
+    final t = ref.watch(translationsProvider);
 
     return groupAsync.when(
       loading: () => Scaffold(appBar: AppBar(), body: const Center(child: CircularProgressIndicator())),
       error: (error, stackTrace) => Scaffold(
         appBar: AppBar(),
-        body: Center(child: Text(error is ApiException ? error.userMessage : 'تعذر التحميل.')),
+        body: Center(child: Text(error is ApiException ? error.userMessage : t['groupsAdmin.loadFailed']!)),
       ),
       data: (group) {
         return Scaffold(
@@ -96,7 +101,7 @@ class GroupDetailScreen extends ConsumerWidget {
             actions: [
               IconButton(
                 icon: const Icon(Icons.print_outlined),
-                tooltip: 'طباعة بيانات المجموعة (PDF)',
+                tooltip: t['groupsAdmin.printTooltip'],
                 onPressed: () => _printRoster(context, ref, group),
               ),
               IconButton(
@@ -109,28 +114,28 @@ class GroupDetailScreen extends ConsumerWidget {
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () => _openAddDoctors(context, ref, group),
             icon: const Icon(Icons.person_add_outlined),
-            label: const Text('إضافة طبيب'),
+            label: Text(t['groupsAdmin.addDoctorFab']!),
           ),
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
               if (group.stageName != null) Text(group.stageName!, style: Theme.of(context).textTheme.bodyMedium),
               const SizedBox(height: 16),
-              Text('المواعيد الأسبوعية', style: Theme.of(context).textTheme.titleMedium),
+              Text(t['groupsAdmin.weeklySlotsHeading']!, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
-              if (group.slots.isEmpty) const Text('لا توجد مواعيد.'),
+              if (group.slots.isEmpty) Text(t['groupsAdmin.noSlots']!),
               for (final slot in group.slots)
                 Card(
                   child: ListTile(
                     dense: true,
                     leading: const Icon(Icons.schedule_outlined),
-                    title: Text('${slot.day} — ${slot.startTime} إلى ${slot.endTime}'),
+                    title: Text('${slot.day} — ${slot.startTime} ${t['groupsAdmin.slotTo']} ${slot.endTime}'),
                   ),
                 ),
               const SizedBox(height: 16),
-              Text('الأطباء (${group.members.length})', style: Theme.of(context).textTheme.titleMedium),
+              Text(trf(t['groupsAdmin.doctorsHeadingWithCount']!, {'n': group.members.length}), style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
-              if (group.members.isEmpty) const Text('لا يوجد أطباء بعد.'),
+              if (group.members.isEmpty) Text(t['groupsAdmin.noDoctorsYet']!),
               for (final member in group.members)
                 Card(
                   child: ListTile(
@@ -177,7 +182,8 @@ class _AddDoctorsDialogState extends ConsumerState<_AddDoctorsDialog> {
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الإضافة.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['groupsAdmin.addFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -188,17 +194,18 @@ class _AddDoctorsDialogState extends ConsumerState<_AddDoctorsDialog> {
   @override
   Widget build(BuildContext context) {
     final doctorsAsync = ref.watch(availableDoctorsProvider(widget.stageId));
+    final t = ref.watch(translationsProvider);
 
     return AlertDialog(
-      title: const Text('إضافة أطباء'),
+      title: Text(t['groupsAdmin.addDoctorsDialogTitle']!),
       content: SizedBox(
         width: double.maxFinite,
         child: doctorsAsync.when(
           loading: () => const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
-          error: (_, __) => const Text('تعذر تحميل قائمة الأطباء المتاحين.'),
+          error: (_, __) => Text(t['groupsAdmin.loadAvailableDoctorsFailed']!),
           data: (doctors) {
             if (doctors.isEmpty) {
-              return const Text('لا يوجد أطباء متاحون لهذه المرحلة.');
+              return Text(t['groupsAdmin.noAvailableDoctorsForStage']!);
             }
             return SizedBox(
               height: 320,
@@ -224,12 +231,12 @@ class _AddDoctorsDialogState extends ConsumerState<_AddDoctorsDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('إلغاء')),
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(t['groupsAdmin.cancel']!)),
         FilledButton(
           onPressed: _submitting ? null : _submit,
           child: _submitting
               ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('إضافة'),
+              : Text(t['groupsAdmin.add']!),
         ),
       ],
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../domain/permission_admin.dart';
 import 'permissions_admin_providers.dart';
@@ -12,22 +13,23 @@ class PermissionUserListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final usersAsync = ref.watch(permissionUserListProvider);
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('الصلاحيات')),
+      appBar: AppBar(title: Text(t['permissionsAdmin.title']!)),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/admin/users/new'),
         icon: const Icon(Icons.person_add_outlined),
-        label: const Text('مستخدم جديد'),
+        label: Text(t['permissionsAdmin.newUserFab']!),
       ),
       body: usersAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stackTrace) => Center(
-          child: Text(error is ApiException ? error.userMessage : 'تعذر التحميل.'),
+          child: Text(error is ApiException ? error.userMessage : t['permissionsAdmin.loadFailed']!),
         ),
         data: (users) {
           if (users.isEmpty) {
-            return const Center(child: Text('لا يوجد مستخدمون.'));
+            return Center(child: Text(t['permissionsAdmin.emptyUsers']!));
           }
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(permissionUserListProvider),

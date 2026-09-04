@@ -6,7 +6,9 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, useForm } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 defineProps({
     educationTypes: Array,
     stages: Array,
@@ -25,25 +27,25 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Import Doctors" />
+    <Head :title="t('doctorsAdmin.importTitle')" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">Import Doctors</h2>
+            <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('doctorsAdmin.importTitle') }}</h2>
         </template>
 
         <div class="py-12">
             <div class="mx-auto max-w-2xl space-y-4 sm:px-6 lg:px-8">
                 <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
                     <p class="mb-4 text-sm text-gray-600">
-                        Upload an Excel file with columns: First Name, Last Name, Email, Phone, Username.
-                        <a :href="route('doctors.template')" class="text-indigo-600 hover:underline">Download the template</a>.
-                        All imported doctors get the same education type, stage, and default password below.
+                        {{ t('doctorsAdmin.importInstructions') }}
+                        <a :href="route('doctors.template')" class="text-indigo-600 hover:underline">{{ t('doctorsAdmin.downloadTemplate') }}</a>.
+                        {{ t('doctorsAdmin.importNote') }}
                     </p>
 
                     <form @submit.prevent="submit" class="space-y-6">
                         <div>
-                            <InputLabel for="file" value="Excel File" />
+                            <InputLabel for="file" :value="t('doctorsAdmin.excelFileLabel')" />
                             <input
                                 id="file"
                                 type="file"
@@ -55,32 +57,32 @@ const submit = () => {
                         </div>
 
                         <div>
-                            <InputLabel for="education_type_id" value="Education Type" />
+                            <InputLabel for="education_type_id" :value="t('doctorsAdmin.educationTypeCol')" />
                             <select id="education_type_id" v-model="form.education_type_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
-                                <option value="" disabled>Select an education type</option>
-                                <option v-for="t in educationTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
+                                <option value="" disabled>{{ t('doctorsAdmin.selectEducationType') }}</option>
+                                <option v-for="et in educationTypes" :key="et.id" :value="et.id">{{ et.name }}</option>
                             </select>
                             <InputError class="mt-2" :message="form.errors.education_type_id" />
                         </div>
 
                         <div>
-                            <InputLabel for="stage_id" value="Stage" />
+                            <InputLabel for="stage_id" :value="t('doctorsAdmin.stageCol')" />
                             <select id="stage_id" v-model="form.stage_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
-                                <option value="" disabled>Select a stage</option>
+                                <option value="" disabled>{{ t('doctorsAdmin.selectStage') }}</option>
                                 <option v-for="s in stages" :key="s.id" :value="s.id">{{ s.name }}</option>
                             </select>
                             <InputError class="mt-2" :message="form.errors.stage_id" />
                         </div>
 
                         <div>
-                            <InputLabel for="default_password" value="Default Password" />
+                            <InputLabel for="default_password" :value="t('doctorsAdmin.defaultPasswordLabel')" />
                             <TextInput id="default_password" v-model="form.default_password" type="text" class="mt-1 block w-full" required />
                             <InputError class="mt-2" :message="form.errors.default_password" />
                         </div>
 
                         <div class="flex justify-end gap-3">
-                            <SecondaryButton :href="route('doctors.index')" as="a">Cancel</SecondaryButton>
-                            <PrimaryButton :disabled="form.processing">Import</PrimaryButton>
+                            <SecondaryButton :href="route('doctors.index')" as="a">{{ t('common.cancel') }}</SecondaryButton>
+                            <PrimaryButton :disabled="form.processing">{{ t('doctorsAdmin.import') }}</PrimaryButton>
                         </div>
                     </form>
                 </div>

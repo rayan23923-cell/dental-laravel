@@ -17,12 +17,14 @@ import StructureTabs from '@/Components/StructureTabs.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import axios from 'axios';
 import Icon from '@/Components/Icon.vue';
 
 // The original's day <select> offers Sunday–Thursday only (the work week).
 const DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
 
+const { t } = useI18n();
 const props = defineProps({
     groups: Array,
     loaded: Boolean,
@@ -110,7 +112,7 @@ const submitEdit = () => {
 };
 
 const destroyGroup = (group) => {
-    if (confirm(`حذف المجموعة "${group.name}"؟ لن يُحذف أطباؤها أو مرضاها.`)) {
+    if (confirm(t('groupsAdmin.deleteConfirm', { name: group.name }))) {
         router.delete(route('groups.destroy', group.id), { preserveScroll: true });
     }
 };
@@ -151,7 +153,7 @@ const allDoctorsSelected = (group) => {
 const removeSelectedDoctors = (group) => {
     const ids = selectionOf(group.id);
     if (!ids.length) return;
-    if (confirm(`إزالة ${ids.length} طبيب/أطباء من "${group.name}"؟`)) {
+    if (confirm(t('groupsAdmin.removeSelectedConfirm', { n: ids.length, name: group.name }))) {
         router.delete(route('groups.doctors.remove', group.id), {
             data: { doctor_ids: ids },
             preserveScroll: true,
@@ -206,11 +208,11 @@ const submitAddDoctors = () => {
 </script>
 
 <template>
-    <Head title="إدارة المجموعات" />
+    <Head :title="t('groupsAdmin.title')" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800"><Icon name="groups" class="ml-1" />إدارة المجموعات</h2>
+            <h2 class="text-xl font-semibold leading-tight text-gray-800"><Icon name="groups" class="ml-1" />{{ t('groupsAdmin.title') }}</h2>
         </template>
 
         <div class="py-12">
@@ -221,7 +223,7 @@ const submitAddDoctors = () => {
                      in the session shown here (switch it from the navbar). -->
                 <div v-if="currentSession" class="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900">
                     <Icon name="calendar_month" class="ml-1" />
-                    مجموعات العام الدراسي <strong>{{ currentSession.name }}</strong>
+                    {{ t('groupsAdmin.sessionBannerPrefix') }} <strong>{{ currentSession.name }}</strong>
                 </div>
 
                 <div v-if="page.props.flash?.success" class="rounded-md bg-green-50 p-4 text-sm text-green-700">
@@ -234,41 +236,41 @@ const submitAddDoctors = () => {
                 <!-- فلاتر -->
                 <div class="grid grid-cols-1 gap-3 rounded-lg bg-white p-4 shadow-sm md:grid-cols-3">
                     <div>
-                        <InputLabel value="نوع الدراسة" />
+                        <InputLabel :value="t('groupsAdmin.educationTypeLabel')" />
                         <select v-model="educationType" @change="stage = ''" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                            <option value="">اختر نوع الدراسة</option>
-                            <option v-for="t in educationTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
+                            <option value="">{{ t('groupsAdmin.chooseEducationType') }}</option>
+                            <option v-for="et in educationTypes" :key="et.id" :value="et.id">{{ et.name }}</option>
                         </select>
                     </div>
                     <div>
-                        <InputLabel value="المرحلة" />
+                        <InputLabel :value="t('groupsAdmin.stageLabel')" />
                         <select v-model="stage" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                            <option value="">عرض جميع المجموعات</option>
+                            <option value="">{{ t('groupsAdmin.showAllGroups') }}</option>
                             <option v-for="s in filteredStages" :key="s.id" :value="s.id">{{ s.name }}</option>
                         </select>
                     </div>
                     <div class="flex items-end">
-                        <PrimaryButton class="w-full justify-center" @click="loadGroups">عرض المجموعات</PrimaryButton>
+                        <PrimaryButton class="w-full justify-center" @click="loadGroups">{{ t('groupsAdmin.showGroups') }}</PrimaryButton>
                     </div>
                 </div>
 
                 <!-- نموذج إضافة مجموعة -->
                 <form @submit.prevent="submitAdd" class="space-y-3 rounded-lg bg-white p-4 shadow-sm">
-                    <h3 class="text-sm font-semibold text-gray-700">إضافة مجموعة</h3>
+                    <h3 class="text-sm font-semibold text-gray-700">{{ t('groupsAdmin.addGroupHeading') }}</h3>
                     <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
                         <div>
-                            <TextInput v-model="addForm.name" type="text" placeholder="اسم المجموعة" class="block w-full" required />
+                            <TextInput v-model="addForm.name" type="text" :placeholder="t('groupsAdmin.groupNamePlaceholder')" class="block w-full" required />
                             <InputError class="mt-1" :message="addForm.errors.name" />
                         </div>
                         <div>
                             <select v-model="addEducationType" @change="addForm.stage_id = ''" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                <option value="">اختر نوع الدراسة أولاً</option>
-                                <option v-for="t in educationTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
+                                <option value="">{{ t('groupsAdmin.chooseEducationTypeFirst') }}</option>
+                                <option v-for="et in educationTypes" :key="et.id" :value="et.id">{{ et.name }}</option>
                             </select>
                         </div>
                         <div>
                             <select v-model="addForm.stage_id" :disabled="!addEducationType" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100" required>
-                                <option value="">اختر المرحلة</option>
+                                <option value="">{{ t('groupsAdmin.chooseStage') }}</option>
                                 <option v-for="s in filteredAddStages" :key="s.id" :value="s.id">{{ s.name }}</option>
                             </select>
                             <InputError class="mt-1" :message="addForm.errors.stage_id" />
@@ -276,7 +278,7 @@ const submitAddDoctors = () => {
                     </div>
 
                     <div>
-                        <InputLabel value="أيام وأوقات المجموعة" />
+                        <InputLabel :value="t('groupsAdmin.slotsLabel')" />
                         <div v-for="(slot, i) in addForm.slots" :key="i" class="mt-2 flex flex-wrap items-center gap-2">
                             <select v-model="slot.day" class="w-32 rounded-md border-gray-300 text-sm shadow-sm">
                                 <option v-for="d in DAYS" :key="d" :value="d">{{ d }}</option>
@@ -286,42 +288,42 @@ const submitAddDoctors = () => {
                             <button type="button" @click="addForm.slots.splice(i, 1)" class="rounded bg-red-500 px-2 py-1 text-white hover:bg-red-600">×</button>
                         </div>
                         <button type="button" @click="addForm.slots.push(emptySlot())" class="mt-2 rounded bg-gray-500 px-3 py-1 text-xs text-white hover:bg-gray-600">
-                            إضافة يوم/وقت
+                            {{ t('groupsAdmin.addSlot') }}
                         </button>
                     </div>
 
                     <button type="submit" :disabled="addForm.processing" class="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
-                        إضافة مجموعة
+                        {{ t('groupsAdmin.addGroupButton') }}
                     </button>
                 </form>
 
                 <!-- Groups -->
                 <div v-if="!loaded" class="rounded-lg bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
-                    اختر الفلاتر ثم اضغط «عرض المجموعات».
+                    {{ t('groupsAdmin.chooseFiltersPrompt') }}
                 </div>
                 <div v-else-if="groups.length === 0" class="rounded-lg bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
-                    لا توجد مجموعات مطابقة.
+                    {{ t('groupsAdmin.noMatchingGroups') }}
                 </div>
 
                 <div v-for="group in groups" :key="group.id" class="overflow-hidden rounded-lg bg-white shadow-sm">
                     <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3">
                         <strong class="text-gray-900">{{ group.name }} ({{ group.stage?.name ?? '—' }})</strong>
                         <div class="flex gap-2">
-                            <button @click="openEdit(group)" class="rounded bg-indigo-600 px-3 py-1 text-xs text-white hover:bg-indigo-700">تعديل</button>
-                            <button @click="destroyGroup(group)" class="rounded bg-red-600 px-3 py-1 text-xs text-white hover:bg-red-700">حذف</button>
+                            <button @click="openEdit(group)" class="rounded bg-indigo-600 px-3 py-1 text-xs text-white hover:bg-indigo-700">{{ t('common.edit') }}</button>
+                            <button @click="destroyGroup(group)" class="rounded bg-red-600 px-3 py-1 text-xs text-white hover:bg-red-700">{{ t('common.delete') }}</button>
                         </div>
                     </div>
 
                     <div class="p-4">
-                        <h4 class="text-sm font-semibold text-gray-700">الأيام والأوقات:</h4>
+                        <h4 class="text-sm font-semibold text-gray-700">{{ t('groupsAdmin.daysAndTimesHeading') }}</h4>
                         <ul class="mt-1 list-inside list-disc text-sm text-gray-600">
                             <li v-for="slot in group.slots" :key="slot.id">
-                                {{ slot.day }} - {{ slot.start_time.slice(0, 5) }} إلى {{ slot.end_time.slice(0, 5) }}
+                                {{ t('groupsAdmin.slotLine', { day: slot.day, start: slot.start_time.slice(0, 5), end: slot.end_time.slice(0, 5) }) }}
                             </li>
-                            <li v-if="group.slots.length === 0" class="list-none text-gray-400">لا توجد أوقات.</li>
+                            <li v-if="group.slots.length === 0" class="list-none text-gray-400">{{ t('groupsAdmin.noSlots') }}</li>
                         </ul>
 
-                        <h4 class="mt-4 text-sm font-semibold text-gray-700">الأطباء:</h4>
+                        <h4 class="mt-4 text-sm font-semibold text-gray-700">{{ t('groupsAdmin.doctorsHeading') }}</h4>
 
                         <template v-if="group.doctors.length">
                             <div class="mt-2 flex flex-wrap gap-2">
@@ -329,7 +331,7 @@ const submitAddDoctors = () => {
                                     :model-value="doctorSearch[group.id] ?? ''"
                                     @update:model-value="doctorSearch = { ...doctorSearch, [group.id]: $event }"
                                     type="text"
-                                    placeholder="ابحث عن طبيب في هذه المجموعة..."
+                                    :placeholder="t('groupsAdmin.searchDoctorInGroupPlaceholder')"
                                     class="min-w-0 flex-grow text-sm"
                                 />
                                 <button
@@ -338,13 +340,13 @@ const submitAddDoctors = () => {
                                     @click="removeSelectedDoctors(group)"
                                     class="whitespace-nowrap rounded bg-red-600 px-3 py-1.5 text-xs text-white hover:bg-red-700 disabled:opacity-40"
                                 >
-                                    <Icon name="delete" class="ml-1" />حذف المحدد ({{ selectionOf(group.id).length }})
+                                    <Icon name="delete" class="ml-1" />{{ t('groupsAdmin.deleteSelectedWithCount', { n: selectionOf(group.id).length }) }}
                                 </button>
                             </div>
 
                             <label class="mt-2 flex items-center gap-2 rounded border border-gray-200 bg-gray-50 p-2 text-sm font-bold text-gray-700">
                                 <input type="checkbox" :checked="allDoctorsSelected(group)" @change="toggleAllDoctors(group)" class="rounded border-gray-300" />
-                                تحديد الكل
+                                {{ t('groupsAdmin.selectAll') }}
                             </label>
 
                             <ul class="mt-2 max-h-72 divide-y divide-gray-200 overflow-y-auto rounded border border-gray-200">
@@ -362,24 +364,24 @@ const submitAddDoctors = () => {
                                         </span>
                                     </label>
                                     <span class="flex shrink-0 gap-2 text-xs">
-                                        <Link :href="route('doctors.progress', doctor.id)" class="text-gray-500 hover:text-gray-800">التقدم</Link>
-                                        <button @click="removeDoctor(group, doctor)" class="text-red-600 hover:text-red-800">إزالة</button>
+                                        <Link :href="route('doctors.progress', doctor.id)" class="text-gray-500 hover:text-gray-800">{{ t('groupsAdmin.progressLink') }}</Link>
+                                        <button @click="removeDoctor(group, doctor)" class="text-red-600 hover:text-red-800">{{ t('groupsAdmin.removeDoctor') }}</button>
                                     </span>
                                 </li>
                                 <li v-if="visibleDoctors(group).length === 0" class="p-3 text-center text-sm text-gray-500">
-                                    لم يتم العثور على أطباء مطابقين للبحث
+                                    {{ t('groupsAdmin.noMatchingDoctorsSearch') }}
                                 </li>
                             </ul>
 
-                            <p class="mt-1 text-xs text-gray-500">إجمالي الأطباء: {{ group.doctors.length }}</p>
+                            <p class="mt-1 text-xs text-gray-500">{{ t('groupsAdmin.totalDoctors', { n: group.doctors.length }) }}</p>
                         </template>
 
                         <div v-else class="mt-2 rounded-md bg-blue-50 p-3 text-sm text-blue-700">
-                            لا يوجد أطباء في هذه المجموعة حالياً
+                            {{ t('groupsAdmin.noDoctorsInGroup') }}
                         </div>
 
                         <button type="button" @click="openAddDoctors(group)" class="mt-3 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
-                            <Icon name="person" class="ml-1" /><Icon name="add" class="ml-1" />إضافة أطباء للمجموعة
+                            <Icon name="person" class="ml-1" /><Icon name="add" class="ml-1" />{{ t('groupsAdmin.addDoctorsToGroup') }}
                         </button>
                     </div>
                 </div>
@@ -389,27 +391,27 @@ const submitAddDoctors = () => {
         <!-- تعديل المجموعة -->
         <Modal :show="editing !== null" @close="editing = null" max-width="2xl">
             <form @submit.prevent="submitEdit" class="p-6">
-                <h2 class="text-lg font-medium text-gray-900">تعديل المجموعة</h2>
+                <h2 class="text-lg font-medium text-gray-900">{{ t('groupsAdmin.editGroupTitle') }}</h2>
                 <div class="mt-4">
-                    <InputLabel value="اسم المجموعة" />
+                    <InputLabel :value="t('groupsAdmin.groupNameLabel')" />
                     <TextInput v-model="editForm.name" type="text" class="mt-1 block w-full" required />
                     <InputError class="mt-1" :message="editForm.errors.name" />
                 </div>
                 <div class="mt-4">
-                    <InputLabel value="نوع الدراسة" />
+                    <InputLabel :value="t('groupsAdmin.educationTypeLabel')" />
                     <select v-model="editEducationType" @change="editForm.stage_id = ''" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-                        <option value="">اختر نوع الدراسة</option>
-                        <option v-for="t in educationTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
+                        <option value="">{{ t('groupsAdmin.chooseEducationType') }}</option>
+                        <option v-for="et in educationTypes" :key="et.id" :value="et.id">{{ et.name }}</option>
                     </select>
                 </div>
                 <div class="mt-4">
-                    <InputLabel value="المرحلة" />
+                    <InputLabel :value="t('groupsAdmin.stageLabel')" />
                     <select v-model="editForm.stage_id" :disabled="!editEducationType" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm disabled:bg-gray-100" required>
                         <option v-for="s in filteredEditGroupStages" :key="s.id" :value="s.id">{{ s.name }}</option>
                     </select>
                 </div>
                 <div class="mt-4">
-                    <InputLabel value="أيام وأوقات المجموعة" />
+                    <InputLabel :value="t('groupsAdmin.slotsLabel')" />
                     <div v-for="(slot, i) in editForm.slots" :key="i" class="mt-2 flex flex-wrap items-center gap-2">
                         <select v-model="slot.day" class="w-32 rounded-md border-gray-300 text-sm shadow-sm">
                             <option v-for="d in DAYS" :key="d" :value="d">{{ d }}</option>
@@ -419,12 +421,12 @@ const submitAddDoctors = () => {
                         <button type="button" @click="editForm.slots.splice(i, 1)" class="rounded bg-red-500 px-2 py-1 text-white hover:bg-red-600">×</button>
                     </div>
                     <button type="button" @click="editForm.slots.push(emptySlot())" class="mt-2 rounded bg-gray-500 px-3 py-1 text-xs text-white hover:bg-gray-600">
-                        إضافة يوم/وقت
+                        {{ t('groupsAdmin.addSlot') }}
                     </button>
                 </div>
                 <div class="mt-6 flex justify-end gap-3">
-                    <SecondaryButton @click="editing = null">إلغاء</SecondaryButton>
-                    <PrimaryButton :disabled="editForm.processing">حفظ</PrimaryButton>
+                    <SecondaryButton @click="editing = null">{{ t('common.cancel') }}</SecondaryButton>
+                    <PrimaryButton :disabled="editForm.processing">{{ t('profile.save') }}</PrimaryButton>
                 </div>
             </form>
         </Modal>
@@ -432,27 +434,27 @@ const submitAddDoctors = () => {
         <!-- إضافة أطباء للمجموعة -->
         <Modal :show="managing !== null" @close="managing = null">
             <div class="p-6">
-                <h2 class="text-lg font-medium text-gray-900">إضافة أطباء إلى «{{ managing?.name }}»</h2>
+                <h2 class="text-lg font-medium text-gray-900">{{ t('groupsAdmin.addDoctorsModalTitle', { name: managing?.name }) }}</h2>
                 <p class="mt-1 text-sm text-gray-500">
-                    تُعرض فقط الأطباء غير المنتمين لأي مجموعة. إضافة طبيب هنا تزيله من أي مجموعة أخرى.
+                    {{ t('groupsAdmin.addDoctorsModalDesc') }}
                 </p>
 
-                <TextInput v-model="availableSearch" type="text" placeholder="ابحث..." class="mt-3 block w-full text-sm" />
+                <TextInput v-model="availableSearch" type="text" :placeholder="t('groupsAdmin.searchPlaceholder')" class="mt-3 block w-full text-sm" />
 
                 <div class="mt-3 max-h-72 space-y-1 overflow-y-auto">
-                    <div v-if="loadingAvailable" class="text-sm text-gray-500">جاري التحميل…</div>
+                    <div v-if="loadingAvailable" class="text-sm text-gray-500">{{ t('common.loading') }}</div>
                     <label v-for="doctor in visibleAvailable" :key="doctor.id" class="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-gray-50">
                         <input type="checkbox" :value="doctor.id" v-model="toAdd" class="rounded border-gray-300" />
                         {{ doctor.name }}
                     </label>
                     <div v-if="!loadingAvailable && visibleAvailable.length === 0" class="text-sm text-gray-400">
-                        لا يوجد أطباء متاحون.
+                        {{ t('groupsAdmin.noAvailableDoctors') }}
                     </div>
                 </div>
 
                 <div class="mt-6 flex justify-end gap-3">
-                    <SecondaryButton @click="managing = null">إلغاء</SecondaryButton>
-                    <PrimaryButton :disabled="toAdd.length === 0" @click="submitAddDoctors">إضافة المحدد</PrimaryButton>
+                    <SecondaryButton @click="managing = null">{{ t('common.cancel') }}</SecondaryButton>
+                    <PrimaryButton :disabled="toAdd.length === 0" @click="submitAddDoctors">{{ t('groupsAdmin.addSelected') }}</PrimaryButton>
                 </div>
             </div>
         </Modal>

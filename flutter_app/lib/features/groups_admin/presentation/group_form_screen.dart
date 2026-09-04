@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/data/lookup_repository.dart';
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/cascading_dropdown.dart';
 import '../data/groups_admin_repository.dart';
@@ -80,13 +81,14 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
 
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? true)) return;
+    final t = ref.read(translationsProvider);
     if (_stageId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('يرجى اختيار المرحلة.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['groupsAdmin.chooseStageMsg']!)));
       return;
     }
     for (final slot in _slots) {
       if (slot.startTime.isEmpty || slot.endTime.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('يرجى تحديد وقت البداية والنهاية لكل موعد.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['groupsAdmin.slotTimesRequiredMsg']!)));
         return;
       }
     }
@@ -108,12 +110,13 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
       }
       ref.invalidate(groupListProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isCreate ? 'تم إضافة المجموعة.' : 'تم الحفظ.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isCreate ? t['groupsAdmin.addedSuccess']! : t['groupsAdmin.savedSuccess']!)));
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الحفظ.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['groupsAdmin.saveFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -126,13 +129,14 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
     final educationTypesAsync = ref.watch(groupEducationTypesProvider);
     final stagesAsync = ref.watch(groupStagesProvider);
     final groupAsync = _isCreate ? null : ref.watch(groupProvider(widget.groupId!));
+    final t = ref.watch(translationsProvider);
 
     if (groupAsync != null) {
       switch (groupAsync) {
         case AsyncError(:final error):
           return Scaffold(
-            appBar: AppBar(title: const Text('مجموعة')),
-            body: Center(child: Text(error is ApiException ? error.userMessage : 'تعذر التحميل.')),
+            appBar: AppBar(title: Text(t['groupsAdmin.singularTitle']!)),
+            body: Center(child: Text(error is ApiException ? error.userMessage : t['groupsAdmin.loadFailed']!)),
           );
         case AsyncData(:final value):
           _seed(value);
@@ -144,7 +148,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
     if (stageItems != null) _deriveEducationType(stageItems);
 
     return Scaffold(
-      appBar: AppBar(title: Text(_isCreate ? 'مجموعة جديدة' : 'تعديل المجموعة')),
+      appBar: AppBar(title: Text(_isCreate ? t['groupsAdmin.newTitle']! : t['groupsAdmin.editTitle']!)),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -152,14 +156,14 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
           children: [
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(labelText: 'الاسم', border: OutlineInputBorder()),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'هذا الحقل مطلوب' : null,
+              decoration: InputDecoration(labelText: t['groupsAdmin.nameLabel'], border: const OutlineInputBorder()),
+              validator: (v) => (v == null || v.trim().isEmpty) ? t['groupsAdmin.requiredField'] : null,
             ),
             const SizedBox(height: 16),
             // UI-only — `Group` has no `education_type_id` column, never
             // sent in the payload. Only narrows the stage picker below.
             CascadingDropdown(
-              label: 'نوع التعليم',
+              label: t['groupsAdmin.educationTypeLabel']!,
               itemsAsync: educationTypesAsync,
               value: _educationTypeId,
               onChanged: (v) => setState(() {
@@ -170,7 +174,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
             const SizedBox(height: 16),
             CascadingDropdown(
               key: ValueKey('stage-$_educationTypeId'),
-              label: 'المرحلة',
+              label: t['groupsAdmin.stageLabel']!,
               itemsAsync: stagesAsync.whenData(
                 (items) => _educationTypeId == null
                     ? items
@@ -183,9 +187,9 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
             const SizedBox(height: 24),
             Row(
               children: [
-                Text('المواعيد الأسبوعية', style: Theme.of(context).textTheme.titleMedium),
+                Text(t['groupsAdmin.weeklySlotsHeading']!, style: Theme.of(context).textTheme.titleMedium),
                 const Spacer(),
-                TextButton.icon(onPressed: _addSlot, icon: const Icon(Icons.add), label: const Text('إضافة موعد')),
+                TextButton.icon(onPressed: _addSlot, icon: const Icon(Icons.add), label: Text(t['groupsAdmin.addSlot']!)),
               ],
             ),
             for (var i = 0; i < _slots.length; i++) _SlotRow(
@@ -200,7 +204,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
               onPressed: _submitting ? null : _submit,
               child: _submitting
                   ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('حفظ'),
+                  : Text(t['groupsAdmin.save']!),
             ),
           ],
         ),
@@ -209,7 +213,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
   }
 }
 
-class _SlotRow extends StatelessWidget {
+class _SlotRow extends ConsumerWidget {
   const _SlotRow({
     required this.slot,
     required this.onDayChanged,
@@ -225,7 +229,8 @@ class _SlotRow extends StatelessWidget {
   final VoidCallback onRemove;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider);
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: Padding(
@@ -245,14 +250,14 @@ class _SlotRow extends StatelessWidget {
             Expanded(
               child: OutlinedButton(
                 onPressed: onPickStart,
-                child: Text(slot.startTime.isEmpty ? 'من' : slot.startTime),
+                child: Text(slot.startTime.isEmpty ? t['groupsAdmin.slotFrom']! : slot.startTime),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: OutlinedButton(
                 onPressed: onPickEnd,
-                child: Text(slot.endTime.isEmpty ? 'إلى' : slot.endTime),
+                child: Text(slot.endTime.isEmpty ? t['groupsAdmin.slotTo']! : slot.endTime),
               ),
             ),
             IconButton(icon: const Icon(Icons.delete_outline), onPressed: onRemove),
