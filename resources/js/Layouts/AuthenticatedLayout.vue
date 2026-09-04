@@ -21,9 +21,11 @@ import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import Icon from '@/Components/Icon.vue';
 import { Link, usePage } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
 
 const showingNavigationDropdown = ref(false);
 const page = usePage();
+const { t } = useI18n();
 
 const isAdmin = computed(() => ['super_admin', 'admin'].includes(page.props.auth.user.role));
 
@@ -84,15 +86,15 @@ const isSettingsGroupActive = computed(
  * the mobile menu ended up missing half the app.
  */
 const primaryLinks = computed(() => [
-    { label: 'الرئيسية', icon: 'dashboard', href: route('dashboard'), active: route().current('dashboard') },
-    { label: 'الأطباء', icon: 'stethoscope', href: route('doctors.index'), active: route().current('doctors.*') },
-    { label: 'المهام', icon: 'assignment', href: route('tasks.index'), active: route().current('tasks.*') },
+    { label: t('nav.home'), icon: 'dashboard', href: route('dashboard'), active: route().current('dashboard') },
+    { label: t('nav.doctors'), icon: 'stethoscope', href: route('doctors.index'), active: route().current('doctors.*') },
+    { label: t('nav.tasks'), icon: 'assignment', href: route('tasks.index'), active: route().current('tasks.*') },
     ...(isAdmin.value
-        ? [{ label: 'تقدم المهام', icon: 'monitoring', href: route('task-progress.index'), active: route().current('task-progress.*') }]
+        ? [{ label: t('nav.taskProgress'), icon: 'monitoring', href: route('task-progress.index'), active: route().current('task-progress.*') }]
         : []),
-    { label: 'السجلات السريرية', icon: 'clinical_notes', href: route('clinical-records.index'), active: isClinicalRecordsActive.value },
-    { label: 'المواعيد', icon: 'event', href: route('appointments.index'), active: route().current('appointments.*') },
-    { label: 'المدفوعات', icon: 'payments', href: route('payments.index'), active: route().current('payments.*') },
+    { label: t('nav.clinicalRecords'), icon: 'clinical_notes', href: route('clinical-records.index'), active: isClinicalRecordsActive.value },
+    { label: t('nav.appointments'), icon: 'event', href: route('appointments.index'), active: route().current('appointments.*') },
+    { label: t('nav.payments'), icon: 'payments', href: route('payments.index'), active: route().current('payments.*') },
 ]);
 
 // "إدارة المرضى" — always visible (patients/patient-registrations are
@@ -101,9 +103,9 @@ const primaryLinks = computed(() => [
 // `patients.index` (the plain patient-record list) and
 // `patient-registrations.create` (its own page, separate from the index).
 const patientsLinks = computed(() => [
-    { label: 'تسجيل مريض جديد', icon: 'person_add', href: route('patient-registrations.create'), active: route().current('patient-registrations.create') },
-    { label: 'تسجيل المرضى', icon: 'how_to_reg', href: route('patient-registrations.index'), active: route().current('patient-registrations.index') },
-    { label: 'قائمة المرضى', icon: 'list_alt', href: route('patients.index'), active: route().current('patients.*') },
+    { label: t('nav.registerPatient'), icon: 'person_add', href: route('patient-registrations.create'), active: route().current('patient-registrations.create') },
+    { label: t('nav.patientRegistrations'), icon: 'how_to_reg', href: route('patient-registrations.index'), active: route().current('patient-registrations.index') },
+    { label: t('nav.patientsList'), icon: 'list_alt', href: route('patients.index'), active: route().current('patients.*') },
 ]);
 
 // "البيانات الأساسية" — admin-only (matches the original's dropdown of the
@@ -111,13 +113,13 @@ const patientsLinks = computed(() => [
 // above because — unlike the original — this app's `groups` routes are
 // admin-only while `doctors` is editor-accessible.
 const structureLinks = computed(() => [
-    { label: 'أنواع التعليم', icon: 'school', href: route('education-types.index'), active: route().current('education-types.*') },
-    { label: 'المراحل', icon: 'stairs', href: route('stages.index'), active: route().current('stages.*') },
-    { label: 'الأقسام', icon: 'apartment', href: route('departments.index'), active: route().current('departments.*') },
-    { label: 'الأعوام الدراسية', icon: 'calendar_month', href: route('academic-sessions.index'), active: route().current('academic-sessions.*') },
-    { label: 'المجموعات', icon: 'groups', href: route('groups.index'), active: route().current('groups.*') },
-    { label: 'خريطة كراسي العيادة', icon: 'chair', href: route('clinic-chairs.index'), active: route().current('clinic-chairs.*') },
-    { label: 'أنواع النماذج السريرية', icon: 'description', href: route('case-sheet-types.index'), active: route().current('case-sheet-types.*') },
+    { label: t('nav.educationTypes'), icon: 'school', href: route('education-types.index'), active: route().current('education-types.*') },
+    { label: t('nav.stages'), icon: 'stairs', href: route('stages.index'), active: route().current('stages.*') },
+    { label: t('nav.departments'), icon: 'apartment', href: route('departments.index'), active: route().current('departments.*') },
+    { label: t('nav.academicSessions'), icon: 'calendar_month', href: route('academic-sessions.index'), active: route().current('academic-sessions.*') },
+    { label: t('nav.groups'), icon: 'groups', href: route('groups.index'), active: route().current('groups.*') },
+    { label: t('nav.clinicChairs'), icon: 'chair', href: route('clinic-chairs.index'), active: route().current('clinic-chairs.*') },
+    { label: t('nav.caseSheetTypes'), icon: 'description', href: route('case-sheet-types.index'), active: route().current('case-sheet-types.*') },
 ]);
 
 // "الإعدادات" — admin-only, new grouped dropdown replacing the flat
@@ -126,13 +128,13 @@ const structureLinks = computed(() => [
 // only from the account menu), `patient-registrations.settings`, and
 // `department-roles.index`.
 const settingsLinks = computed(() => [
-    { label: 'إعدادات العيادة', icon: 'settings', href: route('clinic-settings.edit'), active: route().current('clinic-settings.*') },
-    { label: 'إعدادات التسجيل', icon: 'tune', href: route('patient-registrations.settings'), active: route().current('patient-registrations.settings') || route().current('register-days.*') || route().current('register-services.*') },
-    { label: 'صلاحيات الأقسام', icon: 'badge', href: route('department-roles.index'), active: route().current('department-roles.*') },
-    { label: 'الصلاحيات', icon: 'admin_panel_settings', href: route('permissions.index'), active: route().current('permissions.*') },
-    { label: 'إرسال تنبيه للموظفين', icon: 'campaign', href: route('admin-broadcast.create'), active: route().current('admin-broadcast.*') },
-    { label: 'سجل النشاط', icon: 'history', href: route('activity-logs.index'), active: route().current('activity-logs.*') },
-    { label: 'النسخ الاحتياطي', icon: 'database', href: route('backup.index'), active: route().current('backup.*') },
+    { label: t('nav.clinicSettings'), icon: 'settings', href: route('clinic-settings.edit'), active: route().current('clinic-settings.*') },
+    { label: t('nav.registrationSettings'), icon: 'tune', href: route('patient-registrations.settings'), active: route().current('patient-registrations.settings') || route().current('register-days.*') || route().current('register-services.*') },
+    { label: t('nav.departmentRoles'), icon: 'badge', href: route('department-roles.index'), active: route().current('department-roles.*') },
+    { label: t('nav.permissions'), icon: 'admin_panel_settings', href: route('permissions.index'), active: route().current('permissions.*') },
+    { label: t('nav.sendBroadcast'), icon: 'campaign', href: route('admin-broadcast.create'), active: route().current('admin-broadcast.*') },
+    { label: t('nav.activityLog'), icon: 'history', href: route('activity-logs.index'), active: route().current('activity-logs.*') },
+    { label: t('nav.backup'), icon: 'database', href: route('backup.index'), active: route().current('backup.*') },
 ]);
 
 // One class list for every nav tile — active tiles take the accent gradient,
@@ -193,7 +195,7 @@ const tileClass = (active) => [
                             <template #trigger>
                                 <button type="button" :class="tileClass(isPatientsGroupActive)">
                                     <Icon name="how_to_reg" size="text-[18px]" />
-                                    <span class="whitespace-nowrap">إدارة المرضى</span>
+                                    <span class="whitespace-nowrap">{{ t('nav.patientsGroup') }}</span>
                                     <Icon name="expand_more" size="text-[16px]" />
                                 </button>
                             </template>
@@ -211,7 +213,7 @@ const tileClass = (active) => [
                                 <template #trigger>
                                     <button type="button" :class="tileClass(isStructureActive)">
                                         <Icon name="database" size="text-[18px]" />
-                                        <span class="whitespace-nowrap">البيانات الأساسية</span>
+                                        <span class="whitespace-nowrap">{{ t('nav.structureGroup') }}</span>
                                         <Icon name="expand_more" size="text-[16px]" />
                                     </button>
                                 </template>
@@ -226,7 +228,7 @@ const tileClass = (active) => [
                                 <template #trigger>
                                     <button type="button" :class="tileClass(isSettingsGroupActive)">
                                         <Icon name="settings" size="text-[18px]" />
-                                        <span class="whitespace-nowrap">الإعدادات</span>
+                                        <span class="whitespace-nowrap">{{ t('nav.settingsGroup') }}</span>
                                         <Icon name="expand_more" size="text-[16px]" />
                                     </button>
                                 </template>
@@ -255,8 +257,8 @@ const tileClass = (active) => [
                                 </button>
                             </template>
                             <template #content>
-                                <DropdownLink :href="route('profile.edit')">الملف الشخصي</DropdownLink>
-                                <DropdownLink :href="route('logout')" method="post" as="button">تسجيل الخروج</DropdownLink>
+                                <DropdownLink :href="route('profile.edit')">{{ t('nav.profile') }}</DropdownLink>
+                                <DropdownLink :href="route('logout')" method="post" as="button">{{ t('nav.logout') }}</DropdownLink>
                             </template>
                         </Dropdown>
                     </div>
@@ -266,7 +268,7 @@ const tileClass = (active) => [
                         type="button"
                         @click="showingNavigationDropdown = !showingNavigationDropdown"
                         class="ms-auto inline-flex items-center justify-center rounded-xl bg-surface-2 p-2 text-muted transition hover:text-content sm:hidden"
-                        :aria-label="showingNavigationDropdown ? 'إغلاق القائمة' : 'فتح القائمة'"
+                        :aria-label="showingNavigationDropdown ? t('nav.closeMenu') : t('nav.openMenu')"
                     >
                         <Icon :name="showingNavigationDropdown ? 'close' : 'menu'" size="text-[22px]" />
                     </button>
@@ -283,7 +285,7 @@ const tileClass = (active) => [
                     </div>
 
                     <div class="mt-3 px-1 text-xs font-semibold uppercase tracking-wider text-muted">
-                        إدارة المرضى
+                        {{ t('nav.patientsGroup') }}
                     </div>
                     <div class="mt-1.5 grid grid-cols-2 gap-1.5">
                         <Link v-for="link in patientsLinks" :key="link.href" :href="link.href" :class="tileClass(link.active)">
@@ -294,7 +296,7 @@ const tileClass = (active) => [
 
                     <template v-if="isAdmin">
                         <div class="mt-3 px-1 text-xs font-semibold uppercase tracking-wider text-muted">
-                            البيانات الأساسية
+                            {{ t('nav.structureGroup') }}
                         </div>
                         <div class="mt-1.5 grid grid-cols-2 gap-1.5">
                             <Link v-for="link in structureLinks" :key="link.href" :href="link.href" :class="tileClass(link.active)">
@@ -304,7 +306,7 @@ const tileClass = (active) => [
                         </div>
 
                         <div class="mt-3 px-1 text-xs font-semibold uppercase tracking-wider text-muted">
-                            الإعدادات
+                            {{ t('nav.settingsGroup') }}
                         </div>
                         <div class="mt-1.5 grid grid-cols-2 gap-1.5">
                             <Link v-for="link in settingsLinks" :key="link.href" :href="link.href" :class="tileClass(link.active)">
@@ -323,10 +325,10 @@ const tileClass = (active) => [
                              all but disappears on this dark panel. -->
                         <div class="mt-3 space-y-1">
                             <Link :href="route('profile.edit')" :class="tileClass(route().current('profile.*'))">
-                                <Icon name="account_circle" size="text-[18px]" />الملف الشخصي
+                                <Icon name="account_circle" size="text-[18px]" />{{ t('nav.profile') }}
                             </Link>
                             <Link :href="route('logout')" method="post" as="button" :class="[...tileClass(false), 'w-full']">
-                                <Icon name="logout" size="text-[18px]" />تسجيل الخروج
+                                <Icon name="logout" size="text-[18px]" />{{ t('nav.logout') }}
                             </Link>
                         </div>
                     </div>

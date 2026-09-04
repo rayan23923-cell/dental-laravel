@@ -7,6 +7,23 @@
 <!DOCTYPE html>
 <html
     lang="{{ str_replace('_', '-', app()->getLocale()) }}"
+    {{--
+        Deliberately NOT setting `dir` here from the locale. This document
+        has never carried a `dir` attribute at all (confirmed live —
+        `AuthenticatedLayout.vue`'s ~50 pages were built and have run for
+        months under the browser's implicit LTR default; only
+        `print/layout.blade.php`/`privacy-policy.blade.php`/`DoctorLayout.vue`
+        opt into `dir="rtl"` on their own, standalone templates). Flipping
+        the *document* direction based on locale would re-flow every
+        Tailwind logical-spacing utility (`ms-`/`me-`) and flex/grid
+        ordering across the whole staff app at once — a real visual
+        regression risk for dozens of pages this pass never reviewed.
+        Arabic text still reads correctly right-to-left at the inline
+        level without it (Unicode's own bidi algorithm), which is what
+        every existing page already relies on. RTL as a real per-locale
+        *layout* concern is future work once each page is checked, not a
+        one-line default to flip today.
+    --}}
     data-theme="{{ $theme }}"
     class="{{ \App\Support\ThemePalette::isDark($theme) ? 'theme-dark' : 'theme-light' }}"
     style="{{ \App\Support\ThemePalette::cssVariables($theme) }}"

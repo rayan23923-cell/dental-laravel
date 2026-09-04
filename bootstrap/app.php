@@ -13,6 +13,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
+            // Must run before HandleInertiaRequests — that middleware
+            // shares app()->getLocale() with the frontend and needs the
+            // final resolved value.
+            \App\Http\Middleware\ResolveLocale::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);

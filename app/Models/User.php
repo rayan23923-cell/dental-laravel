@@ -23,6 +23,7 @@ class User extends Authenticatable
         'status',
         'notes',
         'profile_image',
+        'locale',
     ];
 
     protected $hidden = [

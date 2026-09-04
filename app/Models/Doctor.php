@@ -30,6 +30,7 @@ class Doctor extends Authenticatable
         'profile_image',
         'email',
         'nfc_tag_id',
+        'locale',
     ];
 
     protected $hidden = [

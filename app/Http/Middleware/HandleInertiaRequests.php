@@ -35,6 +35,12 @@ class HandleInertiaRequests extends Middleware
     {
         return [
             ...parent::share($request),
+            // Resolved by ResolveLocale (runs before this middleware — see
+            // its own registration order in bootstrap/app.php). Read by
+            // resources/js/i18n.js to initialize vue-i18n with the same
+            // locale the server already rendered `<html lang>` with, so
+            // there's no mismatch flash on first paint.
+            'locale' => app()->getLocale(),
             'auth' => [
                 'user' => $request->user(),
                 'doctor' => auth('doctor')->user(),

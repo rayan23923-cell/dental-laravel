@@ -37,6 +37,8 @@ class ProfileController extends Controller
                 'phone' => $user->phone,
                 'role' => $user->role,
                 'photo_url' => $user->profile_image ? Storage::disk('public')->url($user->profile_image) : null,
+                // null = "follow system language" — see ResolveLocale.
+                'locale' => $user->locale,
             ],
             'status' => session('status'),
         ]);
@@ -51,6 +53,10 @@ class ProfileController extends Controller
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'phone' => ['nullable', 'string', 'max:50'],
             'profile_image' => ['nullable', 'image', 'max:2048'],
+            // "" (the language select's "follow system" option) is already
+            // converted to null by ConvertEmptyStringsToNull before this
+            // rule runs — `nullable` accepts that as "no preference set".
+            'locale' => ['nullable', 'in:ar,en'],
         ]);
 
         if ($request->hasFile('profile_image')) {
