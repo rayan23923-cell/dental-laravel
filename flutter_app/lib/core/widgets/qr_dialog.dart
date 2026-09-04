@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../i18n/locale_controller.dart';
 import 'qr_image.dart';
 
 /// Shared "show this QR in a modal" pattern (2026-08-27) — mirrors the web
@@ -14,6 +16,7 @@ Future<void> showQrDialog(
   required String title,
   String? caption,
 }) {
+  final t = ProviderScope.containerOf(context).read(translationsProvider);
   return showDialog<void>(
     context: context,
     builder: (context) => AlertDialog(
@@ -29,7 +32,7 @@ Future<void> showQrDialog(
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('إغلاق')),
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(t['common.close']!)),
       ],
     ),
   );

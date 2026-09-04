@@ -42,7 +42,8 @@
         "signIn": "Sign In",
         "or": "or",
         "rememberMe": "Remember me",
-        "forgotPassword": "Forgot your password?"
+        "forgotPassword": "Forgot your password?",
+        "signInWithGoogle": "Sign in with Google"
     },
     "profile": {
         "title": "Profile",
@@ -60,5 +61,52 @@
         "currentPassword": "Current Password",
         "newPassword": "New Password",
         "confirmPassword": "Confirm Password"
+    },
+    "common": {
+        "loading": "Loading..."
+    },
+    "sessions": {
+        "title": "Active Sessions",
+        "logoutAll": "Log out of all devices",
+        "empty": "No other devices are currently logged in.",
+        "neverUsed": "Not used yet",
+        "dateLocale": "en-US",
+        "unknownLocation": "Unknown location",
+        "lastActive": "Last active",
+        "end": "End",
+        "endConfirm": "End the session on \"{device}\"?",
+        "logoutAllConfirm": "This will log out all logged-in devices. Continue?"
+    },
+    "qr": {
+        "noCameraSupport": "This browser doesn't support camera access.",
+        "insecureContext": "The camera requires a secure connection (HTTPS) or opening the site via localhost. On a local network address without HTTPS, the browser blocks camera access.",
+        "permissionDenied": "Camera permission was denied. Allow access from your browser settings, then try again.",
+        "startFailed": "Couldn't start the camera: {error}",
+        "stopped": "Camera stopped",
+        "start": "Start scanning",
+        "stop": "Stop",
+        "torchOn": "Turn on flash",
+        "torchOff": "Turn off flash",
+        "switchCamera": "Switch camera",
+        "torchUnavailable": "Flash isn't available on this device/browser (iOS Safari doesn't expose flash control to websites).",
+        "torchNotAllowed": "This device doesn't allow flash control from the browser."
+    },
+    "table": {
+        "noRecords": "No records.",
+        "search": "Search..."
+    },
+    "guest": {
+        "defaultClinicName": "Dental Clinic",
+        "tagline": "Teaching Clinic Management System"
+    },
+    "doctorLayout": {
+        "title": "Doctor Panel",
+        "clinicFallback": "Clinic",
+        "requiredTasks": "Required Tasks by Department",
+        "pendingTasksQr": "Pending Task QR Codes",
+        "progress": "Detailed Task Progress",
+        "current": "Current",
+        "doctorFallback": "Doctor",
+        "doctorAccount": "Doctor Account"
     }
 }

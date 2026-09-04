@@ -42,7 +42,8 @@
         "signIn": "دخول",
         "or": "أو",
         "rememberMe": "تذكّرني",
-        "forgotPassword": "نسيت كلمة المرور؟"
+        "forgotPassword": "نسيت كلمة المرور؟",
+        "signInWithGoogle": "الدخول عبر Google"
     },
     "profile": {
         "title": "الملف الشخصي",
@@ -60,5 +61,52 @@
         "currentPassword": "كلمة المرور الحالية",
         "newPassword": "كلمة المرور الجديدة",
         "confirmPassword": "تأكيد كلمة المرور"
+    },
+    "common": {
+        "loading": "جارٍ التحميل..."
+    },
+    "sessions": {
+        "title": "الأجهزة النشطة",
+        "logoutAll": "تسجيل الخروج من جميع الأجهزة",
+        "empty": "لا توجد أجهزة أخرى مسجّلة الدخول حاليًا.",
+        "neverUsed": "لم يُستخدم بعد",
+        "dateLocale": "ar-EG",
+        "unknownLocation": "الموقع غير معروف",
+        "lastActive": "آخر نشاط",
+        "end": "إنهاء",
+        "endConfirm": "إنهاء الجلسة على \"{device}\"؟",
+        "logoutAllConfirm": "سيتم تسجيل الخروج من جميع الأجهزة المسجّل الدخول منها. متابعة؟"
+    },
+    "qr": {
+        "noCameraSupport": "هذا المتصفح لا يدعم الوصول إلى الكاميرا.",
+        "insecureContext": "الكاميرا تتطلب اتصالاً آمناً (HTTPS) أو فتح الموقع عبر localhost. على عنوان الشبكة المحلية بدون HTTPS يمنع المتصفح تشغيل الكاميرا.",
+        "permissionDenied": "تم رفض إذن الكاميرا. اسمح بالوصول من إعدادات المتصفح ثم أعد المحاولة.",
+        "startFailed": "تعذر تشغيل الكاميرا: {error}",
+        "stopped": "الكاميرا متوقفة",
+        "start": "بدء المسح",
+        "stop": "إيقاف",
+        "torchOn": "تشغيل الفلاش",
+        "torchOff": "إطفاء الفلاش",
+        "switchCamera": "تبديل الكاميرا",
+        "torchUnavailable": "الفلاش غير متاح على هذا الجهاز/المتصفح (متصفح iOS لا يتيح التحكم بالفلاش للمواقع).",
+        "torchNotAllowed": "هذا الجهاز لا يسمح بالتحكم بالفلاش من المتصفح."
+    },
+    "table": {
+        "noRecords": "لا توجد سجلات.",
+        "search": "بحث..."
+    },
+    "guest": {
+        "defaultClinicName": "العيادة السنية",
+        "tagline": "نظام إدارة العيادة التعليمية"
+    },
+    "doctorLayout": {
+        "title": "لوحة الطبيب",
+        "clinicFallback": "العيادة",
+        "requiredTasks": "المهام المطلوبة حسب الأقسام",
+        "pendingTasksQr": "رموز المهام المعلقة",
+        "progress": "تقدم المهام التفصيلي",
+        "current": "الحالي",
+        "doctorFallback": "الطبيب",
+        "doctorAccount": "حساب الطبيب"
     }
 }

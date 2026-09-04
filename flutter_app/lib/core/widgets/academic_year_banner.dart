@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/academic_sessions_admin/presentation/academic_sessions_providers.dart';
+import '../i18n/locale_controller.dart';
 
 /// "العام الدراسي النشط: {name}" — shown on the Doctors/Groups/Tasks/
 /// Task-Progress admin screens and the dashboard, mirroring the
@@ -32,6 +33,7 @@ class AcademicYearBanner extends ConsumerWidget {
     final year = ref.watch(currentAcademicYearProvider).valueOrNull;
     if (year == null) return const SizedBox.shrink();
 
+    final t = ref.watch(translationsProvider);
     final colors = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
@@ -47,7 +49,7 @@ class AcademicYearBanner extends ConsumerWidget {
           const SizedBox(width: 8),
           Text.rich(
             TextSpan(
-              text: 'العام الدراسي النشط: ',
+              text: t['academicYear.active']!,
               style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
               children: [
                 TextSpan(text: year.name, style: const TextStyle(fontWeight: FontWeight.w600)),

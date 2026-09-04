@@ -20,8 +20,10 @@
  */
 import { onBeforeUnmount, ref } from 'vue';
 import jsQR from 'jsqr';
+import { useI18n } from 'vue-i18n';
 import Icon from '@/Components/Icon.vue';
 
+const { t } = useI18n();
 const emit = defineEmits(['decoded', 'close']);
 
 const video = ref(null);
@@ -51,12 +53,11 @@ const start = async () => {
     error.value = '';
 
     if (!navigator.mediaDevices?.getUserMedia) {
-        error.value = 'هذا المتصفح لا يدعم الوصول إلى الكاميرا.';
+        error.value = t('qr.noCameraSupport');
         return;
     }
     if (!secureOk()) {
-        error.value =
-            'الكاميرا تتطلب اتصالاً آمناً (HTTPS) أو فتح الموقع عبر localhost. على عنوان الشبكة المحلية بدون HTTPS يمنع المتصفح تشغيل الكاميرا.';
+        error.value = t('qr.insecureContext');
         return;
     }
 
@@ -93,8 +94,8 @@ const start = async () => {
     } catch (e) {
         error.value =
             e?.name === 'NotAllowedError'
-                ? 'تم رفض إذن الكاميرا. اسمح بالوصول من إعدادات المتصفح ثم أعد المحاولة.'
-                : `تعذر تشغيل الكاميرا: ${e?.message ?? e}`;
+                ? t('qr.permissionDenied')
+                : t('qr.startFailed', { error: e?.message ?? e });
         stop();
     }
 };
@@ -144,7 +145,7 @@ const toggleTorch = async () => {
         torchOn.value = !torchOn.value;
     } catch {
         torchSupported.value = false;
-        error.value = 'هذا الجهاز لا يسمح بالتحكم بالفلاش من المتصفح.';
+        error.value = t('qr.torchNotAllowed');
     }
 };
 
@@ -191,16 +192,16 @@ defineExpose({ start, stop });
             </div>
 
             <div v-if="!scanning" class="absolute inset-0 flex items-center justify-center text-sm text-white/70">
-                الكاميرا متوقفة
+                {{ t('qr.stopped') }}
             </div>
         </div>
 
         <div class="mt-3 flex flex-wrap justify-center gap-2">
             <button v-if="!scanning" type="button" @click="start" class="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
-                <Icon name="play_arrow" class="ml-1" />بدء المسح
+                <Icon name="play_arrow" class="ml-1" />{{ t('qr.start') }}
             </button>
             <button v-else type="button" @click="stop" class="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">
-                <Icon name="stop" class="ml-1" />إيقاف
+                <Icon name="stop" class="ml-1" />{{ t('qr.stop') }}
             </button>
 
             <button
@@ -211,7 +212,7 @@ defineExpose({ start, stop });
                 :class="torchOn ? 'bg-amber-400 text-gray-900' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
             >
                 <Icon :name="torchOn ? 'flashlight_off' : 'flashlight_on'" class="ml-1" />
-                {{ torchOn ? 'إطفاء الفلاش' : 'تشغيل الفلاش' }}
+                {{ torchOn ? t('qr.torchOff') : t('qr.torchOn') }}
             </button>
 
             <button
@@ -220,12 +221,12 @@ defineExpose({ start, stop });
                 @click="switchCamera"
                 class="rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
             >
-                <Icon name="autorenew" class="ml-1" />تبديل الكاميرا
+                <Icon name="autorenew" class="ml-1" />{{ t('qr.switchCamera') }}
             </button>
         </div>
 
         <p v-if="scanning && !torchSupported" class="mt-2 text-center text-xs text-gray-400">
-            الفلاش غير متاح على هذا الجهاز/المتصفح (متصفح iOS لا يتيح التحكم بالفلاش للمواقع).
+            {{ t('qr.torchUnavailable') }}
         </p>
     </div>
 </template>

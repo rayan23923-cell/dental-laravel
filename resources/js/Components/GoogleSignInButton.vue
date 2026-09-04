@@ -12,6 +12,9 @@
  * whenever GOOGLE_CLIENT_ID/SECRET aren't set, so this component doesn't
  * duplicate that check.
  */
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 </script>
 
 <template>
@@ -25,6 +28,6 @@
             <path fill="#FBBC05" d="M3.96 10.71A5.4 5.4 0 0 1 3.68 9c0-.59.1-1.17.28-1.71V4.96H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.04l3-2.33Z" />
             <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.96l3 2.33C4.67 5.16 6.66 3.58 9 3.58Z" />
         </svg>
-        الدخول عبر Google
+        {{ t('auth.signInWithGoogle') }}
     </a>
 </template>

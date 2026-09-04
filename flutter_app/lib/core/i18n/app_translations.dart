@@ -66,6 +66,22 @@ const Map<String, String> kTranslationsAr = {
   'profile.languageSystem': 'حسب لغة النظام',
   'profile.languageAr': 'العربية',
   'profile.languageEn': 'English',
+
+  'common.close': 'إغلاق',
+
+  'settingsMenu.printerSettings': 'إعدادات الطابعة',
+  'settingsMenu.clinicSettings': 'إعدادات العيادة',
+  'settingsMenu.permissions': 'الصلاحيات',
+  'settingsMenu.activityLog': 'سجل النشاط',
+  'settingsMenu.backup': 'النسخ الاحتياطي',
+
+  'screening.blockedFlagged': 'لا يمكن الدفع — نتيجة فحص المريض غير سليمة.',
+  'screening.blockedNotChecked': 'لا يمكن الدفع قبل تأكيد سلامة المريض من الأمراض المعدية عبر فحص المختبر.',
+
+  'payment.paidTotal': 'تم الدفع — إجمالي المدفوع: ',
+  'payment.notPaid': 'لم يتم الدفع',
+
+  'academicYear.active': 'العام الدراسي النشط: ',
 };
 
 const Map<String, String> kTranslationsEn = {
@@ -116,4 +132,20 @@ const Map<String, String> kTranslationsEn = {
   'profile.languageSystem': 'Match system language',
   'profile.languageAr': 'العربية',
   'profile.languageEn': 'English',
+
+  'common.close': 'Close',
+
+  'settingsMenu.printerSettings': 'Printer Settings',
+  'settingsMenu.clinicSettings': 'Clinic Settings',
+  'settingsMenu.permissions': 'Permissions',
+  'settingsMenu.activityLog': 'Activity Log',
+  'settingsMenu.backup': 'Backup',
+
+  'screening.blockedFlagged': "Payment isn't possible — the patient's screening result is flagged.",
+  'screening.blockedNotChecked': "Payment isn't possible until the patient's infectious-disease screening is confirmed clear.",
+
+  'payment.paidTotal': 'Paid — total paid: ',
+  'payment.notPaid': 'Not paid',
+
+  'academicYear.active': 'Active academic year: ',
 };

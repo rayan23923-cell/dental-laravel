@@ -18,10 +18,12 @@
 import BrandMark from '@/Components/BrandMark.vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const page = usePage();
 const settings = computed(() => page.props.clinicSettings || {});
-const clinicName = computed(() => settings.value.name || 'Dental Clinic');
+const clinicName = computed(() => settings.value.name || t('guest.defaultClinicName'));
 const collegeName = computed(() => settings.value.college_name || null);
 const universityName = computed(() => settings.value.university_name || null);
 // University logo preferred over the clinic's own, same precedence
@@ -45,7 +47,7 @@ const year = new Date().getFullYear();
                     <p v-if="collegeName" class="mt-0.5 text-xs text-ig-gray">{{ collegeName }}</p>
                     <p v-if="universityName" class="text-xs text-ig-gray">{{ universityName }}</p>
                     <p v-if="!collegeName && !universityName" class="mt-0.5 text-xs text-ig-gray">
-                        نظام إدارة العيادة التعليمية
+                        {{ t('guest.tagline') }}
                     </p>
                 </Link>
 

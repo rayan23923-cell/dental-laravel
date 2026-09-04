@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../features/patient_registration/domain/patient_registration.dart';
 import '../../features/patient_registration/domain/registration_payment_state.dart';
+import '../i18n/locale_controller.dart';
 
 /// Blocks payment entirely until the infectious-disease/viral-hepatitis
 /// screening comes back "سليم" — pure UX (the real enforcement is
@@ -12,13 +14,14 @@ import '../../features/patient_registration/domain/registration_payment_state.da
 /// (the reception-desk payment flow) so `PaymentFormScreen` (the general
 /// front-desk payment flow) can show the identical banner instead of its
 /// own drifting copy.
-class ScreeningBlockedBanner extends StatelessWidget {
+class ScreeningBlockedBanner extends ConsumerWidget {
   const ScreeningBlockedBanner({super.key, required this.registration});
 
   final PatientRegistration registration;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider);
     final flagged = registration.screeningStatus == 'flagged';
     return Container(
       padding: const EdgeInsets.all(12),
@@ -33,9 +36,7 @@ class ScreeningBlockedBanner extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              flagged
-                  ? 'لا يمكن الدفع — نتيجة فحص المريض غير سليمة.'
-                  : 'لا يمكن الدفع قبل تأكيد سلامة المريض من الأمراض المعدية عبر فحص المختبر.',
+              flagged ? t['screening.blockedFlagged']! : t['screening.blockedNotChecked']!,
               style: TextStyle(color: Colors.red.shade900, fontWeight: FontWeight.w600),
             ),
           ),
@@ -49,13 +50,14 @@ class ScreeningBlockedBanner extends StatelessWidget {
 /// unconditionally (not just when blocked) so "لم يخبرني هل قام بالدفع"
 /// (didn't tell me whether they'd already paid) can never happen again.
 /// Same extraction history as [ScreeningBlockedBanner].
-class PaidBanner extends StatelessWidget {
+class PaidBanner extends ConsumerWidget {
   const PaidBanner({super.key, required this.state});
 
   final RegistrationPaymentState state;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider);
     final color = state.isPaid ? Colors.green : Colors.amber;
     return Container(
       padding: const EdgeInsets.all(12),
@@ -71,8 +73,8 @@ class PaidBanner extends StatelessWidget {
           Expanded(
             child: Text(
               state.isPaid
-                  ? 'تم الدفع — إجمالي المدفوع: ${NumberFormat('#,##0.##').format(state.totalPaid)}'
-                  : 'لم يتم الدفع',
+                  ? '${t['payment.paidTotal']!}${NumberFormat('#,##0.##').format(state.totalPaid)}'
+                  : t['payment.notPaid']!,
               style: TextStyle(color: color.shade900, fontWeight: FontWeight.w600),
             ),
           ),

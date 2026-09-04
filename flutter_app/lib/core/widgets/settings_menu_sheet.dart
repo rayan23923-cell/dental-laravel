@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import '../i18n/locale_controller.dart';
 
 /// Staff-only "الإعدادات" destinations — the exact 5 items already grouped
 /// under that heading in `AdminHubScreen`, deep-linked directly rather than
@@ -12,15 +15,16 @@ class _SettingsItem {
   final String route;
 }
 
-const _kSettingsItems = [
-  _SettingsItem('إعدادات الطابعة', Icons.print_outlined, '/admin/printer-settings'),
-  _SettingsItem('إعدادات العيادة', Icons.settings_outlined, '/admin/clinic-settings'),
-  _SettingsItem('الصلاحيات', Icons.lock_outline, '/admin/permissions'),
-  _SettingsItem('سجل النشاط', Icons.history_outlined, '/admin/activity-log'),
-  _SettingsItem('النسخ الاحتياطي', Icons.backup_outlined, '/admin/backup'),
-];
+List<_SettingsItem> _settingsItems(Map<String, String> t) => [
+      _SettingsItem(t['settingsMenu.printerSettings']!, Icons.print_outlined, '/admin/printer-settings'),
+      _SettingsItem(t['settingsMenu.clinicSettings']!, Icons.settings_outlined, '/admin/clinic-settings'),
+      _SettingsItem(t['settingsMenu.permissions']!, Icons.lock_outline, '/admin/permissions'),
+      _SettingsItem(t['settingsMenu.activityLog']!, Icons.history_outlined, '/admin/activity-log'),
+      _SettingsItem(t['settingsMenu.backup']!, Icons.backup_outlined, '/admin/backup'),
+    ];
 
 Future<void> showAdminSettingsSheet(BuildContext context) {
+  final t = ProviderScope.containerOf(context).read(translationsProvider);
   return showModalBottomSheet(
     context: context,
     showDragHandle: true,
@@ -32,10 +36,10 @@ Future<void> showAdminSettingsSheet(BuildContext context) {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Align(
               alignment: Alignment.centerRight,
-              child: Text('الإعدادات', style: Theme.of(context).textTheme.titleMedium),
+              child: Text(t['nav.settings']!, style: Theme.of(context).textTheme.titleMedium),
             ),
           ),
-          for (final item in _kSettingsItems)
+          for (final item in _settingsItems(t))
             ListTile(
               leading: Icon(item.icon),
               title: Text(item.label),

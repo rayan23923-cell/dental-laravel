@@ -26,16 +26,25 @@
  * prop stays off there rather than showing two competing search boxes.
  */
 import { computed, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
     // { key, label, sortable?: boolean, align?: 'left'|'right'|'center' }
     columns: { type: Array, required: true },
     rows: { type: Array, required: true },
     rowKey: { type: String, default: 'id' },
-    emptyText: { type: String, default: 'No records.' },
+    // null defaults (rather than a hardcoded English string) so a caller
+    // that doesn't override these gets the current locale's text instead
+    // of English leaking into an Arabic page.
+    emptyText: { type: String, default: null },
     searchable: { type: Boolean, default: false },
-    searchPlaceholder: { type: String, default: 'Search...' },
+    searchPlaceholder: { type: String, default: null },
 });
+
+const emptyTextResolved = computed(() => props.emptyText ?? t('table.noRecords'));
+const searchPlaceholderResolved = computed(() => props.searchPlaceholder ?? t('table.search'));
 
 const getPath = (obj, path) => path.split('.').reduce((v, key) => (v == null ? v : v[key]), obj);
 
@@ -87,7 +96,7 @@ const alignClass = (align) => (align === 'right' ? 'text-right' : align === 'cen
             <input
                 v-model="search"
                 type="text"
-                :placeholder="searchPlaceholder"
+                :placeholder="searchPlaceholderResolved"
                 class="block w-full max-w-xs rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             />
         </div>
@@ -127,7 +136,7 @@ const alignClass = (align) => (align === 'right' ? 'text-right' : align === 'cen
                     </tr>
                     <tr v-if="sortedRows.length === 0">
                         <td :colspan="columns.length" class="px-6 py-8 text-center text-sm text-gray-500">
-                            {{ emptyText }}
+                            {{ emptyTextResolved }}
                         </td>
                     </tr>
                 </tbody>
@@ -156,7 +165,7 @@ const alignClass = (align) => (align === 'right' ? 'text-right' : align === 'cen
                 </dl>
             </div>
             <div v-if="sortedRows.length === 0" class="rounded-lg bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
-                {{ emptyText }}
+                {{ emptyTextResolved }}
             </div>
         </div>
     </div>

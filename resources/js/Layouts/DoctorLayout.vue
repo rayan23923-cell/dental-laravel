@@ -17,9 +17,11 @@
  */
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import BrandMark from '@/Components/BrandMark.vue';
 import Icon from '@/Components/Icon.vue';
 
+const { t } = useI18n();
 const page = usePage();
 const open = ref(false);
 const menuOpen = ref(false);
@@ -38,12 +40,12 @@ const selectedSession = computed(() => page.props.selectedAcademicSessionId ?? '
  * instead of an icon. Left over from the emoji→Material Symbols pass, which
  * rewrote the emoji inside this JS string as if it were template markup.
  */
-const NAV = [
-    { route: 'doctor.dashboard', label: 'الرئيسية', icon: 'home' },
-    { route: 'doctor.required-tasks', label: 'المهام المطلوبة حسب الأقسام', icon: 'assignment' },
-    { route: 'doctor.pending-qr', label: 'رموز المهام المعلقة', icon: 'qr_code_2' },
-    { route: 'doctor.progress', label: 'تقدم المهام التفصيلي', icon: 'trending_up' },
-];
+const NAV = computed(() => [
+    { route: 'doctor.dashboard', label: t('nav.home'), icon: 'home' },
+    { route: 'doctor.required-tasks', label: t('doctorLayout.requiredTasks'), icon: 'assignment' },
+    { route: 'doctor.pending-qr', label: t('doctorLayout.pendingTasksQr'), icon: 'qr_code_2' },
+    { route: 'doctor.progress', label: t('doctorLayout.progress'), icon: 'trending_up' },
+]);
 
 const switchSession = (event) => {
     const id = event.target.value;
@@ -69,7 +71,7 @@ const tileClass = (active) => [
                         <img v-if="clinic.logo_url" :src="clinic.logo_url" alt="" class="h-9 w-9 rounded-xl object-contain" />
                         <BrandMark v-else :size="36" />
                         <span class="hidden text-sm font-semibold text-content md:inline">
-                            لوحة الطبيب — {{ clinic.name ?? 'العيادة' }}
+                            {{ t('doctorLayout.title') }} — {{ clinic.name ?? t('doctorLayout.clinicFallback') }}
                         </span>
                     </Link>
 
@@ -97,7 +99,7 @@ const tileClass = (active) => [
                             class="hidden rounded-xl border border-hairline bg-surface-2 px-2 py-1.5 text-xs text-content focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/40 sm:block"
                         >
                             <option v-for="s in sessions" :key="s.id" :value="s.id">
-                                {{ s.name }}{{ s.is_current ? ' [الحالي]' : '' }}
+                                {{ s.name }}{{ s.is_current ? ` [${t('doctorLayout.current')}]` : '' }}
                             </option>
                         </select>
 
@@ -121,8 +123,8 @@ const tileClass = (active) => [
                                     <Icon name="person" size="text-[16px]" />
                                 </span>
                                 <span class="hidden text-right md:block">
-                                    <span class="block text-sm font-semibold leading-tight">{{ doctor.name ?? 'الطبيب' }}</span>
-                                    <span class="block text-[11px] leading-tight text-muted">حساب الطبيب</span>
+                                    <span class="block text-sm font-semibold leading-tight">{{ doctor.name ?? t('doctorLayout.doctorFallback') }}</span>
+                                    <span class="block text-[11px] leading-tight text-muted">{{ t('doctorLayout.doctorAccount') }}</span>
                                 </span>
                                 <Icon name="expand_more" size="text-[16px]" class="text-muted" />
                             </button>
@@ -136,7 +138,7 @@ const tileClass = (active) => [
                                     :href="route('doctor.profile.edit')"
                                     class="flex items-center gap-2 px-4 py-2 text-sm text-content transition hover:bg-surface-2"
                                 >
-                                    <Icon name="edit" size="text-[18px]" />الملف الشخصي
+                                    <Icon name="edit" size="text-[18px]" />{{ t('nav.profile') }}
                                 </Link>
                                 <hr class="my-1 border-hairline/70" />
                                 <Link
@@ -145,7 +147,7 @@ const tileClass = (active) => [
                                     as="button"
                                     class="flex w-full items-center gap-2 px-4 py-2 text-right text-sm text-red-400 transition hover:bg-surface-2"
                                 >
-                                    <Icon name="logout" size="text-[18px]" />تسجيل الخروج
+                                    <Icon name="logout" size="text-[18px]" />{{ t('nav.logout') }}
                                 </Link>
                             </div>
                         </div>
@@ -155,7 +157,7 @@ const tileClass = (active) => [
                             type="button"
                             @click="menuOpen = !menuOpen"
                             class="rounded-xl bg-surface-2 p-2 text-muted transition hover:text-content lg:hidden"
-                            :aria-label="menuOpen ? 'إغلاق القائمة' : 'فتح القائمة'"
+                            :aria-label="menuOpen ? t('nav.closeMenu') : t('nav.openMenu')"
                         >
                             <Icon :name="menuOpen ? 'close' : 'menu'" size="text-[22px]" />
                         </button>
@@ -183,7 +185,7 @@ const tileClass = (active) => [
                         class="mt-3 block w-full rounded-xl border border-hairline bg-surface-2 px-3 py-2 text-xs text-content sm:hidden"
                     >
                         <option v-for="s in sessions" :key="s.id" :value="s.id">
-                            {{ s.name }}{{ s.is_current ? ' [الحالي]' : '' }}
+                            {{ s.name }}{{ s.is_current ? ` [${t('doctorLayout.current')}]` : '' }}
                         </option>
                     </select>
                 </div>
