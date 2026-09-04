@@ -20,6 +20,9 @@ class DoctorResource extends JsonResource
             'education_type_id' => $this->education_type_id,
             'stage_id' => $this->stage_id,
             'nfc_tag_id' => $this->nfc_tag_id,
+            // null = "follow system/browser language" — see
+            // App\Http\Middleware\ResolveLocale's own doc comment.
+            'locale' => $this->locale,
             'education_type' => $this->whenLoaded('educationType', fn () => [
                 'id' => $this->educationType->id,
                 'name' => $this->educationType->name,

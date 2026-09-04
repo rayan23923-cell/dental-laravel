@@ -7,6 +7,7 @@ import '../../features/auth/domain/auth_account.dart';
 import '../../features/auth/presentation/auth_controller.dart';
 import '../../features/auth/presentation/auth_state.dart';
 import '../../features/notifications/presentation/notifications_providers.dart';
+import '../i18n/locale_controller.dart';
 import '../router/nav_destinations.dart';
 import '../theme/app_theme.dart';
 import 'settings_menu_sheet.dart';
@@ -45,7 +46,8 @@ class AppSidebar extends ConsumerWidget {
     final accountType = account?.accountType ?? AccountType.doctor;
     final unreadCount = ref.watch(unreadNotificationCountProvider);
     final currentLocation = GoRouterState.of(context).matchedLocation;
-    final destinations = navDestinationsFor(accountType, unreadNotifications: unreadCount);
+    final t = ref.watch(translationsProvider);
+    final destinations = navDestinationsFor(accountType, unreadNotifications: unreadCount, t: t);
     final theme = Theme.of(context);
 
     return Material(
@@ -69,7 +71,7 @@ class AppSidebar extends ConsumerWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'العيادة التعليمية',
+                    t['nav.clinicName']!,
                     style: theme.textTheme.titleMedium,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -97,7 +99,7 @@ class AppSidebar extends ConsumerWidget {
           if (accountType == AccountType.staff)
             ListTile(
               leading: const Icon(Icons.settings_outlined),
-              title: const Text('الإعدادات'),
+              title: Text(t['nav.settings']!),
               onTap: () {
                 onNavigate?.call();
                 showAdminSettingsSheet(context);
@@ -105,8 +107,8 @@ class AppSidebar extends ConsumerWidget {
             ),
           ListTile(
             leading: const Icon(Icons.logout, color: InstagramColors.red),
-            title: const Text('تسجيل الخروج', style: TextStyle(color: InstagramColors.red)),
-            onTap: () => _confirmLogout(context, ref),
+            title: Text(t['nav.logout']!, style: const TextStyle(color: InstagramColors.red)),
+            onTap: () => _confirmLogout(context, ref, t),
           ),
           const SizedBox(height: 8),
         ],
@@ -114,17 +116,17 @@ class AppSidebar extends ConsumerWidget {
     );
   }
 
-  Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
+  Future<void> _confirmLogout(BuildContext context, WidgetRef ref, Map<String, String> t) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('تسجيل الخروج؟'),
-        content: const Text('سيتم إنهاء الجلسة الحالية.'),
+        title: Text(t['nav.logoutConfirmTitle']!),
+        content: Text(t['nav.logoutConfirmBody']!),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(t['nav.cancel']!)),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('تسجيل الخروج', style: TextStyle(color: InstagramColors.red)),
+            child: Text(t['nav.logout']!, style: const TextStyle(color: InstagramColors.red)),
           ),
         ],
       ),

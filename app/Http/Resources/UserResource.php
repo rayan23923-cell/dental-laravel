@@ -26,6 +26,10 @@ class UserResource extends JsonResource
             // itself. Additive: profile_image is left in place too, since
             // existing callers (e.g. the login response) already read it.
             'profile_image_url' => $this->profile_image ? Storage::disk('public')->url($this->profile_image) : null,
+            // null = "follow system/browser language" — see
+            // App\Http\Middleware\ResolveLocale (web) and the Flutter
+            // LocaleController equivalent.
+            'locale' => $this->locale,
         ];
     }
 }

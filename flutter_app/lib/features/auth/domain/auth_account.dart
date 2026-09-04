@@ -6,6 +6,10 @@ sealed class AuthAccount {
 
   AccountType get accountType;
   String get displayName;
+  // null = "follow system/device language" — see LocaleController's own
+  // doc comment (2026-09-04, by request — same feature as the web's
+  // ResolveLocale, ported here).
+  String? get locale;
 }
 
 /// Mirrors `App\Http\Resources\UserResource`.
@@ -20,6 +24,7 @@ final class StaffAccount extends AuthAccount {
     required this.status,
     required this.profileImage,
     required this.profileImageUrl,
+    required this.locale,
   });
 
   factory StaffAccount.fromJson(Map<String, dynamic> json) => StaffAccount(
@@ -36,6 +41,7 @@ final class StaffAccount extends AuthAccount {
         // (`profileImage`), unlike DoctorAccount which already had a
         // ready-to-use URL.
         profileImageUrl: json['profile_image_url'] as String?,
+        locale: json['locale'] as String?,
       );
 
   final int id;
@@ -47,6 +53,8 @@ final class StaffAccount extends AuthAccount {
   final String status;
   final String? profileImage;
   final String? profileImageUrl;
+  @override
+  final String? locale;
 
   @override
   AccountType get accountType => AccountType.staff;
@@ -70,6 +78,7 @@ final class DoctorAccount extends AuthAccount {
     required this.stageName,
     required this.academicSessionId,
     required this.academicSessionName,
+    required this.locale,
   });
 
   factory DoctorAccount.fromJson(Map<String, dynamic> json) {
@@ -90,6 +99,7 @@ final class DoctorAccount extends AuthAccount {
       stageName: stage?['name'] as String?,
       academicSessionId: json['academic_session_id'] as int?,
       academicSessionName: academicSession?['name'] as String?,
+      locale: json['locale'] as String?,
     );
   }
 
@@ -105,6 +115,8 @@ final class DoctorAccount extends AuthAccount {
   final String? stageName;
   final int? academicSessionId;
   final String? academicSessionName;
+  @override
+  final String? locale;
 
   @override
   AccountType get accountType => AccountType.doctor;

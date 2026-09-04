@@ -34,6 +34,7 @@ class ProfileController extends Controller
                 'email' => ['required', 'email', 'max:250', Rule::unique('doctors', 'email')->ignore($account->id)],
                 'phone' => ['nullable', 'string', 'max:50'],
                 'profile_image' => ['nullable', 'image', 'max:2048'],
+                'locale' => ['nullable', 'in:ar,en'],
             ]);
 
             if ($request->hasFile('profile_image')) {
@@ -55,6 +56,7 @@ class ProfileController extends Controller
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($account->id)],
             'phone' => ['nullable', 'string', 'max:50'],
             'profile_image' => ['nullable', 'image', 'max:2048'],
+            'locale' => ['nullable', 'in:ar,en'],
         ]);
 
         if ($request->hasFile('profile_image')) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/instagram_spinner.dart';
@@ -282,6 +283,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final isLoading = ref.watch(authControllerProvider).isLoading;
     final branding = ref.watch(publicBrandingProvider).valueOrNull;
     final theme = Theme.of(context);
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -300,12 +302,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Center(child: _Logo(logoUrl: branding?.logoUrl)),
                     const SizedBox(height: 16),
                     Text(
-                      'المستشفى التعليمي لكلية طب الأسنان',
+                      t['auth.subtitle1']!,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.titleMedium,
                     ),
                     Text(
-                      'جامعة تكريت',
+                      t['auth.subtitle2']!,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodySmall,
                     ),
@@ -317,7 +319,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           TextButton(
                             onPressed: () =>
                                 setState(() => _networkErrorMessage = null),
-                            child: const Text('إغلاق'),
+                            child: Text(t['auth.closeBanner']!),
                           ),
                         ],
                       ),
@@ -333,12 +335,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ],
                       textInputAction: TextInputAction.next,
                       decoration: InputDecoration(
-                        labelText: 'البريد الإلكتروني أو اسم المستخدم',
+                        labelText: t['auth.loginPlaceholder']!,
                         errorText: _fieldErrors['login'],
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty)
-                          return 'هذا الحقل مطلوب';
+                          return t['auth.requiredField']!;
                         return null;
                       },
                     ),
@@ -350,7 +352,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       textInputAction: TextInputAction.done,
                       onFieldSubmitted: (_) => _submit(),
                       decoration: InputDecoration(
-                        labelText: 'كلمة المرور',
+                        labelText: t['auth.passwordPlaceholder']!,
                         errorText: _fieldErrors['password'],
                         suffixIcon: IconButton(
                           icon: Icon(
@@ -366,7 +368,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty)
-                          return 'هذا الحقل مطلوب';
+                          return t['auth.requiredField']!;
                         return null;
                       },
                     ),
@@ -374,7 +376,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       alignment: AlignmentDirectional.centerEnd,
                       child: TextButton(
                         onPressed: isLoading ? null : _showForgotPasswordDialog,
-                        child: const Text('نسيت كلمة المرور؟'),
+                        child: Text(t['auth.forgotPassword']!),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -382,7 +384,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       onPressed: isLoading ? null : _submit,
                       child: isLoading
                           ? const InstagramSpinner(size: 20, strokeWidth: 2)
-                          : const Text('تسجيل الدخول'),
+                          : Text(t['auth.signIn']!),
                     ),
                   ],
                 ),
