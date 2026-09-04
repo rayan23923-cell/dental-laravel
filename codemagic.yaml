@@ -105,6 +105,18 @@ workflows:
     scripts:
       - name: Get Flutter packages
         script: flutter pub get
+      - name: Disable Swift Package Manager integration
+        # None of flutter_secure_storage/mobile_scanner/nfc_manager/printing
+        # support SPM (Flutter prints this every build — see the plugin
+        # list in the build log), but Flutter still auto-adds a local
+        # FlutterGeneratedPluginSwiftPackage target and it ends up with
+        # "Automatic" signing and no team, which xcodebuild then refuses
+        # to build regardless of --no-codesign on the Runner target
+        # (confirmed 2026-09-04: the Podfile post_install signing
+        # overrides only reach CocoaPods Pods targets, not this one, and
+        # the build still failed with the same "requires a development
+        # team" error afterwards). Turning SPM off entirely avoids it.
+        script: flutter config --no-enable-swift-package-manager
       - name: Install CocoaPods dependencies
         script: |
           cd ios && pod install
