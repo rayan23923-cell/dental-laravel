@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/i18n/locale_controller.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../domain/patient.dart';
 import '../records_providers.dart';
@@ -31,9 +32,10 @@ class _PatientListScreenState extends ConsumerState<PatientListScreen> {
   @override
   Widget build(BuildContext context) {
     final patientsAsync = ref.watch(patientListProvider(_search));
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.pickMode ? 'اختر مريضًا' : 'المرضى')),
+      appBar: AppBar(title: Text(widget.pickMode ? t['recordsHub.pickPatientTitle']! : t['recordsHub.patientsTitle']!)),
       floatingActionButton: widget.pickMode
           ? null
           : FloatingActionButton(
@@ -46,10 +48,10 @@ class _PatientListScreenState extends ConsumerState<PatientListScreen> {
             padding: const EdgeInsets.all(12),
             child: TextField(
               controller: _searchController,
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: 'ابحث بالاسم أو الهاتف',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                hintText: t['recordsHub.searchByNamePhoneHint'],
+                border: const OutlineInputBorder(),
                 isDense: true,
               ),
               onSubmitted: (v) => setState(() => _search = v.trim().isEmpty ? null : v.trim()),
@@ -59,11 +61,11 @@ class _PatientListScreenState extends ConsumerState<PatientListScreen> {
             child: patientsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, stackTrace) => Center(
-                child: Text(error is ApiException ? error.userMessage : 'تعذر التحميل.'),
+                child: Text(error is ApiException ? error.userMessage : t['recordsHub.loadFailed']!),
               ),
               data: (page) {
                 if (page.items.isEmpty) {
-                  return const Center(child: Text('لا يوجد مرضى بعد.'));
+                  return Center(child: Text(t['recordsHub.patientsEmptyList']!));
                 }
                 return RefreshIndicator(
                   onRefresh: () async => ref.invalidate(patientListProvider(_search)),

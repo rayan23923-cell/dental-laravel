@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/i18n/locale_controller.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/widgets/registration_status_banners.dart';
 import '../../../patient_registration/data/patient_registration_repository.dart';
@@ -75,9 +76,10 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
     _seeded = true;
     _amountController.text = payment.amount.toStringAsFixed(2);
     if (payment.patientRegistrationId != null) {
+      final t = ref.read(translationsProvider);
       _registration = PatientRegistration(
         id: payment.patientRegistrationId!,
-        name: payment.patientRegistrationName ?? 'تسجيل #${payment.patientRegistrationId}',
+        name: payment.patientRegistrationName ?? trf(t['recordsHub.registrationFallbackTemplate']!, {'id': '${payment.patientRegistrationId}'}),
         phone: payment.patientRegistrationPhone ?? '',
         age: null,
         sex: null,
@@ -118,7 +120,8 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
         _applyPaymentState(state);
       } catch (e) {
         if (mounted) {
-          final message = e is ApiException ? e.userMessage : 'تعذر التحقق من حالة المريض.';
+          final t = ref.read(translationsProvider);
+          final message = e is ApiException ? e.userMessage : t['recordsHub.checkStatusFailedMsg']!;
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
         }
       } finally {
@@ -172,7 +175,8 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? true)) return;
     if (_registration == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('يرجى اختيار المريض المسجل.')));
+      final t = ref.read(translationsProvider);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['recordsHub.pleaseSelectRegisteredPatientMsg']!)));
       return;
     }
     // Belt-and-suspenders — the amount/submit section is already hidden
@@ -206,12 +210,14 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
       }
       ref.invalidate(paymentListProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isCreate ? 'تم إضافة الدفعة.' : 'تم الحفظ.')));
+        final t = ref.read(translationsProvider);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isCreate ? t['recordsHub.paymentAddedSuccess']! : t['recordsHub.savedSuccess']!)));
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الحفظ.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['recordsHub.saveFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -220,14 +226,15 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
   }
 
   Future<void> _delete() async {
+    final t = ref.read(translationsProvider);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('حذف الدفعة'),
-        content: const Text('هل أنت متأكد من حذف هذه الدفعة؟'),
+        title: Text(t['recordsHub.deletePaymentTitle']!),
+        content: Text(t['recordsHub.deletePaymentConfirm']!),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('إلغاء')),
-          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('حذف')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(t['recordsHub.cancelAction']!)),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(t['recordsHub.deleteAction']!)),
         ],
       ),
     );
@@ -237,12 +244,12 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
       await ref.read(recordsRepositoryProvider).deletePayment(widget.paymentId!);
       ref.invalidate(paymentListProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم الحذف.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['recordsHub.deletedSuccess']!)));
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الحذف.';
+        final message = e is ApiException ? e.userMessage : t['recordsHub.deleteFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     }
@@ -251,13 +258,14 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
   @override
   Widget build(BuildContext context) {
     final paymentAsync = _isCreate ? null : ref.watch(paymentProvider(widget.paymentId!));
+    final t = ref.watch(translationsProvider);
 
     if (paymentAsync != null) {
       switch (paymentAsync) {
         case AsyncError(:final error):
           return Scaffold(
-            appBar: AppBar(title: const Text('دفعة')),
-            body: Center(child: Text(error is ApiException ? error.userMessage : 'تعذر التحميل.')),
+            appBar: AppBar(title: Text(t['recordsHub.paymentTitle']!)),
+            body: Center(child: Text(error is ApiException ? error.userMessage : t['recordsHub.loadFailed']!)),
           );
         case AsyncData(:final value):
           _seed(value);
@@ -268,7 +276,7 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isCreate ? 'دفعة جديدة' : 'تعديل الدفعة'),
+        title: Text(_isCreate ? t['recordsHub.newPaymentTitle']! : t['recordsHub.editPaymentTitle']!),
         actions: [
           if (!_isCreate) IconButton(icon: const Icon(Icons.delete_outline), onPressed: _delete),
         ],
@@ -284,8 +292,8 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
                   child: InkWell(
                     onTap: _pickRegistration,
                     child: InputDecorator(
-                      decoration: const InputDecoration(labelText: 'المريض المسجل', border: OutlineInputBorder(), isDense: true),
-                      child: Text(_registration?.name ?? '— اختر مريضًا مسجلاً —'),
+                      decoration: InputDecoration(labelText: t['recordsHub.registeredPatientLabel'], border: const OutlineInputBorder(), isDense: true),
+                      child: Text(_registration?.name ?? t['recordsHub.selectRegisteredPatientPlaceholder']!),
                     ),
                   ),
                 ),
@@ -298,7 +306,7 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
                     : IconButton.filledTonal(
                         onPressed: _scanRegistration,
                         icon: const Icon(Icons.qr_code_scanner),
-                        tooltip: 'مسح رمز المريض',
+                        tooltip: t['recordsHub.scanPatientTooltip'],
                       ),
               ],
             ),
@@ -318,7 +326,7 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
               ScreeningBlockedBanner(registration: _paymentState!.registration),
             ] else if (_alreadyPaid) ...[
               const SizedBox(height: 16),
-              Text('الدفعات', style: Theme.of(context).textTheme.titleMedium),
+              Text(t['recordsHub.paymentsTitle']!, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               for (final p in _paymentState!.payments)
                 Card(
@@ -332,8 +340,8 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
               TextFormField(
                 controller: _amountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'المبلغ', border: OutlineInputBorder()),
-                validator: (v) => (v == null || double.tryParse(v.trim()) == null) ? 'أدخل مبلغًا صحيحًا' : null,
+                decoration: InputDecoration(labelText: t['recordsHub.amountLabel'], border: const OutlineInputBorder()),
+                validator: (v) => (v == null || double.tryParse(v.trim()) == null) ? t['recordsHub.invalidAmountMsg'] : null,
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -345,7 +353,7 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
                   OutlinedButton.icon(
                     onPressed: _clearAmount,
                     icon: const Icon(Icons.backspace_outlined),
-                    label: const Text('مسح'),
+                    label: Text(t['recordsHub.clearButton']!),
                   ),
                 ],
               ),
@@ -354,7 +362,7 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
                 onPressed: _submitting ? null : _submit,
                 child: _submitting
                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('حفظ'),
+                    : Text(t['recordsHub.saveButton']!),
               ),
             ],
           ],

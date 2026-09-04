@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/i18n/locale_controller.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../domain/payment.dart';
 import '../records_providers.dart';
@@ -59,14 +60,15 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
   @override
   Widget build(BuildContext context) {
     final paymentsAsync = ref.watch(paymentListProvider(_filters));
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('الدفعات'),
+        title: Text(t['recordsHub.paymentsTitle']!),
         actions: [
           IconButton(
             icon: Icon(_hasActiveFilters ? Icons.filter_alt : Icons.filter_alt_outlined),
-            tooltip: 'فلترة',
+            tooltip: t['recordsHub.filterTooltip'],
             onPressed: _openFilters,
           ),
         ],
@@ -81,10 +83,10 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
             padding: const EdgeInsets.all(12),
             child: TextField(
               controller: _searchController,
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: 'ابحث عن شخص لعرض كل مدفوعاته',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                hintText: t['recordsHub.searchPersonHint'],
+                border: const OutlineInputBorder(),
                 isDense: true,
               ),
               onSubmitted: (v) => setState(() => _search = v.trim().isEmpty ? null : v.trim()),
@@ -94,11 +96,11 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
             child: paymentsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, stackTrace) => Center(
-                child: Text(error is ApiException ? error.userMessage : 'تعذر التحميل.'),
+                child: Text(error is ApiException ? error.userMessage : t['recordsHub.loadFailed']!),
               ),
               data: (page) {
                 if (page.items.isEmpty) {
-                  return const Center(child: Text('لا توجد دفعات بعد.'));
+                  return Center(child: Text(t['recordsHub.paymentsEmptyList']!));
                 }
                 return RefreshIndicator(
                   onRefresh: () async => ref.invalidate(paymentListProvider(_filters)),
@@ -118,17 +120,17 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
   }
 }
 
-class _PaymentFilterSheet extends StatefulWidget {
+class _PaymentFilterSheet extends ConsumerStatefulWidget {
   const _PaymentFilterSheet({required this.initialFrom, required this.initialTo, required this.initialSource});
   final DateTime? initialFrom;
   final DateTime? initialTo;
   final String? initialSource;
 
   @override
-  State<_PaymentFilterSheet> createState() => _PaymentFilterSheetState();
+  ConsumerState<_PaymentFilterSheet> createState() => _PaymentFilterSheetState();
 }
 
-class _PaymentFilterSheetState extends State<_PaymentFilterSheet> {
+class _PaymentFilterSheetState extends ConsumerState<_PaymentFilterSheet> {
   late DateTime? _from = widget.initialFrom;
   late DateTime? _to = widget.initialTo;
   late String? _source = widget.initialSource;
@@ -148,6 +150,7 @@ class _PaymentFilterSheetState extends State<_PaymentFilterSheet> {
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('yyyy-MM-dd');
+    final t = ref.watch(translationsProvider);
     return Padding(
       padding: EdgeInsets.only(
         left: 16,
@@ -159,7 +162,7 @@ class _PaymentFilterSheetState extends State<_PaymentFilterSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('فلترة الدفعات', style: Theme.of(context).textTheme.titleMedium),
+          Text(t['recordsHub.filterSheetTitle']!, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -167,7 +170,7 @@ class _PaymentFilterSheetState extends State<_PaymentFilterSheet> {
                 child: InkWell(
                   onTap: () => _pickDate(isFrom: true),
                   child: InputDecorator(
-                    decoration: const InputDecoration(labelText: 'من تاريخ', border: OutlineInputBorder(), isDense: true),
+                    decoration: InputDecoration(labelText: t['recordsHub.fromDateLabel'], border: const OutlineInputBorder(), isDense: true),
                     child: Text(_from == null ? '—' : dateFormat.format(_from!)),
                   ),
                 ),
@@ -177,7 +180,7 @@ class _PaymentFilterSheetState extends State<_PaymentFilterSheet> {
                 child: InkWell(
                   onTap: () => _pickDate(isFrom: false),
                   child: InputDecorator(
-                    decoration: const InputDecoration(labelText: 'إلى تاريخ', border: OutlineInputBorder(), isDense: true),
+                    decoration: InputDecoration(labelText: t['recordsHub.toDateLabel'], border: const OutlineInputBorder(), isDense: true),
                     child: Text(_to == null ? '—' : dateFormat.format(_to!)),
                   ),
                 ),
@@ -187,11 +190,11 @@ class _PaymentFilterSheetState extends State<_PaymentFilterSheet> {
           const SizedBox(height: 16),
           DropdownButtonFormField<String?>(
             initialValue: _source,
-            decoration: const InputDecoration(labelText: 'المصدر', border: OutlineInputBorder(), isDense: true),
-            items: const [
-              DropdownMenuItem(value: null, child: Text('الكل')),
-              DropdownMenuItem(value: 'appointment', child: Text('موعد')),
-              DropdownMenuItem(value: 'registration', child: Text('تسجيل مريض')),
+            decoration: InputDecoration(labelText: t['recordsHub.sourceLabel'], border: const OutlineInputBorder(), isDense: true),
+            items: [
+              DropdownMenuItem(value: null, child: Text(t['recordsHub.sourceAll']!)),
+              DropdownMenuItem(value: 'appointment', child: Text(t['recordsHub.sourceAppointment']!)),
+              DropdownMenuItem(value: 'registration', child: Text(t['recordsHub.sourceRegistration']!)),
             ],
             onChanged: (v) => setState(() => _source = v),
           ),
@@ -201,14 +204,14 @@ class _PaymentFilterSheetState extends State<_PaymentFilterSheet> {
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => Navigator.of(context).pop((from: null, to: null, source: null)),
-                  child: const Text('مسح الفلاتر'),
+                  child: Text(t['recordsHub.clearFiltersButton']!),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton(
                   onPressed: () => Navigator.of(context).pop((from: _from, to: _to, source: _source)),
-                  child: const Text('تطبيق'),
+                  child: Text(t['recordsHub.applyButton']!),
                 ),
               ),
             ],
@@ -219,17 +222,18 @@ class _PaymentFilterSheetState extends State<_PaymentFilterSheet> {
   }
 }
 
-class _PaymentTile extends StatelessWidget {
+class _PaymentTile extends ConsumerWidget {
   const _PaymentTile({required this.payment});
   final Payment payment;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider);
     return Card(
       child: ListTile(
         title: Text(payment.personName),
         subtitle: Text([
-          payment.patientRegistrationName != null ? 'تسجيل مريض' : 'موعد',
+          payment.patientRegistrationName != null ? t['recordsHub.sourceRegistration']! : t['recordsHub.sourceAppointment']!,
           payment.amount.toStringAsFixed(2),
           if (payment.paidBy != null && payment.paidBy!.isNotEmpty) payment.paidBy!,
           if (payment.paidAt != null) payment.paidAt!.split('T').first,

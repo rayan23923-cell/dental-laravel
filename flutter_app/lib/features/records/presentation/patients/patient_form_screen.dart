@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/i18n/locale_controller.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../data/records_repository.dart';
 import '../../domain/patient.dart';
@@ -65,12 +66,14 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
       }
       ref.invalidate(patientListProvider(null));
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isCreate ? 'تم إضافة المريض.' : 'تم الحفظ.')));
+        final t = ref.read(translationsProvider);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isCreate ? t['recordsHub.patientAddedSuccess']! : t['recordsHub.savedSuccess']!)));
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الحفظ.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['recordsHub.saveFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -79,14 +82,15 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
   }
 
   Future<void> _delete() async {
+    final t = ref.read(translationsProvider);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('حذف المريض'),
-        content: const Text('هل أنت متأكد من حذف هذا المريض؟'),
+        title: Text(t['recordsHub.deletePatientTitle']!),
+        content: Text(t['recordsHub.deletePatientConfirm']!),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('إلغاء')),
-          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('حذف')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(t['recordsHub.cancelAction']!)),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(t['recordsHub.deleteAction']!)),
         ],
       ),
     );
@@ -96,12 +100,12 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
       await ref.read(recordsRepositoryProvider).deletePatient(widget.patientId!);
       ref.invalidate(patientListProvider(null));
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم الحذف.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['recordsHub.deletedSuccess']!)));
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الحذف.';
+        final message = e is ApiException ? e.userMessage : t['recordsHub.deleteFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     }
@@ -111,13 +115,14 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
   Widget build(BuildContext context) {
     final stagesAsync = ref.watch(stagesLookupProvider);
     final patientAsync = _isCreate ? null : ref.watch(patientProvider(widget.patientId!));
+    final t = ref.watch(translationsProvider);
 
     if (patientAsync != null) {
       switch (patientAsync) {
         case AsyncError(:final error):
           return Scaffold(
-            appBar: AppBar(title: const Text('مريض')),
-            body: Center(child: Text(error is ApiException ? error.userMessage : 'تعذر التحميل.')),
+            appBar: AppBar(title: Text(t['recordsHub.patientTitle']!)),
+            body: Center(child: Text(error is ApiException ? error.userMessage : t['recordsHub.loadFailed']!)),
           );
         case AsyncData(:final value):
           _seed(value);
@@ -128,7 +133,7 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isCreate ? 'مريض جديد' : 'تعديل المريض'),
+        title: Text(_isCreate ? t['recordsHub.newPatientTitle']! : t['recordsHub.editPatientTitle']!),
         actions: [
           if (!_isCreate) IconButton(icon: const Icon(Icons.delete_outline), onPressed: _delete),
         ],
@@ -140,14 +145,14 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
           children: [
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(labelText: 'الاسم', border: OutlineInputBorder()),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'هذا الحقل مطلوب' : null,
+              decoration: InputDecoration(labelText: t['recordsHub.nameLabel'], border: const OutlineInputBorder()),
+              validator: (v) => (v == null || v.trim().isEmpty) ? t['recordsHub.requiredField'] : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _phoneController,
               keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(labelText: 'رقم الهاتف', border: OutlineInputBorder()),
+              decoration: InputDecoration(labelText: t['recordsHub.phoneLabel'], border: const OutlineInputBorder()),
             ),
             const SizedBox(height: 16),
             stagesAsync.when(
@@ -155,9 +160,9 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
               error: (_, __) => const SizedBox.shrink(),
               data: (stages) => DropdownButtonFormField<int>(
                 initialValue: stages.any((s) => s.id == _stageId) ? _stageId : null,
-                decoration: const InputDecoration(labelText: 'المرحلة', border: OutlineInputBorder()),
+                decoration: InputDecoration(labelText: t['recordsHub.stageLabel'], border: const OutlineInputBorder()),
                 items: [
-                  const DropdownMenuItem(value: null, child: Text('— بدون —')),
+                  DropdownMenuItem(value: null, child: Text(t['recordsHub.noneOption']!)),
                   for (final s in stages) DropdownMenuItem(value: s.id, child: Text(s.name)),
                 ],
                 onChanged: (v) => setState(() => _stageId = v),
@@ -168,7 +173,7 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
               onPressed: _submitting ? null : _submit,
               child: _submitting
                   ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('حفظ'),
+                  : Text(t['recordsHub.saveButton']!),
             ),
           ],
         ),

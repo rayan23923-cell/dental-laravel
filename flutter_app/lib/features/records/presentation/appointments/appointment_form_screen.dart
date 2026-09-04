@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/i18n/locale_controller.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/widgets/cascading_dropdown.dart';
 import '../../../auth/domain/auth_account.dart';
@@ -57,9 +58,10 @@ class _AppointmentFormScreenState extends ConsumerState<AppointmentFormScreen> {
     _confirmedByAccountant = appointment.confirmedByAccountant;
     _pinned = appointment.pinned;
     if (appointment.patientRegistrationId != null) {
+      final t = ref.read(translationsProvider);
       _registration = PatientRegistration(
         id: appointment.patientRegistrationId!,
-        name: appointment.patientRegistrationName ?? 'مريض #${appointment.patientRegistrationId}',
+        name: appointment.patientRegistrationName ?? trf(t['recordsHub.patientFallbackTemplate']!, {'id': '${appointment.patientRegistrationId}'}),
         phone: appointment.patientRegistrationPhone ?? '',
         age: null,
         sex: null,
@@ -114,14 +116,16 @@ class _AppointmentFormScreenState extends ConsumerState<AppointmentFormScreen> {
     // pre-fill) must stay allowed without forcing one retroactively — same
     // partial-update contract as the API's own `sometimes` rule.
     if ((_isCreate && _registration == null) || _taskId == null || _appointmentDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('يرجى اختيار المريض والمهمة والتاريخ.')));
+      final t = ref.read(translationsProvider);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['recordsHub.selectPatientTaskDateMsg']!)));
       return;
     }
 
     final authState = ref.read(authControllerProvider).valueOrNull;
     final account = authState is Authenticated ? authState.account : null;
     if (account is! StaffAccount) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تعذر تحديد المستخدم الحالي.')));
+      final t = ref.read(translationsProvider);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['recordsHub.cannotDetermineUserMsg']!)));
       return;
     }
 
@@ -146,12 +150,14 @@ class _AppointmentFormScreenState extends ConsumerState<AppointmentFormScreen> {
       }
       ref.invalidate(appointmentListProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isCreate ? 'تم إضافة الموعد.' : 'تم الحفظ.')));
+        final t = ref.read(translationsProvider);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isCreate ? t['recordsHub.appointmentAddedSuccess']! : t['recordsHub.savedSuccess']!)));
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الحفظ.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['recordsHub.saveFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -160,14 +166,15 @@ class _AppointmentFormScreenState extends ConsumerState<AppointmentFormScreen> {
   }
 
   Future<void> _delete() async {
+    final t = ref.read(translationsProvider);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('حذف الموعد'),
-        content: const Text('هل أنت متأكد من حذف هذا الموعد؟'),
+        title: Text(t['recordsHub.deleteAppointmentTitle']!),
+        content: Text(t['recordsHub.deleteAppointmentConfirm']!),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('إلغاء')),
-          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('حذف')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(t['recordsHub.cancelAction']!)),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(t['recordsHub.deleteAction']!)),
         ],
       ),
     );
@@ -177,12 +184,12 @@ class _AppointmentFormScreenState extends ConsumerState<AppointmentFormScreen> {
       await ref.read(recordsRepositoryProvider).deleteAppointment(widget.appointmentId!);
       ref.invalidate(appointmentListProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم الحذف.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['recordsHub.deletedSuccess']!)));
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الحذف.';
+        final message = e is ApiException ? e.userMessage : t['recordsHub.deleteFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     }
@@ -192,13 +199,14 @@ class _AppointmentFormScreenState extends ConsumerState<AppointmentFormScreen> {
   Widget build(BuildContext context) {
     final tasksAsync = ref.watch(tasksLookupProvider);
     final appointmentAsync = _isCreate ? null : ref.watch(appointmentProvider(widget.appointmentId!));
+    final t = ref.watch(translationsProvider);
 
     if (appointmentAsync != null) {
       switch (appointmentAsync) {
         case AsyncError(:final error):
           return Scaffold(
-            appBar: AppBar(title: const Text('موعد')),
-            body: Center(child: Text(error is ApiException ? error.userMessage : 'تعذر التحميل.')),
+            appBar: AppBar(title: Text(t['recordsHub.appointmentTitle']!)),
+            body: Center(child: Text(error is ApiException ? error.userMessage : t['recordsHub.loadFailed']!)),
           );
         case AsyncData(:final value):
           _seed(value);
@@ -209,7 +217,7 @@ class _AppointmentFormScreenState extends ConsumerState<AppointmentFormScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isCreate ? 'موعد جديد' : 'تعديل الموعد'),
+        title: Text(_isCreate ? t['recordsHub.newAppointmentTitle']! : t['recordsHub.editAppointmentTitle']!),
         actions: [
           if (!_isCreate) IconButton(icon: const Icon(Icons.delete_outline), onPressed: _delete),
         ],
@@ -221,23 +229,23 @@ class _AppointmentFormScreenState extends ConsumerState<AppointmentFormScreen> {
           children: [
             TextFormField(
               controller: _fullNameController,
-              decoration: const InputDecoration(labelText: 'الاسم الكامل', border: OutlineInputBorder()),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'هذا الحقل مطلوب' : null,
+              decoration: InputDecoration(labelText: t['recordsHub.fullNameLabel'], border: const OutlineInputBorder()),
+              validator: (v) => (v == null || v.trim().isEmpty) ? t['recordsHub.requiredField'] : null,
             ),
             const SizedBox(height: 16),
             InkWell(
               onTap: _pickRegistration,
               child: InputDecorator(
-                decoration: const InputDecoration(labelText: 'المريض المسجل', border: OutlineInputBorder(), isDense: true),
-                child: Text(_registration?.name ?? '— اختر مريضًا مسجلاً —'),
+                decoration: InputDecoration(labelText: t['recordsHub.registeredPatientLabel'], border: const OutlineInputBorder(), isDense: true),
+                child: Text(_registration?.name ?? t['recordsHub.selectRegisteredPatientPlaceholder']!),
               ),
             ),
             if (!_isCreate && _registration == null)
-              const Padding(
-                padding: EdgeInsets.only(top: 4, right: 4),
+              Padding(
+                padding: const EdgeInsets.only(top: 4, right: 4),
                 child: Text(
-                  'هذا الموعد قديم ومرتبط بجدول المرضى السابق مباشرة — اتركه فارغًا للإبقاء عليه كما هو.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  t['recordsHub.legacyAppointmentNote']!,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ),
             const SizedBox(height: 16),
@@ -246,7 +254,7 @@ class _AppointmentFormScreenState extends ConsumerState<AppointmentFormScreen> {
             // all before, unlike every other admin task/diagnosis picker
             // in the app.
             CascadingDropdown(
-              label: 'المهمة',
+              label: t['recordsHub.taskLabel']!,
               itemsAsync: tasksAsync,
               value: _taskId,
               onChanged: (v) => setState(() => _taskId = v),
@@ -255,24 +263,24 @@ class _AppointmentFormScreenState extends ConsumerState<AppointmentFormScreen> {
             InkWell(
               onTap: _pickDate,
               child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'تاريخ الموعد',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: t['recordsHub.appointmentDateLabel'],
+                  border: const OutlineInputBorder(),
                   isDense: true,
-                  suffixIcon: Icon(Icons.calendar_today, size: 18),
+                  suffixIcon: const Icon(Icons.calendar_today, size: 18),
                 ),
-                child: Text(_appointmentDate == null ? '— اختر تاريخًا —' : DateFormat('yyyy-MM-dd').format(_appointmentDate!)),
+                child: Text(_appointmentDate == null ? t['recordsHub.selectDatePlaceholder']! : DateFormat('yyyy-MM-dd').format(_appointmentDate!)),
               ),
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('مؤكد من المحاسب'),
+              title: Text(t['recordsHub.confirmedByAccountantLabel']!),
               value: _confirmedByAccountant,
               onChanged: (v) => setState(() => _confirmedByAccountant = v),
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('مثبت (Pinned)'),
+              title: Text(t['recordsHub.pinnedLabel']!),
               value: _pinned,
               onChanged: (v) => setState(() => _pinned = v),
             ),
@@ -281,7 +289,7 @@ class _AppointmentFormScreenState extends ConsumerState<AppointmentFormScreen> {
               onPressed: _submitting ? null : _submit,
               child: _submitting
                   ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('حفظ'),
+                  : Text(t['recordsHub.saveButton']!),
             ),
           ],
         ),
