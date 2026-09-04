@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import 'case_sheet_form_providers.dart';
 
@@ -13,13 +14,14 @@ class CaseSheetTypesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final resourcesAsync = ref.watch(caseSheetResourceListProvider);
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('النماذج السريرية')),
+      appBar: AppBar(title: Text(t['caseSheetForm.typesTitle']!)),
       body: resourcesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stackTrace) => Center(
-          child: Text(error is ApiException ? error.userMessage : 'تعذر التحميل.'),
+          child: Text(error is ApiException ? error.userMessage : t['caseSheetForm.loadFailed']!),
         ),
         data: (resources) => ListView.separated(
           padding: const EdgeInsets.all(12),

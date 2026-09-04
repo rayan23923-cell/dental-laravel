@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../domain/case_sheet_form_schema.dart';
 import 'case_sheet_form_providers.dart';
@@ -14,16 +15,17 @@ class CaseSheetRecordListScreen extends ConsumerWidget {
   const CaseSheetRecordListScreen({super.key, required this.resource});
   final String resource;
 
-  String _label(Map<String, dynamic> record) {
+  String _label(Map<String, dynamic> record, Map<String, String> t) {
     final name = record['patient_name'] ?? record['case_no'];
     if (name is String && name.isNotEmpty) return name;
-    return 'سجل #${record['id']}';
+    return trf(t['caseSheetForm.recordFallbackTemplate']!, {'id': '${record['id']}'});
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final recordsAsync = ref.watch(caseSheetRecordListProvider(resource));
     final schemaAsync = ref.watch(caseSheetFormSchemaProvider(resource));
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
       appBar: AppBar(title: Text(schemaAsync.valueOrNull?.title ?? resource)),
@@ -36,11 +38,11 @@ class CaseSheetRecordListScreen extends ConsumerWidget {
       body: recordsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stackTrace) => Center(
-          child: Text(error is ApiException ? error.userMessage : 'تعذر التحميل.'),
+          child: Text(error is ApiException ? error.userMessage : t['caseSheetForm.loadFailed']!),
         ),
         data: (page) {
           if (page.items.isEmpty) {
-            return const Center(child: Text('لا توجد سجلات بعد.'));
+            return Center(child: Text(t['caseSheetForm.recordsEmptyList']!));
           }
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(caseSheetRecordListProvider(resource)),
@@ -52,7 +54,7 @@ class CaseSheetRecordListScreen extends ConsumerWidget {
                 final record = page.items[i];
                 return Card(
                   child: ListTile(
-                    title: Text(_label(record)),
+                    title: Text(_label(record, t)),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [

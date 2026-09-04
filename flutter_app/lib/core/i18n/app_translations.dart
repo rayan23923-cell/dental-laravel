@@ -739,6 +739,44 @@ const Map<String, String> kTranslationsAr = {
 
   'recordsHub.registrationFallbackTemplate': 'تسجيل #{id}',
   'recordsHub.patientFallbackTemplate': 'مريض #{id}',
+
+
+  // Phase 16 — Flutter case-sheet form chrome (types list, record list, dynamic form)
+  'caseSheetForm.typesTitle': 'النماذج السريرية',
+  'caseSheetForm.loadFailed': 'تعذر التحميل.',
+  'caseSheetForm.recordsEmptyList': 'لا توجد سجلات بعد.',
+  'caseSheetForm.recordFallbackTemplate': 'سجل #{id}',
+
+  'caseSheetForm.printTooltip': 'طباعة',
+  'caseSheetForm.caseCodeTooltip': 'رمز الحالة',
+  'caseSheetForm.caseCodeCaption': 'يُمسح هذا الرمز لإعادة فتح هذه الحالة مباشرة.',
+  'caseSheetForm.scanPatientTooltip': 'مسح رمز المريض',
+  'caseSheetForm.loadFormFailedMsg': 'تعذر تحميل النموذج.',
+  'caseSheetForm.savedLocallyMsg': 'تم الحفظ محليًا، سيُزامن تلقائيًا عند توفر الاتصال.',
+  'caseSheetForm.savedSuccessMsg': 'تم الحفظ بنجاح.',
+  'caseSheetForm.saveFailedMsg': 'تعذر الحفظ.',
+  'caseSheetForm.cannotDetermineDoctorMsg': 'تعذر تحديد الطبيب الحالي.',
+  'caseSheetForm.recordCreatedMsg': 'تم إنشاء السجل بنجاح.',
+  'caseSheetForm.createFailedMsg': 'تعذر إنشاء السجل.',
+  'caseSheetForm.printFailedMsg': 'تعذر إنشاء ملف الطباعة.',
+
+  'caseSheetForm.saveButton': 'حفظ',
+  'caseSheetForm.stagesEvaluationHeading': 'المراحل والتقييم',
+  'caseSheetForm.gradeLabel': 'الدرجة',
+  'caseSheetForm.dateLabel': 'التاريخ',
+  'caseSheetForm.dentalArchHeading': 'قوس الأسنان',
+  'caseSheetForm.stageSignPendingNote': 'عند الحفظ',
+  'caseSheetForm.signButton': 'توقيع',
+  'caseSheetForm.completeGradeDateFirst': 'أكمل الدرجة والتاريخ أولاً',
+  'caseSheetForm.willBeRecordedNote': 'سيُسجَّل التوقيع باسمك عند الحفظ',
+  'caseSheetForm.cancelAction': 'إلغاء',
+  'caseSheetForm.selectOptionPlaceholder': '— اختر —',
+  'caseSheetForm.requiredField': 'هذا الحقل مطلوب',
+  'caseSheetForm.noDataPlaceholder': '(لا توجد بيانات)',
+  'caseSheetForm.notSupportedYetTemplate': 'غير مدعوم في التطبيق بعد ({type})',
+
+  'caseSheetForm.selectDatePlaceholder': '— اختر تاريخًا —',
+  'caseSheetForm.selectTimePlaceholder': '— اختر وقتًا —',
 };
 
 const Map<String, String> kTranslationsEn = {
@@ -1462,4 +1500,42 @@ const Map<String, String> kTranslationsEn = {
 
   'recordsHub.registrationFallbackTemplate': 'Registration #{id}',
   'recordsHub.patientFallbackTemplate': 'Patient #{id}',
+
+
+  // Phase 16 — Flutter case-sheet form chrome (types list, record list, dynamic form)
+  'caseSheetForm.typesTitle': 'Clinical Forms',
+  'caseSheetForm.loadFailed': "Couldn't load.",
+  'caseSheetForm.recordsEmptyList': 'No records yet.',
+  'caseSheetForm.recordFallbackTemplate': 'Record #{id}',
+
+  'caseSheetForm.printTooltip': 'Print',
+  'caseSheetForm.caseCodeTooltip': 'Case Code',
+  'caseSheetForm.caseCodeCaption': 'Scan this code to reopen this case directly.',
+  'caseSheetForm.scanPatientTooltip': 'Scan Patient Code',
+  'caseSheetForm.loadFormFailedMsg': "Couldn't load the form.",
+  'caseSheetForm.savedLocallyMsg': 'Saved locally — it will sync automatically once a connection is available.',
+  'caseSheetForm.savedSuccessMsg': 'Saved successfully.',
+  'caseSheetForm.saveFailedMsg': "Couldn't save.",
+  'caseSheetForm.cannotDetermineDoctorMsg': 'Could not determine the current doctor.',
+  'caseSheetForm.recordCreatedMsg': 'Record created successfully.',
+  'caseSheetForm.createFailedMsg': "Couldn't create the record.",
+  'caseSheetForm.printFailedMsg': "Couldn't create the print file.",
+
+  'caseSheetForm.saveButton': 'Save',
+  'caseSheetForm.stagesEvaluationHeading': 'Stages and Evaluation',
+  'caseSheetForm.gradeLabel': 'Grade',
+  'caseSheetForm.dateLabel': 'Date',
+  'caseSheetForm.dentalArchHeading': 'Dental Arch',
+  'caseSheetForm.stageSignPendingNote': 'Upon saving',
+  'caseSheetForm.signButton': 'Sign',
+  'caseSheetForm.completeGradeDateFirst': 'Complete the grade and date first',
+  'caseSheetForm.willBeRecordedNote': 'The signature will be recorded under your name upon saving',
+  'caseSheetForm.cancelAction': 'Cancel',
+  'caseSheetForm.selectOptionPlaceholder': '— Select —',
+  'caseSheetForm.requiredField': 'This field is required',
+  'caseSheetForm.noDataPlaceholder': '(No data)',
+  'caseSheetForm.notSupportedYetTemplate': 'Not yet supported in the app ({type})',
+
+  'caseSheetForm.selectDatePlaceholder': '— Select a date —',
+  'caseSheetForm.selectTimePlaceholder': '— Select a time —',
 };

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../dental_chart/presentation/tooth_odontogram_field.dart';
 import '../../endodontics/presentation/endodontics_field.dart';
 import '../../perio_chart/presentation/advanced_perio_chart_sessions_field.dart';
@@ -83,8 +84,21 @@ class DynamicSectionForm extends StatefulWidget {
     required this.record,
     required this.readonly,
     required this.onSubmit,
+    required this.t,
     this.supervisorEditableFields = const [],
   });
+
+  /// Translations for this form's own static chrome (buttons, "Sign",
+  /// "Cancel", required-field errors, …) — never applied to `field.label`/
+  /// `section.title`, which come from the server's own case-sheet layout
+  /// registry and stay exactly as-is regardless of locale, by request (see
+  /// `app_translations.dart`'s class doc). Passed in from
+  /// `CaseSheetFormScreen`, the one `ConsumerWidget` in this chain — this
+  /// widget and its private field-type widgets below are plain
+  /// `StatefulWidget`s with no `ref` of their own, so `t` rides down
+  /// through `state`/`widget.state` the same way `readonly` already does,
+  /// rather than converting this whole subtree to Riverpod.
+  final Map<String, String> t;
 
   /// The case-sheet resource slug (e.g. `"prosthodontics-records"`) — used
   /// only to gate the resource-specific extras below `sections()`
@@ -114,6 +128,8 @@ class DynamicSectionForm extends StatefulWidget {
 }
 
 class DynamicSectionFormState extends State<DynamicSectionForm> {
+  Map<String, String> get t => widget.t;
+
   final _formKey = GlobalKey<FormState>();
   final Map<String, dynamic> _values = {};
   final Map<String, Map<String, dynamic>> _groupOriginals = {};
@@ -491,7 +507,7 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
               onPressed: _submitting ? null : _submit,
               child: _submitting
                   ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('حفظ'),
+                  : Text(t['caseSheetForm.saveButton']!),
             ),
           ],
         ],
@@ -527,7 +543,7 @@ class _StageEvaluationTable extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Stages and evaluation', style: Theme.of(context).textTheme.titleMedium),
+            Text(state.t['caseSheetForm.stagesEvaluationHeading']!, style: Theme.of(context).textTheme.titleMedium),
             for (final stage in stages) _StageRow(stage: stage, state: state),
           ],
         ),
@@ -579,7 +595,7 @@ class _StageRowState extends State<_StageRow> {
                   controller: widget.state._controllers['stage_${key}_grade'],
                   enabled: !widget.state.stageFieldDisabled(key, 'grade'),
                   style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(labelText: 'Grade', hintText: '9/10', isDense: true, border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: widget.state.t['caseSheetForm.gradeLabel'], hintText: '9/10', isDense: true, border: const OutlineInputBorder()),
                   onChanged: (v) => setState(() => widget.state._values['stage_${key}_grade'] = v),
                 ),
               ),
@@ -639,7 +655,7 @@ class _StageSignatureFieldState extends State<_StageSignatureField> {
 
     if (value == _sentinel) {
       return Row(children: [
-        Expanded(child: Text('عند الحفظ', style: TextStyle(fontSize: 11, color: Colors.indigo.shade800))),
+        Expanded(child: Text(widget.state.t['caseSheetForm.stageSignPendingNote']!, style: TextStyle(fontSize: 11, color: Colors.indigo.shade800))),
         IconButton(
           icon: const Icon(Icons.close, size: 16),
           onPressed: () => setState(() => widget.state._values[_formKey] = ''),
@@ -656,10 +672,10 @@ class _StageSignatureFieldState extends State<_StageSignatureField> {
         OutlinedButton(
           onPressed: (disabled || !readyToSign) ? null : () => setState(() => widget.state._values[_formKey] = _sentinel),
           style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6)),
-          child: const Text('توقيع', style: TextStyle(fontSize: 12)),
+          child: Text(widget.state.t['caseSheetForm.signButton']!, style: const TextStyle(fontSize: 12)),
         ),
         if (!disabled && !readyToSign)
-          Text('أكمل الدرجة والتاريخ أولاً', style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+          Text(widget.state.t['caseSheetForm.completeGradeDateFirst']!, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
       ],
     );
   }
@@ -685,11 +701,11 @@ class _StageDateFieldState extends State<_StageDateField> {
     return InkWell(
       onTap: disabled ? null : () => _pick(value),
       child: InputDecorator(
-        decoration: const InputDecoration(
-          labelText: 'Date',
+        decoration: InputDecoration(
+          labelText: widget.state.t['caseSheetForm.dateLabel'],
           isDense: true,
-          border: OutlineInputBorder(),
-          suffixIcon: Icon(Icons.calendar_today, size: 16),
+          border: const OutlineInputBorder(),
+          suffixIcon: const Icon(Icons.calendar_today, size: 16),
         ),
         child: Text(value.isEmpty ? '—' : value, style: const TextStyle(fontSize: 13)),
       ),
@@ -766,7 +782,7 @@ class _ProsthodonticsDentalArchPreview extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Dental Arch', style: Theme.of(context).textTheme.titleMedium),
+            Text(state.t['caseSheetForm.dentalArchHeading']!, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             Center(child: SizedBox(width: 220, child: SvgPicture.string(svg))),
           ],
@@ -901,10 +917,10 @@ class _SignatureFieldState extends State<_SignatureField> {
               borderRadius: BorderRadius.circular(6),
             ),
             child: Row(children: [
-              Expanded(child: Text('سيُسجَّل التوقيع باسمك عند الحفظ', style: TextStyle(color: Colors.indigo.shade800))),
+              Expanded(child: Text(widget.state.t['caseSheetForm.willBeRecordedNote']!, style: TextStyle(color: Colors.indigo.shade800))),
               TextButton(
                 onPressed: () => setState(() => widget.state._values[widget.field.formKey] = ''),
-                child: const Text('إلغاء'),
+                child: Text(widget.state.t['caseSheetForm.cancelAction']!),
               ),
             ]),
           )
@@ -912,7 +928,7 @@ class _SignatureFieldState extends State<_SignatureField> {
           OutlinedButton.icon(
             onPressed: disabled ? null : () => setState(() => widget.state._values[widget.field.formKey] = _sentinel),
             icon: const Icon(Icons.draw, size: 18),
-            label: const Text('توقيع'),
+            label: Text(widget.state.t['caseSheetForm.signButton']!),
           ),
       ],
     );
@@ -945,7 +961,7 @@ class _TextField extends StatelessWidget {
             isDense: true,
             helperText: field.help,
           ),
-          validator: field.required ? (v) => (v == null || v.trim().isEmpty) ? 'هذا الحقل مطلوب' : null : null,
+          validator: field.required ? (v) => (v == null || v.trim().isEmpty) ? state.t['caseSheetForm.requiredField'] : null : null,
           onChanged: (v) => state._values[field.formKey] = v,
         ),
       ],
@@ -1000,13 +1016,13 @@ class _SelectFieldState extends State<_SelectField> {
           initialValue: validValue,
           decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
           items: [
-            const DropdownMenuItem(value: null, child: Text('— اختر —')),
+            DropdownMenuItem(value: null, child: Text(widget.state.t['caseSheetForm.selectOptionPlaceholder']!)),
             for (final o in widget.field.options) DropdownMenuItem(value: o.value, child: Text(o.label)),
           ],
           onChanged: widget.state.fieldDisabled(widget.field)
               ? null
               : (v) => setState(() => widget.state._values[widget.field.formKey] = v ?? ''),
-          validator: widget.field.required ? (v) => (v == null || v.isEmpty) ? 'هذا الحقل مطلوب' : null : null,
+          validator: widget.field.required ? (v) => (v == null || v.isEmpty) ? widget.state.t['caseSheetForm.requiredField'] : null : null,
         ),
       ],
     );
@@ -1120,7 +1136,7 @@ class _DateFieldState extends State<_DateField> {
           onTap: widget.state.fieldDisabled(widget.field) ? null : () => _pick(context, value),
           child: InputDecorator(
             decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true, suffixIcon: Icon(Icons.calendar_today, size: 18)),
-            child: Text(value.isEmpty ? '— اختر تاريخًا —' : value),
+            child: Text(value.isEmpty ? widget.state.t['caseSheetForm.selectDatePlaceholder']! : value),
           ),
         ),
       ],
@@ -1162,7 +1178,7 @@ class _TimeFieldState extends State<_TimeField> {
           onTap: widget.state.fieldDisabled(widget.field) ? null : () => _pick(context, value),
           child: InputDecorator(
             decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true, suffixIcon: Icon(Icons.access_time, size: 18)),
-            child: Text(value.isEmpty ? '— اختر وقتًا —' : value),
+            child: Text(value.isEmpty ? widget.state.t['caseSheetForm.selectTimePlaceholder']! : value),
           ),
         ),
       ],
@@ -1491,7 +1507,7 @@ class _UnsupportedField extends StatelessWidget {
     } else {
       raw = state.widget.record[field.key];
     }
-    final preview = raw == null || (raw is String && raw.isEmpty) ? '(لا توجد بيانات)' : raw.toString();
+    final preview = raw == null || (raw is String && raw.isEmpty) ? state.t['caseSheetForm.noDataPlaceholder']! : raw.toString();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1504,7 +1520,7 @@ class _UnsupportedField extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('غير مدعوم في التطبيق بعد (${field.type})', style: const TextStyle(color: Colors.orange, fontSize: 12)),
+              Text(trf(state.t['caseSheetForm.notSupportedYetTemplate']!, {'type': field.type}), style: const TextStyle(color: Colors.orange, fontSize: 12)),
               const SizedBox(height: 4),
               Text(preview, maxLines: 3, overflow: TextOverflow.ellipsis),
             ],

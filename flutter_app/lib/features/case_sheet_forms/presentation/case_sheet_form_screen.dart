@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/pdf/pdf_letterhead.dart';
@@ -89,6 +90,7 @@ class CaseSheetFormScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final schemaAsync = ref.watch(caseSheetFormSchemaProvider(resource));
+    final t = ref.watch(translationsProvider);
     final isCreate = recordId == null;
     // A blank create seeds from the task instance's own already-linked
     // patient when there is one (see caseSheetPatientPrefillProvider's own
@@ -116,18 +118,18 @@ class CaseSheetFormScreen extends ConsumerWidget {
           if (!isCreate && kCaseSheetPrintableResources.contains(resource))
             IconButton(
               icon: const Icon(Icons.print_outlined),
-              tooltip: 'طباعة',
+              tooltip: t['caseSheetForm.printTooltip'],
               onPressed: () => _print(context, ref),
             ),
           if (taskInstanceId != null)
             IconButton(
               icon: const Icon(Icons.qr_code_2),
-              tooltip: 'رمز الحالة',
+              tooltip: t['caseSheetForm.caseCodeTooltip'],
               onPressed: () => showQrDialog(
                 context,
                 imagePath: '/task-instances/$taskInstanceId/qr',
-                title: 'رمز الحالة',
-                caption: 'يُمسح هذا الرمز لإعادة فتح هذه الحالة مباشرة.',
+                title: t['caseSheetForm.caseCodeTooltip']!,
+                caption: t['caseSheetForm.caseCodeCaption']!,
               ),
             ),
           // "مسح رمز المريض" (2026-08-28) — autofills the patient-identity
@@ -138,14 +140,14 @@ class CaseSheetFormScreen extends ConsumerWidget {
           if (!readonly && kCaseSheetPatientFieldMap.containsKey(resource))
             IconButton(
               icon: const Icon(Icons.qr_code_scanner),
-              tooltip: 'مسح رمز المريض',
+              tooltip: t['caseSheetForm.scanPatientTooltip'],
               onPressed: () => _scanPatient(context),
             ),
         ],
       ),
       body: switch ((schemaAsync, recordAsync)) {
         (AsyncError(:final error), _) || (_, AsyncError(:final error)) => Center(
-            child: Text(error is ApiException ? error.userMessage : 'تعذر تحميل النموذج.'),
+            child: Text(error is ApiException ? error.userMessage : t['caseSheetForm.loadFormFailedMsg']!),
           ),
         (AsyncData(value: final schema), AsyncData(value: final record)) => SingleChildScrollView(
             padding: const EdgeInsets.all(12),
@@ -156,6 +158,7 @@ class CaseSheetFormScreen extends ConsumerWidget {
               record: record,
               readonly: readonly,
               supervisorEditableFields: supervisorEditableFields,
+              t: t,
               onSubmit: (payload) => isCreate
                   ? _create(context, ref, schema)(payload)
                   : _update(context, ref, recordId!)(payload),
@@ -168,6 +171,7 @@ class CaseSheetFormScreen extends ConsumerWidget {
 
   Future<void> Function(Map<String, dynamic>) _update(BuildContext context, WidgetRef ref, int id) {
     return (payload) async {
+      final t = ref.read(translationsProvider);
       try {
         await ref.read(caseSheetRecordRepositoryProvider).update(resource, id, payload);
         ref.invalidate(caseSheetRecordProvider((resource, id)));
@@ -181,14 +185,14 @@ class CaseSheetFormScreen extends ConsumerWidget {
           // pending-status provider (just invalidated above) is what
           // actually tells them apart for the message shown here.
           final queued = await ref.read(caseSheetPendingStatusProvider((resource, id)).future) is CaseSheetSyncPending;
-          final message = queued ? 'تم الحفظ محليًا، سيُزامن تلقائيًا عند توفر الاتصال.' : 'تم الحفظ بنجاح.';
+          final message = queued ? t['caseSheetForm.savedLocallyMsg']! : t['caseSheetForm.savedSuccessMsg']!;
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
           }
         }
       } catch (e) {
         if (context.mounted) {
-          final message = e is ApiException ? e.userMessage : 'تعذر الحفظ.';
+          final message = e is ApiException ? e.userMessage : t['caseSheetForm.saveFailedMsg']!;
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
         }
       }
@@ -197,10 +201,11 @@ class CaseSheetFormScreen extends ConsumerWidget {
 
   Future<void> Function(Map<String, dynamic>) _create(BuildContext context, WidgetRef ref, CaseSheetFormSchema schema) {
     return (payload) async {
+      final t = ref.read(translationsProvider);
       final authState = ref.read(authControllerProvider).valueOrNull;
       final doctor = authState is Authenticated ? authState.account : null;
       if (doctor is! DoctorAccount) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تعذر تحديد الطبيب الحالي.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['caseSheetForm.cannotDetermineDoctorMsg']!)));
         return;
       }
 
@@ -216,7 +221,7 @@ class CaseSheetFormScreen extends ConsumerWidget {
         final created = await ref.read(caseSheetRecordRepositoryProvider).create(resource, fullPayload);
         ref.invalidate(caseSheetRecordListProvider(resource));
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم إنشاء السجل بنجاح.')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['caseSheetForm.recordCreatedMsg']!)));
           // Carries taskInstanceId forward so the "رمز QR" button above
           // still shows on the resulting edit screen — otherwise this
           // case's linkage would be visible only until the very next
@@ -228,7 +233,7 @@ class CaseSheetFormScreen extends ConsumerWidget {
         }
       } catch (e) {
         if (context.mounted) {
-          final message = e is ApiException ? e.userMessage : 'تعذر إنشاء السجل.';
+          final message = e is ApiException ? e.userMessage : t['caseSheetForm.createFailedMsg']!;
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
         }
       }
@@ -265,7 +270,8 @@ class CaseSheetFormScreen extends ConsumerWidget {
       await Printing.layoutPdf(onLayout: (_) async => bytes, name: '${schemaTitle(ref)}.pdf');
     } catch (e) {
       if (context.mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر إنشاء ملف الطباعة.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['caseSheetForm.printFailedMsg']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     }
