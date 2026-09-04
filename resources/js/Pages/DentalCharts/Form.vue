@@ -7,7 +7,9 @@ import TextInput from '@/Components/TextInput.vue';
 import ToothSelector from '@/Components/ToothSelector.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const props = defineProps({
     doctors: Array,
     taskInstance: Object,
@@ -52,12 +54,12 @@ const submit = () => {
 </script>
 
 <template>
-    <Head :title="isEdit ? 'Edit Dental Chart' : 'New Dental Chart'" />
+    <Head :title="isEdit ? t('dentalCharts.editChartTitle') : t('dentalCharts.newChartTitle')" />
 
     <AuthenticatedLayout>
         <template #header>
             <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                {{ isEdit ? 'Edit Dental Chart' : 'New Dental Chart' }}
+                {{ isEdit ? t('dentalCharts.editChartTitle') : t('dentalCharts.newChartTitle') }}
             </h2>
         </template>
 
@@ -65,131 +67,131 @@ const submit = () => {
             <div class="mx-auto max-w-4xl space-y-6 sm:px-6 lg:px-8">
                 <form @submit.prevent="submit" class="space-y-6">
                     <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                        <h3 class="mb-4 text-sm font-semibold text-gray-900">Patient</h3>
+                        <h3 class="mb-4 text-sm font-semibold text-gray-900">{{ t('dentalCharts.patientHeading') }}</h3>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <InputLabel for="patient_id" value="Patient Name" />
+                                <InputLabel for="patient_id" :value="t('dentalCharts.patientNameLabel')" />
                                 <TextInput id="patient_id" v-model="form.patient_id" type="text" class="mt-1 block w-full" required />
                                 <InputError class="mt-2" :message="form.errors.patient_id" />
                             </div>
                             <div>
-                                <InputLabel for="patient_phone" value="Phone" />
+                                <InputLabel for="patient_phone" :value="t('dentalCharts.phoneLabel')" />
                                 <TextInput id="patient_phone" v-model="form.patient_phone" type="text" class="mt-1 block w-full" />
                             </div>
                             <div>
-                                <InputLabel for="patient_age" value="Age" />
+                                <InputLabel for="patient_age" :value="t('dentalCharts.ageLabel')" />
                                 <TextInput id="patient_age" v-model="form.patient_age" type="number" class="mt-1 block w-full" />
                             </div>
                             <div>
-                                <InputLabel for="patient_sex" value="Sex" />
+                                <InputLabel for="patient_sex" :value="t('dentalCharts.sexLabel')" />
                                 <select id="patient_sex" v-model="form.patient_sex" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                                     <option value="">—</option>
-                                    <option value="male">Male</option>
-                                    <option value="female">Female</option>
+                                    <option value="male">{{ t('dentalCharts.sexMale') }}</option>
+                                    <option value="female">{{ t('dentalCharts.sexFemale') }}</option>
                                 </select>
                             </div>
                             <div>
-                                <InputLabel for="patient_address" value="Address" />
+                                <InputLabel for="patient_address" :value="t('dentalCharts.addressLabel')" />
                                 <TextInput id="patient_address" v-model="form.patient_address" type="text" class="mt-1 block w-full" />
                             </div>
                             <div>
-                                <InputLabel for="patient_occupation" value="Occupation" />
+                                <InputLabel for="patient_occupation" :value="t('dentalCharts.occupationLabel')" />
                                 <TextInput id="patient_occupation" v-model="form.patient_occupation" type="text" class="mt-1 block w-full" />
                             </div>
                         </div>
                     </div>
 
                     <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                        <h3 class="mb-4 text-sm font-semibold text-gray-900">Visit</h3>
+                        <h3 class="mb-4 text-sm font-semibold text-gray-900">{{ t('dentalCharts.visitHeading') }}</h3>
                         <div class="grid grid-cols-3 gap-4">
                             <div>
-                                <InputLabel for="doctor_id" value="Doctor" />
+                                <InputLabel for="doctor_id" :value="t('dentalCharts.doctorCol')" />
                                 <select id="doctor_id" v-model="form.doctor_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
-                                    <option value="" disabled>Select a doctor</option>
+                                    <option value="" disabled>{{ t('dentalCharts.selectDoctorPlaceholder') }}</option>
                                     <option v-for="d in doctors" :key="d.id" :value="d.id">{{ d.name }}</option>
                                 </select>
                                 <InputError class="mt-2" :message="form.errors.doctor_id" />
                             </div>
                             <div>
-                                <InputLabel for="chart_type" value="Chart Type" />
+                                <InputLabel for="chart_type" :value="t('dentalCharts.chartTypeLabel')" />
                                 <select id="chart_type" v-model="form.chart_type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                    <option value="permanent">Permanent</option>
-                                    <option value="primary">Primary</option>
+                                    <option value="permanent">{{ t('dentalCharts.chartTypePermanent') }}</option>
+                                    <option value="primary">{{ t('dentalCharts.chartTypePrimary') }}</option>
                                 </select>
                             </div>
                             <div>
-                                <InputLabel for="visit_date" value="Visit Date" />
+                                <InputLabel for="visit_date" :value="t('dentalCharts.visitDateCol')" />
                                 <TextInput id="visit_date" v-model="form.visit_date" type="date" class="mt-1 block w-full" />
                             </div>
                         </div>
                     </div>
 
                     <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                        <h3 class="mb-4 text-sm font-semibold text-gray-900">History &amp; Examination</h3>
+                        <h3 class="mb-4 text-sm font-semibold text-gray-900">{{ t('dentalCharts.historyExamHeading') }}</h3>
                         <div class="space-y-4">
                             <div>
-                                <InputLabel for="chief_complaint" value="Chief Complaint" />
+                                <InputLabel for="chief_complaint" :value="t('dentalCharts.chiefComplaintLabel')" />
                                 <textarea id="chief_complaint" v-model="form.chief_complaint" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
                             </div>
                             <div>
-                                <InputLabel for="history_of_complaint" value="History of Complaint" />
+                                <InputLabel for="history_of_complaint" :value="t('dentalCharts.historyOfComplaintLabel')" />
                                 <textarea id="history_of_complaint" v-model="form.history_of_complaint" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
                             </div>
                             <div>
-                                <InputLabel for="oral_hygiene" value="Oral Hygiene" />
+                                <InputLabel for="oral_hygiene" :value="t('dentalCharts.oralHygieneLabel')" />
                                 <TextInput id="oral_hygiene" v-model="form.oral_hygiene" type="text" class="mt-1 block w-full" />
                             </div>
                             <div>
-                                <InputLabel for="periodontal_condition" value="Periodontal Condition" />
+                                <InputLabel for="periodontal_condition" :value="t('dentalCharts.periodontalConditionLabel')" />
                                 <TextInput id="periodontal_condition" v-model="form.periodontal_condition" type="text" class="mt-1 block w-full" />
                             </div>
                         </div>
                     </div>
 
                     <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                        <h3 class="mb-4 text-sm font-semibold text-gray-900">Tooth Chart</h3>
+                        <h3 class="mb-4 text-sm font-semibold text-gray-900">{{ t('dentalCharts.toothChartHeading') }}</h3>
                         <ToothSelector v-model="form.tooth_data" :chart-type="form.chart_type" />
 
                         <div class="mt-6 grid grid-cols-3 gap-4">
                             <div>
-                                <InputLabel for="non_vital_teeth" value="Non-Vital Teeth" />
+                                <InputLabel for="non_vital_teeth" :value="t('dentalCharts.nonVitalTeethLabel')" />
                                 <TextInput id="non_vital_teeth" v-model="form.non_vital_teeth" type="text" placeholder="e.g. 16, 26" class="mt-1 block w-full" />
                             </div>
                             <div>
-                                <InputLabel for="missing_teeth" value="Missing Teeth" />
+                                <InputLabel for="missing_teeth" :value="t('dentalCharts.missingTeethLabel')" />
                                 <TextInput id="missing_teeth" v-model="form.missing_teeth" type="text" placeholder="e.g. 18, 48" class="mt-1 block w-full" />
                             </div>
                             <div>
-                                <InputLabel for="crown_bridge_teeth" value="Crown &amp; Bridge Teeth" />
+                                <InputLabel for="crown_bridge_teeth" :value="t('dentalCharts.crownBridgeTeethLabel')" />
                                 <TextInput id="crown_bridge_teeth" v-model="form.crown_bridge_teeth" type="text" class="mt-1 block w-full" />
                             </div>
                         </div>
                     </div>
 
                     <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                        <h3 class="mb-4 text-sm font-semibold text-gray-900">Treatment Plan</h3>
+                        <h3 class="mb-4 text-sm font-semibold text-gray-900">{{ t('dentalCharts.treatmentPlanHeading') }}</h3>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <InputLabel for="treatment_plan_date" value="Plan Date" />
+                                <InputLabel for="treatment_plan_date" :value="t('dentalCharts.planDateLabel')" />
                                 <TextInput id="treatment_plan_date" v-model="form.treatment_plan_date" type="date" class="mt-1 block w-full" />
                             </div>
                             <div>
-                                <InputLabel for="senior_doctor_name" value="Senior Doctor" />
+                                <InputLabel for="senior_doctor_name" :value="t('dentalCharts.seniorDoctorLabel')" />
                                 <TextInput id="senior_doctor_name" v-model="form.senior_doctor_name" type="text" class="mt-1 block w-full" />
                             </div>
                         </div>
                         <div class="mt-4">
-                            <InputLabel for="treatment_plan_notes" value="Plan Notes" />
+                            <InputLabel for="treatment_plan_notes" :value="t('dentalCharts.planNotesLabel')" />
                             <textarea id="treatment_plan_notes" v-model="form.treatment_plan_notes" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
                         </div>
                         <div class="mt-4">
-                            <InputLabel for="notes" value="General Notes" />
+                            <InputLabel for="notes" :value="t('dentalCharts.generalNotesLabel')" />
                             <textarea id="notes" v-model="form.notes" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
                         </div>
                     </div>
 
                     <div class="flex justify-end">
-                        <PrimaryButton :disabled="form.processing">{{ isEdit ? 'Update Chart' : 'Save Chart' }}</PrimaryButton>
+                        <PrimaryButton :disabled="form.processing">{{ isEdit ? t('dentalCharts.updateChartButton') : t('dentalCharts.saveChartButton') }}</PrimaryButton>
                     </div>
                 </form>
             </div>

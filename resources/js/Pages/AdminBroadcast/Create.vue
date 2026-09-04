@@ -5,7 +5,9 @@ import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, useForm, usePage } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const props = defineProps({
     recipientCount: Number,
 });
@@ -18,7 +20,7 @@ const form = useForm({
 });
 
 const submit = () => {
-    if (!confirm(`سيصل هذا التنبيه إلى ${props.recipientCount} موظفًا إداريًا. متابعة؟`)) {
+    if (!confirm(t('adminBroadcast.confirmTemplate', { count: props.recipientCount }))) {
         return;
     }
     form.post(route('admin-broadcast.store'), {
@@ -28,11 +30,11 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="إرسال تنبيه للموظفين" />
+    <Head :title="t('adminBroadcast.title')" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">إرسال تنبيه للموظفين</h2>
+            <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('adminBroadcast.title') }}</h2>
         </template>
 
         <div class="py-12">
@@ -42,14 +44,13 @@ const submit = () => {
                 </div>
 
                 <p class="text-sm text-gray-600">
-                    يصل هذا التنبيه إلى كل الموظفين الإداريين ({{ recipientCount }} حاليًا) عبر صندوق التنبيهات داخل
-                    التطبيق، وعبر البريد الإلكتروني إن كان مفعّلاً في إعدادات العيادة.
+                    {{ t('adminBroadcast.description', { count: recipientCount }) }}
                 </p>
 
                 <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
                     <form @submit.prevent="submit" class="space-y-4">
                         <div>
-                            <InputLabel for="title" value="العنوان" />
+                            <InputLabel for="title" :value="t('adminBroadcast.titleLabel')" />
                             <TextInput
                                 id="title"
                                 v-model="form.title"
@@ -63,7 +64,7 @@ const submit = () => {
                         </div>
 
                         <div>
-                            <InputLabel for="body" value="نص التنبيه" />
+                            <InputLabel for="body" :value="t('adminBroadcast.bodyLabel')" />
                             <textarea
                                 id="body"
                                 v-model="form.body"
@@ -76,7 +77,7 @@ const submit = () => {
                         </div>
 
                         <div class="flex justify-end">
-                            <PrimaryButton :disabled="form.processing">إرسال إلى الجميع</PrimaryButton>
+                            <PrimaryButton :disabled="form.processing">{{ t('adminBroadcast.sendButton') }}</PrimaryButton>
                         </div>
                     </form>
                 </div>

@@ -1,7 +1,9 @@
 <script setup>
 import { Head } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const props = defineProps({
     educationTypes: Array,
     stages: Array,
@@ -44,12 +46,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <Head title="Clinic Board" />
+    <Head :title="t('tvBoard.title')" />
 
     <div class="min-h-screen bg-slate-900 p-8 text-white">
         <div class="mx-auto max-w-6xl">
             <div class="mb-8 flex items-center justify-between">
-                <h1 class="text-3xl font-bold">Today's Schedule</h1>
+                <h1 class="text-3xl font-bold">{{ t('tvBoard.heading') }}</h1>
 
                 <div class="flex gap-3">
                     <select
@@ -57,25 +59,25 @@ onBeforeUnmount(() => {
                         @change="stage = ''; load()"
                         class="rounded-md border-slate-600 bg-slate-800 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     >
-                        <option value="">All Education Types</option>
-                        <option v-for="t in educationTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
+                        <option value="">{{ t('tvBoard.allEducationTypes') }}</option>
+                        <option v-for="et in educationTypes" :key="et.id" :value="et.id">{{ et.name }}</option>
                     </select>
                     <select
                         v-model="stage"
                         @change="load"
                         class="rounded-md border-slate-600 bg-slate-800 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     >
-                        <option value="">All Stages</option>
+                        <option value="">{{ t('tvBoard.allStages') }}</option>
                         <option v-for="s in visibleStages" :key="s.id" :value="s.id">{{ s.name }}</option>
                     </select>
                 </div>
             </div>
 
-            <div v-if="loading" class="py-24 text-center text-slate-400">Loading…</div>
+            <div v-if="loading" class="py-24 text-center text-slate-400">{{ t('tvBoard.loading') }}</div>
 
             <template v-else>
                 <div v-if="pinned.length > 0" class="mb-8">
-                    <h2 class="mb-3 text-lg font-semibold text-amber-400">Pinned Appointments</h2>
+                    <h2 class="mb-3 text-lg font-semibold text-amber-400">{{ t('tvBoard.pinnedHeading') }}</h2>
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                         <div
                             v-for="(a, i) in pinned"
@@ -83,13 +85,13 @@ onBeforeUnmount(() => {
                             class="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4"
                         >
                             <div class="text-lg font-semibold">{{ a.patient_name }}</div>
-                            <div class="text-sm text-amber-200">{{ a.doctor_name ?? 'Unassigned' }}</div>
+                            <div class="text-sm text-amber-200">{{ a.doctor_name ?? t('tvBoard.unassigned') }}</div>
                             <div class="mt-1 text-xs text-slate-400">{{ new Date(a.appointment_date).toLocaleDateString() }}</div>
                         </div>
                     </div>
                 </div>
 
-                <h2 class="mb-3 text-lg font-semibold text-slate-300">Scheduled Patients</h2>
+                <h2 class="mb-3 text-lg font-semibold text-slate-300">{{ t('tvBoard.scheduledPatientsHeading') }}</h2>
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     <div
                         v-for="(p, i) in patients"
@@ -97,7 +99,7 @@ onBeforeUnmount(() => {
                         class="rounded-lg border border-slate-700 bg-slate-800 p-4"
                     >
                         <div class="text-lg font-semibold">{{ p.patient_name }}</div>
-                        <div class="text-sm text-slate-400">{{ p.doctor_name ?? 'Unassigned' }}</div>
+                        <div class="text-sm text-slate-400">{{ p.doctor_name ?? t('tvBoard.unassigned') }}</div>
                         <div v-if="p.slots?.length" class="mt-2 space-y-1">
                             <div v-for="(slot, si) in p.slots" :key="si" class="text-xs text-indigo-300">
                                 {{ slot.day }} · {{ slot.start_time }}–{{ slot.end_time }}
@@ -105,7 +107,7 @@ onBeforeUnmount(() => {
                         </div>
                     </div>
                     <div v-if="patients.length === 0" class="col-span-full py-12 text-center text-slate-500">
-                        No scheduled patients.
+                        {{ t('tvBoard.emptyList') }}
                     </div>
                 </div>
             </template>
