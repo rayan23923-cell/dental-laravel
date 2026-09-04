@@ -8,6 +8,7 @@ use App\Http\Controllers\BackupController;
 use App\Http\Controllers\CaseSheetController;
 use App\Http\Controllers\CaseSheetPrintController;
 use App\Http\Controllers\CaseSheetTypeController;
+use App\Http\Controllers\AdminBroadcastController;
 use App\Http\Controllers\ClinicChairController;
 use App\Http\Controllers\ClinicSettingController;
 use App\Http\Controllers\CompleteDentureRecordController;
@@ -328,6 +329,9 @@ Route::middleware('auth')->group(function () {
         Route::post('/academic-sessions/select', [AcademicSessionController::class, 'select'])->name('academic-sessions.select');
 
         Route::resource('case-sheet-types', CaseSheetTypeController::class)->except(['show', 'create', 'edit']);
+
+        Route::get('/admin-broadcast', [AdminBroadcastController::class, 'create'])->name('admin-broadcast.create');
+        Route::post('/admin-broadcast', [AdminBroadcastController::class, 'store'])->name('admin-broadcast.store');
 
         Route::resource('groups', GroupController::class)->except(['show', 'create', 'edit'])
             ->middlewareFor('index', 'permission:groups,view')

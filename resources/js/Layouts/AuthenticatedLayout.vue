@@ -130,6 +130,7 @@ const settingsLinks = computed(() => [
     { label: 'إعدادات التسجيل', icon: 'tune', href: route('patient-registrations.settings'), active: route().current('patient-registrations.settings') || route().current('register-days.*') || route().current('register-services.*') },
     { label: 'صلاحيات الأقسام', icon: 'badge', href: route('department-roles.index'), active: route().current('department-roles.*') },
     { label: 'الصلاحيات', icon: 'admin_panel_settings', href: route('permissions.index'), active: route().current('permissions.*') },
+    { label: 'إرسال تنبيه للموظفين', icon: 'campaign', href: route('admin-broadcast.create'), active: route().current('admin-broadcast.*') },
     { label: 'سجل النشاط', icon: 'history', href: route('activity-logs.index'), active: route().current('activity-logs.*') },
     { label: 'النسخ الاحتياطي', icon: 'database', href: route('backup.index'), active: route().current('backup.*') },
 ]);
