@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/data/lookup_repository.dart';
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/tasks_admin_repository.dart';
 import '../domain/task_admin.dart';
@@ -93,8 +94,9 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
 
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? true)) return;
+    final t = ref.read(translationsProvider);
     if (_departmentId == null || _stageId == null || _caseSheetTypeId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('يرجى اختيار القسم والمرحلة ونوع النموذج.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['tasksAdmin.selectDepartmentStageCaseSheetMsg']!)));
       return;
     }
     setState(() => _submitting = true);
@@ -121,12 +123,13 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
       }
       ref.invalidate(taskAdminListProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isCreate ? 'تم إضافة المهمة.' : 'تم الحفظ.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isCreate ? t['tasksAdmin.addedSuccess']! : t['tasksAdmin.savedSuccess']!)));
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الحفظ.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['tasksAdmin.saveFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -135,14 +138,15 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
   }
 
   Future<void> _delete() async {
+    final t = ref.read(translationsProvider);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('حذف المهمة'),
-        content: const Text('هل أنت متأكد من حذف هذه المهمة؟'),
+        title: Text(t['tasksAdmin.deleteTitle']!),
+        content: Text(t['tasksAdmin.deleteConfirmBody']!),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('إلغاء')),
-          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('حذف')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(t['tasksAdmin.cancel']!)),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(t['tasksAdmin.delete']!)),
         ],
       ),
     );
@@ -152,12 +156,12 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
       await ref.read(tasksAdminRepositoryProvider).delete(widget.taskId!);
       ref.invalidate(taskAdminListProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم الحذف.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['tasksAdmin.deletedSuccess']!)));
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الحذف.';
+        final message = e is ApiException ? e.userMessage : t['tasksAdmin.deleteFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     }
@@ -170,13 +174,14 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
     final educationTypesAsync = ref.watch(taskEducationTypesProvider);
     final caseSheetTypesAsync = ref.watch(taskCaseSheetTypesProvider);
     final taskAsync = _isCreate ? null : ref.watch(taskAdminProvider(widget.taskId!));
+    final t = ref.watch(translationsProvider);
 
     if (taskAsync != null) {
       switch (taskAsync) {
         case AsyncError(:final error):
           return Scaffold(
-            appBar: AppBar(title: const Text('مهمة')),
-            body: Center(child: Text(error is ApiException ? error.userMessage : 'تعذر التحميل.')),
+            appBar: AppBar(title: Text(t['tasksAdmin.singularTitle']!)),
+            body: Center(child: Text(error is ApiException ? error.userMessage : t['tasksAdmin.loadFailed']!)),
           );
         case AsyncData(:final value):
           _seed(value);
@@ -189,7 +194,7 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isCreate ? 'مهمة جديدة' : 'تعديل المهمة'),
+        title: Text(_isCreate ? t['tasksAdmin.newTitle']! : t['tasksAdmin.editTitle']!),
         actions: [
           if (!_isCreate) IconButton(icon: const Icon(Icons.delete_outline), onPressed: _delete),
         ],
@@ -201,16 +206,16 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
           children: [
             TextFormField(
               controller: _titleController,
-              decoration: const InputDecoration(labelText: 'العنوان', border: OutlineInputBorder()),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'هذا الحقل مطلوب' : null,
+              decoration: InputDecoration(labelText: t['tasksAdmin.titleLabel'], border: const OutlineInputBorder()),
+              validator: (v) => (v == null || v.trim().isEmpty) ? t['tasksAdmin.requiredField'] : null,
             ),
             const SizedBox(height: 16),
             departmentsAsync.when(
               loading: () => const LinearProgressIndicator(),
-              error: (_, __) => const Text('تعذر تحميل الأقسام.'),
+              error: (_, __) => Text(t['tasksAdmin.loadDepartmentsFailed']!),
               data: (items) => DropdownButtonFormField<int>(
                 initialValue: items.any((d) => d.id == _departmentId) ? _departmentId : null,
-                decoration: const InputDecoration(labelText: 'القسم', border: OutlineInputBorder()),
+                decoration: InputDecoration(labelText: t['tasksAdmin.departmentLabel'], border: const OutlineInputBorder()),
                 items: [for (final d in items) DropdownMenuItem(value: d.id, child: Text(d.name))],
                 onChanged: (v) => setState(() => _departmentId = v),
               ),
@@ -218,11 +223,11 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
             const SizedBox(height: 16),
             educationTypesAsync.when(
               loading: () => const LinearProgressIndicator(),
-              error: (_, __) => const Text('تعذر تحميل أنواع الدراسة.'),
+              error: (_, __) => Text(t['tasksAdmin.loadEducationTypesFailed']!),
               data: (items) => DropdownButtonFormField<int>(
-                initialValue: items.any((t) => t.id == _educationTypeId) ? _educationTypeId : null,
-                decoration: const InputDecoration(labelText: 'نوع الدراسة', border: OutlineInputBorder()),
-                items: [for (final t in items) DropdownMenuItem(value: t.id, child: Text(t.name))],
+                initialValue: items.any((et) => et.id == _educationTypeId) ? _educationTypeId : null,
+                decoration: InputDecoration(labelText: t['tasksAdmin.educationTypeLabel'], border: const OutlineInputBorder()),
+                items: [for (final et in items) DropdownMenuItem(value: et.id, child: Text(et.name))],
                 onChanged: (v) => setState(() {
                   _educationTypeId = v;
                   _stageId = null;
@@ -238,14 +243,14 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
             // `initialValue` re-evaluated) whenever education type changes.
             stagesAsync.when(
               loading: () => const LinearProgressIndicator(),
-              error: (_, __) => const Text('تعذر تحميل المراحل.'),
+              error: (_, __) => Text(t['tasksAdmin.loadStagesFailed']!),
               data: (items) {
                 final filtered =
                     _educationTypeId == null ? items : items.where((s) => s.educationTypeId == _educationTypeId).toList();
                 return DropdownButtonFormField<int>(
                   key: ValueKey('stage-$_educationTypeId'),
                   initialValue: filtered.any((s) => s.id == _stageId) ? _stageId : null,
-                  decoration: const InputDecoration(labelText: 'المرحلة', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: t['tasksAdmin.stageLabel'], border: const OutlineInputBorder()),
                   items: [for (final s in filtered) DropdownMenuItem(value: s.id, child: Text(s.name))],
                   onChanged: _educationTypeId == null ? null : (v) => setState(() => _stageId = v),
                 );
@@ -254,25 +259,25 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
             const SizedBox(height: 16),
             caseSheetTypesAsync.when(
               loading: () => const LinearProgressIndicator(),
-              error: (_, __) => const Text('تعذر تحميل أنواع النماذج.'),
+              error: (_, __) => Text(t['tasksAdmin.loadCaseSheetTypesFailed']!),
               data: (items) => DropdownButtonFormField<int>(
                 initialValue: items.any((c) => c.id == _caseSheetTypeId) ? _caseSheetTypeId : null,
-                decoration: const InputDecoration(labelText: 'نوع النموذج', border: OutlineInputBorder()),
+                decoration: InputDecoration(labelText: t['tasksAdmin.caseSheetTypeLabel'], border: const OutlineInputBorder()),
                 items: [for (final c in items) DropdownMenuItem(value: c.id, child: Text(c.name))],
                 onChanged: (v) => setState(() => _caseSheetTypeId = v),
               ),
             ),
             const SizedBox(height: 16),
-            Text('نوع المهمة', style: Theme.of(context).textTheme.titleSmall),
+            Text(t['tasksAdmin.taskTypeLabel']!, style: Theme.of(context).textTheme.titleSmall),
             RadioGroup<bool>(
               groupValue: _isRequired,
               onChanged: (v) {
                 if (v != null) setState(() => _isRequired = v);
               },
-              child: const Row(
+              child: Row(
                 children: [
-                  Expanded(child: RadioListTile<bool>(title: Text('أساسية'), value: true)),
-                  Expanded(child: RadioListTile<bool>(title: Text('اختيارية'), value: false)),
+                  Expanded(child: RadioListTile<bool>(title: Text(t['tasksAdmin.required']!), value: true)),
+                  Expanded(child: RadioListTile<bool>(title: Text(t['tasksAdmin.optional']!), value: false)),
                 ],
               ),
             ),
@@ -283,7 +288,7 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
                   child: TextFormField(
                     controller: _requiredPerDoctorController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'المطلوب لكل طبيب', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: t['tasksAdmin.requiredPerDoctorLabel'], border: const OutlineInputBorder()),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -291,7 +296,7 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
                   child: TextFormField(
                     controller: _requiredCountController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'العدد المطلوب', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: t['tasksAdmin.requiredCountLabel'], border: const OutlineInputBorder()),
                   ),
                 ),
               ],
@@ -300,20 +305,20 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
             TextFormField(
               controller: _gradeController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'الدرجة', border: OutlineInputBorder()),
+              decoration: InputDecoration(labelText: t['tasksAdmin.gradeLabel'], border: const OutlineInputBorder()),
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _notesController,
               maxLines: 3,
-              decoration: const InputDecoration(labelText: 'ملاحظات', border: OutlineInputBorder()),
+              decoration: InputDecoration(labelText: t['tasksAdmin.notesLabel'], border: const OutlineInputBorder()),
             ),
             const SizedBox(height: 24),
             FilledButton(
               onPressed: _submitting ? null : _submit,
               child: _submitting
                   ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('حفظ'),
+                  : Text(t['tasksAdmin.save']!),
             ),
           ],
         ),

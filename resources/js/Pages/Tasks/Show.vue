@@ -3,7 +3,9 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const props = defineProps({
     task: Object,
     doctors: Array,
@@ -27,7 +29,7 @@ const updateStatus = (instance, status) => {
 };
 
 const removeInstance = (instance) => {
-    if (confirm('Remove this assignment?')) {
+    if (confirm(t('tasksAdmin.removeAssignmentConfirm'))) {
         router.delete(route('task-instances.destroy', instance.id), { preserveScroll: true });
     }
 };
@@ -59,19 +61,19 @@ const statusColor = (status) => ({
                 <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
                     <dl class="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
                         <div>
-                            <dt class="text-gray-500">Department</dt>
+                            <dt class="text-gray-500">{{ t('doctorsAdmin.departmentLabel') }}</dt>
                             <dd class="font-medium text-gray-900">{{ task.department?.name ?? '—' }}</dd>
                         </div>
                         <div>
-                            <dt class="text-gray-500">Case Sheet</dt>
+                            <dt class="text-gray-500">{{ t('tasksAdmin.caseSheetCol') }}</dt>
                             <dd class="font-medium text-gray-900">{{ task.case_sheet_type?.name_en ?? '—' }}</dd>
                         </div>
                         <div>
-                            <dt class="text-gray-500">Stage</dt>
+                            <dt class="text-gray-500">{{ t('doctorsAdmin.stageCol') }}</dt>
                             <dd class="font-medium text-gray-900">{{ task.stage?.name ?? '—' }}</dd>
                         </div>
                         <div>
-                            <dt class="text-gray-500">Required / Doctor</dt>
+                            <dt class="text-gray-500">{{ t('tasksAdmin.requiredPerDoctorLabel') }}</dt>
                             <dd class="font-medium text-gray-900">{{ task.required_per_doctor }}</dd>
                         </div>
                     </dl>
@@ -79,16 +81,16 @@ const statusColor = (status) => ({
                 </div>
 
                 <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                    <h3 class="text-sm font-medium text-gray-900">Assign to a Doctor</h3>
+                    <h3 class="text-sm font-medium text-gray-900">{{ t('tasksAdmin.assignToDoctorHeading') }}</h3>
                     <form @submit.prevent="assign" class="mt-3 flex items-start gap-3">
                         <div class="flex-1">
                             <select v-model="assignForm.doctor_id" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
-                                <option value="" disabled>Select a doctor</option>
+                                <option value="" disabled>{{ t('tasksAdmin.selectDoctor') }}</option>
                                 <option v-for="doctor in doctors" :key="doctor.id" :value="doctor.id">{{ doctor.name }}</option>
                             </select>
                             <InputError class="mt-2" :message="assignForm.errors.doctor_id" />
                         </div>
-                        <PrimaryButton :disabled="assignForm.processing">Assign</PrimaryButton>
+                        <PrimaryButton :disabled="assignForm.processing">{{ t('tasksAdmin.assignButton') }}</PrimaryButton>
                     </form>
                 </div>
 
@@ -96,11 +98,11 @@ const statusColor = (status) => ({
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Doctor</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Assigned</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Grade</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Actions</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patients.doctorCol') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.statusCol') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.assignedDateCol') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('tasksAdmin.gradeColShort') }}</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.actionsCol') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200 bg-white">
@@ -118,13 +120,13 @@ const statusColor = (status) => ({
                                         @click="updateStatus(instance, 'completed')"
                                         class="ml-4 text-green-600 hover:text-green-900"
                                     >
-                                        Mark Complete
+                                        {{ t('doctorsAdmin.markComplete') }}
                                     </button>
-                                    <button @click="removeInstance(instance)" class="ml-4 text-red-600 hover:text-red-900">Remove</button>
+                                    <button @click="removeInstance(instance)" class="ml-4 text-red-600 hover:text-red-900">{{ t('tasksAdmin.removeAssignmentButton') }}</button>
                                 </td>
                             </tr>
                             <tr v-if="task.instances.length === 0">
-                                <td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500">No doctors assigned yet.</td>
+                                <td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500">{{ t('tasksAdmin.noDoctorsAssignedYet') }}</td>
                             </tr>
                         </tbody>
                     </table>

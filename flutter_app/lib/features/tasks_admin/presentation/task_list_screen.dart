@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/academic_year_banner.dart';
 import '../../../core/widgets/cascading_dropdown.dart';
@@ -32,13 +33,14 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
     final educationTypesAsync = ref.watch(taskEducationTypesProvider);
     final stagesAsync = ref.watch(taskStagesProvider);
     final departmentsAsync = ref.watch(taskDepartmentsProvider);
+    final t = ref.watch(translationsProvider);
 
     final ready = _stageId != null && _departmentId != null;
     final tasksAsync =
         ready ? ref.watch(taskAdminListProvider((stageId: _stageId!, departmentId: _departmentId!))) : null;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('المهام')),
+      appBar: AppBar(title: Text(t['tasksAdmin.title']!)),
       floatingActionButton: FloatingActionButton(
         // Carries the current filter over to the create form (see
         // TaskFormScreen's constructor) — null values when nothing's
@@ -58,7 +60,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
             child: Column(
               children: [
                 CascadingDropdown(
-                  label: 'نوع الدراسة',
+                  label: t['tasksAdmin.educationTypeLabel']!,
                   itemsAsync: educationTypesAsync,
                   value: _educationTypeId,
                   onChanged: (v) => setState(() {
@@ -76,7 +78,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                 // `patient_registration_form_screen.dart`.
                 CascadingDropdown(
                   key: ValueKey('stage-$_educationTypeId'),
-                  label: 'المرحلة',
+                  label: t['tasksAdmin.stageLabel']!,
                   itemsAsync: stagesAsync.whenData(
                     (items) => _educationTypeId == null
                         ? items
@@ -92,7 +94,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                 const SizedBox(height: 8),
                 CascadingDropdown(
                   key: ValueKey('department-$_stageId'),
-                  label: 'القسم',
+                  label: t['tasksAdmin.departmentLabel']!,
                   itemsAsync: departmentsAsync.whenData(
                     (items) => _stageId == null ? items : items.where((d) => d.stageId == _stageId).toList(),
                   ),
@@ -105,24 +107,24 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
           ),
           Expanded(
             child: !ready
-                ? const Center(
+                ? Center(
                     child: Padding(
-                      padding: EdgeInsets.all(24),
+                      padding: const EdgeInsets.all(24),
                       child: Text(
-                        'اختر نوع الدراسة والمرحلة والقسم لعرض المهام.',
+                        t['tasksAdmin.emptyPrompt']!,
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey),
+                        style: const TextStyle(color: Colors.grey),
                       ),
                     ),
                   )
                 : tasksAsync!.when(
                     loading: () => const Center(child: CircularProgressIndicator()),
                     error: (error, stackTrace) => Center(
-                      child: Text(error is ApiException ? error.userMessage : 'تعذر التحميل.'),
+                      child: Text(error is ApiException ? error.userMessage : t['tasksAdmin.loadFailed']!),
                     ),
                     data: (page) {
                       if (page.items.isEmpty) {
-                        return const Center(child: Text('لا توجد مهام مطابقة.'));
+                        return Center(child: Text(t['tasksAdmin.emptyList']!));
                       }
                       return RefreshIndicator(
                         onRefresh: () async =>
@@ -143,12 +145,13 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
   }
 }
 
-class _TaskTile extends StatelessWidget {
+class _TaskTile extends ConsumerWidget {
   const _TaskTile({required this.task});
   final TaskAdmin task;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider);
     return Card(
       child: ListTile(
         title: Text(task.title),
@@ -169,7 +172,7 @@ class _TaskTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
-                task.isRequired ? 'أساسية' : 'اختيارية',
+                task.isRequired ? t['tasksAdmin.required']! : t['tasksAdmin.optional']!,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: task.isRequired ? Theme.of(context).colorScheme.primary : null,
                       fontWeight: FontWeight.w600,

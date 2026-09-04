@@ -4,7 +4,9 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import Icon from '@/Components/Icon.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const props = defineProps({
     tasks: { type: Object, default: null },
     educationTypes: { type: Array, default: () => [] },
@@ -82,23 +84,23 @@ const onStageChange = () => {
 const toggleAllSessions = () => applyFilters();
 
 const destroy = (task) => {
-    if (confirm(`Delete task "${task.title}"?`)) {
+    if (confirm(t('tasksAdmin.deleteConfirm', { title: task.title }))) {
         router.delete(route('tasks.destroy', task.id));
     }
 };
 </script>
 
 <template>
-    <Head title="Tasks" />
+    <Head :title="t('tasksAdmin.title')" />
 
     <AuthenticatedLayout>
         <template #header>
             <div class="flex items-center justify-between">
                 <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                    Tasks
+                    {{ t('tasksAdmin.title') }}
                 </h2>
                 <Link :href="createTaskHref">
-                    <PrimaryButton>Add Task</PrimaryButton>
+                    <PrimaryButton>{{ t('tasksAdmin.addTask') }}</PrimaryButton>
                 </Link>
             </div>
         </template>
@@ -115,12 +117,12 @@ const destroy = (task) => {
                 <div v-if="currentSession" class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
                     <span class="text-sm text-indigo-900">
                         <Icon name="calendar_month" class="ml-1" />
-                        <template v-if="allSessions">عرض مهام <strong>جميع الأعوام الدراسية</strong></template>
-                        <template v-else>مهام العام الدراسي <strong>{{ currentSession.name }}</strong></template>
+                        <template v-if="allSessions">{{ t('tasksAdmin.viewingAllSessionsPrefix') }} <strong>{{ t('doctorsAdmin.allAcademicSessions') }}</strong></template>
+                        <template v-else>{{ t('tasksAdmin.sessionTasksPrefix') }} <strong>{{ currentSession.name }}</strong></template>
                     </span>
                     <label class="flex cursor-pointer items-center gap-2 text-sm text-indigo-900">
                         <input type="checkbox" v-model="allSessions" @change="toggleAllSessions" class="rounded border-gray-300 text-indigo-600" />
-                        عرض جميع الأعوام الدراسية
+                        {{ t('doctorsAdmin.showAllSessions') }}
                     </label>
                 </div>
 
@@ -130,36 +132,36 @@ const destroy = (task) => {
                      stage AND a department are both chosen. -->
                 <div class="grid grid-cols-1 gap-3 rounded-lg bg-white p-4 shadow-sm md:grid-cols-3">
                     <select v-model="educationType" @change="onEducationTypeChange" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                        <option value="">نوع الدراسة</option>
-                        <option v-for="t in educationTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
+                        <option value="">{{ t('tasksAdmin.educationTypeFilterPlaceholder') }}</option>
+                        <option v-for="et in educationTypes" :key="et.id" :value="et.id">{{ et.name }}</option>
                     </select>
 
                     <select v-model="stage" @change="onStageChange" :disabled="!educationType" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100">
-                        <option value="">المرحلة</option>
+                        <option value="">{{ t('doctorsAdmin.stageCol') }}</option>
                         <option v-for="s in filteredStages" :key="s.id" :value="s.id">{{ s.name }}</option>
                     </select>
 
                     <select v-model="department" @change="applyFilters" :disabled="!stage" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100">
-                        <option value="">القسم</option>
+                        <option value="">{{ t('tasksAdmin.departmentFilterPlaceholder') }}</option>
                         <option v-for="d in filteredDepartments" :key="d.id" :value="d.id">{{ d.name }}</option>
                     </select>
                 </div>
 
                 <div v-if="!tasks" class="rounded-lg bg-white p-12 text-center text-sm text-gray-500 shadow-sm">
-                    اختر نوع الدراسة والمرحلة والقسم لعرض المهام.
+                    {{ t('tasksAdmin.emptyPrompt') }}
                 </div>
 
                 <div v-else class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Title</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Department</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Case Sheet</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Stage</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">النوع</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Assignments</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Actions</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('tasksAdmin.titleCol') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.departmentLabel') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('tasksAdmin.caseSheetCol') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.stageCol') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('tasksAdmin.typeCol') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('tasksAdmin.assignmentsCol') }}</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.actionsCol') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200 bg-white">
@@ -175,18 +177,18 @@ const destroy = (task) => {
                                         class="rounded-full px-2 py-0.5 text-xs font-medium"
                                         :class="task.is_required ? 'bg-indigo-50 text-indigo-700' : 'bg-gray-100 text-gray-600'"
                                     >
-                                        {{ task.is_required ? 'أساسية' : 'اختيارية' }}
+                                        {{ task.is_required ? t('tasksAdmin.required') : t('tasksAdmin.optional') }}
                                     </span>
                                 </td>
                                 <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ task.instances_count }}</td>
                                 <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
-                                    <Link :href="route('tasks.show', task.id)" class="text-gray-600 hover:text-gray-900">View</Link>
-                                    <Link :href="route('tasks.edit', task.id)" class="ml-4 text-indigo-600 hover:text-indigo-900">Edit</Link>
-                                    <button @click="destroy(task)" class="ml-4 text-red-600 hover:text-red-900">Delete</button>
+                                    <Link :href="route('tasks.show', task.id)" class="text-gray-600 hover:text-gray-900">{{ t('common.view') }}</Link>
+                                    <Link :href="route('tasks.edit', task.id)" class="ml-4 text-indigo-600 hover:text-indigo-900">{{ t('common.edit') }}</Link>
+                                    <button @click="destroy(task)" class="ml-4 text-red-600 hover:text-red-900">{{ t('common.delete') }}</button>
                                 </td>
                             </tr>
                             <tr v-if="tasks.data.length === 0">
-                                <td colspan="7" class="px-6 py-8 text-center text-sm text-gray-500">No tasks yet.</td>
+                                <td colspan="7" class="px-6 py-8 text-center text-sm text-gray-500">{{ t('tasksAdmin.emptyList') }}</td>
                             </tr>
                         </tbody>
                     </table>

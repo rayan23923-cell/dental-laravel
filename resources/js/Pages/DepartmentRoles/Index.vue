@@ -3,7 +3,9 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 defineProps({
     assignments: Array,
     users: Array,
@@ -32,18 +34,18 @@ const toggle = (assignment) => {
 };
 
 const remove = (assignment) => {
-    if (confirm('Remove this role assignment?')) {
+    if (confirm(t('departmentRolesAdmin.removeConfirm'))) {
         router.delete(route('department-roles.destroy', assignment.id), { preserveScroll: true });
     }
 };
 </script>
 
 <template>
-    <Head title="Department Roles" />
+    <Head :title="t('departmentRolesAdmin.title')" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">Department Roles (Senior / HR)</h2>
+            <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('departmentRolesAdmin.title') }}</h2>
         </template>
 
         <div class="py-12">
@@ -56,36 +58,36 @@ const remove = (assignment) => {
                 </div>
 
                 <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                    <h3 class="mb-4 text-sm font-medium text-gray-900">Assign a Role</h3>
+                    <h3 class="mb-4 text-sm font-medium text-gray-900">{{ t('departmentRolesAdmin.assignRoleHeading') }}</h3>
                     <form @submit.prevent="assign" class="grid grid-cols-1 gap-4 sm:grid-cols-5">
                         <div>
                             <select v-model="form.user_id" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
-                                <option value="" disabled>User</option>
+                                <option value="" disabled>{{ t('departmentRolesAdmin.userPlaceholder') }}</option>
                                 <option v-for="u in users" :key="u.id" :value="u.id">{{ u.full_name }}</option>
                             </select>
                             <InputError :message="form.errors.user_id" />
                         </div>
                         <div>
                             <select v-model="form.department_id" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
-                                <option value="" disabled>Department</option>
+                                <option value="" disabled>{{ t('doctorsAdmin.departmentLabel') }}</option>
                                 <option v-for="d in departments" :key="d.id" :value="d.id">{{ d.name }}</option>
                             </select>
                             <InputError :message="form.errors.department_id" />
                         </div>
                         <div>
                             <select v-model="form.stage_id" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
-                                <option value="" disabled>Stage</option>
+                                <option value="" disabled>{{ t('doctorsAdmin.stageCol') }}</option>
                                 <option v-for="s in stages" :key="s.id" :value="s.id">{{ s.name }}</option>
                             </select>
                             <InputError :message="form.errors.stage_id" />
                         </div>
                         <div>
                             <select v-model="form.role_type" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
-                                <option value="senior">Senior</option>
-                                <option value="hr">HR</option>
+                                <option value="senior">{{ t('departmentRolesAdmin.seniorOption') }}</option>
+                                <option value="hr">{{ t('departmentRolesAdmin.hrOption') }}</option>
                             </select>
                         </div>
-                        <PrimaryButton :disabled="form.processing">Assign</PrimaryButton>
+                        <PrimaryButton :disabled="form.processing">{{ t('tasksAdmin.assignButton') }}</PrimaryButton>
                     </form>
                 </div>
 
@@ -93,12 +95,12 @@ const remove = (assignment) => {
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">User</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Department</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Stage</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Role</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Actions</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('departmentRolesAdmin.userCol') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.departmentLabel') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.stageCol') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('common.role') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.statusCol') }}</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.actionsCol') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200 bg-white">
@@ -112,13 +114,13 @@ const remove = (assignment) => {
                                 </td>
                                 <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
                                     <button @click="toggle(a)" class="text-indigo-600 hover:text-indigo-900">
-                                        {{ a.status === 'active' ? 'Deactivate' : 'Reactivate' }}
+                                        {{ a.status === 'active' ? t('departmentRolesAdmin.deactivate') : t('departmentRolesAdmin.reactivate') }}
                                     </button>
-                                    <button @click="remove(a)" class="ml-4 text-red-600 hover:text-red-900">Remove</button>
+                                    <button @click="remove(a)" class="ml-4 text-red-600 hover:text-red-900">{{ t('departmentRolesAdmin.remove') }}</button>
                                 </td>
                             </tr>
                             <tr v-if="assignments.length === 0">
-                                <td colspan="6" class="px-6 py-8 text-center text-sm text-gray-500">No role assignments yet.</td>
+                                <td colspan="6" class="px-6 py-8 text-center text-sm text-gray-500">{{ t('departmentRolesAdmin.emptyList') }}</td>
                             </tr>
                         </tbody>
                     </table>

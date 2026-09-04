@@ -6,7 +6,9 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const props = defineProps({
     departments: Array,
     caseSheetTypes: Array,
@@ -87,11 +89,11 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Add Task" />
+    <Head :title="t('tasksAdmin.addTask')" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">Add Task</h2>
+            <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('tasksAdmin.addTask') }}</h2>
         </template>
 
         <div class="py-12">
@@ -99,41 +101,41 @@ const submit = () => {
                 <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
                     <form @submit.prevent="submit" class="space-y-6">
                         <div>
-                            <InputLabel for="title" value="Title" />
+                            <InputLabel for="title" :value="t('tasksAdmin.titleLabel')" />
                             <TextInput id="title" v-model="form.title" type="text" class="mt-1 block w-full" required autofocus />
                             <InputError class="mt-2" :message="form.errors.title" />
                         </div>
 
                         <div>
-                            <InputLabel for="education_type_id" value="نوع الدراسة" />
+                            <InputLabel for="education_type_id" :value="t('tasksAdmin.educationTypeFilterPlaceholder')" />
                             <select id="education_type_id" v-model="educationType" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                <option value="" disabled>اختر نوع الدراسة</option>
-                                <option v-for="t in educationTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
+                                <option value="" disabled>{{ t('doctorsAdmin.selectEducationType') }}</option>
+                                <option v-for="et in educationTypes" :key="et.id" :value="et.id">{{ et.name }}</option>
                             </select>
                         </div>
 
                         <div>
-                            <InputLabel for="stage_id" value="Stage" />
+                            <InputLabel for="stage_id" :value="t('doctorsAdmin.stageCol')" />
                             <select id="stage_id" v-model="form.stage_id" :disabled="!educationType" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100" required>
-                                <option value="" disabled>{{ educationType ? 'Select a stage' : 'اختر نوع الدراسة أولاً' }}</option>
+                                <option value="" disabled>{{ educationType ? t('tasksAdmin.selectStage') : t('doctorsAdmin.selectEducationTypeFirst') }}</option>
                                 <option v-for="s in filteredStages" :key="s.id" :value="s.id">{{ s.name }}</option>
                             </select>
                             <InputError class="mt-2" :message="form.errors.stage_id" />
                         </div>
 
                         <div>
-                            <InputLabel for="department_id" value="Department" />
+                            <InputLabel for="department_id" :value="t('doctorsAdmin.departmentLabel')" />
                             <select id="department_id" v-model="form.department_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" :disabled="!form.stage_id" required>
-                                <option value="" disabled>{{ form.stage_id ? 'Select a department' : 'Select a stage first' }}</option>
+                                <option value="" disabled>{{ form.stage_id ? t('tasksAdmin.selectDepartment') : t('tasksAdmin.selectStageFirst') }}</option>
                                 <option v-for="d in filteredDepartments" :key="d.id" :value="d.id">{{ d.name }}</option>
                             </select>
                             <InputError class="mt-2" :message="form.errors.department_id" />
                         </div>
 
                         <div>
-                            <InputLabel for="case_sheet_type_id" value="Case Sheet Type" />
+                            <InputLabel for="case_sheet_type_id" :value="t('tasksAdmin.caseSheetTypeLabel')" />
                             <select id="case_sheet_type_id" v-model="form.case_sheet_type_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
-                                <option value="" disabled>Select a case sheet type</option>
+                                <option value="" disabled>{{ t('tasksAdmin.selectCaseSheetType') }}</option>
                                 <option v-for="c in caseSheetTypes" :key="c.id" :value="c.id">{{ c.name_en }}</option>
                             </select>
                             <InputError class="mt-2" :message="form.errors.case_sheet_type_id" />
@@ -141,12 +143,12 @@ const submit = () => {
 
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <InputLabel for="required_per_doctor" value="Required per Doctor" />
+                                <InputLabel for="required_per_doctor" :value="t('tasksAdmin.requiredPerDoctorLabel')" />
                                 <TextInput id="required_per_doctor" v-model="form.required_per_doctor" type="number" min="0" class="mt-1 block w-full" required />
                                 <InputError class="mt-2" :message="form.errors.required_per_doctor" />
                             </div>
                             <div>
-                                <InputLabel for="required_count" value="Required Count" />
+                                <InputLabel for="required_count" :value="t('tasksAdmin.requiredCountLabel')" />
                                 <TextInput id="required_count" v-model="form.required_count" type="number" min="1" class="mt-1 block w-full" required />
                                 <InputError class="mt-2" :message="form.errors.required_count" />
                             </div>
@@ -154,14 +156,14 @@ const submit = () => {
 
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <InputLabel for="grade" value="الدرجة / العلامة" />
+                                <InputLabel for="grade" :value="t('tasksAdmin.gradeLabel')" />
                                 <TextInput id="grade" v-model="form.grade" type="number" step="0.01" min="0" max="100" placeholder="0.00 - 100.00" class="mt-1 block w-full" />
                                 <InputError class="mt-2" :message="form.errors.grade" />
                             </div>
                             <div v-if="academicSessions.length">
-                                <InputLabel for="academic_session_id" value="العام الدراسي" />
+                                <InputLabel for="academic_session_id" :value="t('doctorsAdmin.academicSessionLabel')" />
                                 <select id="academic_session_id" v-model="form.academic_session_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                    <option value="">الفصل الحالي</option>
+                                    <option value="">{{ t('tasksAdmin.currentTermOption') }}</option>
                                     <option v-for="s in academicSessions" :key="s.id" :value="s.id">{{ s.name }}</option>
                                 </select>
                                 <InputError class="mt-2" :message="form.errors.academic_session_id" />
@@ -169,28 +171,28 @@ const submit = () => {
                         </div>
 
                         <div>
-                            <InputLabel value="نوع المهمة" />
+                            <InputLabel :value="t('tasksAdmin.taskTypeLabel')" />
                             <div class="mt-2 flex items-center gap-6">
                                 <label class="flex items-center gap-2 text-sm text-gray-700">
                                     <input type="radio" :value="true" v-model="form.is_required" class="border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                    أساسية
+                                    {{ t('tasksAdmin.required') }}
                                 </label>
                                 <label class="flex items-center gap-2 text-sm text-gray-700">
                                     <input type="radio" :value="false" v-model="form.is_required" class="border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                    اختيارية
+                                    {{ t('tasksAdmin.optional') }}
                                 </label>
                             </div>
                             <InputError class="mt-2" :message="form.errors.is_required" />
                         </div>
 
                         <div>
-                            <InputLabel for="notes" value="Notes" />
+                            <InputLabel for="notes" :value="t('tasksAdmin.notesLabel')" />
                             <textarea id="notes" v-model="form.notes" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
                             <InputError class="mt-2" :message="form.errors.notes" />
                         </div>
 
                         <div class="flex justify-end">
-                            <PrimaryButton :disabled="form.processing">Save Task</PrimaryButton>
+                            <PrimaryButton :disabled="form.processing">{{ t('tasksAdmin.saveTask') }}</PrimaryButton>
                         </div>
                     </form>
                 </div>
