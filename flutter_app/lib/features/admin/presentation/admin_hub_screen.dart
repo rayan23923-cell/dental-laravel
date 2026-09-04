@@ -33,6 +33,7 @@ class AdminHubScreen extends StatelessWidget {
       const _AdminGroup('إدارة الأطباء', [
         _AdminItem('الأطباء', Icons.medical_information_outlined, '/admin/doctors'),
         _AdminItem('المجموعات', Icons.groups_outlined, '/admin/groups'),
+        _AdminItem('خريطة كراسي العيادة', Icons.event_seat_outlined, '/admin/clinic-chairs'),
       ]),
       const _AdminGroup('البيانات الأساسية', [
         _AdminItem('الأعوام الدراسية', Icons.event_note_outlined, '/admin/academic-sessions'),

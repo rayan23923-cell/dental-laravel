@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\DoctorController;
 use App\Http\Controllers\Api\DoctorImportExportController;
 use App\Http\Controllers\Api\DoctorTaskProgressController;
 use App\Http\Controllers\Api\EndodonticsXrayController;
+use App\Http\Controllers\Api\ClinicChairController;
 use App\Http\Controllers\Api\GroupController;
 use App\Http\Controllers\Api\LookupController;
 use App\Http\Controllers\Api\NotificationController;
@@ -247,6 +248,19 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::get('/groups-available-doctors', [GroupController::class, 'availableDoctors']);
         Route::post('/groups/{group}/doctors', [GroupController::class, 'addDoctors']);
         Route::delete('/groups/{group}/doctors', [GroupController::class, 'removeDoctors']);
+
+        // Clinic chair map (2026-09-04, by request — "اضفها الى فلتر"),
+        // mirroring the web's routes/web.php clinic-chairs block exactly,
+        // including the same role+permission gating.
+        Route::apiResource('clinic-chairs', ClinicChairController::class)->except(['show', 'create', 'edit'])
+            ->middlewareFor('index', ['role:super_admin,admin', 'permission:clinic_chairs,view'])
+            ->middlewareFor('store', ['role:super_admin,admin', 'permission:clinic_chairs,create'])
+            ->middlewareFor('update', ['role:super_admin,admin', 'permission:clinic_chairs,edit'])
+            ->middlewareFor('destroy', ['role:super_admin,admin', 'permission:clinic_chairs,delete']);
+        Route::put('/clinic-chairs/{clinic_chair}/move', [ClinicChairController::class, 'move'])
+            ->middleware(['role:super_admin,admin', 'permission:clinic_chairs,edit']);
+        Route::post('/clinic-chairs/assign-group', [ClinicChairController::class, 'assignGroup'])
+            ->middleware(['role:super_admin,admin', 'permission:clinic_chairs,edit']);
 
         Route::apiResource('tasks', TaskController::class)
             ->middlewareFor(['index', 'show'], 'permission:tasks,view')
