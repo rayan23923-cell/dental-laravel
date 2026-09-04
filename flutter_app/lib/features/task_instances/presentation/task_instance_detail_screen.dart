@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/qr_dialog.dart';
 import '../../case_sheet_forms/data/case_sheet_record_repository.dart';
@@ -19,13 +20,14 @@ class TaskInstanceDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final detailAsync = ref.watch(taskInstanceDetailProvider(taskInstanceId));
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('تفاصيل المهمة')),
+      appBar: AppBar(title: Text(t['taskDetail.title']!)),
       body: detailAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stackTrace) => Center(
-          child: Text(error is ApiException ? error.userMessage : 'تعذر تحميل المهمة.'),
+          child: Text(error is ApiException ? error.userMessage : t['taskDetail.loadFailed']!),
         ),
         data: (instance) => _DetailBody(instance: instance),
       ),
@@ -61,7 +63,8 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
       }
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر فتح النموذج السريري.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['myTasks.openFormFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -73,13 +76,14 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
     // Captured before the `await` so the catch block never touches
     // `context` itself post-async-gap.
     final messenger = ScaffoldMessenger.of(context);
+    final t = ref.read(translationsProvider);
 
     setState(() => _updating = true);
     try {
       await ref.read(taskInstanceRepositoryProvider).updateStatus(widget.instance.id, status: status);
       invalidateTaskInstance(ref, widget.instance.id);
     } catch (e) {
-      final message = e is ApiException ? e.userMessage : 'تعذر تحديث الحالة.';
+      final message = e is ApiException ? e.userMessage : t['taskDetail.updateStatusFailed']!;
       messenger.showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) setState(() => _updating = false);
@@ -90,6 +94,7 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
   Widget build(BuildContext context) {
     final instance = widget.instance;
     final dateFormat = DateFormat('yyyy-MM-dd');
+    final t = ref.watch(translationsProvider);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -101,7 +106,7 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
             children: [
               Expanded(
                 child: Text(
-                  instance.task?.title ?? 'مهمة #${instance.taskId}',
+                  instance.task?.title ?? trf(t['taskDetail.taskFallback']!, {'id': instance.taskId}),
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
               ),
@@ -118,28 +123,28 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
           // hide here beyond just not rendering a null.
           if (instance.doctorName != null)
             _InfoRow(
-              label: 'الطالب/الطبيب',
+              label: t['taskDetail.doctorLabel']!,
               value: instance.doctorUsername != null
                   ? '${instance.doctorName} (${instance.doctorUsername})'
                   : instance.doctorName!,
             ),
-          if (instance.assignedByName != null) _InfoRow(label: 'بدأ بواسطة', value: instance.assignedByName!),
-          if (instance.task?.departmentName != null) _InfoRow(label: 'القسم', value: instance.task!.departmentName!),
+          if (instance.assignedByName != null) _InfoRow(label: t['taskDetail.assignedByLabel']!, value: instance.assignedByName!),
+          if (instance.task?.departmentName != null) _InfoRow(label: t['labels.department']!, value: instance.task!.departmentName!),
           if (instance.task?.caseSheetTypeNameAr != null)
-            _InfoRow(label: 'نوع النموذج السريري', value: instance.task!.caseSheetTypeNameAr!),
-          if (instance.assignedDate != null) _InfoRow(label: 'تاريخ الإسناد', value: dateFormat.format(instance.assignedDate!)),
-          if (instance.completionDate != null) _InfoRow(label: 'تاريخ الإكمال', value: dateFormat.format(instance.completionDate!)),
-          if (instance.grade != null) _InfoRow(label: 'الدرجة', value: instance.grade!.toStringAsFixed(2)),
-          if (instance.notes != null && instance.notes!.isNotEmpty) _InfoRow(label: 'ملاحظات', value: instance.notes!),
+            _InfoRow(label: t['taskDetail.caseSheetTypeLabel']!, value: instance.task!.caseSheetTypeNameAr!),
+          if (instance.assignedDate != null) _InfoRow(label: t['taskDetail.assignedDateLabel']!, value: dateFormat.format(instance.assignedDate!)),
+          if (instance.completionDate != null) _InfoRow(label: t['taskDetail.completionDateLabel']!, value: dateFormat.format(instance.completionDate!)),
+          if (instance.grade != null) _InfoRow(label: t['labels.grade']!, value: instance.grade!.toStringAsFixed(2)),
+          if (instance.notes != null && instance.notes!.isNotEmpty) _InfoRow(label: t['taskDetail.notesLabel']!, value: instance.notes!),
           const SizedBox(height: 24),
-          Text('تحديث الحالة', style: Theme.of(context).textTheme.titleMedium),
+          Text(t['taskDetail.updateStatusHeading']!, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             children: [
               for (final s in TaskInstanceStatus.values)
                 ChoiceChip(
-                  label: Text(s.arabicLabel),
+                  label: Text(s.label(t)),
                   selected: instance.status == s,
                   onSelected: _updating || instance.status == s ? null : (_) => _setStatus(s),
                 ),
@@ -151,18 +156,18 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
             icon: _openingCaseSheet
                 ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.description_outlined),
-            label: const Text('نموذج سريري'),
+            label: Text(t['labels.caseSheetForm']!),
           ),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => showQrDialog(
               context,
               imagePath: '/task-instances/${instance.id}/qr',
-              title: 'رمز الحالة',
-              caption: 'يُمسح هذا الرمز لإعادة فتح هذه الحالة مباشرة.',
+              title: t['myTasks.qrCaseTitle']!,
+              caption: t['myTasks.qrCaseCaption']!,
             ),
             icon: const Icon(Icons.qr_code_2),
-            label: const Text('رمز QR الخاص بهذه المهمة'),
+            label: Text(t['taskDetail.qrButtonLabel']!),
           ),
         ],
       ),

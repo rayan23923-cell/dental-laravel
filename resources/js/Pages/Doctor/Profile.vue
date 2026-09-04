@@ -11,9 +11,11 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import Icon from '@/Components/Icon.vue';
 import ActiveSessionsPanel from '@/Components/ActiveSessionsPanel.vue';
 
+const { t } = useI18n();
 const props = defineProps({
     profile: Object,
 });
@@ -49,10 +51,10 @@ const submitPassword = () =>
 </script>
 
 <template>
-    <Head title="الملف الشخصي" />
+    <Head :title="t('profile.title')" />
 
     <DoctorLayout>
-        <h2 class="text-lg font-semibold text-gray-800">الملف الشخصي</h2>
+        <h2 class="text-lg font-semibold text-gray-800">{{ t('profile.title') }}</h2>
 
         <!-- Identity summary -->
         <div class="mt-4 flex flex-wrap items-center gap-4 rounded-lg bg-white p-6 shadow-sm">
@@ -74,60 +76,60 @@ const submitPassword = () =>
 
         <!-- تحديث الملف الشخصي -->
         <form @submit.prevent="submitProfile" class="mt-4 space-y-4 rounded-lg bg-white p-6 shadow-sm">
-            <h3 class="text-sm font-semibold text-gray-700">تحديث الملف الشخصي</h3>
+            <h3 class="text-sm font-semibold text-gray-700">{{ t('profile.updateProfile') }}</h3>
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                    <InputLabel for="name" value="الاسم" />
+                    <InputLabel for="name" :value="t('profile.name')" />
                     <TextInput id="name" v-model="profileForm.name" type="text" class="mt-1 block w-full" required />
                     <InputError class="mt-2" :message="profileForm.errors.name" />
                 </div>
                 <div>
-                    <InputLabel for="email" value="البريد الإلكتروني" />
+                    <InputLabel for="email" :value="t('profile.email')" />
                     <TextInput id="email" v-model="profileForm.email" type="email" class="mt-1 block w-full" required />
                     <InputError class="mt-2" :message="profileForm.errors.email" />
                 </div>
                 <div>
-                    <InputLabel for="phone" value="رقم الهاتف" />
+                    <InputLabel for="phone" :value="t('profile.phone')" />
                     <TextInput id="phone" v-model="profileForm.phone" type="text" class="mt-1 block w-full" />
                     <InputError class="mt-2" :message="profileForm.errors.phone" />
                 </div>
                 <div>
-                    <InputLabel for="profile_image" value="الصورة الشخصية" />
+                    <InputLabel for="profile_image" :value="t('profile.photo')" />
                     <input id="profile_image" type="file" accept="image/*" class="mt-1 block w-full text-sm text-gray-700" @input="onPhoto" />
                     <InputError class="mt-2" :message="profileForm.errors.profile_image" />
                 </div>
             </div>
 
             <div class="flex justify-end">
-                <PrimaryButton :disabled="profileForm.processing">حفظ</PrimaryButton>
+                <PrimaryButton :disabled="profileForm.processing">{{ t('profile.save') }}</PrimaryButton>
             </div>
         </form>
 
         <!-- تغيير كلمة المرور -->
         <form @submit.prevent="submitPassword" class="mt-4 space-y-4 rounded-lg bg-white p-6 shadow-sm">
-            <h3 class="text-sm font-semibold text-gray-700">تغيير كلمة المرور</h3>
+            <h3 class="text-sm font-semibold text-gray-700">{{ t('profile.changePassword') }}</h3>
 
             <div>
-                <InputLabel for="old_password" value="كلمة المرور الحالية" />
+                <InputLabel for="old_password" :value="t('profile.currentPassword')" />
                 <TextInput id="old_password" v-model="passwordForm.old_password" type="password" class="mt-1 block w-full" autocomplete="current-password" />
                 <InputError class="mt-2" :message="passwordForm.errors.old_password" />
             </div>
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                    <InputLabel for="new_password" value="كلمة المرور الجديدة" />
+                    <InputLabel for="new_password" :value="t('profile.newPassword')" />
                     <TextInput id="new_password" v-model="passwordForm.new_password" type="password" class="mt-1 block w-full" autocomplete="new-password" />
                     <InputError class="mt-2" :message="passwordForm.errors.new_password" />
                 </div>
                 <div>
-                    <InputLabel for="new_password_confirmation" value="تأكيد كلمة المرور" />
+                    <InputLabel for="new_password_confirmation" :value="t('profile.confirmPassword')" />
                     <TextInput id="new_password_confirmation" v-model="passwordForm.new_password_confirmation" type="password" class="mt-1 block w-full" autocomplete="new-password" />
                 </div>
             </div>
 
             <div class="flex justify-end">
-                <PrimaryButton :disabled="passwordForm.processing">تغيير كلمة المرور</PrimaryButton>
+                <PrimaryButton :disabled="passwordForm.processing">{{ t('profile.changePassword') }}</PrimaryButton>
             </div>
         </form>
 

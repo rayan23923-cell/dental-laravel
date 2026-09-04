@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../patient_registration/data/patient_registration_repository.dart';
 import '../data/task_instance_repository.dart';
@@ -102,27 +103,29 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
           if (mounted) context.pop(state);
       }
     } catch (e) {
+      final t = ref.read(translationsProvider);
       setState(() {
         _handled = false;
-        _error = e is ApiException ? e.userMessage : 'رمز غير معروف.';
+        _error = e is ApiException ? e.userMessage : t['qrScan.unknownCode']!;
       });
     }
   }
 
-  String get _title => switch (widget.mode) {
-        QrScanMode.taskInstance => 'مسح رمز QR',
-        QrScanMode.patientRegistrationPayment => 'مسح رمز الدفع',
-        QrScanMode.patientRegistrationScreening => 'مسح رمز الفحص',
-        QrScanMode.taskPatientLink => 'امسح رمز المريض',
-        QrScanMode.caseSheetPatientAutofill => 'مسح رمز المريض',
-        QrScanMode.paymentPatientLink => 'امسح رمز المريض',
+  String _title(Map<String, String> t) => switch (widget.mode) {
+        QrScanMode.taskInstance => t['qrScan.titleTaskInstance']!,
+        QrScanMode.patientRegistrationPayment => t['qrScan.titlePayment']!,
+        QrScanMode.patientRegistrationScreening => t['qrScan.titleScreening']!,
+        QrScanMode.taskPatientLink => t['qrScan.titlePatient']!,
+        QrScanMode.caseSheetPatientAutofill => t['qrScan.titlePatientAutofill']!,
+        QrScanMode.paymentPatientLink => t['qrScan.titlePatient']!,
       };
 
   @override
   Widget build(BuildContext context) {
+    final t = ref.watch(translationsProvider);
     return Scaffold(
       appBar: AppBar(
-        title: Text(_title),
+        title: Text(_title(t)),
         actions: [
           // Torch toggle — mirrors the web QrScanner.vue's existing
           // "تشغيل/إطفاء الفلاش" control (same feature, previously missing
@@ -138,7 +141,7 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
               return IconButton(
                 onPressed: () => _controller.toggleTorch(),
                 icon: Icon(state.torchState == TorchState.on ? Icons.flash_on : Icons.flash_off),
-                tooltip: state.torchState == TorchState.on ? 'إطفاء الفلاش' : 'تشغيل الفلاش',
+                tooltip: state.torchState == TorchState.on ? t['qrScan.torchOff']! : t['qrScan.torchOn']!,
               );
             },
           ),
@@ -161,7 +164,7 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
               child: MaterialBanner(
                 content: Text(_error!),
                 actions: [
-                  TextButton(onPressed: () => setState(() => _error = null), child: const Text('حسنًا')),
+                  TextButton(onPressed: () => setState(() => _error = null), child: Text(t['common.ok']!)),
                 ],
               ),
             ),

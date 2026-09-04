@@ -13,9 +13,9 @@ enum TaskInstanceStatus {
 
   String toJson() => name;
 
-  String get arabicLabel => switch (this) {
-        TaskInstanceStatus.pending => 'قيد الانتظار',
-        TaskInstanceStatus.assigned => 'مسندة',
-        TaskInstanceStatus.completed => 'مكتملة',
+  String label(Map<String, String> t) => switch (this) {
+        TaskInstanceStatus.pending => t['taskStatus.pending']!,
+        TaskInstanceStatus.assigned => t['taskStatus.assigned']!,
+        TaskInstanceStatus.completed => t['taskStatus.completed']!,
       };
 }

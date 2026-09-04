@@ -64,7 +64,8 @@
     },
     "common": {
         "loading": "جارٍ التحميل...",
-        "academicYearActive": "العام الدراسي النشط:"
+        "academicYearActive": "العام الدراسي النشط:",
+        "close": "إغلاق"
     },
     "sessions": {
         "title": "الأجهزة النشطة",
@@ -168,5 +169,42 @@
         "assigned": "مخصصة",
         "pending": "معلقة",
         "grade": "الدرجة"
+    },
+    "doctorProgress": {
+        "title": "تقدم المهام التفصيلي",
+        "totalCases": "إجمالي الحالات",
+        "overallProgress": "التقدم العام",
+        "completedOfTotal": "{completed} من {total} مكتملة",
+        "noTasksAssignedYet": "لم تُخصَّص لك أي مهام بعد.",
+        "casesCount": "{n} حالة",
+        "statusCol": "الحالة",
+        "assignedDateCol": "تاريخ التخصيص",
+        "completionDateCol": "تاريخ الإكمال",
+        "notesCol": "الملاحظات"
+    },
+    "requiredTasks": {
+        "titleWithStage": "المهام المطلوبة حسب الأقسام — مرحلة {stage}",
+        "noTasksInStage": "لا توجد مهام في مرحلتك حالياً.",
+        "taskCount": "{n} مهمة",
+        "remainingLine": "المتبقي: {remaining} من {total}"
+    },
+    "tasks": {
+        "qrCode": "رمز QR",
+        "openForm": "فتح النموذج",
+        "openCaseSheet": "فتح كيس شيت",
+        "confirmedPaperPrefix": "موثّق ورقياً —",
+        "confirmPaper": "تأكيد أنه ورقي",
+        "confirmPaperConfirmMsg": "تأكيد أن هذه الحالة موثّقة على نسخة ورقية؟",
+        "qrCaseTitle": "رمز الحالة",
+        "qrCaseCaption": "يُمسح هذا الرمز لإعادة فتح هذه الحالة مباشرة.",
+        "qrStartTitle": "رمز بدء المهمة",
+        "qrStartCaption": "يمسح المشرف هذا الرمز لبدء هذه المهمة لك.",
+        "pendingQrTitle": "رمز المهمة المعلقة",
+        "pendingQrCaption": "اعرض هذا الرمز على المشرف لبدء المهمة وتخصيص حالة لك.",
+        "pendingIntro": "المهام التي لم تبدأ بها بعد في مرحلتك. اعرض رمز المهمة ليمسحه المشرف ويبدأها لك.",
+        "noPendingTasks": "لا توجد مهام معلقة — بدأت جميع مهام مرحلتك.",
+        "notStarted": "لم تبدأ بعد",
+        "started": "بدأت",
+        "completedAt": "اكتملت"
     }
 }

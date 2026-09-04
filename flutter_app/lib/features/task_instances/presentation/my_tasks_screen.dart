@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/qr_dialog.dart';
 import '../../case_sheet_forms/data/case_sheet_record_repository.dart';
@@ -52,6 +53,7 @@ class _MyTasksScreenState extends ConsumerState<MyTasksScreen> with SingleTicker
   @override
   Widget build(BuildContext context) {
     final departmentsAsync = ref.watch(myTaskProgressProvider);
+    final t = ref.watch(translationsProvider);
 
     return departmentsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -63,7 +65,7 @@ class _MyTasksScreenState extends ConsumerState<MyTasksScreen> with SingleTicker
         _ensureTabController(departments.length);
 
         if (departments.isEmpty) {
-          return const Center(child: Text('لا توجد أقسام لمرحلتك.'));
+          return Center(child: Text(t['myTasks.noDepartments']!));
         }
 
         return Column(
@@ -86,15 +88,16 @@ class _MyTasksScreenState extends ConsumerState<MyTasksScreen> with SingleTicker
   }
 }
 
-class _DepartmentTaskList extends StatelessWidget {
+class _DepartmentTaskList extends ConsumerWidget {
   const _DepartmentTaskList({required this.department});
   final MyTaskDepartment department;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final tasks = department.doctor.tasks;
     if (tasks.isEmpty) {
-      return const Center(child: Text('لا توجد مهام في هذا القسم.'));
+      final t = ref.watch(translationsProvider);
+      return Center(child: Text(t['myTasks.noTasksInDept']!));
     }
 
     // Group this department's slot cards by task_id, preserving the
@@ -114,21 +117,22 @@ class _DepartmentTaskList extends StatelessWidget {
   }
 }
 
-class _TaskGroupTile extends StatelessWidget {
+class _TaskGroupTile extends ConsumerWidget {
   const _TaskGroupTile({required this.slots});
   final List<TaskSlotCard> slots;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final title = slots.first.taskTitle;
     final completed = slots.where((s) => s.status == 'completed').length;
     final required = slots.length;
+    final t = ref.watch(translationsProvider);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ExpansionTile(
         title: Text(title),
-        subtitle: Text('$completed/$required مكتملة'),
+        subtitle: Text(trf(t['myTasks.completedOfRequired']!, {'completed': completed, 'required': required})),
         children: [for (final slot in slots) _SlotRow(slot: slot)],
       ),
     );
@@ -167,7 +171,8 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
       );
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر فتح النموذج السريري.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['myTasks.openFormFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -194,7 +199,8 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
       );
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر فتح النموذج السريري.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['myTasks.openFormFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -208,14 +214,15 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
   Future<void> _confirmPaper() async {
     final instanceId = slot.instanceId;
     if (instanceId == null) return;
+    final t = ref.read(translationsProvider);
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        content: const Text('تأكيد أن هذه الحالة موثّقة على نسخة ورقية؟'),
+        content: Text(t['myTasks.confirmPaperMsg']!),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('تأكيد')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(t['nav.cancel']!)),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(t['myTasks.confirm']!)),
         ],
       ),
     );
@@ -225,11 +232,11 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
       await ref.read(taskInstanceRepositoryProvider).confirmPaper(instanceId);
       invalidateTaskInstance(ref, instanceId);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تأكيد توثيق الحالة ورقياً.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['myTasks.paperConfirmedSuccess']!)));
       }
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الحفظ.';
+        final message = e is ApiException ? e.userMessage : t['profile.saveFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     }
@@ -245,11 +252,11 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
     };
   }
 
-  String _statusLabel() => switch (slot.status) {
-        'completed' => 'مكتملة',
-        'assigned' => 'قيد التنفيذ',
-        'pending' => 'معلّقة',
-        _ => 'لم تبدأ بعد',
+  String _statusLabel(Map<String, String> t) => switch (slot.status) {
+        'completed' => t['slotStatus.completed']!,
+        'assigned' => t['slotStatus.inProgress']!,
+        'pending' => t['slotStatus.pending']!,
+        _ => t['slotStatus.notStarted']!,
       };
 
   @override
@@ -257,9 +264,10 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
     final dateFormat = DateFormat('yyyy-MM-dd');
     final date = slot.completionDate ?? slot.assignedDate;
     final parsedDate = date != null ? DateTime.tryParse(date) : null;
+    final t = ref.watch(translationsProvider);
 
     return ListTile(
-      title: Text('الحالة ${slot.slot}'),
+      title: Text(trf(t['myTasks.slotTitle']!, {'slot': slot.slot})),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -272,13 +280,13 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  _statusLabel(),
+                  _statusLabel(t),
                   style: TextStyle(color: _statusColor(context), fontWeight: FontWeight.w600, fontSize: 12),
                 ),
               ),
               if (slot.grade != null) ...[
                 const SizedBox(width: 8),
-                Text('الدرجة: ${slot.grade}'),
+                Text(trf(t['myTasks.gradeLine']!, {'grade': slot.grade!})),
               ],
             ],
           ),
@@ -290,17 +298,17 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
           if (slot.instanceId != null && slot.paperCaseSheetConfirmedAt != null)
             Row(
               mainAxisSize: MainAxisSize.min,
-              children: const [
-                Icon(Icons.check_circle, size: 14, color: Colors.amber),
-                SizedBox(width: 4),
-                Text('موثّق ورقياً', style: TextStyle(fontSize: 12)),
+              children: [
+                const Icon(Icons.check_circle, size: 14, color: Colors.amber),
+                const SizedBox(width: 4),
+                Text(t['myTasks.confirmedOnPaper']!, style: const TextStyle(fontSize: 12)),
               ],
             )
           else if (slot.instanceId != null)
             TextButton(
               style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0), visualDensity: VisualDensity.compact),
               onPressed: _confirmPaper,
-              child: const Text('تأكيد أنه ورقي', style: TextStyle(fontSize: 12)),
+              child: Text(t['myTasks.confirmPaperButton']!, style: const TextStyle(fontSize: 12)),
             ),
         ],
       ),
@@ -318,16 +326,14 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
         children: [
           IconButton(
             icon: const Icon(Icons.qr_code_2),
-            tooltip: 'رمز QR',
+            tooltip: t['labels.qrCode']!,
             onPressed: () => showQrDialog(
               context,
               imagePath: slot.instanceId != null
                   ? '/task-instances/${slot.instanceId}/qr'
                   : '/pending-tasks/${slot.taskId}/qr',
-              title: slot.instanceId != null ? 'رمز الحالة' : 'رمز بدء المهمة',
-              caption: slot.instanceId != null
-                  ? 'يُمسح هذا الرمز لإعادة فتح هذه الحالة مباشرة.'
-                  : 'يمسح المشرف هذا الرمز لبدء هذه المهمة لك.',
+              title: slot.instanceId != null ? t['myTasks.qrCaseTitle']! : t['myTasks.qrStartTitle']!,
+              caption: slot.instanceId != null ? t['myTasks.qrCaseCaption']! : t['myTasks.qrStartCaption']!,
             ),
           ),
           _openingCaseSheet
@@ -337,7 +343,7 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
                 )
               : IconButton(
                   icon: const Icon(Icons.description_outlined),
-                  tooltip: 'نموذج سريري',
+                  tooltip: t['labels.caseSheetForm']!,
                   onPressed: slot.instanceId != null ? _openCaseSheet : _openCaseSheetForTask,
                 ),
           if (slot.instanceId != null) const Icon(Icons.chevron_left),
@@ -348,21 +354,22 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
   }
 }
 
-class _ErrorView extends StatelessWidget {
+class _ErrorView extends ConsumerWidget {
   const _ErrorView({required this.error, required this.onRetry});
   final Object error;
   final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) {
-    final message = error is ApiException ? (error as ApiException).userMessage : 'حدث خطأ غير متوقع.';
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider);
+    final message = error is ApiException ? (error as ApiException).userMessage : t['common.unexpectedError']!;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(message, textAlign: TextAlign.center),
           const SizedBox(height: 12),
-          OutlinedButton(onPressed: onRetry, child: const Text('إعادة المحاولة')),
+          OutlinedButton(onPressed: onRetry, child: Text(t['common.retry']!)),
         ],
       ),
     );

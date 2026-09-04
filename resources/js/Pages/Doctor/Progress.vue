@@ -1,14 +1,16 @@
 <script setup>
 import DoctorLayout from '@/Layouts/DoctorLayout.vue';
 import { Head } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
 import Icon from '@/Components/Icon.vue';
 
+const { t } = useI18n();
 defineProps({
     stats: Object,
     tasks: Array,
 });
 
-const statusLabel = (s) => ({ completed: 'مكتملة', assigned: 'قيد التنفيذ', pending: 'معلقة' }[s] ?? s);
+const statusLabel = (s) => ({ completed: t('dashboard.completed'), assigned: t('dashboard.inProgress'), pending: t('dashboard.pending') }[s] ?? s);
 const statusClass = (s) =>
     ({
         completed: 'bg-green-100 text-green-800',
@@ -21,34 +23,34 @@ const fmt = (v) => (v ? new Date(v).toLocaleString() : '—');
 </script>
 
 <template>
-    <Head title="تقدم المهام التفصيلي" />
+    <Head :title="t('doctorProgress.title')" />
 
     <DoctorLayout>
-        <h2 class="text-lg font-semibold text-gray-800"><Icon name="trending_up" class="ml-1" />تقدم المهام التفصيلي</h2>
+        <h2 class="text-lg font-semibold text-gray-800"><Icon name="trending_up" class="ml-1" />{{ t('doctorProgress.title') }}</h2>
 
         <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div class="rounded-lg bg-white p-4 text-center shadow-sm">
                 <div class="text-2xl font-bold text-gray-900">{{ stats.total }}</div>
-                <div class="text-xs text-gray-500">إجمالي الحالات</div>
+                <div class="text-xs text-gray-500">{{ t('doctorProgress.totalCases') }}</div>
             </div>
             <div class="rounded-lg bg-white p-4 text-center shadow-sm">
                 <div class="text-2xl font-bold text-green-700">{{ stats.completed }}</div>
-                <div class="text-xs text-gray-500">مكتملة</div>
+                <div class="text-xs text-gray-500">{{ t('dashboard.completed') }}</div>
             </div>
             <div class="rounded-lg bg-white p-4 text-center shadow-sm">
                 <div class="text-2xl font-bold text-amber-700">{{ stats.assigned }}</div>
-                <div class="text-xs text-gray-500">قيد التنفيذ</div>
+                <div class="text-xs text-gray-500">{{ t('dashboard.inProgress') }}</div>
             </div>
             <div class="rounded-lg bg-white p-4 text-center shadow-sm">
                 <div class="text-2xl font-bold text-gray-600">{{ stats.pending }}</div>
-                <div class="text-xs text-gray-500">معلقة</div>
+                <div class="text-xs text-gray-500">{{ t('dashboard.pending') }}</div>
             </div>
         </div>
 
         <div class="mt-4 rounded-lg bg-white p-4 shadow-sm">
             <div class="flex items-center justify-between text-sm text-gray-600">
-                <span>التقدم العام</span>
-                <span>{{ stats.completed }} من {{ stats.total }} مكتملة</span>
+                <span>{{ t('doctorProgress.overallProgress') }}</span>
+                <span>{{ t('doctorProgress.completedOfTotal', { completed: stats.completed, total: stats.total }) }}</span>
             </div>
             <div class="mt-2 h-4 overflow-hidden rounded-full bg-gray-100">
                 <div class="h-full rounded-full bg-green-500 transition-all" :style="{ width: pct(stats.completed, stats.total) + '%' }"></div>
@@ -56,7 +58,7 @@ const fmt = (v) => (v ? new Date(v).toLocaleString() : '—');
         </div>
 
         <div v-if="tasks.length === 0" class="mt-4 rounded-lg bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
-            لم تُخصَّص لك أي مهام بعد.
+            {{ t('doctorProgress.noTasksAssignedYet') }}
         </div>
 
         <div v-for="task in tasks" :key="task.task_id" class="mt-4 overflow-hidden rounded-lg bg-white shadow-sm">
@@ -66,12 +68,12 @@ const fmt = (v) => (v ? new Date(v).toLocaleString() : '—');
                         {{ task.title }}
                         <span v-if="task.case_sheet" class="mr-1 rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-700">{{ task.case_sheet }}</span>
                     </h3>
-                    <span class="rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-700">{{ task.instances.length }} حالة</span>
+                    <span class="rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-700">{{ t('doctorProgress.casesCount', { n: task.instances.length }) }}</span>
                 </div>
                 <div class="mt-1 flex flex-wrap gap-x-4 text-xs text-gray-500">
-                    <span>القسم: {{ task.department ?? '—' }}</span>
-                    <span>المطلوب: {{ task.required_count }}</span>
-                    <span class="font-medium text-amber-700">المتبقي: {{ task.remaining }}</span>
+                    <span>{{ t('doctorDashboard.department') }}: {{ task.department ?? '—' }}</span>
+                    <span>{{ t('dashboard.requiredLabel') }}: {{ task.required_count }}</span>
+                    <span class="font-medium text-amber-700">{{ t('dashboard.remainingCol') }}: {{ task.remaining }}</span>
                 </div>
                 <div class="mt-2 h-2 overflow-hidden rounded-full bg-gray-100">
                     <div class="h-full rounded-full bg-green-500" :style="{ width: pct(task.completed, task.instances.length) + '%' }"></div>
@@ -81,11 +83,11 @@ const fmt = (v) => (v ? new Date(v).toLocaleString() : '—');
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">الحالة</th>
-                        <th class="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">تاريخ التخصيص</th>
-                        <th class="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">تاريخ الإكمال</th>
-                        <th class="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">الدرجة</th>
-                        <th class="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">الملاحظات</th>
+                        <th class="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">{{ t('doctorProgress.statusCol') }}</th>
+                        <th class="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">{{ t('doctorProgress.assignedDateCol') }}</th>
+                        <th class="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">{{ t('doctorProgress.completionDateCol') }}</th>
+                        <th class="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">{{ t('doctorDashboard.grade') }}</th>
+                        <th class="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">{{ t('doctorProgress.notesCol') }}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 bg-white">

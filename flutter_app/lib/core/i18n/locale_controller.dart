@@ -43,3 +43,16 @@ final translationsProvider = Provider<Map<String, String>>((ref) {
   final locale = ref.watch(localeProvider);
   return locale == 'en' ? kTranslationsEn : kTranslationsAr;
 });
+
+/// Interpolates `{name}` placeholders in a translated string — the Dart
+/// side of vue-i18n's `t(key, params)` param substitution, since
+/// `kTranslationsAr`/`kTranslationsEn` are plain string maps with no
+/// built-in interpolation of their own. Example:
+/// `trf(t['myTasks.slotTitle']!, {'slot': slot.slot})`.
+String trf(String template, Map<String, Object> params) {
+  var result = template;
+  for (final entry in params.entries) {
+    result = result.replaceAll('{${entry.key}}', '${entry.value}');
+  }
+  return result;
+}

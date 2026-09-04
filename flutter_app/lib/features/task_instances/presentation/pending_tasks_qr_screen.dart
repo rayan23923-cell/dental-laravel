@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/qr_dialog.dart';
 import '../../case_sheet_forms/data/case_sheet_record_repository.dart';
@@ -26,9 +27,10 @@ class PendingTasksQrScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tasksAsync = ref.watch(pendingTasksQrProvider);
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('رموز المهام المعلقة')),
+      appBar: AppBar(title: Text(t['nav.pendingTasksQr']!)),
       body: tasksAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stackTrace) => Center(
@@ -38,13 +40,13 @@ class PendingTasksQrScreen extends ConsumerWidget {
               Text(
                 error is ApiException
                     ? error.userMessage
-                    : 'حدث خطأ غير متوقع.',
+                    : t['common.unexpectedError']!,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
               OutlinedButton(
                 onPressed: () => ref.invalidate(pendingTasksQrProvider),
-                child: const Text('إعادة المحاولة'),
+                child: Text(t['common.retry']!),
               ),
             ],
           ),
@@ -55,13 +57,14 @@ class PendingTasksQrScreen extends ConsumerWidget {
   }
 }
 
-class _PendingTasksBody extends StatelessWidget {
+class _PendingTasksBody extends ConsumerWidget {
   const _PendingTasksBody({required this.tasks});
   final List<PendingTask> tasks;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final t = ref.watch(translationsProvider);
 
     return CustomScrollView(
       slivers: [
@@ -69,16 +72,16 @@ class _PendingTasksBody extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
           sliver: SliverToBoxAdapter(
             child: Text(
-              'المهام التي لم تبدأ بها بعد في مرحلتك. اعرض رمز المهمة ليمسحه المشرف ويبدأها لك.',
+              t['tasksQr.pendingIntro']!,
               style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
             ),
           ),
         ),
         if (tasks.isEmpty)
-          const SliverFillRemaining(
+          SliverFillRemaining(
             hasScrollBody: false,
             child: Center(
-              child: Text('لا توجد مهام معلقة — بدأت جميع مهام مرحلتك.'),
+              child: Text(t['tasksQr.pendingEmpty']!),
             ),
           )
         else
@@ -126,7 +129,8 @@ class _PendingTaskCardState extends ConsumerState<_PendingTaskCard> {
       );
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر فتح كيس الشيت.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['tasksQr.openCaseSheetFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -137,6 +141,7 @@ class _PendingTaskCardState extends ConsumerState<_PendingTaskCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final t = ref.watch(translationsProvider);
 
     return Card(
       child: Padding(
@@ -152,7 +157,7 @@ class _PendingTaskCardState extends ConsumerState<_PendingTaskCard> {
             ),
             const SizedBox(height: 2),
             Text(
-              'القسم: ${task.department ?? '—'}',
+              '${t['labels.department']!}: ${task.department ?? '—'}',
               style: theme.textTheme.bodySmall,
             ),
             const SizedBox(height: 8),
@@ -161,13 +166,13 @@ class _PendingTaskCardState extends ConsumerState<_PendingTaskCard> {
               runSpacing: 6,
               children: [
                 Chip(
-                  label: Text('المطلوب: ${task.requiredCount}'),
+                  label: Text('${t['labels.required']!}: ${task.requiredCount}'),
                   visualDensity: VisualDensity.compact,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 if (task.grade != null)
                   Chip(
-                    label: Text('الدرجة: ${task.grade}'),
+                    label: Text('${t['labels.grade']!}: ${task.grade}'),
                     visualDensity: VisualDensity.compact,
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
@@ -187,7 +192,7 @@ class _PendingTaskCardState extends ConsumerState<_PendingTaskCard> {
                         )
                       : OutlinedButton.icon(
                           icon: const Icon(Icons.description_outlined),
-                          label: const Text('فتح كيس شيت'),
+                          label: Text(t['labels.openCaseSheet']!),
                           onPressed: _openCaseSheetForTask,
                         ),
                 ),
@@ -195,13 +200,12 @@ class _PendingTaskCardState extends ConsumerState<_PendingTaskCard> {
                 Expanded(
                   child: FilledButton.icon(
                     icon: const Icon(Icons.qr_code_2),
-                    label: const Text('رمز QR'),
+                    label: Text(t['labels.qrCode']!),
                     onPressed: () => showQrDialog(
                       context,
                       imagePath: '/pending-tasks/${task.id}/qr',
-                      title: 'رمز المهمة المعلقة',
-                      caption:
-                          'اعرض هذا الرمز على المشرف لبدء المهمة وتخصيص حالة لك.',
+                      title: t['tasksQr.qrTitle']!,
+                      caption: t['tasksQr.qrCaption']!,
                     ),
                   ),
                 ),

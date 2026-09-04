@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/notification_repository.dart';
 import '../domain/app_notification.dart';
@@ -41,17 +42,18 @@ class _NotificationInboxScreenState extends ConsumerState<NotificationInboxScree
   @override
   Widget build(BuildContext context) {
     final notificationsAsync = ref.watch(notificationsListProvider);
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('الإشعارات'),
+        title: Text(t['nav.notifications']!),
         actions: [
           TextButton(
             onPressed: () async {
               await ref.read(notificationRepositoryProvider).markAllRead();
               ref.invalidate(notificationsListProvider);
             },
-            child: const Text('تحديد الكل كمقروء'),
+            child: Text(t['notifications.markAllRead']!),
           ),
         ],
       ),
@@ -71,9 +73,9 @@ class _NotificationInboxScreenState extends ConsumerState<NotificationInboxScree
             child: notifications.isEmpty
                 ? ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    children: const [
-                      SizedBox(height: 200),
-                      Center(child: Text('لا توجد إشعارات.')),
+                    children: [
+                      const SizedBox(height: 200),
+                      Center(child: Text(t['notifications.empty']!)),
                     ],
                   )
                 : ListView.separated(
@@ -130,21 +132,22 @@ class _NotificationTile extends ConsumerWidget {
   }
 }
 
-class _ErrorView extends StatelessWidget {
+class _ErrorView extends ConsumerWidget {
   const _ErrorView({required this.error, required this.onRetry});
   final Object error;
   final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) {
-    final message = error is ApiException ? (error as ApiException).userMessage : 'حدث خطأ غير متوقع.';
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider);
+    final message = error is ApiException ? (error as ApiException).userMessage : t['common.unexpectedError']!;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(message, textAlign: TextAlign.center),
           const SizedBox(height: 12),
-          OutlinedButton(onPressed: onRetry, child: const Text('إعادة المحاولة')),
+          OutlinedButton(onPressed: onRetry, child: Text(t['common.retry']!)),
         ],
       ),
     );

@@ -4,8 +4,10 @@ import Modal from '@/Components/Modal.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import Icon from '@/Components/Icon.vue';
 
+const { t } = useI18n();
 defineProps({
     stage: String,
     departments: Array,
@@ -19,7 +21,7 @@ const toggle = (name) => {
 };
 
 const statusLabel = (s) =>
-    ({ completed: 'مكتملة', assigned: 'قيد التنفيذ', pending: 'معلقة', unassigned: 'لم تبدأ بعد' }[s] ?? s);
+    ({ completed: t('dashboard.completed'), assigned: t('dashboard.inProgress'), pending: t('dashboard.pending'), unassigned: t('tasks.notStarted') }[s] ?? s);
 
 const statusClass = (s) =>
     ({
@@ -35,7 +37,7 @@ const fmt = (v) => (v ? new Date(v).toLocaleDateString() : null);
 // switch: confirming never hides or disables "فتح النموذج" above it, the
 // electronic form always stays available too.
 const confirmPaper = (slot) => {
-    if (!confirm('تأكيد أن هذه الحالة موثّقة على نسخة ورقية؟')) return;
+    if (!confirm(t('tasks.confirmPaperConfirmMsg'))) return;
     router.post(route('doctor.task-instances.confirm-paper', slot.instance_id), {}, { preserveScroll: true });
 };
 
@@ -52,25 +54,25 @@ const openQr = (task, slot) => {
     showingQr.value = slot.instance_id
         ? {
               imageUrl: route('doctor.task-instances.qr', slot.instance_id),
-              title: 'رمز الحالة',
-              caption: 'يُمسح هذا الرمز لإعادة فتح هذه الحالة مباشرة.',
+              title: t('tasks.qrCaseTitle'),
+              caption: t('tasks.qrCaseCaption'),
           }
         : {
               imageUrl: route('doctor.pending-qr.image', task.id),
-              title: 'رمز بدء المهمة',
-              caption: 'يمسح المشرف هذا الرمز لبدء هذه المهمة لك.',
+              title: t('tasks.qrStartTitle'),
+              caption: t('tasks.qrStartCaption'),
           };
 };
 </script>
 
 <template>
-    <Head title="المهام المطلوبة حسب الأقسام" />
+    <Head :title="t('doctorLayout.requiredTasks')" />
 
     <DoctorLayout>
-        <h2 class="text-lg font-semibold text-gray-800"><Icon name="assignment" class="ml-1" />المهام المطلوبة حسب الأقسام — مرحلة {{ stage ?? '—' }}</h2>
+        <h2 class="text-lg font-semibold text-gray-800"><Icon name="assignment" class="ml-1" />{{ t('requiredTasks.titleWithStage', { stage: stage ?? '—' }) }}</h2>
 
         <div v-if="departments.length === 0" class="mt-4 rounded-lg bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
-            لا توجد مهام في مرحلتك حالياً.
+            {{ t('requiredTasks.noTasksInStage') }}
         </div>
 
         <div v-else class="mt-4 space-y-3">
@@ -81,9 +83,9 @@ const openQr = (task, slot) => {
                         <Icon name="folder" class="ml-1" />{{ dept.name }}
                     </span>
                     <span class="flex gap-1 text-xs">
-                        <span class="rounded-full bg-sky-100 px-2 py-0.5 text-sky-800">{{ dept.tasks.length }} مهمة</span>
-                        <span class="rounded-full bg-indigo-100 px-2 py-0.5 text-indigo-800">المطلوب: {{ dept.required }}</span>
-                        <span class="rounded-full bg-green-100 px-2 py-0.5 text-green-800">مكتملة: {{ dept.completed }}</span>
+                        <span class="rounded-full bg-sky-100 px-2 py-0.5 text-sky-800">{{ t('requiredTasks.taskCount', { n: dept.tasks.length }) }}</span>
+                        <span class="rounded-full bg-indigo-100 px-2 py-0.5 text-indigo-800">{{ t('dashboard.requiredLabel') }}: {{ dept.required }}</span>
+                        <span class="rounded-full bg-green-100 px-2 py-0.5 text-green-800">{{ t('dashboard.completed') }}: {{ dept.completed }}</span>
                     </span>
                 </button>
 
@@ -94,7 +96,7 @@ const openQr = (task, slot) => {
                                 {{ task.title }}
                                 <span v-if="task.case_sheet" class="mr-1 rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-700">{{ task.case_sheet }}</span>
                             </h4>
-                            <span class="text-xs text-amber-700">المتبقي: {{ task.remaining }} من {{ task.required_count }}</span>
+                            <span class="text-xs text-amber-700">{{ t('requiredTasks.remainingLine', { remaining: task.remaining, total: task.required_count }) }}</span>
                         </div>
                         <p v-if="task.notes" class="mt-1 text-xs text-gray-500">{{ task.notes }}</p>
 
@@ -114,9 +116,9 @@ const openQr = (task, slot) => {
                                     </span>
                                 </div>
                                 <div class="mt-2 space-y-0.5 text-xs text-gray-500">
-                                    <div v-if="slot.assigned_date">بدأت: {{ fmt(slot.assigned_date) }}</div>
-                                    <div v-if="slot.completion_date">اكتملت: {{ fmt(slot.completion_date) }}</div>
-                                    <div v-if="slot.grade">الدرجة: {{ slot.grade }}</div>
+                                    <div v-if="slot.assigned_date">{{ t('tasks.started') }}: {{ fmt(slot.assigned_date) }}</div>
+                                    <div v-if="slot.completion_date">{{ t('tasks.completedAt') }}: {{ fmt(slot.completion_date) }}</div>
+                                    <div v-if="slot.grade">{{ t('doctorDashboard.grade') }}: {{ slot.grade }}</div>
                                     <div v-if="slot.notes" class="text-gray-600">{{ slot.notes }}</div>
                                 </div>
 
@@ -133,14 +135,14 @@ const openQr = (task, slot) => {
                                         :href="slot.instance_id ? route('doctor.case-sheet', slot.instance_id) : route('doctor.case-sheet.for-task', task.id)"
                                         class="block rounded bg-indigo-600 px-2 py-1 text-center text-xs font-medium text-white hover:bg-indigo-700"
                                     >
-                                        <Icon name="description" class="ml-1" />فتح النموذج
+                                        <Icon name="description" class="ml-1" />{{ t('tasks.openForm') }}
                                     </Link>
                                     <button
                                         type="button"
                                         @click="openQr(task, slot)"
                                         class="block rounded bg-gray-700 px-2 py-1 text-center text-xs font-medium text-white hover:bg-gray-800"
                                     >
-                                        <Icon name="qr_code_2" class="ml-1" />رمز QR
+                                        <Icon name="qr_code_2" class="ml-1" />{{ t('tasks.qrCode') }}
                                     </button>
                                 </div>
 
@@ -149,7 +151,7 @@ const openQr = (task, slot) => {
                                      not-yet-started slot's optional draft
                                      isn't a documented case yet). -->
                                 <div v-if="slot.instance_id && slot.paper_case_sheet_confirmed_at" class="mt-2 rounded bg-amber-50 px-2 py-1 text-center text-xs text-amber-800">
-                                    <Icon name="check_circle" class="ml-1" />موثّق ورقياً — {{ fmt(slot.paper_case_sheet_confirmed_at) }}
+                                    <Icon name="check_circle" class="ml-1" />{{ t('tasks.confirmedPaperPrefix') }} {{ fmt(slot.paper_case_sheet_confirmed_at) }}
                                 </div>
                                 <button
                                     v-else-if="slot.instance_id"
@@ -157,7 +159,7 @@ const openQr = (task, slot) => {
                                     @click="confirmPaper(slot)"
                                     class="mt-2 block w-full rounded bg-gray-200 px-2 py-1 text-center text-xs font-medium text-gray-700 hover:bg-gray-300"
                                 >
-                                    <Icon name="edit_note" class="ml-1" />تأكيد أنه ورقي
+                                    <Icon name="edit_note" class="ml-1" />{{ t('tasks.confirmPaper') }}
                                 </button>
                             </div>
                         </div>
@@ -176,7 +178,7 @@ const openQr = (task, slot) => {
                     {{ showingQr?.caption }}
                 </p>
                 <div class="mt-6 flex justify-end">
-                    <SecondaryButton @click="showingQr = null">إغلاق</SecondaryButton>
+                    <SecondaryButton @click="showingQr = null">{{ t('common.close') }}</SecondaryButton>
                 </div>
             </div>
         </Modal>

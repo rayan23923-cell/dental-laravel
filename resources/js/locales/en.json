@@ -64,7 +64,8 @@
     },
     "common": {
         "loading": "Loading...",
-        "academicYearActive": "Active academic year:"
+        "academicYearActive": "Active academic year:",
+        "close": "Close"
     },
     "sessions": {
         "title": "Active Sessions",
@@ -168,5 +169,42 @@
         "assigned": "Assigned",
         "pending": "Pending",
         "grade": "Grade"
+    },
+    "doctorProgress": {
+        "title": "Detailed Task Progress",
+        "totalCases": "Total Cases",
+        "overallProgress": "Overall Progress",
+        "completedOfTotal": "{completed} of {total} completed",
+        "noTasksAssignedYet": "No tasks have been assigned to you yet.",
+        "casesCount": "{n} cases",
+        "statusCol": "Status",
+        "assignedDateCol": "Assigned Date",
+        "completionDateCol": "Completion Date",
+        "notesCol": "Notes"
+    },
+    "requiredTasks": {
+        "titleWithStage": "Required Tasks by Department — {stage} Stage",
+        "noTasksInStage": "There are no tasks in your stage right now.",
+        "taskCount": "{n} tasks",
+        "remainingLine": "Remaining: {remaining} of {total}"
+    },
+    "tasks": {
+        "qrCode": "QR Code",
+        "openForm": "Open Form",
+        "openCaseSheet": "Open Case Sheet",
+        "confirmedPaperPrefix": "Confirmed on paper —",
+        "confirmPaper": "Confirm It's on Paper",
+        "confirmPaperConfirmMsg": "Confirm that this case is documented on a paper copy?",
+        "qrCaseTitle": "Case Code",
+        "qrCaseCaption": "Scanning this code reopens this case directly.",
+        "qrStartTitle": "Task Start Code",
+        "qrStartCaption": "A supervisor scans this code to start this task for you.",
+        "pendingQrTitle": "Pending Task Code",
+        "pendingQrCaption": "Show this code to a supervisor to start the task and assign you a case.",
+        "pendingIntro": "Tasks you haven't started yet in your stage. Show the task's code for a supervisor to scan and start it.",
+        "noPendingTasks": "No pending tasks — you've started every task in your stage.",
+        "notStarted": "Not Started",
+        "started": "Started",
+        "completedAt": "Completed"
     }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/sessions_repository.dart';
 import '../domain/account_session.dart';
@@ -17,9 +18,10 @@ class SessionsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sessionsAsync = ref.watch(accountSessionsProvider);
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('الأجهزة النشطة')),
+      appBar: AppBar(title: Text(t['profile.activeSessions']!)),
       body: sessionsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stackTrace) => _ErrorView(
@@ -33,9 +35,9 @@ class SessionsScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(12),
             children: [
               if (sessions.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.only(top: 80),
-                  child: Center(child: Text('لا توجد أجهزة أخرى مسجّلة الدخول حاليًا.')),
+                Padding(
+                  padding: const EdgeInsets.only(top: 80),
+                  child: Center(child: Text(t['sessions.empty']!)),
                 )
               else
                 ...sessions.map((s) => _SessionTile(session: s)),
@@ -45,7 +47,7 @@ class SessionsScreen extends ConsumerWidget {
                   onPressed: () => _logoutAll(context, ref),
                   icon: Icon(Icons.logout, color: Theme.of(context).colorScheme.error),
                   label: Text(
-                    'تسجيل الخروج من جميع الأجهزة',
+                    t['sessions.logoutAll']!,
                     style: TextStyle(color: Theme.of(context).colorScheme.error),
                   ),
                 ),
@@ -58,16 +60,17 @@ class SessionsScreen extends ConsumerWidget {
   }
 
   Future<void> _logoutAll(BuildContext context, WidgetRef ref) async {
+    final t = ref.read(translationsProvider);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('تسجيل الخروج من جميع الأجهزة'),
-        content: const Text('سيتم تسجيل الخروج من جميع الأجهزة المسجّل الدخول منها بهذا الحساب. متابعة؟'),
+        title: Text(t['sessions.logoutAll']!),
+        content: Text(t['sessions.logoutAllConfirm']!),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(t['nav.cancel']!)),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('تسجيل الخروج', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            child: Text(t['nav.logout']!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ),
         ],
       ),
@@ -79,7 +82,7 @@ class SessionsScreen extends ConsumerWidget {
       ref.invalidate(accountSessionsProvider);
     } catch (e) {
       if (context.mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر تسجيل الخروج من جميع الأجهزة.';
+        final message = e is ApiException ? e.userMessage : t['sessions.logoutAllFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     }
@@ -108,16 +111,17 @@ class _SessionTileState extends ConsumerState<_SessionTile> {
   bool _ending = false;
 
   Future<void> _end() async {
+    final t = ref.read(translationsProvider);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('إنهاء الجلسة'),
-        content: Text('إنهاء الجلسة على "${widget.session.deviceName}"؟'),
+        title: Text(t['sessions.endSessionTitle']!),
+        content: Text(trf(t['sessions.endConfirm']!, {'device': widget.session.deviceName})),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(t['nav.cancel']!)),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('إنهاء', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            child: Text(t['sessions.end']!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ),
         ],
       ),
@@ -130,7 +134,7 @@ class _SessionTileState extends ConsumerState<_SessionTile> {
       ref.invalidate(accountSessionsProvider);
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر إنهاء الجلسة.';
+        final message = e is ApiException ? e.userMessage : t['sessions.endFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
         setState(() => _ending = false);
       }
@@ -141,7 +145,8 @@ class _SessionTileState extends ConsumerState<_SessionTile> {
   Widget build(BuildContext context) {
     final session = widget.session;
     final dateFormat = DateFormat('yyyy-MM-dd HH:mm');
-    final lastActive = session.lastUsedAt != null ? dateFormat.format(session.lastUsedAt!) : 'لم يُستخدم بعد';
+    final t = ref.watch(translationsProvider);
+    final lastActive = session.lastUsedAt != null ? dateFormat.format(session.lastUsedAt!) : t['sessions.neverUsed']!;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -158,37 +163,38 @@ class _SessionTileState extends ConsumerState<_SessionTile> {
                   color: Theme.of(context).colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(999),
                 ),
-                child: Text('هذا الجهاز', style: Theme.of(context).textTheme.labelSmall),
+                child: Text(t['sessions.thisDevice']!, style: Theme.of(context).textTheme.labelSmall),
               ),
             ],
           ],
         ),
-        subtitle: Text('${session.location ?? 'الموقع غير معروف'} · آخر نشاط: $lastActive'),
+        subtitle: Text('${session.location ?? t['sessions.unknownLocation']!} · ${t['sessions.lastActive']!}: $lastActive'),
         trailing: session.isCurrent
             ? null
             : _ending
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : TextButton(onPressed: _end, child: const Text('إنهاء')),
+                : TextButton(onPressed: _end, child: Text(t['sessions.end']!)),
       ),
     );
   }
 }
 
-class _ErrorView extends StatelessWidget {
+class _ErrorView extends ConsumerWidget {
   const _ErrorView({required this.error, required this.onRetry});
   final Object error;
   final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) {
-    final message = error is ApiException ? (error as ApiException).userMessage : 'حدث خطأ غير متوقع.';
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider);
+    final message = error is ApiException ? (error as ApiException).userMessage : t['common.unexpectedError']!;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(message, textAlign: TextAlign.center),
           const SizedBox(height: 12),
-          OutlinedButton(onPressed: onRetry, child: const Text('إعادة المحاولة')),
+          OutlinedButton(onPressed: onRetry, child: Text(t['common.retry']!)),
         ],
       ),
     );
