@@ -10,7 +10,9 @@ import StructureTabs from '@/Components/StructureTabs.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const props = defineProps({
     stages: Array,
     educationTypes: Array,
@@ -50,26 +52,26 @@ const submitEdit = () => {
 };
 
 const destroy = (stage) => {
-    if (confirm(`Delete "${stage.name}"?`)) {
+    if (confirm(t('stagesAdmin.deleteConfirm', { name: stage.name }))) {
         router.delete(route('stages.destroy', stage.id));
     }
 };
 
 const columns = [
-    { key: 'name', label: 'Name', sortable: true },
-    { key: 'education_type.name', label: 'Education Type', sortable: true },
-    { key: 'departments_count', label: 'Departments', sortable: true },
-    { key: 'actions', label: 'Actions', align: 'right' },
+    { key: 'name', label: t('profile.name'), sortable: true },
+    { key: 'education_type.name', label: t('taxonomyAdmin.educationTypeLabel'), sortable: true },
+    { key: 'departments_count', label: t('structureTabs.departments'), sortable: true },
+    { key: 'actions', label: t('doctorsAdmin.actionsCol'), align: 'right' },
 ];
 </script>
 
 <template>
-    <Head title="Stages" />
+    <Head :title="t('structureTabs.stages')" />
 
     <AuthenticatedLayout>
         <template #header>
             <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                Stages
+                {{ t('structureTabs.stages') }}
             </h2>
         </template>
 
@@ -87,16 +89,16 @@ const columns = [
                 <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
                     <form @submit.prevent="submitCreate" class="flex items-start gap-3">
                         <div class="flex-1">
-                            <TextInput v-model="createForm.name" type="text" placeholder="New stage name" class="block w-full" required />
+                            <TextInput v-model="createForm.name" type="text" :placeholder="t('stagesAdmin.newNamePlaceholder')" class="block w-full" required />
                             <InputError class="mt-2" :message="createForm.errors.name" />
                         </div>
                         <div class="w-56">
                             <select v-model="createForm.education_type_id" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                <option value="">No education type</option>
+                                <option value="">{{ t('taxonomyAdmin.noEducationType') }}</option>
                                 <option v-for="type in educationTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
                             </select>
                         </div>
-                        <PrimaryButton :disabled="createForm.processing">Add</PrimaryButton>
+                        <PrimaryButton :disabled="createForm.processing">{{ t('common.add') }}</PrimaryButton>
                     </form>
                 </div>
 
@@ -105,7 +107,7 @@ const columns = [
                         v-model="search"
                         @keyup.enter="applyFilters"
                         type="text"
-                        placeholder="ابحث بالاسم..."
+                        :placeholder="t('taxonomyAdmin.searchPlaceholder')"
                         class="block flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                         style="min-width: 12rem"
                     />
@@ -114,20 +116,20 @@ const columns = [
                         @change="applyFilters"
                         class="w-56 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     >
-                        <option value="">كل أنواع التعليم</option>
+                        <option value="">{{ t('taxonomyAdmin.allEducationTypes') }}</option>
                         <option v-for="type in educationTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
                     </select>
-                    <SecondaryButton @click="applyFilters">بحث</SecondaryButton>
+                    <SecondaryButton @click="applyFilters">{{ t('taxonomyAdmin.searchButton') }}</SecondaryButton>
                 </div>
 
                 <DataTable
                     :columns="columns"
                     :rows="stages"
-                    :empty-text="search || filterEducationTypeId ? 'لا توجد نتائج مطابقة.' : 'No stages yet.'"
+                    :empty-text="search || filterEducationTypeId ? t('taxonomyAdmin.noMatchingResults') : t('stagesAdmin.emptyList')"
                 >
                     <template #cell-actions="{ row: stage }">
-                        <button @click="openEdit(stage)" class="text-indigo-600 hover:text-indigo-900">Edit</button>
-                        <button @click="destroy(stage)" class="ml-4 text-red-600 hover:text-red-900">Delete</button>
+                        <button @click="openEdit(stage)" class="text-indigo-600 hover:text-indigo-900">{{ t('common.edit') }}</button>
+                        <button @click="destroy(stage)" class="ml-4 text-red-600 hover:text-red-900">{{ t('common.delete') }}</button>
                     </template>
                 </DataTable>
             </div>
@@ -135,23 +137,23 @@ const columns = [
 
         <Modal :show="editing !== null" @close="editing = null">
             <form @submit.prevent="submitEdit" class="p-6">
-                <h2 class="text-lg font-medium text-gray-900">Edit Stage</h2>
+                <h2 class="text-lg font-medium text-gray-900">{{ t('stagesAdmin.editTitle') }}</h2>
                 <div class="mt-4">
-                    <InputLabel for="edit-name" value="Name" />
+                    <InputLabel for="edit-name" :value="t('profile.name')" />
                     <TextInput id="edit-name" v-model="editForm.name" type="text" class="mt-1 block w-full" required />
                     <InputError class="mt-2" :message="editForm.errors.name" />
                 </div>
                 <div class="mt-4">
-                    <InputLabel for="edit-education-type" value="Education Type" />
+                    <InputLabel for="edit-education-type" :value="t('taxonomyAdmin.educationTypeLabel')" />
                     <select id="edit-education-type" v-model="editForm.education_type_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                        <option value="">No education type</option>
+                        <option value="">{{ t('taxonomyAdmin.noEducationType') }}</option>
                         <option v-for="type in educationTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
                     </select>
                     <InputError class="mt-2" :message="editForm.errors.education_type_id" />
                 </div>
                 <div class="mt-6 flex justify-end gap-3">
-                    <SecondaryButton @click="editing = null">Cancel</SecondaryButton>
-                    <PrimaryButton :disabled="editForm.processing">Save</PrimaryButton>
+                    <SecondaryButton @click="editing = null">{{ t('common.cancel') }}</SecondaryButton>
+                    <PrimaryButton :disabled="editForm.processing">{{ t('profile.save') }}</PrimaryButton>
                 </div>
             </form>
         </Modal>

@@ -75,7 +75,8 @@
         "fullName": "Full Name",
         "role": "Role",
         "cancel": "Cancel",
-        "back": "Back"
+        "back": "Back",
+        "add": "Add"
     },
     "sessions": {
         "title": "Active Sessions",
@@ -482,5 +483,90 @@
         "addSelected": "Add Selected",
         "deleteConfirm": "Delete group \"{name}\"? Its doctors and patients will not be deleted.",
         "removeSelectedConfirm": "Remove {n} doctor(s) from \"{name}\"?"
+    },
+    "structureTabs": {
+        "educationTypes": "Education Types",
+        "stages": "Stages",
+        "departments": "Departments",
+        "academicSessions": "Academic Sessions",
+        "groups": "Groups",
+        "chairMap": "Chair Map"
+    },
+    "taxonomyAdmin": {
+        "searchPlaceholder": "Search by name...",
+        "searchButton": "Search",
+        "noMatchingResults": "No matching results.",
+        "educationTypeLabel": "Education Type",
+        "noEducationType": "No education type",
+        "allEducationTypes": "All education types",
+        "noStage": "No stage",
+        "allStages": "All stages"
+    },
+    "educationTypesAdmin": {
+        "newNamePlaceholder": "New education type name",
+        "emptyList": "No education types yet.",
+        "deleteConfirm": "Delete \"{name}\"? This will also delete related departments and doctors (cascade).",
+        "editTitle": "Edit Education Type"
+    },
+    "stagesAdmin": {
+        "newNamePlaceholder": "New stage name",
+        "emptyList": "No stages yet.",
+        "deleteConfirm": "Delete \"{name}\"?",
+        "editTitle": "Edit Stage"
+    },
+    "departmentsAdmin": {
+        "newNamePlaceholder": "New department name",
+        "emptyList": "No departments yet.",
+        "deleteConfirm": "Delete \"{name}\"?",
+        "editTitle": "Edit Department"
+    },
+    "academicSessionsAdmin": {
+        "addSession": "Add Academic Session",
+        "datesCol": "Dates",
+        "tasksCol": "Tasks",
+        "activeCol": "Current",
+        "currentAriaActive": "The current active academic session",
+        "currentAriaSetActive": "Make this the active academic session",
+        "selectViewing": "View as Selected",
+        "emptyList": "No academic sessions yet.",
+        "editModalTitle": "Edit Academic Session",
+        "startDateLabel": "Start Date",
+        "endDateLabel": "End Date",
+        "activeLabel": "Active",
+        "setCurrentLabel": "Set as the active academic session",
+        "deleteConfirm": "Delete \"{name}\"?",
+        "backLink": "Back to academic sessions",
+        "doctorsStat": "Students (Doctors)",
+        "requiredTasksStat": "Required Tasks",
+        "doneTasksStat": "Completed Tasks",
+        "remainingTasksStat": "Remaining Tasks",
+        "groupsInSessionHeading": "Groups in this academic session",
+        "doctorsColShow": "Doctors",
+        "noGroupsInSession": "No groups linked to this academic session.",
+        "tasksInSessionHeading": "Tasks in this academic session",
+        "titleColShow": "Title",
+        "doneColShow": "Done",
+        "noTasksInSession": "No tasks linked to this academic session yet."
+    },
+    "clinicChairsAdmin": {
+        "title": "Clinic Chair Map",
+        "sessionLabel": "Academic Session:",
+        "instructions": "Click \"Distribute\" on a group to seat each of its doctors on their own chair. Drag a group onto a chair to assign the whole group there instead. Drag a chair onto another chair to swap positions.",
+        "groupsHeading": "Groups",
+        "doctorsSuffix": "doctor(s)",
+        "distribute": "Distribute",
+        "updateWithCount": "Update ({n} new)",
+        "noGroups": "No groups.",
+        "rowLabel": "Row {n}",
+        "removeChairConfirm": "Remove this chair?",
+        "removeChairTitle": "Remove Chair",
+        "emptyChairs": "No chairs yet — start a row below.",
+        "addRow": "+ Add Row",
+        "unassignTitle": "Unassign",
+        "emptyChairName": "Empty",
+        "chairLabel": "Chair {label}",
+        "restOfGroup": "Rest of the group",
+        "noDoctorsInGroupYet": "No doctors in this group yet.",
+        "addChairToRowTitle": "Add chair to this row"
     }
 }

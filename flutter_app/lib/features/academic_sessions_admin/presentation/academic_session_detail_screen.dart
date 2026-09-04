@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/academic_sessions_repository.dart';
 import '../domain/academic_session_admin.dart';
@@ -19,25 +20,28 @@ class AcademicSessionDetailScreen extends ConsumerWidget {
       ref.invalidate(academicSessionListProvider);
       ref.invalidate(currentAcademicYearProvider);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('أصبح العام الدراسي النشط.')));
+        final t = ref.read(translationsProvider);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['academicSessionsAdmin.becameCurrentSuccess']!)));
       }
     } catch (e) {
       if (context.mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر التنفيذ.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['academicSessionsAdmin.setCurrentFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     }
   }
 
   Future<void> _delete(BuildContext context, WidgetRef ref, AcademicSessionAdmin session) async {
+    final t = ref.read(translationsProvider);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('حذف العام الدراسي'),
-        content: Text('هل أنت متأكد من حذف "${session.name}"؟'),
+        title: Text(t['academicSessionsAdmin.deleteTitle']!),
+        content: Text(trf(t['academicSessionsAdmin.deleteConfirmBody']!, {'name': session.name})),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('إلغاء')),
-          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('حذف')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(t['taxonomyAdmin.cancel']!)),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(t['taxonomyAdmin.deleteTitlePrefix']!)),
         ],
       ),
     );
@@ -47,12 +51,12 @@ class AcademicSessionDetailScreen extends ConsumerWidget {
       await ref.read(academicSessionsRepositoryProvider).delete(sessionId);
       ref.invalidate(academicSessionListProvider);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم الحذف.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['academicSessionsAdmin.deletedSuccess']!)));
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (context.mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الحذف — قد تكون مرتبطة بمجموعات أو مهام.';
+        final message = e is ApiException ? e.userMessage : t['academicSessionsAdmin.deleteFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     }
@@ -61,12 +65,13 @@ class AcademicSessionDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final detailAsync = ref.watch(academicSessionDetailProvider(sessionId));
+    final t = ref.watch(translationsProvider);
 
     return detailAsync.when(
       loading: () => Scaffold(appBar: AppBar(), body: const Center(child: CircularProgressIndicator())),
       error: (error, stackTrace) => Scaffold(
         appBar: AppBar(),
-        body: Center(child: Text(error is ApiException ? error.userMessage : 'تعذر التحميل.')),
+        body: Center(child: Text(error is ApiException ? error.userMessage : t['academicSessionsAdmin.loadFailed']!)),
       ),
       data: (detail) {
         final session = detail.session;
@@ -100,7 +105,7 @@ class AcademicSessionDetailScreen extends ConsumerWidget {
               // year's `is_current`) and why there's no "turn off" case.
               Row(
                 children: [
-                  const Text('العام الدراسي النشط'),
+                  Text(t['academicSessionsAdmin.currentLabel']!),
                   const Spacer(),
                   CupertinoSwitch(
                     value: session.isCurrent,
@@ -109,16 +114,16 @@ class AcademicSessionDetailScreen extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 24),
-              Text('الإحصائيات', style: Theme.of(context).textTheme.titleMedium),
+              Text(t['academicSessionsAdmin.statisticsHeading']!, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               Card(
                 child: Column(
                   children: [
-                    _StatRow(label: 'الأطباء', value: stats.doctors),
-                    _StatRow(label: 'المجموعات', value: stats.groups),
-                    _StatRow(label: 'المهام المطلوبة', value: stats.requiredTasks),
-                    _StatRow(label: 'المهام المنجزة', value: stats.doneTasks),
-                    _StatRow(label: 'المهام المتبقية', value: stats.remainingTasks),
+                    _StatRow(label: t['academicSessionsAdmin.doctorsStat']!, value: stats.doctors),
+                    _StatRow(label: t['academicSessionsAdmin.groupsStat']!, value: stats.groups),
+                    _StatRow(label: t['academicSessionsAdmin.requiredTasksStat']!, value: stats.requiredTasks),
+                    _StatRow(label: t['academicSessionsAdmin.doneTasksStat']!, value: stats.doneTasks),
+                    _StatRow(label: t['academicSessionsAdmin.remainingTasksStat']!, value: stats.remainingTasks),
                   ],
                 ),
               ),

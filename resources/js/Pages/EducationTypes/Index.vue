@@ -10,7 +10,9 @@ import StructureTabs from '@/Components/StructureTabs.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const props = defineProps({
     educationTypes: Array,
     filters: { type: Object, default: () => ({}) },
@@ -43,25 +45,25 @@ const submitEdit = () => {
 };
 
 const destroy = (type) => {
-    if (confirm(`Delete "${type.name}"? This will also delete related departments and doctors (cascade).`)) {
+    if (confirm(t('educationTypesAdmin.deleteConfirm', { name: type.name }))) {
         router.delete(route('education-types.destroy', type.id));
     }
 };
 
 const columns = [
-    { key: 'name', label: 'Name', sortable: true },
-    { key: 'stages_count', label: 'Stages', sortable: true },
-    { key: 'actions', label: 'Actions', align: 'right' },
+    { key: 'name', label: t('profile.name'), sortable: true },
+    { key: 'stages_count', label: t('structureTabs.stages'), sortable: true },
+    { key: 'actions', label: t('doctorsAdmin.actionsCol'), align: 'right' },
 ];
 </script>
 
 <template>
-    <Head title="Education Types" />
+    <Head :title="t('structureTabs.educationTypes')" />
 
     <AuthenticatedLayout>
         <template #header>
             <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                Education Types
+                {{ t('structureTabs.educationTypes') }}
             </h2>
         </template>
 
@@ -79,10 +81,10 @@ const columns = [
                 <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
                     <form @submit.prevent="submitCreate" class="flex items-start gap-3">
                         <div class="flex-1">
-                            <TextInput v-model="createForm.name" type="text" placeholder="New education type name" class="block w-full" required />
+                            <TextInput v-model="createForm.name" type="text" :placeholder="t('educationTypesAdmin.newNamePlaceholder')" class="block w-full" required />
                             <InputError class="mt-2" :message="createForm.errors.name" />
                         </div>
-                        <PrimaryButton :disabled="createForm.processing">Add</PrimaryButton>
+                        <PrimaryButton :disabled="createForm.processing">{{ t('common.add') }}</PrimaryButton>
                     </form>
                 </div>
 
@@ -91,20 +93,20 @@ const columns = [
                         v-model="search"
                         @keyup.enter="applySearch"
                         type="text"
-                        placeholder="ابحث بالاسم..."
+                        :placeholder="t('taxonomyAdmin.searchPlaceholder')"
                         class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     />
-                    <SecondaryButton @click="applySearch">بحث</SecondaryButton>
+                    <SecondaryButton @click="applySearch">{{ t('taxonomyAdmin.searchButton') }}</SecondaryButton>
                 </div>
 
                 <DataTable
                     :columns="columns"
                     :rows="educationTypes"
-                    :empty-text="search ? 'لا توجد نتائج مطابقة.' : 'No education types yet.'"
+                    :empty-text="search ? t('taxonomyAdmin.noMatchingResults') : t('educationTypesAdmin.emptyList')"
                 >
                     <template #cell-actions="{ row: type }">
-                        <button @click="openEdit(type)" class="text-indigo-600 hover:text-indigo-900">Edit</button>
-                        <button @click="destroy(type)" class="ml-4 text-red-600 hover:text-red-900">Delete</button>
+                        <button @click="openEdit(type)" class="text-indigo-600 hover:text-indigo-900">{{ t('common.edit') }}</button>
+                        <button @click="destroy(type)" class="ml-4 text-red-600 hover:text-red-900">{{ t('common.delete') }}</button>
                     </template>
                 </DataTable>
             </div>
@@ -112,15 +114,15 @@ const columns = [
 
         <Modal :show="editing !== null" @close="editing = null">
             <form @submit.prevent="submitEdit" class="p-6">
-                <h2 class="text-lg font-medium text-gray-900">Edit Education Type</h2>
+                <h2 class="text-lg font-medium text-gray-900">{{ t('educationTypesAdmin.editTitle') }}</h2>
                 <div class="mt-4">
-                    <InputLabel for="edit-name" value="Name" />
+                    <InputLabel for="edit-name" :value="t('profile.name')" />
                     <TextInput id="edit-name" v-model="editForm.name" type="text" class="mt-1 block w-full" required />
                     <InputError class="mt-2" :message="editForm.errors.name" />
                 </div>
                 <div class="mt-6 flex justify-end gap-3">
-                    <SecondaryButton @click="editing = null">Cancel</SecondaryButton>
-                    <PrimaryButton :disabled="editForm.processing">Save</PrimaryButton>
+                    <SecondaryButton @click="editing = null">{{ t('common.cancel') }}</SecondaryButton>
+                    <PrimaryButton :disabled="editForm.processing">{{ t('profile.save') }}</PrimaryButton>
                 </div>
             </form>
         </Modal>

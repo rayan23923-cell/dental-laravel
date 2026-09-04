@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/academic_sessions_repository.dart';
 import '../domain/academic_session_admin.dart';
@@ -67,12 +68,13 @@ class _AcademicSessionFormScreenState extends ConsumerState<AcademicSessionFormS
 
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? true)) return;
+    final t = ref.read(translationsProvider);
     if (_startDate == null || _endDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('يرجى تحديد تاريخ البداية والنهاية.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['academicSessionsAdmin.datesRequiredMsg']!)));
       return;
     }
     if (_endDate!.isBefore(_startDate!)) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('يجب أن يكون تاريخ النهاية بعد تاريخ البداية.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['academicSessionsAdmin.endAfterStartMsg']!)));
       return;
     }
     setState(() => _submitting = true);
@@ -95,12 +97,13 @@ class _AcademicSessionFormScreenState extends ConsumerState<AcademicSessionFormS
       }
       ref.invalidate(academicSessionListProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isCreate ? 'تم إضافة العام الدراسي.' : 'تم الحفظ.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isCreate ? t['academicSessionsAdmin.addedSuccess']! : t['academicSessionsAdmin.savedSuccess']!)));
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الحفظ.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['academicSessionsAdmin.saveFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -111,13 +114,14 @@ class _AcademicSessionFormScreenState extends ConsumerState<AcademicSessionFormS
   @override
   Widget build(BuildContext context) {
     final detailAsync = _isCreate ? null : ref.watch(academicSessionDetailProvider(widget.sessionId!));
+    final t = ref.watch(translationsProvider);
 
     if (detailAsync != null) {
       switch (detailAsync) {
         case AsyncError(:final error):
           return Scaffold(
-            appBar: AppBar(title: const Text('عام دراسي')),
-            body: Center(child: Text(error is ApiException ? error.userMessage : 'تعذر التحميل.')),
+            appBar: AppBar(title: Text(t['academicSessionsAdmin.singularTitle']!)),
+            body: Center(child: Text(error is ApiException ? error.userMessage : t['academicSessionsAdmin.loadFailed']!)),
           );
         case AsyncData(:final value):
           _seed(value.session);
@@ -127,7 +131,7 @@ class _AcademicSessionFormScreenState extends ConsumerState<AcademicSessionFormS
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(_isCreate ? 'عام دراسي جديد' : 'تعديل العام الدراسي')),
+      appBar: AppBar(title: Text(_isCreate ? t['academicSessionsAdmin.newTitle']! : t['academicSessionsAdmin.editTitle']!)),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -135,8 +139,8 @@ class _AcademicSessionFormScreenState extends ConsumerState<AcademicSessionFormS
           children: [
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(labelText: 'الاسم', border: OutlineInputBorder()),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'هذا الحقل مطلوب' : null,
+              decoration: InputDecoration(labelText: t['academicSessionsAdmin.nameLabel'], border: const OutlineInputBorder()),
+              validator: (v) => (v == null || v.trim().isEmpty) ? t['academicSessionsAdmin.requiredField'] : null,
             ),
             const SizedBox(height: 16),
             Row(
@@ -144,14 +148,14 @@ class _AcademicSessionFormScreenState extends ConsumerState<AcademicSessionFormS
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => _pickDate(isStart: true),
-                    child: Text(_startDate == null ? 'تاريخ البداية' : _formatDate(_startDate!)),
+                    child: Text(_startDate == null ? t['academicSessionsAdmin.startDateLabel']! : _formatDate(_startDate!)),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => _pickDate(isStart: false),
-                    child: Text(_endDate == null ? 'تاريخ النهاية' : _formatDate(_endDate!)),
+                    child: Text(_endDate == null ? t['academicSessionsAdmin.endDateLabel']! : _formatDate(_endDate!)),
                   ),
                 ),
               ],
@@ -159,13 +163,13 @@ class _AcademicSessionFormScreenState extends ConsumerState<AcademicSessionFormS
             const SizedBox(height: 8),
             CheckboxListTile(
               value: _isActive,
-              title: const Text('مفعّل'),
+              title: Text(t['academicSessionsAdmin.activeLabel']!),
               controlAffinity: ListTileControlAffinity.leading,
               onChanged: (v) => setState(() => _isActive = v ?? true),
             ),
             CheckboxListTile(
               value: _isCurrent,
-              title: const Text('اجعله العام الدراسي النشط'),
+              title: Text(t['academicSessionsAdmin.setCurrentLabel']!),
               controlAffinity: ListTileControlAffinity.leading,
               onChanged: (v) => setState(() => _isCurrent = v ?? false),
             ),
@@ -174,7 +178,7 @@ class _AcademicSessionFormScreenState extends ConsumerState<AcademicSessionFormS
               onPressed: _submitting ? null : _submit,
               child: _submitting
                   ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('حفظ'),
+                  : Text(t['academicSessionsAdmin.save']!),
             ),
           ],
         ),

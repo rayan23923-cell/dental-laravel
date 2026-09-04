@@ -75,7 +75,8 @@
         "fullName": "الاسم الكامل",
         "role": "الدور",
         "cancel": "إلغاء",
-        "back": "رجوع"
+        "back": "رجوع",
+        "add": "إضافة"
     },
     "sessions": {
         "title": "الأجهزة النشطة",
@@ -482,5 +483,90 @@
         "addSelected": "إضافة المحدد",
         "deleteConfirm": "حذف المجموعة \"{name}\"؟ لن يُحذف أطباؤها أو مرضاها.",
         "removeSelectedConfirm": "إزالة {n} طبيب/أطباء من \"{name}\"؟"
+    },
+    "structureTabs": {
+        "educationTypes": "أنواع التعليم",
+        "stages": "المراحل",
+        "departments": "الأقسام",
+        "academicSessions": "الأعوام الدراسية",
+        "groups": "المجموعات",
+        "chairMap": "خريطة الكراسي"
+    },
+    "taxonomyAdmin": {
+        "searchPlaceholder": "ابحث بالاسم...",
+        "searchButton": "بحث",
+        "noMatchingResults": "لا توجد نتائج مطابقة.",
+        "educationTypeLabel": "نوع التعليم",
+        "noEducationType": "بدون نوع تعليم",
+        "allEducationTypes": "كل أنواع التعليم",
+        "noStage": "بدون مرحلة",
+        "allStages": "كل المراحل"
+    },
+    "educationTypesAdmin": {
+        "newNamePlaceholder": "اسم نوع التعليم الجديد",
+        "emptyList": "لا توجد أنواع تعليم بعد.",
+        "deleteConfirm": "حذف \"{name}\"؟ سيؤدي هذا أيضاً لحذف الأقسام والأطباء المرتبطين (تتالي).",
+        "editTitle": "تعديل نوع التعليم"
+    },
+    "stagesAdmin": {
+        "newNamePlaceholder": "اسم المرحلة الجديد",
+        "emptyList": "لا توجد مراحل بعد.",
+        "deleteConfirm": "حذف \"{name}\"؟",
+        "editTitle": "تعديل المرحلة"
+    },
+    "departmentsAdmin": {
+        "newNamePlaceholder": "اسم القسم الجديد",
+        "emptyList": "لا توجد أقسام بعد.",
+        "deleteConfirm": "حذف \"{name}\"؟",
+        "editTitle": "تعديل القسم"
+    },
+    "academicSessionsAdmin": {
+        "addSession": "إضافة عام دراسي",
+        "datesCol": "التواريخ",
+        "tasksCol": "المهام",
+        "activeCol": "العام النشط",
+        "currentAriaActive": "العام الدراسي النشط حالياً",
+        "currentAriaSetActive": "اجعله العام الدراسي النشط",
+        "selectViewing": "عرض كمحدد",
+        "emptyList": "لا توجد أعوام دراسية بعد.",
+        "editModalTitle": "تعديل العام الدراسي",
+        "startDateLabel": "تاريخ البدء",
+        "endDateLabel": "تاريخ الانتهاء",
+        "activeLabel": "مفعّل",
+        "setCurrentLabel": "تعيينه كعام دراسي نشط",
+        "deleteConfirm": "حذف \"{name}\"؟",
+        "backLink": "رجوع للأعوام الدراسية",
+        "doctorsStat": "الطلاب (الأطباء)",
+        "requiredTasksStat": "المهام المطلوبة",
+        "doneTasksStat": "المهام المكتملة",
+        "remainingTasksStat": "المهام المتبقية",
+        "groupsInSessionHeading": "المجموعات في هذا العام الدراسي",
+        "doctorsColShow": "الأطباء",
+        "noGroupsInSession": "لا توجد مجموعات مرتبطة بهذا العام الدراسي.",
+        "tasksInSessionHeading": "المهام في هذا العام الدراسي",
+        "titleColShow": "العنوان",
+        "doneColShow": "المكتمل",
+        "noTasksInSession": "لا توجد مهام مرتبطة بهذا العام الدراسي بعد."
+    },
+    "clinicChairsAdmin": {
+        "title": "خريطة كراسي العيادة",
+        "sessionLabel": "العام الدراسي:",
+        "instructions": "اضغط \"توزيع\" على مجموعة لتوزيع كل أطبائها على كراسي مستقلة. اسحب مجموعة إلى كرسي لتخصيصه للمجموعة كاملة بدلاً من ذلك. اسحب كرسياً إلى كرسي آخر لتبديل مكانيهما.",
+        "groupsHeading": "المجموعات",
+        "doctorsSuffix": "طبيب",
+        "distribute": "توزيع",
+        "updateWithCount": "تحديث ({n} جديد)",
+        "noGroups": "لا توجد مجموعات.",
+        "rowLabel": "صف {n}",
+        "removeChairConfirm": "إزالة هذا الكرسي؟",
+        "removeChairTitle": "إزالة الكرسي",
+        "emptyChairs": "لا توجد كراسي بعد — ابدأ صفاً أدناه.",
+        "addRow": "+ إضافة صف",
+        "unassignTitle": "إلغاء التخصيص",
+        "emptyChairName": "فارغ",
+        "chairLabel": "كرسي {label}",
+        "restOfGroup": "باقي المجموعة",
+        "noDoctorsInGroupYet": "لا يوجد أطباء في هذه المجموعة بعد.",
+        "addChairToRowTitle": "إضافة كرسي لهذا الصف"
     }
 }

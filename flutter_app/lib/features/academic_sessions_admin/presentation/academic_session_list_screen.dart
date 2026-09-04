@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/academic_sessions_repository.dart';
 import '../domain/academic_session_admin.dart';
@@ -14,9 +15,10 @@ class AcademicSessionListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sessionsAsync = ref.watch(academicSessionListProvider);
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('الأعوام الدراسية')),
+      appBar: AppBar(title: Text(t['academicSessionsAdmin.title']!)),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push('/admin/academic-sessions/new'),
         child: const Icon(Icons.add),
@@ -24,11 +26,11 @@ class AcademicSessionListScreen extends ConsumerWidget {
       body: sessionsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stackTrace) => Center(
-          child: Text(error is ApiException ? error.userMessage : 'تعذر التحميل.'),
+          child: Text(error is ApiException ? error.userMessage : t['academicSessionsAdmin.loadFailed']!),
         ),
         data: (sessions) {
           if (sessions.isEmpty) {
-            return const Center(child: Text('لا توجد أعوام دراسية بعد.'));
+            return Center(child: Text(t['academicSessionsAdmin.emptyList']!));
           }
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(academicSessionListProvider),
@@ -74,7 +76,8 @@ class _SessionTileState extends ConsumerState<_SessionTile> {
       ref.invalidate(currentAcademicYearProvider);
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر التنفيذ.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['academicSessionsAdmin.setCurrentFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -85,6 +88,7 @@ class _SessionTileState extends ConsumerState<_SessionTile> {
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
+    final t = ref.watch(translationsProvider);
 
     return Card(
       child: ListTile(
@@ -99,7 +103,7 @@ class _SessionTileState extends ConsumerState<_SessionTile> {
               textDirection: TextDirection.ltr,
               child: Text('${session.startDate} → ${session.endDate}'),
             ),
-            Text('${session.groupsCount} مجموعة · ${session.tasksCount} مهمة'),
+            Text(trf(t['academicSessionsAdmin.groupsAndTasksCount']!, {'groups': session.groupsCount, 'tasks': session.tasksCount})),
           ],
         ),
         isThreeLine: true,

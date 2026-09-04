@@ -31,7 +31,9 @@ import SecondaryButton from '@/Components/SecondaryButton.vue';
 import StructureTabs from '@/Components/StructureTabs.vue';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const props = defineProps({
     chairs: Array,
     groups: Array,
@@ -116,7 +118,7 @@ const addChair = (rowNumber = null) => {
 };
 
 const removeChair = (chair) => {
-    if (confirm('Remove this chair?')) {
+    if (confirm(t('clinicChairsAdmin.removeChairConfirm'))) {
         router.delete(route('clinic-chairs.destroy', chair.id), { preserveScroll: true });
     }
 };
@@ -126,11 +128,11 @@ const viewing = ref(null);
 </script>
 
 <template>
-    <Head title="Clinic Chair Map" />
+    <Head :title="t('clinicChairsAdmin.title')" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">Clinic Chair Map</h2>
+            <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('clinicChairsAdmin.title') }}</h2>
         </template>
 
         <div class="py-12">
@@ -142,24 +144,23 @@ const viewing = ref(null);
                 </div>
 
                 <div v-if="currentSession" class="rounded-md bg-indigo-50 p-3 text-sm text-indigo-700">
-                    Academic Session: <strong>{{ currentSession.name }}</strong>
+                    {{ t('clinicChairsAdmin.sessionLabel') }} <strong>{{ currentSession.name }}</strong>
                 </div>
 
                 <p class="text-sm text-gray-600">
-                    Click "Distribute" on a group to seat each of its doctors on their own chair. Drag a group onto a
-                    chair to assign the whole group there instead. Drag a chair onto another chair to swap positions.
+                    {{ t('clinicChairsAdmin.instructions') }}
                 </p>
 
                 <div class="flex flex-col gap-4 lg:flex-row">
                     <!-- Sidebar: assignable groups -->
                     <div class="w-full shrink-0 rounded-lg bg-white p-4 shadow-sm lg:w-64">
                         <div class="mb-3 flex items-center justify-between">
-                            <h3 class="text-sm font-semibold text-gray-700">Groups</h3>
+                            <h3 class="text-sm font-semibold text-gray-700">{{ t('clinicChairsAdmin.groupsHeading') }}</h3>
                             <select
                                 v-model="filterStageId"
                                 class="rounded-md border-gray-300 text-xs shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                             >
-                                <option value="">All stages</option>
+                                <option value="">{{ t('taxonomyAdmin.allStages') }}</option>
                                 <option v-for="stage in stages" :key="stage.id" :value="stage.id">{{ stage.name }}</option>
                             </select>
                         </div>
@@ -174,7 +175,7 @@ const viewing = ref(null);
                                 :class="assignedGroupIds.has(group.id) ? 'border-indigo-200 bg-indigo-50 text-indigo-800' : 'border-gray-200 bg-gray-50 text-gray-700'"
                             >
                                 <div class="font-medium">{{ group.name }}</div>
-                                <div class="text-xs text-gray-500">{{ group.stage?.name ?? '—' }} · {{ group.doctors.length }} doctor(s)</div>
+                                <div class="text-xs text-gray-500">{{ group.stage?.name ?? '—' }} · {{ group.doctors.length }} {{ t('clinicChairsAdmin.doctorsSuffix') }}</div>
                                 <button
                                     v-if="unseatedCount(group) > 0"
                                     type="button"
@@ -182,10 +183,10 @@ const viewing = ref(null);
                                     @click.stop="assignGroup(group)"
                                     class="mt-1.5 rounded bg-indigo-600 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
                                 >
-                                    {{ assigningGroupId === group.id ? '…' : (unseatedCount(group) === group.doctors.length ? 'Distribute' : `Update (${unseatedCount(group)} new)`) }}
+                                    {{ assigningGroupId === group.id ? '…' : (unseatedCount(group) === group.doctors.length ? t('clinicChairsAdmin.distribute') : t('clinicChairsAdmin.updateWithCount', { n: unseatedCount(group) })) }}
                                 </button>
                             </div>
-                            <p v-if="filteredGroups.length === 0" class="py-4 text-center text-xs text-gray-400">No groups.</p>
+                            <p v-if="filteredGroups.length === 0" class="py-4 text-center text-xs text-gray-400">{{ t('clinicChairsAdmin.noGroups') }}</p>
                         </div>
                     </div>
 
@@ -195,7 +196,7 @@ const viewing = ref(null);
                          Row-by-row grouping/drag-drop/click wiring is unchanged. -->
                     <div class="flex-1 space-y-6 rounded-lg bg-white p-4 shadow-sm">
                         <div v-for="row in rows" :key="row.rowNumber" class="border-b border-gray-100 pb-6 last:border-0">
-                            <span class="mb-2 block text-xs font-medium text-gray-400">Row {{ row.rowNumber }}</span>
+                            <span class="mb-2 block text-xs font-medium text-gray-400">{{ t('clinicChairsAdmin.rowLabel', { n: row.rowNumber }) }}</span>
                             <div class="chairs-row">
                                 <div
                                     v-for="chair in row.chairs"
@@ -210,7 +211,7 @@ const viewing = ref(null);
                                     :class="{ 'station--dragover': dragOverChairId === chair.id }"
                                     @click="chair.group && (viewing = chair)"
                                 >
-                                    <button type="button" @click.stop="removeChair(chair)" class="station-remove" title="Remove chair">&times;</button>
+                                    <button type="button" @click.stop="removeChair(chair)" class="station-remove" :title="t('clinicChairsAdmin.removeChairTitle')">&times;</button>
 
                                     <div class="avatar-wrapper">
                                         <div class="avatar" :class="{ 'avatar--empty': !chair.group }">
@@ -223,13 +224,13 @@ const viewing = ref(null);
                                         <div class="name">
                                             <template v-if="chair.doctor">
                                                 {{ chair.doctor.name }}
-                                                <button type="button" @click.stop="unassign(chair)" class="unassign-x" title="Unassign">&times;</button>
+                                                <button type="button" @click.stop="unassign(chair)" class="unassign-x" :title="t('clinicChairsAdmin.unassignTitle')">&times;</button>
                                             </template>
                                             <template v-else-if="chair.group">
                                                 {{ chair.group.name }}
-                                                <button type="button" @click.stop="unassign(chair)" class="unassign-x" title="Unassign">&times;</button>
+                                                <button type="button" @click.stop="unassign(chair)" class="unassign-x" :title="t('clinicChairsAdmin.unassignTitle')">&times;</button>
                                             </template>
-                                            <template v-else>Empty</template>
+                                            <template v-else>{{ t('clinicChairsAdmin.emptyChairName') }}</template>
                                         </div>
                                         <div v-if="chair.doctor && chair.group" class="group-badge">{{ chair.group.name }}</div>
                                     </div>
@@ -248,13 +249,13 @@ const viewing = ref(null);
                                     </div>
                                 </div>
 
-                                <button type="button" @click="addChair(row.rowNumber)" class="add-chair-btn" title="Add chair to this row">+</button>
+                                <button type="button" @click="addChair(row.rowNumber)" class="add-chair-btn" :title="t('clinicChairsAdmin.addChairToRowTitle')">+</button>
                             </div>
                         </div>
 
-                        <div v-if="rows.length === 0" class="py-8 text-center text-sm text-gray-400">No chairs yet — start a row below.</div>
+                        <div v-if="rows.length === 0" class="py-8 text-center text-sm text-gray-400">{{ t('clinicChairsAdmin.emptyChairs') }}</div>
 
-                        <SecondaryButton @click="addChair()">+ Add Row</SecondaryButton>
+                        <SecondaryButton @click="addChair()">{{ t('clinicChairsAdmin.addRow') }}</SecondaryButton>
                     </div>
                 </div>
             </div>
@@ -264,19 +265,19 @@ const viewing = ref(null);
             <div class="p-6" v-if="viewing">
                 <h2 class="text-lg font-medium text-gray-900">{{ viewing.doctor ? viewing.doctor.name : viewing.group.name }}</h2>
                 <p class="mt-1 text-xs text-gray-500">
-                    Chair {{ viewing.label ?? `${viewing.row_number}-${viewing.column_number}` }}
+                    {{ t('clinicChairsAdmin.chairLabel', { label: viewing.label ?? `${viewing.row_number}-${viewing.column_number}` }) }}
                     <span v-if="viewing.doctor"> · {{ viewing.group.name }}</span>
                 </p>
-                <p v-if="viewing.doctor" class="mt-3 text-xs font-medium uppercase tracking-wide text-gray-400">Rest of the group</p>
+                <p v-if="viewing.doctor" class="mt-3 text-xs font-medium uppercase tracking-wide text-gray-400">{{ t('clinicChairsAdmin.restOfGroup') }}</p>
                 <ul class="mt-4 space-y-1.5 text-sm text-gray-700">
                     <li v-for="doctor in viewing.group.doctors" :key="doctor.id" class="flex items-center gap-2" :class="{ 'font-semibold text-indigo-700': doctor.id === viewing.doctor?.id }">
                         <span class="material-symbols-outlined text-[16px] text-gray-400" aria-hidden="true">person</span>
                         {{ doctor.name }}
                     </li>
-                    <li v-if="viewing.group.doctors.length === 0" class="text-gray-400">No doctors in this group yet.</li>
+                    <li v-if="viewing.group.doctors.length === 0" class="text-gray-400">{{ t('clinicChairsAdmin.noDoctorsInGroupYet') }}</li>
                 </ul>
                 <div class="mt-6 flex justify-end">
-                    <PrimaryButton @click="viewing = null">Close</PrimaryButton>
+                    <PrimaryButton @click="viewing = null">{{ t('common.close') }}</PrimaryButton>
                 </div>
             </div>
         </Modal>

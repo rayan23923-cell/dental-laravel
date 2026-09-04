@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/data/lookup_repository.dart';
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/cascading_dropdown.dart';
 import '../data/taxonomy_repository.dart';
@@ -49,14 +50,15 @@ class _TaxonomyListScreenState extends ConsumerState<TaxonomyListScreen> {
   }
 
   Future<void> _delete(TaxonomyItem item) async {
+    final t = ref.read(translationsProvider);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('حذف ${kind.singularTitle}'),
-        content: Text('هل أنت متأكد من حذف "${item.name}"؟'),
+        title: Text('${t['taxonomyAdmin.deleteTitlePrefix']} ${kind.singularTitle(t)}'),
+        content: Text(trf(t['taxonomyAdmin.deleteConfirmBody']!, {'name': item.name})),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('إلغاء')),
-          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('حذف')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(t['taxonomyAdmin.cancel']!)),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(t['taxonomyAdmin.deleteTitlePrefix']!)),
         ],
       ),
     );
@@ -67,7 +69,7 @@ class _TaxonomyListScreenState extends ConsumerState<TaxonomyListScreen> {
       ref.invalidate(taxonomyListProvider(kind));
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الحذف.';
+        final message = e is ApiException ? e.userMessage : t['taxonomyAdmin.deleteFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     }
@@ -79,9 +81,10 @@ class _TaxonomyListScreenState extends ConsumerState<TaxonomyListScreen> {
     final educationTypesAsync =
         kind.hasEducationType ? ref.watch(taxonomyListProvider(TaxonomyKind.educationType)) : null;
     final stagesAsync = kind.hasStage ? ref.watch(taxonomyListProvider(TaxonomyKind.stage)) : null;
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(kind.title)),
+      appBar: AppBar(title: Text(kind.title(t))),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _openForm(),
         child: const Icon(Icons.add),
@@ -94,10 +97,10 @@ class _TaxonomyListScreenState extends ConsumerState<TaxonomyListScreen> {
               children: [
                 TextField(
                   controller: _searchController,
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.search),
-                    hintText: 'ابحث بالاسم',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search),
+                    hintText: t['taxonomyAdmin.searchHint'],
+                    border: const OutlineInputBorder(),
                     isDense: true,
                   ),
                   onChanged: (v) => setState(() => _search = v.trim()),
@@ -105,7 +108,7 @@ class _TaxonomyListScreenState extends ConsumerState<TaxonomyListScreen> {
                 if (kind.hasEducationType) ...[
                   const SizedBox(height: 8),
                   CascadingDropdown(
-                    label: 'نوع التعليم',
+                    label: t['taxonomyAdmin.educationTypeLabel']!,
                     itemsAsync: (educationTypesAsync ?? const AsyncValue.data(<TaxonomyItem>[]))
                         .whenData((items) => [for (final e in items) LookupItem(id: e.id, name: e.name)]),
                     value: _educationTypeId,
@@ -119,7 +122,7 @@ class _TaxonomyListScreenState extends ConsumerState<TaxonomyListScreen> {
                   const SizedBox(height: 8),
                   CascadingDropdown(
                     key: ValueKey('stage-$_educationTypeId'),
-                    label: 'المرحلة',
+                    label: t['taxonomyAdmin.stageLabel']!,
                     itemsAsync: (stagesAsync ?? const AsyncValue.data(<TaxonomyItem>[])).whenData(
                       (items) => [
                         for (final s in items)
@@ -139,7 +142,7 @@ class _TaxonomyListScreenState extends ConsumerState<TaxonomyListScreen> {
             child: itemsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, stackTrace) => Center(
-                child: Text(error is ApiException ? error.userMessage : 'تعذر التحميل.'),
+                child: Text(error is ApiException ? error.userMessage : t['taxonomyAdmin.loadFailed']!),
               ),
               data: (allItems) {
                 final items = allItems.where((item) {
@@ -150,7 +153,7 @@ class _TaxonomyListScreenState extends ConsumerState<TaxonomyListScreen> {
                 }).toList();
                 final hasFilter = _search.isNotEmpty || _educationTypeId != null || _stageId != null;
                 if (items.isEmpty) {
-                  return Center(child: Text(hasFilter ? 'لا توجد بيانات مطابقة.' : 'لا توجد بيانات بعد.'));
+                  return Center(child: Text(hasFilter ? t['taxonomyAdmin.noMatchingData']! : t['taxonomyAdmin.noDataYet']!));
                 }
                 final educationTypeNames = {
                   for (final e in educationTypesAsync?.valueOrNull ?? <TaxonomyItem>[]) e.id: e.name,
@@ -247,7 +250,8 @@ class _TaxonomyFormDialogState extends ConsumerState<_TaxonomyFormDialog> {
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الحفظ.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['taxonomyAdmin.saveFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -260,9 +264,12 @@ class _TaxonomyFormDialogState extends ConsumerState<_TaxonomyFormDialog> {
     final educationTypesAsync =
         widget.kind.hasEducationType ? ref.watch(taxonomyListProvider(TaxonomyKind.educationType)) : null;
     final stagesAsync = widget.kind.hasStage ? ref.watch(taxonomyListProvider(TaxonomyKind.stage)) : null;
+    final t = ref.watch(translationsProvider);
 
     return AlertDialog(
-      title: Text(widget.item == null ? '${widget.kind.singularTitle} جديد' : 'تعديل ${widget.kind.singularTitle}'),
+      title: Text(widget.item == null
+          ? '${widget.kind.singularTitle(t)} ${t['taxonomyAdmin.newItemSuffix']}'
+          : '${t['taxonomyAdmin.editItemPrefix']} ${widget.kind.singularTitle(t)}'),
       content: Form(
         key: _formKey,
         child: Column(
@@ -270,20 +277,20 @@ class _TaxonomyFormDialogState extends ConsumerState<_TaxonomyFormDialog> {
           children: [
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(labelText: 'الاسم', border: OutlineInputBorder()),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'هذا الحقل مطلوب' : null,
+              decoration: InputDecoration(labelText: t['taxonomyAdmin.nameLabel'], border: const OutlineInputBorder()),
+              validator: (v) => (v == null || v.trim().isEmpty) ? t['taxonomyAdmin.requiredField'] : null,
             ),
             if (widget.kind.hasEducationType) ...[
               const SizedBox(height: 16),
               educationTypesAsync!.when(
                 loading: () => const LinearProgressIndicator(),
-                error: (_, __) => const Text('تعذر تحميل نوع التعليم.'),
+                error: (_, __) => Text(t['taxonomyAdmin.loadEducationTypeFailed']!),
                 data: (types) => DropdownButtonFormField<int>(
-                  initialValue: types.any((t) => t.id == _educationTypeId) ? _educationTypeId : null,
-                  decoration: const InputDecoration(labelText: 'نوع التعليم', border: OutlineInputBorder()),
+                  initialValue: types.any((et) => et.id == _educationTypeId) ? _educationTypeId : null,
+                  decoration: InputDecoration(labelText: t['taxonomyAdmin.educationTypeLabel'], border: const OutlineInputBorder()),
                   items: [
-                    const DropdownMenuItem(value: null, child: Text('— بدون —')),
-                    for (final t in types) DropdownMenuItem(value: t.id, child: Text(t.name)),
+                    DropdownMenuItem(value: null, child: Text(t['taxonomyAdmin.noneOption']!)),
+                    for (final et in types) DropdownMenuItem(value: et.id, child: Text(et.name)),
                   ],
                   onChanged: (v) => setState(() {
                     _educationTypeId = v;
@@ -303,11 +310,11 @@ class _TaxonomyFormDialogState extends ConsumerState<_TaxonomyFormDialog> {
               // stage regardless of the education type picked above —
               // the user's own example of what "فلترة مشابهة للمهام"
               // should fix. Narrowed exactly like task_form_screen.dart's
-              // stage cascade; "— بدون —" (no stage) stays available
+              // stage cascade; the "none" option stays available
               // regardless, since a department's stage is optional here.
               stagesAsync!.when(
                 loading: () => const LinearProgressIndicator(),
-                error: (_, __) => const Text('تعذر تحميل المرحلة.'),
+                error: (_, __) => Text(t['taxonomyAdmin.loadStageFailed']!),
                 data: (allStages) {
                   final stages = _educationTypeId == null
                       ? allStages
@@ -315,9 +322,9 @@ class _TaxonomyFormDialogState extends ConsumerState<_TaxonomyFormDialog> {
                   return DropdownButtonFormField<int>(
                     key: ValueKey('stage-$_educationTypeId'),
                     initialValue: stages.any((s) => s.id == _stageId) ? _stageId : null,
-                    decoration: const InputDecoration(labelText: 'المرحلة', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: t['taxonomyAdmin.stageLabel'], border: const OutlineInputBorder()),
                     items: [
-                      const DropdownMenuItem(value: null, child: Text('— بدون —')),
+                      DropdownMenuItem(value: null, child: Text(t['taxonomyAdmin.noneOption']!)),
                       for (final s in stages) DropdownMenuItem(value: s.id, child: Text(s.name)),
                     ],
                     onChanged: (v) => setState(() => _stageId = v),
@@ -329,12 +336,12 @@ class _TaxonomyFormDialogState extends ConsumerState<_TaxonomyFormDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('إلغاء')),
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(t['taxonomyAdmin.cancel']!)),
         FilledButton(
           onPressed: _submitting ? null : _submit,
           child: _submitting
               ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('حفظ'),
+              : Text(t['taxonomyAdmin.save']!),
         ),
       ],
     );

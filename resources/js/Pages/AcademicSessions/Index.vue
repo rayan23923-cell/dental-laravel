@@ -9,7 +9,9 @@ import StructureTabs from '@/Components/StructureTabs.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 defineProps({
     sessions: Array,
     selectedSessionId: Number,
@@ -53,18 +55,18 @@ const selectViewing = (session) => {
 };
 
 const destroy = (session) => {
-    if (confirm(`حذف "${session.name}"؟`)) {
+    if (confirm(t('academicSessionsAdmin.deleteConfirm', { name: session.name }))) {
         router.delete(route('academic-sessions.destroy', session.id));
     }
 };
 </script>
 
 <template>
-    <Head title="الأعوام الدراسية" />
+    <Head :title="t('structureTabs.academicSessions')" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">الأعوام الدراسية</h2>
+            <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('structureTabs.academicSessions') }}</h2>
         </template>
 
         <div class="py-12">
@@ -79,19 +81,19 @@ const destroy = (session) => {
                 </div>
 
                 <div class="flex justify-end">
-                    <PrimaryButton @click="showCreate = true">إضافة عام دراسي</PrimaryButton>
+                    <PrimaryButton @click="showCreate = true">{{ t('academicSessionsAdmin.addSession') }}</PrimaryButton>
                 </div>
 
                 <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">الاسم</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">التواريخ</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">المجموعات</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">المهام</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">العام النشط</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">العمليات</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('profile.name') }}</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('academicSessionsAdmin.datesCol') }}</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('structureTabs.groups') }}</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('academicSessionsAdmin.tasksCol') }}</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('academicSessionsAdmin.activeCol') }}</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.actionsCol') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200 bg-white">
@@ -119,7 +121,7 @@ const destroy = (session) => {
                                             'relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2',
                                             session.is_current ? 'bg-green-500 cursor-default' : 'bg-gray-300 cursor-pointer hover:bg-gray-400',
                                         ]"
-                                        :aria-label="session.is_current ? 'العام الدراسي النشط حالياً' : 'اجعله العام الدراسي النشط'"
+                                        :aria-label="session.is_current ? t('academicSessionsAdmin.currentAriaActive') : t('academicSessionsAdmin.currentAriaSetActive')"
                                     >
                                         <span
                                             :class="[
@@ -130,13 +132,13 @@ const destroy = (session) => {
                                     </button>
                                 </td>
                                 <td class="whitespace-nowrap px-6 py-4 text-right text-sm space-x-3">
-                                    <button v-if="session.id !== selectedSessionId" @click="selectViewing(session)" class="text-gray-600 hover:text-gray-900">عرض كمحدد</button>
-                                    <button @click="openEdit(session)" class="text-indigo-600 hover:text-indigo-900">تعديل</button>
-                                    <button v-if="!session.is_current" @click="destroy(session)" class="text-red-600 hover:text-red-900">حذف</button>
+                                    <button v-if="session.id !== selectedSessionId" @click="selectViewing(session)" class="text-gray-600 hover:text-gray-900">{{ t('academicSessionsAdmin.selectViewing') }}</button>
+                                    <button @click="openEdit(session)" class="text-indigo-600 hover:text-indigo-900">{{ t('common.edit') }}</button>
+                                    <button v-if="!session.is_current" @click="destroy(session)" class="text-red-600 hover:text-red-900">{{ t('common.delete') }}</button>
                                 </td>
                             </tr>
                             <tr v-if="sessions.length === 0">
-                                <td colspan="6" class="px-6 py-8 text-center text-sm text-gray-500">لا توجد أعوام دراسية بعد.</td>
+                                <td colspan="6" class="px-6 py-8 text-center text-sm text-gray-500">{{ t('academicSessionsAdmin.emptyList') }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -146,20 +148,20 @@ const destroy = (session) => {
 
         <Modal :show="showCreate" @close="showCreate = false">
             <form @submit.prevent="submitCreate" class="p-6">
-                <h2 class="text-lg font-medium text-gray-900">إضافة عام دراسي</h2>
+                <h2 class="text-lg font-medium text-gray-900">{{ t('academicSessionsAdmin.addSession') }}</h2>
                 <div class="mt-4">
-                    <InputLabel for="create-name" value="الاسم" />
+                    <InputLabel for="create-name" :value="t('profile.name')" />
                     <TextInput id="create-name" v-model="createForm.name" type="text" class="mt-1 block w-full" required autofocus />
                     <InputError class="mt-2" :message="createForm.errors.name" />
                 </div>
                 <div class="mt-4 grid grid-cols-2 gap-4">
                     <div>
-                        <InputLabel for="create-start" value="تاريخ البدء" />
+                        <InputLabel for="create-start" :value="t('academicSessionsAdmin.startDateLabel')" />
                         <TextInput id="create-start" v-model="createForm.start_date" type="date" class="mt-1 block w-full" required />
                         <InputError class="mt-2" :message="createForm.errors.start_date" />
                     </div>
                     <div>
-                        <InputLabel for="create-end" value="تاريخ الانتهاء" />
+                        <InputLabel for="create-end" :value="t('academicSessionsAdmin.endDateLabel')" />
                         <TextInput id="create-end" v-model="createForm.end_date" type="date" class="mt-1 block w-full" required />
                         <InputError class="mt-2" :message="createForm.errors.end_date" />
                     </div>
@@ -167,36 +169,36 @@ const destroy = (session) => {
                 <div class="mt-4 flex gap-6">
                     <label class="flex items-center gap-2 text-sm text-gray-700">
                         <input type="checkbox" v-model="createForm.is_active" class="rounded border-gray-300" />
-                        مفعّل
+                        {{ t('academicSessionsAdmin.activeLabel') }}
                     </label>
                     <label class="flex items-center gap-2 text-sm text-gray-700">
                         <input type="checkbox" v-model="createForm.is_current" class="rounded border-gray-300" />
-                        تعيينه كعام دراسي نشط
+                        {{ t('academicSessionsAdmin.setCurrentLabel') }}
                     </label>
                 </div>
                 <div class="mt-6 flex justify-end gap-3">
-                    <SecondaryButton @click="showCreate = false">إلغاء</SecondaryButton>
-                    <PrimaryButton :disabled="createForm.processing">حفظ</PrimaryButton>
+                    <SecondaryButton @click="showCreate = false">{{ t('common.cancel') }}</SecondaryButton>
+                    <PrimaryButton :disabled="createForm.processing">{{ t('profile.save') }}</PrimaryButton>
                 </div>
             </form>
         </Modal>
 
         <Modal :show="editing !== null" @close="editing = null">
             <form @submit.prevent="submitEdit" class="p-6">
-                <h2 class="text-lg font-medium text-gray-900">تعديل العام الدراسي</h2>
+                <h2 class="text-lg font-medium text-gray-900">{{ t('academicSessionsAdmin.editModalTitle') }}</h2>
                 <div class="mt-4">
-                    <InputLabel for="edit-name" value="الاسم" />
+                    <InputLabel for="edit-name" :value="t('profile.name')" />
                     <TextInput id="edit-name" v-model="editForm.name" type="text" class="mt-1 block w-full" required />
                     <InputError class="mt-2" :message="editForm.errors.name" />
                 </div>
                 <div class="mt-4 grid grid-cols-2 gap-4">
                     <div>
-                        <InputLabel for="edit-start" value="تاريخ البدء" />
+                        <InputLabel for="edit-start" :value="t('academicSessionsAdmin.startDateLabel')" />
                         <TextInput id="edit-start" v-model="editForm.start_date" type="date" class="mt-1 block w-full" required />
                         <InputError class="mt-2" :message="editForm.errors.start_date" />
                     </div>
                     <div>
-                        <InputLabel for="edit-end" value="تاريخ الانتهاء" />
+                        <InputLabel for="edit-end" :value="t('academicSessionsAdmin.endDateLabel')" />
                         <TextInput id="edit-end" v-model="editForm.end_date" type="date" class="mt-1 block w-full" required />
                         <InputError class="mt-2" :message="editForm.errors.end_date" />
                     </div>
@@ -204,16 +206,16 @@ const destroy = (session) => {
                 <div class="mt-4 flex gap-6">
                     <label class="flex items-center gap-2 text-sm text-gray-700">
                         <input type="checkbox" v-model="editForm.is_active" class="rounded border-gray-300" />
-                        مفعّل
+                        {{ t('academicSessionsAdmin.activeLabel') }}
                     </label>
                     <label class="flex items-center gap-2 text-sm text-gray-700">
                         <input type="checkbox" v-model="editForm.is_current" class="rounded border-gray-300" />
-                        تعيينه كعام دراسي نشط
+                        {{ t('academicSessionsAdmin.setCurrentLabel') }}
                     </label>
                 </div>
                 <div class="mt-6 flex justify-end gap-3">
-                    <SecondaryButton @click="editing = null">إلغاء</SecondaryButton>
-                    <PrimaryButton :disabled="editForm.processing">حفظ</PrimaryButton>
+                    <SecondaryButton @click="editing = null">{{ t('common.cancel') }}</SecondaryButton>
+                    <PrimaryButton :disabled="editForm.processing">{{ t('profile.save') }}</PrimaryButton>
                 </div>
             </form>
         </Modal>

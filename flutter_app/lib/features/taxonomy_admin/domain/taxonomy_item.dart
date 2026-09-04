@@ -11,16 +11,16 @@ extension TaxonomyKindX on TaxonomyKind {
         TaxonomyKind.department => 'departments',
       };
 
-  String get title => switch (this) {
-        TaxonomyKind.educationType => 'أنواع التعليم',
-        TaxonomyKind.stage => 'المراحل',
-        TaxonomyKind.department => 'الأقسام',
+  String title(Map<String, String> t) => switch (this) {
+        TaxonomyKind.educationType => t['taxonomyAdmin.educationTypesTitle']!,
+        TaxonomyKind.stage => t['taxonomyAdmin.stagesTitle']!,
+        TaxonomyKind.department => t['taxonomyAdmin.departmentsTitle']!,
       };
 
-  String get singularTitle => switch (this) {
-        TaxonomyKind.educationType => 'نوع التعليم',
-        TaxonomyKind.stage => 'المرحلة',
-        TaxonomyKind.department => 'القسم',
+  String singularTitle(Map<String, String> t) => switch (this) {
+        TaxonomyKind.educationType => t['taxonomyAdmin.educationTypeSingular']!,
+        TaxonomyKind.stage => t['taxonomyAdmin.stageSingular']!,
+        TaxonomyKind.department => t['taxonomyAdmin.departmentSingular']!,
       };
 
   bool get hasEducationType => this != TaxonomyKind.educationType;

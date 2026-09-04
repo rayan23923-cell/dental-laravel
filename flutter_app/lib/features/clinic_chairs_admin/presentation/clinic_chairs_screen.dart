@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/clinic_chairs_admin_repository.dart';
 import '../domain/clinic_chair_admin.dart';
@@ -43,7 +44,10 @@ class ClinicChairsScreen extends ConsumerWidget {
       await _refresh(ref);
       if (context.mounted) _showMessage(context, message);
     } catch (e) {
-      if (context.mounted) _showMessage(context, e is ApiException ? e.userMessage : 'تعذر التوزيع.');
+      if (context.mounted) {
+        final t = ref.read(translationsProvider);
+        _showMessage(context, e is ApiException ? e.userMessage : t['clinicChairsAdmin.distributeFailed']!);
+      }
     }
   }
 
@@ -57,7 +61,10 @@ class ClinicChairsScreen extends ConsumerWidget {
       }
       await _refresh(ref);
     } catch (e) {
-      if (context.mounted) _showMessage(context, e is ApiException ? e.userMessage : 'فشلت العملية.');
+      if (context.mounted) {
+        final t = ref.read(translationsProvider);
+        _showMessage(context, e is ApiException ? e.userMessage : t['clinicChairsAdmin.operationFailed']!);
+      }
     }
   }
 
@@ -66,7 +73,10 @@ class ClinicChairsScreen extends ConsumerWidget {
       await ref.read(clinicChairsAdminRepositoryProvider).unassignChair(chair.id);
       await _refresh(ref);
     } catch (e) {
-      if (context.mounted) _showMessage(context, e is ApiException ? e.userMessage : 'تعذر إلغاء التخصيص.');
+      if (context.mounted) {
+        final t = ref.read(translationsProvider);
+        _showMessage(context, e is ApiException ? e.userMessage : t['clinicChairsAdmin.unassignFailed']!);
+      }
     }
   }
 
@@ -76,16 +86,17 @@ class ClinicChairsScreen extends ConsumerWidget {
   }
 
   Future<void> _removeChair(BuildContext context, WidgetRef ref, ClinicChairAdmin chair) async {
+    final t = ref.read(translationsProvider);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('حذف الكرسي؟'),
+        title: Text(t['clinicChairsAdmin.deleteChairTitle']!),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(t['clinicChairsAdmin.cancel']!)),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Theme.of(dialogContext).colorScheme.error),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('حذف'),
+            child: Text(t['clinicChairsAdmin.delete']!),
           ),
         ],
       ),
@@ -95,8 +106,9 @@ class ClinicChairsScreen extends ConsumerWidget {
     await _refresh(ref);
   }
 
-  void _viewChair(BuildContext context, ClinicChairAdmin chair) {
+  void _viewChair(BuildContext context, WidgetRef ref, ClinicChairAdmin chair) {
     if (chair.group == null) return;
+    final t = ref.read(translationsProvider);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -110,15 +122,15 @@ class ClinicChairsScreen extends ConsumerWidget {
             children: [
               Text(chair.doctor?.name ?? chair.group!.name, style: Theme.of(sheetContext).textTheme.titleLarge),
               Text(
-                'كرسي ${chair.positionLabel}${chair.doctor != null ? ' · ${chair.group!.name}' : ''}',
+                '${trf(t['clinicChairsAdmin.chairPositionLabel']!, {'position': chair.positionLabel})}${chair.doctor != null ? ' · ${chair.group!.name}' : ''}',
                 style: Theme.of(sheetContext).textTheme.bodySmall,
               ),
               const SizedBox(height: 12),
-              if (chair.doctor != null) Text('باقي المجموعة', style: Theme.of(sheetContext).textTheme.labelSmall),
+              if (chair.doctor != null) Text(t['clinicChairsAdmin.restOfGroup']!, style: Theme.of(sheetContext).textTheme.labelSmall),
               const SizedBox(height: 8),
               Expanded(
                 child: chair.group!.doctors.isEmpty
-                    ? const Center(child: Text('لا يوجد أطباء في هذه المجموعة بعد.'))
+                    ? Center(child: Text(t['clinicChairsAdmin.noDoctorsInGroupYet']!))
                     : ListView.builder(
                         controller: scrollController,
                         itemCount: chair.group!.doctors.length,
@@ -148,13 +160,14 @@ class ClinicChairsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final boardAsync = ref.watch(clinicChairsBoardProvider);
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('خريطة كراسي العيادة')),
+      appBar: AppBar(title: Text(t['clinicChairsAdmin.title']!)),
       body: boardAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stackTrace) => Center(
-          child: Text(error is ApiException ? error.userMessage : 'تعذر تحميل خريطة الكراسي.'),
+          child: Text(error is ApiException ? error.userMessage : t['clinicChairsAdmin.loadFailed']!),
         ),
         data: (board) => RefreshIndicator(
           onRefresh: () => _refresh(ref),
@@ -164,10 +177,10 @@ class ClinicChairsScreen extends ConsumerWidget {
               if (board.currentSessionName != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: Text('العام الدراسي: ${board.currentSessionName}', style: Theme.of(context).textTheme.bodySmall),
+                  child: Text(trf(t['clinicChairsAdmin.academicSessionLabel']!, {'name': board.currentSessionName!}), style: Theme.of(context).textTheme.bodySmall),
                 ),
               Text(
-                'اضغط "توزيع" لتوزيع أطباء مجموعة على كراسي مستقلة. اسحب مجموعة إلى كرسي لتخصيصه للمجموعة كاملة. اسحب كرسيًا إلى آخر لتبديل مكانيهما.',
+                t['clinicChairsAdmin.instructions']!,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
               ),
               const SizedBox(height: 12),
@@ -176,7 +189,7 @@ class ClinicChairsScreen extends ConsumerWidget {
               for (final row in board.rows) ...[
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Text('صف ${row.rowNumber}', style: Theme.of(context).textTheme.labelSmall),
+                  child: Text(trf(t['clinicChairsAdmin.rowLabel']!, {'n': row.rowNumber}), style: Theme.of(context).textTheme.labelSmall),
                 ),
                 Wrap(
                   spacing: 10,
@@ -186,7 +199,7 @@ class ClinicChairsScreen extends ConsumerWidget {
                       _ChairCard(
                         chair: chair,
                         onDrop: (data) => _dropOnChair(context, ref, chair, data),
-                        onTap: () => _viewChair(context, chair),
+                        onTap: () => _viewChair(context, ref, chair),
                         onUnassign: () => _unassign(context, ref, chair),
                         onDelete: () => _removeChair(context, ref, chair),
                       ),
@@ -196,13 +209,13 @@ class ClinicChairsScreen extends ConsumerWidget {
                 const SizedBox(height: 12),
               ],
               if (board.rows.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
-                  child: Center(child: Text('لا توجد كراسي بعد — ابدأ صفًا جديدًا.', style: TextStyle(color: Colors.grey))),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Center(child: Text(t['clinicChairsAdmin.emptyChairsMsg']!, style: const TextStyle(color: Colors.grey))),
                 ),
               OutlinedButton.icon(
                 icon: const Icon(Icons.add),
-                label: const Text('صف جديد'),
+                label: Text(t['clinicChairsAdmin.newRow']!),
                 onPressed: () => _addChair(ref),
               ),
             ],
@@ -213,15 +226,16 @@ class ClinicChairsScreen extends ConsumerWidget {
   }
 }
 
-class _GroupsRow extends StatelessWidget {
+class _GroupsRow extends ConsumerWidget {
   const _GroupsRow({required this.board, required this.onAssign});
   final ClinicChairsBoard board;
   final ValueChanged<ChairGroup> onAssign;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider);
     if (board.groups.isEmpty) {
-      return const Text('لا توجد مجموعات.', style: TextStyle(color: Colors.grey));
+      return Text(t['clinicChairsAdmin.noGroups']!, style: const TextStyle(color: Colors.grey));
     }
     return SizedBox(
       height: 84,
@@ -245,7 +259,7 @@ class _GroupsRow extends StatelessWidget {
               children: [
                 Text(group.name, style: const TextStyle(fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
                 Text(
-                  '${group.stageName ?? '—'} · ${group.doctors.length} طبيب',
+                  '${group.stageName ?? '—'} · ${group.doctors.length} ${t['clinicChairsAdmin.doctorsSuffix']}',
                   style: Theme.of(context).textTheme.bodySmall,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -258,7 +272,7 @@ class _GroupsRow extends StatelessWidget {
                       style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 4), minimumSize: Size.zero),
                       onPressed: () => onAssign(group),
                       child: Text(
-                        unseated == group.doctors.length ? 'توزيع' : 'تحديث ($unseated جديد)',
+                        unseated == group.doctors.length ? t['clinicChairsAdmin.distribute']! : trf(t['clinicChairsAdmin.updateWithCount']!, {'n': unseated}),
                         style: const TextStyle(fontSize: 12),
                       ),
                     ),
@@ -279,7 +293,7 @@ class _GroupsRow extends StatelessWidget {
   }
 }
 
-class _ChairCard extends StatefulWidget {
+class _ChairCard extends ConsumerStatefulWidget {
   const _ChairCard({required this.chair, required this.onDrop, required this.onTap, required this.onUnassign, required this.onDelete});
   final ClinicChairAdmin chair;
   final ValueChanged<Object> onDrop;
@@ -288,14 +302,15 @@ class _ChairCard extends StatefulWidget {
   final VoidCallback onDelete;
 
   @override
-  State<_ChairCard> createState() => _ChairCardState();
+  ConsumerState<_ChairCard> createState() => _ChairCardState();
 }
 
-class _ChairCardState extends State<_ChairCard> {
+class _ChairCardState extends ConsumerState<_ChairCard> {
   @override
   Widget build(BuildContext context) {
     final chair = widget.chair;
     final assigned = chair.doctor != null || chair.group != null;
+    final t = ref.watch(translationsProvider);
 
     final card = DragTarget<Object>(
       onWillAcceptWithDetails: (details) => details.data is ChairGroup || (details.data is ClinicChairAdmin && details.data != chair),
@@ -329,7 +344,7 @@ class _ChairCardState extends State<_ChairCard> {
                   children: [
                     Flexible(
                       child: Text(
-                        chair.doctor?.name ?? chair.group?.name ?? 'فارغ',
+                        chair.doctor?.name ?? chair.group?.name ?? t['clinicChairsAdmin.emptyChairLabel']!,
                         style: const TextStyle(fontSize: 11),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
