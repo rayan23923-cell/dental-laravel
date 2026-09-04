@@ -485,6 +485,31 @@ const Map<String, String> kTranslationsAr = {
   'tasksAdmin.savedSuccess': 'تم الحفظ.',
   'tasksAdmin.saveFailed': 'تعذر الحفظ.',
   'tasksAdmin.selectDepartmentStageCaseSheetMsg': 'يرجى اختيار القسم والمرحلة ونوع النموذج.',
+
+
+  // Phase 8 — case sheet types admin
+  'caseSheetTypesAdmin.title': 'أنواع النماذج السريرية',
+  'caseSheetTypesAdmin.loadFailed': 'تعذر التحميل.',
+  'caseSheetTypesAdmin.emptyList': 'لا توجد أنواع نماذج بعد.',
+  'caseSheetTypesAdmin.tasksSuffix': 'مهمة',
+  'caseSheetTypesAdmin.inactiveChip': 'غير نشط',
+  'caseSheetTypesAdmin.deleteTitle': 'حذف نوع النموذج',
+  'caseSheetTypesAdmin.deleteConfirmBody': 'هل أنت متأكد من حذف "{name}"؟',
+  'caseSheetTypesAdmin.deleteFailed': 'تعذر الحذف — قد يكون مستخدمًا في مهام.',
+  'caseSheetTypesAdmin.cancel': 'إلغاء',
+  'caseSheetTypesAdmin.delete': 'حذف',
+  'caseSheetTypesAdmin.newTitle': 'نوع نموذج جديد',
+  'caseSheetTypesAdmin.editTitle': 'تعديل نوع النموذج',
+  'caseSheetTypesAdmin.codeLabel': 'الرمز (أحرف إنجليزية صغيرة وأرقام و _ فقط)',
+  'caseSheetTypesAdmin.requiredField': 'هذا الحقل مطلوب',
+  'caseSheetTypesAdmin.invalidFormat': 'صيغة غير صحيحة',
+  'caseSheetTypesAdmin.codeNotEditable': 'الرمز: {code} (غير قابل للتعديل)',
+  'caseSheetTypesAdmin.nameArLabel': 'الاسم (عربي)',
+  'caseSheetTypesAdmin.nameEnLabel': 'الاسم (إنجليزي)',
+  'caseSheetTypesAdmin.descriptionLabel': 'الوصف',
+  'caseSheetTypesAdmin.activeLabel': 'نشط',
+  'caseSheetTypesAdmin.save': 'حفظ',
+  'caseSheetTypesAdmin.saveFailed': 'تعذر الحفظ.',
 };
 
 const Map<String, String> kTranslationsEn = {
@@ -954,4 +979,29 @@ const Map<String, String> kTranslationsEn = {
   'tasksAdmin.savedSuccess': 'Saved.',
   'tasksAdmin.saveFailed': "Couldn't save.",
   'tasksAdmin.selectDepartmentStageCaseSheetMsg': 'Please choose the department, stage, and form type.',
+
+
+  // Phase 8 — case sheet types admin
+  'caseSheetTypesAdmin.title': 'Case Sheet Types',
+  'caseSheetTypesAdmin.loadFailed': "Couldn't load.",
+  'caseSheetTypesAdmin.emptyList': 'No case sheet types yet.',
+  'caseSheetTypesAdmin.tasksSuffix': 'task(s)',
+  'caseSheetTypesAdmin.inactiveChip': 'Inactive',
+  'caseSheetTypesAdmin.deleteTitle': 'Delete Form Type',
+  'caseSheetTypesAdmin.deleteConfirmBody': 'Are you sure you want to delete "{name}"?',
+  'caseSheetTypesAdmin.deleteFailed': "Couldn't delete — it may be used by tasks.",
+  'caseSheetTypesAdmin.cancel': 'Cancel',
+  'caseSheetTypesAdmin.delete': 'Delete',
+  'caseSheetTypesAdmin.newTitle': 'New Form Type',
+  'caseSheetTypesAdmin.editTitle': 'Edit Form Type',
+  'caseSheetTypesAdmin.codeLabel': 'Code (lowercase letters, numbers, and underscore only)',
+  'caseSheetTypesAdmin.requiredField': 'This field is required',
+  'caseSheetTypesAdmin.invalidFormat': 'Invalid format',
+  'caseSheetTypesAdmin.codeNotEditable': 'Code: {code} (not editable)',
+  'caseSheetTypesAdmin.nameArLabel': 'Name (Arabic)',
+  'caseSheetTypesAdmin.nameEnLabel': 'Name (English)',
+  'caseSheetTypesAdmin.descriptionLabel': 'Description',
+  'caseSheetTypesAdmin.activeLabel': 'Active',
+  'caseSheetTypesAdmin.save': 'Save',
+  'caseSheetTypesAdmin.saveFailed': "Couldn't save.",
 };

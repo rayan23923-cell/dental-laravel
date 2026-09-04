@@ -620,5 +620,25 @@
         "remove": "Remove",
         "removeConfirm": "Remove this role assignment?",
         "emptyList": "No role assignments yet."
+    },
+    "caseSheetTypesAdmin": {
+        "title": "Case Sheet Types",
+        "addType": "Add Type",
+        "codeCol": "Code",
+        "nameArCol": "Name (AR)",
+        "nameEnCol": "Name (EN)",
+        "tasksCol": "Tasks",
+        "active": "Active",
+        "inactive": "Inactive",
+        "emptyList": "No case sheet types yet.",
+        "addTitle": "Add Case Sheet Type",
+        "codeLabel": "Type Code (lowercase, letters/numbers/underscore only)",
+        "nameArLabel": "Name (Arabic)",
+        "nameEnLabel": "Name (English)",
+        "descriptionLabel": "Description",
+        "activeLabel": "Active",
+        "editTitle": "Edit Case Sheet Type",
+        "codeNotEditable": "Code: {code} (not editable)",
+        "deleteConfirm": "Delete \"{name}\"?"
     }
 }

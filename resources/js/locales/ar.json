@@ -620,5 +620,25 @@
         "remove": "إزالة",
         "removeConfirm": "إزالة تخصيص هذا الدور؟",
         "emptyList": "لا توجد تخصيصات أدوار بعد."
+    },
+    "caseSheetTypesAdmin": {
+        "title": "أنواع النماذج السريرية",
+        "addType": "إضافة نوع",
+        "codeCol": "الرمز",
+        "nameArCol": "الاسم (عربي)",
+        "nameEnCol": "الاسم (إنجليزي)",
+        "tasksCol": "المهام",
+        "active": "مفعّل",
+        "inactive": "غير مفعّل",
+        "emptyList": "لا توجد أنواع نماذج سريرية بعد.",
+        "addTitle": "إضافة نوع نموذج سريري",
+        "codeLabel": "رمز النوع (أحرف إنجليزية صغيرة وأرقام وشرطة سفلية فقط)",
+        "nameArLabel": "الاسم (عربي)",
+        "nameEnLabel": "الاسم (إنجليزي)",
+        "descriptionLabel": "الوصف",
+        "activeLabel": "مفعّل",
+        "editTitle": "تعديل نوع النموذج السريري",
+        "codeNotEditable": "الرمز: {code} (غير قابل للتعديل)",
+        "deleteConfirm": "حذف \"{name}\"؟"
     }
 }
