@@ -120,6 +120,29 @@ workflows:
       - name: Install CocoaPods dependencies
         script: |
           cd ios && pod install
+      - name: Strip restricted entitlements for this unsigned build
+        # Runner/Runner.entitlements declares the NFC reader-session
+        # capability (com.apple.developer.nfc.readersession.formats).
+        # Xcode validates capability entitlements against a Development
+        # Team during build-graph preparation — a step that runs before
+        # codesigning and isn't skipped by --no-codesign — which is what
+        # kept failing with "requires a development team" even after the
+        # Podfile signing overrides and disabling Swift Package Manager
+        # (confirmed 2026-09-04: identical failure with both of those
+        # fixes in place). NFC also requires a paid Apple Developer
+        # Program team, which a free AltStore Apple ID can never obtain
+        # anyway, so this capability cannot work in this unsigned artifact
+        # regardless. Blank the file on this ephemeral build machine only
+        # — the real entitlements file in the repo is untouched for a
+        # future properly signed (paid team) build where NFC can work.
+        script: |
+          cat > ios/Runner/Runner.entitlements <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict/>
+          </plist>
+          EOF
       - name: Build unsigned iOS app
         # Same reasoning as the Android workflow's --dart-define: without
         # it, AppConfig.baseUrl falls back to `localhost`, which on a real
