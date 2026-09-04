@@ -6,7 +6,9 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import Icon from '@/Components/Icon.vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const props = defineProps({
     settings: Object,
     mailConfigured: Boolean,
@@ -59,11 +61,11 @@ const sendTest = () => testForm.post(route('clinic-settings.test-email'), { pres
 </script>
 
 <template>
-    <Head title="Clinic Settings" />
+    <Head :title="t('clinicSettingsAdmin.title')" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">Clinic Settings</h2>
+            <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('clinicSettingsAdmin.title') }}</h2>
         </template>
 
         <div class="py-12">
@@ -83,66 +85,66 @@ const sendTest = () => testForm.post(route('clinic-settings.test-email'), { pres
                          and the navigation chrome. -->
                     <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
                         <h3 class="mb-1 text-sm font-semibold text-gray-700">
-                            <Icon name="palette" class="ml-1" />المظهر / الثيم
+                            <Icon name="palette" class="ml-1" />{{ t('clinicSettingsAdmin.themeHeading') }}
                         </h3>
                         <p class="mb-4 text-xs text-gray-500">
-                            يُطبَّق على شاشات الدخول وشريط التنقل لكل المستخدمين. يظهر التغيير بعد الحفظ.
+                            {{ t('clinicSettingsAdmin.themeDesc') }}
                         </p>
 
                         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <label
-                                v-for="t in themes"
-                                :key="t.value"
+                                v-for="th in themes"
+                                :key="th.value"
                                 class="flex cursor-pointer items-center gap-3 rounded-xl border-2 p-3 transition"
-                                :class="form.theme === t.value
+                                :class="form.theme === th.value
                                     ? 'border-indigo-500 bg-indigo-50'
                                     : 'border-gray-200 hover:border-gray-300'"
                             >
-                                <input v-model="form.theme" type="radio" :value="t.value" class="sr-only" />
+                                <input v-model="form.theme" type="radio" :value="th.value" class="sr-only" />
 
                                 <!-- Live swatch: page ground plus accent, the two
                                      colours that actually distinguish the themes. -->
                                 <span
                                     class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ring-1 ring-black/10"
-                                    :style="{ backgroundColor: t.swatch[0] }"
+                                    :style="{ backgroundColor: th.swatch[0] }"
                                 >
-                                    <span class="h-5 w-5 rounded-full" :style="{ backgroundColor: t.swatch[1] }"></span>
+                                    <span class="h-5 w-5 rounded-full" :style="{ backgroundColor: th.swatch[1] }"></span>
                                 </span>
 
                                 <span class="min-w-0">
-                                    <span class="block truncate text-sm font-medium text-gray-800">{{ t.label }}</span>
-                                    <span class="block text-xs text-gray-500">{{ t.description }}</span>
+                                    <span class="block truncate text-sm font-medium text-gray-800">{{ th.label }}</span>
+                                    <span class="block text-xs text-gray-500">{{ th.description }}</span>
                                 </span>
 
-                                <Icon v-if="form.theme === t.value" name="check_circle" class="mr-auto text-indigo-600" />
+                                <Icon v-if="form.theme === th.value" name="check_circle" class="mr-auto text-indigo-600" />
                             </label>
                         </div>
                         <InputError class="mt-2" :message="form.errors.theme" />
                     </div>
 
                     <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                        <h3 class="mb-4 text-sm font-semibold text-gray-700">Basic Information</h3>
+                        <h3 class="mb-4 text-sm font-semibold text-gray-700">{{ t('clinicSettingsAdmin.basicInfoHeading') }}</h3>
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div class="sm:col-span-2">
-                                <InputLabel for="clinic_name" value="Clinic Name" />
+                                <InputLabel for="clinic_name" :value="t('clinicSettingsAdmin.clinicNameLabel')" />
                                 <TextInput id="clinic_name" v-model="form.clinic_name" type="text" class="mt-1 block w-full" required />
                                 <InputError class="mt-2" :message="form.errors.clinic_name" />
                             </div>
                             <div class="sm:col-span-2">
-                                <InputLabel for="clinic_description" value="Description" />
+                                <InputLabel for="clinic_description" :value="t('clinicSettingsAdmin.descriptionLabel')" />
                                 <textarea id="clinic_description" v-model="form.clinic_description" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
                             </div>
                             <div>
-                                <InputLabel for="clinic_phone" value="Phone" />
+                                <InputLabel for="clinic_phone" :value="t('clinicSettingsAdmin.phoneLabel')" />
                                 <TextInput id="clinic_phone" v-model="form.clinic_phone" type="text" class="mt-1 block w-full" />
                             </div>
                             <div>
-                                <InputLabel for="clinic_email" value="Email" />
+                                <InputLabel for="clinic_email" :value="t('clinicSettingsAdmin.emailLabel')" />
                                 <TextInput id="clinic_email" v-model="form.clinic_email" type="email" class="mt-1 block w-full" />
                                 <InputError class="mt-2" :message="form.errors.clinic_email" />
                             </div>
                             <div class="sm:col-span-2">
-                                <InputLabel for="clinic_logo" value="Clinic Logo" />
+                                <InputLabel for="clinic_logo" :value="t('clinicSettingsAdmin.clinicLogoLabel')" />
                                 <img v-if="settings.logo_url" :src="settings.logo_url" class="mt-1 mb-2 h-16 w-16 rounded object-contain" />
                                 <input id="clinic_logo" type="file" accept="image/*" class="mt-1 block w-full text-sm text-gray-700" @input="form.clinic_logo = $event.target.files[0]" />
                                 <InputError class="mt-2" :message="form.errors.clinic_logo" />
@@ -151,38 +153,38 @@ const sendTest = () => testForm.post(route('clinic-settings.test-email'), { pres
                     </div>
 
                     <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                        <h3 class="mb-4 text-sm font-semibold text-gray-700">Contact Information</h3>
+                        <h3 class="mb-4 text-sm font-semibold text-gray-700">{{ t('clinicSettingsAdmin.contactInfoHeading') }}</h3>
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div class="sm:col-span-2">
-                                <InputLabel for="clinic_address" value="Address" />
+                                <InputLabel for="clinic_address" :value="t('clinicSettingsAdmin.addressLabel')" />
                                 <textarea id="clinic_address" v-model="form.clinic_address" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
                             </div>
                             <div>
-                                <InputLabel for="clinic_website" value="Website" />
+                                <InputLabel for="clinic_website" :value="t('clinicSettingsAdmin.websiteLabel')" />
                                 <TextInput id="clinic_website" v-model="form.clinic_website" type="url" class="mt-1 block w-full" placeholder="https://example.com" />
                                 <InputError class="mt-2" :message="form.errors.clinic_website" />
                             </div>
                             <div>
-                                <InputLabel for="clinic_working_hours" value="Working Hours" />
+                                <InputLabel for="clinic_working_hours" :value="t('clinicSettingsAdmin.workingHoursLabel')" />
                                 <TextInput id="clinic_working_hours" v-model="form.clinic_working_hours" type="text" class="mt-1 block w-full" />
                             </div>
                         </div>
                     </div>
 
                     <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                        <h3 class="mb-4 text-sm font-semibold text-gray-700">University &amp; College</h3>
-                        <p class="mb-4 text-xs text-gray-400">Used in case sheet print headers.</p>
+                        <h3 class="mb-4 text-sm font-semibold text-gray-700">{{ t('clinicSettingsAdmin.universityCollegeHeading') }}</h3>
+                        <p class="mb-4 text-xs text-gray-400">{{ t('clinicSettingsAdmin.usedInPrintHeadersNote') }}</p>
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
-                                <InputLabel for="university_name" value="University Name" />
+                                <InputLabel for="university_name" :value="t('clinicSettingsAdmin.universityNameLabel')" />
                                 <TextInput id="university_name" v-model="form.university_name" type="text" class="mt-1 block w-full" />
                             </div>
                             <div>
-                                <InputLabel for="college_name" value="College Name" />
+                                <InputLabel for="college_name" :value="t('clinicSettingsAdmin.collegeNameLabel')" />
                                 <TextInput id="college_name" v-model="form.college_name" type="text" class="mt-1 block w-full" />
                             </div>
                             <div class="sm:col-span-2">
-                                <InputLabel for="university_logo" value="University Logo" />
+                                <InputLabel for="university_logo" :value="t('clinicSettingsAdmin.universityLogoLabel')" />
                                 <img v-if="settings.university_logo_url" :src="settings.university_logo_url" class="mt-1 mb-2 h-16 w-16 rounded object-contain" />
                                 <input id="university_logo" type="file" accept="image/*" class="mt-1 block w-full text-sm text-gray-700" @input="form.university_logo = $event.target.files[0]" />
                                 <InputError class="mt-2" :message="form.errors.university_logo" />
@@ -191,14 +193,14 @@ const sendTest = () => testForm.post(route('clinic-settings.test-email'), { pres
                     </div>
 
                     <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                        <h3 class="mb-4 text-sm font-semibold text-gray-700">System</h3>
+                        <h3 class="mb-4 text-sm font-semibold text-gray-700">{{ t('clinicSettingsAdmin.systemHeading') }}</h3>
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                             <div>
-                                <InputLabel for="clinic_currency" value="Currency" />
+                                <InputLabel for="clinic_currency" :value="t('clinicSettingsAdmin.currencyLabel')" />
                                 <TextInput id="clinic_currency" v-model="form.clinic_currency" type="text" class="mt-1 block w-full" />
                             </div>
                             <div>
-                                <InputLabel for="clinic_timezone" value="Timezone" />
+                                <InputLabel for="clinic_timezone" :value="t('clinicSettingsAdmin.timezoneLabel')" />
                                 <!-- Iraq listed first and named explicitly —
                                      the bootstrap default (ClinicSetting::current())
                                      names an Iraqi university, but this list
@@ -210,11 +212,11 @@ const sendTest = () => testForm.post(route('clinic-settings.test-email'), { pres
                                      technically present, just unlabelled
                                      and last. -->
                                 <select id="clinic_timezone" v-model="form.clinic_timezone" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                    <option value="Asia/Baghdad">العراق — بغداد (GMT+3)</option>
-                                    <option value="Asia/Riyadh">السعودية — الرياض (GMT+3)</option>
-                                    <option value="Asia/Kuwait">الكويت (GMT+3)</option>
-                                    <option value="Asia/Qatar">قطر (GMT+3)</option>
-                                    <option value="Asia/Dubai">الإمارات — دبي (GMT+4)</option>
+                                    <option value="Asia/Baghdad">{{ t('clinicSettingsAdmin.timezoneIraq') }}</option>
+                                    <option value="Asia/Riyadh">{{ t('clinicSettingsAdmin.timezoneSaudi') }}</option>
+                                    <option value="Asia/Kuwait">{{ t('clinicSettingsAdmin.timezoneKuwait') }}</option>
+                                    <option value="Asia/Qatar">{{ t('clinicSettingsAdmin.timezoneQatar') }}</option>
+                                    <option value="Asia/Dubai">{{ t('clinicSettingsAdmin.timezoneDubai') }}</option>
                                 </select>
                             </div>
                         </div>
@@ -222,9 +224,9 @@ const sendTest = () => testForm.post(route('clinic-settings.test-email'), { pres
 
                     <!-- Email (SMTP) -->
                     <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                        <h3 class="text-sm font-semibold text-gray-700">إعدادات البريد الإلكتروني (SMTP)</h3>
+                        <h3 class="text-sm font-semibold text-gray-700">{{ t('clinicSettingsAdmin.mailSectionHeading') }}</h3>
                         <p class="mt-1 text-xs text-gray-500">
-                            تُستخدم لإرسال روابط إعادة تعيين كلمة المرور وإشعارات المهام.
+                            {{ t('clinicSettingsAdmin.mailSectionDesc') }}
                         </p>
 
                         <div
@@ -232,84 +234,83 @@ const sendTest = () => testForm.post(route('clinic-settings.test-email'), { pres
                             :class="mailConfigured ? 'bg-green-50 text-green-800' : 'bg-amber-50 text-amber-800'"
                         >
                             <template v-if="mailConfigured">
-                                <Icon name="check_circle" class="ml-1" />البريد مُهيّأ ويُرسل عبر SMTP.
+                                <Icon name="check_circle" class="ml-1" />{{ t('clinicSettingsAdmin.mailConfiguredMsg') }}
                             </template>
                             <template v-else>
-                                <Icon name="warning" class="ml-1" />لم يُضبط خادم SMTP بعد — الرسائل تُكتب حالياً في سجل التطبيق
-                                (<code>{{ mailDriver }}</code>) بدل إرسالها فعلياً. أدخل المضيف وعنوان المرسل لتفعيل الإرسال.
+                                <Icon name="warning" class="ml-1" />{{ t('clinicSettingsAdmin.mailNotConfiguredPrefix') }}
+                                (<code>{{ mailDriver }}</code>) {{ t('clinicSettingsAdmin.mailNotConfiguredSuffix') }}
                             </template>
                         </div>
 
                         <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
-                                <InputLabel for="mail_host" value="خادم SMTP (Host)" />
+                                <InputLabel for="mail_host" :value="t('clinicSettingsAdmin.mailHostLabel')" />
                                 <TextInput id="mail_host" v-model="form.mail_host" type="text" class="mt-1 block w-full" placeholder="smtp.gmail.com" />
                                 <InputError class="mt-2" :message="form.errors.mail_host" />
                             </div>
                             <div>
-                                <InputLabel for="mail_port" value="المنفذ (Port)" />
+                                <InputLabel for="mail_port" :value="t('clinicSettingsAdmin.mailPortLabel')" />
                                 <TextInput id="mail_port" v-model="form.mail_port" type="number" class="mt-1 block w-full" placeholder="587" />
                                 <InputError class="mt-2" :message="form.errors.mail_port" />
                             </div>
                             <div>
-                                <InputLabel for="mail_username" value="اسم المستخدم" />
+                                <InputLabel for="mail_username" :value="t('clinicSettingsAdmin.mailUsernameLabel')" />
                                 <TextInput id="mail_username" v-model="form.mail_username" type="text" class="mt-1 block w-full" />
                             </div>
                             <div>
-                                <InputLabel for="mail_password" value="كلمة المرور" />
+                                <InputLabel for="mail_password" :value="t('clinicSettingsAdmin.mailPasswordLabel')" />
                                 <TextInput
                                     id="mail_password"
                                     v-model="form.mail_password"
                                     type="password"
                                     class="mt-1 block w-full"
-                                    :placeholder="settings.mail_password_set ? '•••••••• (محفوظة — اتركها فارغة للإبقاء عليها)' : ''"
+                                    :placeholder="settings.mail_password_set ? t('clinicSettingsAdmin.mailPasswordPlaceholder') : ''"
                                 />
                                 <InputError class="mt-2" :message="form.errors.mail_password" />
                             </div>
                             <div>
-                                <InputLabel for="mail_encryption" value="التشفير" />
+                                <InputLabel for="mail_encryption" :value="t('clinicSettingsAdmin.mailEncryptionLabel')" />
                                 <select id="mail_encryption" v-model="form.mail_encryption" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                    <option value="">بدون</option>
+                                    <option value="">{{ t('clinicSettingsAdmin.mailEncryptionNone') }}</option>
                                     <option value="tls">TLS</option>
                                     <option value="ssl">SSL</option>
                                 </select>
                             </div>
                             <div>
-                                <InputLabel for="mail_from_address" value="عنوان المرسل" />
+                                <InputLabel for="mail_from_address" :value="t('clinicSettingsAdmin.mailFromAddressLabel')" />
                                 <TextInput id="mail_from_address" v-model="form.mail_from_address" type="email" class="mt-1 block w-full" placeholder="clinic@example.com" />
                                 <InputError class="mt-2" :message="form.errors.mail_from_address" />
                             </div>
                             <div>
-                                <InputLabel for="mail_from_name" value="اسم المرسل" />
+                                <InputLabel for="mail_from_name" :value="t('clinicSettingsAdmin.mailFromNameLabel')" />
                                 <TextInput id="mail_from_name" v-model="form.mail_from_name" type="text" class="mt-1 block w-full" :placeholder="settings.clinic_name" />
                             </div>
                         </div>
 
                         <!-- Gmail helper -->
                         <details class="mt-4 rounded-md border border-gray-200 p-3 text-xs text-gray-600">
-                            <summary class="cursor-pointer font-medium text-gray-700">استخدام Gmail؟ اضغط هنا للإعدادات</summary>
+                            <summary class="cursor-pointer font-medium text-gray-700">{{ t('clinicSettingsAdmin.gmailHelperSummary') }}</summary>
                             <div class="mt-2 space-y-2">
                                 <p class="rounded bg-amber-50 p-2 text-amber-800">
-                                    <Icon name="warning" class="ml-1" /><strong>كلمة مرور حسابك العادية لن تعمل.</strong> يجب إنشاء
-                                    «كلمة مرور التطبيقات» (App Password) من إعدادات حساب جوجل، وهي تتطلب
-                                    تفعيل التحقق بخطوتين أولاً.
+                                    <Icon name="warning" class="ml-1" /><strong>{{ t('clinicSettingsAdmin.gmailWarningBold') }}</strong>
+                                    {{ t('clinicSettingsAdmin.gmailWarningRest') }}
                                 </p>
                                 <ul class="list-inside list-disc space-y-1">
-                                    <li>الخادم: <code class="rounded bg-gray-100 px-1">smtp.gmail.com</code></li>
-                                    <li>المنفذ: <code class="rounded bg-gray-100 px-1">587</code> مع تشفير <code class="rounded bg-gray-100 px-1">TLS</code>
-                                        (أو <code class="rounded bg-gray-100 px-1">465</code> مع <code class="rounded bg-gray-100 px-1">SSL</code>)</li>
-                                    <li>اسم المستخدم: بريدك الكامل <code class="rounded bg-gray-100 px-1">you@gmail.com</code></li>
-                                    <li>كلمة المرور: كلمة مرور التطبيقات (16 حرفاً)</li>
-                                    <li>عنوان المرسل: <strong>نفس عنوان Gmail</strong> — جيميل يرفض أو يعيد كتابة أي عنوان آخر</li>
+                                    <li>{{ t('clinicSettingsAdmin.gmailServerLabel') }} <code class="rounded bg-gray-100 px-1">smtp.gmail.com</code></li>
+                                    <li>{{ t('clinicSettingsAdmin.gmailPortLabel') }} <code class="rounded bg-gray-100 px-1">587</code> {{ t('clinicSettingsAdmin.gmailWithEncryption') }} <code class="rounded bg-gray-100 px-1">TLS</code>
+                                        (أو <code class="rounded bg-gray-100 px-1">465</code> {{ t('clinicSettingsAdmin.gmailWithConnector') }} <code class="rounded bg-gray-100 px-1">SSL</code>)</li>
+                                    <li>{{ t('clinicSettingsAdmin.gmailUsernameLabel') }} {{ t('clinicSettingsAdmin.gmailUsernameFullEmail') }} <code class="rounded bg-gray-100 px-1">you@gmail.com</code></li>
+                                    <li>{{ t('clinicSettingsAdmin.gmailPasswordLabel') }} {{ t('clinicSettingsAdmin.gmailPasswordAppPassword') }}</li>
+                                    <li>{{ t('clinicSettingsAdmin.gmailFromAddressLabel') }} <strong>{{ t('clinicSettingsAdmin.gmailFromAddressBold') }}</strong> {{ t('clinicSettingsAdmin.gmailFromAddressRest') }}</li>
                                 </ul>
-                                <p>حدود الإرسال: نحو 500 رسالة يومياً لحساب مجاني، و2000 لحساب Workspace.</p>
+                                <p>{{ t('clinicSettingsAdmin.gmailLimitsNote') }}</p>
                             </div>
                         </details>
 
                         <!-- Test email -->
                         <div class="mt-4 flex flex-wrap items-end gap-2 border-t border-gray-100 pt-4">
                             <div class="min-w-0 flex-grow">
-                                <InputLabel for="test_to" value="إرسال رسالة تجريبية إلى" />
+                                <InputLabel for="test_to" :value="t('clinicSettingsAdmin.testEmailLabel')" />
                                 <TextInput id="test_to" v-model="testForm.to" type="email" class="mt-1 block w-full" placeholder="you@example.com" />
                                 <InputError class="mt-2" :message="testForm.errors.to" />
                             </div>
@@ -319,37 +320,37 @@ const sendTest = () => testForm.post(route('clinic-settings.test-email'), { pres
                                 @click="sendTest"
                                 class="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-40"
                             >
-                                {{ testForm.processing ? 'جاري الإرسال…' : 'إرسال رسالة تجريبية' }}
+                                {{ testForm.processing ? t('clinicSettingsAdmin.testEmailSending') : t('clinicSettingsAdmin.testEmailSend') }}
                             </button>
                         </div>
                         <p class="mt-1 text-xs text-gray-400">
-                            احفظ الإعدادات أولاً — تُرسل الرسالة التجريبية بالإعدادات المحفوظة.
+                            {{ t('clinicSettingsAdmin.testEmailSaveFirstNote') }}
                         </p>
                     </div>
 
                     <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                        <h3 class="mb-4 text-sm font-semibold text-gray-700">Notifications</h3>
+                        <h3 class="mb-4 text-sm font-semibold text-gray-700">{{ t('clinicSettingsAdmin.notificationsHeading') }}</h3>
                         <p class="mb-3 text-xs text-gray-500">
-                            إرسال الإشعارات بالبريد يتطلب تفعيل «Enable notifications» و«Enable email» معاً.
+                            {{ t('clinicSettingsAdmin.notificationsRequireBothNote') }}
                         </p>
                         <div class="flex flex-wrap gap-6">
                             <label class="flex items-center gap-2 text-sm text-gray-700">
                                 <input type="checkbox" v-model="form.enable_notifications" class="rounded border-gray-300" />
-                                Enable notifications
+                                {{ t('clinicSettingsAdmin.enableNotifications') }}
                             </label>
                             <label class="flex items-center gap-2 text-sm text-gray-700">
                                 <input type="checkbox" v-model="form.enable_sms" class="rounded border-gray-300" />
-                                Enable SMS
+                                {{ t('clinicSettingsAdmin.enableSms') }}
                             </label>
                             <label class="flex items-center gap-2 text-sm text-gray-700">
                                 <input type="checkbox" v-model="form.enable_email" class="rounded border-gray-300" />
-                                Enable email
+                                {{ t('clinicSettingsAdmin.enableEmail') }}
                             </label>
                         </div>
                     </div>
 
                     <div class="flex justify-end">
-                        <PrimaryButton :disabled="form.processing">Save Settings</PrimaryButton>
+                        <PrimaryButton :disabled="form.processing">{{ t('clinicSettingsAdmin.saveSettings') }}</PrimaryButton>
                     </div>
                 </form>
             </div>

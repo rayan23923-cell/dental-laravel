@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/clinic_settings_admin_repository.dart';
 import '../domain/clinic_settings_admin.dart';
@@ -130,7 +131,8 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
           );
       ref.invalidate(clinicSettingsAdminProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم حفظ الإعدادات.')));
+        final t = ref.read(translationsProvider);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['clinicSettingsAdmin.savedSuccess']!)));
         setState(() {
           _clinicLogoPick = null;
           _clinicLogoPreview = null;
@@ -140,7 +142,8 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
       }
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الحفظ.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['clinicSettingsAdmin.saveFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -151,13 +154,14 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
   @override
   Widget build(BuildContext context) {
     final settingsAsync = ref.watch(clinicSettingsAdminProvider);
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('إعدادات العيادة')),
+      appBar: AppBar(title: Text(t['clinicSettingsAdmin.title']!)),
       body: settingsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stackTrace) => Center(
-          child: Text(error is ApiException ? error.userMessage : 'تعذر التحميل.'),
+          child: Text(error is ApiException ? error.userMessage : t['clinicSettingsAdmin.loadFailed']!),
         ),
         data: (settings) {
           _seed(settings);
@@ -166,32 +170,32 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                Text('معلومات أساسية', style: Theme.of(context).textTheme.titleMedium),
+                Text(t['clinicSettingsAdmin.basicInfoHeading']!, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _nameController,
-                  decoration: const InputDecoration(labelText: 'اسم العيادة', border: OutlineInputBorder()),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'هذا الحقل مطلوب' : null,
+                  decoration: InputDecoration(labelText: t['clinicSettingsAdmin.clinicNameLabel'], border: const OutlineInputBorder()),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? t['clinicSettingsAdmin.requiredField'] : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _descriptionController,
-                  decoration: const InputDecoration(labelText: 'الوصف', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: t['clinicSettingsAdmin.descriptionLabel'], border: const OutlineInputBorder()),
                   maxLines: 2,
                 ),
                 const SizedBox(height: 12),
                 _LogoPicker(
-                  label: 'شعار العيادة',
+                  label: t['clinicSettingsAdmin.clinicLogoLabel']!,
                   networkUrl: _current?.logoUrl,
                   previewBytes: _clinicLogoPreview,
                   onPick: _pickClinicLogo,
                 ),
                 const SizedBox(height: 24),
-                Text('معلومات التواصل', style: Theme.of(context).textTheme.titleMedium),
+                Text(t['clinicSettingsAdmin.contactInfoHeading']!, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _addressController,
-                  decoration: const InputDecoration(labelText: 'العنوان', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: t['clinicSettingsAdmin.addressLabel'], border: const OutlineInputBorder()),
                   maxLines: 2,
                 ),
                 const SizedBox(height: 12),
@@ -201,7 +205,7 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
                 TextFormField(
                   controller: _phoneController,
                   textDirection: TextDirection.ltr,
-                  decoration: const InputDecoration(labelText: 'الهاتف', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: t['clinicSettingsAdmin.phoneLabel'], border: const OutlineInputBorder()),
                 ),
                 const SizedBox(height: 12),
                 // Forced LTR — same reasoning as the website/base_url
@@ -211,10 +215,10 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
                 TextFormField(
                   controller: _emailController,
                   textDirection: TextDirection.ltr,
-                  decoration: const InputDecoration(labelText: 'البريد الإلكتروني', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: t['clinicSettingsAdmin.emailLabel'], border: const OutlineInputBorder()),
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) return null;
-                    return v.contains('@') ? null : 'بريد إلكتروني غير صحيح';
+                    return v.contains('@') ? null : t['clinicSettingsAdmin.invalidEmail'];
                   },
                 ),
                 const SizedBox(height: 12),
@@ -230,69 +234,69 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
                 TextFormField(
                   controller: _websiteController,
                   textDirection: TextDirection.ltr,
-                  decoration: const InputDecoration(labelText: 'الموقع الإلكتروني', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: t['clinicSettingsAdmin.websiteLabel'], border: const OutlineInputBorder()),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _workingHoursController,
-                  decoration: const InputDecoration(labelText: 'ساعات العمل', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: t['clinicSettingsAdmin.workingHoursLabel'], border: const OutlineInputBorder()),
                 ),
                 const SizedBox(height: 24),
-                Text('الجامعة والكلية', style: Theme.of(context).textTheme.titleMedium),
+                Text(t['clinicSettingsAdmin.universityCollegeHeading']!, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _universityNameController,
-                  decoration: const InputDecoration(labelText: 'اسم الجامعة', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: t['clinicSettingsAdmin.universityNameLabel'], border: const OutlineInputBorder()),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _collegeNameController,
-                  decoration: const InputDecoration(labelText: 'اسم الكلية', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: t['clinicSettingsAdmin.collegeNameLabel'], border: const OutlineInputBorder()),
                 ),
                 const SizedBox(height: 12),
                 _LogoPicker(
-                  label: 'شعار الجامعة',
+                  label: t['clinicSettingsAdmin.universityLogoLabel']!,
                   networkUrl: _current?.universityLogoUrl,
                   previewBytes: _universityLogoPreview,
                   onPick: _pickUniversityLogo,
                 ),
                 const SizedBox(height: 24),
-                Text('النظام', style: Theme.of(context).textTheme.titleMedium),
+                Text(t['clinicSettingsAdmin.systemHeading']!, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _currencyController,
-                  decoration: const InputDecoration(labelText: 'العملة', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: t['clinicSettingsAdmin.currencyLabel'], border: const OutlineInputBorder()),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  initialValue: kClinicTimezones.any((t) => t.$1 == _timezone) ? _timezone : null,
-                  decoration: const InputDecoration(labelText: 'المنطقة الزمنية', border: OutlineInputBorder()),
-                  items: [for (final t in kClinicTimezones) DropdownMenuItem(value: t.$1, child: Text(t.$2))],
+                  initialValue: kClinicTimezones.any((tz) => tz.$1 == _timezone) ? _timezone : null,
+                  decoration: InputDecoration(labelText: t['clinicSettingsAdmin.timezoneLabel'], border: const OutlineInputBorder()),
+                  items: [for (final tz in kClinicTimezones) DropdownMenuItem(value: tz.$1, child: Text(tz.$2))],
                   onChanged: (v) => setState(() => _timezone = v),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _baseUrlController,
                   textDirection: TextDirection.ltr,
-                  decoration: const InputDecoration(labelText: 'المسار الأساسي (base_url)', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: t['clinicSettingsAdmin.baseUrlLabel'], border: const OutlineInputBorder()),
                 ),
                 const SizedBox(height: 24),
-                Text('الإشعارات', style: Theme.of(context).textTheme.titleMedium),
+                Text(t['clinicSettingsAdmin.notificationsHeading']!, style: Theme.of(context).textTheme.titleMedium),
                 CheckboxListTile(
                   value: _enableNotifications,
-                  title: const Text('تفعيل الإشعارات'),
+                  title: Text(t['clinicSettingsAdmin.enableNotifications']!),
                   controlAffinity: ListTileControlAffinity.leading,
                   onChanged: (v) => setState(() => _enableNotifications = v ?? true),
                 ),
                 CheckboxListTile(
                   value: _enableSms,
-                  title: const Text('تفعيل الرسائل النصية'),
+                  title: Text(t['clinicSettingsAdmin.enableSms']!),
                   controlAffinity: ListTileControlAffinity.leading,
                   onChanged: (v) => setState(() => _enableSms = v ?? false),
                 ),
                 CheckboxListTile(
                   value: _enableEmail,
-                  title: const Text('تفعيل البريد الإلكتروني'),
+                  title: Text(t['clinicSettingsAdmin.enableEmail']!),
                   controlAffinity: ListTileControlAffinity.leading,
                   onChanged: (v) => setState(() => _enableEmail = v ?? true),
                 ),
@@ -301,7 +305,7 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
                   onPressed: _submitting ? null : _submit,
                   child: _submitting
                       ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Text('حفظ الإعدادات'),
+                      : Text(t['clinicSettingsAdmin.saveSettings']!),
                 ),
               ],
             ),

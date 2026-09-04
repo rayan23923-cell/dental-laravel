@@ -7,6 +7,7 @@ import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/pos_printer_service.dart';
 import '../domain/printer_settings.dart';
@@ -91,7 +92,8 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
     final btDenied = bluetoothPermissions.map((p) => statuses[p]).any((s) => s != null && !s.isGranted);
     if (btDenied) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('يلزم إذن البلوتوث للبحث عن أجهزة.')));
+        final t = ref.read(translationsProvider);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['printerSettingsAdmin.bluetoothPermissionRequired']!)));
       }
       return;
     }
@@ -106,11 +108,12 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
     // must not stop the scan.
     final locationStatus = statuses[Permission.locationWhenInUse];
     if (locationStatus != null && !locationStatus.isGranted && mounted) {
+      final t = ref.read(translationsProvider);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Text('بدون إذن الموقع لن تظهر بعض أجهزة البلوتوث القريبة في نتائج البحث هنا، حتى لو ظهرت في إعدادات الجهاز.'),
+        content: Text(t['printerSettingsAdmin.locationHintMsg']!),
         duration: const Duration(seconds: 6),
         action: SnackBarAction(
-          label: 'الإعدادات',
+          label: t['printerSettingsAdmin.settingsAction']!,
           // Explicit color: the theme's default SnackBarAction color was
           // nearly invisible against this app's SnackBar background in
           // dark system theme — found live via a device screenshot, not a
@@ -128,10 +131,11 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
     // actionable instead of a hang.
     if (!await ref.read(posPrinterServiceProvider).isBluetoothEnabled()) {
       if (mounted) {
+        final t = ref.read(translationsProvider);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: const Text('البلوتوث مغلق. شغّله للبحث عن طابعات.'),
+          content: Text(t['printerSettingsAdmin.bluetoothOffMsg']!),
           action: SnackBarAction(
-            label: 'تشغيل',
+            label: t['printerSettingsAdmin.turnOnAction']!,
             textColor: InstagramColors.blue,
             onPressed: () => ref.read(posPrinterServiceProvider).requestEnableBluetooth(),
           ),
@@ -159,20 +163,21 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
       onError: (Object e) {
         if (!mounted) return;
         setState(() => _scanning = false);
+        final t = ref.read(translationsProvider);
         // Bluetooth turned off *during* an active scan, not just before
         // starting one — same one-tap fix as the pre-scan check above.
         if (e is PlatformException && e.code == 'bluetooth_disabled') {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: const Text('البلوتوث مغلق. شغّله للبحث عن طابعات.'),
+            content: Text(t['printerSettingsAdmin.bluetoothOffMsg']!),
             action: SnackBarAction(
-              label: 'تشغيل',
+              label: t['printerSettingsAdmin.turnOnAction']!,
               textColor: InstagramColors.blue,
               onPressed: () => ref.read(posPrinterServiceProvider).requestEnableBluetooth(),
             ),
           ));
           return;
         }
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تعذر البحث: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trf(t['printerSettingsAdmin.scanFailed']!, {'error': '$e'}))));
       },
     );
   }
@@ -180,8 +185,9 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
   Future<void> _pair(BluetoothDeviceInfo device) async {
     final ok = await ref.read(posPrinterServiceProvider).pairBluetoothDevice(device.address);
     if (!mounted) return;
+    final t = ref.read(translationsProvider);
     if (ok) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم الاقتران بـ ${device.name}.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trf(t['printerSettingsAdmin.pairedSuccessMsg']!, {'name': device.name}))));
       // On Android, `listPairedDevices()` reflects the OS's own bonded-
       // devices list, so a second explicit "تحديد" step (from that list)
       // makes sense there. BLE has no such list — `listPairedDevices()`
@@ -196,7 +202,7 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
         await _loadPairedDevices();
       }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تعذر الاقتران.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['printerSettingsAdmin.pairFailedMsg']!)));
     }
   }
 
@@ -222,7 +228,8 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
     if (granted) {
       setState(() => _draft = _draft?.copyWith(usbDeviceName: device.deviceName));
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم رفض إذن الوصول لجهاز USB.')));
+      final t = ref.read(translationsProvider);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['printerSettingsAdmin.usbPermissionDenied']!)));
     }
   }
 
@@ -233,7 +240,8 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
     try {
       await ref.read(printerSettingsProvider.notifier).save(draft);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم حفظ إعدادات الطابعة.')));
+        final t = ref.read(translationsProvider);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['printerSettingsAdmin.settingsSavedSuccess']!)));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -243,12 +251,13 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final settingsAsync = ref.watch(printerSettingsProvider);
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('إعدادات الطابعة')),
+      appBar: AppBar(title: Text(t['printerSettingsAdmin.title']!)),
       body: settingsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('تعذر تحميل الإعدادات: $error')),
+        error: (error, _) => Center(child: Text(trf(t['printerSettingsAdmin.loadFailed']!, {'error': '$error'}))),
         data: (settings) {
           _seed(settings);
           final draft = _draft ?? settings;
@@ -256,7 +265,7 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              Text('نوع الاتصال', style: Theme.of(context).textTheme.titleMedium),
+              Text(t['printerSettingsAdmin.connectionTypeHeading']!, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               SegmentedButton<PrinterConnectionType>(
                 // Android-only connection types: "builtin" is a vendor AIDL
@@ -267,10 +276,10 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
                 // doc for why.
                 segments: [
                   if (!kIsWeb && Platform.isAndroid)
-                    const ButtonSegment(value: PrinterConnectionType.builtin, label: Text('الطابعة المدمجة')),
-                  const ButtonSegment(value: PrinterConnectionType.bluetooth, label: Text('بلوتوث')),
+                    ButtonSegment(value: PrinterConnectionType.builtin, label: Text(t['printerSettingsAdmin.builtinPrinterOption']!)),
+                  ButtonSegment(value: PrinterConnectionType.bluetooth, label: Text(t['printerSettingsAdmin.bluetoothOption']!)),
                   if (!kIsWeb && Platform.isAndroid)
-                    const ButtonSegment(value: PrinterConnectionType.usb, label: Text('USB')),
+                    ButtonSegment(value: PrinterConnectionType.usb, label: Text(t['printerSettingsAdmin.usbOption']!)),
                 ],
                 selected: {draft.connectionType},
                 onSelectionChanged: (selection) {
@@ -283,7 +292,7 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
               if (draft.connectionType == PrinterConnectionType.bluetooth) ...[
                 Row(
                   children: [
-                    Expanded(child: Text('البحث عن أجهزة بلوتوث', style: Theme.of(context).textTheme.titleMedium)),
+                    Expanded(child: Text(t['printerSettingsAdmin.searchBluetoothHeading']!, style: Theme.of(context).textTheme.titleMedium)),
                     FilledButton.icon(
                       // app_theme.dart's FilledButtonThemeData defaults to
                       // Size.fromHeight(44) (infinite width) for full-width
@@ -295,7 +304,7 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
                       icon: _scanning
                           ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.bluetooth_searching),
-                      label: const Text('بحث'),
+                      label: Text(t['printerSettingsAdmin.searchButton']!),
                     ),
                   ],
                 ),
@@ -303,7 +312,7 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
                   Card(
                     color: Theme.of(context).colorScheme.primaryContainer,
                     child: ListTile(
-                      title: Text('المحدد حالياً: ${draft.bluetoothName ?? draft.bluetoothAddress}'),
+                      title: Text(trf(t['printerSettingsAdmin.currentlySelected']!, {'name': draft.bluetoothName ?? draft.bluetoothAddress ?? ''})),
                     ),
                   ),
                 // iOS-only — classic Bluetooth SPP (Android) has no
@@ -314,12 +323,12 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
                 // fast-mode writes.
                 if (!kIsWeb && Platform.isIOS) ...[
                   const SizedBox(height: 12),
-                  Text('وضع الطباعة', style: Theme.of(context).textTheme.titleSmall),
+                  Text(t['printerSettingsAdmin.printModeHeading']!, style: Theme.of(context).textTheme.titleSmall),
                   const SizedBox(height: 4),
                   SegmentedButton<BluetoothWriteMode>(
-                    segments: const [
-                      ButtonSegment(value: BluetoothWriteMode.fast, label: Text('سريع')),
-                      ButtonSegment(value: BluetoothWriteMode.safe, label: Text('آمن')),
+                    segments: [
+                      ButtonSegment(value: BluetoothWriteMode.fast, label: Text(t['printerSettingsAdmin.fastMode']!)),
+                      ButtonSegment(value: BluetoothWriteMode.safe, label: Text(t['printerSettingsAdmin.safeMode']!)),
                     ],
                     selected: {draft.bluetoothWriteMode},
                     onSelectionChanged: (selection) {
@@ -328,7 +337,7 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
                   ),
                 ],
                 const SizedBox(height: 8),
-                Text('أجهزة مقترنة', style: Theme.of(context).textTheme.titleSmall),
+                Text(t['printerSettingsAdmin.pairedDevicesHeading']!, style: Theme.of(context).textTheme.titleSmall),
                 for (final d in _pairedDevices)
                   Card(
                     child: ListTile(
@@ -339,13 +348,13 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
                         // OutlinedButtonThemeData also defaults to Size.fromHeight(44).
                         style: OutlinedButton.styleFrom(minimumSize: const Size(64, 36)),
                         onPressed: () => _selectBluetoothDevice(d),
-                        child: const Text('تحديد'),
+                        child: Text(t['printerSettingsAdmin.selectButton']!),
                       ),
                     ),
                   ),
                 if (_discovered.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  Text('أجهزة مكتشفة', style: Theme.of(context).textTheme.titleSmall),
+                  Text(t['printerSettingsAdmin.discoveredDevicesHeading']!, style: Theme.of(context).textTheme.titleSmall),
                   for (final d in _discovered.values)
                     Card(
                       child: ListTile(
@@ -354,7 +363,7 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
                         trailing: OutlinedButton(
                           style: OutlinedButton.styleFrom(minimumSize: const Size(64, 36)),
                           onPressed: () => _pair(d),
-                          child: const Text('اقتران'),
+                          child: Text(t['printerSettingsAdmin.pairButton']!),
                         ),
                       ),
                     ),
@@ -363,7 +372,7 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
               if (draft.connectionType == PrinterConnectionType.usb) ...[
                 Row(
                   children: [
-                    Expanded(child: Text('أجهزة USB المتصلة', style: Theme.of(context).textTheme.titleMedium)),
+                    Expanded(child: Text(t['printerSettingsAdmin.usbConnectedHeading']!, style: Theme.of(context).textTheme.titleMedium)),
                     FilledButton.icon(
                       // Same infinite-width fix as the Bluetooth "بحث" button above.
                       style: FilledButton.styleFrom(minimumSize: const Size(64, 44)),
@@ -371,19 +380,19 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
                       icon: _loadingUsb
                           ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.refresh),
-                      label: const Text('تحديث'),
+                      label: Text(t['printerSettingsAdmin.refreshButton']!),
                     ),
                   ],
                 ),
                 if (draft.usbDeviceName != null)
                   Card(
                     color: Theme.of(context).colorScheme.primaryContainer,
-                    child: ListTile(title: Text('المحدد حالياً: ${draft.usbDeviceName}')),
+                    child: ListTile(title: Text(trf(t['printerSettingsAdmin.currentlySelected']!, {'name': draft.usbDeviceName ?? ''}))),
                   ),
                 if (_usbDevices.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Text('لا توجد أجهزة USB متصلة حالياً.'),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Text(t['printerSettingsAdmin.noUsbDevices']!),
                   ),
                 for (final d in _usbDevices)
                   Card(
@@ -393,22 +402,22 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
                       trailing: OutlinedButton(
                         style: OutlinedButton.styleFrom(minimumSize: const Size(64, 36)),
                         onPressed: () => _selectUsbDevice(d),
-                        child: const Text('تحديد'),
+                        child: Text(t['printerSettingsAdmin.selectButton']!),
                       ),
                     ),
                   ),
               ],
               const SizedBox(height: 24),
-              Text('حجم الورق', style: Theme.of(context).textTheme.titleMedium),
+              Text(t['printerSettingsAdmin.paperSizeHeading']!, style: Theme.of(context).textTheme.titleMedium),
               RadioGroup<int>(
                 groupValue: draft.paperWidthMm,
                 onChanged: (v) {
                   if (v != null) setState(() => _draft = draft.copyWith(paperWidthMm: v));
                 },
-                child: const Column(
+                child: Column(
                   children: [
-                    RadioListTile<int>(title: Text('58 ملم'), value: 58),
-                    RadioListTile<int>(title: Text('80 ملم'), value: 80),
+                    RadioListTile<int>(title: Text(t['printerSettingsAdmin.paper58mm']!), value: 58),
+                    RadioListTile<int>(title: Text(t['printerSettingsAdmin.paper80mm']!), value: 80),
                   ],
                 ),
               ),
@@ -417,7 +426,7 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
                 onPressed: _saving ? null : _save,
                 child: _saving
                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('حفظ'),
+                    : Text(t['printerSettingsAdmin.save']!),
               ),
             ],
           );
