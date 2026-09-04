@@ -3,7 +3,9 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const props = defineProps({
     logs: Object,
     filters: Object,
@@ -34,38 +36,38 @@ const actionColor = (a) => ({
 </script>
 
 <template>
-    <Head title="Activity Log" />
+    <Head :title="t('activityLogsAdmin.title')" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">Activity Log</h2>
+            <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('activityLogsAdmin.title') }}</h2>
         </template>
 
         <div class="py-12">
             <div class="mx-auto max-w-6xl space-y-4 sm:px-6 lg:px-8">
                 <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                     <div class="flex flex-wrap gap-3 border-b border-gray-200 p-4">
-                        <TextInput v-model="search" type="text" placeholder="Search user or description..." class="w-full max-w-xs" />
+                        <TextInput v-model="search" type="text" :placeholder="t('activityLogsAdmin.searchPlaceholder')" class="w-full max-w-xs" />
                         <select v-model="module" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                            <option value="">All modules</option>
+                            <option value="">{{ t('activityLogsAdmin.allModules') }}</option>
                             <option v-for="m in modules" :key="m" :value="m">{{ m }}</option>
                         </select>
                         <select v-model="action" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                            <option value="">All actions</option>
-                            <option value="create">Create</option>
-                            <option value="update">Update</option>
-                            <option value="delete">Delete</option>
+                            <option value="">{{ t('activityLogsAdmin.allActions') }}</option>
+                            <option value="create">{{ t('activityLogsAdmin.actionCreate') }}</option>
+                            <option value="update">{{ t('activityLogsAdmin.actionUpdate') }}</option>
+                            <option value="delete">{{ t('activityLogsAdmin.actionDelete') }}</option>
                         </select>
                     </div>
 
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">When</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">User</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Action</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Module</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Description</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('activityLogsAdmin.whenCol') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('activityLogsAdmin.userCol') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('activityLogsAdmin.actionCol') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('activityLogsAdmin.moduleCol') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('activityLogsAdmin.descriptionCol') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200 bg-white">
@@ -79,7 +81,7 @@ const actionColor = (a) => ({
                                 <td class="px-6 py-4 text-sm text-gray-700">{{ log.description }}</td>
                             </tr>
                             <tr v-if="logs.data.length === 0">
-                                <td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500">No activity recorded yet.</td>
+                                <td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500">{{ t('activityLogsAdmin.emptyList') }}</td>
                             </tr>
                         </tbody>
                     </table>

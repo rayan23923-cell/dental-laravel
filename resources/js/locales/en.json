@@ -694,5 +694,35 @@
         "confirmComplete": "Confirm Completion",
         "editModalTitle": "Edit the Task's Notes and Grade",
         "noGradeHintEdit": "Can't set a grade because the task has no grade defined in the tasks table."
+    },
+    "activityLogsAdmin": {
+        "title": "Activity Log",
+        "searchPlaceholder": "Search user or description...",
+        "allModules": "All modules",
+        "allActions": "All actions",
+        "actionCreate": "Create",
+        "actionUpdate": "Update",
+        "actionDelete": "Delete",
+        "whenCol": "When",
+        "userCol": "User",
+        "actionCol": "Action",
+        "moduleCol": "Module",
+        "descriptionCol": "Description",
+        "emptyList": "No activity recorded yet."
+    },
+    "backupAdmin": {
+        "title": "Database Backup",
+        "lastBackupAt": "Last backup: {date}",
+        "noPreviousBackup": "No previous backups",
+        "enableDailyAuto": "Enable Automatic Daily Backup",
+        "creating": "Creating...",
+        "createNow": "Create Backup Now",
+        "scheduleNote": "The daily backup runs automatically on Laravel's own schedule (not just when this page loads), and each copy is saved to the server's own storage — only downloadable from this page.",
+        "fileCol": "File",
+        "sizeCol": "Size",
+        "dateCol": "Date",
+        "downloadCol": "Download",
+        "emptyList": "No backups yet",
+        "download": "Download"
     }
 }

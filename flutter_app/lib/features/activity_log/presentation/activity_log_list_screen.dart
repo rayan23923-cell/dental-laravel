@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // this fix.
 import 'package:intl/intl.dart' hide TextDirection;
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/activity_logs_repository.dart';
 import '../domain/activity_log_entry.dart';
@@ -24,12 +25,12 @@ class ActivityLogListScreen extends ConsumerStatefulWidget {
   ConsumerState<ActivityLogListScreen> createState() => _ActivityLogListScreenState();
 }
 
-const _actionFilters = [
-  (null, 'الكل'),
-  ('create', 'إنشاء'),
-  ('update', 'تعديل'),
-  ('delete', 'حذف'),
-];
+List<(String?, String)> _actionFilters(Map<String, String> t) => [
+      (null, t['activityLogsAdmin.filterAll']!),
+      ('create', t['activityLogsAdmin.filterCreate']!),
+      ('update', t['activityLogsAdmin.filterUpdate']!),
+      ('delete', t['activityLogsAdmin.filterDelete']!),
+    ];
 
 class _ActivityLogListScreenState extends ConsumerState<ActivityLogListScreen> {
   final _searchController = TextEditingController();
@@ -68,7 +69,8 @@ class _ActivityLogListScreenState extends ConsumerState<ActivityLogListScreen> {
         _hasMore = page.hasMore;
       });
     } catch (e) {
-      setState(() => _error = e is ApiException ? e.userMessage : 'تعذر التحميل.');
+      final t = ref.read(translationsProvider);
+      setState(() => _error = e is ApiException ? e.userMessage : t['activityLogsAdmin.loadFailed']!);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -87,7 +89,8 @@ class _ActivityLogListScreenState extends ConsumerState<ActivityLogListScreen> {
       });
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر تحميل المزيد.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['activityLogsAdmin.loadMoreFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -111,19 +114,20 @@ class _ActivityLogListScreenState extends ConsumerState<ActivityLogListScreen> {
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('yyyy-MM-dd HH:mm');
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('سجل النشاط')),
+      appBar: AppBar(title: Text(t['activityLogsAdmin.title']!)),
       body: Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
             child: TextField(
               controller: _searchController,
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: 'ابحث بالمستخدم أو الوصف',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                hintText: t['activityLogsAdmin.searchHint'],
+                border: const OutlineInputBorder(),
                 isDense: true,
               ),
               onSubmitted: (v) {
@@ -137,7 +141,7 @@ class _ActivityLogListScreenState extends ConsumerState<ActivityLogListScreen> {
             child: Wrap(
               spacing: 8,
               children: [
-                for (final (value, label) in _actionFilters)
+                for (final (value, label) in _actionFilters(t))
                   ChoiceChip(
                     label: Text(label),
                     selected: _action == value,
@@ -155,7 +159,7 @@ class _ActivityLogListScreenState extends ConsumerState<ActivityLogListScreen> {
                 : _error != null
                     ? Center(child: Text(_error!))
                     : _entries.isEmpty
-                        ? const Center(child: Text('لا يوجد نشاط مسجل بعد.'))
+                        ? Center(child: Text(t['activityLogsAdmin.emptyList']!))
                         : RefreshIndicator(
                             onRefresh: _load,
                             child: ListView.separated(
@@ -169,7 +173,7 @@ class _ActivityLogListScreenState extends ConsumerState<ActivityLogListScreen> {
                                       padding: const EdgeInsets.symmetric(vertical: 12),
                                       child: _loadingMore
                                           ? const CircularProgressIndicator()
-                                          : OutlinedButton(onPressed: _loadMore, child: const Text('تحميل المزيد')),
+                                          : OutlinedButton(onPressed: _loadMore, child: Text(t['activityLogsAdmin.loadMore']!)),
                                     ),
                                   );
                                 }

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // `DateFormat` reference.
 import 'package:intl/intl.dart' hide TextDirection;
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/backup_admin_repository.dart';
 import '../domain/backup_status.dart';
@@ -28,11 +29,13 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       await ref.read(backupAdminRepositoryProvider).createBackup();
       ref.invalidate(backupStatusProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم إنشاء نسخة احتياطية.')));
+        final t = ref.read(translationsProvider);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['backupAdmin.createdSuccess']!)));
       }
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر إنشاء النسخة الاحتياطية.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['backupAdmin.createFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -47,7 +50,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       ref.invalidate(backupStatusProvider);
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر التحديث.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['backupAdmin.updateFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
@@ -71,13 +75,14 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
   Widget build(BuildContext context) {
     final statusAsync = ref.watch(backupStatusProvider);
     final dateFormat = DateFormat('yyyy-MM-dd HH:mm');
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('النسخ الاحتياطي')),
+      appBar: AppBar(title: Text(t['backupAdmin.title']!)),
       body: statusAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stackTrace) => Center(
-          child: Text(error is ApiException ? error.userMessage : 'تعذر التحميل.'),
+          child: Text(error is ApiException ? error.userMessage : t['backupAdmin.loadFailed']!),
         ),
         data: (status) {
           return RefreshIndicator(
@@ -87,8 +92,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
               children: [
                 Text(
                   status.lastBackupAt != null
-                      ? 'آخر نسخة احتياطية: ${dateFormat.format(status.lastBackupAt!)}'
-                      : 'لا يوجد نسخ سابق',
+                      ? trf(t['backupAdmin.lastBackupAt']!, {'date': dateFormat.format(status.lastBackupAt!)})
+                      : t['backupAdmin.noPreviousBackup']!,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 8),
@@ -96,7 +101,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                   contentPadding: EdgeInsets.zero,
                   value: status.enabled,
                   onChanged: _togglingAuto ? null : _toggleAuto,
-                  title: const Text('تفعيل النسخ اليومي التلقائي'),
+                  title: Text(t['backupAdmin.enableDailyAuto']!),
                 ),
                 const SizedBox(height: 12),
                 FilledButton.icon(
@@ -104,7 +109,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                   icon: _creating
                       ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.backup_outlined),
-                  label: Text(_creating ? 'جاري الإنشاء...' : 'إنشاء نسخة احتياطية الآن'),
+                  label: Text(_creating ? t['backupAdmin.creating']! : t['backupAdmin.createNow']!),
                 ),
                 const SizedBox(height: 8),
                 Container(
@@ -113,16 +118,15 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                     color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Text(
-                    'يتم تشغيل النسخ اليومي تلقائيًا عبر جدولة الخادم (وليس عند فتح الشاشة فقط)، '
-                    'ويُحفظ كل نسخة في تخزين الخادم الخاص — غير متاح للتحميل من التطبيق.',
-                    style: TextStyle(fontSize: 12),
+                  child: Text(
+                    t['backupAdmin.scheduleNote']!,
+                    style: const TextStyle(fontSize: 12),
                   ),
                 ),
                 const SizedBox(height: 24),
-                Text('النسخ الأخيرة', style: Theme.of(context).textTheme.titleMedium),
+                Text(t['backupAdmin.recentBackupsHeading']!, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
-                if (status.files.isEmpty) const Text('لا توجد نسخ احتياطية بعد.'),
+                if (status.files.isEmpty) Text(t['backupAdmin.emptyList']!),
                 for (final file in status.files) _BackupFileTile(file: file, formatSize: _formatSize, dateFormat: dateFormat),
               ],
             ),

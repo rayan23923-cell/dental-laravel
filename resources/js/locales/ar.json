@@ -694,5 +694,35 @@
         "confirmComplete": "تأكيد الإكمال",
         "editModalTitle": "تعديل ملاحظات ودرجة المهمة",
         "noGradeHintEdit": "لا يمكن تعيين درجة لأن درجة المهمة غير محددة في جدول المهام."
+    },
+    "activityLogsAdmin": {
+        "title": "سجل النشاط",
+        "searchPlaceholder": "ابحث بالمستخدم أو الوصف...",
+        "allModules": "كل الأقسام",
+        "allActions": "كل الإجراءات",
+        "actionCreate": "إنشاء",
+        "actionUpdate": "تعديل",
+        "actionDelete": "حذف",
+        "whenCol": "التاريخ",
+        "userCol": "المستخدم",
+        "actionCol": "الإجراء",
+        "moduleCol": "القسم",
+        "descriptionCol": "الوصف",
+        "emptyList": "لا يوجد نشاط مسجل بعد."
+    },
+    "backupAdmin": {
+        "title": "النسخ الاحتياطي لقاعدة البيانات",
+        "lastBackupAt": "آخر نسخة احتياطية: {date}",
+        "noPreviousBackup": "لا يوجد نسخ سابق",
+        "enableDailyAuto": "تفعيل النسخ اليومي التلقائي",
+        "creating": "جاري الإنشاء...",
+        "createNow": "إنشاء نسخة احتياطية الآن",
+        "scheduleNote": "يتم تشغيل النسخ اليومي تلقائيًا عبر جدولة لارافل (وليس عند فتح الصفحة فقط)، ويُحفظ كل نسخة في تخزين الخادم الخاص — غير متاح للتحميل المباشر إلا من هذه الصفحة.",
+        "fileCol": "الملف",
+        "sizeCol": "الحجم",
+        "dateCol": "التاريخ",
+        "downloadCol": "تنزيل",
+        "emptyList": "لا توجد نسخ احتياطية بعد",
+        "download": "تحميل"
     }
 }

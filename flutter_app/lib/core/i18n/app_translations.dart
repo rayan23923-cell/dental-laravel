@@ -561,6 +561,33 @@ const Map<String, String> kTranslationsAr = {
   'taskProgressAdmin.gradeOptionalLabel': 'الدرجة (اختياري)',
   'taskProgressAdmin.save': 'حفظ',
   'taskProgressAdmin.loadFailed': 'تعذر التحميل.',
+
+
+  // Phase 10 — activity log & backup admin screens
+  'activityLogsAdmin.title': 'سجل النشاط',
+  'activityLogsAdmin.filterAll': 'الكل',
+  'activityLogsAdmin.filterCreate': 'إنشاء',
+  'activityLogsAdmin.filterUpdate': 'تعديل',
+  'activityLogsAdmin.filterDelete': 'حذف',
+  'activityLogsAdmin.loadFailed': 'تعذر التحميل.',
+  'activityLogsAdmin.loadMoreFailed': 'تعذر تحميل المزيد.',
+  'activityLogsAdmin.searchHint': 'ابحث بالمستخدم أو الوصف',
+  'activityLogsAdmin.emptyList': 'لا يوجد نشاط مسجل بعد.',
+  'activityLogsAdmin.loadMore': 'تحميل المزيد',
+
+  'backupAdmin.title': 'النسخ الاحتياطي',
+  'backupAdmin.createdSuccess': 'تم إنشاء نسخة احتياطية.',
+  'backupAdmin.createFailed': 'تعذر إنشاء النسخة الاحتياطية.',
+  'backupAdmin.updateFailed': 'تعذر التحديث.',
+  'backupAdmin.loadFailed': 'تعذر التحميل.',
+  'backupAdmin.lastBackupAt': 'آخر نسخة احتياطية: {date}',
+  'backupAdmin.noPreviousBackup': 'لا يوجد نسخ سابق',
+  'backupAdmin.enableDailyAuto': 'تفعيل النسخ اليومي التلقائي',
+  'backupAdmin.creating': 'جاري الإنشاء...',
+  'backupAdmin.createNow': 'إنشاء نسخة احتياطية الآن',
+  'backupAdmin.scheduleNote': 'يتم تشغيل النسخ اليومي تلقائيًا عبر جدولة الخادم (وليس عند فتح الشاشة فقط)، ويُحفظ كل نسخة في تخزين الخادم الخاص — غير متاح للتحميل من التطبيق.',
+  'backupAdmin.recentBackupsHeading': 'النسخ الأخيرة',
+  'backupAdmin.emptyList': 'لا توجد نسخ احتياطية بعد.',
 };
 
 const Map<String, String> kTranslationsEn = {
@@ -1106,4 +1133,31 @@ const Map<String, String> kTranslationsEn = {
   'taskProgressAdmin.gradeOptionalLabel': 'Grade (optional)',
   'taskProgressAdmin.save': 'Save',
   'taskProgressAdmin.loadFailed': "Couldn't load.",
+
+
+  // Phase 10 — activity log & backup admin screens
+  'activityLogsAdmin.title': 'Activity Log',
+  'activityLogsAdmin.filterAll': 'All',
+  'activityLogsAdmin.filterCreate': 'Create',
+  'activityLogsAdmin.filterUpdate': 'Update',
+  'activityLogsAdmin.filterDelete': 'Delete',
+  'activityLogsAdmin.loadFailed': "Couldn't load.",
+  'activityLogsAdmin.loadMoreFailed': "Couldn't load more.",
+  'activityLogsAdmin.searchHint': 'Search by user or description',
+  'activityLogsAdmin.emptyList': 'No activity recorded yet.',
+  'activityLogsAdmin.loadMore': 'Load More',
+
+  'backupAdmin.title': 'Backup',
+  'backupAdmin.createdSuccess': 'Backup created.',
+  'backupAdmin.createFailed': "Couldn't create the backup.",
+  'backupAdmin.updateFailed': "Couldn't update.",
+  'backupAdmin.loadFailed': "Couldn't load.",
+  'backupAdmin.lastBackupAt': 'Last backup: {date}',
+  'backupAdmin.noPreviousBackup': 'No previous backups',
+  'backupAdmin.enableDailyAuto': 'Enable Automatic Daily Backup',
+  'backupAdmin.creating': 'Creating...',
+  'backupAdmin.createNow': 'Create Backup Now',
+  'backupAdmin.scheduleNote': "The daily backup runs automatically on the server's own schedule (not just when this screen opens), and each copy is saved to the server's own storage — not downloadable from the app.",
+  'backupAdmin.recentBackupsHeading': 'Recent Backups',
+  'backupAdmin.emptyList': 'No backups yet.',
 };

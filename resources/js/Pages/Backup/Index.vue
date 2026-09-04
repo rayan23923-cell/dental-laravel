@@ -10,7 +10,9 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Icon from '@/Components/Icon.vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const props = defineProps({
     enabled: Boolean,
     lastBackupAt: String,
@@ -47,12 +49,12 @@ const formatDate = (unixSeconds) => new Date(unixSeconds * 1000).toLocaleString(
 </script>
 
 <template>
-    <Head title="النسخ الاحتياطي" />
+    <Head :title="t('backupAdmin.title')" />
 
     <AuthenticatedLayout>
         <template #header>
             <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                <Icon name="database" class="ml-1" />النسخ الاحتياطي لقاعدة البيانات
+                <Icon name="database" class="ml-1" />{{ t('backupAdmin.title') }}
             </h2>
         </template>
 
@@ -66,7 +68,7 @@ const formatDate = (unixSeconds) => new Date(unixSeconds * 1000).toLocaleString(
                     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
                         <div>
                             <p class="text-sm text-gray-500">
-                                {{ lastBackupAt ? `آخر نسخة احتياطية: ${lastBackupAt}` : 'لا يوجد نسخ سابق' }}
+                                {{ lastBackupAt ? t('backupAdmin.lastBackupAt', { date: lastBackupAt }) : t('backupAdmin.noPreviousBackup') }}
                             </p>
                         </div>
                         <label class="flex items-center gap-2 text-sm text-gray-700">
@@ -76,7 +78,7 @@ const formatDate = (unixSeconds) => new Date(unixSeconds * 1000).toLocaleString(
                                 class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                 @change="toggleAuto($event.target.checked)"
                             />
-                            تفعيل النسخ اليومي التلقائي
+                            {{ t('backupAdmin.enableDailyAuto') }}
                         </label>
                     </div>
 
@@ -87,27 +89,27 @@ const formatDate = (unixSeconds) => new Date(unixSeconds * 1000).toLocaleString(
                         @click="createBackup"
                     >
                         <Icon :name="creating ? 'progress_activity' : 'download'" class="ml-1" :class="creating ? 'animate-spin' : ''" />
-                        {{ creating ? 'جاري الإنشاء...' : 'إنشاء نسخة احتياطية الآن' }}
+                        {{ creating ? t('backupAdmin.creating') : t('backupAdmin.createNow') }}
                     </button>
 
                     <div class="mb-4 rounded-md bg-sky-50 p-3 text-sm text-sky-800">
                         <Icon name="info" class="ml-1" />
-                        يتم تشغيل النسخ اليومي تلقائيًا عبر جدولة لارافل (وليس عند فتح الصفحة فقط)، ويُحفظ كل نسخة في تخزين الخادم الخاص — غير متاح للتحميل المباشر إلا من هذه الصفحة.
+                        {{ t('backupAdmin.scheduleNote') }}
                     </div>
 
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200 text-sm">
                             <thead>
                                 <tr class="text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                    <th class="px-3 py-2">الملف</th>
-                                    <th class="px-3 py-2">الحجم</th>
-                                    <th class="px-3 py-2">التاريخ</th>
-                                    <th class="px-3 py-2 text-center">تنزيل</th>
+                                    <th class="px-3 py-2">{{ t('backupAdmin.fileCol') }}</th>
+                                    <th class="px-3 py-2">{{ t('backupAdmin.sizeCol') }}</th>
+                                    <th class="px-3 py-2">{{ t('backupAdmin.dateCol') }}</th>
+                                    <th class="px-3 py-2 text-center">{{ t('backupAdmin.downloadCol') }}</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100">
                                 <tr v-if="files.length === 0">
-                                    <td colspan="4" class="px-3 py-6 text-center text-gray-400">لا توجد نسخ احتياطية بعد</td>
+                                    <td colspan="4" class="px-3 py-6 text-center text-gray-400">{{ t('backupAdmin.emptyList') }}</td>
                                 </tr>
                                 <tr v-for="f in files" :key="f.name">
                                     <td class="px-3 py-2 font-mono text-xs">{{ f.name }}</td>
@@ -118,7 +120,7 @@ const formatDate = (unixSeconds) => new Date(unixSeconds * 1000).toLocaleString(
                                             :href="route('backup.download', f.name)"
                                             class="inline-flex items-center rounded-md border border-indigo-300 px-2 py-1 text-xs text-indigo-700 hover:bg-indigo-50"
                                         >
-                                            <Icon name="cloud_download" class="ml-1" />تحميل
+                                            <Icon name="cloud_download" class="ml-1" />{{ t('backupAdmin.download') }}
                                         </a>
                                     </td>
                                 </tr>
