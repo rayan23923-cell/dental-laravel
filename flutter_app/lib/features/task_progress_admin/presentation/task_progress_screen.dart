@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:printing/printing.dart';
 
+import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/nfc/nfc_uid_reader.dart';
@@ -96,7 +97,8 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
       await Printing.layoutPdf(onLayout: (_) async => bytes, name: 'تقدم المهام.pdf');
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تعذر إنشاء ملف PDF: $e')));
+        final t = ref.read(translationsProvider);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trf(t['groupsAdmin.printFailed']!, {'error': e}))));
       }
     }
   }
@@ -124,10 +126,11 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
       }
 
       if (!mounted) return;
+      final t = ref.read(translationsProvider);
       if (match == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('الطبيب غير موجود ضمن المجموعة المعروضة حالياً.'),
+          SnackBar(
+            content: Text(t['taskProgressAdmin.doctorNotInGroup']!),
           ),
         );
         return;
@@ -142,16 +145,17 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '${match.name}: مهمة معلقة "${result.task!.title}" — افتح صفه لبدئها.',
+              trf(t['taskProgressAdmin.pendingTaskHint']!, {'name': match.name, 'title': result.task!.title}),
             ),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
+        final t = ref.read(translationsProvider);
         final message = e is ApiException
             ? e.userMessage
-            : 'تعذر التعرف على البطاقة.';
+            : t['doctorsAdmin.nfcScanFailed']!;
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(message)));
@@ -178,14 +182,15 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
         await context.push<RegistrationPaymentState>('/records/patient-registrations/scan-for-task');
     if (patientState == null || !mounted) return;
 
+    final t = ref.read(translationsProvider);
     if (!patientState.registration.isScreeningClear) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('لا يمكن بدء المهمة — يجب تأكيد سلامة هذا المريض من الأمراض المعدية أولًا.'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(t['taskProgressAdmin.screeningRequiredMsg']!),
       ));
       return;
     }
 
-    final notes = await _promptNotes(title: 'بدء المهمة');
+    final notes = await _promptNotes(title: t['taskProgressAdmin.startTask']!);
     if (notes == null) return;
     try {
       final result = await ref.read(taskProgressRepositoryProvider).start(
@@ -198,12 +203,12 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('تم بدء المهمة.')));
+        ).showSnackBar(SnackBar(content: Text(t['taskProgressAdmin.startedSuccess']!)));
       }
       if (mounted) await _printReceipt(result, groupOption);
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر بدء المهمة.';
+        final message = e is ApiException ? e.userMessage : t['taskProgressAdmin.startFailed']!;
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(message)));
@@ -311,14 +316,16 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
       );
     } catch (e) {
       if (mounted) {
-        showPrinterErrorSnackBar(context, 'تعذرت طباعة الإيصال.', error: e);
+        final t = ref.read(translationsProvider);
+        showPrinterErrorSnackBar(context, t['taskProgressAdmin.printReceiptFailed']!, error: e);
       }
     }
   }
 
   Future<void> _completeTask(TaskSlotCard card) async {
+    final t = ref.read(translationsProvider);
     final result = await _promptGradeNotes(
-      title: 'تأشير كمكتملة',
+      title: t['taskProgressAdmin.markComplete']!,
       initialGrade: card.grade,
       initialNotes: card.notes,
     );
@@ -334,14 +341,14 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
       _reloadGroup();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم تأشير المهمة كمكتملة.')),
+          SnackBar(content: Text(t['taskProgressAdmin.completedSuccess']!)),
         );
       }
     } catch (e) {
       if (mounted) {
         final message = e is ApiException
             ? e.userMessage
-            : 'تعذر إتمام العملية.';
+            : t['taskProgressAdmin.completeFailed']!;
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(message)));
@@ -350,8 +357,9 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
   }
 
   Future<void> _editInstance(TaskSlotCard card) async {
+    final t = ref.read(translationsProvider);
     final result = await _promptGradeNotes(
-      title: 'تعديل',
+      title: t['taskProgressAdmin.editLabel']!,
       initialGrade: card.grade,
       initialNotes: card.notes,
     );
@@ -364,11 +372,11 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('تم الحفظ.')));
+        ).showSnackBar(SnackBar(content: Text(t['taskProgressAdmin.savedSuccess']!)));
       }
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر الحفظ.';
+        final message = e is ApiException ? e.userMessage : t['taskProgressAdmin.saveFailed']!;
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(message)));
@@ -390,9 +398,10 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
     try {
       final result = await ref.read(caseSheetRecordRepositoryProvider).openFor(card.instanceId!);
       if (!mounted) return;
+      final t = ref.read(translationsProvider);
       if (result.recordId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('لم يبدأ الطبيب تعبئة النموذج بعد.')),
+          SnackBar(content: Text(t['taskProgressAdmin.formNotStartedYet']!)),
         );
         return;
       }
@@ -405,7 +414,8 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
       );
     } catch (e) {
       if (mounted) {
-        final message = e is ApiException ? e.userMessage : 'تعذر فتح النموذج.';
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['taskProgressAdmin.openFormFailed']!;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     }
@@ -422,26 +432,27 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
   /// `_promptGradeNotes()`'s own null-means-cancel convention below).
   Future<String?> _promptNotes({required String title}) {
     final controller = TextEditingController();
+    final t = ref.read(translationsProvider);
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(title),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(
-            labelText: 'ملاحظات (اختياري)',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: t['taskProgressAdmin.notesOptionalLabel'],
+            border: const OutlineInputBorder(),
           ),
           maxLines: 3,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('إلغاء'),
+            child: Text(t['taskProgressAdmin.cancel']!),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
-            child: const Text('تأكيد'),
+            child: Text(t['taskProgressAdmin.confirmButton']!),
           ),
         ],
       ),
@@ -457,6 +468,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
       text: initialGrade?.toString() ?? '',
     );
     final notesController = TextEditingController(text: initialNotes ?? '');
+    final t = ref.read(translationsProvider);
     return showDialog<(double?, String?)>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -469,17 +481,17 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
-              decoration: const InputDecoration(
-                labelText: 'الدرجة (اختياري)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: t['taskProgressAdmin.gradeOptionalLabel'],
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: notesController,
-              decoration: const InputDecoration(
-                labelText: 'ملاحظات (اختياري)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: t['taskProgressAdmin.notesOptionalLabel'],
+                border: const OutlineInputBorder(),
               ),
               maxLines: 3,
             ),
@@ -488,7 +500,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('إلغاء'),
+            child: Text(t['taskProgressAdmin.cancel']!),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop((
@@ -499,7 +511,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
                   ? null
                   : notesController.text.trim(),
             )),
-            child: const Text('حفظ'),
+            child: Text(t['taskProgressAdmin.save']!),
           ),
         ],
       ),
@@ -515,10 +527,11 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
         stageId: _stageId,
       )),
     );
+    final t = ref.watch(translationsProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('تقدم المهام'),
+        title: Text(t['taskProgressAdmin.title']!),
         actions: [
           // Scans a printed task receipt's QR (see
           // `TaskInstanceTicketWidget`) and jumps straight to that task
@@ -531,7 +544,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
           // printed receipt for.
           IconButton(
             icon: const Icon(Icons.qr_code_scanner),
-            tooltip: 'مسح رمز مهمة',
+            tooltip: t['taskProgressAdmin.scanTaskCodeTooltip'],
             onPressed: () => context.push('/scan'),
           ),
         ],
@@ -548,7 +561,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
               padding: const EdgeInsets.all(12),
               child: filtersAsync.when(
                 loading: () => const LinearProgressIndicator(),
-                error: (_, __) => const Text('تعذر تحميل الفلاتر.'),
+                error: (_, __) => Text(t['taskProgressAdmin.loadFiltersFailed']!),
                 data: (filters) => _FilterRow(
                   filters: filters,
                   day: _day,
@@ -576,17 +589,17 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
                     loading: () => const SizedBox.shrink(),
                     error: (_, __) => const SizedBox.shrink(),
                     data: (filters) => _day == null
-                        ? const Center(
+                        ? Center(
                             child: Padding(
-                              padding: EdgeInsets.all(24),
+                              padding: const EdgeInsets.all(24),
                               child: Text(
-                                'اختر اليوم لعرض المجموعات.',
-                                style: TextStyle(color: Colors.grey),
+                                t['taskProgressAdmin.chooseDayToViewGroups']!,
+                                style: const TextStyle(color: Colors.grey),
                               ),
                             ),
                           )
                         : filters.groups.isEmpty
-                        ? const Center(child: Text('لا توجد مجموعات مطابقة.'))
+                        ? Center(child: Text(t['taskProgressAdmin.noMatchingGroups']!))
                         : ListView.separated(
                             padding: const EdgeInsets.all(12),
                             itemCount: filters.groups.length,
@@ -623,12 +636,13 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
 
   Widget _buildGroupDetail(int groupId) {
     final groupAsync = ref.watch(taskProgressGroupProvider(groupId));
+    final t = ref.watch(translationsProvider);
 
     return groupAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => Center(
         child: Text(
-          error is ApiException ? error.userMessage : 'تعذر التحميل.',
+          error is ApiException ? error.userMessage : t['taskProgressAdmin.loadFailed']!,
         ),
       ),
       data: (detail) {
@@ -642,7 +656,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
                 children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_forward),
-                    tooltip: 'رجوع لقائمة المجموعات',
+                    tooltip: t['taskProgressAdmin.backToGroupsList'],
                     onPressed: () => setState(() => _groupId = null),
                   ),
                   Expanded(
@@ -654,16 +668,16 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
                   ),
                   IconButton(
                     icon: const Icon(Icons.print_outlined),
-                    tooltip: 'طباعة تقدم المجموعة كاملة (PDF)',
+                    tooltip: t['taskProgressAdmin.printWholeGroupTooltip'],
                     onPressed: () => _printProgress(detail),
                   ),
                 ],
               ),
             ),
             if (detail.departments.isEmpty)
-              const Expanded(
+              Expanded(
                 child: Center(
-                  child: Text('لا توجد أقسام لمرحلة هذه المجموعة.'),
+                  child: Text(t['taskProgressAdmin.noDepartmentsForGroupStage']!),
                 ),
               )
             else ...[
@@ -678,7 +692,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
                   ),
                   IconButton(
                     icon: const Icon(Icons.print_outlined),
-                    tooltip: 'طباعة هذا القسم فقط (PDF)',
+                    tooltip: t['taskProgressAdmin.printDepartmentOnlyTooltip'],
                     onPressed: () => _printProgress(
                       detail,
                       departmentId: detail.departments[_tabController!.index].id,
@@ -691,7 +705,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
                 child: TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    hintText: 'ابحث عن طبيب بالاسم أو اسم المستخدم...',
+                    hintText: t['taskProgressAdmin.searchDoctorHint'],
                     border: const OutlineInputBorder(),
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: IconButton(
@@ -707,7 +721,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
                               ),
                             )
                           : const Icon(Icons.nfc),
-                      tooltip: 'مسح بطاقة الطبيب (NFC)',
+                      tooltip: t['taskProgressAdmin.scanDoctorCardTooltip'],
                       onPressed: _scanningNfc ? null : () => _scanNfc(detail),
                     ),
                   ),
@@ -735,7 +749,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
   }
 }
 
-class _FilterRow extends StatelessWidget {
+class _FilterRow extends ConsumerWidget {
   const _FilterRow({
     required this.filters,
     required this.day,
@@ -755,14 +769,15 @@ class _FilterRow extends StatelessWidget {
   final ValueChanged<int?> onStageChanged;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider);
     return Column(
       children: [
         DropdownButtonFormField<String>(
           initialValue: filters.days.contains(day) ? day : null,
-          decoration: const InputDecoration(
-            labelText: 'اليوم',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: t['taskProgressAdmin.dayLabel'],
+            border: const OutlineInputBorder(),
           ),
           items: [
             for (final d in filters.days)
@@ -773,16 +788,16 @@ class _FilterRow extends StatelessWidget {
         const SizedBox(height: 8),
         DropdownButtonFormField<int>(
           initialValue:
-              filters.educationTypes.any((t) => t.id == educationTypeId)
+              filters.educationTypes.any((et) => et.id == educationTypeId)
               ? educationTypeId
               : null,
-          decoration: const InputDecoration(
-            labelText: 'نوع الدراسة (اختياري)',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: t['taskProgressAdmin.educationTypeOptionalLabel'],
+            border: const OutlineInputBorder(),
           ),
           items: [
-            for (final t in filters.educationTypes)
-              DropdownMenuItem(value: t.id, child: Text(t.name)),
+            for (final et in filters.educationTypes)
+              DropdownMenuItem(value: et.id, child: Text(et.name)),
           ],
           onChanged: onEducationTypeChanged,
         ),
@@ -801,9 +816,9 @@ class _FilterRow extends StatelessWidget {
           initialValue: filters.stages.any((s) => s.id == stageId)
               ? stageId
               : null,
-          decoration: const InputDecoration(
-            labelText: 'المرحلة (اختياري)',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: t['taskProgressAdmin.stageOptionalLabel'],
+            border: const OutlineInputBorder(),
           ),
           items: [
             for (final s in filters.stages)
@@ -816,7 +831,7 @@ class _FilterRow extends StatelessWidget {
   }
 }
 
-class _DepartmentDoctorList extends StatelessWidget {
+class _DepartmentDoctorList extends ConsumerWidget {
   const _DepartmentDoctorList({
     required this.department,
     required this.groupOption,
@@ -828,7 +843,8 @@ class _DepartmentDoctorList extends StatelessWidget {
   final _TaskProgressScreenState screen;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider);
     final query = screen._searchController.text.trim();
     final doctors = query.isEmpty
         ? department.doctors
@@ -841,7 +857,7 @@ class _DepartmentDoctorList extends StatelessWidget {
               .toList();
 
     if (doctors.isEmpty) {
-      return const Center(child: Text('لا يوجد أطباء مطابقون.'));
+      return Center(child: Text(t['taskProgressAdmin.noMatchingDoctors']!));
     }
 
     return ListView.builder(
@@ -859,7 +875,7 @@ class _DepartmentDoctorList extends StatelessWidget {
                 IconButton(
                   icon: const Icon(Icons.print_outlined, size: 20),
                   visualDensity: VisualDensity.compact,
-                  tooltip: 'طباعة مهام هذا الطبيب (PDF)',
+                  tooltip: t['taskProgressAdmin.printDoctorTasksTooltip'],
                   onPressed: () => screen._printProgress(
                     TaskProgressGroupDetail(groupOption: groupOption, departments: [department]),
                     doctorId: doctor.id,
@@ -870,7 +886,7 @@ class _DepartmentDoctorList extends StatelessWidget {
             subtitle: Directionality(
               textDirection: TextDirection.ltr,
               child: Text(
-                '${doctor.username} — مكتمل ${doctor.completed}/${doctor.required}',
+                trf(t['taskProgressAdmin.doctorSubtitle']!, {'username': doctor.username, 'completed': doctor.completed, 'required': doctor.required}),
               ),
             ),
             children: [
@@ -890,7 +906,7 @@ class _DepartmentDoctorList extends StatelessWidget {
   }
 }
 
-class _TaskSlotTile extends StatelessWidget {
+class _TaskSlotTile extends ConsumerWidget {
   const _TaskSlotTile({
     required this.doctor,
     required this.departmentName,
@@ -915,15 +931,16 @@ class _TaskSlotTile extends StatelessWidget {
     };
   }
 
-  String _statusLabel() => switch (card.status) {
-    'completed' => 'مكتملة',
-    'assigned' => 'قيد التنفيذ',
-    'pending' => 'معلّقة',
-    _ => 'لم تبدأ بعد',
+  String _statusLabel(Map<String, String> t) => switch (card.status) {
+    'completed' => t['taskProgressAdmin.statusCompleted']!,
+    'assigned' => t['taskProgressAdmin.statusInProgress']!,
+    'pending' => t['taskProgressAdmin.statusPending']!,
+    _ => t['taskProgressAdmin.statusNotStarted']!,
   };
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider);
     return ListTile(
       title: Text('${card.taskTitle} (${card.slot})'),
       subtitle: Column(
@@ -938,7 +955,7 @@ class _TaskSlotTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  _statusLabel(),
+                  _statusLabel(t),
                   style: TextStyle(
                     color: _statusColor(context),
                     fontWeight: FontWeight.w600,
@@ -948,7 +965,7 @@ class _TaskSlotTile extends StatelessWidget {
               ),
               if (card.grade != null) ...[
                 const SizedBox(width: 8),
-                Text('الدرجة: ${card.grade}'),
+                Text('${t['taskProgressAdmin.gradeColonLabel']} ${card.grade}'),
               ],
               // "كل التواقيع جاهزة" (2026-08-30) — mirrors the web's
               // matching badge (TaskProgress/Index.vue) — see
@@ -963,7 +980,7 @@ class _TaskSlotTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    '✓ كل التواقيع جاهزة',
+                    t['taskProgressAdmin.allSignedBadge']!,
                     style: TextStyle(color: Colors.green.shade800, fontWeight: FontWeight.w600, fontSize: 12),
                   ),
                 ),
@@ -983,7 +1000,7 @@ class _TaskSlotTile extends StatelessWidget {
               if (card.status == 'unassigned')
                 TextButton(
                   onPressed: () => screen._startTask(doctor.id, card.taskId, groupOption),
-                  child: const Text('بدء المهمة'),
+                  child: Text(t['taskProgressAdmin.startTask']!),
                 ),
               if (card.status == 'assigned')
                 TextButton(
@@ -991,13 +1008,13 @@ class _TaskSlotTile extends StatelessWidget {
                   style: card.allSigned
                       ? TextButton.styleFrom(backgroundColor: Colors.green.shade50, foregroundColor: Colors.green.shade800)
                       : null,
-                  child: const Text('تأشير كمكتملة'),
+                  child: Text(t['taskProgressAdmin.markComplete']!),
                 ),
               if (card.instanceId != null &&
                   (card.status == 'assigned' || card.status == 'completed'))
                 TextButton(
                   onPressed: () => screen._editInstance(card),
-                  child: const Text('تعديل'),
+                  child: Text(t['taskProgressAdmin.editLabel']!),
                 ),
               // "معاينة الكيس شيت" — staff/admin's view of the doctor's
               // own case sheet (readonly, except the resource's supervisor
@@ -1005,7 +1022,7 @@ class _TaskSlotTile extends StatelessWidget {
               if (card.instanceId != null)
                 TextButton(
                   onPressed: () => screen._openCaseSheetPreview(card),
-                  child: const Text('معاينة الكيس شيت'),
+                  child: Text(t['taskProgressAdmin.previewCaseSheet']!),
                 ),
               // Reprintable any time after starting — not just at the
               // moment `_startTask` first runs (a lost/damaged receipt, or
@@ -1013,7 +1030,7 @@ class _TaskSlotTile extends StatelessWidget {
               if (card.instanceId != null)
                 TextButton(
                   onPressed: () => screen._reprintReceipt(doctor, departmentName, card, groupOption),
-                  child: const Text('طباعة الإيصال'),
+                  child: Text(t['taskProgressAdmin.printReceiptButton']!),
                 ),
             ],
           ),

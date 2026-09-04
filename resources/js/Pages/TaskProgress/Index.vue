@@ -8,9 +8,11 @@ import TextInput from '@/Components/TextInput.vue';
 import QrScanner from '@/Components/QrScanner.vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import axios from 'axios';
 import Icon from '@/Components/Icon.vue';
 
+const { t } = useI18n();
 const props = defineProps({
     days: Array,
     educationTypes: Array,
@@ -60,12 +62,12 @@ const search = ref('');
 const expandedDoctors = ref(new Set());
 const statusFilter = ref('all');
 
-const STATUS_FILTERS = [
-    { key: 'all', label: 'الكل' },
-    { key: 'not-started', label: 'غير منجزة' },
-    { key: 'started', label: 'قيد التنفيذ' },
-    { key: 'finished', label: 'مكتملة' },
-];
+const STATUS_FILTERS = computed(() => [
+    { key: 'all', label: t('taskProgressAdmin.filterAll') },
+    { key: 'not-started', label: t('taskProgressAdmin.filterNotStarted') },
+    { key: 'started', label: t('taskProgressAdmin.statusInProgress') },
+    { key: 'finished', label: t('taskProgressAdmin.statusCompleted') },
+]);
 
 const loadGroup = async (groupId) => {
     loading.value = true;
@@ -120,7 +122,12 @@ const toggleDoctor = (doctorId) => {
 };
 
 const statusLabel = (status) =>
-    ({ completed: 'مكتملة', assigned: 'قيد التنفيذ', pending: 'معلقة', unassigned: 'لم تبدأ بعد' }[status] ?? status);
+    ({
+        completed: t('taskProgressAdmin.statusCompleted'),
+        assigned: t('taskProgressAdmin.statusInProgress'),
+        pending: t('taskProgressAdmin.statusPending'),
+        unassigned: t('taskProgressAdmin.statusNotStarted'),
+    }[status] ?? status);
 
 const statusClass = (status) =>
     ({
@@ -188,7 +195,7 @@ const onStartPatientDecoded = async (text) => {
         startPatientScannerRef.value?.stop();
         startPatientScanning.value = false;
     } catch (e) {
-        startPatientError.value = e?.response?.data?.message ?? 'تعذر قراءة الرمز.';
+        startPatientError.value = e?.response?.data?.message ?? t('patientReg.qrReadFailed');
     }
 };
 
@@ -262,7 +269,7 @@ const onDecoded = async (text) => {
         const { data } = await axios.post(route('task-progress.scan'), { payload: text });
         scanResult.value = data;
     } catch (e) {
-        scanError.value = e?.response?.data?.message ?? 'تعذر قراءة الرمز.';
+        scanError.value = e?.response?.data?.message ?? t('patientReg.qrReadFailed');
     }
 };
 
@@ -287,11 +294,11 @@ const startFromScan = () => {
 </script>
 
 <template>
-    <Head title="تقدم المهام" />
+    <Head :title="t('taskProgressAdmin.title')" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">إدارة تقدم المهام</h2>
+            <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('taskProgressAdmin.heading') }}</h2>
         </template>
 
         <div class="py-12">
@@ -300,7 +307,7 @@ const startFromScan = () => {
                      at all, unlike Doctors/Groups/Tasks. -->
                 <div v-if="currentSession" class="flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900">
                     <Icon name="calendar_month" class="ml-1" />
-                    العام الدراسي النشط: <strong>{{ currentSession.name }}</strong>
+                    {{ t('common.academicYearActive') }} <strong>{{ currentSession.name }}</strong>
                 </div>
 
                 <div v-if="page.props.flash?.success" class="rounded-md bg-green-50 p-4 text-sm text-green-700">
@@ -314,30 +321,30 @@ const startFromScan = () => {
                 <div class="rounded-lg bg-white p-4 shadow-sm">
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-4">
                         <div>
-                            <InputLabel value="اليوم" />
+                            <InputLabel :value="t('taskProgressAdmin.dayLabel')" />
                             <select v-model="day" @change="applyFilters" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                <option value="">اختر اليوم</option>
+                                <option value="">{{ t('taskProgressAdmin.chooseDayOption') }}</option>
                                 <option v-for="d in days" :key="d" :value="d">{{ d }}</option>
                             </select>
                         </div>
                         <div>
-                            <InputLabel value="نوع التعليم" />
+                            <InputLabel :value="t('taskProgressAdmin.educationTypeLabel')" />
                             <select v-model="educationType" @change="onEducationTypeChange" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                <option value="">اختر نوع التعليم</option>
-                                <option v-for="t in educationTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
+                                <option value="">{{ t('taskProgressAdmin.chooseEducationTypeOption') }}</option>
+                                <option v-for="et in educationTypes" :key="et.id" :value="et.id">{{ et.name }}</option>
                             </select>
                         </div>
                         <div>
-                            <InputLabel value="المرحلة" />
+                            <InputLabel :value="t('doctorsAdmin.stageCol')" />
                             <select v-model="stage" @change="applyFilters" :disabled="stages.length === 0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                <option value="">اختر المرحلة</option>
+                                <option value="">{{ t('tasksAdmin.selectStage') }}</option>
                                 <option v-for="s in stages" :key="s.id" :value="s.id">{{ s.name }}</option>
                             </select>
                         </div>
                         <div class="flex items-end gap-2">
-                            <SecondaryButton @click="clearFilters">مسح الفلاتر</SecondaryButton>
+                            <SecondaryButton @click="clearFilters">{{ t('taskProgressAdmin.clearFilters') }}</SecondaryButton>
                             <button type="button" @click="openScanner" class="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700">
-                                <Icon name="qr_code_2" class="ml-1" />مسح رمز QR
+                                <Icon name="qr_code_2" class="ml-1" />{{ t('taskProgressAdmin.scanQr') }}
                             </button>
                         </div>
                     </div>
@@ -345,37 +352,37 @@ const startFromScan = () => {
 
                 <!-- Groups for the selected day -->
                 <div v-if="filters.day && groups.length" class="rounded-lg bg-white p-4 shadow-sm">
-                    <h3 class="mb-3 text-sm font-semibold text-gray-700">المجموعات المتاحة في يوم {{ filters.day }}</h3>
+                    <h3 class="mb-3 text-sm font-semibold text-gray-700">{{ t('taskProgressAdmin.groupsAvailableOnDay', { day: filters.day }) }}</h3>
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div v-for="g in groups" :key="g.id" class="rounded-lg border border-indigo-200 p-3">
                             <div class="font-medium text-indigo-700">{{ g.name }}</div>
                             <div class="mt-1 text-xs text-gray-500">
-                                المرحلة: {{ g.stage_name ?? '—' }}<br />
-                                نوع التعليم: {{ g.education_type_name ?? '—' }}
+                                {{ t('doctorsAdmin.stageCol') }}: {{ g.stage_name ?? '—' }}<br />
+                                {{ t('taskProgressAdmin.educationTypeLabel') }}: {{ g.education_type_name ?? '—' }}
                             </div>
-                            <PrimaryButton class="mt-3" @click="loadGroup(g.id)">عرض الأطباء</PrimaryButton>
+                            <PrimaryButton class="mt-3" @click="loadGroup(g.id)">{{ t('taskProgressAdmin.viewDoctors') }}</PrimaryButton>
                         </div>
                     </div>
                 </div>
                 <div v-else-if="filters.day" class="rounded-md bg-blue-50 p-4 text-sm text-blue-700">
-                    لا توجد مجموعات متاحة في يوم {{ filters.day }} بهذه الفلاتر.
+                    {{ t('taskProgressAdmin.noGroupsForDay', { day: filters.day }) }}
                 </div>
 
                 <div v-if="loading" class="rounded-lg bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
-                    جاري التحميل...
+                    {{ t('common.loading') }}
                 </div>
 
                 <!-- Group detail -->
                 <div v-if="detail" class="space-y-4">
                     <div class="rounded-lg bg-white p-4 shadow-sm">
-                        <h3 class="font-medium text-gray-900">أطباء مجموعة: {{ detail.group.name }}</h3>
+                        <h3 class="font-medium text-gray-900">{{ t('taskProgressAdmin.groupDoctorsHeading', { name: detail.group.name }) }}</h3>
                         <p class="mt-1 text-xs text-gray-500">
-                            المرحلة: {{ detail.group.stage_name ?? '—' }} · نوع التعليم: {{ detail.group.education_type_name ?? '—' }}
+                            {{ t('doctorsAdmin.stageCol') }}: {{ detail.group.stage_name ?? '—' }} · {{ t('taskProgressAdmin.educationTypeLabel') }}: {{ detail.group.education_type_name ?? '—' }}
                         </p>
                     </div>
 
                     <div v-if="detail.departments.length === 0" class="rounded-lg bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
-                        لا توجد أقسام متاحة لهذه المرحلة.
+                        {{ t('taskProgressAdmin.noDepartmentsForStage') }}
                     </div>
 
                     <template v-else>
@@ -397,21 +404,21 @@ const startFromScan = () => {
                             <!-- Department summary -->
                             <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-blue-50 p-3 text-sm">
                                 <div>
-                                    <strong class="text-gray-800">القسم: {{ activeDepartment.name }}</strong>
-                                    <span class="ml-2 rounded-full bg-gray-200 px-2 py-0.5 text-xs">{{ activeDepartment.task_count }} مهام</span>
-                                    <span class="ml-2 rounded-full bg-blue-200 px-2 py-0.5 text-xs">المطلوب: {{ activeDepartment.total_required }}</span>
+                                    <strong class="text-gray-800">{{ t('doctorsAdmin.departmentLabel') }}: {{ activeDepartment.name }}</strong>
+                                    <span class="ml-2 rounded-full bg-gray-200 px-2 py-0.5 text-xs">{{ activeDepartment.task_count }} {{ t('taskProgressAdmin.tasksCountSuffix') }}</span>
+                                    <span class="ml-2 rounded-full bg-blue-200 px-2 py-0.5 text-xs">{{ t('doctorsAdmin.requiredLabel') }}: {{ activeDepartment.total_required }}</span>
                                 </div>
                                 <div class="flex gap-1 text-xs">
-                                    <span class="rounded-full bg-green-100 px-2 py-0.5 text-green-800">مكتملة {{ activeDepartment.totals.completed }}</span>
-                                    <span class="rounded-full bg-yellow-100 px-2 py-0.5 text-yellow-800">قيد التنفيذ {{ activeDepartment.totals.assigned }}</span>
-                                    <span class="rounded-full bg-indigo-100 px-2 py-0.5 text-indigo-800">متاحة {{ activeDepartment.totals.pending }}</span>
-                                    <span class="rounded-full bg-gray-800 px-2 py-0.5 text-white">الإجمالي {{ activeDepartment.totals.total_instances }}</span>
+                                    <span class="rounded-full bg-green-100 px-2 py-0.5 text-green-800">{{ t('taskProgressAdmin.statusCompleted') }} {{ activeDepartment.totals.completed }}</span>
+                                    <span class="rounded-full bg-yellow-100 px-2 py-0.5 text-yellow-800">{{ t('taskProgressAdmin.statusInProgress') }} {{ activeDepartment.totals.assigned }}</span>
+                                    <span class="rounded-full bg-indigo-100 px-2 py-0.5 text-indigo-800">{{ t('taskProgressAdmin.availablePrefix') }} {{ activeDepartment.totals.pending }}</span>
+                                    <span class="rounded-full bg-gray-800 px-2 py-0.5 text-white">{{ t('taskProgressAdmin.totalPrefix') }} {{ activeDepartment.totals.total_instances }}</span>
                                 </div>
                             </div>
 
                             <!-- Search + status filter -->
                             <div class="flex flex-wrap items-center justify-between gap-3">
-                                <TextInput v-model="search" type="text" placeholder="البحث عن طبيب (الاسم أو اسم المستخدم)..." class="w-full max-w-sm" />
+                                <TextInput v-model="search" type="text" :placeholder="t('taskProgressAdmin.searchDoctorPlaceholder')" class="w-full max-w-sm" />
                                 <div class="flex gap-1">
                                     <button
                                         v-for="f in STATUS_FILTERS"
@@ -431,12 +438,12 @@ const startFromScan = () => {
                                     <table class="min-w-full divide-y divide-gray-200">
                                         <thead class="sticky top-0 bg-gray-50">
                                             <tr>
-                                                <th class="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">الطبيب</th>
-                                                <th class="px-4 py-2 text-center text-xs font-medium uppercase text-gray-500">المطلوب</th>
-                                                <th class="px-4 py-2 text-center text-xs font-medium uppercase text-gray-500">مكتملة</th>
-                                                <th class="px-4 py-2 text-center text-xs font-medium uppercase text-gray-500">قيد التنفيذ</th>
-                                                <th class="px-4 py-2 text-center text-xs font-medium uppercase text-gray-500">معلقة</th>
-                                                <th class="px-4 py-2 text-center text-xs font-medium uppercase text-gray-500">غير مخصص</th>
+                                                <th class="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">{{ t('patients.doctorCol') }}</th>
+                                                <th class="px-4 py-2 text-center text-xs font-medium uppercase text-gray-500">{{ t('doctorsAdmin.requiredLabel') }}</th>
+                                                <th class="px-4 py-2 text-center text-xs font-medium uppercase text-gray-500">{{ t('taskProgressAdmin.statusCompleted') }}</th>
+                                                <th class="px-4 py-2 text-center text-xs font-medium uppercase text-gray-500">{{ t('taskProgressAdmin.statusInProgress') }}</th>
+                                                <th class="px-4 py-2 text-center text-xs font-medium uppercase text-gray-500">{{ t('taskProgressAdmin.statusPending') }}</th>
+                                                <th class="px-4 py-2 text-center text-xs font-medium uppercase text-gray-500">{{ t('taskProgressAdmin.unassignedCol') }}</th>
                                             </tr>
                                         </thead>
                                         <tbody class="divide-y divide-gray-200 bg-white">
@@ -459,7 +466,7 @@ const startFromScan = () => {
                                                 <tr v-if="expandedDoctors.has(doctor.id) && doctor.tasks.length" class="bg-gray-50">
                                                     <td colspan="6" class="p-3">
                                                         <div v-if="filteredTasks(doctor.tasks).length === 0" class="rounded-md bg-yellow-50 p-3 text-center text-sm text-yellow-700">
-                                                            لا توجد مهام مطابقة للحالة المحددة
+                                                            {{ t('taskProgressAdmin.noMatchingStatusTasks') }}
                                                         </div>
                                                         <div
                                                             v-for="(card, i) in filteredTasks(doctor.tasks)"
@@ -482,17 +489,17 @@ const startFromScan = () => {
                                                                             <template v-if="card.status === 'completed' && card.completion_date"> — {{ fmtDate(card.completion_date) }}</template>
                                                                             <template v-else-if="card.status === 'assigned' && card.assigned_date"> — {{ fmtDate(card.assigned_date) }}</template>
                                                                         </span>
-                                                                        <span v-if="card.task_notes" class="rounded-full bg-gray-200 px-2 py-0.5 text-gray-700" :title="card.task_notes">ملاحظات المهمة</span>
-                                                                        <span v-if="card.task_grade" class="rounded-full bg-indigo-100 px-2 py-0.5 text-indigo-800">الدرجة: {{ card.task_grade }}</span>
+                                                                        <span v-if="card.task_notes" class="rounded-full bg-gray-200 px-2 py-0.5 text-gray-700" :title="card.task_notes">{{ t('taskProgressAdmin.taskNotesTitle') }}</span>
+                                                                        <span v-if="card.task_grade" class="rounded-full bg-indigo-100 px-2 py-0.5 text-indigo-800">{{ t('tasksAdmin.gradeColShort') }}: {{ card.task_grade }}</span>
                                                                         <span v-if="card.notes" class="rounded-full bg-blue-100 px-2 py-0.5 text-blue-800" :title="card.notes">{{ card.notes.slice(0, 30) }}{{ card.notes.length > 30 ? '…' : '' }}</span>
-                                                                        <span v-if="card.grade" class="rounded-full bg-green-100 px-2 py-0.5 text-green-800">درجة الحالة: {{ card.grade }}</span>
+                                                                        <span v-if="card.grade" class="rounded-full bg-green-100 px-2 py-0.5 text-green-800">{{ t('taskProgressAdmin.instanceGradePrefix') }} {{ card.grade }}</span>
                                                         <!-- "كل التواقيع جاهزة" (2026-08-30) — every
                                                              *_signature field on the linked case
                                                              sheet is filled in; just a hint next
                                                              to the existing complete button below,
                                                              never auto-completes anything. -->
                                                         <span v-if="card.all_signed" class="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800">
-                                                            <Icon name="verified" class="ml-1" />كل التواقيع جاهزة
+                                                            <Icon name="verified" class="ml-1" />{{ t('taskProgressAdmin.allSigned') }}
                                                         </span>
                                                                     </div>
                                                                 </div>
@@ -505,10 +512,10 @@ const startFromScan = () => {
                                                                         :href="route('case-sheet.open', card.instance_id)"
                                                                         class="rounded bg-slate-700 px-2 py-1 text-center text-white hover:bg-slate-800"
                                                                     >
-                                                                        فتح النموذج
+                                                                        {{ t('taskProgressAdmin.openForm') }}
                                                                     </a>
                                                                     <button v-if="card.status === 'unassigned'" @click.stop="openStart(doctor, card)" class="rounded bg-indigo-600 px-2 py-1 text-white hover:bg-indigo-700">
-                                                                        بدء المهمة
+                                                                        {{ t('taskProgressAdmin.startTask') }}
                                                                     </button>
                                                                     <button
                                                                         v-if="card.status === 'assigned'"
@@ -516,10 +523,10 @@ const startFromScan = () => {
                                                                         class="rounded px-2 py-1 text-white"
                                                                         :class="card.all_signed ? 'bg-emerald-600 ring-2 ring-emerald-300 hover:bg-emerald-700' : 'bg-green-600 hover:bg-green-700'"
                                                                     >
-                                                                        تأشير كمكتملة
+                                                                        {{ t('taskProgressAdmin.markComplete') }}
                                                                     </button>
                                                                     <button v-if="card.instance_id && ['assigned', 'completed'].includes(card.status)" @click.stop="openEdit(card)" class="rounded bg-blue-500 px-2 py-1 text-white hover:bg-blue-600">
-                                                                        تعديل
+                                                                        {{ t('common.edit') }}
                                                                     </button>
                                                                 </div>
                                                             </div>
@@ -528,7 +535,7 @@ const startFromScan = () => {
                                                 </tr>
                                             </template>
                                             <tr v-if="visibleDoctors.length === 0">
-                                                <td colspan="6" class="px-4 py-8 text-center text-sm text-gray-500">لا توجد نتائج مطابقة للبحث.</td>
+                                                <td colspan="6" class="px-4 py-8 text-center text-sm text-gray-500">{{ t('taskProgressAdmin.noSearchResults') }}</td>
                                             </tr>
                                         </tbody>
                                     </table>
@@ -543,7 +550,7 @@ const startFromScan = () => {
         <!-- QR scanner modal -->
         <Modal :show="scannerOpen" @close="closeScanner" max-width="2xl">
             <div class="p-6">
-                <h2 class="text-lg font-medium text-gray-900"><Icon name="qr_code_2" class="ml-1" />مسح رمز QR</h2>
+                <h2 class="text-lg font-medium text-gray-900"><Icon name="qr_code_2" class="ml-1" />{{ t('taskProgressAdmin.scanQr') }}</h2>
 
                 <div v-if="!scanResult" class="mt-4">
                     <QrScanner ref="scannerRef" @decoded="onDecoded" />
@@ -553,19 +560,19 @@ const startFromScan = () => {
                 <!-- Result: an existing assigned case -->
                 <div v-else-if="scanResult.kind === 'task_instance'" class="mt-4 space-y-3">
                     <div class="rounded-lg border border-green-200 bg-green-50 p-4">
-                        <p class="text-sm text-green-800"><Icon name="check_circle" class="ml-1" />تم التعرف على حالة المهمة رقم {{ scanResult.instance_id }}</p>
+                        <p class="text-sm text-green-800"><Icon name="check_circle" class="ml-1" />{{ t('taskProgressAdmin.recognizedInstance', { id: scanResult.instance_id }) }}</p>
                         <dl class="mt-2 space-y-1 text-sm text-gray-700">
-                            <div><span class="text-gray-500">الطبيب:</span> {{ scanResult.doctor.name ?? '—' }}</div>
-                            <div><span class="text-gray-500">المهمة:</span> {{ scanResult.task.title }}</div>
-                            <div><span class="text-gray-500">القسم:</span> {{ scanResult.task.department ?? '—' }}</div>
-                            <div><span class="text-gray-500">النموذج:</span> {{ scanResult.task.case_sheet ?? '—' }}</div>
-                            <div><span class="text-gray-500">الحالة:</span> {{ statusLabel(scanResult.status) }}</div>
+                            <div><span class="text-gray-500">{{ t('patients.doctorCol') }}:</span> {{ scanResult.doctor.name ?? '—' }}</div>
+                            <div><span class="text-gray-500">{{ t('taskProgressAdmin.taskColonLabel') }}</span> {{ scanResult.task.title }}</div>
+                            <div><span class="text-gray-500">{{ t('doctorsAdmin.departmentLabel') }}:</span> {{ scanResult.task.department ?? '—' }}</div>
+                            <div><span class="text-gray-500">{{ t('taskProgressAdmin.formColonLabel') }}</span> {{ scanResult.task.case_sheet ?? '—' }}</div>
+                            <div><span class="text-gray-500">{{ t('doctorsAdmin.statusCol') }}:</span> {{ statusLabel(scanResult.status) }}</div>
                         </dl>
                     </div>
                     <div class="flex flex-wrap justify-end gap-2">
-                        <SecondaryButton @click="rescan">مسح رمز آخر</SecondaryButton>
+                        <SecondaryButton @click="rescan">{{ t('taskProgressAdmin.scanAnother') }}</SecondaryButton>
                         <a :href="scanResult.case_sheet_url" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
-                            <Icon name="description" class="ml-1" />فتح النموذج
+                            <Icon name="description" class="ml-1" />{{ t('taskProgressAdmin.openForm') }}
                         </a>
                     </div>
                 </div>
@@ -573,22 +580,22 @@ const startFromScan = () => {
                 <!-- Result: a task the doctor hasn't started yet -->
                 <div v-else-if="scanResult.kind === 'pending_task'" class="mt-4 space-y-3">
                     <div class="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                        <p class="text-sm text-amber-800">مهمة لم تبدأ بعد لهذا الطبيب</p>
+                        <p class="text-sm text-amber-800">{{ t('taskProgressAdmin.pendingTaskMsg') }}</p>
                         <dl class="mt-2 space-y-1 text-sm text-gray-700">
-                            <div><span class="text-gray-500">الطبيب:</span> {{ scanResult.doctor.name }}</div>
-                            <div><span class="text-gray-500">المهمة:</span> {{ scanResult.task.title }}</div>
-                            <div><span class="text-gray-500">القسم:</span> {{ scanResult.task.department ?? '—' }}</div>
-                            <div><span class="text-gray-500">المطلوب:</span> {{ scanResult.task.required_count }}</div>
+                            <div><span class="text-gray-500">{{ t('patients.doctorCol') }}:</span> {{ scanResult.doctor.name }}</div>
+                            <div><span class="text-gray-500">{{ t('taskProgressAdmin.taskColonLabel') }}</span> {{ scanResult.task.title }}</div>
+                            <div><span class="text-gray-500">{{ t('doctorsAdmin.departmentLabel') }}:</span> {{ scanResult.task.department ?? '—' }}</div>
+                            <div><span class="text-gray-500">{{ t('doctorsAdmin.requiredLabel') }}:</span> {{ scanResult.task.required_count }}</div>
                         </dl>
                     </div>
                     <div class="flex flex-wrap justify-end gap-2">
-                        <SecondaryButton @click="rescan">مسح رمز آخر</SecondaryButton>
-                        <PrimaryButton :disabled="startForm.processing" @click="startFromScan"><Icon name="play_arrow" class="ml-1" />بدء المهمة لهذا الطبيب</PrimaryButton>
+                        <SecondaryButton @click="rescan">{{ t('taskProgressAdmin.scanAnother') }}</SecondaryButton>
+                        <PrimaryButton :disabled="startForm.processing" @click="startFromScan"><Icon name="play_arrow" class="ml-1" />{{ t('taskProgressAdmin.startTaskForDoctor') }}</PrimaryButton>
                     </div>
                 </div>
 
                 <div class="mt-6 flex justify-end">
-                    <SecondaryButton @click="closeScanner">إغلاق</SecondaryButton>
+                    <SecondaryButton @click="closeScanner">{{ t('common.close') }}</SecondaryButton>
                 </div>
             </div>
         </Modal>
@@ -596,17 +603,17 @@ const startFromScan = () => {
         <!-- Start task modal -->
         <Modal :show="startTarget !== null" @close="startTarget = null">
             <form @submit.prevent="submitStart" class="p-6">
-                <h2 class="text-lg font-medium text-gray-900">بدء مهمة للطبيب</h2>
+                <h2 class="text-lg font-medium text-gray-900">{{ t('taskProgressAdmin.startTaskModalTitle') }}</h2>
                 <p class="mt-1 text-sm text-gray-500">{{ startTarget?.doctor.name }} — {{ startTarget?.card.task_title }}</p>
 
                 <!-- Infectious-disease screening gate (2026-08-26) — must scan
                      the patient's registration ticket QR and confirm their
                      screening is "سليم" before the task can start. -->
                 <div class="mt-4">
-                    <InputLabel value="المريض" />
+                    <InputLabel :value="t('taskProgressAdmin.patientLabel')" />
                     <div v-if="!startPatientResult" class="mt-1">
                         <SecondaryButton type="button" @click="openStartPatientScanner" v-if="!startPatientScanning">
-                            <Icon name="qr_code_scanner" class="ml-1" />امسح رمز المريض
+                            <Icon name="qr_code_scanner" class="ml-1" />{{ t('taskProgressAdmin.scanPatientCode') }}
                         </SecondaryButton>
                         <div v-else class="mt-2">
                             <QrScanner ref="startPatientScannerRef" @decoded="onStartPatientDecoded" />
@@ -616,21 +623,21 @@ const startFromScan = () => {
                     <div v-else class="mt-1 rounded-lg border p-3" :class="startPatientResult.screening_status === 'clear' ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'">
                         <p class="text-sm font-medium text-gray-800">{{ startPatientResult.name }} — {{ startPatientResult.phone }}</p>
                         <p class="mt-1 text-sm" :class="startPatientResult.screening_status === 'clear' ? 'text-green-800' : 'text-red-800'">
-                            <template v-if="startPatientResult.screening_status === 'clear'"><Icon name="check_circle" class="ml-1" />الفحص: سليم</template>
-                            <template v-else-if="startPatientResult.screening_status === 'flagged'"><Icon name="cancel" class="ml-1" />الفحص: غير سليم — لا يمكن البدء</template>
-                            <template v-else><Icon name="hourglass_empty" class="ml-1" />بانتظار فحص المختبر — لا يمكن البدء</template>
+                            <template v-if="startPatientResult.screening_status === 'clear'"><Icon name="check_circle" class="ml-1" />{{ t('taskProgressAdmin.screeningClear') }}</template>
+                            <template v-else-if="startPatientResult.screening_status === 'flagged'"><Icon name="cancel" class="ml-1" />{{ t('taskProgressAdmin.screeningFlagged') }}</template>
+                            <template v-else><Icon name="hourglass_empty" class="ml-1" />{{ t('taskProgressAdmin.screeningPendingMsg') }}</template>
                         </p>
-                        <button type="button" class="mt-2 text-sm text-indigo-600 hover:underline" @click="rescanStartPatient">مسح رمز آخر</button>
+                        <button type="button" class="mt-2 text-sm text-indigo-600 hover:underline" @click="rescanStartPatient">{{ t('taskProgressAdmin.scanAnother') }}</button>
                     </div>
                 </div>
 
                 <div class="mt-4">
-                    <InputLabel for="start-notes" value="ملاحظات" />
+                    <InputLabel for="start-notes" :value="t('tasksAdmin.notesLabel')" />
                     <textarea id="start-notes" v-model="startForm.notes" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
                 </div>
                 <div class="mt-6 flex justify-end gap-3">
-                    <SecondaryButton @click="startTarget = null">إلغاء</SecondaryButton>
-                    <PrimaryButton :disabled="startForm.processing || startPatientResult?.screening_status !== 'clear'">بدء</PrimaryButton>
+                    <SecondaryButton @click="startTarget = null">{{ t('common.cancel') }}</SecondaryButton>
+                    <PrimaryButton :disabled="startForm.processing || startPatientResult?.screening_status !== 'clear'">{{ t('taskProgressAdmin.startButton') }}</PrimaryButton>
                 </div>
             </form>
         </Modal>
@@ -638,13 +645,13 @@ const startFromScan = () => {
         <!-- Complete task modal -->
         <Modal :show="completeTarget !== null" @close="completeTarget = null">
             <form @submit.prevent="submitComplete" class="p-6">
-                <h2 class="text-lg font-medium text-gray-900">تأشير المهمة كمكتملة</h2>
+                <h2 class="text-lg font-medium text-gray-900">{{ t('taskProgressAdmin.completeModalTitle') }}</h2>
                 <p class="mt-1 text-sm text-gray-500">{{ completeTarget?.task_title }}</p>
                 <div v-if="completeTarget?.task_notes" class="mt-3 rounded-md bg-blue-50 p-3 text-sm text-blue-800">
                     {{ completeTarget.task_notes }}
                 </div>
                 <div class="mt-4">
-                    <InputLabel for="complete-grade" :value="completeTarget?.task_grade ? `الدرجة (الحد الأقصى: ${completeTarget.task_grade})` : 'الدرجة'" />
+                    <InputLabel for="complete-grade" :value="completeTarget?.task_grade ? t('taskProgressAdmin.gradeWithMax', { max: completeTarget.task_grade }) : t('tasksAdmin.gradeColShort')" />
                     <TextInput
                         id="complete-grade"
                         v-model="completeForm.grade"
@@ -656,16 +663,16 @@ const startFromScan = () => {
                         class="mt-1 block w-full"
                     />
                     <p v-if="!completeTarget?.task_grade" class="mt-1 text-xs text-gray-500">
-                        لا يمكن تعيين درجة لأن درجة المهمة غير محددة — يمكن إكمال المهمة بدون درجة.
+                        {{ t('taskProgressAdmin.noGradeHintComplete') }}
                     </p>
                 </div>
                 <div class="mt-4">
-                    <InputLabel for="complete-notes" value="ملاحظات الحالة" />
+                    <InputLabel for="complete-notes" :value="t('taskProgressAdmin.instanceNotesLabel')" />
                     <textarea id="complete-notes" v-model="completeForm.notes" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
                 </div>
                 <div class="mt-6 flex justify-end gap-3">
-                    <SecondaryButton @click="completeTarget = null">إلغاء</SecondaryButton>
-                    <PrimaryButton :disabled="completeForm.processing">تأكيد الإكمال</PrimaryButton>
+                    <SecondaryButton @click="completeTarget = null">{{ t('common.cancel') }}</SecondaryButton>
+                    <PrimaryButton :disabled="completeForm.processing">{{ t('taskProgressAdmin.confirmComplete') }}</PrimaryButton>
                 </div>
             </form>
         </Modal>
@@ -673,10 +680,10 @@ const startFromScan = () => {
         <!-- Edit instance modal -->
         <Modal :show="editTarget !== null" @close="editTarget = null">
             <form @submit.prevent="submitEdit" class="p-6">
-                <h2 class="text-lg font-medium text-gray-900">تعديل ملاحظات ودرجة المهمة</h2>
+                <h2 class="text-lg font-medium text-gray-900">{{ t('taskProgressAdmin.editModalTitle') }}</h2>
                 <p class="mt-1 text-sm text-gray-500">{{ editTarget?.task_title }}</p>
                 <div class="mt-4">
-                    <InputLabel for="edit-grade" :value="editTarget?.task_grade ? `الدرجة (الحد الأقصى: ${editTarget.task_grade})` : 'الدرجة'" />
+                    <InputLabel for="edit-grade" :value="editTarget?.task_grade ? t('taskProgressAdmin.gradeWithMax', { max: editTarget.task_grade }) : t('tasksAdmin.gradeColShort')" />
                     <TextInput
                         id="edit-grade"
                         v-model="editForm.grade"
@@ -688,16 +695,16 @@ const startFromScan = () => {
                         class="mt-1 block w-full"
                     />
                     <p v-if="!editTarget?.task_grade" class="mt-1 text-xs text-gray-500">
-                        لا يمكن تعيين درجة لأن درجة المهمة غير محددة في جدول المهام.
+                        {{ t('taskProgressAdmin.noGradeHintEdit') }}
                     </p>
                 </div>
                 <div class="mt-4">
-                    <InputLabel for="edit-notes" value="ملاحظات" />
+                    <InputLabel for="edit-notes" :value="t('tasksAdmin.notesLabel')" />
                     <textarea id="edit-notes" v-model="editForm.notes" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
                 </div>
                 <div class="mt-6 flex justify-end gap-3">
-                    <SecondaryButton @click="editTarget = null">إلغاء</SecondaryButton>
-                    <PrimaryButton :disabled="editForm.processing">حفظ</PrimaryButton>
+                    <SecondaryButton @click="editTarget = null">{{ t('common.cancel') }}</SecondaryButton>
+                    <PrimaryButton :disabled="editForm.processing">{{ t('profile.save') }}</PrimaryButton>
                 </div>
             </form>
         </Modal>
