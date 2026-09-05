@@ -32,21 +32,23 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
-        <title inertia>{{ config('app.name', 'Laravel') }}</title>
+        <title inertia>{{ config('app.name', 'Dental Clinic') }}</title>
 
         <!-- PWA: installable "Add to Home Screen" support — manifest served
              from a route (App\Http\Controllers\PwaManifestController) so its
              start_url/scope/icon URLs resolve against this install's actual
-             sub-directory base path. theme-color/apple-touch-icon are fixed
-             Instagram-brand values (see the manifest controller's own
-             docblock for why), not the admin-configurable theme. iOS ignores
-             the manifest's own icon array for home-screen icons, hence the
-             explicit apple-touch-icon/meta tags below. -->
+             sub-directory base path. theme-color is a fixed Instagram-brand
+             value (see the manifest controller's own docblock for why), not
+             the admin-configurable theme. iOS ignores the manifest's own
+             icon array for home-screen icons, hence the explicit
+             apple-touch-icon tag below — kept in sync with the manifest's
+             own icon choice (uploaded clinic logo when one exists, else the
+             same tooth-artwork fallback) rather than hardcoded separately. -->
         <link rel="manifest" href="{{ route('pwa.manifest') }}">
         <meta name="theme-color" content="#0095F6">
-        <link rel="apple-touch-icon" href="{{ asset('icons/icon-192.png') }}">
+        <link rel="apple-touch-icon" href="{{ \App\Models\ClinicSetting::current()->logoUrl() ?: asset('icons/icon-192.png') }}">
         <meta name="apple-mobile-web-app-capable" content="yes">
-        <meta name="apple-mobile-web-app-title" content="{{ config('app.name', 'Laravel') }}">
+        <meta name="apple-mobile-web-app-title" content="{{ config('app.name', 'Dental Clinic') }}">
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
