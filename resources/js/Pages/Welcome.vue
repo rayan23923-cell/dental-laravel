@@ -38,7 +38,7 @@ const strings = {
             fallbackTitle: 'المستشفى التعليمي لطب الأسنان',
             ctaLogin: 'تسجيل الدخول',
             ctaBoard: 'عرض شاشة الانتظار',
-            ctaWindows: 'تحميل تطبيق ويندوز',
+            ctaDownload: 'تحميل التطبيق',
         },
         stats: {
             doctors: 'طبيب مسجّل',
@@ -76,7 +76,7 @@ const strings = {
             fallbackTitle: 'Dental Teaching Hospital',
             ctaLogin: 'Log in',
             ctaBoard: 'View Waiting Board',
-            ctaWindows: 'Download for Windows',
+            ctaDownload: 'Download the App',
         },
         stats: {
             doctors: 'Registered Doctors',
@@ -214,11 +214,11 @@ const year = new Date().getFullYear();
                     {{ t.hero.ctaBoard }}
                 </Link>
                 <Link
-                    :href="route('download.windows')"
+                    :href="route('download')"
                     class="flex w-full items-center justify-center gap-2 rounded-lg border border-ig-border-light px-6 py-3 font-semibold transition hover:bg-ig-off-white dark:border-ig-border-dark dark:hover:bg-ig-dark-surface sm:w-auto"
                 >
                     <Icon name="download" size="text-[20px]" />
-                    {{ t.hero.ctaWindows }}
+                    {{ t.hero.ctaDownload }}
                 </Link>
             </div>
         </section>

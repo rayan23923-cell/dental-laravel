@@ -110,16 +110,20 @@ Route::get('/privacy-policy', function () {
     return view('privacy-policy', ['clinic' => ClinicSetting::current()]);
 })->name('privacy-policy');
 
-// Plain Blade, same reasoning as /privacy-policy above. Reads the version
-// straight from config/desktop_releases.php so this page never drifts out
-// of sync with what the desktop app itself checks for updates (see
-// flutter_app/lib/core/updater/desktop_update_checker.dart).
+// Plain Blade, same reasoning as /privacy-policy above. Reads both
+// platforms' versions straight from config/desktop_releases.php so this
+// page never drifts out of sync with what the Windows build itself checks
+// for updates (see flutter_app/lib/core/updater/desktop_update_checker.dart
+// — Android has no such self-update check; the APK here is a stand-in
+// distribution channel until Play Store publishing clears the Organization-
+// account requirement).
 Route::get('/download', function () {
-    return view('download-windows', [
+    return view('downloads', [
         'clinic' => ClinicSetting::current(),
-        'release' => config('desktop_releases.windows'),
+        'windows' => config('desktop_releases.windows'),
+        'android' => config('desktop_releases.android'),
     ]);
-})->name('download.windows');
+})->name('download');
 
 // Public waiting-room display — no auth, matches the original app's
 // tv_patients.php being a public screen, not part of the admin app.

@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>تحميل تطبيق سطح المكتب — {{ $clinic->clinic_name ?: 'عيادة الأسنان التعليمية' }}</title>
+    <title>تحميل التطبيق — {{ $clinic->clinic_name ?: 'عيادة الأسنان التعليمية' }}</title>
     <style>
         body {
             font-family: -apple-system, "Segoe UI", Tahoma, Arial, sans-serif;
@@ -13,36 +13,54 @@
             padding: 3rem 1.25rem 4rem;
             line-height: 1.9;
         }
-        .wrap { max-width: 640px; margin: 0 auto; text-align: center; }
+        .wrap { max-width: 720px; margin: 0 auto; text-align: center; }
         .logo { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; margin-bottom: 1.25rem; }
         h1 { font-size: 1.6rem; margin: 0 0 .25rem; }
         .sub { color: #94a3b8; margin-bottom: 2.5rem; font-size: .95rem; }
+        .platforms {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+            text-align: start;
+        }
+        @media (max-width: 560px) {
+            .platforms { grid-template-columns: 1fr; }
+        }
+        .platform-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: .75rem;
+            padding: 1.5rem;
+        }
+        .platform-card h2 { font-size: 1.05rem; margin: 0 0 .35rem; display: flex; align-items: center; gap: .5rem; }
+        .platform-card .platform-sub { color: #64748b; font-size: .8rem; margin-bottom: 1.1rem; }
         .download-btn {
-            display: inline-flex;
+            display: flex;
             align-items: center;
-            gap: .6rem;
+            justify-content: center;
+            gap: .5rem;
             background: #38bdf8;
             color: #0f172a;
             font-weight: 700;
-            font-size: 1.05rem;
+            font-size: .95rem;
             text-decoration: none;
-            padding: .9rem 2.2rem;
-            border-radius: .75rem;
+            padding: .75rem 1.25rem;
+            border-radius: .6rem;
             transition: background .15s;
         }
         .download-btn:hover { background: #7dd3fc; }
-        .meta { color: #64748b; font-size: .85rem; margin-top: .9rem; }
+        .meta { color: #64748b; font-size: .8rem; margin-top: .7rem; text-align: center; }
         .card {
             text-align: start;
             background: #1e293b;
             border: 1px solid #334155;
             border-radius: .75rem;
             padding: 1.5rem 1.75rem;
-            margin-top: 3rem;
+            margin-top: 2rem;
         }
-        .card h2 { font-size: 1rem; color: #38bdf8; margin: 0 0 1rem; }
+        .card h3 { font-size: .95rem; color: #38bdf8; margin: 0 0 1rem; }
         .card ol { padding-inline-start: 1.4rem; margin: 0; }
-        .card li { color: #cbd5e1; margin-bottom: .6rem; }
+        .card li { color: #cbd5e1; margin-bottom: .6rem; font-size: .92rem; }
         .card li:last-child { margin-bottom: 0; }
     </style>
 </head>
@@ -51,23 +69,41 @@
     @if($clinic->logoUrl())
         <img src="{{ $clinic->logoUrl() }}" alt="" class="logo">
     @endif
-    <h1>تطبيق سطح المكتب لويندوز</h1>
+    <h1>تحميل التطبيق</h1>
     <p class="sub">{{ $clinic->clinic_name ?: 'عيادة الأسنان التعليمية' }} — {{ $clinic->college_name ?: 'كلية طب الأسنان' }}</p>
 
-    <a href="{{ $release['url'] }}" class="download-btn">
-        ⬇ تحميل للويندوز
-    </a>
-    <p class="meta">
-        الإصدار {{ $release['version'] }} · ويندوز 8 فأحدث (64-bit)
-    </p>
+    <div class="platforms">
+        <div class="platform-card">
+            <h2>🪟 ويندوز</h2>
+            <p class="platform-sub">ويندوز 8 فأحدث (64-bit)</p>
+            <a href="{{ $windows['url'] }}" class="download-btn">⬇ تحميل للويندوز</a>
+            <p class="meta">الإصدار {{ $windows['version'] }}</p>
+        </div>
+        <div class="platform-card">
+            <h2>🤖 أندرويد</h2>
+            <p class="platform-sub">أندرويد 8 فأحدث</p>
+            <a href="{{ $android['url'] }}" class="download-btn">⬇ تحميل للأندرويد</a>
+            <p class="meta">الإصدار {{ $android['version'] }}</p>
+        </div>
+    </div>
 
     <div class="card">
-        <h2>خطوات التثبيت</h2>
+        <h3>خطوات التثبيت — ويندوز</h3>
         <ol>
-            <li>افتح الملف بعد التحميل (<code>DentalClinicSetup-{{ $release['version'] }}.exe</code>).</li>
+            <li>افتح الملف بعد التحميل (<code>DentalClinicSetup-{{ $windows['version'] }}.exe</code>).</li>
             <li>إذا ظهرت رسالة "Windows protected your PC" (SmartScreen)، اضغط <strong>More info</strong> ثم <strong>Run anyway</strong> — طبيعي لأن التطبيق غير موقّع بشهادة تجارية بعد.</li>
             <li>أكمل خطوات التثبيت (Next → Install → Finish).</li>
             <li>بعد أول تشغيل، التطبيق يتحقق من التحديثات تلقائيًا ويحدّث نفسه بصمت عند توفر إصدار جديد — لا حاجة لزيارة هذه الصفحة مرة أخرى.</li>
+        </ol>
+    </div>
+
+    <div class="card">
+        <h3>خطوات التثبيت — أندرويد</h3>
+        <ol>
+            <li>افتح الملف بعد التحميل (<code>DentalClinicApp-{{ $android['version'] }}.apk</code>).</li>
+            <li>إذا ظهرت رسالة تحذير "قد يكون هذا التطبيق ضارًا" أو ما شابه، اسمح بالتثبيت من هذا المصدر (Settings → قد يطلب منك تفعيل "Install unknown apps" لمتصفحك) — طبيعي لأن التطبيق غير منشور على متجر Google Play بعد.</li>
+            <li>اضغط تثبيت (Install) وانتظر انتهاء العملية.</li>
+            <li>لتحديث التطبيق لاحقًا، نزّل أحدث نسخة من هذه الصفحة وثبّتها فوق النسخة الحالية (لا يوجد تحديث تلقائي على أندرويد بعد).</li>
         </ol>
     </div>
 </div>
