@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/updater/desktop_update_gate.dart';
 import 'features/case_sheet_forms/data/case_sheet_sync_service.dart';
 
 class App extends ConsumerWidget {
@@ -37,6 +38,7 @@ class App extends ConsumerWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       routerConfig: router,
+      builder: (context, child) => DesktopUpdateGate(child: child ?? const SizedBox.shrink()),
     );
   }
 }

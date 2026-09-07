@@ -61,6 +61,8 @@ dependencies:
   pdf: ^3.12.0
   printing: ^5.14.3
   flutter_svg: ^2.3.0
+  package_info_plus: ^8.1.2   # current app version, for the Windows desktop updater
+  path_provider: ^2.1.5       # temp dir to download the Windows update installer into
 
 # permission_handler_android 14.0.0 (its own independently-versioned
 # native-Android implementation package) ships an android/build.gradle.kts

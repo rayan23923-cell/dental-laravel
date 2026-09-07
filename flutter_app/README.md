@@ -112,6 +112,16 @@ Windows `.msix` installer and an Android release `.apk` are both built and
 verified — see `docs/flutter-app-architecture-and-navigation.md` for the
 signing/build details.
 
+A second Windows option, `windows/installer/setup.iss`, builds a
+traditional `.exe` (Inno Setup) instead of `.msix` — no cert-trust step to
+install, and the running app self-updates from it silently on startup
+(`lib/core/updater/desktop_update_checker.dart` polls
+`GET /api/v1/desktop/version`, backed by `config/desktop_releases.php`),
+the same flow Telegram Desktop uses. To cut a new release: bump
+`pubspec.yaml`'s version, `flutter build windows --release`, compile the
+`.iss` with Inno Setup's `ISCC.exe`, upload the resulting installer, then
+update `config/desktop_releases.php` to point at it.
+
 ## Development history
 
 The detailed, chronological build log (~150 dated entries) has been

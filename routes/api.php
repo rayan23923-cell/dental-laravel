@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BackupController;
 use App\Http\Controllers\Api\BrandingController;
+use App\Http\Controllers\Api\DesktopReleaseController;
 use App\Http\Controllers\Api\CaseSheetFormController;
 use App\Http\Controllers\Api\CaseSheetPrintController;
 use App\Http\Controllers\Api\CaseSheetTypeController;
@@ -100,6 +101,10 @@ Route::name('api.')->prefix('v1')->group(function () {
     // docblock for why this hand-picks fields instead of reusing the
     // authenticated ClinicSettingController::show()'s full spread.
     Route::get('/branding', BrandingController::class);
+
+    // Public, unauthenticated — the Windows desktop build polls this on
+    // startup to self-update. See DesktopReleaseController docblock.
+    Route::get('/desktop/version', DesktopReleaseController::class);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
