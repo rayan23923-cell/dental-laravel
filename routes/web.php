@@ -110,6 +110,17 @@ Route::get('/privacy-policy', function () {
     return view('privacy-policy', ['clinic' => ClinicSetting::current()]);
 })->name('privacy-policy');
 
+// Plain Blade, same reasoning as /privacy-policy above. Reads the version
+// straight from config/desktop_releases.php so this page never drifts out
+// of sync with what the desktop app itself checks for updates (see
+// flutter_app/lib/core/updater/desktop_update_checker.dart).
+Route::get('/download', function () {
+    return view('download-windows', [
+        'clinic' => ClinicSetting::current(),
+        'release' => config('desktop_releases.windows'),
+    ]);
+})->name('download.windows');
+
 // Public waiting-room display — no auth, matches the original app's
 // tv_patients.php being a public screen, not part of the admin app.
 Route::get('/tv', function () {
