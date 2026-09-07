@@ -76,21 +76,31 @@
         <div class="platform-card">
             <h2>🪟 ويندوز</h2>
             <p class="platform-sub">ويندوز 8 فأحدث (64-bit)</p>
-            <a href="{{ $windows['url'] }}" class="download-btn">⬇ تحميل للويندوز</a>
+            <a href="{{ $windows['zip_url'] }}" class="download-btn">⬇ تحميل للويندوز (ZIP)</a>
             <p class="meta">الإصدار {{ $windows['version'] }}</p>
         </div>
         <div class="platform-card">
             <h2>🤖 أندرويد</h2>
             <p class="platform-sub">أندرويد 8 فأحدث</p>
-            <a href="{{ $android['url'] }}" class="download-btn">⬇ تحميل للأندرويد</a>
+            <a href="{{ $android['zip_url'] }}" class="download-btn">⬇ تحميل للأندرويد (ZIP)</a>
             <p class="meta">الإصدار {{ $android['version'] }}</p>
         </div>
     </div>
 
     <div class="card">
+        <h3 style="color:#fbbf24">⚠️ إذا التنزيل ما بدأ أو المتصفح ما رد أي شي</h3>
+        <ol>
+            <li>Chrome/Edge أحيانًا يحجبون تنزيل الملف بصمت (بدون رسالة واضحة) لأنه ملف جديد غير معروف السمعة. تحقق من أيقونة/شريط التنزيلات بأعلى المتصفح، أو افتح <code>chrome://downloads</code>.</li>
+            <li>لو لقيت إدخال مكتوب عليه <strong>"Blocked"</strong> أو <strong>"Dangerous file blocked"</strong>، اضغط السهم ⌄ جنبه واختر <strong>"Keep"</strong> أو <strong>"Keep anyway"</strong>.</li>
+            <li>حمّلنا الملفات بصيغة ZIP خصيصًا لتقليل احتمال هذا الحجب — لو استمرت المشكلة، جرّب متصفح ثاني (Firefox مثلاً) أو تواصل معنا.</li>
+        </ol>
+    </div>
+
+    <div class="card">
         <h3>خطوات التثبيت — ويندوز</h3>
         <ol>
-            <li>افتح الملف بعد التحميل (<code>DentalClinicSetup-{{ $windows['version'] }}.exe</code>).</li>
+            <li>فك ضغط الملف بعد التحميل (<code>DentalClinicSetup-{{ $windows['version'] }}.zip</code>) — زر يمين ← Extract All، أو دبل كليك يفتحه مباشرة بويندوز 11.</li>
+            <li>شغّل <code>DentalClinicSetup-{{ $windows['version'] }}.exe</code> من داخل المجلد المستخرج.</li>
             <li>إذا ظهرت رسالة "Windows protected your PC" (SmartScreen)، اضغط <strong>More info</strong> ثم <strong>Run anyway</strong> — طبيعي لأن التطبيق غير موقّع بشهادة تجارية بعد.</li>
             <li>أكمل خطوات التثبيت (Next → Install → Finish).</li>
             <li>بعد أول تشغيل، التطبيق يتحقق من التحديثات تلقائيًا ويحدّث نفسه بصمت عند توفر إصدار جديد — لا حاجة لزيارة هذه الصفحة مرة أخرى.</li>
@@ -100,8 +110,9 @@
     <div class="card">
         <h3>خطوات التثبيت — أندرويد</h3>
         <ol>
-            <li>افتح الملف بعد التحميل (<code>DentalClinicApp-{{ $android['version'] }}.apk</code>).</li>
-            <li>إذا ظهرت رسالة تحذير "قد يكون هذا التطبيق ضارًا" أو ما شابه، اسمح بالتثبيت من هذا المصدر (Settings → قد يطلب منك تفعيل "Install unknown apps" لمتصفحك) — طبيعي لأن التطبيق غير منشور على متجر Google Play بعد.</li>
+            <li>فك ضغط الملف بعد التحميل (<code>DentalClinicApp-{{ $android['version'] }}.zip</code>) — بأي تطبيق مدير ملفات (Files by Google مدمج بمعظم أجهزة أندرويد).</li>
+            <li>افتح ملف <code>DentalClinicApp-{{ $android['version'] }}.apk</code> الناتج.</li>
+            <li>إذا ظهرت رسالة تحذير "قد يكون هذا التطبيق ضارًا" أو ما شابه، اسمح بالتثبيت من هذا المصدر (قد يطلب منك تفعيل "Install unknown apps" لتطبيق مدير الملفات) — طبيعي لأن التطبيق غير منشور على متجر Google Play بعد.</li>
             <li>اضغط تثبيت (Install) وانتظر انتهاء العملية.</li>
             <li>لتحديث التطبيق لاحقًا، نزّل أحدث نسخة من هذه الصفحة وثبّتها فوق النسخة الحالية (لا يوجد تحديث تلقائي على أندرويد بعد).</li>
         </ol>
