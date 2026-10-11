@@ -145,7 +145,7 @@ jobs:
             Write-Host '== caddy validate'; & C:\DentalClinicOffline\caddy\caddy.exe validate --config C:\DentalClinicOffline\Caddyfile --adapter caddyfile 2>&1 | Select-Object -Last 10
             Write-Host '== php-cgi'; & C:\DentalClinicOffline\php\php-cgi.exe -v 2>&1
             Write-Host '== workers.log'; Get-Content C:\DentalClinicOffline\app\storage\logs\workers.log -TotalCount 20 -ErrorAction SilentlyContinue
-            Write-Host '== php-cgi.log'; Get-Content C:\DentalClinicOffline\app\storage\logs\php-cgi.log -TotalCount 20 -ErrorAction SilentlyContinue
+            Write-Host '== php-cgi.log'; Get-Content C:\DentalClinicOffline\app\storage\logs\php-cgi-9100.log -TotalCount 20 -ErrorAction SilentlyContinue
             Write-Host '== listening'; Get-NetTCPConnection -State Listen | Where-Object { $_.LocalPort -in 53,80,443,3307,8080,8443,9100,9101 } | Format-Table LocalAddress,LocalPort,OwningProcess | Out-String | Write-Host
             throw 'The offline package did not serve the login page.'
           }
