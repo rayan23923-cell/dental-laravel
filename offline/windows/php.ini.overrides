@@ -18,3 +18,7 @@ post_max_size = 64M
 max_execution_time = 300
 date.timezone = Asia/Baghdad
 opcache.enable_cli = 0
+zend_extension=opcache
+opcache.enable = 1
+opcache.memory_consumption = 256
+opcache.max_accelerated_files = 20000

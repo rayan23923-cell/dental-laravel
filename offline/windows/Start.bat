@@ -4,15 +4,18 @@ title DentalClinic Offline
 set "ROOT=%~dp0"
 set "PATH=%ROOT%php;%ROOT%mariadb\bin;%PATH%"
 set "DBPORT=3307"
-set "WEBPORT=8000"
+set "SERVER_NAME=clinic.lan"
+set "PHP_WORKERS=16"
+set "WEB_PORT=80"
+set "SERVER_IP="
+for /f "usebackq eol=# tokens=1,* delims==" %%a in ("%ROOT%config.txt") do set "%%a=%%b"
 cd /d "%ROOT%"
 
 echo ============================================
 echo   Dental Clinic - offline edition
 echo ============================================
 
-rem php.ini with absolute extension path (folder may be moved anywhere)
-powershell -NoProfile -ExecutionPolicy Bypass -Command "(Get-Content -LiteralPath '%ROOT%php\php.ini.template') -replace '__EXT_DIR__', '%ROOT%php\ext' | Set-Content -LiteralPath '%ROOT%php\php.ini' -Encoding ASCII"
+for /f "usebackq delims=" %%i in (`powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%prepare.ps1" -Root "%ROOT%." -ServerName "%SERVER_NAME%" -Workers %PHP_WORKERS% -WebPort %WEB_PORT% -ServerIp "%SERVER_IP%"`) do set "LAN_IP=%%i"
 
 php -v >nul 2>&1
 if errorlevel 1 (
@@ -32,11 +35,11 @@ if not exist "%ROOT%data\mysql" (
 )
 
 echo Starting the database...
-start "DentalClinic-DB" /min "%ROOT%mariadb\bin\mariadbd.exe" --datadir="%ROOT%data" --port=%DBPORT% --bind-address=127.0.0.1 --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --console
+start "DentalClinic-DB" /min "%ROOT%mariadb\bin\mariadbd.exe" --datadir="%ROOT%data" --port=%DBPORT% --bind-address=127.0.0.1 --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --max-connections=500 --innodb-buffer-pool-size=512M --console
 
 set /a TRIES=0
 :waitdb
-"%ROOT%mariadb\bin\mariadb-admin.exe" -uroot -h127.0.0.1 -P%DBPORT% ping >nul 2>&1
+"%ROOT%mariadb\bin\mariadb-admin.exe" --user=root --host=127.0.0.1 --port=%DBPORT% ping >nul 2>&1
 if not errorlevel 1 goto dbready
 set /a TRIES+=1
 if %TRIES% GEQ 60 (
@@ -48,12 +51,15 @@ timeout /t 1 /nobreak >nul
 goto waitdb
 :dbready
 
-"%ROOT%mariadb\bin\mariadb.exe" -uroot -h127.0.0.1 -P%DBPORT% -e "CREATE DATABASE IF NOT EXISTS dental CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+"%ROOT%mariadb\bin\mariadb.exe" --user=root --host=127.0.0.1 --port=%DBPORT% -e "CREATE DATABASE IF NOT EXISTS dental CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
 
 cd /d "%ROOT%app"
 if not exist ".env" (
   copy /y ".env.offline" ".env" >nul
   php artisan key:generate --force
+  cd /d "%ROOT%"
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%prepare.ps1" -Root "%ROOT%." -ServerName "%SERVER_NAME%" -Workers %PHP_WORKERS% -WebPort %WEB_PORT% -ServerIp "%SERVER_IP%" >nul
+  cd /d "%ROOT%app"
 )
 
 echo Updating the database tables...
@@ -70,14 +76,26 @@ if not exist "public\storage" php artisan storage:link >nul 2>&1
 php artisan optimize >nul 2>&1
 
 start "DentalClinic-Scheduler" /min php artisan schedule:work
+cd /d "%ROOT%"
+start "DentalClinic-Workers" /min powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%workers.ps1" -Root "%ROOT%." -Count %PHP_WORKERS%
+start "DentalClinic-DNS" /min "%ROOT%coredns\coredns.exe" -conf "%ROOT%Corefile"
+
+set "ADDR=http://%SERVER_NAME%"
+set "IPADDR=http://%LAN_IP%"
+if not "%WEB_PORT%"=="80" (
+  set "ADDR=http://%SERVER_NAME%:%WEB_PORT%"
+  set "IPADDR=http://%LAN_IP%:%WEB_PORT%"
+)
 
 echo.
-echo The system is running. Open in the browser:
-echo   On this computer:   http://localhost:%WEBPORT%
-echo   On other devices on the same network, use this computer's IP:
-for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4"') do for /f "tokens=*" %%b in ("%%a") do echo     http://%%b:%WEBPORT%
+echo The system is running.
+echo   Address for all devices:  %ADDR%
+echo   Or by number:             %IPADDR%
+echo.
+echo   For the name to work on other devices, set the router (Deco) DNS
+echo   server to %LAN_IP%. Run Setup-Firewall.bat once as administrator.
 echo.
 echo Keep this window open. To stop everything run Stop.bat
 echo.
-start "" "http://localhost:%WEBPORT%"
-php artisan serve --host=0.0.0.0 --port=%WEBPORT%
+start "" "http://127.0.0.1:%WEB_PORT%"
+"%ROOT%caddy\caddy.exe" run --config "%ROOT%Caddyfile" --adapter caddyfile
