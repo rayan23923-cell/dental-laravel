@@ -35,6 +35,7 @@ use App\Http\Controllers\GroupController;
 use App\Http\Controllers\OralMedicineChartController;
 use App\Http\Controllers\OrthodonticsRecordController;
 use App\Http\Controllers\PatientController;
+use App\Http\Controllers\LabController;
 use App\Http\Controllers\PatientRegistrationController;
 use App\Http\Controllers\PatientRegistrationPrintController;
 use App\Http\Controllers\PaymentController;
@@ -279,6 +280,8 @@ Route::middleware('auth')->group(function () {
             ->middleware('permission:patients,view')->name('patient-registrations.search');
         Route::post('/patient-registrations', [PatientRegistrationController::class, 'store'])
             ->middleware('permission:patients,create')->name('patient-registrations.store');
+        Route::delete('/patient-registrations-bulk', [PatientRegistrationController::class, 'destroyMany'])
+            ->middleware('permission:patients,delete')->name('patient-registrations.destroy-many');
         Route::get('/patient-registrations/{patientRegistration}/qr', [PatientRegistrationController::class, 'qr'])
             ->middleware('permission:patients,view')->name('patient-registrations.qr');
         // Reprint an already-registered patient's ticket — same gate as
@@ -294,6 +297,11 @@ Route::middleware('auth')->group(function () {
         // PatientScreeningGate/PatientRegistrationController::confirmScreening().
         Route::post('/patient-registrations/{patientRegistration}/screening', [PatientRegistrationController::class, 'confirmScreening'])
             ->middleware('permission:patient_screening,confirm')->name('patient-registrations.screening');
+
+        // "المختبر" — web twin of the Flutter lab screen (2026-10-11); see
+        // LabController for its own patient_screening permission check.
+        Route::get('/lab', [LabController::class, 'index'])->name('lab.index');
+        Route::post('/lab/scan', [LabController::class, 'scan'])->name('lab.scan');
 
         Route::get('/doctors-import', [DoctorImportExportController::class, 'showImport'])
             ->middleware('permission:doctors,create')

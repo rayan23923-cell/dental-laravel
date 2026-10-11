@@ -147,7 +147,7 @@ const fmt = (v) => (v ? new Date(v).toLocaleDateString() : '—');
                     </Link>
                     <!-- Infectious-disease screening gate (2026-08-25) had no
                          dashboard entry point at all — added (2026-08-26). -->
-                    <Link v-if="can.patient_screening" :href="route('patient-registrations.index')" class="block rounded-lg bg-rose-600 p-5 text-center text-white shadow transition hover:bg-rose-700">
+                    <Link v-if="can.patient_screening" :href="route('lab.index')" class="block rounded-lg bg-rose-600 p-5 text-center text-white shadow transition hover:bg-rose-700">
                         <div class="text-2xl"><Icon name="coronavirus" class="ml-1" /></div>
                         <h3 class="mt-2 font-semibold">{{ t('dashboard.lab') }}</h3>
                         <p class="mt-1 text-xs opacity-90">{{ t('dashboard.labDesc') }}</p>

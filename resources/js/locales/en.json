@@ -30,7 +30,8 @@
         "profile": "Profile",
         "logout": "Log Out",
         "openMenu": "Open menu",
-        "closeMenu": "Close menu"
+        "closeMenu": "Close menu",
+        "lab": "Lab"
     },
     "auth": {
         "pageTitle": "Sign In",
@@ -286,7 +287,13 @@
         "diagnosisDesc": "Each diagnosis's days are managed here only — add/edit the diagnosis itself from the Tasks page. A diagnosis with no set days stays available every day.",
         "filterDiagnosis": "Filter diagnoses...",
         "noMatchingResults": "No matching results.",
-        "listSeparator": ", "
+        "listSeparator": ", ",
+        "selectAll": "Select All",
+        "deleteSelectedConfirm": "Delete {n} registration(s)? This can't be undone.",
+        "deleteAll": "Delete All",
+        "deleteAllFiltered": "Delete All Results",
+        "deleteAllConfirm": "Delete all listed registrations ({n}) across all pages? This can't be undone.",
+        "totalCount": "Total: {n}"
     },
     "appointments": {
         "newAppointment": "New Appointment",
@@ -946,5 +953,14 @@
         "scanReadFailedMsg": "Couldn't read the code.",
         "linkedTaskPrefix": "This form is linked to task case #",
         "linkedTaskSuffix": "— it will be saved under it."
+    },
+    "lab": {
+        "all": "All",
+        "scanTicket": "Scan Patient Code",
+        "recordFailed": "Couldn't save the result, try again.",
+        "empty": "No patients in this list.",
+        "currentStatus": "Current status:",
+        "resultHeading": "Lab Screening Result",
+        "noConfirmPermission": "You don't have permission to record the result."
     }
 }

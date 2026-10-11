@@ -30,15 +30,8 @@ class PatientRegistrationController extends Controller
 {
     public function index(Request $request): Response
     {
-        $registrations = PatientRegistration::with(['service', 'registerDay'])
-            ->when($request->string('search')->toString(), function ($query, $search) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%")
-                        ->orWhere('phone', 'like', "%{$search}%");
-                });
-            })
-            ->when($request->integer('register_day_id'), fn ($q, $id) => $q->where('register_day_id', $id))
-            ->when($request->integer('service_id'), fn ($q, $id) => $q->where('service_id', $id))
+        $registrations = $this->filteredQuery($request)
+            ->with(['service', 'registerDay'])
             ->orderByDesc('created_at')
             ->paginate(15)
             ->withQueryString();
@@ -48,6 +41,47 @@ class PatientRegistrationController extends Controller
             'days' => RegisterDay::with('services')->orderBy('sort_order')->orderBy('name')->get(),
             'filters' => $request->only('search', 'register_day_id', 'service_id'),
         ]);
+    }
+
+    /**
+     * The registry's search/day/service filters — shared by `index()` and
+     * `destroyMany()`'s "delete all" so it deletes exactly what's listed.
+     */
+    private function filteredQuery(Request $request)
+    {
+        return PatientRegistration::query()
+            ->when($request->string('search')->toString(), function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%");
+                });
+            })
+            ->when($request->integer('register_day_id'), fn ($q, $id) => $q->where('register_day_id', $id))
+            ->when($request->integer('service_id'), fn ($q, $id) => $q->where('service_id', $id));
+    }
+
+    /**
+     * Bulk delete (2026-10-11), same as the doctors table: either the
+     * ticked `ids`, or `all` — every registration matching the current
+     * filters across all pages. Payments/appointments/task instances keep
+     * their stored registration id (there are no foreign keys), so money
+     * records are never lost with the registration.
+     */
+    public function destroyMany(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'all' => ['sometimes', 'boolean'],
+            'ids' => ['required_without:all', 'array'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $query = ($validated['all'] ?? false)
+            ? $this->filteredQuery($request)
+            : PatientRegistration::whereIn('id', $validated['ids']);
+
+        $count = $query->delete();
+
+        return back()->with('success', "تم حذف {$count} تسجيل.");
     }
 
     /**

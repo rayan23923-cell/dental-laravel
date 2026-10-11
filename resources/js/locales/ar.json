@@ -30,7 +30,8 @@
         "profile": "الملف الشخصي",
         "logout": "تسجيل الخروج",
         "openMenu": "فتح القائمة",
-        "closeMenu": "إغلاق القائمة"
+        "closeMenu": "إغلاق القائمة",
+        "lab": "المختبر"
     },
     "auth": {
         "pageTitle": "تسجيل الدخول",
@@ -286,7 +287,13 @@
         "diagnosisDesc": "أيام كل تشخيص تُدار هنا فقط — إضافة/تعديل التشخيص نفسه من صفحة المهام. تشخيص بلا أيام محددة يبقى متاحاً كل الأيام.",
         "filterDiagnosis": "تصفية التشخيص...",
         "noMatchingResults": "لا توجد نتائج مطابقة.",
-        "listSeparator": "، "
+        "listSeparator": "، ",
+        "selectAll": "تحديد الكل",
+        "deleteSelectedConfirm": "حذف {n} تسجيل/تسجيلات؟ لا يمكن التراجع.",
+        "deleteAll": "حذف الكل",
+        "deleteAllFiltered": "حذف كل نتائج البحث",
+        "deleteAllConfirm": "حذف كل التسجيلات المعروضة ({n}) في كل الصفحات؟ لا يمكن التراجع.",
+        "totalCount": "المجموع: {n}"
     },
     "appointments": {
         "newAppointment": "موعد جديد",
@@ -946,5 +953,14 @@
         "scanReadFailedMsg": "تعذر قراءة الرمز.",
         "linkedTaskPrefix": "هذا النموذج مرتبط بحالة المهمة رقم",
         "linkedTaskSuffix": "— سيُحفظ باسمها."
+    },
+    "lab": {
+        "all": "الكل",
+        "scanTicket": "مسح رمز المريض",
+        "recordFailed": "تعذر حفظ النتيجة، حاول مرة أخرى.",
+        "empty": "لا يوجد مرضى في هذه القائمة.",
+        "currentStatus": "الحالة الحالية:",
+        "resultHeading": "نتيجة فحص المختبر",
+        "noConfirmPermission": "لا تملك صلاحية تسجيل النتيجة."
     }
 }
