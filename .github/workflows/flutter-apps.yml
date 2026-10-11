@@ -78,6 +78,10 @@ jobs:
 
   windows:
     runs-on: windows-latest
+    env:
+      # The runner's CMake 4 refuses firebase_cpp_sdk_windows'
+      # cmake_minimum_required(<3.5) without this.
+      CMAKE_POLICY_VERSION_MINIMUM: '3.5'
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
