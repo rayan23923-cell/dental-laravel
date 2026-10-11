@@ -58,6 +58,7 @@ jobs:
           cp offline/windows/env.offline $OUT/app/.env.offline
           cp offline/windows/Start.bat offline/windows/Stop.bat $OUT/
           cp offline/README.md $OUT/README.md
+          sed -i 's/\r*$/\r/' $OUT/*.bat
 
       - name: Windows PHP
         run: |
@@ -86,6 +87,49 @@ jobs:
           cd dist && zip -qr9 ../DentalClinicOffline-windows.zip DentalClinicOffline
           ls -la ../DentalClinicOffline-windows.zip
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: offline
+          path: DentalClinicOffline-windows.zip
+          retention-days: 3
+
+  smoke-test:
+    # Unzip on a real Windows machine, run Start.bat and wait for the
+    # login page, so a broken package never gets published.
+    needs: package
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: offline
+      - name: Run Start.bat and wait for the login page
+        shell: pwsh
+        run: |
+          Expand-Archive DentalClinicOffline-windows.zip -DestinationPath C:\
+          Start-Process -FilePath cmd.exe -ArgumentList '/c', 'C:\DentalClinicOffline\Start.bat' -WorkingDirectory C:\DentalClinicOffline
+          $ok = $false
+          for ($i = 0; $i -lt 90; $i++) {
+            Start-Sleep -Seconds 5
+            try {
+              $r = Invoke-WebRequest -Uri http://127.0.0.1:8000/login -UseBasicParsing -TimeoutSec 10
+              if ($r.StatusCode -eq 200) { $ok = $true; break }
+            } catch { }
+          }
+          Get-ChildItem C:\DentalClinicOffline\app\storage\logs -ErrorAction SilentlyContinue | ForEach-Object { Get-Content $_.FullName -Tail 40 }
+          Get-ChildItem C:\DentalClinicOffline\data\*.err -ErrorAction SilentlyContinue | ForEach-Object { Get-Content $_.FullName -Tail 20 }
+          if (-not $ok) { throw 'The offline package did not serve the login page.' }
+          $tables = & C:\DentalClinicOffline\mariadb\bin\mariadb.exe -uroot -h127.0.0.1 -P3307 -N -e "select count(*) from information_schema.tables where table_schema='dental'"
+          Write-Host "Tables: $tables"
+          $admin = & C:\DentalClinicOffline\mariadb\bin\mariadb.exe -uroot -h127.0.0.1 -P3307 -N -e "select username from dental.users where username='admin'"
+          if ($admin -ne 'admin') { throw 'Admin account was not created.' }
+
+  release:
+    needs: [package, smoke-test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: offline
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: offline-build-${{ github.run_number }}
