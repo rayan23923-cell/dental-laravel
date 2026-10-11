@@ -17,9 +17,10 @@ function Start-Worker([int]$port) {
     # Started through cmd with its output sent to a file: php-cgi needs valid
     # standard handles, and launched bare from a hidden process it exits at once.
     # One log per worker (cmd cannot share one redirect file between processes),
-    # and /s with outer quotes so cmd keeps the quoted paths intact.
+    # and /s with outer quotes so cmd keeps the quoted paths intact. The
+    # arguments go as one string so PowerShell passes them through untouched.
     $cmd = "`"$Root\php\php-cgi.exe`" -b 127.0.0.1:$port >> `"$logDir\php-cgi-$port.log`" 2>&1"
-    return Start-Process -FilePath cmd.exe -ArgumentList '/s', '/c', "`"$cmd`"" -WorkingDirectory "$Root\app\public" -WindowStyle Hidden -PassThru
+    return Start-Process -FilePath cmd.exe -ArgumentList "/s /c `"$cmd`"" -WorkingDirectory "$Root\app\public" -WindowStyle Hidden -PassThru
 }
 
 Write-Log "starting $Count workers"

@@ -22,3 +22,7 @@ zend_extension=opcache
 opcache.enable = 1
 opcache.memory_consumption = 256
 opcache.max_accelerated_files = 20000
+
+; Only Caddy on this computer talks to the workers.
+cgi.force_redirect = 0
+cgi.fix_pathinfo = 1
