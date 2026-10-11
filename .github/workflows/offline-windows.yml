@@ -119,7 +119,7 @@ jobs:
         shell: pwsh
         run: |
           Expand-Archive DentalClinicOffline-windows.zip -DestinationPath C:\
-          Start-Process -FilePath cmd.exe -ArgumentList '/c', 'C:\DentalClinicOffline\Start.bat' -WorkingDirectory C:\DentalClinicOffline
+          Start-Process -FilePath cmd.exe -ArgumentList '/c', 'C:\DentalClinicOffline\Start.bat > C:\start.log 2>&1' -WorkingDirectory C:\DentalClinicOffline
           $ok = $false
           for ($i = 0; $i -lt 90; $i++) {
             Start-Sleep -Seconds 5
@@ -130,7 +130,14 @@ jobs:
           }
           Get-ChildItem C:\DentalClinicOffline\app\storage\logs -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "== $($_.Name)"; Get-Content $_.FullName -Tail 40 }
           Get-ChildItem C:\DentalClinicOffline\data\*.err -ErrorAction SilentlyContinue | ForEach-Object { Get-Content $_.FullName -Tail 20 }
-          if (-not $ok) { throw 'The offline package did not serve the login page.' }
+          if (-not $ok) {
+            Write-Host '== start.log'; Get-Content C:\start.log -ErrorAction SilentlyContinue
+            Write-Host '== processes'; Get-Process php*,caddy,coredns,mariadbd -ErrorAction SilentlyContinue | Format-Table Name,Id,Path | Out-String | Write-Host
+            Write-Host '== Caddyfile'; Get-Content C:\DentalClinicOffline\Caddyfile -ErrorAction SilentlyContinue
+            Write-Host '== caddy validate'; & C:\DentalClinicOffline\caddy\caddy.exe validate --config C:\DentalClinicOffline\Caddyfile --adapter caddyfile 2>&1 | Select-Object -Last 10
+            Write-Host '== php-cgi'; & C:\DentalClinicOffline\php\php-cgi.exe -v 2>&1
+            throw 'The offline package did not serve the login page.'
+          }
           $admin = & C:\DentalClinicOffline\mariadb\bin\mariadb.exe --user=root --host=127.0.0.1 --port=3307 -N -e "select username from dental.users where username='admin'"
           if ($admin -ne 'admin') { throw 'Admin account was not created.' }
 
