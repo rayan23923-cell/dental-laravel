@@ -293,7 +293,9 @@
         "deleteAll": "حذف الكل",
         "deleteAllFiltered": "حذف كل نتائج البحث",
         "deleteAllConfirm": "حذف كل التسجيلات المعروضة ({n}) في كل الصفحات؟ لا يمكن التراجع.",
-        "totalCount": "المجموع: {n}"
+        "totalCount": "المجموع: {n}",
+        "amountPaid": "المبلغ المدفوع",
+        "amountPaidHint": "يُسجَّل كدفعة للمريض عند حفظ التسجيل. اتركه فارغًا إن لم يدفع."
     },
     "appointments": {
         "newAppointment": "موعد جديد",

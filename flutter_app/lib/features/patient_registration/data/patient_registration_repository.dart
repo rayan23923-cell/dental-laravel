@@ -74,8 +74,10 @@ class PatientRegistrationRepository {
     required int registerDayId,
     required int serviceId,
     int? taskId,
+    double? amountPaid,
   }) async {
     final data = await _client.postJson('/patient-registrations', body: {
+      if (amountPaid != null && amountPaid > 0) 'amount_paid': amountPaid,
       'name': name,
       'phone': phone,
       'register_day_id': registerDayId,

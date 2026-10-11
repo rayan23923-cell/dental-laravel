@@ -145,7 +145,10 @@ class PatientRegistrationController extends Controller
             'register_day_id' => ['required', 'integer', 'exists:register_days,id'],
             'service_id' => ['required', 'integer', 'exists:register_services,id'],
             'task_id' => ['nullable', 'integer', 'exists:tasks,id'],
+            'amount_paid' => ['nullable', 'numeric', 'min:0'],
         ]);
+        $amountPaid = (float) ($validated['amount_paid'] ?? 0);
+        unset($validated['amount_paid']);
 
         $offeredOnDay = Service::whereKey($validated['service_id'])
             ->whereHas('days', fn ($q) => $q->where('register_days.id', $validated['register_day_id']))
@@ -176,7 +179,19 @@ class PatientRegistrationController extends Controller
             }
         }
 
-        PatientRegistration::create($validated);
+        $registration = PatientRegistration::create($validated);
+
+        // "المبلغ المدفوع" (2026-10-11, by request): the ticket desk takes
+        // the payment at registration, before any lab screening, so it is
+        // recorded here directly rather than through PatientScreeningGate.
+        if ($amountPaid > 0) {
+            Payment::create([
+                'patient_registration_id' => $registration->id,
+                'amount' => $amountPaid,
+                'paid_at' => now(),
+                'type' => Payment::TYPE_SERVICE,
+            ]);
+        }
 
         return redirect()->route('patient-registrations.index')->with('success', 'تم تسجيل المريض بنجاح.');
     }

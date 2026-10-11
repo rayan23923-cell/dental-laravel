@@ -102,6 +102,34 @@ class LabAndBulkDeleteTest extends TestCase
             ->assertOk();
     }
 
+    public function test_registration_records_amount_paid(): void
+    {
+        $day = DB::table('register_days')->insertGetId(['name' => 'Sat']);
+        $service = DB::table('register_services')->insertGetId(['name' => 'Check']);
+        DB::table(\App\Models\Service::make()->days()->getTable())->insert([
+            \App\Models\Service::make()->days()->getForeignPivotKeyName() => $service,
+            \App\Models\Service::make()->days()->getRelatedPivotKeyName() => $day,
+        ]);
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->post('/patient-registrations', [
+            'name' => 'Ali', 'phone' => '0770', 'register_day_id' => $day, 'service_id' => $service, 'amount_paid' => 15000,
+        ])->assertRedirect();
+        $ali = PatientRegistration::where('name', 'Ali')->firstOrFail();
+        $this->assertDatabaseHas('payments', ['patient_registration_id' => $ali->id, 'amount' => 15000, 'type' => 'service']);
+
+        $this->actingAs($admin)->postJson('/api/v1/patient-registrations', [
+            'name' => 'Sara', 'phone' => '0771', 'register_day_id' => $day, 'service_id' => $service, 'amount_paid' => 7000,
+        ])->assertCreated();
+        $sara = PatientRegistration::where('name', 'Sara')->firstOrFail();
+        $this->assertDatabaseHas('payments', ['patient_registration_id' => $sara->id, 'amount' => 7000]);
+
+        $this->actingAs($admin)->postJson('/api/v1/patient-registrations', [
+            'name' => 'Omar', 'phone' => '0772', 'register_day_id' => $day, 'service_id' => $service,
+        ])->assertCreated();
+        $this->assertSame(2, \App\Models\Payment::count());
+    }
+
     public function test_bulk_delete_selected_and_all(): void
     {
         $a = $this->registration(['name' => 'Ali']);

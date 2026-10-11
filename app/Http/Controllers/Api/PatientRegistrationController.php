@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PatientRegistrationResource;
 use App\Models\PatientRegistration;
+use App\Models\Payment;
 use App\Models\RegisterDay;
 use App\Models\Service;
 use App\Models\Task;
@@ -59,7 +60,10 @@ class PatientRegistrationController extends Controller
             'register_day_id' => ['required', 'integer', 'exists:register_days,id'],
             'service_id' => ['required', 'integer', 'exists:register_services,id'],
             'task_id' => ['nullable', 'integer', 'exists:tasks,id'],
+            'amount_paid' => ['nullable', 'numeric', 'min:0'],
         ]);
+        $amountPaid = (float) ($validated['amount_paid'] ?? 0);
+        unset($validated['amount_paid']);
 
         // The original enforces this server-side too
         // (`patient_register.php:76-89`, checking the selected service
@@ -95,6 +99,18 @@ class PatientRegistrationController extends Controller
         }
 
         $registration = PatientRegistration::create($validated);
+
+        // "المبلغ المدفوع" (2026-10-11, by request): the ticket desk takes
+        // the payment at registration, before any lab screening, so it is
+        // recorded here directly rather than through PatientScreeningGate.
+        if ($amountPaid > 0) {
+            Payment::create([
+                'patient_registration_id' => $registration->id,
+                'amount' => $amountPaid,
+                'paid_at' => now(),
+                'type' => Payment::TYPE_SERVICE,
+            ]);
+        }
 
         // `fresh()`, not `load()` — `screening_status` is a DB-level
         // default (`'pending'`) never passed to `create()`, so the

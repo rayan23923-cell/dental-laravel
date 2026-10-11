@@ -39,6 +39,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _amountController = TextEditingController();
   int? _dayId;
   int? _serviceId;
   int? _taskId;
@@ -48,6 +49,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
+    _amountController.dispose();
     super.dispose();
   }
 
@@ -64,6 +66,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
             registerDayId: _dayId!,
             serviceId: _serviceId!,
             taskId: _taskId,
+            amountPaid: double.tryParse(_amountController.text.trim()),
           );
       ref.invalidate(patientRegistrationListProvider);
       if (mounted) {
@@ -243,6 +246,25 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                 ),
                 // "التشخيص" picker removed from registration (2026-10-11, by
                 // request); registrations are saved with no task.
+                const SizedBox(height: 16),
+                // "المبلغ المدفوع" (2026-10-11, by request): recorded as the
+                // patient's payment together with the registration.
+                TextFormField(
+                  controller: _amountController,
+                  textDirection: TextDirection.ltr,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    labelText: t['patientRegFlutter.amountPaidLabel']!,
+                    helperText: t['patientRegFlutter.amountPaidHint']!,
+                    border: const OutlineInputBorder(),
+                  ),
+                  validator: (v) {
+                    final text = v?.trim() ?? '';
+                    if (text.isEmpty) return null;
+                    final n = double.tryParse(text);
+                    return (n == null || n < 0) ? t['patientRegFlutter.amountPaidInvalid']! : null;
+                  },
+                ),
                 const SizedBox(height: 24),
                 FilledButton(
                   onPressed: _submitting ? null : () => _submit(days),
