@@ -49,6 +49,7 @@ class ClinicSettingController extends Controller
             'clinic_website' => ['nullable', 'url', 'max:255'],
             'clinic_working_hours' => ['nullable', 'string'],
             'clinic_currency' => ['nullable', 'string', 'max:50'],
+            'lab_fee' => ['nullable', 'numeric', 'min:0'],
             // Restricted to the known palettes so an unknown value can't
             // leave the app with no colour variables at all.
             'theme' => ['nullable', Rule::in(array_keys(ThemePalette::THEMES))],

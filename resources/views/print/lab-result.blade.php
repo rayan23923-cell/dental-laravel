@@ -33,7 +33,7 @@
                 <tr><th>الهاتف</th><td dir="ltr" style="text-align:left">{{ $registration->phone }}</td></tr>
                 <tr><th>الخدمة</th><td>{{ $registration->service?->name ?? '—' }}</td></tr>
                 <tr><th>اليوم</th><td>{{ $registration->registerDay?->name ?? '—' }}</td></tr>
-                <tr><th>حالة الدفع</th><td>{{ (float) $registration->total_paid > 0 ? 'مدفوع (' . rtrim(rtrim(number_format((float) $registration->total_paid, 2, '.', ','), '0'), '.') . ')' : 'غير مدفوع' }}</td></tr>
+                <tr><th>أجور المختبر</th><td>{{ $registration->lab_paid ? 'مدفوعة' : 'غير مدفوعة' }}</td></tr>
                 <tr><th>تاريخ الفحص</th><td dir="ltr" style="text-align:left">{{ $registration->screening_checked_at ? \Illuminate\Support\Carbon::parse($registration->screening_checked_at)->format('Y-m-d H:i') : '—' }}</td></tr>
                 <tr><th>الفاحص</th><td>{{ $registration->screeningCheckedBy?->name ?? '—' }}</td></tr>
             </tbody>

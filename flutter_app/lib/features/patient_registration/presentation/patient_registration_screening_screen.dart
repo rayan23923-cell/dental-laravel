@@ -118,7 +118,7 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
           headerSubtitle: headerSubtitle,
           resultBanner: '${t['screening.labResultHeading']!}: $result',
           extraRows: [
-            (t['screening.paymentStatus']!, state.isPaid ? '${t['screening.paid']!} (${_money(state.totalPaid)})' : t['screening.unpaid']!),
+            (t['screening.paymentStatus']!, state.labPaid ? t['screening.paid']! : t['screening.unpaid']!),
             (t['screening.checkedAt']!, DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())),
           ],
           qrCaption: t['screening.patientCode']!,
@@ -135,8 +135,6 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
       if (mounted) showPrinterErrorSnackBar(context, t['patientRegFlutter.printFailed']!, error: e);
     }
   }
-
-  static String _money(double v) => v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(2);
 
   @override
   Widget build(BuildContext context) {
@@ -164,22 +162,22 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
             ),
           ),
           const SizedBox(height: 16),
-          // Payment status (2026-10-11, by request) — lab staff can see
-          // whether the patient has paid before screening.
+          // Lab fee status (2026-10-11, by request) — lab staff can see
+          // whether the patient has paid the lab fee before screening.
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: _state.isPaid ? Colors.blue.shade50 : Colors.grey.shade100,
-              border: Border.all(color: _state.isPaid ? Colors.blue.shade200 : Colors.grey.shade300),
+              color: _state.labPaid ? Colors.blue.shade50 : Colors.grey.shade100,
+              border: Border.all(color: _state.labPaid ? Colors.blue.shade200 : Colors.grey.shade300),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               children: [
-                Icon(_state.isPaid ? Icons.paid : Icons.money_off, color: _state.isPaid ? Colors.blue.shade700 : Colors.grey.shade700),
+                Icon(_state.labPaid ? Icons.paid : Icons.money_off, color: _state.labPaid ? Colors.blue.shade700 : Colors.grey.shade700),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '${t['screening.paymentStatus']!}: ${_state.isPaid ? '${t['screening.paid']!} (${_money(_state.totalPaid)})' : t['screening.unpaid']!}',
+                    '${t['screening.paymentStatus']!}: ${_state.labPaid ? t['screening.paid']! : t['screening.unpaid']!}',
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),

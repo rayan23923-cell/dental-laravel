@@ -13,8 +13,10 @@ import { useI18n } from 'vue-i18n';
 import axios from 'axios';
 
 const { t } = useI18n();
-defineProps({
+const props = defineProps({
     appointments: Array,
+    labFee: { type: [Number, String], default: null },
+    currency: { type: String, default: '' },
 });
 
 const page = usePage();
@@ -65,7 +67,7 @@ const onDecoded = async (text) => {
     scanError.value = '';
     try {
         const { data } = await axios.post(route('patient-registrations.scan'), { payload: text });
-        selectedRegistration.value = data.data.registration;
+        selectedRegistration.value = { ...data.data.registration, lab_paid: data.data.lab_paid };
         form.patient_registration_id = data.data.registration.id;
         scannerRef.value?.stop();
         scanning.value = false;
@@ -136,6 +138,33 @@ const appendDigits = (digits) => {
 };
 const clearAmount = () => {
     form.amount = '';
+};
+
+// --- Lab screening fee (2026-10-11) — its own payment, payable before
+// screening (the lab is paid first), with a printed receipt. The receipt
+// tab is opened inside the click so it isn't blocked as a pop-up.
+const hasLabFee = computed(() => props.labFee !== null && props.labFee !== '');
+const labFeeText = computed(() => `${Number(props.labFee).toLocaleString()} ${props.currency ?? ''}`.trim());
+const payingLab = ref(false);
+const labError = ref('');
+const payLabFee = async () => {
+    labError.value = '';
+    payingLab.value = true;
+    const receiptWindow = window.open('', '_blank');
+    try {
+        const { data } = await axios.post(route('payments.store-lab'), {
+            patient_registration_id: selectedRegistration.value.id,
+            paid_by: form.paid_by || null,
+        });
+        selectedRegistration.value = { ...selectedRegistration.value, lab_paid: true };
+        if (receiptWindow) receiptWindow.location.href = data.data.receipt_url;
+        else window.open(data.data.receipt_url, '_blank');
+    } catch (e) {
+        receiptWindow?.close();
+        labError.value = e?.response?.data?.message ?? t('payments.labFeeFailed');
+    } finally {
+        payingLab.value = false;
+    }
 };
 
 const submit = () => {
@@ -260,6 +289,28 @@ const submit = () => {
                                 </div>
                             </div>
                             <InputError class="mt-2" :message="form.errors.patient_registration_id" />
+
+                            <!-- Lab screening fee -->
+                            <div v-if="selectedRegistration && hasLabFee" class="mt-3 rounded-md border p-3" :class="selectedRegistration.lab_paid ? 'border-sky-200 bg-sky-50' : 'border-amber-200 bg-amber-50'">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <p class="text-sm font-medium text-gray-900">
+                                        <Icon name="science" class="ml-1" />{{ t('payments.labFee') }}: <span dir="ltr">{{ labFeeText }}</span>
+                                    </p>
+                                    <span v-if="selectedRegistration.lab_paid" class="text-sm font-semibold text-sky-700">
+                                        <Icon name="check_circle" class="ml-1" />{{ t('payments.labFeePaid') }}
+                                    </span>
+                                    <button
+                                        v-else
+                                        type="button"
+                                        :disabled="payingLab"
+                                        @click="payLabFee"
+                                        class="rounded-md bg-amber-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+                                    >
+                                        <Icon name="print" class="ml-1" />{{ t('payments.payLabFee') }}
+                                    </button>
+                                </div>
+                                <p v-if="labError" class="mt-2 text-sm text-red-700">{{ labError }}</p>
+                            </div>
                         </div>
 
                         <template v-if="!registrationBlocked">

@@ -46,7 +46,7 @@ const badgeClass = (status) =>
     ({ clear: 'bg-green-100 text-green-800', flagged: 'bg-red-100 text-red-800' })[status] ?? 'bg-amber-100 text-amber-800';
 const statusLabel = (status) =>
     ({ clear: t('patientReg.screeningClear'), flagged: t('patientReg.screeningFlagged') })[status] ?? t('patientReg.screeningPending');
-const isPaid = (r) => Number(r.total_paid ?? 0) > 0;
+const isPaid = (r) => !!r.lab_paid;
 const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
 
 // --- Scan a ticket QR ---
@@ -213,7 +213,7 @@ const record = async (status) => {
 
                 <div class="rounded-md p-3 text-sm font-semibold" :class="isPaid(selected) ? 'bg-sky-50 text-sky-800' : 'bg-gray-100 text-gray-700'">
                     <Icon :name="isPaid(selected) ? 'paid' : 'money_off'" class="ml-1" />
-                    {{ t('lab.paymentStatus') }} {{ isPaid(selected) ? t('lab.paidAmount', { amount: Number(selected.total_paid).toLocaleString() }) : t('lab.unpaid') }}
+                    {{ isPaid(selected) ? t('lab.paid') : t('lab.unpaid') }}
                 </div>
 
                 <div class="rounded-md p-3 text-sm font-semibold" :class="badgeClass(selected.screening_status)">

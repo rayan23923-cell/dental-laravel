@@ -48,6 +48,7 @@ class ClinicSetting extends Model
         'mail_from_name',
         'enable_daily_backup',
         'last_backup_at',
+        'lab_fee',
     ];
 
     /**

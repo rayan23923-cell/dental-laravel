@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ClinicSetting;
 use App\Models\PatientRegistration;
+use App\Models\Payment;
 use App\Support\QrCodeFactory;
 use Endroid\QrCode\ErrorCorrectionLevel;
 use Endroid\QrCode\QrCode;
@@ -39,7 +40,7 @@ class LabController extends Controller
         $search = trim($validated['search'] ?? '');
 
         $registrations = PatientRegistration::with(['service:id,name', 'registerDay:id,name', 'screeningCheckedBy:id,name'])
-            ->withSum('payments as total_paid', 'amount')
+            ->withExists(['payments as lab_paid' => fn ($q) => $q->where('type', Payment::TYPE_LAB)])
             ->when($status !== 'all', fn ($q) => $q->where('screening_status', $status))
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($q) use ($search) {
@@ -57,6 +58,7 @@ class LabController extends Controller
                 ->groupBy('screening_status')
                 ->pluck('total', 'screening_status'),
             'filters' => ['status' => $status, 'search' => $search],
+            'labFee' => ClinicSetting::current()->lab_fee,
             'canConfirm' => $permissions->can('patient_screening', 'confirm'),
         ]);
     }
@@ -78,7 +80,7 @@ class LabController extends Controller
         }
 
         $registration = PatientRegistration::with(['service:id,name', 'registerDay:id,name', 'screeningCheckedBy:id,name'])
-            ->withSum('payments as total_paid', 'amount')
+            ->withExists(['payments as lab_paid' => fn ($q) => $q->where('type', Payment::TYPE_LAB)])
             ->find($decoded['id']);
 
         if (! $registration) {
@@ -99,7 +101,7 @@ class LabController extends Controller
         $this->authorizeLab($request);
 
         $patientRegistration->load(['service', 'registerDay', 'screeningCheckedBy:id,name'])
-            ->loadSum('payments as total_paid', 'amount');
+            ->loadExists(['payments as lab_paid' => fn ($q) => $q->where('type', Payment::TYPE_LAB)]);
 
         $qr = (new PngWriter())->write(new QrCode(
             data: QrCodeFactory::payload('patient_registration', $patientRegistration->id),

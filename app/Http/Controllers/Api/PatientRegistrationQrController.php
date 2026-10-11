@@ -9,6 +9,7 @@ use App\Models\PatientRegistration;
 use App\Services\PatientScreeningException;
 use App\Services\PatientScreeningGate;
 use App\Support\QrCodeFactory;
+use App\Support\RegistrationPaymentState;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -136,21 +137,11 @@ class PatientRegistrationQrController extends Controller
      */
     private function stateResponse(PatientRegistration $registration): JsonResponse
     {
-        $payments = $registration->payments()->orderByDesc('paid_at')->get();
-        $totalPaid = (float) $payments->sum('amount');
-
         return response()->json([
-            'data' => [
-                'registration' => (new PatientRegistrationResource($registration))->resolve(),
-                'payments' => $payments->map(fn ($p) => [
-                    'id' => $p->id,
-                    'amount' => $p->amount,
-                    'paid_by' => $p->paid_by,
-                    'paid_at' => $p->paid_at,
-                ])->values(),
-                'total_paid' => $totalPaid,
-                'is_paid' => $payments->isNotEmpty(),
-            ],
+            'data' => RegistrationPaymentState::build(
+                $registration,
+                (new PatientRegistrationResource($registration))->resolve(),
+            ),
         ]);
     }
 }

@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PaymentResource;
+use App\Models\ClinicSetting;
 use App\Models\Payment;
 use App\Models\PatientRegistration;
 use App\Services\PatientScreeningException;
 use App\Services\PatientScreeningGate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class PaymentController extends Controller
 {
@@ -60,12 +62,25 @@ class PaymentController extends Controller
     {
         $validated = $this->validatePayment($request);
 
-        if (! empty($validated['patient_registration_id'])) {
+        // The lab fee is paid *before* screening, so it skips the gate.
+        if (! empty($validated['patient_registration_id']) && ($validated['type'] ?? Payment::TYPE_SERVICE) !== Payment::TYPE_LAB) {
             try {
                 PatientScreeningGate::ensureClear(PatientRegistration::findOrFail($validated['patient_registration_id']));
             } catch (PatientScreeningException $e) {
                 return response()->json(['message' => $e->getMessage()], 422);
             }
+        }
+
+        // Lab fee: always the configured amount, once per registration.
+        if (($validated['type'] ?? null) === Payment::TYPE_LAB) {
+            $fee = ClinicSetting::current()->lab_fee;
+            if ($fee === null || empty($validated['patient_registration_id'])) {
+                return response()->json(['message' => 'لم تُحدَّد أجور المختبر في الإعدادات.'], 422);
+            }
+            if (Payment::where('patient_registration_id', $validated['patient_registration_id'])->where('type', Payment::TYPE_LAB)->exists()) {
+                return response()->json(['message' => 'أجور المختبر مدفوعة مسبقًا لهذا المريض.'], 422);
+            }
+            $validated['amount'] = $fee;
         }
 
         $payment = Payment::create($validated);
@@ -108,6 +123,7 @@ class PaymentController extends Controller
             'amount' => [$partial ? 'sometimes' : 'required', 'numeric', 'min:0'],
             'paid_by' => ['nullable', 'string', 'max:100'],
             'paid_at' => ['nullable', 'date'],
+            'type' => ['sometimes', Rule::in([Payment::TYPE_SERVICE, Payment::TYPE_LAB])],
         ]);
     }
 }

@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\PatientRegistration;
+use App\Models\Payment;
 use App\Models\RegisterDay;
 use App\Models\Service;
 use App\Models\Task;
 use App\Services\PatientScreeningException;
 use App\Services\PatientScreeningGate;
 use App\Support\QrCodeFactory;
+use App\Support\RegistrationPaymentState;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -107,6 +109,7 @@ class PatientRegistrationController extends Controller
             ->orWhere('phone', 'like', "%{$search}%")
             ->orderByDesc('created_at')
             ->limit(10)
+            ->withExists(['payments as lab_paid' => fn ($q) => $q->where('type', Payment::TYPE_LAB)])
             ->get(['id', 'name', 'phone', 'screening_status']);
 
         return response()->json(['data' => $registrations]);
@@ -277,20 +280,8 @@ class PatientRegistrationController extends Controller
 
     private function stateResponse(PatientRegistration $registration): JsonResponse
     {
-        $payments = $registration->payments()->orderByDesc('paid_at')->get();
-
         return response()->json([
-            'data' => [
-                'registration' => $registration,
-                'payments' => $payments->map(fn ($p) => [
-                    'id' => $p->id,
-                    'amount' => $p->amount,
-                    'paid_by' => $p->paid_by,
-                    'paid_at' => $p->paid_at,
-                ])->values(),
-                'total_paid' => (float) $payments->sum('amount'),
-                'is_paid' => $payments->isNotEmpty(),
-            ],
+            'data' => RegistrationPaymentState::build($registration, $registration->toArray()),
         ]);
     }
 }

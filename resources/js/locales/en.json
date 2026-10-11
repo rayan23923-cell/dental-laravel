@@ -349,7 +349,11 @@
         "orSearchPlaceholder": "Or search by name or phone...",
         "searching": "Searching...",
         "clearAmount": "Clear",
-        "savePayment": "Save Payment"
+        "savePayment": "Save Payment",
+        "labFee": "Lab Fee",
+        "labFeePaid": "Lab fee paid",
+        "payLabFee": "Pay Lab Fee & Print Receipt",
+        "labFeeFailed": "Couldn't record the lab fee payment."
     },
     "doctorsAdmin": {
         "title": "Manage Doctors",
@@ -798,7 +802,8 @@
         "phoneLabel": "Phone",
         "emailLabel": "Email",
         "mailUsernameLabel": "Username",
-        "mailPasswordLabel": "Password"
+        "mailPasswordLabel": "Password",
+        "labFeeLabel": "Lab Screening Fee"
     },
     "authPages": {
         "confirmPasswordTitle": "Confirm Password",
@@ -963,9 +968,7 @@
         "resultHeading": "Lab Screening Result",
         "noConfirmPermission": "You don't have permission to record the result.",
         "printResult": "Print Result",
-        "paid": "Paid",
-        "unpaid": "Unpaid",
-        "paymentStatus": "Payment:",
-        "paidAmount": "Paid ({amount})"
+        "paid": "Lab fee paid",
+        "unpaid": "Lab fee unpaid"
     }
 }

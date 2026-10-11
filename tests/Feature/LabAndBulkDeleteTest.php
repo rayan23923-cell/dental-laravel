@@ -47,6 +47,33 @@ class LabAndBulkDeleteTest extends TestCase
             ->assertOk()->assertSee('غير سليم')->assertSee('غير مدفوع')->assertSee('data:image/png;base64', false)->assertSee('window.print()', false);
     }
 
+    public function test_lab_fee_payment_skips_screening_gate_and_prints_receipt(): void
+    {
+        \App\Models\ClinicSetting::current(); // first call creates the row
+        \App\Models\ClinicSetting::current()->update(['lab_fee' => 5000]);
+        $a = $this->registration(['name' => 'Ali']);
+        $admin = $this->admin();
+
+        $res = $this->actingAs($admin)->postJson('/payments/lab', ['patient_registration_id' => $a->id]);
+        $res->assertCreated();
+        $this->assertDatabaseHas('payments', ['patient_registration_id' => $a->id, 'type' => 'lab', 'amount' => 5000]);
+
+        $this->actingAs($admin)->postJson('/payments/lab', ['patient_registration_id' => $a->id])->assertStatus(422);
+
+        $this->actingAs($admin)->get(parse_url($res->json('data.receipt_url'), PHP_URL_PATH).'?autoprint=1')
+            ->assertOk()->assertSee('تم دفع أجور المختبر')->assertSee('5,000');
+
+        $scan = $this->actingAs($admin)->postJson('/patient-registrations/scan', ['payload' => json_encode(['type' => 'patient_registration', 'id' => $a->id])])
+            ->assertOk();
+        $this->assertTrue($scan->json('data.lab_paid'));
+        $this->assertFalse($scan->json('data.is_paid'));
+
+        // Service payment is still blocked until screening is clear.
+        $this->actingAs($admin)->post('/payments', ['patient_registration_id' => $a->id, 'amount' => 1000])->assertSessionHas('error');
+
+        $this->actingAs($admin)->get('/lab')->assertInertia(fn ($p) => $p->where('registrations.data.0.lab_paid', true));
+    }
+
     public function test_bulk_delete_selected_and_all(): void
     {
         $a = $this->registration(['name' => 'Ali']);

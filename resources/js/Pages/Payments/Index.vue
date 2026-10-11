@@ -106,6 +106,7 @@ const destroy = (payment) => {
                             <option value="">{{ t('payments.all') }}</option>
                             <option value="appointment">{{ t('payments.appointmentSource') }}</option>
                             <option value="registration">{{ t('payments.registrationSource') }}</option>
+                            <option value="lab">{{ t('payments.labFee') }}</option>
                         </select>
                     </div>
                     <button
@@ -132,7 +133,7 @@ const destroy = (payment) => {
                         <tbody class="divide-y divide-gray-200 bg-white">
                             <tr v-for="payment in payments.data" :key="payment.id">
                                 <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">{{ personName(payment) }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ payment.patient_registration ? t('payments.registrationSource') : t('payments.appointmentSource') }}</td>
+                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ payment.type === 'lab' ? t('payments.labFee') : payment.patient_registration ? t('payments.registrationSource') : t('payments.appointmentSource') }}</td>
                                 <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ payment.amount }}</td>
                                 <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ payment.paid_by ?? '—' }}</td>
                                 <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ new Date(payment.paid_at).toLocaleString() }}</td>

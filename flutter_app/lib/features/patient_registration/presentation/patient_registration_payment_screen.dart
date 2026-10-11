@@ -91,51 +91,84 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
       });
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['payments.paymentRecorded']!)));
 
-      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS) && mounted) {
-        try {
-          // Same fetch-before-capture, fail-open pattern as the
-          // registration ticket in `patient_registration_form_screen.dart`
-          // — this receipt printed with no logo and hard-coded header
-          // text at all before (2026-08-29 fix).
-          Uint8List? logoBytes;
-          ClinicSettings? settings;
-          try {
-            settings = await ref.read(clinicSettingsProvider.future);
-            final logoUrl = settings?.ticketLogoUrl;
-            if (logoUrl != null) {
-              final bytes = await ref.read(apiClientProvider).getBytes(logoUrl);
-              logoBytes = Uint8List.fromList(bytes);
-            }
-          } catch (_) {
-            logoBytes = null;
-          }
-          if (!mounted) return;
-          await precacheTicketImages(context, [logoBytes]);
-          if (!mounted) return;
-          final printerSettings = await ref.read(printerSettingsProvider.future);
-          if (!mounted) return;
-          final pngBytes = await renderWidgetToPng(
-            context,
-            ReceiptWidget(
-              registration: updated.registration,
-              amountPaid: amount,
-              totalPaid: updated.totalPaid,
-              logoBytes: logoBytes,
-              headerTitle: settings?.universityName ?? settings?.clinicName,
-              headerSubtitle: settings?.collegeName,
-              widthDots: printerSettings.dotsPerLine,
-            ),
-          );
-          await ref.read(posPrinterServiceProvider).printTicket(pngBytes);
-        } catch (e) {
-          // The payment already succeeded — a print failure is reported,
-          // not treated as the operation having failed (same convention
-          // as the registration ticket in `patient_registration_form_screen.dart`).
-          if (mounted) {
-            showPrinterErrorSnackBar(context, t['payments.paidPrintFailed']!, error: e);
-          }
-        }
+      await _printReceipt(updated, amount);
+    } catch (e) {
+      if (mounted) {
+        final message = e is ApiException ? e.userMessage : t['payments.recordPaymentFailed']!;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
+    } finally {
+      if (mounted) setState(() => _paying = false);
+    }
+  }
+
+  /// Prints the payment receipt on the POS printer (mobile only). The
+  /// payment already succeeded — a print failure is reported, not treated
+  /// as the operation having failed (same convention as the registration
+  /// ticket in `patient_registration_form_screen.dart`).
+  Future<void> _printReceipt(RegistrationPaymentState updated, double amount, {bool labFee = false}) async {
+    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS) || !mounted) return;
+    final t = ref.read(translationsProvider);
+    try {
+      Uint8List? logoBytes;
+      ClinicSettings? settings;
+      try {
+        settings = await ref.read(clinicSettingsProvider.future);
+        final logoUrl = settings?.ticketLogoUrl;
+        if (logoUrl != null) {
+          final bytes = await ref.read(apiClientProvider).getBytes(logoUrl);
+          logoBytes = Uint8List.fromList(bytes);
+        }
+      } catch (_) {
+        logoBytes = null;
+      }
+      if (!mounted) return;
+      await precacheTicketImages(context, [logoBytes]);
+      if (!mounted) return;
+      final printerSettings = await ref.read(printerSettingsProvider.future);
+      if (!mounted) return;
+      final pngBytes = await renderWidgetToPng(
+        context,
+        ReceiptWidget(
+          registration: updated.registration,
+          amountPaid: amount,
+          totalPaid: updated.totalPaid,
+          title: labFee ? t['payments.labFeeReceiptTitle']! : 'وصل دفع',
+          amountLabel: labFee ? t['payments.labFee']! : 'المبلغ المدفوع',
+          showTotal: !labFee,
+          logoBytes: logoBytes,
+          headerTitle: settings?.universityName ?? settings?.clinicName,
+          headerSubtitle: settings?.collegeName,
+          widthDots: printerSettings.dotsPerLine,
+        ),
+      );
+      await ref.read(posPrinterServiceProvider).printTicket(pngBytes);
+    } catch (e) {
+      if (mounted) {
+        showPrinterErrorSnackBar(context, t['payments.paidPrintFailed']!, error: e);
+      }
+    }
+  }
+
+  /// Lab screening fee (2026-10-11): its own payment (`type: lab`) at the
+  /// clinic's configured amount, payable before screening, with a printed
+  /// "وصل دفع أجور المختبر".
+  Future<void> _payLabFee() async {
+    final fee = _state.labFee;
+    if (fee == null) return;
+    setState(() => _paying = true);
+    final t = ref.read(translationsProvider);
+    try {
+      await ref.read(recordsRepositoryProvider).createPayment({
+        'patient_registration_id': _state.registration.id,
+        'amount': fee,
+        'type': 'lab',
+      });
+      final updated = await ref.read(patientRegistrationRepositoryProvider).status(_state.registration.id);
+      if (!mounted) return;
+      setState(() => _state = updated);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['payments.labFeePaid']!)));
+      await _printReceipt(updated, fee, labFee: true);
     } catch (e) {
       if (mounted) {
         final message = e is ApiException ? e.userMessage : t['payments.recordPaymentFailed']!;
@@ -172,6 +205,23 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
             ),
           ),
           const SizedBox(height: 16),
+          if (_state.labFee != null) ...[
+            Card(
+              color: _state.labPaid ? Colors.blue.shade50 : Colors.amber.shade50,
+              child: ListTile(
+                leading: Icon(Icons.science_outlined, color: _state.labPaid ? Colors.blue.shade700 : Colors.amber.shade800),
+                title: Text('${t['payments.labFee']!}: ${NumberFormat('#,##0.##').format(_state.labFee)}'),
+                subtitle: _state.labPaid ? Text(t['payments.labFeePaid']!) : null,
+                trailing: _state.labPaid
+                    ? Icon(Icons.check_circle, color: Colors.blue.shade700)
+                    : FilledButton(
+                        onPressed: _paying ? null : _payLabFee,
+                        child: Text(t['payments.payLabFee']!),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           PaidBanner(state: _state),
           const SizedBox(height: 16),
           if (!r.isScreeningClear) ...[
@@ -179,7 +229,7 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
           ] else if (_state.isPaid) ...[
             Text(t['labels.payments']!, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
-            for (final p in _state.payments)
+            for (final p in _state.payments.where((p) => !p.isLabFee))
               Card(
                 child: ListTile(
                   title: Text(NumberFormat('#,##0.##').format(p.amount)),

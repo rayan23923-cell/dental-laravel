@@ -349,7 +349,11 @@
         "orSearchPlaceholder": "أو ابحث بالاسم أو الهاتف...",
         "searching": "جارٍ البحث...",
         "clearAmount": "مسح",
-        "savePayment": "حفظ الدفعة"
+        "savePayment": "حفظ الدفعة",
+        "labFee": "أجور المختبر",
+        "labFeePaid": "تم دفع أجور المختبر",
+        "payLabFee": "دفع أجور المختبر وطباعة الوصل",
+        "labFeeFailed": "تعذر تسجيل دفع أجور المختبر."
     },
     "doctorsAdmin": {
         "title": "إدارة الأطباء",
@@ -798,7 +802,8 @@
         "phoneLabel": "رقم الهاتف",
         "emailLabel": "البريد الإلكتروني",
         "mailUsernameLabel": "اسم المستخدم",
-        "mailPasswordLabel": "كلمة المرور"
+        "mailPasswordLabel": "كلمة المرور",
+        "labFeeLabel": "أجور فحص المختبر"
     },
     "authPages": {
         "confirmPasswordTitle": "تأكيد كلمة المرور",
@@ -963,9 +968,7 @@
         "resultHeading": "نتيجة فحص المختبر",
         "noConfirmPermission": "لا تملك صلاحية تسجيل النتيجة.",
         "printResult": "طباعة النتيجة",
-        "paid": "مدفوع",
-        "unpaid": "غير مدفوع",
-        "paymentStatus": "حالة الدفع:",
-        "paidAmount": "مدفوع ({amount})"
+        "paid": "أجور المختبر مدفوعة",
+        "unpaid": "أجور المختبر غير مدفوعة"
     }
 }
