@@ -1,0 +1,20 @@
+
+; --- Dental Clinic offline overrides ---
+extension_dir = "__EXT_DIR__"
+extension=curl
+extension=fileinfo
+extension=gd
+extension=intl
+extension=mbstring
+extension=openssl
+extension=pdo_mysql
+extension=mysqli
+extension=sodium
+extension=zip
+extension=exif
+memory_limit = 512M
+upload_max_filesize = 64M
+post_max_size = 64M
+max_execution_time = 300
+date.timezone = Asia/Baghdad
+opcache.enable_cli = 0

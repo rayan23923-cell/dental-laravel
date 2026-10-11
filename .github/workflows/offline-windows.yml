@@ -1,0 +1,98 @@
+name: Offline Windows package
+
+# Builds a self-contained Windows folder of the whole web system (PHP,
+# MariaDB, the app with vendor/ and built assets) that runs with no
+# internet. See offline/README.md. Runs on pushes touching the app or
+# offline/, or by hand.
+on:
+  push:
+    paths:
+      - 'app/**'
+      - 'bootstrap/**'
+      - 'config/**'
+      - 'database/**'
+      - 'resources/**'
+      - 'routes/**'
+      - 'public/**'
+      - 'composer.*'
+      - 'package*.json'
+      - 'offline/**'
+      - '.github/workflows/offline-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  PHP_MINOR: '8.3'
+  MARIADB_VERSION: '10.11.10'
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_MINOR }}
+          extensions: gd, intl, zip, mbstring, pdo_mysql, sodium, fileinfo
+          tools: composer
+      - run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+      - name: Assemble the app
+        run: |
+          OUT=dist/DentalClinicOffline
+          mkdir -p $OUT/app
+          rsync -a ./ $OUT/app/ \
+            --exclude .git --exclude .github --exclude node_modules --exclude flutter_app \
+            --exclude tests --exclude offline --exclude 'public/downloads' --exclude 'public/hot' \
+            --exclude '.env' --exclude 'storage/logs/*.log' --exclude codemagic.yaml --exclude docs
+          cp offline/windows/env.offline $OUT/app/.env.offline
+          cp offline/windows/Start.bat offline/windows/Stop.bat $OUT/
+          cp offline/README.md $OUT/README.md
+
+      - name: Windows PHP
+        run: |
+          OUT=dist/DentalClinicOffline
+          ZIP=$(curl -fsSL https://windows.php.net/downloads/releases/releases.json \
+            | jq -r --arg m "$PHP_MINOR" '.[$m]["nts-vs16-x64"].zip.path')
+          echo "PHP: $ZIP"
+          curl -fsSL -o php.zip "https://windows.php.net/downloads/releases/$ZIP"
+          mkdir -p $OUT/php && unzip -q php.zip -d $OUT/php
+          cat $OUT/php/php.ini-production offline/windows/php.ini.overrides > $OUT/php/php.ini.template
+          rm -rf $OUT/php/dev $OUT/php/extras
+          curl -fsSL -o $OUT/vc_redist.x64.exe https://aka.ms/vs/17/release/vc_redist.x64.exe
+
+      - name: Windows MariaDB
+        run: |
+          OUT=dist/DentalClinicOffline
+          curl -fsSL -o mariadb.zip "https://archive.mariadb.org/mariadb-${MARIADB_VERSION}/winx64-packages/mariadb-${MARIADB_VERSION}-winx64.zip"
+          unzip -q mariadb.zip -d tmpdb
+          mv tmpdb/mariadb-* $OUT/mariadb
+          rm -rf $OUT/mariadb/mysql-test $OUT/mariadb/sql-bench $OUT/mariadb/include $OUT/mariadb/data
+          find $OUT/mariadb -name '*.pdb' -delete
+          test -f $OUT/mariadb/bin/mariadbd.exe && test -f $OUT/mariadb/bin/mariadb-install-db.exe
+
+      - name: Zip
+        run: |
+          cd dist && zip -qr9 ../DentalClinicOffline-windows.zip DentalClinicOffline
+          ls -la ../DentalClinicOffline-windows.zip
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: offline-build-${{ github.run_number }}
+          name: Dental Clinic offline (Windows) build ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          body: |
+            The whole system running offline on one Windows PC (PHP + MariaDB bundled).
+            Unzip to C:\DentalClinicOffline, run Start.bat, log in as admin / password.
+            Built from ${{ github.ref_name }} @ ${{ github.sha }}.
+          files: DentalClinicOffline-windows.zip
