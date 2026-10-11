@@ -111,6 +111,7 @@ jobs:
     # login page, so a broken package never gets published.
     needs: package
     runs-on: windows-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -123,8 +124,16 @@ jobs:
           (Get-Content C:\DentalClinicOffline\config.txt) -replace '^HTTP_PORT=80$', 'HTTP_PORT=8080' -replace '^HTTPS_PORT=443$', 'HTTPS_PORT=8443' |
             Set-Content C:\DentalClinicOffline\config.txt
           Start-Process -FilePath cmd.exe -ArgumentList '/c', 'C:\DentalClinicOffline\Start.bat > C:\start.log 2>&1' -WorkingDirectory C:\DentalClinicOffline
+          Start-Sleep -Seconds 60
+          Write-Host '== early check'
+          Get-Process php-cgi,caddy -ErrorAction SilentlyContinue | Format-Table Name,Id | Out-String | Write-Host
+          Get-Content C:\DentalClinicOffline\app\storage\logs\workers.log -ErrorAction SilentlyContinue
+          $t = Start-Process -FilePath C:\DentalClinicOffline\php\php-cgi.exe -ArgumentList '-b', '127.0.0.1:9199' -PassThru -NoNewWindow
+          Start-Sleep -Seconds 3
+          Write-Host "manual php-cgi exited: $($t.HasExited) code: $(if ($t.HasExited) { $t.ExitCode })"
+          if (-not $t.HasExited) { Stop-Process -Id $t.Id -Force }
           $ok = $false
-          for ($i = 0; $i -lt 90; $i++) {
+          for ($i = 0; $i -lt 40; $i++) {
             Start-Sleep -Seconds 5
             try {
               $r = Invoke-WebRequest -Uri http://127.0.0.1:8080/login -UseBasicParsing -TimeoutSec 10
@@ -155,11 +164,11 @@ jobs:
           Write-Host "LAN IP: $ip"
           $https = Invoke-WebRequest -Uri "https://${ip}:8443/login" -UseBasicParsing -SkipCertificateCheck -TimeoutSec 30
           if ($https.StatusCode -ne 200) { throw 'HTTPS login page failed.' }
-          $redir = Invoke-WebRequest -Uri "http://${ip}:8080/login" -UseBasicParsing -MaximumRedirection 0 -SkipHttpErrorCheck
+          $redir = Invoke-WebRequest -Uri "http://${ip}:8080/login" -UseBasicParsing -MaximumRedirection 0 -SkipHttpErrorCheck -TimeoutSec 30
           if ($redir.StatusCode -ne 302) { throw "http on the LAN should redirect to https, got $($redir.StatusCode)" }
-          $ca = Invoke-WebRequest -Uri "http://${ip}:8080/ca.crt" -UseBasicParsing
+          $ca = Invoke-WebRequest -Uri "http://${ip}:8080/ca.crt" -UseBasicParsing -TimeoutSec 30
           if ($ca.StatusCode -ne 200 -or $ca.RawContentLength -lt 300) { throw 'Certificate download failed.' }
-          $setup = Invoke-WebRequest -Uri "http://${ip}:8080/setup" -UseBasicParsing
+          $setup = Invoke-WebRequest -Uri "http://${ip}:8080/setup" -UseBasicParsing -TimeoutSec 30
           if ($setup.Content -notmatch 'ca.crt') { throw 'Setup page failed.' }
 
           Write-Host 'Load: 200 HTTPS requests, 50 at a time'
