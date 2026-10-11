@@ -46,6 +46,7 @@ const badgeClass = (status) =>
     ({ clear: 'bg-green-100 text-green-800', flagged: 'bg-red-100 text-red-800' })[status] ?? 'bg-amber-100 text-amber-800';
 const statusLabel = (status) =>
     ({ clear: t('patientReg.screeningClear'), flagged: t('patientReg.screeningFlagged') })[status] ?? t('patientReg.screeningPending');
+const isPaid = (r) => Number(r.total_paid ?? 0) > 0;
 const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
 
 // --- Scan a ticket QR ---
@@ -79,14 +80,27 @@ const selected = ref(null);
 const submitting = ref(false);
 const resultError = ref('');
 
+// Saving a result prints the lab slip (result + patient QR). The tab is
+// opened before the request, while still inside the click, so browsers
+// don't block it as a pop-up; it is pointed at the slip once saved.
+const openPrint = (id, win) => {
+    const url = route('lab.print', { patientRegistration: id, autoprint: 1 });
+    if (win) win.location.href = url;
+    else window.open(url, '_blank');
+};
+
 const record = async (status) => {
     submitting.value = true;
     resultError.value = '';
+    const printWindow = window.open('', '_blank');
     try {
-        await axios.post(route('patient-registrations.screening', selected.value.id), { screening_status: status });
+        const id = selected.value.id;
+        await axios.post(route('patient-registrations.screening', id), { screening_status: status });
+        openPrint(id, printWindow);
         selected.value = null;
         router.reload({ only: ['registrations', 'counts'] });
     } catch (e) {
+        printWindow?.close();
         resultError.value = e?.response?.data?.message ?? t('lab.recordFailed');
     } finally {
         submitting.value = false;
@@ -151,7 +165,10 @@ const record = async (status) => {
                     >
                         <div class="flex items-start justify-between gap-2">
                             <span class="font-semibold text-gray-900">{{ r.name }}</span>
-                            <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium" :class="badgeClass(r.screening_status)">{{ statusLabel(r.screening_status) }}</span>
+                            <span class="flex shrink-0 gap-1">
+                                <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="isPaid(r) ? 'bg-sky-100 text-sky-800' : 'bg-gray-100 text-gray-600'">{{ isPaid(r) ? t('lab.paid') : t('lab.unpaid') }}</span>
+                                <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="badgeClass(r.screening_status)">{{ statusLabel(r.screening_status) }}</span>
+                            </span>
                         </div>
                         <span class="text-sm text-gray-500" dir="ltr" style="text-align: right">{{ r.phone }}</span>
                         <span class="text-xs text-gray-400">{{ r.service?.name ?? '—' }} · {{ r.register_day?.name ?? '—' }} · {{ fmtDate(r.created_at) }}</span>
@@ -194,6 +211,11 @@ const record = async (status) => {
                     <p class="text-sm text-gray-500">{{ selected.service?.name ?? '—' }} · {{ selected.register_day?.name ?? '—' }}</p>
                 </div>
 
+                <div class="rounded-md p-3 text-sm font-semibold" :class="isPaid(selected) ? 'bg-sky-50 text-sky-800' : 'bg-gray-100 text-gray-700'">
+                    <Icon :name="isPaid(selected) ? 'paid' : 'money_off'" class="ml-1" />
+                    {{ t('lab.paymentStatus') }} {{ isPaid(selected) ? t('lab.paidAmount', { amount: Number(selected.total_paid).toLocaleString() }) : t('lab.unpaid') }}
+                </div>
+
                 <div class="rounded-md p-3 text-sm font-semibold" :class="badgeClass(selected.screening_status)">
                     {{ t('lab.currentStatus') }} {{ statusLabel(selected.screening_status) }}
                     <span v-if="selected.screening_checked_by?.name" class="block text-xs font-normal opacity-80">
@@ -225,6 +247,15 @@ const record = async (status) => {
                     </div>
                 </template>
                 <p v-else class="text-sm text-gray-500">{{ t('lab.noConfirmPermission') }}</p>
+
+                <button
+                    v-if="selected.screening_status !== 'pending'"
+                    type="button"
+                    @click="openPrint(selected.id)"
+                    class="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                    <Icon name="print" class="ml-1" />{{ t('lab.printResult') }}
+                </button>
             </div>
         </Modal>
     </AuthenticatedLayout>

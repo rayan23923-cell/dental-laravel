@@ -225,6 +225,11 @@ const Map<String, String> kTranslationsAr = {
   'screening.markedFlagged': 'تم تسجيل نتيجة الفحص كغير سليمة.',
   'screening.recordFailed': 'تعذر تسجيل نتيجة الفحص.',
   'screening.labResultHeading': 'نتيجة فحص المختبر',
+  'screening.paymentStatus': 'حالة الدفع',
+  'screening.paid': 'مدفوع',
+  'screening.unpaid': 'غير مدفوع',
+  'screening.checkedAt': 'تاريخ الفحص',
+  'screening.patientCode': 'رمز المريض',
 
   'payments.paymentRecorded': 'تم تسجيل الدفع.',
   'payments.paidPrintFailed': 'تم الدفع، لكن تعذرت طباعة الوصل.',
@@ -984,6 +989,11 @@ const Map<String, String> kTranslationsEn = {
   'screening.markedFlagged': 'Screening result recorded as flagged.',
   'screening.recordFailed': "Couldn't record the screening result.",
   'screening.labResultHeading': 'Lab Screening Result',
+  'screening.paymentStatus': 'Payment',
+  'screening.paid': 'Paid',
+  'screening.unpaid': 'Unpaid',
+  'screening.checkedAt': 'Checked At',
+  'screening.patientCode': 'Patient Code',
 
   'payments.paymentRecorded': 'Payment recorded.',
   'payments.paidPrintFailed': "Paid, but the receipt couldn't be printed.",

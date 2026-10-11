@@ -302,6 +302,7 @@ Route::middleware('auth')->group(function () {
         // LabController for its own patient_screening permission check.
         Route::get('/lab', [LabController::class, 'index'])->name('lab.index');
         Route::post('/lab/scan', [LabController::class, 'scan'])->name('lab.scan');
+        Route::get('/lab/{patientRegistration}/print', [LabController::class, 'print'])->name('lab.print');
 
         Route::get('/doctors-import', [DoctorImportExportController::class, 'showImport'])
             ->middleware('permission:doctors,create')

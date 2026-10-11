@@ -961,6 +961,11 @@
         "empty": "لا يوجد مرضى في هذه القائمة.",
         "currentStatus": "الحالة الحالية:",
         "resultHeading": "نتيجة فحص المختبر",
-        "noConfirmPermission": "لا تملك صلاحية تسجيل النتيجة."
+        "noConfirmPermission": "لا تملك صلاحية تسجيل النتيجة.",
+        "printResult": "طباعة النتيجة",
+        "paid": "مدفوع",
+        "unpaid": "غير مدفوع",
+        "paymentStatus": "حالة الدفع:",
+        "paidAmount": "مدفوع ({amount})"
     }
 }

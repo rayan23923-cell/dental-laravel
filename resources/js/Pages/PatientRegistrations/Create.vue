@@ -159,30 +159,6 @@ const submit = () => {
                             </p>
                         </div>
 
-                        <div>
-                            <InputLabel for="task_id" :value="t('patientReg.diagnosis')" />
-                            <TextInput
-                                v-if="tasks.length > 6"
-                                v-model="taskFilter"
-                                type="text"
-                                :placeholder="t('patientReg.filterTasks')"
-                                class="mt-1 block w-full"
-                            />
-                            <select
-                                id="task_id"
-                                v-model="form.task_id"
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                            >
-                                <option value="">{{ t('patientReg.noneOption') }}</option>
-                                <option v-for="task in filteredTasks" :key="task.id" :value="task.id">{{ task.title }}</option>
-                            </select>
-                            <InputError class="mt-2" :message="form.errors.task_id" />
-                            <p v-if="selectedTask" class="mt-2 text-sm text-gray-500">
-                                {{ selectedTask.stage?.name ?? '—' }}
-                                <span v-if="selectedTask.stage?.education_type"> · {{ selectedTask.stage.education_type.name }}</span>
-                            </p>
-                        </div>
-
                         <div class="flex justify-end">
                             <PrimaryButton :disabled="form.processing">{{ t('patientReg.submitRegistration') }}</PrimaryButton>
                         </div>

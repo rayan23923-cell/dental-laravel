@@ -17,7 +17,6 @@ import '../../printing/presentation/printer_error_snackbar.dart';
 import '../../printing/presentation/ticket_print_animation.dart';
 import '../../printing/presentation/ticket_renderer.dart';
 import '../../printing/presentation/ticket_widget.dart';
-import '../../records/presentation/records_providers.dart' show tasksLookupProvider;
 import '../data/patient_registration_repository.dart';
 import '../domain/register_day.dart';
 import 'patient_registration_providers.dart';
@@ -242,50 +241,8 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                           },
                   ),
                 ),
-                const SizedBox(height: 16),
-                // "التشخيص" — still doesn't gate anything *else* on this
-                // form (see `PatientRegistration::task()`'s docblock for
-                // the stage/education-type display below), but *which*
-                // tasks are offered is now narrowed by the selected day,
-                // once that day has any configured (empty `taskIds` means
-                // no rule for this day — every task stays offered, same
-                // as before this existed). Search comes free from
-                // `CascadingDropdown` (`DropdownMenu(enableFilter: true)`),
-                // fixing this picker's previous lack of any filter.
-                Consumer(
-                  builder: (context, ref, _) {
-                    final tasksAsync = ref.watch(tasksLookupProvider);
-                    final tasksForDay = tasksAsync.whenData(
-                      (tasks) => selectedDay == null || selectedDay.taskIds.isEmpty
-                          ? tasks
-                          : tasks.where((t) => selectedDay.taskIds.contains(t.id)).toList(),
-                    );
-                    final selected = tasksAsync.valueOrNull?.where((t) => t.id == _taskId).firstOrNull;
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        CascadingDropdown(
-                          key: ValueKey('task-$_dayId'),
-                          label: t['patientRegFlutter.diagnosis']!,
-                          itemsAsync: tasksForDay,
-                          value: _taskId,
-                          onChanged: (v) => setState(() => _taskId = v),
-                        ),
-                        if (selected != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4, right: 4),
-                            child: Text(
-                              [
-                                if (selected.stageName != null) selected.stageName!,
-                                if (selected.educationTypeName != null) selected.educationTypeName!,
-                              ].join(' · '),
-                              style: const TextStyle(fontSize: 12, color: Colors.grey),
-                            ),
-                          ),
-                      ],
-                    );
-                  },
-                ),
+                // "التشخيص" picker removed from registration (2026-10-11, by
+                // request); registrations are saved with no task.
                 const SizedBox(height: 24),
                 FilledButton(
                   onPressed: _submitting ? null : () => _submit(days),

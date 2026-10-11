@@ -961,6 +961,11 @@
         "empty": "No patients in this list.",
         "currentStatus": "Current status:",
         "resultHeading": "Lab Screening Result",
-        "noConfirmPermission": "You don't have permission to record the result."
+        "noConfirmPermission": "You don't have permission to record the result.",
+        "printResult": "Print Result",
+        "paid": "Paid",
+        "unpaid": "Unpaid",
+        "paymentStatus": "Payment:",
+        "paidAmount": "Paid ({amount})"
     }
 }

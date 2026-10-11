@@ -2,7 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ClinicSetting;
 use App\Models\PatientRegistration;
+use App\Support\QrCodeFactory;
+use Endroid\QrCode\ErrorCorrectionLevel;
+use Endroid\QrCode\QrCode;
+use Endroid\QrCode\Writer\PngWriter;
+use Illuminate\Contracts\View\View;
 use App\Services\PermissionManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,6 +39,7 @@ class LabController extends Controller
         $search = trim($validated['search'] ?? '');
 
         $registrations = PatientRegistration::with(['service:id,name', 'registerDay:id,name', 'screeningCheckedBy:id,name'])
+            ->withSum('payments as total_paid', 'amount')
             ->when($status !== 'all', fn ($q) => $q->where('screening_status', $status))
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($q) use ($search) {
@@ -71,6 +78,7 @@ class LabController extends Controller
         }
 
         $registration = PatientRegistration::with(['service:id,name', 'registerDay:id,name', 'screeningCheckedBy:id,name'])
+            ->withSum('payments as total_paid', 'amount')
             ->find($decoded['id']);
 
         if (! $registration) {
@@ -78,6 +86,34 @@ class LabController extends Controller
         }
 
         return response()->json(['data' => $registration]);
+    }
+
+    /**
+     * Printable lab result (2026-10-11): patient details, the recorded
+     * result and the same ticket QR, so the slip itself can be scanned at
+     * payment. The Lab page opens it right after a result is saved; the
+     * QR is inlined so lab-only staff (no `patients,view`) can print it.
+     */
+    public function print(Request $request, PatientRegistration $patientRegistration): View
+    {
+        $this->authorizeLab($request);
+
+        $patientRegistration->load(['service', 'registerDay', 'screeningCheckedBy:id,name'])
+            ->loadSum('payments as total_paid', 'amount');
+
+        $qr = (new PngWriter())->write(new QrCode(
+            data: QrCodeFactory::payload('patient_registration', $patientRegistration->id),
+            errorCorrectionLevel: ErrorCorrectionLevel::Medium,
+            size: 300,
+            margin: 10,
+        ));
+
+        return view('print.lab-result', [
+            'settings' => ClinicSetting::current(),
+            'registration' => $patientRegistration,
+            'qrDataUri' => $qr->getDataUri(),
+            'autoprint' => $request->boolean('autoprint'),
+        ]);
     }
 
     /**
