@@ -9,6 +9,7 @@ use App\Models\PatientRegistration;
 use App\Services\PatientScreeningException;
 use App\Services\PatientScreeningGate;
 use App\Support\QrCodeFactory;
+use App\Support\LabFeeGate;
 use App\Support\RegistrationPaymentState;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -117,6 +118,10 @@ class PatientRegistrationQrController extends Controller
         $validated = $request->validate([
             'screening_status' => ['required', Rule::in(['clear', 'flagged'])],
         ]);
+
+        if ($message = LabFeeGate::unpaidMessage($patientRegistration)) {
+            return response()->json(['message' => $message], 422);
+        }
 
         $patientRegistration->update([
             'screening_status' => $validated['screening_status'],

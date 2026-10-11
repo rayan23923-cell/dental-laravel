@@ -74,6 +74,34 @@ class LabAndBulkDeleteTest extends TestCase
         $this->actingAs($admin)->get('/lab')->assertInertia(fn ($p) => $p->where('registrations.data.0.lab_paid', true));
     }
 
+    public function test_lab_result_needs_lab_fee_paid_first(): void
+    {
+        \App\Models\ClinicSetting::current(); // first call creates the row
+        \App\Models\ClinicSetting::current()->update(['lab_fee' => 5000]);
+        $a = $this->registration(['name' => 'Ali']);
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->postJson("/patient-registrations/{$a->id}/screening", ['screening_status' => 'clear'])
+            ->assertStatus(422);
+        $this->actingAs($admin)->postJson("/api/v1/patient-registrations/{$a->id}/screening", ['screening_status' => 'clear'])
+            ->assertStatus(422);
+        $this->assertSame('pending', $a->fresh()->screening_status);
+
+        $this->actingAs($admin)->postJson('/payments/lab', ['patient_registration_id' => $a->id])->assertCreated();
+
+        $this->actingAs($admin)->postJson("/patient-registrations/{$a->id}/screening", ['screening_status' => 'clear'])
+            ->assertOk();
+        $this->assertSame('clear', $a->fresh()->screening_status);
+    }
+
+    public function test_lab_result_allowed_when_no_lab_fee_set(): void
+    {
+        $a = $this->registration(['name' => 'Ali']);
+
+        $this->actingAs($this->admin())->postJson("/patient-registrations/{$a->id}/screening", ['screening_status' => 'flagged'])
+            ->assertOk();
+    }
+
     public function test_bulk_delete_selected_and_all(): void
     {
         $a = $this->registration(['name' => 'Ali']);

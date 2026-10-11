@@ -39,6 +39,8 @@ class LabController extends Controller
         $status = $validated['status'] ?? 'pending';
         $search = trim($validated['search'] ?? '');
 
+        $settings = ClinicSetting::current();
+
         $registrations = PatientRegistration::with(['service:id,name', 'registerDay:id,name', 'screeningCheckedBy:id,name'])
             ->withExists(['payments as lab_paid' => fn ($q) => $q->where('type', Payment::TYPE_LAB)])
             ->when($status !== 'all', fn ($q) => $q->where('screening_status', $status))
@@ -58,7 +60,9 @@ class LabController extends Controller
                 ->groupBy('screening_status')
                 ->pluck('total', 'screening_status'),
             'filters' => ['status' => $status, 'search' => $search],
-            'labFee' => ClinicSetting::current()->lab_fee,
+            // A positive fee means the result waits for the lab payment.
+            'labFee' => $settings->lab_fee !== null && (float) $settings->lab_fee > 0 ? $settings->lab_fee : null,
+            'currency' => $settings->clinic_currency,
             'canConfirm' => $permissions->can('patient_screening', 'confirm'),
         ]);
     }

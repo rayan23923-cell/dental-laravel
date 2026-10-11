@@ -228,6 +228,7 @@ const Map<String, String> kTranslationsAr = {
   'screening.paymentStatus': 'أجور المختبر',
   'screening.paid': 'مدفوعة',
   'screening.unpaid': 'غير مدفوعة',
+  'screening.payFirst': 'يجب دفع أجور المختبر أولًا، ثم تسجيل النتيجة.',
   'screening.checkedAt': 'تاريخ الفحص',
   'screening.patientCode': 'رمز المريض',
 
@@ -996,6 +997,7 @@ const Map<String, String> kTranslationsEn = {
   'screening.paymentStatus': 'Lab fee',
   'screening.paid': 'Paid',
   'screening.unpaid': 'Unpaid',
+  'screening.payFirst': 'Pay the lab fee first, then record the result.',
   'screening.checkedAt': 'Checked At',
   'screening.patientCode': 'Patient Code',
 

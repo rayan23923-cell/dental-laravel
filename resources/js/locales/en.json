@@ -969,6 +969,7 @@
         "noConfirmPermission": "You don't have permission to record the result.",
         "printResult": "Print Result",
         "paid": "Lab fee paid",
-        "unpaid": "Lab fee unpaid"
+        "unpaid": "Lab fee unpaid",
+        "payFirst": "Pay the lab fee first, then record the result."
     }
 }

@@ -11,7 +11,7 @@ import Icon from '@/Components/Icon.vue';
 import Modal from '@/Components/Modal.vue';
 import QrScanner from '@/Components/QrScanner.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { nextTick, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import axios from 'axios';
 
@@ -21,6 +21,8 @@ const props = defineProps({
     counts: { type: Object, default: () => ({}) },
     filters: Object,
     canConfirm: Boolean,
+    labFee: { type: [Number, String], default: null },
+    currency: { type: String, default: '' },
 });
 
 const statusTabs = [
@@ -47,6 +49,11 @@ const badgeClass = (status) =>
 const statusLabel = (status) =>
     ({ clear: t('patientReg.screeningClear'), flagged: t('patientReg.screeningFlagged') })[status] ?? t('patientReg.screeningPending');
 const isPaid = (r) => !!r.lab_paid;
+// With a lab fee set, the result can only be recorded once it is paid
+// (the server refuses it too, see LabFeeGate).
+const hasLabFee = computed(() => props.labFee !== null && props.labFee !== '');
+const labFeeText = computed(() => `${Number(props.labFee).toLocaleString()} ${props.currency ?? ''}`.trim());
+const mustPayFirst = (r) => hasLabFee.value && !isPaid(r);
 const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
 
 // --- Scan a ticket QR ---
@@ -87,6 +94,27 @@ const openPrint = (id, win) => {
     const url = route('lab.print', { patientRegistration: id, autoprint: 1 });
     if (win) win.location.href = url;
     else window.open(url, '_blank');
+};
+
+// Pay the lab fee from here and print its receipt; the result buttons
+// unlock as soon as it is recorded.
+const paying = ref(false);
+const payLabFee = async () => {
+    paying.value = true;
+    resultError.value = '';
+    const receiptWindow = window.open('', '_blank');
+    try {
+        const { data } = await axios.post(route('payments.store-lab'), { patient_registration_id: selected.value.id });
+        if (receiptWindow) receiptWindow.location.href = data.data.receipt_url;
+        else window.open(data.data.receipt_url, '_blank');
+        selected.value = { ...selected.value, lab_paid: true };
+        router.reload({ only: ['registrations'] });
+    } catch (e) {
+        receiptWindow?.close();
+        resultError.value = e?.response?.data?.message ?? t('payments.labFeeFailed');
+    } finally {
+        paying.value = false;
+    }
 };
 
 const record = async (status) => {
@@ -211,9 +239,21 @@ const record = async (status) => {
                     <p class="text-sm text-gray-500">{{ selected.service?.name ?? '—' }} · {{ selected.register_day?.name ?? '—' }}</p>
                 </div>
 
-                <div class="rounded-md p-3 text-sm font-semibold" :class="isPaid(selected) ? 'bg-sky-50 text-sky-800' : 'bg-gray-100 text-gray-700'">
-                    <Icon :name="isPaid(selected) ? 'paid' : 'money_off'" class="ml-1" />
-                    {{ isPaid(selected) ? t('lab.paid') : t('lab.unpaid') }}
+                <div class="flex flex-wrap items-center justify-between gap-2 rounded-md p-3 text-sm font-semibold" :class="isPaid(selected) ? 'bg-sky-50 text-sky-800' : 'bg-gray-100 text-gray-700'">
+                    <span>
+                        <Icon :name="isPaid(selected) ? 'paid' : 'money_off'" class="ml-1" />
+                        {{ isPaid(selected) ? t('lab.paid') : t('lab.unpaid') }}
+                        <span v-if="hasLabFee" class="font-normal" dir="ltr">({{ labFeeText }})</span>
+                    </span>
+                    <button
+                        v-if="hasLabFee && !isPaid(selected)"
+                        type="button"
+                        :disabled="paying"
+                        @click="payLabFee"
+                        class="rounded-md bg-sky-700 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-800 disabled:opacity-50"
+                    >
+                        <Icon name="print" class="ml-1" />{{ t('payments.payLabFee') }}
+                    </button>
                 </div>
 
                 <div class="rounded-md p-3 text-sm font-semibold" :class="badgeClass(selected.screening_status)">
@@ -227,10 +267,11 @@ const record = async (status) => {
 
                 <template v-if="canConfirm">
                     <h4 class="text-sm font-medium text-gray-700">{{ t('lab.resultHeading') }}</h4>
+                    <p v-if="mustPayFirst(selected)" class="rounded-md bg-amber-50 p-3 text-sm text-amber-800">{{ t('lab.payFirst') }}</p>
                     <div class="grid grid-cols-2 gap-3">
                         <button
                             type="button"
-                            :disabled="submitting"
+                            :disabled="submitting || mustPayFirst(selected)"
                             @click="record('clear')"
                             class="rounded-md bg-green-700 px-4 py-3 text-sm font-semibold text-white hover:bg-green-800 disabled:opacity-50"
                         >
@@ -238,7 +279,7 @@ const record = async (status) => {
                         </button>
                         <button
                             type="button"
-                            :disabled="submitting"
+                            :disabled="submitting || mustPayFirst(selected)"
                             @click="record('flagged')"
                             class="rounded-md bg-red-700 px-4 py-3 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-50"
                         >
