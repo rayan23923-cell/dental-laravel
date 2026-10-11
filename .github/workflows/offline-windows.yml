@@ -118,9 +118,9 @@ jobs:
           Get-ChildItem C:\DentalClinicOffline\app\storage\logs -ErrorAction SilentlyContinue | ForEach-Object { Get-Content $_.FullName -Tail 40 }
           Get-ChildItem C:\DentalClinicOffline\data\*.err -ErrorAction SilentlyContinue | ForEach-Object { Get-Content $_.FullName -Tail 20 }
           if (-not $ok) { throw 'The offline package did not serve the login page.' }
-          $tables = & C:\DentalClinicOffline\mariadb\bin\mariadb.exe -uroot -h127.0.0.1 -P3307 -N -e "select count(*) from information_schema.tables where table_schema='dental'"
+          $tables = & C:\DentalClinicOffline\mariadb\bin\mariadb.exe --user=root --host=127.0.0.1 --port=3307 -N -e "select count(*) from information_schema.tables where table_schema='dental'"
           Write-Host "Tables: $tables"
-          $admin = & C:\DentalClinicOffline\mariadb\bin\mariadb.exe -uroot -h127.0.0.1 -P3307 -N -e "select username from dental.users where username='admin'"
+          $admin = & C:\DentalClinicOffline\mariadb\bin\mariadb.exe --user=root --host=127.0.0.1 --port=3307 -N -e "select username from dental.users where username='admin'"
           if ($admin -ne 'admin') { throw 'Admin account was not created.' }
 
   release:
