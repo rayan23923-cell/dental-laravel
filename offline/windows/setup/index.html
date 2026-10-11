@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>تجهيز الجهاز</title>
+<style>
+  :root { --bg:#f6f7fb; --card:#fff; --text:#1f2937; --muted:#6b7280; --accent:#4f46e5; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111827; --card:#1f2937; --text:#f3f4f6; --muted:#9ca3af; --accent:#818cf8; } }
+  body { margin:0; font-family: system-ui, Tahoma, sans-serif; background:var(--bg); color:var(--text); line-height:1.7; }
+  main { max-width:640px; margin:0 auto; padding:24px 16px; }
+  .card { background:var(--card); border-radius:12px; padding:16px 20px; margin-bottom:16px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+  h1 { font-size:1.4rem; } h2 { font-size:1.1rem; margin-top:0; }
+  .btn { display:inline-block; background:var(--accent); color:#fff; text-decoration:none; padding:12px 20px; border-radius:8px; font-weight:600; }
+  ol { padding-inline-start:20px; } .muted { color:var(--muted); font-size:.9rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>تجهيز الجهاز لنظام العيادة</h1>
+  <div class="card">
+    <p>مرة واحدة لكل جهاز: نزّل شهادة العيادة وثبّتها، ليعمل النظام عبر HTTPS وتعمل كاميرا مسح QR.</p>
+    <p><a class="btn" href="/ca.crt">تنزيل شهادة العيادة</a></p>
+  </div>
+  <div class="card">
+    <h2>أندرويد</h2>
+    <ol>
+      <li>نزّل الشهادة من الزر أعلاه.</li>
+      <li>الإعدادات ← الأمان (أو الأمان والخصوصية) ← إعدادات أمان أخرى ← تثبيت من مساحة التخزين ← <b>شهادة CA</b>.</li>
+      <li>اختر الملف <b>clinic-ca.crt</b> ووافق.</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h2>آيفون وآيباد</h2>
+    <ol>
+      <li>افتح هذه الصفحة في <b>Safari</b> ونزّل الشهادة، ثم اختر «سماح».</li>
+      <li>الإعدادات ← «تم تنزيل ملف التعريف» ← تثبيت.</li>
+      <li>الإعدادات ← عام ← حول ← إعدادات الثقة بالشهادات ← فعّل الثقة الكاملة للشهادة.</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h2>حاسوب ويندوز</h2>
+    <ol>
+      <li>نزّل الشهادة وافتحها ← تثبيت الشهادة ← الجهاز المحلي.</li>
+      <li>اختر «وضع كل الشهادات في المخزن التالي» ← <b>Trusted Root Certification Authorities</b> ← إنهاء.</li>
+      <li>أعد فتح المتصفح.</li>
+    </ol>
+  </div>
+  <div class="card">
+    <p>بعد التثبيت افتح النظام: <a href="/" id="go">https://clinic.lan</a></p>
+    <p class="muted">الشهادة خاصة بنظام العيادة على هذه الشبكة فقط.</p>
+  </div>
+</main>
+<script>
+  var a = document.getElementById('go');
+  a.href = 'https://' + location.host + '/';
+  a.textContent = a.href;
+</script>
+</body>
+</html>

@@ -7,7 +7,7 @@ if errorlevel 1 (
 )
 netsh advfirewall firewall delete rule name="DentalClinic Web" >nul 2>&1
 netsh advfirewall firewall delete rule name="DentalClinic DNS" >nul 2>&1
-netsh advfirewall firewall add rule name="DentalClinic Web" dir=in action=allow protocol=TCP localport=80 remoteip=localsubnet profile=any
+netsh advfirewall firewall add rule name="DentalClinic Web" dir=in action=allow protocol=TCP localport=80,443 remoteip=localsubnet profile=any
 netsh advfirewall firewall add rule name="DentalClinic DNS" dir=in action=allow protocol=UDP localport=53 remoteip=localsubnet profile=any
 echo Done. Devices on this network can now reach the system.
 pause

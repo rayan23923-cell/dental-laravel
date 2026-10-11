@@ -1,7 +1,7 @@
 # Writes php.ini, Caddyfile and Corefile for the current folder and network,
 # keeps APP_URL in app\.env in step with config.txt, and prints the
 # computer's LAN address (the only stdout line).
-param([string]$Root, [string]$ServerName, [int]$Workers, [int]$WebPort, [string]$ServerIp)
+param([string]$Root, [string]$ServerName, [int]$Workers, [string]$ServerIp)
 $ErrorActionPreference = 'Stop'
 $Root = (Resolve-Path $Root).Path.TrimEnd('\')
 $fwd = $Root -replace '\\', '/'
@@ -19,17 +19,19 @@ if (-not $ServerIp) {
 if (-not $ServerIp) { $ServerIp = '127.0.0.1' }
 
 $upstreams = (0..($Workers - 1) | ForEach-Object { "127.0.0.1:$(9100 + $_)" }) -join ' '
+$ca = "$fwd/caddy-data/caddy/pki/authorities/local"
 @"
 {
 	admin off
-	auto_https off
+	local_certs
+	skip_install_trust
 	log {
 		output file "$fwd/app/storage/logs/caddy.log"
 		level ERROR
 	}
 }
 
-:$WebPort {
+(app) {
 	root * "$fwd/app/public"
 	encode gzip
 	request_body {
@@ -42,6 +44,39 @@ $upstreams = (0..($Workers - 1) | ForEach-Object { "127.0.0.1:$(9100 + $_)" }) -
 		read_timeout 300s
 	}
 	file_server
+}
+
+# HTTPS for every device on the network (the browser camera needs it).
+# The certificate comes from this folder's own local authority; devices
+# install its root once from http://$ServerName/setup.
+https://$ServerName, https://$ServerIp {
+	tls internal
+	import app
+}
+
+# On this computer itself plain http works (localhost counts as secure).
+http://127.0.0.1, http://localhost {
+	import app
+}
+
+# Plain http on the network: the certificate and setup page, everything
+# else goes to https.
+http:// {
+	handle /ca.crt {
+		root * "$ca"
+		rewrite * /root.crt
+		header Content-Type application/x-x509-ca-cert
+		header Content-Disposition "attachment; filename=clinic-ca.crt"
+		file_server
+	}
+	handle /setup {
+		root * "$fwd/setup"
+		rewrite * /index.html
+		file_server
+	}
+	handle {
+		redir https://{host}{uri} 302
+	}
 }
 "@ | Set-Content -LiteralPath "$Root\Caddyfile" -Encoding ASCII
 
@@ -60,9 +95,10 @@ $upstreams = (0..($Workers - 1) | ForEach-Object { "127.0.0.1:$(9100 + $_)" }) -
 
 $envFile = "$Root\app\.env"
 if (Test-Path $envFile) {
-    $url = if ($WebPort -eq 80) { "http://$ServerName" } else { "http://${ServerName}:$WebPort" }
+    $url = "https://$ServerName"
     $lines = Get-Content -LiteralPath $envFile | ForEach-Object { if ($_ -like 'APP_URL=*') { "APP_URL=$url" } else { $_ } }
     Set-Content -LiteralPath $envFile -Value $lines -Encoding UTF8
 }
 
+Set-Content -LiteralPath "$Root\lan-ip.txt" -Value $ServerIp -Encoding ASCII
 Write-Output $ServerIp

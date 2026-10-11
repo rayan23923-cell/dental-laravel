@@ -2,11 +2,12 @@
 setlocal EnableExtensions
 title DentalClinic Offline
 set "ROOT=%~dp0"
+set "XDG_DATA_HOME=%ROOT%caddy-data"
+set "XDG_CONFIG_HOME=%ROOT%caddy-data"
 set "PATH=%ROOT%php;%ROOT%mariadb\bin;%PATH%"
 set "DBPORT=3307"
 set "SERVER_NAME=clinic.lan"
 set "PHP_WORKERS=16"
-set "WEB_PORT=80"
 set "SERVER_IP="
 for /f "usebackq eol=# tokens=1,* delims==" %%a in ("%ROOT%config.txt") do set "%%a=%%b"
 cd /d "%ROOT%"
@@ -15,7 +16,7 @@ echo ============================================
 echo   Dental Clinic - offline edition
 echo ============================================
 
-for /f "usebackq delims=" %%i in (`powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%prepare.ps1" -Root "%ROOT%." -ServerName "%SERVER_NAME%" -Workers %PHP_WORKERS% -WebPort %WEB_PORT% -ServerIp "%SERVER_IP%"`) do set "LAN_IP=%%i"
+for /f "usebackq delims=" %%i in (`powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%prepare.ps1" -Root "%ROOT%." -ServerName "%SERVER_NAME%" -Workers %PHP_WORKERS% -ServerIp "%SERVER_IP%"`) do set "LAN_IP=%%i"
 
 php -v >nul 2>&1
 if errorlevel 1 (
@@ -58,7 +59,7 @@ if not exist ".env" (
   copy /y ".env.offline" ".env" >nul
   php artisan key:generate --force
   cd /d "%ROOT%"
-  powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%prepare.ps1" -Root "%ROOT%." -ServerName "%SERVER_NAME%" -Workers %PHP_WORKERS% -WebPort %WEB_PORT% -ServerIp "%SERVER_IP%" >nul
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%prepare.ps1" -Root "%ROOT%." -ServerName "%SERVER_NAME%" -Workers %PHP_WORKERS% -ServerIp "%SERVER_IP%" >nul
   cd /d "%ROOT%app"
 )
 
@@ -80,22 +81,18 @@ cd /d "%ROOT%"
 start "DentalClinic-Workers" /min powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%workers.ps1" -Root "%ROOT%." -Count %PHP_WORKERS%
 start "DentalClinic-DNS" /min "%ROOT%coredns\coredns.exe" -conf "%ROOT%Corefile"
 
-set "ADDR=http://%SERVER_NAME%"
-set "IPADDR=http://%LAN_IP%"
-if not "%WEB_PORT%"=="80" (
-  set "ADDR=http://%SERVER_NAME%:%WEB_PORT%"
-  set "IPADDR=http://%LAN_IP%:%WEB_PORT%"
-)
-
 echo.
 echo The system is running.
-echo   Address for all devices:  %ADDR%
-echo   Or by number:             %IPADDR%
+echo   On every device:      https://%SERVER_NAME%
+echo   Or by number:         https://%LAN_IP%
+echo   On this computer:     http://localhost
 echo.
-echo   For the name to work on other devices, set the router (Deco) DNS
-echo   server to %LAN_IP%. Run Setup-Firewall.bat once as administrator.
+echo   Once per device, open http://%SERVER_NAME%/setup and install the
+echo   clinic certificate (needed for HTTPS and the QR camera).
+echo   For the name to work, set the router (Deco) DNS server to %LAN_IP%.
+echo   Run Setup-Firewall.bat once as administrator.
 echo.
 echo Keep this window open. To stop everything run Stop.bat
 echo.
-start "" "http://127.0.0.1:%WEB_PORT%"
+start "" "http://localhost"
 "%ROOT%caddy\caddy.exe" run --config "%ROOT%Caddyfile" --adapter caddyfile
