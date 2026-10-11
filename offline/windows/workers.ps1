@@ -2,31 +2,33 @@
 # 127.0.0.1:9100.. and restarts any that exit. Caddy spreads requests over them.
 param([string]$Root, [int]$Count)
 $Root = (Resolve-Path $Root).Path.TrimEnd('\')
-$log = "$Root\app\storage\logs\workers.log"
+$logDir = "$Root\app\storage\logs"
+$log = "$logDir\workers.log"
 
 function Write-Log([string]$msg) {
     Add-Content -LiteralPath $log -Value "$(Get-Date -Format s) $msg" -ErrorAction SilentlyContinue
 }
 
+# Each worker serves this many requests, then exits and is restarted fresh.
+$env:PHP_FCGI_MAX_REQUESTS = '10000'
+$env:PHPRC = "$Root\php"
+
 function Start-Worker([int]$port) {
-    $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = "$Root\php\php-cgi.exe"
-    $psi.Arguments = "-b 127.0.0.1:$port"
-    $psi.WorkingDirectory = "$Root\app\public"
-    $psi.UseShellExecute = $false
-    $psi.CreateNoWindow = $true
-    $psi.EnvironmentVariables['PHP_FCGI_MAX_REQUESTS'] = '0'
-    $psi.EnvironmentVariables['PHPRC'] = "$Root\php"
-    return [System.Diagnostics.Process]::Start($psi)
+    # Started through cmd with its output sent to a file: php-cgi needs valid
+    # standard handles, and launched bare from a hidden process it exits at once.
+    $cmd = "`"$Root\php\php-cgi.exe`" -b 127.0.0.1:$port >> `"$logDir\php-cgi.log`" 2>&1"
+    return Start-Process -FilePath cmd.exe -ArgumentList '/c', $cmd -WorkingDirectory "$Root\app\public" -WindowStyle Hidden -PassThru
 }
 
 Write-Log "starting $Count workers"
 $procs = @{}
+$restarts = 0
 while ($true) {
     for ($i = 0; $i -lt $Count; $i++) {
         $p = $procs[$i]
         if ($p -and $p.HasExited) {
-            Write-Log "worker $(9100 + $i) exited with code $($p.ExitCode), restarting"
+            $restarts++
+            if ($restarts -le 50) { Write-Log "worker $(9100 + $i) exited, restarting" }
             $p = $null
         }
         if (-not $p) {
