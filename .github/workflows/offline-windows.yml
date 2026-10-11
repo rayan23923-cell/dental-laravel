@@ -127,13 +127,23 @@ jobs:
           Start-Sleep -Seconds 60
           Write-Host '== early check'
           Get-Process php-cgi,caddy -ErrorAction SilentlyContinue | Format-Table Name,Id | Out-String | Write-Host
-          Get-Content C:\DentalClinicOffline\app\storage\logs\workers.log -ErrorAction SilentlyContinue
-          $t = Start-Process -FilePath C:\DentalClinicOffline\php\php-cgi.exe -ArgumentList '-b', '127.0.0.1:9199' -PassThru -NoNewWindow
-          Start-Sleep -Seconds 3
-          Write-Host "manual php-cgi exited: $($t.HasExited) code: $(if ($t.HasExited) { $t.ExitCode })"
-          if (-not $t.HasExited) { Stop-Process -Id $t.Id -Force }
+          Get-Content C:\DentalClinicOffline\app\storage\logs\workers.log -TotalCount 5 -ErrorAction SilentlyContinue
+          $env:PHPRC = 'C:\DentalClinicOffline\php'
+          foreach ($v in @(
+              @{ n = 'as packaged'; a = '' },
+              @{ n = 'no opcache'; a = '-d opcache.enable=0 ' })) {
+            Remove-Item C:\cgi.out -ErrorAction SilentlyContinue
+            $t = Start-Process -FilePath cmd.exe -ArgumentList '/c', "C:\DentalClinicOffline\php\php-cgi.exe $($v.a)-b 127.0.0.1:9199 > C:\cgi.out 2>&1" -PassThru -WindowStyle Hidden
+            Start-Sleep -Seconds 4
+            $listening = [bool](Get-NetTCPConnection -LocalPort 9199 -State Listen -ErrorAction SilentlyContinue)
+            Write-Host "php-cgi $($v.n): exited=$($t.HasExited) listening=$listening"
+            Get-Content C:\cgi.out -ErrorAction SilentlyContinue | Select-Object -First 15
+            Get-Process php-cgi -ErrorAction SilentlyContinue | Where-Object { $_.Path -like 'C:\DentalClinicOffline*' } | Out-Null
+            Stop-Process -Id $t.Id -Force -ErrorAction SilentlyContinue
+            Get-CimInstance Win32_Process -Filter "Name='php-cgi.exe'" | Where-Object { $_.CommandLine -like '*9199*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+          }
           $ok = $false
-          for ($i = 0; $i -lt 40; $i++) {
+          for ($i = 0; $i -lt 12; $i++) {
             Start-Sleep -Seconds 5
             try {
               $r = Invoke-WebRequest -Uri http://127.0.0.1:8080/login -UseBasicParsing -TimeoutSec 10
@@ -148,7 +158,7 @@ jobs:
             Write-Host '== Caddyfile'; Get-Content C:\DentalClinicOffline\Caddyfile -ErrorAction SilentlyContinue
             Write-Host '== caddy validate'; & C:\DentalClinicOffline\caddy\caddy.exe validate --config C:\DentalClinicOffline\Caddyfile --adapter caddyfile 2>&1 | Select-Object -Last 10
             Write-Host '== php-cgi'; & C:\DentalClinicOffline\php\php-cgi.exe -v 2>&1
-            Write-Host '== workers.log'; Get-Content C:\DentalClinicOffline\app\storage\logs\workers.log -ErrorAction SilentlyContinue
+            Write-Host '== workers.log'; Get-Content C:\DentalClinicOffline\app\storage\logs\workers.log -TotalCount 20 -ErrorAction SilentlyContinue
             Write-Host '== listening'; Get-NetTCPConnection -State Listen | Where-Object { $_.LocalPort -in 53,80,443,3307,8080,8443,9100,9101 } | Format-Table LocalAddress,LocalPort,OwningProcess | Out-String | Write-Host
             throw 'The offline package did not serve the login page.'
           }
