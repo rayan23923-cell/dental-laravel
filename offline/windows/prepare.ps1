@@ -1,7 +1,7 @@
 # Writes php.ini, Caddyfile and Corefile for the current folder and network,
 # keeps APP_URL in app\.env in step with config.txt, and prints the
 # computer's LAN address (the only stdout line).
-param([string]$Root, [string]$ServerName, [int]$Workers, [string]$ServerIp)
+param([string]$Root, [string]$ServerName, [int]$Workers, [string]$ServerIp, [int]$HttpPort = 80, [int]$HttpsPort = 443)
 $ErrorActionPreference = 'Stop'
 $Root = (Resolve-Path $Root).Path.TrimEnd('\')
 $fwd = $Root -replace '\\', '/'
@@ -20,9 +20,12 @@ if (-not $ServerIp) { $ServerIp = '127.0.0.1' }
 
 $upstreams = (0..($Workers - 1) | ForEach-Object { "127.0.0.1:$(9100 + $_)" }) -join ' '
 $ca = "$fwd/caddy-data/caddy/pki/authorities/local"
+$httpsHost = if ($HttpsPort -eq 443) { '{host}' } else { "{host}:$HttpsPort" }
 @"
 {
 	admin off
+	http_port $HttpPort
+	https_port $HttpsPort
 	local_certs
 	skip_install_trust
 	log {
@@ -49,19 +52,19 @@ $ca = "$fwd/caddy-data/caddy/pki/authorities/local"
 # HTTPS for every device on the network (the browser camera needs it).
 # The certificate comes from this folder's own local authority; devices
 # install its root once from http://$ServerName/setup.
-https://$ServerName, https://$ServerIp {
+https://${ServerName}:$HttpsPort, https://${ServerIp}:$HttpsPort {
 	tls internal
 	import app
 }
 
 # On this computer itself plain http works (localhost counts as secure).
-http://127.0.0.1, http://localhost {
+http://127.0.0.1:$HttpPort, http://localhost:$HttpPort {
 	import app
 }
 
 # Plain http on the network: the certificate and setup page, everything
 # else goes to https.
-http:// {
+http://:$HttpPort {
 	handle /ca.crt {
 		root * "$ca"
 		rewrite * /root.crt
@@ -75,7 +78,7 @@ http:// {
 		file_server
 	}
 	handle {
-		redir https://{host}{uri} 302
+		redir https://$httpsHost{uri} 302
 	}
 }
 "@ | Set-Content -LiteralPath "$Root\Caddyfile" -Encoding ASCII
@@ -95,7 +98,7 @@ http:// {
 
 $envFile = "$Root\app\.env"
 if (Test-Path $envFile) {
-    $url = "https://$ServerName"
+    $url = if ($HttpsPort -eq 443) { "https://$ServerName" } else { "https://${ServerName}:$HttpsPort" }
     $lines = Get-Content -LiteralPath $envFile | ForEach-Object { if ($_ -like 'APP_URL=*') { "APP_URL=$url" } else { $_ } }
     Set-Content -LiteralPath $envFile -Value $lines -Encoding UTF8
 }
