@@ -20,14 +20,21 @@
 return [
     'windows' => [
         'version' => '1.0.1',
-        'url' => 'https://cdclinics.com/downloads/DentalClinicSetup-1.0.1.exe',
-        'zip_url' => 'https://cdclinics.com/downloads/DentalClinicSetup-1.0.1.zip',
+        'url' => 'https://dental.azoclinic.duckdns.org/downloads/DentalClinicSetup-1.0.1.exe',
+        'zip_url' => 'https://dental.azoclinic.duckdns.org/downloads/DentalClinicSetup-1.0.1.zip',
         'notes' => null,
     ],
     'android' => [
         'version' => '1.0.1',
-        'url' => 'https://cdclinics.com/downloads/DentalClinicApp-1.0.1.apk',
-        'zip_url' => 'https://cdclinics.com/downloads/DentalClinicApp-1.0.1.zip',
+        'url' => 'https://dental.azoclinic.duckdns.org/downloads/DentalClinicApp-1.0.1.apk',
+        'zip_url' => 'https://dental.azoclinic.duckdns.org/downloads/DentalClinicApp-1.0.1.zip',
+        'notes' => null,
+    ],
+    'ios' => [
+        'version' => '1.0.1',
+        // Unsigned build — installed with Sideloadly/AltStore under the
+        // user's own Apple ID (see the iPhone steps on /download).
+        'url' => 'https://dental.azoclinic.duckdns.org/downloads/DentalClinicApp-1.0.1.ipa',
         'notes' => null,
     ],
 ];

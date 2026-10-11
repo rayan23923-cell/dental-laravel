@@ -19,11 +19,11 @@
         .sub { color: #94a3b8; margin-bottom: 2.5rem; font-size: .95rem; }
         .platforms {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(3, 1fr);
             gap: 1.25rem;
             text-align: start;
         }
-        @media (max-width: 560px) {
+        @media (max-width: 760px) {
             .platforms { grid-template-columns: 1fr; }
         }
         .platform-card {
@@ -85,6 +85,12 @@
             <a href="{{ $android['zip_url'] }}" class="download-btn">⬇ تحميل للأندرويد (ZIP)</a>
             <p class="meta">الإصدار {{ $android['version'] }}</p>
         </div>
+        <div class="platform-card">
+            <h2>🍎 آيفون</h2>
+            <p class="platform-sub">iOS 15.5 فأحدث</p>
+            <a href="{{ $ios['url'] }}" class="download-btn">⬇ تحميل للآيفون (IPA)</a>
+            <p class="meta">الإصدار {{ $ios['version'] }}</p>
+        </div>
     </div>
 
     <div class="card">
@@ -115,6 +121,17 @@
             <li>إذا ظهرت رسالة تحذير "قد يكون هذا التطبيق ضارًا" أو ما شابه، اسمح بالتثبيت من هذا المصدر (قد يطلب منك تفعيل "Install unknown apps" لتطبيق مدير الملفات) — طبيعي لأن التطبيق غير منشور على متجر Google Play بعد.</li>
             <li>اضغط تثبيت (Install) وانتظر انتهاء العملية.</li>
             <li>لتحديث التطبيق لاحقًا، نزّل أحدث نسخة من هذه الصفحة وثبّتها فوق النسخة الحالية (لا يوجد تحديث تلقائي على أندرويد بعد).</li>
+        </ol>
+    </div>
+
+    <div class="card">
+        <h3>خطوات التثبيت — آيفون</h3>
+        <ol>
+            <li>الملف غير موقّع من Apple، لذلك يُثبَّت من الكمبيوتر وليس من المتصفح مباشرة.</li>
+            <li>نزّل <code>DentalClinicApp-{{ $ios['version'] }}.ipa</code> على الكمبيوتر، وثبّت برنامج <strong>Sideloadly</strong> أو <strong>AltStore</strong>.</li>
+            <li>وصّل الآيفون بالكابل، اسحب ملف IPA إلى البرنامج وسجّل بحساب Apple ID الخاص بك ثم اضغط Start.</li>
+            <li>على الآيفون: الإعدادات ← عام ← إدارة الأجهزة (VPN & Device Management) ← وثّق حسابك.</li>
+            <li>مع حساب Apple ID مجاني يجب إعادة التثبيت أو التحديث كل 7 أيام. ميزة NFC غير متوفرة في هذه النسخة.</li>
         </ol>
     </div>
 </div>

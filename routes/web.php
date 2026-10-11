@@ -122,6 +122,7 @@ Route::get('/download', function () {
         'clinic' => ClinicSetting::current(),
         'windows' => config('desktop_releases.windows'),
         'android' => config('desktop_releases.android'),
+        'ios' => config('desktop_releases.ios'),
     ]);
 })->name('download');
 
