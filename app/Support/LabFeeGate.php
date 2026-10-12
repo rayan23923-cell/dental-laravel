@@ -8,9 +8,11 @@ use App\Models\Payment;
 use Illuminate\Support\Collection;
 
 /**
- * The lab result needs the lab fee paid first (2026-10-11). When no fee is
- * configured in clinic settings there is nothing to pay, so the lab is not
- * blocked.
+ * The lab fee is paid when the result is recorded (2026-10-12, by request):
+ * the lab picks "سليم" or "غير سليم" and prints one slip that is already
+ * paid, instead of a separate payment receipt first. `chargeIfDue()` books
+ * the fee as the result is saved. When no fee is configured there is
+ * nothing to pay.
  *
  * A clear result stays valid for `lab_validity_days` (2026-10-12): the same
  * patient (same phone) registering again inside that window is not screened
@@ -18,24 +20,34 @@ use Illuminate\Support\Collection;
  */
 class LabFeeGate
 {
-    /** The refusal message, or null when the result may be recorded. */
-    public static function unpaidMessage(PatientRegistration $registration): ?string
+    /**
+     * Records the lab fee for this registration unless there is no fee,
+     * it is already paid, or an earlier valid result is being reused.
+     */
+    public static function chargeIfDue(PatientRegistration $registration, ?string $paidBy = null): ?Payment
     {
         $fee = ClinicSetting::current()->lab_fee;
 
-        if ($fee === null || (float) $fee <= 0) {
-            return null;
-        }
-
-        if (self::previousScreening($registration)) {
+        if ($fee === null || (float) $fee <= 0 || self::previousScreening($registration)) {
             return null;
         }
 
         $paid = Payment::where('patient_registration_id', $registration->id)
             ->where('type', Payment::TYPE_LAB)
+            ->lockForUpdate()
             ->exists();
 
-        return $paid ? null : 'يجب دفع أجور المختبر قبل تسجيل نتيجة الفحص.';
+        if ($paid) {
+            return null;
+        }
+
+        return Payment::create([
+            'patient_registration_id' => $registration->id,
+            'amount' => $fee,
+            'paid_by' => $paidBy,
+            'paid_at' => now(),
+            'type' => Payment::TYPE_LAB,
+        ]);
     }
 
     /** Days a clear result stays valid; 0 turns reuse off. */

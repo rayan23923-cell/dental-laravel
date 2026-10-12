@@ -58,7 +58,12 @@
                     <tr><th>أجور المختبر</th><td>معفى — فحص سابق صالح</td></tr>
                     <tr><th>تاريخ الفحص السابق</th><td dir="ltr" style="text-align:left">{{ \Illuminate\Support\Carbon::parse($registration->screeningReusedFrom->screening_checked_at)->format('Y-m-d') }}</td></tr>
                 @else
-                    <tr><th>أجور المختبر</th><td>{{ $registration->lab_paid ? 'مدفوعة' : 'غير مدفوعة' }}</td></tr>
+                    {{-- The fee is taken when the result is recorded, so this
+                         one slip is also the payment receipt (2026-10-12). --}}
+                    @if ($registration->lab_paid)
+                        <tr><th>أجور المختبر</th><td>{{ number_format((float) $registration->lab_fee_paid) }} {{ $settings->clinic_currency }}</td></tr>
+                        <tr><th>الحالة</th><td><strong>مدفوع</strong></td></tr>
+                    @endif
                 @endif
                 <tr><th>تاريخ الفحص</th><td dir="ltr" style="text-align:left">{{ $registration->screening_checked_at ? \Illuminate\Support\Carbon::parse($registration->screening_checked_at)->format('Y-m-d H:i') : '—' }}</td></tr>
                 <tr><th>الفاحص</th><td>{{ $registration->screeningCheckedBy?->full_name ?? '—' }}</td></tr>

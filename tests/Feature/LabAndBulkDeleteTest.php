@@ -44,7 +44,7 @@ class LabAndBulkDeleteTest extends TestCase
         $a = $this->registration(['name' => 'Ali', 'screening_status' => 'flagged', 'screening_checked_at' => now()]);
 
         $this->actingAs($this->admin())->get("/lab/{$a->id}/print?autoprint=1")
-            ->assertOk()->assertSee('غير سليم')->assertSee('غير مدفوع')->assertSee('data:image/png;base64', false)->assertSee('window.print()', false);
+            ->assertOk()->assertSee('غير سليم')->assertDontSee('مدفوع')->assertSee('data:image/png;base64', false)->assertSee('window.print()', false);
     }
 
     public function test_lab_fee_payment_skips_screening_gate_and_prints_receipt(): void
@@ -74,24 +74,29 @@ class LabAndBulkDeleteTest extends TestCase
         $this->actingAs($admin)->get('/lab')->assertInertia(fn ($p) => $p->where('registrations.data.0.lab_paid', true));
     }
 
-    public function test_lab_result_needs_lab_fee_paid_first(): void
+    public function test_recording_a_lab_result_charges_the_fee_once_and_prints_it_paid(): void
     {
         \App\Models\ClinicSetting::current(); // first call creates the row
         \App\Models\ClinicSetting::current()->update(['lab_fee' => 5000]);
         $a = $this->registration(['name' => 'Ali']);
+        $b = $this->registration(['name' => 'Sara', 'phone' => '0779']);
         $admin = $this->admin();
 
-        $this->actingAs($admin)->postJson("/patient-registrations/{$a->id}/screening", ['screening_status' => 'clear'])
-            ->assertStatus(422);
-        $this->actingAs($admin)->postJson("/api/v1/patient-registrations/{$a->id}/screening", ['screening_status' => 'clear'])
-            ->assertStatus(422);
-        $this->assertSame('pending', $a->fresh()->screening_status);
-
-        $this->actingAs($admin)->postJson('/payments/lab', ['patient_registration_id' => $a->id])->assertCreated();
-
+        $this->actingAs($admin)->postJson("/patient-registrations/{$a->id}/screening", ['screening_status' => 'flagged'])
+            ->assertOk();
+        $this->assertSame('flagged', $a->fresh()->screening_status);
+        // Recording it again (a correction) does not charge twice.
         $this->actingAs($admin)->postJson("/patient-registrations/{$a->id}/screening", ['screening_status' => 'clear'])
             ->assertOk();
-        $this->assertSame('clear', $a->fresh()->screening_status);
+        $this->assertSame(1, \App\Models\Payment::where('patient_registration_id', $a->id)->where('type', 'lab')->count());
+        $this->assertDatabaseHas('payments', ['patient_registration_id' => $a->id, 'type' => 'lab', 'amount' => 5000]);
+
+        $this->actingAs($admin)->postJson("/api/v1/patient-registrations/{$b->id}/screening", ['screening_status' => 'clear'])
+            ->assertOk();
+        $this->assertDatabaseHas('payments', ['patient_registration_id' => $b->id, 'type' => 'lab', 'amount' => 5000]);
+
+        $this->actingAs($admin)->get("/lab/{$a->id}/print")->assertOk()
+            ->assertSee('سليم')->assertSee('5,000')->assertSee('مدفوع');
     }
 
     public function test_lab_result_allowed_when_no_lab_fee_set(): void
@@ -100,6 +105,7 @@ class LabAndBulkDeleteTest extends TestCase
 
         $this->actingAs($this->admin())->postJson("/patient-registrations/{$a->id}/screening", ['screening_status' => 'flagged'])
             ->assertOk();
+        $this->assertDatabaseMissing('payments', ['patient_registration_id' => $a->id]);
     }
 
     public function test_registration_charges_the_service_price(): void
@@ -191,7 +197,8 @@ class LabAndBulkDeleteTest extends TestCase
 
         // Older than the validity window: screen and pay as usual.
         $this->actingAs($admin)->postJson("/lab/{$other->id}/reuse")->assertStatus(422);
-        $this->actingAs($admin)->postJson("/patient-registrations/{$other->id}/screening", ['screening_status' => 'clear'])->assertStatus(422);
+        $this->actingAs($admin)->postJson("/patient-registrations/{$other->id}/screening", ['screening_status' => 'clear'])->assertOk();
+        $this->assertDatabaseHas('payments', ['patient_registration_id' => $other->id, 'type' => 'lab']);
 
         // A reused result does not extend the window for the next visit.
         $old->update(['screening_checked_at' => now()->subDays(100)]);

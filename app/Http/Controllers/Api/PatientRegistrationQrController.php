@@ -13,6 +13,7 @@ use App\Support\LabFeeGate;
 use App\Support\RegistrationPaymentState;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Response;
 use Illuminate\Validation\Rule;
 
@@ -119,15 +120,17 @@ class PatientRegistrationQrController extends Controller
             'screening_status' => ['required', Rule::in(['clear', 'flagged'])],
         ]);
 
-        if ($message = LabFeeGate::unpaidMessage($patientRegistration)) {
-            return response()->json(['message' => $message], 422);
-        }
+        // The lab fee is taken with the result (2026-10-12), so the lab
+        // prints one paid slip; see LabFeeGate::chargeIfDue().
+        DB::transaction(function () use ($patientRegistration, $validated, $request) {
+            LabFeeGate::chargeIfDue($patientRegistration);
 
-        $patientRegistration->update([
-            'screening_status' => $validated['screening_status'],
-            'screening_checked_by' => $request->user()->id,
-            'screening_checked_at' => now(),
-        ]);
+            $patientRegistration->update([
+                'screening_status' => $validated['screening_status'],
+                'screening_checked_by' => $request->user()->id,
+                'screening_checked_at' => now(),
+            ]);
+        });
 
         return $this->stateResponse($patientRegistration->fresh(['service', 'registerDay']));
     }

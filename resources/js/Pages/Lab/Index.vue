@@ -50,14 +50,14 @@ const badgeClass = (status) =>
 const statusLabel = (status) =>
     ({ clear: t('patientReg.screeningClear'), flagged: t('patientReg.screeningFlagged') })[status] ?? t('patientReg.screeningPending');
 const isPaid = (r) => !!r.lab_paid;
-// With a lab fee set, the result can only be recorded once it is paid
-// (the server refuses it too, see LabFeeGate).
+// The lab fee is taken with the result (2026-10-12): picking "سليم" or
+// "غير سليم" records the payment and prints one paid slip (LabFeeGate).
 const hasLabFee = computed(() => props.labFee !== null && props.labFee !== '');
 const labFeeText = computed(() => `${Number(props.labFee).toLocaleString()} ${props.currency ?? ''}`.trim());
 // A clear result from the last `validityDays` (same phone) is reused
 // instead: no new screening and nothing to pay (LabFeeGate).
 const canReuse = (r) => r.screening_status === 'pending' && !!r.previous_screening;
-const mustPayFirst = (r) => hasLabFee.value && !isPaid(r) && !canReuse(r);
+const feeDue = (r) => hasLabFee.value && !isPaid(r) && !canReuse(r);
 const placeAndDay = (r) => [r.service?.name ?? '—', r.register_day?.name].filter(Boolean).join(' · ');
 const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
 
@@ -92,34 +92,13 @@ const selected = ref(null);
 const submitting = ref(false);
 const resultError = ref('');
 
-// Saving a result prints the lab slip (result + patient QR). The tab is
+// Saving a result prints the lab slip (result, paid fee, patient QR). The tab is
 // opened before the request, while still inside the click, so browsers
 // don't block it as a pop-up; it is pointed at the slip once saved.
 const openPrint = (id, win) => {
     const url = route('lab.print', { patientRegistration: id, autoprint: 1 });
     if (win) win.location.href = url;
     else window.open(url, '_blank');
-};
-
-// Pay the lab fee from here and print its receipt; the result buttons
-// unlock as soon as it is recorded.
-const paying = ref(false);
-const payLabFee = async () => {
-    paying.value = true;
-    resultError.value = '';
-    const receiptWindow = window.open('', '_blank');
-    try {
-        const { data } = await axios.post(route('payments.store-lab'), { patient_registration_id: selected.value.id });
-        if (receiptWindow) receiptWindow.location.href = data.data.receipt_url;
-        else window.open(data.data.receipt_url, '_blank');
-        selected.value = { ...selected.value, lab_paid: true };
-        router.reload({ only: ['registrations'] });
-    } catch (e) {
-        receiptWindow?.close();
-        resultError.value = e?.response?.data?.message ?? t('payments.labFeeFailed');
-    } finally {
-        paying.value = false;
-    }
 };
 
 const reuse = async () => {
@@ -279,21 +258,10 @@ const record = async (status) => {
                     </button>
                 </div>
 
-                <div v-if="!canReuse(selected)" class="flex flex-wrap items-center justify-between gap-2 rounded-md p-3 text-sm font-semibold" :class="isPaid(selected) ? 'bg-sky-50 text-sky-800' : 'bg-gray-100 text-gray-700'">
-                    <span>
-                        <Icon :name="isPaid(selected) ? 'paid' : 'money_off'" class="ml-1" />
-                        {{ isPaid(selected) ? t('lab.paid') : t('lab.unpaid') }}
-                        <span v-if="hasLabFee" class="font-normal" dir="ltr">({{ labFeeText }})</span>
-                    </span>
-                    <button
-                        v-if="hasLabFee && !isPaid(selected)"
-                        type="button"
-                        :disabled="paying"
-                        @click="payLabFee"
-                        class="rounded-md bg-sky-700 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-800 disabled:opacity-50"
-                    >
-                        <Icon name="print" class="ml-1" />{{ t('payments.payLabFee') }}
-                    </button>
+                <div v-if="!canReuse(selected) && hasLabFee" class="flex items-center gap-1 rounded-md p-3 text-sm font-semibold" :class="isPaid(selected) ? 'bg-sky-50 text-sky-800' : 'bg-amber-50 text-amber-800'">
+                    <Icon :name="isPaid(selected) ? 'paid' : 'payments'" class="ml-1" />
+                    <span>{{ isPaid(selected) ? t('lab.paid') : t('lab.feeWithResult') }}</span>
+                    <span class="font-normal" dir="ltr">({{ labFeeText }})</span>
                 </div>
 
                 <div class="rounded-md p-3 text-sm font-semibold" :class="badgeClass(selected.screening_status)">
@@ -308,23 +276,24 @@ const record = async (status) => {
                 <template v-if="canConfirm">
                     <h4 v-if="canReuse(selected)" class="text-xs text-gray-500">{{ t('lab.orScreenAgain') }}</h4>
                     <h4 v-else class="text-sm font-medium text-gray-700">{{ t('lab.resultHeading') }}</h4>
-                    <p v-if="mustPayFirst(selected)" class="rounded-md bg-amber-50 p-3 text-sm text-amber-800">{{ t('lab.payFirst') }}</p>
                     <div class="grid grid-cols-2 gap-3">
                         <button
                             type="button"
-                            :disabled="submitting || mustPayFirst(selected)"
+                            :disabled="submitting"
                             @click="record('clear')"
                             class="rounded-md bg-green-700 px-4 py-3 text-sm font-semibold text-white hover:bg-green-800 disabled:opacity-50"
                         >
                             <Icon name="check_circle" class="ml-1" />{{ t('patientReg.screeningClear') }}
+                            <span v-if="feeDue(selected)" class="block text-xs font-normal opacity-90">{{ t('lab.payAndPrint') }}</span>
                         </button>
                         <button
                             type="button"
-                            :disabled="submitting || mustPayFirst(selected)"
+                            :disabled="submitting"
                             @click="record('flagged')"
                             class="rounded-md bg-red-700 px-4 py-3 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-50"
                         >
                             <Icon name="cancel" class="ml-1" />{{ t('patientReg.screeningFlagged') }}
+                            <span v-if="feeDue(selected)" class="block text-xs font-normal opacity-90">{{ t('lab.payAndPrint') }}</span>
                         </button>
                     </div>
                 </template>
