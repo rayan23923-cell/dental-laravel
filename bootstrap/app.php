@@ -12,6 +12,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Wi-Fi connectivity checks on the offline network (2026-10-12).
+        $middleware->prepend(\App\Http\Middleware\AnswerConnectivityChecks::class);
+
         $middleware->web(append: [
             // Must run before HandleInertiaRequests — that middleware
             // shares app()->getLocale() with the frontend and needs the

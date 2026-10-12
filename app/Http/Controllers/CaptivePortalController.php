@@ -11,7 +11,8 @@ use Symfony\Component\HttpFoundation\Response;
  * Opens the system on its own when a device joins the clinic Wi-Fi
  * (2026-10-12, by request; offline package only). The offline DNS points
  * the phones' and computers' "is there internet?" check addresses at this
- * computer, and Caddy sends those checks here.
+ * computer; Caddy passes them to the app untouched and the
+ * AnswerConnectivityChecks middleware hands them here by host name.
  *
  * A device that has not opened the system yet gets a redirect, which makes
  * it show the "sign in to network" page with our setup page in it. Once it
@@ -24,10 +25,20 @@ class CaptivePortalController extends Controller
     /** How long a device counts as having seen the page (then it opens again). */
     public const SEEN_HOURS = 12;
 
+    /** Kept in step with $captiveHosts in offline/windows/prepare.ps1. */
+    public const HOSTS = [
+        'connectivitycheck.gstatic.com', 'connectivitycheck.android.com', 'clients1.google.com', 'clients3.google.com',
+        'connectivitycheck.samsung.com', 'connect.rom.miui.com', 'conn1.oppomobile.com', 'conn2.oppomobile.com',
+        'connectivitycheck.platform.hicloud.com', 'cp.cloudflare.com',
+        'captive.apple.com', 'www.appleiphonecell.com', 'www.itools.info', 'www.ibook.info', 'www.airport.us', 'www.thinkdifferent.us',
+        'www.msftconnecttest.com', 'msftconnecttest.com', 'www.msftncsi.com', 'detectportal.firefox.com',
+        'nmcheck.gnome.org', 'connectivity-check.ubuntu.com',
+    ];
+
     public function check(Request $request): Response
     {
         if (Cache::has($this->key($request))) {
-            return $this->success((string) $request->query('h'), (string) $request->query('p'));
+            return $this->success($request->getHost(), $request->path());
         }
 
         return redirect()->away('http://'.$this->serverHost().'/portal', 302);

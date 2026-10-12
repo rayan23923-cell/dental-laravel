@@ -28,7 +28,7 @@ if (-not $ServerIp) { $ServerIp = '127.0.0.1' }
 
 # "Is there internet?" addresses devices check on joining a Wi-Fi. With
 # AUTO_OPEN the DNS points them here and the app answers (see
-# App\Http\Controllers\CaptivePortalController): the first check opens
+# App\Http\Controllers\CaptivePortalController, same host list): the first check opens
 # the setup page, later ones say "connected". Devices only probe port 80.
 $captiveHosts = @(
     'connectivitycheck.gstatic.com', 'connectivitycheck.android.com', 'clients1.google.com', 'clients3.google.com',
@@ -43,12 +43,7 @@ $captiveCaddy = if ($captiveOn) {
     @"
 	@captive host $($captiveHosts -join ' ')
 	handle @captive {
-		# Inner block: a rewrite next to php_fastcgi's own rewrite would
-		# cancel it (rewrites in one block are exclusive), giving a 404.
-		rewrite * /captive-check?h={host}&p={path}
-		handle {
-			import app
-		}
+		import app
 	}
 	handle /portal {
 		import app
