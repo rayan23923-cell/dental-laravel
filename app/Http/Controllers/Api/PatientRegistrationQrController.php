@@ -9,6 +9,8 @@ use App\Models\PatientRegistration;
 use App\Services\PatientScreeningException;
 use App\Services\PatientScreeningGate;
 use App\Support\QrCodeFactory;
+use App\Support\LabFeeGate;
+use App\Support\RegistrationPaymentState;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -117,10 +119,35 @@ class PatientRegistrationQrController extends Controller
             'screening_status' => ['required', Rule::in(['clear', 'flagged'])],
         ]);
 
+        if ($message = LabFeeGate::unpaidMessage($patientRegistration)) {
+            return response()->json(['message' => $message], 422);
+        }
+
         $patientRegistration->update([
             'screening_status' => $validated['screening_status'],
             'screening_checked_by' => $request->user()->id,
             'screening_checked_at' => now(),
+        ]);
+
+        return $this->stateResponse($patientRegistration->fresh(['service', 'registerDay']));
+    }
+
+    /**
+     * Reuse a still-valid earlier clear result (2026-10-12) — same as the
+     * web lab's `LabController::reuse()`: no new screening, no lab fee.
+     */
+    public function reuseScreening(Request $request, PatientRegistration $patientRegistration): JsonResponse
+    {
+        $previous = LabFeeGate::previousScreening($patientRegistration);
+        if (! $previous) {
+            return response()->json(['message' => 'لا يوجد فحص سابق صالح لهذا المريض.'], 422);
+        }
+
+        $patientRegistration->update([
+            'screening_status' => 'clear',
+            'screening_checked_by' => $request->user()->id,
+            'screening_checked_at' => now(),
+            'screening_reused_from' => $previous->id,
         ]);
 
         return $this->stateResponse($patientRegistration->fresh(['service', 'registerDay']));
@@ -136,21 +163,11 @@ class PatientRegistrationQrController extends Controller
      */
     private function stateResponse(PatientRegistration $registration): JsonResponse
     {
-        $payments = $registration->payments()->orderByDesc('paid_at')->get();
-        $totalPaid = (float) $payments->sum('amount');
-
         return response()->json([
-            'data' => [
-                'registration' => (new PatientRegistrationResource($registration))->resolve(),
-                'payments' => $payments->map(fn ($p) => [
-                    'id' => $p->id,
-                    'amount' => $p->amount,
-                    'paid_by' => $p->paid_by,
-                    'paid_at' => $p->paid_at,
-                ])->values(),
-                'total_paid' => $totalPaid,
-                'is_paid' => $payments->isNotEmpty(),
-            ],
+            'data' => RegistrationPaymentState::build(
+                $registration,
+                (new PatientRegistrationResource($registration))->resolve(),
+            ),
         ]);
     }
 }

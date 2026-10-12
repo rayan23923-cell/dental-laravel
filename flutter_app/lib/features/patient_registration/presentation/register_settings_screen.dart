@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
-import '../../records/presentation/records_providers.dart' show tasksLookupProvider;
+import '../../clinic_settings/data/clinic_settings_repository.dart';
+import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../data/patient_registration_repository.dart';
-import '../domain/register_day.dart';
 import '../domain/service.dart';
 import 'patient_registration_providers.dart';
 
-/// "إعدادات التسجيل: الأيام وأنواع الخدمات" — mirrors
-/// `PatientRegistrations/Settings.vue` (itself a port of
-/// `admin/register_settings.php`): a day-name field, a service-name field
-/// plus a day multi-select, and lists of both with delete. Admin-only —
-/// `permission:settings,edit` server-side, same gate the web settings
-/// page uses.
+/// "إعدادات التسجيل" — mirrors `PatientRegistrations/Settings.vue`:
+/// services with a name and a price (the price pre-fills the registration
+/// form's amount paid), plus the lab fee and how long a clear lab result
+/// stays valid. The days and the day ↔ diagnosis mapping sections were
+/// removed (2026-10-12) — registration no longer asks for a day; their
+/// repository methods are kept. Admin-only — `permission:settings,edit`
+/// server-side, same gate the web settings page uses.
 class RegisterSettingsScreen extends ConsumerStatefulWidget {
   const RegisterSettingsScreen({super.key});
 
@@ -22,103 +24,135 @@ class RegisterSettingsScreen extends ConsumerStatefulWidget {
   ConsumerState<RegisterSettingsScreen> createState() => _RegisterSettingsScreenState();
 }
 
+/// Plain (ungrouped) number for an editable price field, so it parses back.
+String _plainAmount(double v) => v == v.truncateToDouble() ? v.toInt().toString() : v.toString();
+
+/// Empty → null (no price); otherwise must be a non-negative number. The
+/// outer null means "invalid".
+({double? value})? _parsePrice(String text) {
+  final trimmed = text.trim();
+  if (trimmed.isEmpty) return (value: null);
+  final n = double.tryParse(trimmed);
+  return (n == null || n < 0) ? null : (value: n);
+}
+
 class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen> {
-  final _dayNameController = TextEditingController();
   final _serviceNameController = TextEditingController();
-  final _dayFilterController = TextEditingController();
-  final _taskFilterController = TextEditingController();
-  final Set<int> _selectedDayIds = {};
-  // Day-governed diagnosis ("التشخيص") — per-task editable day set,
-  // lazily seeded from `registerDaysProvider`'s nested `taskIds` the
-  // first time each task row builds (inverted: day → its tasks becomes
-  // task → its days here). Saved individually via a "حفظ" button per
-  // row, unlike services (create-time sync only) — tasks already exist.
-  final Map<int, Set<int>> _taskDayIds = {};
-  final Set<int> _savingTaskDays = {};
-  bool _addingDay = false;
+  final _servicePriceController = TextEditingController();
+  final _labFeeController = TextEditingController();
+  final _labValidityController = TextEditingController();
   bool _addingService = false;
+  bool _labLoading = true;
+  bool _savingLab = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLab();
+  }
 
   @override
   void dispose() {
-    _dayNameController.dispose();
     _serviceNameController.dispose();
-    _dayFilterController.dispose();
-    _taskFilterController.dispose();
+    _servicePriceController.dispose();
+    _labFeeController.dispose();
+    _labValidityController.dispose();
     super.dispose();
   }
 
-  Set<int> _dayIdsForTask(int taskId, List<RegisterDay> days) =>
-      _taskDayIds[taskId] ??= days.where((d) => d.taskIds.contains(taskId)).map((d) => d.id).toSet();
-
-  Future<void> _saveTaskDays(int taskId) async {
-    setState(() => _savingTaskDays.add(taskId));
+  void _showError(Object e, String fallbackKey) {
+    if (!mounted) return;
     final t = ref.read(translationsProvider);
+    final message = e is ApiException ? e.userMessage : t[fallbackKey]!;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _showMessage(String key) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ref.read(translationsProvider)[key]!)));
+  }
+
+  /// Fetched fresh (not from `clinicSettingsProvider`, which keeps its
+  /// first response for the whole session and swallows errors).
+  Future<void> _loadLab() async {
     try {
-      await ref.read(patientRegistrationRepositoryProvider).updateTaskDays(taskId, _taskDayIds[taskId]!.toList());
-      ref.invalidate(registerDaysProvider);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['registerSettings.saved']!)));
+      final settings = await ref.read(clinicSettingsRepositoryProvider).fetch();
+      if (!mounted) return;
+      _labFeeController.text = settings.labFee == null ? '' : _plainAmount(settings.labFee!);
+      _labValidityController.text = '${settings.labValidityDays}';
     } catch (e) {
-      if (mounted) {
-        final message = e is ApiException ? e.userMessage : t['profile.saveFailed']!;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-      }
+      _showError(e, 'common.loadFailed');
     } finally {
-      if (mounted) setState(() => _savingTaskDays.remove(taskId));
+      if (mounted) setState(() => _labLoading = false);
     }
   }
 
-  Future<void> _addDay() async {
-    if (_dayNameController.text.trim().isEmpty) return;
-    setState(() => _addingDay = true);
-    final t = ref.read(translationsProvider);
-    try {
-      await ref.read(patientRegistrationRepositoryProvider).createDay(_dayNameController.text.trim());
-      _dayNameController.clear();
-      ref.invalidate(registerDaysProvider);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['registerSettings.dayAdded']!)));
-    } catch (e) {
-      if (mounted) {
-        final message = e is ApiException ? e.userMessage : t['profile.saveFailed']!;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-      }
-    } finally {
-      if (mounted) setState(() => _addingDay = false);
+  Future<void> _saveLab() async {
+    final fee = _parsePrice(_labFeeController.text);
+    if (fee == null) {
+      _showMessage('registerSettings.priceInvalid');
+      return;
     }
-  }
-
-  Future<void> _deleteDay(RegisterDay day) async {
+    final daysText = _labValidityController.text.trim();
+    final days = daysText.isEmpty ? 0 : int.tryParse(daysText);
+    if (days == null || days < 0) {
+      _showMessage('registerSettings.labValidityInvalid');
+      return;
+    }
+    setState(() => _savingLab = true);
     try {
-      await ref.read(patientRegistrationRepositoryProvider).deleteDay(day.id);
-      ref.invalidate(registerDaysProvider);
-      ref.invalidate(servicesProvider);
+      await ref.read(clinicSettingsRepositoryProvider).updateLab(labFee: fee.value, labValidityDays: days);
+      ref.invalidate(clinicSettingsProvider);
+      _showMessage('registerSettings.saved');
     } catch (e) {
-      if (mounted) {
-        final t = ref.read(translationsProvider);
-        final message = e is ApiException ? e.userMessage : t['registerSettings.deleteFailed']!;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-      }
+      _showError(e, 'profile.saveFailed');
+    } finally {
+      if (mounted) setState(() => _savingLab = false);
     }
   }
 
   Future<void> _addService() async {
     if (_serviceNameController.text.trim().isEmpty) return;
+    final price = _parsePrice(_servicePriceController.text);
+    if (price == null) {
+      _showMessage('registerSettings.priceInvalid');
+      return;
+    }
     setState(() => _addingService = true);
-    final t = ref.read(translationsProvider);
     try {
       await ref
           .read(patientRegistrationRepositoryProvider)
-          .createService(_serviceNameController.text.trim(), _selectedDayIds.toList());
+          .createService(_serviceNameController.text.trim(), price: price.value);
       _serviceNameController.clear();
-      setState(() => _selectedDayIds.clear());
+      _servicePriceController.clear();
       ref.invalidate(servicesProvider);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['registerSettings.serviceAdded']!)));
+      _showMessage('registerSettings.serviceAdded');
     } catch (e) {
-      if (mounted) {
-        final message = e is ApiException ? e.userMessage : t['profile.saveFailed']!;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-      }
+      _showError(e, 'profile.saveFailed');
     } finally {
       if (mounted) setState(() => _addingService = false);
+    }
+  }
+
+  Future<void> _editService(Service service) async {
+    final result = await showDialog<({String name, double? price})>(
+      context: context,
+      builder: (_) => _ServiceDialog(service: service),
+    );
+    if (result == null) return;
+    try {
+      // The service's current days are passed through so the edit does
+      // not clear them server-side (see `updateService`).
+      await ref.read(patientRegistrationRepositoryProvider).updateService(
+            service.id,
+            result.name,
+            price: result.price,
+            dayIds: service.days.map((d) => d.id).toList(),
+          );
+      ref.invalidate(servicesProvider);
+      _showMessage('registerSettings.serviceUpdated');
+    } catch (e) {
+      _showError(e, 'profile.saveFailed');
     }
   }
 
@@ -127,76 +161,21 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
       await ref.read(patientRegistrationRepositoryProvider).deleteService(service.id);
       ref.invalidate(servicesProvider);
     } catch (e) {
-      if (mounted) {
-        final t = ref.read(translationsProvider);
-        final message = e is ApiException ? e.userMessage : t['registerSettings.deleteFailed']!;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-      }
+      _showError(e, 'registerSettings.deleteFailed');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final daysAsync = ref.watch(registerDaysProvider);
     final servicesAsync = ref.watch(servicesProvider);
-    final tasksAsync = ref.watch(tasksLookupProvider);
     final t = ref.watch(translationsProvider);
+    final priceFormat = NumberFormat('#,##0.##');
 
     return Scaffold(
       appBar: AppBar(title: Text(t['registerSettings.title']!)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text(t['registerSettings.daysHeading']!, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _dayNameController,
-                  decoration: InputDecoration(labelText: t['registerSettings.dayNameLabel']!, border: const OutlineInputBorder()),
-                ),
-              ),
-              const SizedBox(width: 8),
-              // `Row` hands a non-flexible child an unbounded max width —
-              // most widgets tolerate that by sizing to their intrinsic
-              // content, but `FilledButton`'s internal layout does not,
-              // and throws "BoxConstraints forces an infinite width" when
-              // nested inside a ListView/sliver (confirmed live: the exact
-              // failure was silent — a blank screen with no error UI, the
-              // real assertion only visible in `flutter run`'s console).
-              // `Flexible` gives it a bounded max instead.
-              Flexible(
-                child: FilledButton(
-                  onPressed: _addingDay ? null : _addDay,
-                  child: Text(t['registerSettings.add']!),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          daysAsync.when(
-            loading: () => const Padding(padding: EdgeInsets.all(16), child: LinearProgressIndicator()),
-            error: (error, _) => Text(error is ApiException ? error.userMessage : t['common.loadFailed']!),
-            data: (days) => Column(
-              children: [
-                for (final day in days)
-                  Card(
-                    child: ListTile(
-                      title: Text(day.name),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () => _deleteDay(day),
-                      ),
-                    ),
-                  ),
-                if (days.isEmpty) Padding(padding: const EdgeInsets.all(12), child: Text(t['registerSettings.noDaysYet']!)),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          const Divider(),
-          const SizedBox(height: 8),
           Text(t['registerSettings.servicesHeading']!, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           TextField(
@@ -204,53 +183,11 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
             decoration: InputDecoration(labelText: t['registerSettings.serviceNameLabel']!, border: const OutlineInputBorder()),
           ),
           const SizedBox(height: 8),
-          daysAsync.when(
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-            data: (days) {
-              // Filters which day chips are *shown* — selections already
-              // made stay selected even if the chip is filtered out of
-              // view, since `_selectedDayIds` isn't touched here.
-              final query = _dayFilterController.text.trim();
-              final visibleDays =
-                  query.isEmpty ? days : days.where((d) => d.name.contains(query)).toList();
-
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (days.length > 6) ...[
-                    TextField(
-                      controller: _dayFilterController,
-                      decoration: InputDecoration(
-                        labelText: t['registerSettings.filterDays']!,
-                        prefixIcon: const Icon(Icons.search),
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      onChanged: (_) => setState(() {}),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      for (final day in visibleDays)
-                        FilterChip(
-                          label: Text(day.name),
-                          selected: _selectedDayIds.contains(day.id),
-                          onSelected: (selected) => setState(() {
-                            if (selected) {
-                              _selectedDayIds.add(day.id);
-                            } else {
-                              _selectedDayIds.remove(day.id);
-                            }
-                          }),
-                        ),
-                    ],
-                  ),
-                ],
-              );
-            },
+          TextField(
+            controller: _servicePriceController,
+            textDirection: TextDirection.ltr,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(labelText: t['registerSettings.priceLabel']!, border: const OutlineInputBorder()),
           ),
           const SizedBox(height: 8),
           FilledButton(
@@ -267,10 +204,22 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
                   Card(
                     child: ListTile(
                       title: Text(service.name),
-                      subtitle: Text(service.days.isEmpty ? '—' : service.days.map((d) => d.name).join(t['registerSettings.listSeparator']!)),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () => _deleteService(service),
+                      subtitle: Text(
+                        service.price == null ? t['registerSettings.noPrice']! : priceFormat.format(service.price),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined),
+                            tooltip: t['registerSettings.editService']!,
+                            onPressed: () => _editService(service),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () => _deleteService(service),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -281,91 +230,107 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
           const SizedBox(height: 24),
           const Divider(),
           const SizedBox(height: 8),
-          Text(t['patientRegFlutter.diagnosis']!, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 4),
-          Text(
-            t['registerSettings.diagnosisDesc']!,
-            style: const TextStyle(fontSize: 12, color: Colors.grey),
-          ),
+          // Lab fee + result validity (2026-10-12) — stored in clinic
+          // settings, see `ClinicSettingsRepository.updateLab`.
+          Text(t['registerSettings.labHeading']!, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
-          daysAsync.when(
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-            data: (days) => tasksAsync.when(
-              loading: () => const Padding(padding: EdgeInsets.all(16), child: LinearProgressIndicator()),
-              error: (error, _) => Text(error is ApiException ? error.userMessage : t['common.loadFailed']!),
-              data: (allTasks) {
-                final query = _taskFilterController.text.trim();
-                final tasks = query.isEmpty ? allTasks : allTasks.where((task) => task.name.contains(query)).toList();
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (allTasks.length > 6) ...[
-                      TextField(
-                        controller: _taskFilterController,
-                        decoration: InputDecoration(
-                          labelText: t['registerSettings.filterDiagnosis']!,
-                          prefixIcon: const Icon(Icons.search),
-                          border: const OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                        onChanged: (_) => setState(() {}),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                    for (final task in tasks)
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(task.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
-                                children: [
-                                  for (final day in days)
-                                    FilterChip(
-                                      label: Text(day.name),
-                                      selected: _dayIdsForTask(task.id, days).contains(day.id),
-                                      onSelected: (selected) => setState(() {
-                                        final ids = _dayIdsForTask(task.id, days);
-                                        if (selected) {
-                                          ids.add(day.id);
-                                        } else {
-                                          ids.remove(day.id);
-                                        }
-                                      }),
-                                    ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Align(
-                                alignment: AlignmentDirectional.centerEnd,
-                                child: FilledButton(
-                                  onPressed: _savingTaskDays.contains(task.id) ? null : () => _saveTaskDays(task.id),
-                                  child: _savingTaskDays.contains(task.id)
-                                      ? const SizedBox(
-                                          height: 16,
-                                          width: 16,
-                                          child: CircularProgressIndicator(strokeWidth: 2),
-                                        )
-                                      : Text(t['profile.save']!),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    if (tasks.isEmpty) Padding(padding: const EdgeInsets.all(12), child: Text(t['registerSettings.noMatchingResults']!)),
-                  ],
-                );
-              },
+          if (_labLoading)
+            const Padding(padding: EdgeInsets.all(16), child: LinearProgressIndicator())
+          else ...[
+            TextField(
+              controller: _labFeeController,
+              textDirection: TextDirection.ltr,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                labelText: t['registerSettings.labFeeLabel']!,
+                helperText: t['registerSettings.labFeeHint']!,
+                border: const OutlineInputBorder(),
+              ),
             ),
-          ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _labValidityController,
+              textDirection: TextDirection.ltr,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: t['registerSettings.labValidityLabel']!,
+                helperText: t['registerSettings.labValidityHint']!,
+                helperMaxLines: 3,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            FilledButton(
+              onPressed: _savingLab ? null : _saveLab,
+              child: _savingLab
+                  ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : Text(t['profile.saveChanges']!),
+            ),
+          ],
         ],
       ),
+    );
+  }
+}
+
+/// Edit a service's name and price; pops `(name, price)` or null.
+class _ServiceDialog extends ConsumerStatefulWidget {
+  const _ServiceDialog({required this.service});
+
+  final Service service;
+
+  @override
+  ConsumerState<_ServiceDialog> createState() => _ServiceDialogState();
+}
+
+class _ServiceDialogState extends ConsumerState<_ServiceDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final _nameController = TextEditingController(text: widget.service.name);
+  late final _priceController =
+      TextEditingController(text: widget.service.price == null ? '' : _plainAmount(widget.service.price!));
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _priceController.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    Navigator.of(context).pop((name: _nameController.text.trim(), price: _parsePrice(_priceController.text)!.value));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ref.watch(translationsProvider);
+    return AlertDialog(
+      title: Text(t['registerSettings.editService']!),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: _nameController,
+              decoration: InputDecoration(labelText: t['registerSettings.serviceNameLabel']!, border: const OutlineInputBorder()),
+              validator: (v) => (v == null || v.trim().isEmpty) ? t['profile.requiredField']! : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _priceController,
+              textDirection: TextDirection.ltr,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(labelText: t['registerSettings.priceLabel']!, border: const OutlineInputBorder()),
+              validator: (v) => _parsePrice(v ?? '') == null ? t['registerSettings.priceInvalid']! : null,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(t['nav.cancel']!)),
+        FilledButton(onPressed: _save, child: Text(t['profile.saveChanges']!)),
+      ],
     );
   }
 }

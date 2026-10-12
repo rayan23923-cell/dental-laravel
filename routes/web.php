@@ -35,6 +35,7 @@ use App\Http\Controllers\GroupController;
 use App\Http\Controllers\OralMedicineChartController;
 use App\Http\Controllers\OrthodonticsRecordController;
 use App\Http\Controllers\PatientController;
+use App\Http\Controllers\LabController;
 use App\Http\Controllers\PatientRegistrationController;
 use App\Http\Controllers\PatientRegistrationPrintController;
 use App\Http\Controllers\PaymentController;
@@ -122,6 +123,7 @@ Route::get('/download', function () {
         'clinic' => ClinicSetting::current(),
         'windows' => config('desktop_releases.windows'),
         'android' => config('desktop_releases.android'),
+        'ios' => config('desktop_releases.ios'),
     ]);
 })->name('download');
 
@@ -278,6 +280,8 @@ Route::middleware('auth')->group(function () {
             ->middleware('permission:patients,view')->name('patient-registrations.search');
         Route::post('/patient-registrations', [PatientRegistrationController::class, 'store'])
             ->middleware('permission:patients,create')->name('patient-registrations.store');
+        Route::delete('/patient-registrations-bulk', [PatientRegistrationController::class, 'destroyMany'])
+            ->middleware('permission:patients,delete')->name('patient-registrations.destroy-many');
         Route::get('/patient-registrations/{patientRegistration}/qr', [PatientRegistrationController::class, 'qr'])
             ->middleware('permission:patients,view')->name('patient-registrations.qr');
         // Reprint an already-registered patient's ticket — same gate as
@@ -293,6 +297,13 @@ Route::middleware('auth')->group(function () {
         // PatientScreeningGate/PatientRegistrationController::confirmScreening().
         Route::post('/patient-registrations/{patientRegistration}/screening', [PatientRegistrationController::class, 'confirmScreening'])
             ->middleware('permission:patient_screening,confirm')->name('patient-registrations.screening');
+
+        // "المختبر" — web twin of the Flutter lab screen (2026-10-11); see
+        // LabController for its own patient_screening permission check.
+        Route::get('/lab', [LabController::class, 'index'])->name('lab.index');
+        Route::post('/lab/scan', [LabController::class, 'scan'])->name('lab.scan');
+        Route::get('/lab/{patientRegistration}/print', [LabController::class, 'print'])->name('lab.print');
+        Route::post('/lab/{patientRegistration}/reuse', [LabController::class, 'reuse'])->name('lab.reuse');
 
         Route::get('/doctors-import', [DoctorImportExportController::class, 'showImport'])
             ->middleware('permission:doctors,create')
@@ -449,6 +460,8 @@ Route::middleware('auth')->group(function () {
             ->middleware('permission:settings,edit')->name('register-services.update');
         Route::delete('/register-services/{service}', [RegisterSettingsController::class, 'destroyService'])
             ->middleware('permission:settings,edit')->name('register-services.destroy');
+        Route::put('/register-settings/lab', [RegisterSettingsController::class, 'updateLab'])
+            ->middleware('permission:settings,edit')->name('register-settings.lab');
         Route::put('/tasks/{task}/register-days', [RegisterSettingsController::class, 'updateTaskDays'])
             ->middleware('permission:settings,edit')->name('tasks.register-days.update');
 
@@ -495,6 +508,9 @@ Route::middleware('auth')->group(function () {
             ->name('appointments.destroy');
         Route::put('/appointments/{appointment}/toggle-pinned', [AppointmentController::class, 'togglePinned'])->name('appointments.toggle-pinned');
 
+        // Lab screening fee + printable receipt (2026-10-11).
+        Route::post('/payments/lab', [PaymentController::class, 'storeLab'])->name('payments.store-lab');
+        Route::get('/payments/{payment}/receipt', [PaymentController::class, 'receipt'])->name('payments.receipt');
         Route::resource('payments', PaymentController::class)->only(['index', 'create', 'store']);
         Route::delete('/payments/{payment}', [PaymentController::class, 'destroy'])
             ->name('payments.destroy');

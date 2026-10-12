@@ -1,13 +1,14 @@
 import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
 
 /// Where the Laravel API lives, per run target.
 ///
 /// `--dart-define=API_BASE_URL=...` always wins (the one case that can't be
 /// auto-detected: a physical device on the LAN needs the host machine's
-/// IP). Without it, a platform-aware default covers the two zero-config
-/// cases: the Android emulator's `10.0.2.2` loopback alias to the host, and
+/// IP). Without it, a release build talks to the live server
+/// ([productionBaseUrl]), and a debug build falls back to a platform-aware
+/// default covering the two zero-config cases: the Android emulator's `10.0.2.2` loopback alias to the host, and
 /// `localhost` for every other target (Windows/iOS simulator/web — all on
 /// the same machine as XAMPP during development).
 class AppConfig {
@@ -15,8 +16,13 @@ class AppConfig {
 
   static const String _override = String.fromEnvironment('API_BASE_URL');
 
+  /// The live server (Oracle VPS, 2026-10-11) — used by every release build
+  /// that isn't given its own `--dart-define=API_BASE_URL`.
+  static const String productionBaseUrl = 'https://dental.azoclinic.duckdns.org/api/v1';
+
   static String get baseUrl {
     if (_override.isNotEmpty) return _override;
+    if (kReleaseMode) return productionBaseUrl;
     if (!kIsWeb && Platform.isAndroid) {
       return 'http://10.0.2.2/dental_laravel/public/api/v1';
     }

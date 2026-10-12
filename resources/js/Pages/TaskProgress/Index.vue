@@ -387,12 +387,12 @@ const startFromScan = () => {
 
                     <template v-else>
                         <!-- Department tabs -->
-                        <div class="flex flex-wrap gap-1 border-b border-gray-200">
+                        <div class="flex gap-1 overflow-x-auto border-b border-gray-200 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                             <button
                                 v-for="dept in detail.departments"
                                 :key="dept.id"
                                 @click="activeDepartmentId = dept.id"
-                                class="border-b-2 px-4 py-2 text-sm font-medium"
+                                class="shrink-0 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium"
                                 :class="dept.id === activeDepartmentId ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
                             >
                                 {{ dept.name }}

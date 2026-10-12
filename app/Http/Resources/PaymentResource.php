@@ -13,6 +13,7 @@ class PaymentResource extends JsonResource
             'id' => $this->id,
             'appointment_id' => $this->appointment_id,
             'patient_registration_id' => $this->patient_registration_id,
+            'type' => $this->type ?? 'service',
             'amount' => $this->amount,
             'paid_by' => $this->paid_by,
             'paid_at' => $this->paid_at,

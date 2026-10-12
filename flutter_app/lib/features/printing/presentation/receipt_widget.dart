@@ -19,6 +19,9 @@ class ReceiptWidget extends StatelessWidget {
     required this.registration,
     required this.amountPaid,
     required this.totalPaid,
+    this.title = 'وصل دفع',
+    this.amountLabel = 'المبلغ المدفوع',
+    this.showTotal = true,
     this.logoBytes,
     this.headerTitle,
     this.headerSubtitle,
@@ -28,6 +31,12 @@ class ReceiptWidget extends StatelessWidget {
   final PatientRegistration registration;
   final double amountPaid;
   final double totalPaid;
+
+  /// Lab-fee receipts (2026-10-11) print "وصل دفع أجور المختبر" with the
+  /// fee as the only amount row.
+  final String title;
+  final String amountLabel;
+  final bool showTotal;
 
   /// See `TicketWidget.logoBytes`/`.headerTitle`/`.headerSubtitle` — same
   /// source (`ClinicSettings`, fetched by the caller), same fail-open
@@ -71,9 +80,9 @@ class ReceiptWidget extends StatelessWidget {
               style: const TextStyle(color: Colors.black, fontSize: 14),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'وصل دفع',
-              style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold),
+            Text(
+              title,
+              style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             const Divider(color: Colors.black, thickness: 1),
@@ -82,14 +91,14 @@ class ReceiptWidget extends StatelessWidget {
               ('اسم المريض', registration.name),
               ('الهاتف', registration.phone),
               ('الخدمة', registration.serviceName ?? '—'),
-              ('اليوم', registration.registerDayName ?? '—'),
+              if (registration.registerDayName != null) ('اليوم', registration.registerDayName!),
             ]),
             const SizedBox(height: 8),
             const Divider(color: Colors.black, thickness: 1),
             const SizedBox(height: 8),
             ticketTable([
-              ('المبلغ المدفوع', amountStr),
-              ('إجمالي المدفوع', totalStr),
+              (amountLabel, amountStr),
+              if (showTotal) ('إجمالي المدفوع', totalStr),
             ]),
             const SizedBox(height: 8),
             const Divider(color: Colors.black, thickness: 1),

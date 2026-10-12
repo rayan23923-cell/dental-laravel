@@ -39,14 +39,27 @@ class PatientRegistrationRepository {
     return data.map((e) => Service.fromJson(e as Map<String, dynamic>)).toList();
   }
 
-  Future<Service> createService(String name, List<int> dayIds) async {
-    final data = await _client.postJson('/services', body: {'name': name, 'day_ids': dayIds}) as Map<String, dynamic>;
+  /// `price` (2026-10-12) is optional server-side; `dayIds` too now that
+  /// registration no longer asks for a day. Note the server keeps the old
+  /// price when an update sends `price: null`, so a price can be changed
+  /// but not cleared from here.
+  Future<Service> createService(String name, {double? price, List<int>? dayIds}) async {
+    final data = await _client.postJson('/services', body: {
+      'name': name,
+      'price': price,
+      if (dayIds != null) 'day_ids': dayIds,
+    }) as Map<String, dynamic>;
     return Service.fromJson(data);
   }
 
-  Future<Service> updateService(int id, String name, List<int> dayIds) async {
-    final data =
-        await _client.putJson('/services/$id', body: {'name': name, 'day_ids': dayIds}) as Map<String, dynamic>;
+  /// The server syncs a missing `day_ids` to "no days", so the settings
+  /// screen passes the service's current days through to keep them.
+  Future<Service> updateService(int id, String name, {double? price, List<int>? dayIds}) async {
+    final data = await _client.putJson('/services/$id', body: {
+      'name': name,
+      'price': price,
+      if (dayIds != null) 'day_ids': dayIds,
+    }) as Map<String, dynamic>;
     return Service.fromJson(data);
   }
 
@@ -71,14 +84,16 @@ class PatientRegistrationRepository {
   Future<PatientRegistration> create({
     required String name,
     required String phone,
-    required int registerDayId,
     required int serviceId,
     int? taskId,
+    double? amountPaid,
   }) async {
+    // No `register_day_id` since 2026-10-12 — registration is by service
+    // only (the server column is nullable now).
     final data = await _client.postJson('/patient-registrations', body: {
+      if (amountPaid != null && amountPaid > 0) 'amount_paid': amountPaid,
       'name': name,
       'phone': phone,
-      'register_day_id': registerDayId,
       'service_id': serviceId,
       'task_id': taskId,
     }) as Map<String, dynamic>;
@@ -122,6 +137,15 @@ class PatientRegistrationRepository {
     final data = await _client.postJson('/patient-registrations/$registrationId/screening', body: {
       'screening_status': status,
     }) as Map<String, dynamic>;
+    return RegistrationPaymentState.fromJson(data);
+  }
+
+  /// Marks the registration clear by reusing the patient's still-valid
+  /// earlier clear result (`RegistrationPaymentState.previousScreening`,
+  /// 2026-10-12) — no new test, no lab fee. 422s when there is none.
+  Future<RegistrationPaymentState> reuseScreening(int registrationId) async {
+    final data = await _client.postJson('/patient-registrations/$registrationId/screening/reuse')
+        as Map<String, dynamic>;
     return RegistrationPaymentState.fromJson(data);
   }
 

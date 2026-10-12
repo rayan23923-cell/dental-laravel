@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Modal from '@/Components/Modal.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
+import Icon from '@/Components/Icon.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -62,6 +63,41 @@ const clearFilters = () => {
     registerDayId.value = '';
     serviceId.value = '';
     router.get(route('patient-registrations.index'));
+};
+
+// --- Selection + bulk delete (2026-10-11), same as the doctors table ---
+const selected = ref([]);
+const allOnPageSelected = computed(
+    () => props.registrations.data.length > 0 && selected.value.length === props.registrations.data.length
+);
+const toggleAll = () => {
+    selected.value = allOnPageSelected.value ? [] : props.registrations.data.map((r) => r.id);
+};
+const currentFilters = () => ({
+    ...(search.value ? { search: search.value } : {}),
+    ...(registerDayId.value ? { register_day_id: registerDayId.value } : {}),
+    ...(serviceId.value ? { service_id: serviceId.value } : {}),
+});
+const destroySelected = () => {
+    if (!selected.value.length) return;
+    if (confirm(t('patientReg.deleteSelectedConfirm', { n: selected.value.length }))) {
+        router.delete(route('patient-registrations.destroy-many'), {
+            data: { ids: selected.value },
+            preserveScroll: true,
+            onSuccess: () => (selected.value = []),
+        });
+    }
+};
+const destroyAll = () => {
+    const n = props.registrations.total;
+    if (!n) return;
+    if (confirm(t('patientReg.deleteAllConfirm', { n }))) {
+        router.delete(route('patient-registrations.destroy-many'), {
+            data: { all: true, ...currentFilters() },
+            preserveScroll: true,
+            onSuccess: () => (selected.value = []),
+        });
+    }
 };
 
 // The desk-payment QR, viewable on screen as well as on the printed
@@ -147,10 +183,29 @@ const confirmScreening = async (status) => {
                     <SecondaryButton v-if="hasFilters" @click="clearFilters">{{ t('patientReg.clearFilters') }}</SecondaryButton>
                 </div>
 
-                <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                <!-- Bulk bar -->
+                <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3" :class="selected.length ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-white'">
+                    <span class="text-sm text-gray-700">
+                        <template v-if="selected.length"><Icon name="warning" class="ml-1" />{{ t('doctorsAdmin.selectedCount', { n: selected.length }) }}</template>
+                        <template v-else>{{ t('patientReg.totalCount', { n: registrations.total }) }}</template>
+                    </span>
+                    <div class="flex flex-wrap gap-2">
+                        <button v-if="selected.length" type="button" @click="destroySelected" class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">
+                            <Icon name="delete" class="ml-1" />{{ t('doctorsAdmin.deleteSelected') }}
+                        </button>
+                        <button v-if="registrations.total" type="button" @click="destroyAll" class="rounded-md border border-red-600 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50">
+                            <Icon name="delete_sweep" class="ml-1" />{{ hasFilters ? t('patientReg.deleteAllFiltered') : t('patientReg.deleteAll') }}
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto bg-white shadow-sm sm:rounded-lg">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
+                                <th class="px-4 py-3">
+                                    <input type="checkbox" :checked="allOnPageSelected" @change="toggleAll" :title="t('patientReg.selectAll')" class="rounded border-gray-300" />
+                                </th>
                                 <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('profile.name') }}</th>
                                 <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patients.phoneCol') }}</th>
                                 <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patientReg.serviceLabel') }}</th>
@@ -162,7 +217,10 @@ const confirmScreening = async (status) => {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200 bg-white">
-                            <tr v-for="r in registrations.data" :key="r.id">
+                            <tr v-for="r in registrations.data" :key="r.id" :class="selected.includes(r.id) ? 'bg-indigo-50' : ''">
+                                <td class="px-4 py-4">
+                                    <input type="checkbox" :value="r.id" v-model="selected" class="rounded border-gray-300" />
+                                </td>
                                 <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">{{ r.name }}</td>
                                 <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500" dir="ltr">{{ r.phone }}</td>
                                 <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ r.service?.name ?? '—' }}</td>
@@ -186,7 +244,7 @@ const confirmScreening = async (status) => {
                                 </td>
                             </tr>
                             <tr v-if="registrations.data.length === 0">
-                                <td colspan="8" class="px-6 py-8 text-center text-sm text-gray-500">{{ t('patientReg.emptyLog') }}</td>
+                                <td colspan="9" class="px-6 py-8 text-center text-sm text-gray-500">{{ t('patientReg.emptyLog') }}</td>
                             </tr>
                         </tbody>
                     </table>

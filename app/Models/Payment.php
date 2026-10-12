@@ -12,12 +12,18 @@ class Payment extends Model
 
     public $timestamps = false;
 
+    /** Lab screening fee (2026-10-11) — see the add_lab_fee migration. */
+    public const TYPE_LAB = 'lab';
+
+    public const TYPE_SERVICE = 'service';
+
     protected $fillable = [
         'appointment_id',
         'patient_registration_id',
         'amount',
         'paid_by',
         'paid_at',
+        'type',
     ];
 
     protected function casts(): array

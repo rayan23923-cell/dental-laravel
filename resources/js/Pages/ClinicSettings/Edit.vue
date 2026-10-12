@@ -28,6 +28,8 @@ const form = useForm({
     clinic_website: props.settings.clinic_website ?? '',
     clinic_working_hours: props.settings.clinic_working_hours ?? '',
     clinic_currency: props.settings.clinic_currency ?? '',
+    lab_fee: props.settings.lab_fee ?? '',
+    lab_validity_days: props.settings.lab_validity_days ?? '',
     clinic_timezone: props.settings.clinic_timezone ?? 'Asia/Baghdad',
     theme: props.settings.theme ?? 'unit-dark',
     university_name: props.settings.university_name ?? '',
@@ -198,6 +200,14 @@ const sendTest = () => testForm.post(route('clinic-settings.test-email'), { pres
                             <div>
                                 <InputLabel for="clinic_currency" :value="t('clinicSettingsAdmin.currencyLabel')" />
                                 <TextInput id="clinic_currency" v-model="form.clinic_currency" type="text" class="mt-1 block w-full" />
+                            </div>
+                            <div>
+                                <InputLabel for="lab_fee" :value="t('clinicSettingsAdmin.labFeeLabel')" />
+                                <TextInput id="lab_fee" v-model="form.lab_fee" type="text" inputmode="decimal" dir="ltr" class="mt-1 block w-full" />
+                            </div>
+                            <div>
+                                <InputLabel for="lab_validity_days" :value="t('clinicSettingsAdmin.labValidityLabel')" />
+                                <TextInput id="lab_validity_days" v-model="form.lab_validity_days" type="number" min="0" dir="ltr" class="mt-1 block w-full" />
                             </div>
                             <div>
                                 <InputLabel for="clinic_timezone" :value="t('clinicSettingsAdmin.timezoneLabel')" />

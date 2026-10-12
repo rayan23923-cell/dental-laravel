@@ -1,7 +1,7 @@
-; Inno Setup script for the Dental Clinic App Windows desktop build.
+﻿; Inno Setup script for the Dental Clinic App Windows desktop build.
 ;
 ; Build first, then compile:
-;   flutter build windows --release --dart-define=API_BASE_URL=https://cdclinics.com/api/v1
+;   flutter build windows --release --dart-define=API_BASE_URL=https://dental.azoclinic.duckdns.org/api/v1
 ;   "C:\Users\<you>\AppData\Local\Programs\Inno Setup 6\ISCC.exe" windows\installer\setup.iss /DMyAppVersion=1.0.1
 ;
 ; MyAppVersion must match pubspec.yaml's version (the part before "+") and

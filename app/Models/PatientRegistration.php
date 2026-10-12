@@ -44,6 +44,7 @@ class PatientRegistration extends Model
         'screening_status',
         'screening_checked_by',
         'screening_checked_at',
+        'screening_reused_from',
     ];
 
     protected function casts(): array
@@ -88,6 +89,12 @@ class PatientRegistration extends Model
      * (`PatientScreeningGate`/`confirmScreening()`). No FK, same reasoning
      * as `TaskInstance::assignedBy()`.
      */
+    /** The earlier registration whose clear lab result this one reuses. */
+    public function screeningReusedFrom(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'screening_reused_from');
+    }
+
     public function screeningCheckedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'screening_checked_by');

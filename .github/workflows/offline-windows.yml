@@ -1,0 +1,197 @@
+name: Offline Windows package
+
+# Builds a self-contained Windows folder of the whole web system (PHP,
+# MariaDB, the app with vendor/ and built assets) that runs with no
+# internet. See offline/README.md. Runs on pushes touching the app or
+# offline/, or by hand.
+on:
+  push:
+    paths:
+      - 'app/**'
+      - 'bootstrap/**'
+      - 'config/**'
+      - 'database/**'
+      - 'resources/**'
+      - 'routes/**'
+      - 'public/**'
+      - 'composer.*'
+      - 'package*.json'
+      - 'offline/**'
+      - '.github/workflows/offline-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  PHP_MINOR: '8.3'
+  MARIADB_VERSION: '10.11.10'
+  CADDY_VERSION: '2.8.4'
+  COREDNS_VERSION: '1.11.3'
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_MINOR }}
+          extensions: gd, intl, zip, mbstring, pdo_mysql, sodium, fileinfo
+          tools: composer
+      - run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+      - name: Assemble the app
+        run: |
+          OUT=dist/DentalClinicOffline
+          mkdir -p $OUT/app
+          rsync -a ./ $OUT/app/ \
+            --exclude .git --exclude .github --exclude node_modules --exclude flutter_app \
+            --exclude tests --exclude offline --exclude 'public/downloads' --exclude 'public/hot' \
+            --exclude '.env' --exclude 'storage/logs/*.log' --exclude codemagic.yaml --exclude docs
+          cp offline/windows/env.offline $OUT/app/.env.offline
+          cp offline/windows/*.bat offline/windows/*.ps1 offline/windows/config.txt $OUT/
+          cp -r offline/windows/setup $OUT/setup
+          cp offline/README.md $OUT/README.md
+          sed -i 's/\r*$/\r/' $OUT/*.bat $OUT/*.ps1 $OUT/config.txt
+
+      - name: Windows PHP
+        run: |
+          OUT=dist/DentalClinicOffline
+          ZIP=$(curl -fsSL https://windows.php.net/downloads/releases/releases.json \
+            | jq -r --arg m "$PHP_MINOR" '.[$m]["nts-vs16-x64"].zip.path')
+          echo "PHP: $ZIP"
+          curl -fsSL -o php.zip "https://windows.php.net/downloads/releases/$ZIP"
+          mkdir -p $OUT/php && unzip -q php.zip -d $OUT/php
+          cat $OUT/php/php.ini-production offline/windows/php.ini.overrides > $OUT/php/php.ini.template
+          rm -rf $OUT/php/dev $OUT/php/extras
+          curl -fsSL -o $OUT/vc_redist.x64.exe https://aka.ms/vs/17/release/vc_redist.x64.exe
+
+      - name: Windows MariaDB
+        run: |
+          OUT=dist/DentalClinicOffline
+          curl -fsSL -o mariadb.zip "https://archive.mariadb.org/mariadb-${MARIADB_VERSION}/winx64-packages/mariadb-${MARIADB_VERSION}-winx64.zip"
+          unzip -q mariadb.zip -d tmpdb
+          mv tmpdb/mariadb-* $OUT/mariadb
+          rm -rf $OUT/mariadb/mysql-test $OUT/mariadb/sql-bench $OUT/mariadb/include $OUT/mariadb/data
+          find $OUT/mariadb -name '*.pdb' -delete
+          test -f $OUT/mariadb/bin/mariadbd.exe && test -f $OUT/mariadb/bin/mariadb-install-db.exe
+
+      - name: Caddy (web server) and CoreDNS (local name)
+        run: |
+          OUT=dist/DentalClinicOffline
+          mkdir -p $OUT/caddy $OUT/coredns
+          curl -fsSL -o caddy.zip "https://github.com/caddyserver/caddy/releases/download/v${CADDY_VERSION}/caddy_${CADDY_VERSION}_windows_amd64.zip"
+          unzip -q -o caddy.zip caddy.exe -d $OUT/caddy
+          curl -fsSL -o coredns.tgz "https://github.com/coredns/coredns/releases/download/v${COREDNS_VERSION}/coredns_${COREDNS_VERSION}_windows_amd64.tgz"
+          tar -xzf coredns.tgz -C $OUT/coredns
+          test -f $OUT/caddy/caddy.exe && test -f $OUT/coredns/coredns.exe
+
+      - name: Zip
+        run: |
+          cd dist && zip -qr9 ../DentalClinicOffline-windows.zip DentalClinicOffline
+          ls -la ../DentalClinicOffline-windows.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: offline
+          path: DentalClinicOffline-windows.zip
+          retention-days: 3
+
+  smoke-test:
+    # Unzip on a real Windows machine, run Start.bat and wait for the
+    # login page, so a broken package never gets published.
+    needs: package
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: offline
+      - name: Run Start.bat and wait for the login page
+        shell: pwsh
+        run: |
+          Expand-Archive DentalClinicOffline-windows.zip -DestinationPath C:\
+          # Port 80 is reserved on the runner; exercise the port settings instead.
+          (Get-Content C:\DentalClinicOffline\config.txt) -replace '^HTTP_PORT=80$', 'HTTP_PORT=8080' -replace '^HTTPS_PORT=443$', 'HTTPS_PORT=8443' |
+            Set-Content C:\DentalClinicOffline\config.txt
+          Start-Process -FilePath cmd.exe -ArgumentList '/c', 'C:\DentalClinicOffline\Start.bat > C:\start.log 2>&1' -WorkingDirectory C:\DentalClinicOffline
+          Start-Sleep -Seconds 60
+          Write-Host '== early check'
+          Get-Process php-cgi,caddy -ErrorAction SilentlyContinue | Format-Table Name,Id | Out-String | Write-Host
+          Get-Content C:\DentalClinicOffline\app\storage\logs\workers.log -TotalCount 5 -ErrorAction SilentlyContinue
+          $ok = $false
+          for ($i = 0; $i -lt 20; $i++) {
+            Start-Sleep -Seconds 5
+            try {
+              $r = Invoke-WebRequest -Uri http://127.0.0.1:8080/login -UseBasicParsing -TimeoutSec 10
+              if ($r.StatusCode -eq 200) { $ok = $true; break }
+            } catch { }
+          }
+          Get-ChildItem C:\DentalClinicOffline\app\storage\logs -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "== $($_.Name)"; Get-Content $_.FullName -Tail 40 }
+          Get-ChildItem C:\DentalClinicOffline\data\*.err -ErrorAction SilentlyContinue | ForEach-Object { Get-Content $_.FullName -Tail 20 }
+          if (-not $ok) {
+            Write-Host '== start.log'; Get-Content C:\start.log -ErrorAction SilentlyContinue
+            Write-Host '== processes'; Get-Process php*,caddy,coredns,mariadbd -ErrorAction SilentlyContinue | Format-Table Name,Id,Path | Out-String | Write-Host
+            Write-Host '== Caddyfile'; Get-Content C:\DentalClinicOffline\Caddyfile -ErrorAction SilentlyContinue
+            Write-Host '== caddy validate'; & C:\DentalClinicOffline\caddy\caddy.exe validate --config C:\DentalClinicOffline\Caddyfile --adapter caddyfile 2>&1 | Select-Object -Last 10
+            Write-Host '== php-cgi'; & C:\DentalClinicOffline\php\php-cgi.exe -v 2>&1
+            Write-Host '== workers.log'; Get-Content C:\DentalClinicOffline\app\storage\logs\workers.log -TotalCount 20 -ErrorAction SilentlyContinue
+            Write-Host '== php-cgi.log'; Get-Content C:\DentalClinicOffline\app\storage\logs\php-cgi-9100.log -TotalCount 20 -ErrorAction SilentlyContinue
+            Write-Host '== listening'; Get-NetTCPConnection -State Listen | Where-Object { $_.LocalPort -in 53,80,443,3307,8080,8443,9100,9101 } | Format-Table LocalAddress,LocalPort,OwningProcess | Out-String | Write-Host
+            throw 'The offline package did not serve the login page.'
+          }
+          $admin = & C:\DentalClinicOffline\mariadb\bin\mariadb.exe --user=root --host=127.0.0.1 --port=3307 -N -e "select username from dental.users where username='admin'"
+          if ($admin -ne 'admin') { throw 'Admin account was not created.' }
+
+          Write-Host 'DNS:'
+          $dns = Resolve-DnsName -Name clinic.lan -Server 127.0.0.1 -DnsOnly -Type A
+          $dns | Format-Table | Out-String | Write-Host
+          if (-not $dns.IPAddress) { throw 'clinic.lan did not resolve.' }
+
+          $ip = (Get-Content C:\DentalClinicOffline\lan-ip.txt).Trim()
+          Write-Host "LAN IP: $ip"
+          $https = Invoke-WebRequest -Uri "https://${ip}:8443/login" -UseBasicParsing -SkipCertificateCheck -TimeoutSec 30
+          if ($https.StatusCode -ne 200) { throw 'HTTPS login page failed.' }
+          $redir = curl.exe -s -o NUL -w '%{http_code}' --max-time 30 "http://${ip}:8080/login"
+          if ($redir -notin '301','302','307','308') { throw "http on the LAN should redirect to https, got $redir" }
+          $ca = Invoke-WebRequest -Uri "http://${ip}:8080/ca.crt" -UseBasicParsing -TimeoutSec 30
+          if ($ca.StatusCode -ne 200 -or $ca.RawContentLength -lt 300) { throw 'Certificate download failed.' }
+          $setup = Invoke-WebRequest -Uri "http://${ip}:8080/setup" -UseBasicParsing -TimeoutSec 30
+          if ($setup.Content -notmatch 'ca.crt') { throw 'Setup page failed.' }
+
+          Write-Host 'Load: 200 HTTPS requests, 50 at a time'
+          $sw = [Diagnostics.Stopwatch]::StartNew()
+          $codes = 1..200 | ForEach-Object -Parallel {
+            try { (Invoke-WebRequest -Uri "https://$($using:ip):8443/login" -UseBasicParsing -SkipCertificateCheck -TimeoutSec 60).StatusCode } catch { 0 }
+          } -ThrottleLimit 50
+          $sw.Stop()
+          $okCount = ($codes | Where-Object { $_ -eq 200 }).Count
+          Write-Host "200 OK: $okCount / 200 in $([int]$sw.Elapsed.TotalSeconds)s"
+          if ($okCount -lt 195) { throw 'Too many failed requests under load.' }
+
+  release:
+    needs: [package, smoke-test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: offline
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: offline-build-${{ github.run_number }}
+          name: Dental Clinic offline (Windows) build ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          body: |
+            The whole system running offline on one Windows PC (PHP + MariaDB bundled).
+            Unzip to C:\DentalClinicOffline, run Setup-Firewall.bat once, then Start.bat; open https://clinic.lan (install the certificate from http://clinic.lan/setup on each device) and log in as admin / password.
+            Built from ${{ github.ref_name }} @ ${{ github.sha }}.
+          files: DentalClinicOffline-windows.zip

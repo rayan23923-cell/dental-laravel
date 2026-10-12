@@ -61,6 +61,7 @@ const isPatientsGroupActive = computed(
     () => route().current('patients.*')
         || route().current('patient-registrations.index')
         || route().current('patient-registrations.create')
+        || route().current('lab.*')
 );
 
 const structureRoutes = [
@@ -106,6 +107,7 @@ const patientsLinks = computed(() => [
     { label: t('nav.registerPatient'), icon: 'person_add', href: route('patient-registrations.create'), active: route().current('patient-registrations.create') },
     { label: t('nav.patientRegistrations'), icon: 'how_to_reg', href: route('patient-registrations.index'), active: route().current('patient-registrations.index') },
     { label: t('nav.patientsList'), icon: 'list_alt', href: route('patients.index'), active: route().current('patients.*') },
+    { label: t('nav.lab'), icon: 'coronavirus', href: route('lab.index'), active: route().current('lab.*') },
 ]);
 
 // "البيانات الأساسية" — admin-only (matches the original's dropdown of the

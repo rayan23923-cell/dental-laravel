@@ -10,75 +10,32 @@ import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
 const props = defineProps({
-    days: Array,
-    tasks: Array,
+    services: Array,
+    currency: String,
 });
 
 const form = useForm({
     name: '',
     phone: '',
-    register_day_id: '',
     service_id: '',
-    task_id: '',
+    amount_paid: '',
 });
 
-// Day-first cascading picker — matches admin/patient_register.php's UX
-// (pick a day, the service dropdown filters to that day's services),
-// chosen over public_register.php's reversed service-first flow since
-// that page is out of scope for this port.
-const servicesForSelectedDay = computed(() => {
-    const day = props.days.find((d) => d.id === form.register_day_id);
-    return day ? day.services : [];
-});
-
-// Day-governed diagnosis — same idea as service above, but opt-in per
-// day: a day with no configured tasks (`tasks: []`) leaves every task
-// selectable, exactly like before this existed. Once a day has ≥1 task
-// configured, only those show.
-const tasksForSelectedDay = computed(() => {
-    const day = props.days.find((d) => d.id === form.register_day_id);
-    if (!day || !day.tasks || day.tasks.length === 0) return props.tasks;
-    const allowedIds = new Set(day.tasks.map((t) => t.id));
-    return props.tasks.filter((t) => allowedIds.has(t.id));
-});
-
-const onDayChange = () => {
-    if (!servicesForSelectedDay.value.some((s) => s.id === form.service_id)) {
-        form.service_id = '';
-    }
-    if (form.task_id && !tasksForSelectedDay.value.some((t) => t.id === form.task_id)) {
-        form.task_id = '';
-    }
-};
-
-// Text-search filters, same computed-over-props shape as
-// Doctors/Create.vue's `filteredStages` — a plain <select> becomes
-// unusable once a clinic has dozens of days/services.
-const dayFilter = ref('');
+// Registration is name + phone + a priced service (2026-10-12). Picking a
+// service fills the amount paid with its price; the desk can still change it.
 const serviceFilter = ref('');
-
-const filteredDays = computed(() =>
-    dayFilter.value.trim() ? props.days.filter((d) => d.name.includes(dayFilter.value.trim())) : props.days,
-);
-
 const filteredServices = computed(() =>
     serviceFilter.value.trim()
-        ? servicesForSelectedDay.value.filter((s) => s.name.includes(serviceFilter.value.trim()))
-        : servicesForSelectedDay.value,
+        ? props.services.filter((s) => s.name.includes(serviceFilter.value.trim()))
+        : props.services,
 );
+const selectedService = computed(() => props.services.find((s) => s.id === form.service_id) ?? null);
+const formatPrice = (price) => `${Number(price).toLocaleString()} ${props.currency ?? ''}`.trim();
 
-// "التشخيص" — still optional and still doesn't gate anything *else* on
-// this form (see PatientRegistration::task()'s docblock for the
-// stage/education-type display), but *which* tasks are offered is now
-// narrowed by the selected day, once that day has any configured
-// (`tasksForSelectedDay` above).
-const taskFilter = ref('');
-const filteredTasks = computed(() =>
-    taskFilter.value.trim()
-        ? tasksForSelectedDay.value.filter((t) => t.title.includes(taskFilter.value.trim()))
-        : tasksForSelectedDay.value,
-);
-const selectedTask = computed(() => props.tasks.find((t) => t.id === form.task_id) ?? null);
+const onServiceChange = () => {
+    const price = selectedService.value?.price;
+    form.amount_paid = price !== null && price !== undefined ? String(Number(price)) : '';
+};
 
 const submit = () => {
     form.post(route('patient-registrations.store'));
@@ -113,31 +70,9 @@ const submit = () => {
                         </div>
 
                         <div>
-                            <InputLabel for="register_day_id" :value="t('patientReg.dayLabel')" />
-                            <TextInput
-                                v-if="days.length > 6"
-                                v-model="dayFilter"
-                                type="text"
-                                :placeholder="t('patientReg.filterDays')"
-                                class="mt-1 block w-full"
-                            />
-                            <select
-                                id="register_day_id"
-                                v-model="form.register_day_id"
-                                @change="onDayChange"
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                required
-                            >
-                                <option value="" disabled>{{ t('patientReg.chooseDay') }}</option>
-                                <option v-for="day in filteredDays" :key="day.id" :value="day.id">{{ day.name }}</option>
-                            </select>
-                            <InputError class="mt-2" :message="form.errors.register_day_id" />
-                        </div>
-
-                        <div>
                             <InputLabel for="service_id" :value="t('patientReg.serviceLabel')" />
                             <TextInput
-                                v-if="servicesForSelectedDay.length > 6"
+                                v-if="services.length > 6"
                                 v-model="serviceFilter"
                                 type="text"
                                 :placeholder="t('patientReg.filterServices')"
@@ -146,41 +81,24 @@ const submit = () => {
                             <select
                                 id="service_id"
                                 v-model="form.service_id"
+                                @change="onServiceChange"
                                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                :disabled="!form.register_day_id"
                                 required
                             >
-                                <option value="" disabled>{{ form.register_day_id ? t('patientReg.chooseService') : t('patientReg.chooseDayFirst') }}</option>
-                                <option v-for="service in filteredServices" :key="service.id" :value="service.id">{{ service.name }}</option>
+                                <option value="" disabled>{{ t('patientReg.chooseService') }}</option>
+                                <option v-for="service in filteredServices" :key="service.id" :value="service.id">
+                                    {{ service.name }}<template v-if="service.price !== null"> — {{ formatPrice(service.price) }}</template>
+                                </option>
                             </select>
                             <InputError class="mt-2" :message="form.errors.service_id" />
-                            <p v-if="form.register_day_id && servicesForSelectedDay.length === 0" class="mt-2 text-sm text-amber-600">
-                                {{ t('patientReg.noServicesForDay') }}
-                            </p>
+                            <p v-if="services.length === 0" class="mt-2 text-sm text-amber-600">{{ t('patientReg.noServicesYet') }}</p>
                         </div>
 
                         <div>
-                            <InputLabel for="task_id" :value="t('patientReg.diagnosis')" />
-                            <TextInput
-                                v-if="tasks.length > 6"
-                                v-model="taskFilter"
-                                type="text"
-                                :placeholder="t('patientReg.filterTasks')"
-                                class="mt-1 block w-full"
-                            />
-                            <select
-                                id="task_id"
-                                v-model="form.task_id"
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                            >
-                                <option value="">{{ t('patientReg.noneOption') }}</option>
-                                <option v-for="task in filteredTasks" :key="task.id" :value="task.id">{{ task.title }}</option>
-                            </select>
-                            <InputError class="mt-2" :message="form.errors.task_id" />
-                            <p v-if="selectedTask" class="mt-2 text-sm text-gray-500">
-                                {{ selectedTask.stage?.name ?? '—' }}
-                                <span v-if="selectedTask.stage?.education_type"> · {{ selectedTask.stage.education_type.name }}</span>
-                            </p>
+                            <InputLabel for="amount_paid" :value="t('patientReg.amountPaid')" />
+                            <TextInput id="amount_paid" v-model="form.amount_paid" type="number" min="0" step="any" class="mt-1 block w-full" dir="ltr" />
+                            <p class="mt-1 text-xs text-gray-500">{{ t('patientReg.amountPaidHint') }}</p>
+                            <InputError class="mt-2" :message="form.errors.amount_paid" />
                         </div>
 
                         <div class="flex justify-end">

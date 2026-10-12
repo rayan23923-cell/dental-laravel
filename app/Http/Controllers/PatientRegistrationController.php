@@ -3,12 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\PatientRegistration;
+use App\Models\Payment;
 use App\Models\RegisterDay;
 use App\Models\Service;
 use App\Models\Task;
 use App\Services\PatientScreeningException;
 use App\Services\PatientScreeningGate;
 use App\Support\QrCodeFactory;
+use App\Support\LabFeeGate;
+use App\Support\RegistrationPaymentState;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,15 +33,8 @@ class PatientRegistrationController extends Controller
 {
     public function index(Request $request): Response
     {
-        $registrations = PatientRegistration::with(['service', 'registerDay'])
-            ->when($request->string('search')->toString(), function ($query, $search) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%")
-                        ->orWhere('phone', 'like', "%{$search}%");
-                });
-            })
-            ->when($request->integer('register_day_id'), fn ($q, $id) => $q->where('register_day_id', $id))
-            ->when($request->integer('service_id'), fn ($q, $id) => $q->where('service_id', $id))
+        $registrations = $this->filteredQuery($request)
+            ->with(['service', 'registerDay'])
             ->orderByDesc('created_at')
             ->paginate(15)
             ->withQueryString();
@@ -48,6 +44,47 @@ class PatientRegistrationController extends Controller
             'days' => RegisterDay::with('services')->orderBy('sort_order')->orderBy('name')->get(),
             'filters' => $request->only('search', 'register_day_id', 'service_id'),
         ]);
+    }
+
+    /**
+     * The registry's search/day/service filters — shared by `index()` and
+     * `destroyMany()`'s "delete all" so it deletes exactly what's listed.
+     */
+    private function filteredQuery(Request $request)
+    {
+        return PatientRegistration::query()
+            ->when($request->string('search')->toString(), function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%");
+                });
+            })
+            ->when($request->integer('register_day_id'), fn ($q, $id) => $q->where('register_day_id', $id))
+            ->when($request->integer('service_id'), fn ($q, $id) => $q->where('service_id', $id));
+    }
+
+    /**
+     * Bulk delete (2026-10-11), same as the doctors table: either the
+     * ticked `ids`, or `all` — every registration matching the current
+     * filters across all pages. Payments/appointments/task instances keep
+     * their stored registration id (there are no foreign keys), so money
+     * records are never lost with the registration.
+     */
+    public function destroyMany(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'all' => ['sometimes', 'boolean'],
+            'ids' => ['required_without:all', 'array'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $query = ($validated['all'] ?? false)
+            ? $this->filteredQuery($request)
+            : PatientRegistration::whereIn('id', $validated['ids']);
+
+        $count = $query->delete();
+
+        return back()->with('success', "تم حذف {$count} تسجيل.");
     }
 
     /**
@@ -73,6 +110,7 @@ class PatientRegistrationController extends Controller
             ->orWhere('phone', 'like', "%{$search}%")
             ->orderByDesc('created_at')
             ->limit(10)
+            ->withExists(['payments as lab_paid' => fn ($q) => $q->where('type', Payment::TYPE_LAB)])
             ->get(['id', 'name', 'phone', 'screening_status']);
 
         return response()->json(['data' => $registrations]);
@@ -80,14 +118,11 @@ class PatientRegistrationController extends Controller
 
     public function create(): Response
     {
+        // Name, phone and a priced service (2026-10-12): the day is no
+        // longer asked, so every configured service is offered.
         return Inertia::render('PatientRegistrations/Create', [
-            // `tasks:id` — day-governed diagnosis (see RegisterDay::tasks()'s
-            // docblock); the form narrows the task list to a selected day's
-            // configured tasks, when that day has any configured at all.
-            'days' => RegisterDay::with(['services', 'tasks:id'])->orderBy('sort_order')->orderBy('name')->get(),
-            // "التشخيص" picker — still not gated by stage/education type
-            // (see PatientRegistration::task()'s docblock), only by day now.
-            'tasks' => Task::with('stage.educationType')->orderBy('title')->get(['id', 'title', 'stage_id']),
+            'services' => Service::orderBy('name')->get(['id', 'name', 'price']),
+            'currency' => \App\Models\ClinicSetting::current()->clinic_currency,
         ]);
     }
 
@@ -104,41 +139,31 @@ class PatientRegistrationController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:20'],
-            'register_day_id' => ['required', 'integer', 'exists:register_days,id'],
+            // The day is no longer asked (2026-10-12); older app builds still send it.
+            'register_day_id' => ['nullable', 'integer', 'exists:register_days,id'],
             'service_id' => ['required', 'integer', 'exists:register_services,id'],
             'task_id' => ['nullable', 'integer', 'exists:tasks,id'],
+            'amount_paid' => ['nullable', 'numeric', 'min:0'],
         ]);
+        $amountPaid = (float) ($validated['amount_paid'] ?? 0);
+        unset($validated['amount_paid']);
 
-        $offeredOnDay = Service::whereKey($validated['service_id'])
-            ->whereHas('days', fn ($q) => $q->where('register_days.id', $validated['register_day_id']))
-            ->exists();
+        // Registration is by service only now (2026-10-12): no day check.
+        // A day an older app build still sends is stored as before.
 
-        if (! $offeredOnDay) {
-            throw ValidationException::withMessages([
-                'service_id' => 'هذه الخدمة غير متاحة في اليوم المحدد.',
+        $registration = PatientRegistration::create($validated);
+
+        // "المبلغ المدفوع" (2026-10-11, by request): the ticket desk takes
+        // the payment at registration, before any lab screening, so it is
+        // recorded here directly rather than through PatientScreeningGate.
+        if ($amountPaid > 0) {
+            Payment::create([
+                'patient_registration_id' => $registration->id,
+                'amount' => $amountPaid,
+                'paid_at' => now(),
+                'type' => Payment::TYPE_SERVICE,
             ]);
         }
-
-        // Day-governed diagnosis — see RegisterDay::tasks()'s docblock.
-        // Opt-in per day: only enforced once a day has at least one task
-        // configured, so an unconfigured day stays fully open (no
-        // existing registration flow breaks the moment this ships).
-        if (! empty($validated['task_id'])) {
-            $dayHasTaskRules = RegisterDay::whereKey($validated['register_day_id'])->whereHas('tasks')->exists();
-            if ($dayHasTaskRules) {
-                $taskOfferedOnDay = Task::whereKey($validated['task_id'])
-                    ->whereHas('days', fn ($q) => $q->where('register_days.id', $validated['register_day_id']))
-                    ->exists();
-
-                if (! $taskOfferedOnDay) {
-                    throw ValidationException::withMessages([
-                        'task_id' => 'هذا التشخيص غير متاح في اليوم المحدد.',
-                    ]);
-                }
-            }
-        }
-
-        PatientRegistration::create($validated);
 
         return redirect()->route('patient-registrations.index')->with('success', 'تم تسجيل المريض بنجاح.');
     }
@@ -232,6 +257,10 @@ class PatientRegistrationController extends Controller
             'screening_status' => ['required', Rule::in(['clear', 'flagged'])],
         ]);
 
+        if ($message = LabFeeGate::unpaidMessage($patientRegistration)) {
+            return response()->json(['message' => $message], 422);
+        }
+
         $patientRegistration->update([
             'screening_status' => $validated['screening_status'],
             'screening_checked_by' => $request->user()->id,
@@ -243,20 +272,8 @@ class PatientRegistrationController extends Controller
 
     private function stateResponse(PatientRegistration $registration): JsonResponse
     {
-        $payments = $registration->payments()->orderByDesc('paid_at')->get();
-
         return response()->json([
-            'data' => [
-                'registration' => $registration,
-                'payments' => $payments->map(fn ($p) => [
-                    'id' => $p->id,
-                    'amount' => $p->amount,
-                    'paid_by' => $p->paid_by,
-                    'paid_at' => $p->paid_at,
-                ])->values(),
-                'total_paid' => (float) $payments->sum('amount'),
-                'is_paid' => $payments->isNotEmpty(),
-            ],
+            'data' => RegistrationPaymentState::build($registration, $registration->toArray()),
         ]);
     }
 }

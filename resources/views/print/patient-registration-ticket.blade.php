@@ -25,7 +25,12 @@
                 <tr><th style="width:38%">اسم المريض</th><td>{{ $registration->name }}</td></tr>
                 <tr><th>الهاتف</th><td dir="ltr" style="text-align:left">{{ $registration->phone }}</td></tr>
                 <tr><th>الخدمة</th><td>{{ $registration->service?->name ?? '—' }}</td></tr>
-                <tr><th>اليوم</th><td>{{ $registration->registerDay?->name ?? '—' }}</td></tr>
+                @if ($registration->service?->price !== null)
+                    <tr><th>السعر</th><td>{{ number_format((float) $registration->service->price) }}</td></tr>
+                @endif
+                @if ($registration->registerDay)
+                    <tr><th>اليوم</th><td>{{ $registration->registerDay->name }}</td></tr>
+                @endif
             </tbody>
         </table>
 

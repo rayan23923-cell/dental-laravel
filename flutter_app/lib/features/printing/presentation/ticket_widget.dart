@@ -24,8 +24,21 @@ class TicketWidget extends StatelessWidget {
     this.logoBytes,
     this.headerTitle,
     this.headerSubtitle,
+    this.resultBanner,
+    this.extraRows = const [],
+    this.qrCaption = 'يُمسح هذا الرمز عند الدفع',
     this.widthDots = 384,
   });
+
+  /// Big boxed line under the header — the lab slip's result ("سليم" /
+  /// "غير سليم", 2026-10-11). Null on the ordinary registration ticket.
+  final String? resultBanner;
+
+  /// Rows appended after the standard four (e.g. the lab slip's payment
+  /// status and check time).
+  final List<(String, String)> extraRows;
+
+  final String qrCaption;
 
   final PatientRegistration registration;
 
@@ -96,11 +109,25 @@ class TicketWidget extends StatelessWidget {
             const SizedBox(height: 12),
             const Divider(color: Colors.black, thickness: 1),
             const SizedBox(height: 8),
+            if (resultBanner != null) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(border: Border.all(color: Colors.black, width: 3)),
+                child: Text(
+                  resultBanner!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.black, fontSize: 28, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
             ticketTable([
               ('اسم المريض', registration.name),
               ('الهاتف', registration.phone),
               ('الخدمة', registration.serviceName ?? '—'),
-              ('اليوم', registration.registerDayName ?? '—'),
+              if (registration.registerDayName != null) ('اليوم', registration.registerDayName!),
+              ...extraRows,
             ]),
             const SizedBox(height: 8),
             const Divider(color: Colors.black, thickness: 1),
@@ -109,9 +136,9 @@ class TicketWidget extends StatelessWidget {
             if (qrBytes != null) ...[
               const SizedBox(height: 12),
               Image.memory(qrBytes!, width: qrSize, height: qrSize),
-              const Text(
-                'يُمسح هذا الرمز عند الدفع',
-                style: TextStyle(color: Colors.black, fontSize: 14),
+              Text(
+                qrCaption,
+                style: const TextStyle(color: Colors.black, fontSize: 14),
               ),
             ],
             const SizedBox(height: 12),

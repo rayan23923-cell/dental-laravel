@@ -29,11 +29,12 @@ class ServiceController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', Rule::unique('register_services', 'name')],
+            'price' => ['nullable', 'numeric', 'min:0'],
             'day_ids' => ['array'],
             'day_ids.*' => ['integer', 'exists:register_days,id'],
         ]);
 
-        $service = Service::create(['name' => $validated['name']]);
+        $service = Service::create(['name' => $validated['name'], 'price' => $validated['price'] ?? null]);
         $service->days()->sync($validated['day_ids'] ?? []);
 
         return response()->json($service->load('days'))->setStatusCode(201);
@@ -43,11 +44,12 @@ class ServiceController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', Rule::unique('register_services', 'name')->ignore($service->id)],
+            'price' => ['nullable', 'numeric', 'min:0'],
             'day_ids' => ['array'],
             'day_ids.*' => ['integer', 'exists:register_days,id'],
         ]);
 
-        $service->update(['name' => $validated['name']]);
+        $service->update(['name' => $validated['name'], 'price' => $validated['price'] ?? $service->price]);
         $service->days()->sync($validated['day_ids'] ?? []);
 
         return response()->json($service->load('days'));

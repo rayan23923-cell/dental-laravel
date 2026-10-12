@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PatientRegistrationResource;
 use App\Models\PatientRegistration;
+use App\Models\Payment;
 use App\Models\RegisterDay;
 use App\Models\Service;
 use App\Models\Task;
@@ -56,45 +57,36 @@ class PatientRegistrationController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:20'],
-            'register_day_id' => ['required', 'integer', 'exists:register_days,id'],
+            // The day is no longer asked (2026-10-12); older app builds still send it.
+            'register_day_id' => ['nullable', 'integer', 'exists:register_days,id'],
             'service_id' => ['required', 'integer', 'exists:register_services,id'],
             'task_id' => ['nullable', 'integer', 'exists:tasks,id'],
+            'amount_paid' => ['nullable', 'numeric', 'min:0'],
         ]);
+        $amountPaid = (float) ($validated['amount_paid'] ?? 0);
+        unset($validated['amount_paid']);
 
         // The original enforces this server-side too
         // (`patient_register.php:76-89`, checking the selected service
         // against that day's allow-list) — done here with a real query
         // against the pivot instead of a PHP array built from an embedded
         // JSON map.
-        $offeredOnDay = Service::whereKey($validated['service_id'])
-            ->whereHas('days', fn ($q) => $q->where('register_days.id', $validated['register_day_id']))
-            ->exists();
-
-        if (! $offeredOnDay) {
-            throw ValidationException::withMessages([
-                'service_id' => ['هذه الخدمة غير متاحة في اليوم المحدد.'],
-            ]);
-        }
-
-        // Day-governed diagnosis — see RegisterDay::tasks()'s docblock.
-        // Opt-in per day, same reasoning as the web twin
-        // (PatientRegistrationController::store()).
-        if (! empty($validated['task_id'])) {
-            $dayHasTaskRules = RegisterDay::whereKey($validated['register_day_id'])->whereHas('tasks')->exists();
-            if ($dayHasTaskRules) {
-                $taskOfferedOnDay = Task::whereKey($validated['task_id'])
-                    ->whereHas('days', fn ($q) => $q->where('register_days.id', $validated['register_day_id']))
-                    ->exists();
-
-                if (! $taskOfferedOnDay) {
-                    throw ValidationException::withMessages([
-                        'task_id' => ['هذا التشخيص غير متاح في اليوم المحدد.'],
-                    ]);
-                }
-            }
-        }
+        // Registration is by service only now (2026-10-12): no day check.
+        // A day an older app build still sends is stored as before.
 
         $registration = PatientRegistration::create($validated);
+
+        // "المبلغ المدفوع" (2026-10-11, by request): the ticket desk takes
+        // the payment at registration, before any lab screening, so it is
+        // recorded here directly rather than through PatientScreeningGate.
+        if ($amountPaid > 0) {
+            Payment::create([
+                'patient_registration_id' => $registration->id,
+                'amount' => $amountPaid,
+                'paid_at' => now(),
+                'type' => Payment::TYPE_SERVICE,
+            ]);
+        }
 
         // `fresh()`, not `load()` — `screening_status` is a DB-level
         // default (`'pending'`) never passed to `create()`, so the

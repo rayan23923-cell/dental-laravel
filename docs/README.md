@@ -33,6 +33,8 @@ facts (file paths, table/column names, real bug root causes).
   navigation/dashboard/notifications UI, including the ChatGPT-style
   persistent/drag sidebar.
 
+For a current Arabic summary of what runs where and what was added recently, see **[project-status-2026-10.md](project-status-2026-10.md)**.
+
 For current architecture (not history), see the top-level `README.md` and
 `flutter_app/README.md` instead — these pages are development history, not
 living reference docs, and may describe things that were later changed

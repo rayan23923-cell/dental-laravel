@@ -3,19 +3,40 @@ import 'patient_registration.dart';
 /// Mirrors one entry of `Api\PatientRegistrationQrController::stateResponse()`'s
 /// `payments` array.
 class PaymentEntry {
-  const PaymentEntry({required this.id, required this.amount, this.paidBy, this.paidAt});
+  const PaymentEntry({required this.id, required this.amount, this.paidBy, this.paidAt, this.type = 'service'});
 
   factory PaymentEntry.fromJson(Map<String, dynamic> json) => PaymentEntry(
         id: json['id'] as int,
         amount: double.parse(json['amount'].toString()),
         paidBy: json['paid_by'] as String?,
         paidAt: json['paid_at'] as String?,
+        type: json['type'] as String? ?? 'service',
       );
 
   final int id;
   final double amount;
   final String? paidBy;
   final String? paidAt;
+
+  /// `'service'` or `'lab'` (the lab screening fee, 2026-10-11).
+  final String type;
+
+  bool get isLabFee => type == 'lab';
+}
+
+/// A still-valid earlier clear result of the same patient (same phone) —
+/// `data.previous_screening` (2026-10-12, see `LabFeeGate::previousScreening`).
+class PreviousScreening {
+  const PreviousScreening({required this.id, this.checkedAt});
+
+  factory PreviousScreening.fromJson(Map<String, dynamic> json) => PreviousScreening(
+        id: json['id'] as int,
+        checkedAt: json['checked_at'] as String?,
+      );
+
+  /// The earlier registration whose result is reused.
+  final int id;
+  final String? checkedAt;
 }
 
 /// Mirrors `Api\PatientRegistrationQrController::stateResponse()` — the
@@ -29,6 +50,10 @@ class RegistrationPaymentState {
     required this.payments,
     required this.totalPaid,
     required this.isPaid,
+    this.labFee,
+    this.labPaid = false,
+    this.labValidityDays = 0,
+    this.previousScreening,
   });
 
   factory RegistrationPaymentState.fromJson(Map<String, dynamic> json) {
@@ -40,6 +65,12 @@ class RegistrationPaymentState {
           .toList(),
       totalPaid: double.parse(data['total_paid'].toString()),
       isPaid: data['is_paid'] as bool,
+      labFee: data['lab_fee'] == null ? null : double.parse(data['lab_fee'].toString()),
+      labPaid: data['lab_paid'] as bool? ?? false,
+      labValidityDays: (data['lab_validity_days'] as num?)?.toInt() ?? 0,
+      previousScreening: data['previous_screening'] == null
+          ? null
+          : PreviousScreening.fromJson(data['previous_screening'] as Map<String, dynamic>),
     );
   }
 
@@ -47,4 +78,16 @@ class RegistrationPaymentState {
   final List<PaymentEntry> payments;
   final double totalPaid;
   final bool isPaid;
+
+  /// The clinic's configured lab screening fee (null = not set) and
+  /// whether this patient has paid it. Separate from [isPaid]/[totalPaid],
+  /// which count service payments only.
+  final double? labFee;
+  final bool labPaid;
+
+  /// Days a clear result stays valid (0 = reuse off), and — only while
+  /// this registration is still pending — the earlier clear result it can
+  /// reuse instead of a new test and lab fee (2026-10-12).
+  final int labValidityDays;
+  final PreviousScreening? previousScreening;
 }

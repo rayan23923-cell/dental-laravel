@@ -13,7 +13,7 @@ workflows:
         # zero-config dev default (10.0.2.2, the Android emulator's alias
         # for the host machine) — useless in a real release build, which
         # needs the actual production API.
-        script: flutter build apk --release --dart-define=API_BASE_URL=https://cdclinics.com/api/v1
+        script: flutter build apk --release --dart-define=API_BASE_URL=https://dental.azoclinic.duckdns.org/api/v1
     artifacts:
       - "**/outputs/**/*.apk"
       - "**/outputs/**/mapping.txt"
@@ -85,7 +85,7 @@ workflows:
           storeFile=$CM_KEYSTORE_PATH
           EOF
       - name: Build Android App Bundle (release, signed)
-        script: flutter build appbundle --release --dart-define=API_BASE_URL=https://cdclinics.com/api/v1
+        script: flutter build appbundle --release --dart-define=API_BASE_URL=https://dental.azoclinic.duckdns.org/api/v1
     artifacts:
       - "**/outputs/**/*.aab"
       - "**/outputs/**/mapping.txt"
@@ -158,7 +158,7 @@ workflows:
         # the real underlying xcodebuild failure instead of guessing again.
         script: |
           set -o pipefail
-          flutter build ios --release --no-codesign --verbose --dart-define=API_BASE_URL=https://cdclinics.com/api/v1 2>&1 | tee build_ios_verbose.log
+          flutter build ios --release --no-codesign --verbose --dart-define=API_BASE_URL=https://dental.azoclinic.duckdns.org/api/v1 2>&1 | tee build_ios_verbose.log
       - name: Package as unsigned .ipa
         script: |
           mkdir -p build/ios/ipa_payload/Payload

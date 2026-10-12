@@ -151,7 +151,7 @@ const destroy = (task) => {
                     {{ t('tasksAdmin.emptyPrompt') }}
                 </div>
 
-                <div v-else class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                <div v-else class="overflow-x-auto bg-white shadow-sm sm:rounded-lg">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
