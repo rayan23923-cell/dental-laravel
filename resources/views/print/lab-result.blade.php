@@ -32,10 +32,17 @@
                 <tr><th style="width:38%">اسم المريض</th><td>{{ $registration->name }}</td></tr>
                 <tr><th>الهاتف</th><td dir="ltr" style="text-align:left">{{ $registration->phone }}</td></tr>
                 <tr><th>الخدمة</th><td>{{ $registration->service?->name ?? '—' }}</td></tr>
-                <tr><th>اليوم</th><td>{{ $registration->registerDay?->name ?? '—' }}</td></tr>
-                <tr><th>أجور المختبر</th><td>{{ $registration->lab_paid ? 'مدفوعة' : 'غير مدفوعة' }}</td></tr>
+                @if ($registration->registerDay)
+                    <tr><th>اليوم</th><td>{{ $registration->registerDay->name }}</td></tr>
+                @endif
+                @if ($registration->screeningReusedFrom)
+                    <tr><th>أجور المختبر</th><td>معفى — فحص سابق صالح</td></tr>
+                    <tr><th>تاريخ الفحص السابق</th><td dir="ltr" style="text-align:left">{{ \Illuminate\Support\Carbon::parse($registration->screeningReusedFrom->screening_checked_at)->format('Y-m-d') }}</td></tr>
+                @else
+                    <tr><th>أجور المختبر</th><td>{{ $registration->lab_paid ? 'مدفوعة' : 'غير مدفوعة' }}</td></tr>
+                @endif
                 <tr><th>تاريخ الفحص</th><td dir="ltr" style="text-align:left">{{ $registration->screening_checked_at ? \Illuminate\Support\Carbon::parse($registration->screening_checked_at)->format('Y-m-d H:i') : '—' }}</td></tr>
-                <tr><th>الفاحص</th><td>{{ $registration->screeningCheckedBy?->name ?? '—' }}</td></tr>
+                <tr><th>الفاحص</th><td>{{ $registration->screeningCheckedBy?->full_name ?? '—' }}</td></tr>
             </tbody>
         </table>
 

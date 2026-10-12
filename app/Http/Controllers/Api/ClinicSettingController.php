@@ -38,6 +38,7 @@ class ClinicSettingController extends Controller
             'clinic_working_hours' => ['nullable', 'string'],
             'clinic_currency' => ['nullable', 'string', 'max:50'],
             'lab_fee' => ['nullable', 'numeric', 'min:0'],
+            'lab_validity_days' => ['nullable', 'integer', 'min:0', 'max:3650'],
             'clinic_timezone' => ['nullable', 'string', 'max:64'],
             'base_url' => ['nullable', 'string', 'max:255'],
             'university_name' => ['nullable', 'string', 'max:255'],

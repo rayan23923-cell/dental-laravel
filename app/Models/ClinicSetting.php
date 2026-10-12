@@ -49,6 +49,7 @@ class ClinicSetting extends Model
         'enable_daily_backup',
         'last_backup_at',
         'lab_fee',
+        'lab_validity_days',
     ];
 
     /**

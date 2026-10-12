@@ -118,14 +118,11 @@ class PatientRegistrationController extends Controller
 
     public function create(): Response
     {
+        // Name, phone and a priced service (2026-10-12): the day is no
+        // longer asked, so every configured service is offered.
         return Inertia::render('PatientRegistrations/Create', [
-            // `tasks:id` — day-governed diagnosis (see RegisterDay::tasks()'s
-            // docblock); the form narrows the task list to a selected day's
-            // configured tasks, when that day has any configured at all.
-            'days' => RegisterDay::with(['services', 'tasks:id'])->orderBy('sort_order')->orderBy('name')->get(),
-            // "التشخيص" picker — still not gated by stage/education type
-            // (see PatientRegistration::task()'s docblock), only by day now.
-            'tasks' => Task::with('stage.educationType')->orderBy('title')->get(['id', 'title', 'stage_id']),
+            'services' => Service::orderBy('name')->get(['id', 'name', 'price']),
+            'currency' => \App\Models\ClinicSetting::current()->clinic_currency,
         ]);
     }
 
@@ -142,7 +139,8 @@ class PatientRegistrationController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:20'],
-            'register_day_id' => ['required', 'integer', 'exists:register_days,id'],
+            // The day is no longer asked (2026-10-12); older app builds still send it.
+            'register_day_id' => ['nullable', 'integer', 'exists:register_days,id'],
             'service_id' => ['required', 'integer', 'exists:register_services,id'],
             'task_id' => ['nullable', 'integer', 'exists:tasks,id'],
             'amount_paid' => ['nullable', 'numeric', 'min:0'],
@@ -150,34 +148,8 @@ class PatientRegistrationController extends Controller
         $amountPaid = (float) ($validated['amount_paid'] ?? 0);
         unset($validated['amount_paid']);
 
-        $offeredOnDay = Service::whereKey($validated['service_id'])
-            ->whereHas('days', fn ($q) => $q->where('register_days.id', $validated['register_day_id']))
-            ->exists();
-
-        if (! $offeredOnDay) {
-            throw ValidationException::withMessages([
-                'service_id' => 'هذه الخدمة غير متاحة في اليوم المحدد.',
-            ]);
-        }
-
-        // Day-governed diagnosis — see RegisterDay::tasks()'s docblock.
-        // Opt-in per day: only enforced once a day has at least one task
-        // configured, so an unconfigured day stays fully open (no
-        // existing registration flow breaks the moment this ships).
-        if (! empty($validated['task_id'])) {
-            $dayHasTaskRules = RegisterDay::whereKey($validated['register_day_id'])->whereHas('tasks')->exists();
-            if ($dayHasTaskRules) {
-                $taskOfferedOnDay = Task::whereKey($validated['task_id'])
-                    ->whereHas('days', fn ($q) => $q->where('register_days.id', $validated['register_day_id']))
-                    ->exists();
-
-                if (! $taskOfferedOnDay) {
-                    throw ValidationException::withMessages([
-                        'task_id' => 'هذا التشخيص غير متاح في اليوم المحدد.',
-                    ]);
-                }
-            }
-        }
+        // Registration is by service only now (2026-10-12): no day check.
+        // A day an older app build still sends is stored as before.
 
         $registration = PatientRegistration::create($validated);
 

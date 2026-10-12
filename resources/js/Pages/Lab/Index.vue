@@ -23,6 +23,7 @@ const props = defineProps({
     canConfirm: Boolean,
     labFee: { type: [Number, String], default: null },
     currency: { type: String, default: '' },
+    validityDays: { type: Number, default: 0 },
 });
 
 const statusTabs = [
@@ -53,7 +54,11 @@ const isPaid = (r) => !!r.lab_paid;
 // (the server refuses it too, see LabFeeGate).
 const hasLabFee = computed(() => props.labFee !== null && props.labFee !== '');
 const labFeeText = computed(() => `${Number(props.labFee).toLocaleString()} ${props.currency ?? ''}`.trim());
-const mustPayFirst = (r) => hasLabFee.value && !isPaid(r);
+// A clear result from the last `validityDays` (same phone) is reused
+// instead: no new screening and nothing to pay (LabFeeGate).
+const canReuse = (r) => r.screening_status === 'pending' && !!r.previous_screening;
+const mustPayFirst = (r) => hasLabFee.value && !isPaid(r) && !canReuse(r);
+const placeAndDay = (r) => [r.service?.name ?? '—', r.register_day?.name].filter(Boolean).join(' · ');
 const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
 
 // --- Scan a ticket QR ---
@@ -114,6 +119,24 @@ const payLabFee = async () => {
         resultError.value = e?.response?.data?.message ?? t('payments.labFeeFailed');
     } finally {
         paying.value = false;
+    }
+};
+
+const reuse = async () => {
+    submitting.value = true;
+    resultError.value = '';
+    const printWindow = window.open('', '_blank');
+    try {
+        const id = selected.value.id;
+        await axios.post(route('lab.reuse', id));
+        openPrint(id, printWindow);
+        selected.value = null;
+        router.reload({ only: ['registrations', 'counts'] });
+    } catch (e) {
+        printWindow?.close();
+        resultError.value = e?.response?.data?.message ?? t('lab.recordFailed');
+    } finally {
+        submitting.value = false;
     }
 };
 
@@ -194,12 +217,13 @@ const record = async (status) => {
                         <div class="flex items-start justify-between gap-2">
                             <span class="font-semibold text-gray-900">{{ r.name }}</span>
                             <span class="flex shrink-0 gap-1">
-                                <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="isPaid(r) ? 'bg-sky-100 text-sky-800' : 'bg-gray-100 text-gray-600'">{{ isPaid(r) ? t('lab.paid') : t('lab.unpaid') }}</span>
+                                <span v-if="canReuse(r)" class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">{{ t('lab.previousValidBadge') }}</span>
+                                <span v-else class="rounded-full px-2 py-0.5 text-xs font-medium" :class="isPaid(r) ? 'bg-sky-100 text-sky-800' : 'bg-gray-100 text-gray-600'">{{ isPaid(r) ? t('lab.paid') : t('lab.unpaid') }}</span>
                                 <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="badgeClass(r.screening_status)">{{ statusLabel(r.screening_status) }}</span>
                             </span>
                         </div>
                         <span class="text-sm text-gray-500" dir="ltr" style="text-align: right">{{ r.phone }}</span>
-                        <span class="text-xs text-gray-400">{{ r.service?.name ?? '—' }} · {{ r.register_day?.name ?? '—' }} · {{ fmtDate(r.created_at) }}</span>
+                        <span class="text-xs text-gray-400">{{ placeAndDay(r) }} · {{ fmtDate(r.created_at) }}</span>
                     </button>
                 </div>
 
@@ -236,10 +260,26 @@ const record = async (status) => {
                 <div>
                     <h3 class="text-lg font-semibold text-gray-900">{{ selected.name }}</h3>
                     <p class="text-sm text-gray-500" dir="ltr" style="text-align: right">{{ selected.phone }}</p>
-                    <p class="text-sm text-gray-500">{{ selected.service?.name ?? '—' }} · {{ selected.register_day?.name ?? '—' }}</p>
+                    <p class="text-sm text-gray-500">{{ placeAndDay(selected) }}</p>
                 </div>
 
-                <div class="flex flex-wrap items-center justify-between gap-2 rounded-md p-3 text-sm font-semibold" :class="isPaid(selected) ? 'bg-sky-50 text-sky-800' : 'bg-gray-100 text-gray-700'">
+                <div v-if="canReuse(selected)" class="flex flex-col gap-3 rounded-md bg-green-50 p-3 text-sm text-green-800">
+                    <span>
+                        <Icon name="verified" class="ml-1" />
+                        {{ t('lab.previousValid', { date: fmtDate(selected.previous_screening.checked_at), days: validityDays }) }}
+                    </span>
+                    <button
+                        v-if="canConfirm"
+                        type="button"
+                        :disabled="submitting"
+                        @click="reuse"
+                        class="rounded-md bg-green-700 px-4 py-3 text-sm font-semibold text-white hover:bg-green-800 disabled:opacity-50"
+                    >
+                        <Icon name="print" class="ml-1" />{{ t('lab.reusePrint') }}
+                    </button>
+                </div>
+
+                <div v-if="!canReuse(selected)" class="flex flex-wrap items-center justify-between gap-2 rounded-md p-3 text-sm font-semibold" :class="isPaid(selected) ? 'bg-sky-50 text-sky-800' : 'bg-gray-100 text-gray-700'">
                     <span>
                         <Icon :name="isPaid(selected) ? 'paid' : 'money_off'" class="ml-1" />
                         {{ isPaid(selected) ? t('lab.paid') : t('lab.unpaid') }}
@@ -258,15 +298,16 @@ const record = async (status) => {
 
                 <div class="rounded-md p-3 text-sm font-semibold" :class="badgeClass(selected.screening_status)">
                     {{ t('lab.currentStatus') }} {{ statusLabel(selected.screening_status) }}
-                    <span v-if="selected.screening_checked_by?.name" class="block text-xs font-normal opacity-80">
-                        {{ selected.screening_checked_by.name }} · {{ fmtDate(selected.screening_checked_at) }}
+                    <span v-if="selected.screening_checked_by?.full_name" class="block text-xs font-normal opacity-80">
+                        {{ selected.screening_checked_by.full_name }} · {{ fmtDate(selected.screening_checked_at) }}
                     </span>
                 </div>
 
                 <div v-if="resultError" class="rounded-md bg-red-50 p-3 text-sm text-red-700">{{ resultError }}</div>
 
                 <template v-if="canConfirm">
-                    <h4 class="text-sm font-medium text-gray-700">{{ t('lab.resultHeading') }}</h4>
+                    <h4 v-if="canReuse(selected)" class="text-xs text-gray-500">{{ t('lab.orScreenAgain') }}</h4>
+                    <h4 v-else class="text-sm font-medium text-gray-700">{{ t('lab.resultHeading') }}</h4>
                     <p v-if="mustPayFirst(selected)" class="rounded-md bg-amber-50 p-3 text-sm text-amber-800">{{ t('lab.payFirst') }}</p>
                     <div class="grid grid-cols-2 gap-3">
                         <button

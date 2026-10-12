@@ -295,7 +295,12 @@
         "deleteAllConfirm": "Delete all listed registrations ({n}) across all pages? This can't be undone.",
         "totalCount": "Total: {n}",
         "amountPaid": "Amount paid",
-        "amountPaidHint": "Recorded as the patient's payment when the registration is saved. Leave blank if nothing was paid."
+        "amountPaidHint": "Recorded as the patient's payment when the registration is saved. Leave blank if nothing was paid.",
+        "priceLabel": "Price",
+        "servicesPricesHeading": "Services and prices",
+        "labSettingsHeading": "Lab settings",
+        "labSettingsDesc": "The test is paid in advance. A patient (same phone) with a clear test within the validity period needs no new test or payment, only the slip is printed. Set 0 to turn this off.",
+        "savePrice": "Save"
     },
     "appointments": {
         "newAppointment": "New Appointment",
@@ -805,7 +810,8 @@
         "emailLabel": "Email",
         "mailUsernameLabel": "Username",
         "mailPasswordLabel": "Password",
-        "labFeeLabel": "Lab Screening Fee"
+        "labFeeLabel": "Lab Screening Fee",
+        "labValidityLabel": "Lab test validity (days)"
     },
     "authPages": {
         "confirmPasswordTitle": "Confirm Password",
@@ -972,6 +978,10 @@
         "printResult": "Print Result",
         "paid": "Lab fee paid",
         "unpaid": "Lab fee unpaid",
-        "payFirst": "Pay the lab fee first, then record the result."
+        "payFirst": "Pay the lab fee first, then record the result.",
+        "previousValidBadge": "Valid earlier test",
+        "previousValid": "Has a clear test from {date} (valid {days} days): no new test or payment needed.",
+        "reusePrint": "Use earlier test and print slip",
+        "orScreenAgain": "Or record a new test result:"
     }
 }

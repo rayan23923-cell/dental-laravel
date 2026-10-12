@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ClinicSetting;
 use App\Models\RegisterDay;
 use App\Models\Service;
 use App\Models\Task;
@@ -31,6 +32,9 @@ class RegisterSettingsController extends Controller
             // Same query PatientRegistrationController::create() already
             // runs for the registration form's own task/diagnosis picker.
             'tasks' => Task::with('days:id')->orderBy('title')->get(['id', 'title']),
+            // Lab screening price and how long a clear result stays valid
+            // (2026-10-12) — also editable in clinic settings.
+            'lab' => ClinicSetting::current()->only(['lab_fee', 'lab_validity_days', 'clinic_currency']),
         ]);
     }
 
@@ -57,11 +61,12 @@ class RegisterSettingsController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', Rule::unique('register_services', 'name')],
+            'price' => ['nullable', 'numeric', 'min:0'],
             'day_ids' => ['array'],
             'day_ids.*' => ['integer', 'exists:register_days,id'],
         ]);
 
-        $service = Service::create(['name' => $validated['name']]);
+        $service = Service::create(['name' => $validated['name'], 'price' => $validated['price'] ?? null]);
         $service->days()->sync($validated['day_ids'] ?? []);
 
         return back()->with('success', 'تمت إضافة الخدمة.');
@@ -71,12 +76,15 @@ class RegisterSettingsController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', Rule::unique('register_services', 'name')->ignore($service->id)],
-            'day_ids' => ['array'],
+            'price' => ['nullable', 'numeric', 'min:0'],
+            'day_ids' => ['sometimes', 'array'],
             'day_ids.*' => ['integer', 'exists:register_days,id'],
         ]);
 
-        $service->update(['name' => $validated['name']]);
-        $service->days()->sync($validated['day_ids'] ?? []);
+        $service->update(['name' => $validated['name'], 'price' => $validated['price'] ?? null]);
+        if (array_key_exists('day_ids', $validated)) {
+            $service->days()->sync($validated['day_ids']);
+        }
 
         return back()->with('success', 'تم تحديث الخدمة.');
     }
@@ -86,6 +94,18 @@ class RegisterSettingsController extends Controller
         $service->delete();
 
         return back()->with('success', 'تم حذف الخدمة.');
+    }
+
+    public function updateLab(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'lab_fee' => ['nullable', 'numeric', 'min:0'],
+            'lab_validity_days' => ['nullable', 'integer', 'min:0', 'max:3650'],
+        ]);
+
+        ClinicSetting::current()->update($validated);
+
+        return back()->with('success', 'تم حفظ إعدادات المختبر.');
     }
 
     /** See `Api\TaskRegisterDaysController::update()`'s docblock. */
