@@ -91,7 +91,7 @@ class ReceiptWidget extends StatelessWidget {
               ('اسم المريض', registration.name),
               ('الهاتف', registration.phone),
               ('الخدمة', registration.serviceName ?? '—'),
-              ('اليوم', registration.registerDayName ?? '—'),
+              if (registration.registerDayName != null) ('اليوم', registration.registerDayName!),
             ]),
             const SizedBox(height: 8),
             const Divider(color: Colors.black, thickness: 1),

@@ -126,7 +126,7 @@ class TicketWidget extends StatelessWidget {
               ('اسم المريض', registration.name),
               ('الهاتف', registration.phone),
               ('الخدمة', registration.serviceName ?? '—'),
-              ('اليوم', registration.registerDayName ?? '—'),
+              if (registration.registerDayName != null) ('اليوم', registration.registerDayName!),
               ...extraRows,
             ]),
             const SizedBox(height: 8),

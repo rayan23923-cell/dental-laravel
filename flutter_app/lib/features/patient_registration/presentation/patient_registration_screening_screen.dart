@@ -42,10 +42,13 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
   late RegistrationPaymentState _state;
   bool _submitting = false;
   bool _paying = false;
+  bool _reusing = false;
 
   /// With a lab fee set, the result waits until it is paid (the server
-  /// refuses it too, see `LabFeeGate`).
-  bool get _mustPayFirst => (_state.labFee ?? 0) > 0 && !_state.labPaid;
+  /// refuses it too, see `LabFeeGate`) — unless an earlier clear result
+  /// is still valid, which needs no new test and no fee (2026-10-12).
+  bool get _mustPayFirst =>
+      (_state.labFee ?? 0) > 0 && !_state.labPaid && _state.previousScreening == null;
 
   @override
   void initState() {
@@ -78,6 +81,39 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  /// Reuses the patient's still-valid earlier clear result (2026-10-12):
+  /// marks this registration clear, then prints the lab slip exactly as
+  /// after recording a result.
+  Future<void> _reusePrevious() async {
+    setState(() => _reusing = true);
+    final t = ref.read(translationsProvider);
+    // Kept for the slip: the refreshed state no longer carries it once
+    // the registration is clear.
+    final previous = _state.previousScreening;
+    try {
+      final updated = await ref.read(patientRegistrationRepositoryProvider).reuseScreening(_state.registration.id);
+      if (!mounted) return;
+      setState(() => _state = updated);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['screening.reused']!)));
+      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+        await _printSlip(updated, reusedFrom: previous);
+      }
+    } catch (e) {
+      if (mounted) {
+        final message = e is ApiException ? e.userMessage : t['screening.reuseFailed']!;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } finally {
+      if (mounted) setState(() => _reusing = false);
+    }
+  }
+
+  /// "2026-10-01" from the API's `checked_at` (ISO or "Y-m-d H:i:s").
+  static String _formatDate(String? raw) {
+    final parsed = raw == null ? null : DateTime.tryParse(raw);
+    return parsed == null ? (raw ?? '—') : DateFormat('yyyy-MM-dd').format(parsed.toLocal());
   }
 
   /// Pays the lab fee from the lab screen itself (2026-10-11, by request)
@@ -153,8 +189,10 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
 
   /// Lab slip: the registration ticket layout with the result banner,
   /// payment status and the same patient QR (fetched like the reprint
-  /// in `patient_registration_list_screen.dart`).
-  Future<void> _printSlip(RegistrationPaymentState state) async {
+  /// in `patient_registration_list_screen.dart`). With [reusedFrom] the
+  /// fee row reads "exempt" plus the earlier test's date, as on the web
+  /// `print/lab-result.blade.php`.
+  Future<void> _printSlip(RegistrationPaymentState state, {PreviousScreening? reusedFrom}) async {
     final t = ref.read(translationsProvider);
     final r = state.registration;
     Uint8List? qrBytes;
@@ -197,7 +235,11 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
           headerSubtitle: headerSubtitle,
           resultBanner: '${t['screening.labResultHeading']!}: $result',
           extraRows: [
-            (t['screening.paymentStatus']!, state.labPaid ? t['screening.paid']! : t['screening.unpaid']!),
+            if (reusedFrom != null) ...[
+              (t['screening.paymentStatus']!, t['screening.exemptPrevious']!),
+              (t['screening.previousCheckedAt']!, _formatDate(reusedFrom.checkedAt)),
+            ] else
+              (t['screening.paymentStatus']!, state.labPaid ? t['screening.paid']! : t['screening.unpaid']!),
             (t['screening.checkedAt']!, DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())),
           ],
           qrCaption: t['screening.patientCode']!,
@@ -235,7 +277,9 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
                   const SizedBox(height: 4),
                   Directionality(textDirection: TextDirection.ltr, child: Text(r.phone)),
                   const SizedBox(height: 4),
-                  Text('${r.serviceName ?? '—'} · ${r.registerDayName ?? '—'}'),
+                  // The day is no longer asked (2026-10-12) — shown only on
+                  // older registrations that have one.
+                  Text(r.registerDayName == null ? (r.serviceName ?? '—') : '${r.serviceName ?? '—'} · ${r.registerDayName}'),
                 ],
               ),
             ),
@@ -271,6 +315,41 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
           ),
           const SizedBox(height: 12),
           _StatusBanner(status: r.screeningStatus),
+          // A still-valid earlier clear result (same phone, 2026-10-12):
+          // no new test and no lab fee — one tap reuses it and prints the
+          // slip. Recording a new result below stays possible.
+          if (_state.previousScreening != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                border: Border.all(color: Colors.green.shade200),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.verified_outlined, color: Colors.green.shade700),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      trf(t['screening.previousValid']!, {
+                        'date': _formatDate(_state.previousScreening!.checkedAt),
+                        'days': _state.labValidityDays,
+                      }),
+                      style: TextStyle(color: Colors.green.shade900, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: _reusing || _submitting ? null : _reusePrevious,
+              icon: const Icon(Icons.print_outlined),
+              label: Text(t['screening.reusePrevious']!),
+            ),
+          ],
           const SizedBox(height: 24),
           Text(t['screening.labResultHeading']!, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
@@ -282,7 +361,7 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
             children: [
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: _submitting || _mustPayFirst ? null : () => _confirm('clear'),
+                  onPressed: _submitting || _reusing || _mustPayFirst ? null : () => _confirm('clear'),
                   style: FilledButton.styleFrom(backgroundColor: Colors.green.shade700),
                   icon: const Icon(Icons.check_circle_outline),
                   label: Text(t['patientRegFlutter.screeningClear']!),
@@ -291,7 +370,7 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: _submitting || _mustPayFirst ? null : () => _confirm('flagged'),
+                  onPressed: _submitting || _reusing || _mustPayFirst ? null : () => _confirm('flagged'),
                   style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
                   icon: const Icon(Icons.cancel_outlined),
                   label: Text(t['patientRegFlutter.screeningFlagged']!),

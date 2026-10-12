@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_client.dart';
@@ -18,12 +19,13 @@ import '../../printing/presentation/ticket_print_animation.dart';
 import '../../printing/presentation/ticket_renderer.dart';
 import '../../printing/presentation/ticket_widget.dart';
 import '../data/patient_registration_repository.dart';
-import '../domain/register_day.dart';
+import '../domain/service.dart';
 import 'patient_registration_providers.dart';
 
-/// "تسجيل مريض جديد" — mirrors `PatientRegistrations/Create.vue`'s
-/// day-first cascading picker exactly (pick a day, the service dropdown
-/// filters to that day's services). On Android, a successful submit also
+/// "تسجيل مريض جديد" — mirrors `PatientRegistrations/Create.vue`: name,
+/// phone, a service from the registration settings and the amount paid,
+/// which the service's price pre-fills (2026-10-12 — the day picker is
+/// gone, registration is by service only). On Android, a successful submit also
 /// prints a ticket on the device's built-in POS printer — see
 /// `PosPrinterService`'s doc comment. A print failure never blocks or
 /// rolls back the registration itself, which already succeeded server-side
@@ -40,7 +42,6 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _amountController = TextEditingController();
-  int? _dayId;
   int? _serviceId;
   int? _taskId;
   bool _submitting = false;
@@ -53,9 +54,12 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
     super.dispose();
   }
 
-  Future<void> _submit(List<RegisterDay> days) async {
+  /// Plain (ungrouped) number for the amount field, so it parses back.
+  static String _plainAmount(double v) => v == v.truncateToDouble() ? v.toInt().toString() : v.toString();
+
+  Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? true)) return;
-    if (_dayId == null || _serviceId == null) return;
+    if (_serviceId == null) return;
     setState(() => _submitting = true);
     final t = ref.read(translationsProvider);
 
@@ -63,7 +67,6 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
       final registration = await ref.read(patientRegistrationRepositoryProvider).create(
             name: _nameController.text.trim(),
             phone: _phoneController.text.trim(),
-            registerDayId: _dayId!,
             serviceId: _serviceId!,
             taskId: _taskId,
             amountPaid: double.tryParse(_amountController.text.trim()),
@@ -147,18 +150,16 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
 
   @override
   Widget build(BuildContext context) {
-    final daysAsync = ref.watch(registerDaysProvider);
+    final servicesAsync = ref.watch(servicesProvider);
     final t = ref.watch(translationsProvider);
+    final priceFormat = NumberFormat('#,##0.##');
 
     return Scaffold(
       appBar: AppBar(title: Text(t['patientRegFlutter.newRegistrationTitle']!)),
-      body: daysAsync.when(
+      body: servicesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(child: Text(error is ApiException ? error.userMessage : t['common.loadFailed']!)),
-        data: (days) {
-          final selectedDay = days.where((d) => d.id == _dayId).firstOrNull;
-          final servicesForDay = selectedDay?.services ?? const [];
-
+        data: (services) {
           return Form(
             key: _formKey,
             child: ListView(
@@ -179,69 +180,37 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                 ),
                 const SizedBox(height: 16),
                 // DropdownMenu (not DropdownButtonFormField) so a clinic
-                // with dozens of days/services gets type-to-filter for
-                // free (`enableFilter`). Wrapped in a bare FormField to
-                // keep the same required-field validation the plain
-                // dropdown had — DropdownMenu has no FormField variant.
+                // with dozens of services gets type-to-filter for free
+                // (`enableFilter`). Wrapped in a bare FormField to keep the
+                // same required-field validation the plain dropdown had —
+                // DropdownMenu has no FormField variant.
                 FormField<int>(
-                  initialValue: days.any((d) => d.id == _dayId) ? _dayId : null,
+                  initialValue: services.any((s) => s.id == _serviceId) ? _serviceId : null,
                   validator: (v) => v == null ? t['profile.requiredField'] : null,
                   builder: (field) => DropdownMenu<int>(
                     initialSelection: field.value,
-                    enableFilter: true,
-                    requestFocusOnTap: true,
-                    expandedInsets: EdgeInsets.zero,
-                    label: Text(t['patientRegFlutter.dayLabel']!),
-                    errorText: field.errorText,
-                    dropdownMenuEntries: [
-                      for (final d in days) DropdownMenuEntry(value: d.id, label: d.name),
-                    ],
-                    onSelected: (v) {
-                      field.didChange(v);
-                      final newDay = days.where((d) => d.id == v).firstOrNull;
-                      setState(() {
-                        _dayId = v;
-                        _serviceId = null;
-                        // Day-governed diagnosis: only clear the current
-                        // pick if the new day actually has rules and this
-                        // task isn't one of them — an unconfigured day
-                        // never needs to touch it.
-                        if (newDay != null && newDay.taskIds.isNotEmpty && !newDay.taskIds.contains(_taskId)) {
-                          _taskId = null;
-                        }
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // `key` tied to `_dayId` forces this FormField to fully
-                // reset (fresh `initialValue`) whenever the day changes,
-                // instead of drifting out of sync with `_serviceId` (which
-                // is cleared outside this widget, in the day picker above).
-                FormField<int>(
-                  key: ValueKey('service-field-$_dayId'),
-                  initialValue: servicesForDay.any((s) => s.id == _serviceId) ? _serviceId : null,
-                  validator: (v) => v == null ? t['profile.requiredField'] : null,
-                  builder: (field) => DropdownMenu<int>(
-                    initialSelection: field.value,
-                    enabled: _dayId != null,
                     enableFilter: true,
                     requestFocusOnTap: true,
                     expandedInsets: EdgeInsets.zero,
                     label: Text(t['patientRegFlutter.serviceLabel']!),
-                    helperText: _dayId == null
-                        ? t['patientRegFlutter.chooseDayFirst']
-                        : (servicesForDay.isEmpty ? t['patientRegFlutter.noServicesForDay'] : null),
+                    helperText: services.isEmpty ? t['patientRegFlutter.noServices'] : null,
                     errorText: field.errorText,
                     dropdownMenuEntries: [
-                      for (final s in servicesForDay) DropdownMenuEntry(value: s.id, label: s.name),
+                      for (final s in services)
+                        DropdownMenuEntry(
+                          value: s.id,
+                          label: s.price == null ? s.name : '${s.name} — ${priceFormat.format(s.price)}',
+                        ),
                     ],
-                    onSelected: _dayId == null
-                        ? null
-                        : (v) {
-                            field.didChange(v);
-                            setState(() => _serviceId = v);
-                          },
+                    onSelected: (v) {
+                      field.didChange(v);
+                      final Service? service = services.where((s) => s.id == v).firstOrNull;
+                      setState(() {
+                        _serviceId = v;
+                        // The price only pre-fills the amount; it stays editable.
+                        if (service?.price != null) _amountController.text = _plainAmount(service!.price!);
+                      });
+                    },
                   ),
                 ),
                 // "التشخيص" picker removed from registration (2026-10-11, by
@@ -267,7 +236,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                 ),
                 const SizedBox(height: 24),
                 FilledButton(
-                  onPressed: _submitting ? null : () => _submit(days),
+                  onPressed: _submitting ? null : _submit,
                   child: _submitting
                       ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
                       : Text(t['patientRegFlutter.submit']!),
