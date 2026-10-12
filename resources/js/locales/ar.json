@@ -298,6 +298,8 @@
         "deleteAllConfirm": "حذف كل التسجيلات المعروضة ({n}) في كل الصفحات؟ لا يمكن التراجع.",
         "totalCount": "المجموع: {n}",
         "amountPaid": "المبلغ المدفوع",
+        "noPriceYet": "بلا سعر",
+        "amountDue": "المبلغ المطلوب دفعه",
         "amountPaidHint": "يُسجَّل كدفعة للمريض عند حفظ التسجيل. اتركه فارغًا إن لم يدفع.",
         "priceLabel": "السعر",
         "servicesPricesHeading": "الخدمات وأسعارها",

@@ -298,6 +298,8 @@
         "deleteAllConfirm": "Delete all listed registrations ({n}) across all pages? This can't be undone.",
         "totalCount": "Total: {n}",
         "amountPaid": "Amount paid",
+        "noPriceYet": "No price yet",
+        "amountDue": "Amount to pay",
         "amountPaidHint": "Recorded as the patient's payment when the registration is saved. Leave blank if nothing was paid.",
         "priceLabel": "Price",
         "servicesPricesHeading": "Services and prices",

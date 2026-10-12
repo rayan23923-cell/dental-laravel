@@ -102,31 +102,33 @@ class LabAndBulkDeleteTest extends TestCase
             ->assertOk();
     }
 
-    public function test_registration_records_amount_paid(): void
+    public function test_registration_charges_the_service_price(): void
     {
-        $day = DB::table('register_days')->insertGetId(['name' => 'Sat']);
-        $service = DB::table('register_services')->insertGetId(['name' => 'Check']);
-        DB::table(\App\Models\Service::make()->days()->getTable())->insert([
-            \App\Models\Service::make()->days()->getForeignPivotKeyName() => $service,
-            \App\Models\Service::make()->days()->getRelatedPivotKeyName() => $day,
-        ]);
+        $priced = DB::table('register_services')->insertGetId(['name' => 'Filling', 'price' => 25000]);
+        $unpriced = DB::table('register_services')->insertGetId(['name' => 'Implant']);
         $admin = $this->admin();
 
+        // An amount the client sends is ignored: the payment is the service's price.
         $this->actingAs($admin)->post('/patient-registrations', [
-            'name' => 'Ali', 'phone' => '0770', 'register_day_id' => $day, 'service_id' => $service, 'amount_paid' => 15000,
+            'name' => 'Ali', 'phone' => '0770', 'service_id' => $priced, 'amount_paid' => 1,
         ])->assertRedirect();
         $ali = PatientRegistration::where('name', 'Ali')->firstOrFail();
-        $this->assertDatabaseHas('payments', ['patient_registration_id' => $ali->id, 'amount' => 15000, 'type' => 'service']);
+        $this->assertDatabaseHas('payments', ['patient_registration_id' => $ali->id, 'amount' => 25000, 'type' => 'service']);
 
         $this->actingAs($admin)->postJson('/api/v1/patient-registrations', [
-            'name' => 'Sara', 'phone' => '0771', 'register_day_id' => $day, 'service_id' => $service, 'amount_paid' => 7000,
+            'name' => 'Sara', 'phone' => '0771', 'service_id' => $priced,
         ])->assertCreated();
         $sara = PatientRegistration::where('name', 'Sara')->firstOrFail();
-        $this->assertDatabaseHas('payments', ['patient_registration_id' => $sara->id, 'amount' => 7000]);
+        $this->assertDatabaseHas('payments', ['patient_registration_id' => $sara->id, 'amount' => 25000, 'type' => 'service']);
 
+        // A service with no price cannot be registered.
         $this->actingAs($admin)->postJson('/api/v1/patient-registrations', [
-            'name' => 'Omar', 'phone' => '0772', 'register_day_id' => $day, 'service_id' => $service,
-        ])->assertCreated();
+            'name' => 'Omar', 'phone' => '0772', 'service_id' => $unpriced,
+        ])->assertUnprocessable()->assertJsonValidationErrors('service_id');
+        $this->actingAs($admin)->post('/patient-registrations', [
+            'name' => 'Omar', 'phone' => '0772', 'service_id' => $unpriced,
+        ])->assertSessionHasErrors('service_id');
+        $this->assertFalse(PatientRegistration::where('name', 'Omar')->exists());
         $this->assertSame(2, \App\Models\Payment::count());
     }
 
