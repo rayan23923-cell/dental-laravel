@@ -11,6 +11,11 @@ import { closeRemoteScanner, openRemoteScanner, remoteScanner, restoreRemoteScan
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
+const props = defineProps({
+    // Full-width with its label, for the narrow-screen menu.
+    wide: { type: Boolean, default: false },
+});
+
 const { t } = useI18n();
 const open = ref(false);
 const busy = ref(false);
@@ -67,11 +72,14 @@ const copyUnhandled = async () => {
         type="button"
         @click="show"
         class="relative inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition"
-        :class="pairing ? (connected ? 'border-emerald-500/60 bg-emerald-500/15 text-emerald-500' : 'border-amber-500/60 bg-amber-500/15 text-amber-500') : 'border-hairline/70 bg-surface-2 text-content hover:border-accent/50'"
+        :class="[
+            props.wide ? 'w-full justify-center' : '',
+            pairing ? (connected ? 'border-emerald-500/60 bg-emerald-500/15 text-emerald-500' : 'border-amber-500/60 bg-amber-500/15 text-amber-500') : 'border-hairline/70 bg-surface-2 text-content hover:border-accent/50',
+        ]"
         :title="t('phoneScanner.button')"
     >
         <Icon name="phonelink_ring" size="text-[18px]" />
-        <span class="hidden xl:inline">{{ pairing ? (connected ? t('phoneScanner.connectedShort') : t('phoneScanner.waitingShort')) : t('phoneScanner.button') }}</span>
+        <span :class="props.wide ? '' : 'hidden xl:inline'">{{ pairing ? (connected ? t('phoneScanner.connectedShort') : t('phoneScanner.waitingShort')) : t('phoneScanner.button') }}</span>
         <span v-if="remoteScanner.unhandled" class="absolute -top-1 -left-1 h-3 w-3 rounded-full bg-rose-500"></span>
     </button>
 

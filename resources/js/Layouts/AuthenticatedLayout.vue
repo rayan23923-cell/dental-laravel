@@ -342,6 +342,7 @@ const tileClass = (active) => [
                              that component is fixed `text-gray-600`, which
                              all but disappears on this dark panel. -->
                         <div class="mt-3 space-y-1">
+                            <PhoneScannerLink wide />
                             <Link :href="route('profile.edit')" :class="tileClass(route().current('profile.*'))">
                                 <Icon name="account_circle" size="text-[18px]" />{{ t('nav.profile') }}
                             </Link>
