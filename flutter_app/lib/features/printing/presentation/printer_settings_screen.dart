@@ -9,6 +9,8 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/platform/platform_support.dart';
+import '../data/desktop_ticket_printer.dart';
 import '../data/pos_printer_service.dart';
 import '../domain/printer_settings.dart';
 import 'printer_settings_providers.dart';
@@ -38,6 +40,25 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
 
   List<UsbDeviceInfo> _usbDevices = [];
   bool _loadingUsb = false;
+
+  /// Windows (2026-10-12): the system printer tickets go to, see
+  /// `DesktopTicketPrinter`.
+  String? _desktopPrinterName;
+
+  @override
+  void initState() {
+    super.initState();
+    if (isWindowsDesktop) {
+      DesktopTicketPrinter.savedPrinterName().then((name) {
+        if (mounted) setState(() => _desktopPrinterName = name);
+      });
+    }
+  }
+
+  Future<void> _pickDesktopPrinter() async {
+    final name = await DesktopTicketPrinter.pickPrinter(context);
+    if (name != null && mounted) setState(() => _desktopPrinterName = name);
+  }
 
   void _seed(PrinterSettings settings) {
     if (_seeded) return;
@@ -265,6 +286,28 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              // Windows: one system printer (the desk's thermal printer
+              // through its driver) instead of the phone connection types.
+              if (isWindowsDesktop) ...[
+                Text(t['printerSettingsAdmin.windowsPrinterHeading']!, style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                Card(
+                  color: _desktopPrinterName != null ? Theme.of(context).colorScheme.primaryContainer : null,
+                  child: ListTile(
+                    leading: const Icon(Icons.print_outlined),
+                    title: Text(_desktopPrinterName ?? t['printerSettingsAdmin.windowsPrinterNone']!),
+                    trailing: OutlinedButton(
+                      style: OutlinedButton.styleFrom(minimumSize: const Size(64, 36)),
+                      onPressed: _pickDesktopPrinter,
+                      child: Text(t['printerSettingsAdmin.selectButton']!),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(t['printerSettingsAdmin.windowsPrinterHint']!, style: Theme.of(context).textTheme.bodySmall),
+                ),
+              ] else ...[
               Text(t['printerSettingsAdmin.connectionTypeHeading']!, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               SegmentedButton<PrinterConnectionType>(
@@ -406,6 +449,7 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
                       ),
                     ),
                   ),
+              ],
               ],
               const SizedBox(height: 24),
               Text(t['printerSettingsAdmin.paperSizeHeading']!, style: Theme.of(context).textTheme.titleMedium),

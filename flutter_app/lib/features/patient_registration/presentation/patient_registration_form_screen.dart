@@ -1,11 +1,10 @@
-import 'dart:io' show Platform;
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
+import '../../../core/platform/platform_support.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
@@ -70,7 +69,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['patientRegFlutter.registeredSuccess']!)));
       }
 
-      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS) && mounted) {
+      if (canPrintTickets && mounted) {
         try {
           // Best-effort: the registration already succeeded server-side,
           // so a QR fetch failure (offline, slow network) must not block

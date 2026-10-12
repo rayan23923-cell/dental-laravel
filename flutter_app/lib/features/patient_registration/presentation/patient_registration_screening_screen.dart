@@ -1,11 +1,10 @@
-import 'dart:io' show Platform;
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
+import '../../../core/platform/platform_support.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
@@ -76,7 +75,7 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
       // Saving a result prints the lab slip (2026-10-11, by request) —
       // same POS-printer path and mobile-only gate as the registration
       // ticket. A print failure never undoes the saved result.
-      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      if (canPrintTickets) {
         await _printSlip(updated);
       }
     } catch (e) {
@@ -103,7 +102,7 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
       if (!mounted) return;
       setState(() => _state = updated);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['screening.reused']!)));
-      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      if (canPrintTickets) {
         await _printSlip(updated, reusedFrom: previous);
       }
     } catch (e) {

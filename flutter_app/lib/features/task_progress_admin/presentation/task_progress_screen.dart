@@ -1,7 +1,5 @@
-import 'dart:io' show Platform;
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -10,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:printing/printing.dart';
 
+import '../../../core/platform/platform_support.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
@@ -242,7 +241,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
     TaskStartResult result,
     TaskProgressGroupOption groupOption,
   ) async {
-    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return;
+    if (!canPrintTickets) return;
     try {
       Uint8List? qrBytes;
       try {
