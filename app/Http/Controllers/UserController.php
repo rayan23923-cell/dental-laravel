@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\CredentialMailer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -34,13 +35,16 @@ class UserController extends Controller
             'username' => ['required', 'string', 'max:100', Rule::unique('users', 'username')],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
             'phone' => ['nullable', 'string', 'max:50'],
-            'password' => ['required', 'string', 'min:6'],
+            'password' => ['nullable', 'string', 'min:6'],
             'role' => ['required', Rule::in(array_diff(User::ROLES, ['super_admin']))],
         ]);
-        $validated['password'] = Hash::make($validated['password']);
+        // Left blank: generate one. Either way it goes to the new user by email.
+        $plainPassword = $validated['password'] ?? null ?: CredentialMailer::generatePassword();
+        $validated['password'] = Hash::make($plainPassword);
         $validated['status'] = 'active';
 
         $user = User::create($validated);
+        CredentialMailer::queueWelcome('user', $user->email, $user->full_name, $user->username, $plainPassword);
 
         // Straight into the existing permission-grant screen for the user
         // just created, rather than a separate "user added" page — there's

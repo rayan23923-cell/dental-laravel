@@ -21,6 +21,8 @@
         "caseSheetTypes": "أنواع النماذج السريرية",
         "settingsGroup": "الإعدادات",
         "clinicSettings": "إعدادات العيادة",
+        "waitingScreenSettings": "شاشة الانتظار",
+        "pairWaitingScreen": "ربط شاشة انتظار",
         "registrationSettings": "إعدادات التسجيل",
         "departmentRoles": "صلاحيات الأقسام",
         "permissions": "الصلاحيات",
@@ -73,6 +75,7 @@
         "print": "طباعة",
         "username": "اسم المستخدم",
         "password": "كلمة المرور",
+        "passwordAutoHint": "اتركه فارغاً لتوليد كلمة مرور تلقائياً. تُرسل بيانات الدخول إلى إيميل المستخدم.",
         "fullName": "الاسم الكامل",
         "role": "الدور",
         "cancel": "إلغاء",
@@ -293,13 +296,17 @@
         "deleteAll": "حذف الكل",
         "deleteAllFiltered": "حذف كل نتائج البحث",
         "deleteAllConfirm": "حذف كل التسجيلات المعروضة ({n}) في كل الصفحات؟ لا يمكن التراجع.",
-        "totalCount": "المجموع: {n}"
+        "totalCount": "المجموع: {n}",
+        "amountPaid": "المبلغ المدفوع",
+        "amountPaidHint": "يُسجَّل كدفعة للمريض عند حفظ التسجيل. اتركه فارغًا إن لم يدفع."
     },
     "appointments": {
         "newAppointment": "موعد جديد",
         "editTitle": "تعديل الموعد",
         "searchPlaceholder": "ابحث بالاسم...",
         "patientCol": "المريض",
+        "caseSheetDoctorCol": "الطبيب المعالج (الكيس شيت)",
+        "clearDate": "إلغاء فلتر التاريخ",
         "taskCol": "المهمة",
         "dateCol": "التاريخ",
         "paidCol": "المدفوع",
@@ -401,6 +408,7 @@
         "importNote": "يحصل كل الأطباء المستوردين على نفس نوع الدراسة والمرحلة وكلمة المرور الافتراضية أدناه.",
         "excelFileLabel": "ملف Excel",
         "defaultPasswordLabel": "كلمة المرور الافتراضية",
+        "defaultPasswordHint": "اتركه فارغاً لتوليد كلمة مرور مختلفة لكل طبيب. تُرسل بيانات الدخول إلى إيميل كل طبيب تدريجياً ضمن الحد اليومي.",
         "import": "استيراد",
         "progressTitle": "{name} — تقدم المهام",
         "backToDoctors": "رجوع إلى الأطباء",
@@ -904,6 +912,38 @@
         "scheduledPatientsHeading": "المرضى المجدولون",
         "emptyList": "لا يوجد مرضى مجدولون."
     },
+    "waitingScreenSettings": {
+        "title": "إعدادات شاشة الانتظار",
+        "heading": "شاشة الانتظار",
+        "description": "تتحكم هذه الإعدادات بما تعرضه شاشة الانتظار العامة — لا توجد أي خيارات على الشاشة نفسها.",
+        "stageMovedNote": "لكل شاشة انتظار مرحلتها الخاصة، تُختار من داخل التطبيق عند مسح رمز QR الظاهر على تلك الشاشة — وليس من هنا.",
+        "groupLabel": "الكروب",
+        "allGroups": "كل الكروبات",
+        "patientsPerPageLabel": "عدد المرضى المعروضين في كل صفحة",
+        "rotationSecondsLabel": "فترة التقليب بين الصفحات (بالثواني)",
+        "openScreen": "فتح شاشة الانتظار",
+        "save": "حفظ الإعدادات"
+    },
+    "waitingScreen": {
+        "title": "شاشة الانتظار",
+        "loading": "جارٍ التحميل…",
+        "empty": "لا توجد مواعيد لهذا اليوم.",
+        "unassigned": "بانتظار تحديد الطبيب",
+        "pageIndicator": "صفحة {current} من {total}",
+        "scanToPairHeading": "امسح الرمز أو أدخل الكود لتفعيل الشاشة",
+        "scanToPairSubtext": "امسح رمز QR من التطبيق، أو افتح صفحة \"ربط شاشة انتظار\" في النظام أو التطبيق وأدخل الكود الظاهر أسفل هذا الرمز.",
+        "codeCaption": "أو أدخل هذا الكود:",
+        "rePair": "إعادة الربط بمرحلة أخرى"
+    },
+    "waitingScreenPairing": {
+        "title": "ربط شاشة انتظار",
+        "heading": "ربط شاشة انتظار",
+        "description": "أدخل الكود المكوّن من 4 أرقام الظاهر على شاشة الانتظار، واختر المرحلة التي ستُعرض عليها.",
+        "codeLabel": "الكود",
+        "stageLabel": "المرحلة",
+        "allStages": "كل المراحل",
+        "confirm": "تفعيل الشاشة"
+    },
     "adminBroadcast": {
         "title": "إرسال تنبيه للموظفين",
         "confirmTemplate": "سيصل هذا التنبيه إلى {count} موظفًا إداريًا. متابعة؟",
@@ -969,6 +1009,7 @@
         "noConfirmPermission": "لا تملك صلاحية تسجيل النتيجة.",
         "printResult": "طباعة النتيجة",
         "paid": "أجور المختبر مدفوعة",
-        "unpaid": "أجور المختبر غير مدفوعة"
+        "unpaid": "أجور المختبر غير مدفوعة",
+        "payFirst": "يجب دفع أجور المختبر أولًا، ثم تسجيل النتيجة."
     }
 }

@@ -99,7 +99,7 @@ class ClinicSetting extends Model
             // combination existed, and it named the wrong country.
             'clinic_currency' => 'دينار عراقي',
             'clinic_timezone' => 'Asia/Baghdad',
-            'university_name' => 'University of Baghdad',
+            'university_name' => 'Tikrit University',
             'college_name' => 'College of Dentistry',
             'enable_notifications' => true,
             'enable_sms' => false,

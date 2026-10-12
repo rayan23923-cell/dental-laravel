@@ -20,6 +20,7 @@ const form = useForm({
     register_day_id: '',
     service_id: '',
     task_id: '',
+    amount_paid: '',
 });
 
 // Day-first cascading picker — matches admin/patient_register.php's UX
@@ -157,6 +158,13 @@ const submit = () => {
                             <p v-if="form.register_day_id && servicesForSelectedDay.length === 0" class="mt-2 text-sm text-amber-600">
                                 {{ t('patientReg.noServicesForDay') }}
                             </p>
+                        </div>
+
+                        <div>
+                            <InputLabel for="amount_paid" :value="t('patientReg.amountPaid')" />
+                            <TextInput id="amount_paid" v-model="form.amount_paid" type="number" min="0" step="any" class="mt-1 block w-full" dir="ltr" />
+                            <p class="mt-1 text-xs text-gray-500">{{ t('patientReg.amountPaidHint') }}</p>
+                            <InputError class="mt-2" :message="form.errors.amount_paid" />
                         </div>
 
                         <div class="flex justify-end">

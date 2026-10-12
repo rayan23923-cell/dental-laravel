@@ -6,6 +6,7 @@ use App\Models\Appointment;
 use App\Models\PatientRegistration;
 use App\Models\Task;
 use App\Models\User;
+use App\Services\AppointmentPatientSync;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -15,15 +16,16 @@ class AppointmentController extends Controller
 {
     public function index(Request $request): Response
     {
-        $appointments = Appointment::with(['patient', 'patientRegistration', 'doctor', 'task', 'payments'])
+        $appointments = Appointment::with(['patient', 'patientRegistration', 'doctor', 'caseSheetDoctor', 'task', 'payments'])
             ->when($request->string('search')->toString(), fn ($q, $search) => $q->where('full_name', 'like', "%{$search}%"))
+            ->when($request->string('date')->toString(), fn ($q, $date) => $q->whereDate('appointment_date', $date))
             ->orderByDesc('appointment_date')
             ->paginate(15)
             ->withQueryString();
 
         return Inertia::render('Appointments/Index', [
             'appointments' => $appointments,
-            'filters' => $request->only('search'),
+            'filters' => $request->only('search', 'date'),
         ]);
     }
 
@@ -37,7 +39,8 @@ class AppointmentController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        Appointment::create($this->validateAppointment($request));
+        $appointment = Appointment::create($this->validateAppointment($request));
+        AppointmentPatientSync::refresh($appointment);
 
         return redirect()->route('appointments.index')->with('success', 'Appointment created.');
     }
@@ -53,6 +56,7 @@ class AppointmentController extends Controller
     public function update(Request $request, Appointment $appointment): RedirectResponse
     {
         $appointment->update($this->validateAppointment($request, partial: true));
+        AppointmentPatientSync::refresh($appointment);
 
         return redirect()->route('appointments.index')->with('success', 'Appointment updated.');
     }

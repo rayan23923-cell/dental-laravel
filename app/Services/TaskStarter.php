@@ -89,6 +89,12 @@ class TaskStarter
             ->latest('id')
             ->firstOrFail();
 
+        // Push the newly-assigned treating doctor into any appointment
+        // already booked for this patient/task (see AppointmentPatientSync's
+        // own docblock) — appointments and task instances are otherwise
+        // two disconnected subsystems that both reference PatientRegistration.
+        AppointmentPatientSync::syncForPatient($patientRegistration, $task->id);
+
         // Outside the transaction so a mail failure can't roll back the
         // assignment — same reasoning as the original controller method.
         $instance->load('task.department');

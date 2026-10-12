@@ -72,6 +72,8 @@ const isStructureActive = computed(() => structureRoutes.some((r) => route().cur
 
 const isSettingsGroupActive = computed(
     () => route().current('clinic-settings.*')
+        || route().current('waiting-screen-settings.*')
+        || route().current('waiting-screen-pairing.*')
         || route().current('patient-registrations.settings')
         || route().current('register-days.*')
         || route().current('register-services.*')
@@ -131,6 +133,8 @@ const structureLinks = computed(() => [
 // `department-roles.index`.
 const settingsLinks = computed(() => [
     { label: t('nav.clinicSettings'), icon: 'settings', href: route('clinic-settings.edit'), active: route().current('clinic-settings.*') },
+    { label: t('nav.waitingScreenSettings'), icon: 'tv', href: route('waiting-screen-settings.edit'), active: route().current('waiting-screen-settings.*') },
+    { label: t('nav.pairWaitingScreen'), icon: 'qr_code_scanner', href: route('waiting-screen-pairing.create'), active: route().current('waiting-screen-pairing.*') },
     { label: t('nav.registrationSettings'), icon: 'tune', href: route('patient-registrations.settings'), active: route().current('patient-registrations.settings') || route().current('register-days.*') || route().current('register-services.*') },
     { label: t('nav.departmentRoles'), icon: 'badge', href: route('department-roles.index'), active: route().current('department-roles.*') },
     { label: t('nav.permissions'), icon: 'admin_panel_settings', href: route('permissions.index'), active: route().current('permissions.*') },

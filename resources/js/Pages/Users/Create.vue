@@ -79,7 +79,8 @@ const submit = () => {
 
                         <div>
                             <InputLabel for="password" :value="t('common.password')" />
-                            <TextInput id="password" v-model="form.password" type="password" class="mt-1 block w-full" required />
+                            <TextInput id="password" v-model="form.password" type="password" class="mt-1 block w-full" autocomplete="new-password" />
+                            <p class="mt-1 text-xs text-gray-500">{{ t('common.passwordAutoHint') }}</p>
                             <InputError class="mt-2" :message="form.errors.password" />
                         </div>
 

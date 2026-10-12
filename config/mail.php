@@ -115,4 +115,10 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    /*
+    | Most messages `mail:send-queued` sends per day. Gmail SMTP allows ~500
+    | for a free account; 400 leaves room for password-reset codes.
+    */
+    'daily_limit' => (int) env('MAIL_DAILY_LIMIT', 400),
+
 ];

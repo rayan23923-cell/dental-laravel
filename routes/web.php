@@ -11,6 +11,8 @@ use App\Http\Controllers\CaseSheetTypeController;
 use App\Http\Controllers\AdminBroadcastController;
 use App\Http\Controllers\ClinicChairController;
 use App\Http\Controllers\ClinicSettingController;
+use App\Http\Controllers\WaitingScreenPairingController;
+use App\Http\Controllers\WaitingScreenSettingController;
 use App\Http\Controllers\CompleteDentureRecordController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DentalChartController;
@@ -136,6 +138,14 @@ Route::get('/tv', function () {
     ]);
 })->name('tv-board');
 
+// Public waiting-room appointments display (2026-09-09) — a newer sibling
+// of /tv built on Appointment/case_sheet_doctor_id rather than the legacy
+// Patient/group.slots schedule; see Api\WaitingScreenController's own
+// docblock. All display options (stage/group filter, page size, rotation
+// timing) come from WaitingScreenSetting, edited at /waiting-screen-settings
+// — no query params here, the kiosk display itself has no controls.
+Route::get('/waiting-screen', fn () => Inertia::render('WaitingScreen'))->name('waiting-screen');
+
 // Doctor-facing area — separate guard/session from the staff `web` guard
 // above (see config/auth.php `doctor` guard, `doctors` table). Login itself
 // is unified now (see `routes/auth.php`'s single `/login` — `LoginRequest`
@@ -239,6 +249,15 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::post('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+
+    // Open to any logged-in staff member, not gated behind a role/permission
+    // — pairing a physical TV is an on-the-spot operational task (see
+    // Api\WaitingScreenPairingController's own docblock for the Flutter
+    // side of this same flow), not a settings change.
+    Route::get('/waiting-screen/pair', [WaitingScreenPairingController::class, 'create'])
+        ->name('waiting-screen-pairing.create');
+    Route::post('/waiting-screen/pair', [WaitingScreenPairingController::class, 'store'])
+        ->name('waiting-screen-pairing.store');
 
     Route::middleware('role:super_admin,admin,editor')->group(function () {
         // Doctor deletion also requires the granular 'doctors.delete' grant
@@ -443,6 +462,13 @@ Route::middleware('auth')->group(function () {
             ->middleware('permission:settings,edit')->name('clinic-settings.update');
         Route::post('/clinic-settings/test-email', [ClinicSettingController::class, 'sendTestEmail'])
             ->middleware(['permission:settings,edit', 'throttle:6,1'])->name('clinic-settings.test-email');
+
+        // Admin controls for the public /waiting-screen display — same
+        // 'settings' module/gate as clinic-settings above.
+        Route::get('/waiting-screen-settings', [WaitingScreenSettingController::class, 'edit'])
+            ->middleware('permission:settings,view')->name('waiting-screen-settings.edit');
+        Route::put('/waiting-screen-settings', [WaitingScreenSettingController::class, 'update'])
+            ->middleware('permission:settings,edit')->name('waiting-screen-settings.update');
 
         // Services/days config for patient registration — mirrors
         // admin/register_settings.php, gated the same way it is there

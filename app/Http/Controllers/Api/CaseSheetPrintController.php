@@ -92,7 +92,7 @@ class CaseSheetPrintController extends Controller
 
         return response()->json([
             'header' => [
-                'university_name' => $settings->university_name ?: 'University of Baghdad',
+                'university_name' => $settings->university_name ?: 'Tikrit University',
                 'college_name' => $settings->college_name ?: 'College of Dentistry',
                 'department' => $config['department'] ?? null,
                 'header_department' => $config['headerDepartment'] ?? null,

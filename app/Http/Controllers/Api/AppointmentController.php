@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AppointmentResource;
 use App\Models\Appointment;
+use App\Services\AppointmentPatientSync;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -12,13 +13,14 @@ class AppointmentController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $appointments = Appointment::with(['patient', 'patientRegistration', 'doctor', 'task', 'payments'])
+        $appointments = Appointment::with(['patient', 'patientRegistration', 'doctor', 'caseSheetDoctor', 'task', 'payments'])
             ->when($request->integer('doctor_id'), fn ($q, $id) => $q->where('doctor_id', $id))
             ->when($request->integer('patient_id'), fn ($q, $id) => $q->where('patient_id', $id))
             ->when(
                 $request->integer('patient_registration_id'),
                 fn ($q, $id) => $q->where('patient_registration_id', $id)
             )
+            ->when($request->string('date')->toString(), fn ($q, $date) => $q->whereDate('appointment_date', $date))
             ->when($request->has('pinned'), fn ($q) => $q->where('pinned', $request->boolean('pinned')))
             ->orderByDesc('appointment_date')
             ->paginate(15);
@@ -28,7 +30,7 @@ class AppointmentController extends Controller
 
     public function show(Appointment $appointment): JsonResponse
     {
-        $appointment->load(['patient', 'patientRegistration', 'doctor', 'task', 'payments']);
+        $appointment->load(['patient', 'patientRegistration', 'doctor', 'caseSheetDoctor', 'task', 'payments']);
 
         return (new AppointmentResource($appointment))->response();
     }
@@ -36,6 +38,7 @@ class AppointmentController extends Controller
     public function store(Request $request): JsonResponse
     {
         $appointment = Appointment::create($this->validateAppointment($request));
+        AppointmentPatientSync::refresh($appointment);
 
         return (new AppointmentResource($appointment))->response()->setStatusCode(201);
     }
@@ -43,6 +46,7 @@ class AppointmentController extends Controller
     public function update(Request $request, Appointment $appointment): JsonResponse
     {
         $appointment->update($this->validateAppointment($request, true));
+        AppointmentPatientSync::refresh($appointment);
 
         return (new AppointmentResource($appointment))->response();
     }

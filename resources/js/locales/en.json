@@ -21,6 +21,8 @@
         "caseSheetTypes": "Case Sheet Types",
         "settingsGroup": "Settings",
         "clinicSettings": "Clinic Settings",
+        "waitingScreenSettings": "Waiting Screen",
+        "pairWaitingScreen": "Pair Waiting Screen",
         "registrationSettings": "Registration Settings",
         "departmentRoles": "Department Roles",
         "permissions": "Permissions",
@@ -73,6 +75,7 @@
         "print": "Print",
         "username": "Username",
         "password": "Password",
+        "passwordAutoHint": "Leave blank to generate one. The login details are emailed to the user.",
         "fullName": "Full Name",
         "role": "Role",
         "cancel": "Cancel",
@@ -293,13 +296,17 @@
         "deleteAll": "Delete All",
         "deleteAllFiltered": "Delete All Results",
         "deleteAllConfirm": "Delete all listed registrations ({n}) across all pages? This can't be undone.",
-        "totalCount": "Total: {n}"
+        "totalCount": "Total: {n}",
+        "amountPaid": "Amount paid",
+        "amountPaidHint": "Recorded as the patient's payment when the registration is saved. Leave blank if nothing was paid."
     },
     "appointments": {
         "newAppointment": "New Appointment",
         "editTitle": "Edit Appointment",
         "searchPlaceholder": "Search by name...",
         "patientCol": "Patient",
+        "caseSheetDoctorCol": "Treating Doctor (Case Sheet)",
+        "clearDate": "Clear date filter",
         "taskCol": "Task",
         "dateCol": "Date",
         "paidCol": "Paid",
@@ -401,6 +408,7 @@
         "importNote": "All imported doctors get the same education type, stage, and default password below.",
         "excelFileLabel": "Excel File",
         "defaultPasswordLabel": "Default Password",
+        "defaultPasswordHint": "Leave blank to generate a different password for each doctor. Login details are emailed to each doctor gradually, within the daily limit.",
         "import": "Import",
         "progressTitle": "{name} — Task Progress",
         "backToDoctors": "Back to doctors",
@@ -904,6 +912,38 @@
         "scheduledPatientsHeading": "Scheduled Patients",
         "emptyList": "No scheduled patients."
     },
+    "waitingScreenSettings": {
+        "title": "Waiting Screen Settings",
+        "heading": "Waiting Screen",
+        "description": "These settings control what the public waiting screen shows — the screen itself has no controls.",
+        "stageMovedNote": "Each waiting screen has its own stage, chosen from the app when scanning the QR code shown on that screen — not from here.",
+        "groupLabel": "Group",
+        "allGroups": "All Groups",
+        "patientsPerPageLabel": "Patients shown per page",
+        "rotationSecondsLabel": "Page rotation interval (seconds)",
+        "openScreen": "Open Waiting Screen",
+        "save": "Save Settings"
+    },
+    "waitingScreen": {
+        "title": "Waiting Screen",
+        "loading": "Loading…",
+        "empty": "No appointments for today.",
+        "unassigned": "Awaiting doctor assignment",
+        "pageIndicator": "Page {current} of {total}",
+        "scanToPairHeading": "Scan the code or enter it to activate this screen",
+        "scanToPairSubtext": "Scan the QR code from the app, or open \"Pair Waiting Screen\" in the system or the app and enter the code shown below this QR.",
+        "codeCaption": "Or enter this code:",
+        "rePair": "Re-pair to a different stage"
+    },
+    "waitingScreenPairing": {
+        "title": "Pair Waiting Screen",
+        "heading": "Pair Waiting Screen",
+        "description": "Enter the 4-digit code shown on the waiting screen, and choose which stage it should display.",
+        "codeLabel": "Code",
+        "stageLabel": "Stage",
+        "allStages": "All Stages",
+        "confirm": "Activate Screen"
+    },
     "adminBroadcast": {
         "title": "Send Staff Alert",
         "confirmTemplate": "This alert will reach {count} administrative staff members. Continue?",
@@ -969,6 +1009,7 @@
         "noConfirmPermission": "You don't have permission to record the result.",
         "printResult": "Print Result",
         "paid": "Lab fee paid",
-        "unpaid": "Lab fee unpaid"
+        "unpaid": "Lab fee unpaid",
+        "payFirst": "Pay the lab fee first, then record the result."
     }
 }

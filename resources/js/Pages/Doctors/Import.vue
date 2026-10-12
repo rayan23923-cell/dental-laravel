@@ -76,7 +76,8 @@ const submit = () => {
 
                         <div>
                             <InputLabel for="default_password" :value="t('doctorsAdmin.defaultPasswordLabel')" />
-                            <TextInput id="default_password" v-model="form.default_password" type="text" class="mt-1 block w-full" required />
+                            <TextInput id="default_password" v-model="form.default_password" type="text" class="mt-1 block w-full" />
+                            <p class="mt-1 text-xs text-gray-500">{{ t('doctorsAdmin.defaultPasswordHint') }}</p>
                             <InputError class="mt-2" :message="form.errors.default_password" />
                         </div>
 
