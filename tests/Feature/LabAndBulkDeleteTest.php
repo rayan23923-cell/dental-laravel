@@ -132,7 +132,7 @@ class LabAndBulkDeleteTest extends TestCase
         $this->assertSame(2, \App\Models\Payment::count());
     }
 
-    public function test_bulk_delete_selected_and_all(): void
+    public function test_bulk_delete_archives_selected_and_all(): void
     {
         $a = $this->registration(['name' => 'Ali']);
         $b = $this->registration(['name' => 'Bob']);
@@ -140,7 +140,7 @@ class LabAndBulkDeleteTest extends TestCase
         $admin = $this->admin();
 
         $this->actingAs($admin)->delete('/patient-registrations-bulk', ['ids' => [$b->id]])->assertRedirect();
-        $this->assertDatabaseMissing('patients_simple', ['id' => $b->id]);
+        $this->assertSoftDeleted('patients_simple', ['id' => $b->id]);
 
         $this->actingAs($admin)->delete('/patient-registrations-bulk', ['all' => true, 'search' => 'Ali'])->assertRedirect();
         $this->assertSame(0, PatientRegistration::count());

@@ -47,7 +47,8 @@ class Appointment extends Model
 
     public function patientRegistration(): BelongsTo
     {
-        return $this->belongsTo(PatientRegistration::class);
+        // Archived registrations still name their records (2026-10-12).
+        return $this->belongsTo(PatientRegistration::class)->withTrashed();
     }
 
     /**

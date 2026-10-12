@@ -301,6 +301,8 @@ Route::middleware('auth')->group(function () {
             ->middleware('permission:patients,create')->name('patient-registrations.store');
         Route::delete('/patient-registrations-bulk', [PatientRegistrationController::class, 'destroyMany'])
             ->middleware('permission:patients,delete')->name('patient-registrations.destroy-many');
+        Route::post('/patient-registrations-restore', [PatientRegistrationController::class, 'restoreMany'])
+            ->middleware('permission:patients,delete')->name('patient-registrations.restore-many');
         Route::get('/patient-registrations/{patientRegistration}/qr', [PatientRegistrationController::class, 'qr'])
             ->middleware('permission:patients,view')->name('patient-registrations.qr');
         // Reprint an already-registered patient's ticket — same gate as
@@ -536,6 +538,7 @@ Route::middleware('auth')->group(function () {
 
         // Lab screening fee + printable receipt (2026-10-11).
         Route::post('/payments/lab', [PaymentController::class, 'storeLab'])->name('payments.store-lab');
+        Route::get('/payments/report', [PaymentController::class, 'report'])->name('payments.report');
         Route::get('/payments/{payment}/receipt', [PaymentController::class, 'receipt'])->name('payments.receipt');
         Route::resource('payments', PaymentController::class)->only(['index', 'create', 'store']);
         Route::delete('/payments/{payment}', [PaymentController::class, 'destroy'])

@@ -42,7 +42,7 @@ class PatientRegistrationController extends Controller
         return Inertia::render('PatientRegistrations/Index', [
             'registrations' => $registrations,
             'days' => RegisterDay::with('services')->orderBy('sort_order')->orderBy('name')->get(),
-            'filters' => $request->only('search', 'register_day_id', 'service_id'),
+            'filters' => $request->only('search', 'register_day_id', 'service_id', 'archived'),
         ]);
     }
 
@@ -53,6 +53,8 @@ class PatientRegistrationController extends Controller
     private function filteredQuery(Request $request)
     {
         return PatientRegistration::query()
+            // The archive tab (2026-10-12) lists deleted (archived) patients.
+            ->when($request->boolean('archived'), fn ($q) => $q->onlyTrashed())
             ->when($request->string('search')->toString(), function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
@@ -66,9 +68,9 @@ class PatientRegistrationController extends Controller
     /**
      * Bulk delete (2026-10-11), same as the doctors table: either the
      * ticked `ids`, or `all` — every registration matching the current
-     * filters across all pages. Payments/appointments/task instances keep
-     * their stored registration id (there are no foreign keys), so money
-     * records are never lost with the registration.
+     * filters across all pages. Deleting archives (2026-10-12, soft
+     * delete): payments, appointments and task instances keep pointing at
+     * the archived row, so money records and their totals are never lost.
      */
     public function destroyMany(Request $request): RedirectResponse
     {
@@ -84,7 +86,20 @@ class PatientRegistrationController extends Controller
 
         $count = $query->delete();
 
-        return back()->with('success', "تم حذف {$count} تسجيل.");
+        return back()->with('success', "تمت أرشفة {$count} تسجيل.");
+    }
+
+    /** Brings archived registrations back into the registry (2026-10-12). */
+    public function restoreMany(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $count = PatientRegistration::onlyTrashed()->whereIn('id', $validated['ids'])->restore();
+
+        return back()->with('success', "تمت استعادة {$count} تسجيل.");
     }
 
     /**

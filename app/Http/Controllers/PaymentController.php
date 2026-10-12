@@ -8,6 +8,7 @@ use App\Models\Payment;
 use App\Models\PatientRegistration;
 use App\Services\PatientScreeningException;
 use App\Services\PatientScreeningGate;
+use App\Support\PaymentStats;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -19,11 +20,52 @@ class PaymentController extends Controller
 {
     public function index(Request $request): Response
     {
-        $search = $request->string('search')->toString();
+        $query = $this->filteredQuery($request);
+        $stats = new PaymentStats();
 
+        return Inertia::render('Payments/Index', [
+            'payments' => (clone $query)->latest('paid_at')->paginate(15)->withQueryString(),
+            'filters' => $this->filters($request),
+            // Income overview (2026-10-12, by request).
+            'periods' => $stats->periods(),
+            'daily' => $stats->daily(),
+            'monthly' => $stats->monthly(),
+            'filteredTotal' => (float) (clone $query)->sum('amount'),
+            'bySource' => PaymentStats::bySource($query),
+            'currency' => ClinicSetting::current()->clinic_currency,
+        ]);
+    }
+
+    /**
+     * Printable payments report (2026-10-12, by request): the income
+     * overview, the charts and every payment matching the page's filters.
+     * Printed from the browser, which also saves it as PDF.
+     */
+    public function report(Request $request): View
+    {
+        $query = $this->filteredQuery($request);
+        $stats = new PaymentStats();
+
+        return view('print.payments-report', [
+            'settings' => ClinicSetting::current(),
+            'filters' => $this->filters($request),
+            'payments' => (clone $query)->with(['appointment', 'patientRegistration.service'])->latest('paid_at')->get(),
+            'filteredTotal' => (float) (clone $query)->sum('amount'),
+            'bySource' => PaymentStats::bySource($query),
+            'periods' => $stats->periods(),
+            'daily' => $stats->daily(),
+            'monthly' => $stats->monthly(),
+            'autoprint' => $request->boolean('autoprint'),
+        ]);
+    }
+
+    /** The search / date range / source filters shared by `index()` and `report()`. */
+    private function filteredQuery(Request $request)
+    {
+        $search = $request->string('search')->toString();
         $source = $request->string('source')->toString();
 
-        $payments = Payment::with(['appointment', 'patientRegistration'])
+        return Payment::with(['appointment', 'patientRegistration'])
             ->when($search !== '', fn ($q) => $q->where(fn ($q2) => $q2
                 ->whereHas('appointment', fn ($q3) => $q3->where('full_name', 'like', "%{$search}%"))
                 ->orWhereHas('patientRegistration', fn ($q3) => $q3->where('name', 'like', "%{$search}%"))))
@@ -34,23 +76,20 @@ class PaymentController extends Controller
             ->when($request->date('to'), fn ($q, $to) => $q->whereDate('paid_at', '<=', $to))
             ->when($source, fn ($q) => match ($source) {
                 'appointment' => $q->whereNotNull('appointment_id'),
-                'registration' => $q->whereNotNull('patient_registration_id'),
+                'registration' => $q->whereNotNull('patient_registration_id')->where('type', '!=', Payment::TYPE_LAB),
                 'lab' => $q->where('type', Payment::TYPE_LAB),
                 default => $q,
-            })
-            ->latest('paid_at')
-            ->paginate(15)
-            ->withQueryString();
+            });
+    }
 
-        return Inertia::render('Payments/Index', [
-            'payments' => $payments,
-            'filters' => [
-                'search' => $search,
-                'from' => $request->string('from')->toString() ?: null,
-                'to' => $request->string('to')->toString() ?: null,
-                'source' => $source ?: null,
-            ],
-        ]);
+    private function filters(Request $request): array
+    {
+        return [
+            'search' => $request->string('search')->toString(),
+            'from' => $request->string('from')->toString() ?: null,
+            'to' => $request->string('to')->toString() ?: null,
+            'source' => $request->string('source')->toString() ?: null,
+        ];
     }
 
     public function create(): Response

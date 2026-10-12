@@ -1,15 +1,48 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import BarChart from '@/Components/BarChart.vue';
+import Icon from '@/Components/Icon.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
 const props = defineProps({
     payments: Object,
     filters: { type: Object, default: () => ({}) },
+    periods: { type: Object, default: () => ({}) },
+    daily: { type: Array, default: () => [] },
+    monthly: { type: Array, default: () => [] },
+    filteredTotal: { type: Number, default: 0 },
+    bySource: { type: Array, default: () => [] },
+    currency: { type: String, default: '' },
 });
+
+// Income overview (2026-10-12, by request).
+const money = (v) => `${Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 })} ${props.currency ?? ''}`.trim();
+const plain = (v) => Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 });
+const periodCards = computed(() => [
+    { key: 'today', label: t('payments.today') },
+    { key: 'week', label: t('payments.thisWeek') },
+    { key: 'month', label: t('payments.thisMonth') },
+    { key: 'year', label: t('payments.thisYear') },
+]);
+const sourceLabel = (s) => ({ registration: t('payments.registrationSource'), lab: t('payments.labFee'), appointment: t('payments.appointmentSource') })[s];
+const sourceMax = computed(() => Math.max(1, ...props.bySource.map((s) => s.total)));
+const hasFilters = computed(() => !!(props.filters.search || props.filters.from || props.filters.to || props.filters.source));
+
+// Printable report with the same filters; the browser's print dialog
+// also saves it as PDF.
+const reportUrl = computed(() =>
+    route('payments.report', {
+        ...(props.filters.search ? { search: props.filters.search } : {}),
+        ...(props.filters.from ? { from: props.filters.from } : {}),
+        ...(props.filters.to ? { to: props.filters.to } : {}),
+        ...(props.filters.source ? { source: props.filters.source } : {}),
+        autoprint: 1,
+    }),
+);
 
 const page = usePage();
 
@@ -55,19 +88,44 @@ const destroy = (payment) => {
         <template #header>
             <div class="flex items-center justify-between">
                 <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('nav.payments') }}</h2>
-                <Link :href="route('payments.create')">
-                    <PrimaryButton>{{ t('payments.recordPayment') }}</PrimaryButton>
-                </Link>
+                <div class="flex flex-wrap items-center gap-2">
+                    <a :href="reportUrl" target="_blank" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-gray-700 shadow-sm hover:bg-gray-50">
+                        <Icon name="print" class="ml-1" />{{ t('payments.printReport') }}
+                    </a>
+                    <Link :href="route('payments.create')">
+                        <PrimaryButton>{{ t('payments.recordPayment') }}</PrimaryButton>
+                    </Link>
+                </div>
             </div>
         </template>
 
         <div class="py-12">
-            <div class="mx-auto max-w-4xl space-y-4 sm:px-6 lg:px-8">
+            <div class="mx-auto max-w-5xl space-y-4 sm:px-6 lg:px-8">
                 <div
                     v-if="page.props.flash?.success"
                     class="rounded-md bg-green-50 p-4 text-sm text-green-700"
                 >
                     {{ page.props.flash.success }}
+                </div>
+
+                <!-- Income: today / week / month / year -->
+                <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    <div v-for="c in periodCards" :key="c.key" class="rounded-lg bg-white p-4 shadow-sm">
+                        <div class="text-sm text-gray-500">{{ c.label }}</div>
+                        <div class="mt-1 text-2xl font-bold text-gray-900" dir="ltr" style="text-align: right">{{ plain(periods[c.key]?.total ?? 0) }}</div>
+                        <div class="mt-1 text-xs text-gray-500">{{ currency }} · {{ t('payments.paymentsCount', { n: periods[c.key]?.count ?? 0 }) }}</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    <div class="rounded-lg bg-white p-4 shadow-sm">
+                        <h3 class="mb-2 text-sm font-semibold text-gray-800">{{ t('payments.dailyChart') }}</h3>
+                        <BarChart :data="daily" :format="plain" :aria-label="t('payments.dailyChart')" />
+                    </div>
+                    <div class="rounded-lg bg-white p-4 shadow-sm">
+                        <h3 class="mb-2 text-sm font-semibold text-gray-800">{{ t('payments.monthlyChart') }}</h3>
+                        <BarChart :data="monthly" :format="plain" :aria-label="t('payments.monthlyChart')" />
+                    </div>
                 </div>
 
                 <div class="flex flex-wrap items-end gap-3 rounded-lg bg-white p-4 shadow-sm">
@@ -118,6 +176,23 @@ const destroy = (payment) => {
                     </button>
                 </div>
 
+                <!-- Total of what the filters show, by source -->
+                <div class="rounded-lg bg-white p-4 shadow-sm">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2">
+                        <span class="text-sm text-gray-600">{{ hasFilters ? t('payments.filteredTotal') : t('payments.allTimeTotal') }}</span>
+                        <span class="text-xl font-bold text-gray-900">{{ money(filteredTotal) }}</span>
+                    </div>
+                    <div class="mt-3 space-y-2">
+                        <div v-for="s in bySource" :key="s.source" class="grid grid-cols-[7rem_1fr_auto] items-center gap-3 text-sm">
+                            <span class="text-gray-700">{{ sourceLabel(s.source) }}</span>
+                            <div class="h-3 rounded-full bg-gray-100">
+                                <div class="h-3 rounded-full bg-indigo-500" :style="{ width: `${(s.total / sourceMax) * 100}%` }"></div>
+                            </div>
+                            <span class="text-gray-900">{{ plain(s.total) }} <span class="text-xs text-gray-500">({{ s.count }})</span></span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="overflow-x-auto bg-white shadow-sm sm:rounded-lg">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
@@ -132,9 +207,12 @@ const destroy = (payment) => {
                         </thead>
                         <tbody class="divide-y divide-gray-200 bg-white">
                             <tr v-for="payment in payments.data" :key="payment.id">
-                                <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">{{ personName(payment) }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ payment.type === 'lab' ? t('payments.labFee') : payment.patient_registration ? t('payments.registrationSource') : t('payments.appointmentSource') }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ payment.amount }}</td>
+                                <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
+                                    {{ personName(payment) }}
+                                    <span v-if="payment.patient_registration?.deleted_at" class="mr-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-600">{{ t('payments.archivedPatient') }}</span>
+                                </td>
+                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ payment.type === 'lab' ? t('payments.labFee') : payment.appointment_id ? t('payments.appointmentSource') : t('payments.registrationSource') }}</td>
+                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ plain(payment.amount) }}</td>
                                 <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ payment.paid_by ?? '—' }}</td>
                                 <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ new Date(payment.paid_at).toLocaleString() }}</td>
                                 <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
