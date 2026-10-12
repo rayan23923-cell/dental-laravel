@@ -12,8 +12,10 @@ import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
-    // Full-width with its label, for the narrow-screen menu.
-    wide: { type: Boolean, default: false },
+    // 'header': the top bar; 'wide': full width in the narrow-screen menu;
+    // 'page': a status pill beside a page's own scan button; 'scanner': a
+    // full-width line under an open camera (2026-10-12).
+    variant: { type: String, default: 'header' },
 });
 
 const { t } = useI18n();
@@ -26,6 +28,12 @@ onMounted(restoreRemoteScanner);
 
 const pairing = computed(() => remoteScanner.pairing);
 const connected = computed(() => !!pairing.value?.phone_joined);
+const label = computed(() => {
+    const long = props.variant === 'scanner';
+    if (!pairing.value) return t('phoneScanner.button');
+    if (connected.value) return t(long ? 'phoneScanner.inScannerConnected' : 'phoneScanner.connectedShort');
+    return t(long ? 'phoneScanner.inScannerWaiting' : 'phoneScanner.waitingShort');
+});
 
 const show = async () => {
     open.value = true;
@@ -73,13 +81,24 @@ const copyUnhandled = async () => {
         @click="show"
         class="relative inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition"
         :class="[
-            props.wide ? 'w-full justify-center' : '',
-            pairing ? (connected ? 'border-emerald-500/60 bg-emerald-500/15 text-emerald-500' : 'border-amber-500/60 bg-amber-500/15 text-amber-500') : 'border-hairline/70 bg-surface-2 text-content hover:border-accent/50',
+            ['wide', 'scanner'].includes(props.variant) ? 'w-full justify-center' : '',
+            ['page', 'scanner'].includes(props.variant)
+                ? pairing
+                    ? connected
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+                        : 'border-amber-300 bg-amber-50 text-amber-800'
+                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                : pairing
+                  ? connected
+                      ? 'border-emerald-500/60 bg-emerald-500/15 text-emerald-500'
+                      : 'border-amber-500/60 bg-amber-500/15 text-amber-500'
+                  : 'border-hairline/70 bg-surface-2 text-content hover:border-accent/50',
         ]"
         :title="t('phoneScanner.button')"
     >
         <Icon name="phonelink_ring" size="text-[18px]" />
-        <span :class="props.wide ? '' : 'hidden xl:inline'">{{ pairing ? (connected ? t('phoneScanner.connectedShort') : t('phoneScanner.waitingShort')) : t('phoneScanner.button') }}</span>
+        <span v-if="connected && props.variant !== 'header'" class="h-2 w-2 animate-pulse rounded-full bg-emerald-500"></span>
+        <span :class="props.variant === 'header' ? 'hidden xl:inline' : ''">{{ label }}</span>
         <span v-if="remoteScanner.unhandled" class="absolute -top-1 -left-1 h-3 w-3 rounded-full bg-rose-500"></span>
     </button>
 

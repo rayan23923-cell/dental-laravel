@@ -6,6 +6,7 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import QrScanner from '@/Components/QrScanner.vue';
+import PhoneScannerLink from '@/Components/PhoneScannerLink.vue';
 import { onRemoteScan } from '@/remoteScanner';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, ref } from 'vue';
@@ -272,7 +273,10 @@ const startFromScan = () => {
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('taskProgressAdmin.heading') }}</h2>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('taskProgressAdmin.heading') }}</h2>
+                <PhoneScannerLink variant="page" />
+            </div>
         </template>
 
         <div class="py-12">

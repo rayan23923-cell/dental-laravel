@@ -10,6 +10,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Icon from '@/Components/Icon.vue';
 import Modal from '@/Components/Modal.vue';
 import QrScanner from '@/Components/QrScanner.vue';
+import PhoneScannerLink from '@/Components/PhoneScannerLink.vue';
 import { onRemoteScan } from '@/remoteScanner';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, nextTick, ref } from 'vue';
@@ -177,6 +178,8 @@ const record = async (status) => {
                 <h2 class="text-xl font-semibold leading-tight text-gray-800">
                     <Icon name="coronavirus" class="ml-1" />{{ t('dashboard.lab') }}
                 </h2>
+                <div class="flex flex-wrap items-center gap-2">
+                <PhoneScannerLink variant="page" />
                 <button
                     type="button"
                     @click="openScanner"
@@ -184,6 +187,7 @@ const record = async (status) => {
                 >
                     <Icon name="qr_code_scanner" class="ml-1" />{{ t('lab.scanTicket') }}
                 </button>
+                </div>
             </div>
         </template>
 

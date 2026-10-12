@@ -22,6 +22,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
 import jsQR from 'jsqr';
 import { useI18n } from 'vue-i18n';
 import Icon from '@/Components/Icon.vue';
+import PhoneScannerLink from '@/Components/PhoneScannerLink.vue';
 
 const { t } = useI18n();
 const emit = defineEmits(['decoded', 'close']);
@@ -250,6 +251,12 @@ defineExpose({ start, stop, scanning });
             >
                 <Icon name="autorenew" class="ml-1" />{{ t('qr.switchCamera') }}
             </button>
+        </div>
+
+        <!-- The phone-as-scanner status (2026-10-12): opens the pairing
+             window to link or unlink; a linked phone's scans land here too. -->
+        <div v-if="!continuous" class="mt-2">
+            <PhoneScannerLink variant="scanner" />
         </div>
 
         <p v-if="scanning && !torchSupported" class="mt-2 text-center text-xs text-gray-400">

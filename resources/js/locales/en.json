@@ -1086,6 +1086,8 @@
         "expired": "This pairing has ended. Open the pairing window on the computer and scan the new code.",
         "history": "Codes sent",
         "none": "Nothing scanned yet. Point the camera at a QR code.",
-        "expiresAt": "Pairing ends at {time}"
+        "expiresAt": "Pairing ends at {time}",
+        "inScannerConnected": "Phone linked as scanner: scan with it or with this camera.",
+        "inScannerWaiting": "Phone pairing is waiting for the phone to open the link."
     }
 }
