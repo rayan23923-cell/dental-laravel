@@ -1038,6 +1038,9 @@
         "previousValidBadge": "Valid earlier test",
         "previousValid": "Has a clear test from {date} (valid {days} days): no new test or payment needed.",
         "reusePrint": "Use earlier test and print slip",
-        "orScreenAgain": "Or record a new test result:"
+        "orScreenAgain": "Or record a new test result:",
+        "matchedByName": "Found by name only: {name} ({phone}). Make sure it is the same patient first.",
+        "matchedByPhone": "Found by phone number: {name} ({phone}).",
+        "autoReused": "Clear: valid earlier test, no new test needed. The slip was printed."
     }
 }

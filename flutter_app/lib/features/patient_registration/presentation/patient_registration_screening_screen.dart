@@ -51,6 +51,15 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
   void initState() {
     super.initState();
     _state = widget.initial;
+    // A valid earlier test found by phone (2026-10-12, by request): no new
+    // test, the clear slip prints straight away. A name-only match waits
+    // for staff to confirm it is the same patient.
+    final previous = _state.previousScreening;
+    if (previous != null && previous.matchedByPhone && _state.registration.screeningStatus == 'pending') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _reusePrevious();
+      });
+    }
   }
 
   Future<void> _confirm(String status) async {
@@ -255,12 +264,36 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
                   Icon(Icons.verified_outlined, color: Colors.green.shade700),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      trf(t['screening.previousValid']!, {
-                        'date': _formatDate(_state.previousScreening!.checkedAt),
-                        'days': _state.labValidityDays,
-                      }),
-                      style: TextStyle(color: Colors.green.shade900, fontWeight: FontWeight.w600),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          trf(t['screening.previousValid']!, {
+                            'date': _formatDate(_state.previousScreening!.checkedAt),
+                            'days': _state.labValidityDays,
+                          }),
+                          style: TextStyle(color: Colors.green.shade900, fontWeight: FontWeight.w600),
+                        ),
+                        if (_state.previousScreening!.name != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            trf(
+                              t[_state.previousScreening!.matchedByPhone
+                                  ? 'screening.matchedByPhone'
+                                  : 'screening.matchedByName']!,
+                              {
+                                'name': _state.previousScreening!.name!,
+                                'phone': _state.previousScreening!.phone ?? '',
+                              },
+                            ),
+                            style: TextStyle(
+                              color: _state.previousScreening!.matchedByPhone
+                                  ? Colors.green.shade900
+                                  : Colors.amber.shade900,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],

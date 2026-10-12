@@ -66,20 +66,26 @@ class LabFeeGate
      * Batched form for a page of registrations: registration id => the
      * earlier registration whose result it can reuse.
      *
+     * Matches on the phone or the full name (2026-10-12, by request), so a
+     * patient who comes back with another number, or whose number was
+     * typed differently, is still found. Each match carries `matched_by`
+     * ('phone' or 'name'); a phone match wins over a name match, since
+     * two different patients can share a name.
+     *
      * @param  Collection<int, PatientRegistration>  $registrations
      * @return Collection<int, PatientRegistration>
      */
     public static function previousScreenings(Collection $registrations): Collection
     {
         $days = self::validityDays();
-        $phones = $registrations->pluck('phone')->map(fn ($p) => trim((string) $p))->filter()->unique();
 
-        if ($days <= 0 || $phones->isEmpty()) {
+        if ($days <= 0 || $registrations->isEmpty()) {
             return collect();
         }
 
-        $earlier = PatientRegistration::whereIn('phone', $phones->all())
-            ->where('screening_status', 'clear')
+        // Only real screenings in the window: small enough to compare in
+        // PHP, where names can be normalised (أ/ا, ة/ه, ى/ي, spacing).
+        $earlier = PatientRegistration::where('screening_status', 'clear')
             // Only real screenings count, so reusing never extends the window.
             ->whereNull('screening_reused_from')
             ->where('screening_checked_at', '>=', now()->subDays($days))
@@ -88,12 +94,39 @@ class LabFeeGate
 
         $result = collect();
         foreach ($registrations as $registration) {
-            $match = $earlier->first(fn ($e) => $e->phone === trim((string) $registration->phone) && $e->id !== $registration->id);
+            $others = $earlier->where('id', '!=', $registration->id);
+            $phone = self::normalizePhone($registration->phone);
+            $name = self::normalizeName($registration->name);
+
+            $match = $phone !== '' ? $others->first(fn ($e) => self::normalizePhone($e->phone) === $phone) : null;
+            $by = 'phone';
+            if (! $match && $name !== '') {
+                $match = $others->first(fn ($e) => self::normalizeName($e->name) === $name);
+                $by = 'name';
+            }
+
             if ($match) {
-                $result->put($registration->id, $match);
+                $result->put($registration->id, (clone $match)->setAttribute('matched_by', $by));
             }
         }
 
         return $result;
+    }
+
+    /** Digits only, with a leading 964 / 0 dropped, so 0770…, +964770… match. */
+    public static function normalizePhone(?string $phone): string
+    {
+        $digits = preg_replace('/\D+/', '', strtr((string) $phone, ['٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4', '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9']));
+
+        return preg_replace('/^(00964|964|0)/', '', $digits);
+    }
+
+    /** Arabic spelling variants folded and spacing collapsed. */
+    public static function normalizeName(?string $name): string
+    {
+        $name = strtr(trim((string) $name), ['أ' => 'ا', 'إ' => 'ا', 'آ' => 'ا', 'ة' => 'ه', 'ى' => 'ي', 'ـ' => '']);
+        $name = preg_replace('/[\x{064B}-\x{0652}]/u', '', $name);
+
+        return mb_strtolower(preg_replace('/\s+/u', ' ', $name));
     }
 }

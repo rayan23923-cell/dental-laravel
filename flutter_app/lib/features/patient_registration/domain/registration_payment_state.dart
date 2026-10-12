@@ -27,16 +27,27 @@ class PaymentEntry {
 /// A still-valid earlier clear result of the same patient (same phone) —
 /// `data.previous_screening` (2026-10-12, see `LabFeeGate::previousScreening`).
 class PreviousScreening {
-  const PreviousScreening({required this.id, this.checkedAt});
+  const PreviousScreening({required this.id, this.checkedAt, this.name, this.phone, this.matchedBy});
 
   factory PreviousScreening.fromJson(Map<String, dynamic> json) => PreviousScreening(
         id: json['id'] as int,
         checkedAt: json['checked_at'] as String?,
+        name: json['name'] as String?,
+        phone: json['phone'] as String?,
+        matchedBy: json['matched_by'] as String?,
       );
 
   /// The earlier registration whose result is reused.
   final int id;
   final String? checkedAt;
+
+  /// The earlier registration's name and phone, and whether it was found
+  /// by 'phone' or only by 'name' (2026-10-12).
+  final String? name;
+  final String? phone;
+  final String? matchedBy;
+
+  bool get matchedByPhone => matchedBy == 'phone';
 }
 
 /// Mirrors `Api\PatientRegistrationQrController::stateResponse()` — the

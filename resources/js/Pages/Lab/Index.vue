@@ -82,6 +82,13 @@ const onDecoded = async (text) => {
         const { data } = await axios.post(route('lab.scan'), { payload: text });
         closeScanner();
         selected.value = data.data;
+        autoReused.value = false;
+        // A valid earlier test found by phone (2026-10-12, by request): no
+        // new test, the clear slip prints straight away. A name-only match
+        // waits for staff to confirm it is the same patient.
+        if (props.canConfirm && canReuse(data.data) && data.data.previous_screening.matched_by === 'phone') {
+            await reuse({ silent: true });
+        }
     } catch (e) {
         scanError.value = e?.response?.data?.message ?? t('payments.qrReadFailed');
     }
@@ -101,15 +108,33 @@ const openPrint = (id, win) => {
     else window.open(url, '_blank');
 };
 
-const reuse = async () => {
+// Prints the slip in a hidden frame: used after a QR scan, where there is
+// no click for the browser to allow a new tab on.
+const printInFrame = (id) => {
+    document.getElementById('lab-print-frame')?.remove();
+    const frame = document.createElement('iframe');
+    frame.id = 'lab-print-frame';
+    frame.style.cssText = 'position:fixed;width:0;height:0;border:0;visibility:hidden';
+    frame.src = route('lab.print', { patientRegistration: id, autoprint: 1 });
+    document.body.appendChild(frame);
+};
+
+const autoReused = ref(false);
+const reuse = async ({ silent = false } = {}) => {
     submitting.value = true;
     resultError.value = '';
-    const printWindow = window.open('', '_blank');
+    const printWindow = silent ? null : window.open('', '_blank');
     try {
         const id = selected.value.id;
-        await axios.post(route('lab.reuse', id));
-        openPrint(id, printWindow);
-        selected.value = null;
+        const { data } = await axios.post(route('lab.reuse', id));
+        if (silent) {
+            printInFrame(id);
+            selected.value = { ...selected.value, ...data.data };
+            autoReused.value = true;
+        } else {
+            openPrint(id, printWindow);
+            selected.value = null;
+        }
         router.reload({ only: ['registrations', 'counts'] });
     } catch (e) {
         printWindow?.close();
@@ -190,7 +215,7 @@ const record = async (status) => {
                         v-for="r in registrations.data"
                         :key="r.id"
                         type="button"
-                        @click="selected = r"
+                        @click="selected = r; autoReused = false"
                         class="flex flex-col gap-1 rounded-lg bg-white p-4 text-right shadow-sm ring-1 ring-gray-100 transition hover:ring-indigo-300"
                     >
                         <div class="flex items-start justify-between gap-2">
@@ -234,7 +259,7 @@ const record = async (status) => {
         </Modal>
 
         <!-- Result -->
-        <Modal :show="!!selected" @close="selected = null">
+        <Modal :show="!!selected" @close="selected = null; autoReused = false">
             <div v-if="selected" class="flex flex-col gap-4 p-4 sm:p-6">
                 <div>
                     <h3 class="text-lg font-semibold text-gray-900">{{ selected.name }}</h3>
@@ -242,16 +267,27 @@ const record = async (status) => {
                     <p class="text-sm text-gray-500">{{ placeAndDay(selected) }}</p>
                 </div>
 
+                <div v-if="autoReused" class="rounded-md bg-green-600 p-4 text-center text-base font-semibold text-white">
+                    <Icon name="verified" class="ml-1" />{{ t('lab.autoReused') }}
+                </div>
+
                 <div v-if="canReuse(selected)" class="flex flex-col gap-3 rounded-md bg-green-50 p-3 text-sm text-green-800">
                     <span>
                         <Icon name="verified" class="ml-1" />
                         {{ t('lab.previousValid', { date: fmtDate(selected.previous_screening.checked_at), days: validityDays }) }}
                     </span>
+                    <span
+                        v-if="selected.previous_screening.name"
+                        class="rounded px-2 py-1 text-xs"
+                        :class="selected.previous_screening.matched_by === 'name' ? 'bg-amber-100 text-amber-900' : 'bg-green-100'"
+                    >
+                        {{ t(selected.previous_screening.matched_by === 'name' ? 'lab.matchedByName' : 'lab.matchedByPhone', { name: selected.previous_screening.name, phone: selected.previous_screening.phone }) }}
+                    </span>
                     <button
                         v-if="canConfirm"
                         type="button"
                         :disabled="submitting"
-                        @click="reuse"
+                        @click="reuse()"
                         class="rounded-md bg-green-700 px-4 py-3 text-sm font-semibold text-white hover:bg-green-800 disabled:opacity-50"
                     >
                         <Icon name="print" class="ml-1" />{{ t('lab.reusePrint') }}
@@ -273,7 +309,7 @@ const record = async (status) => {
 
                 <div v-if="resultError" class="rounded-md bg-red-50 p-3 text-sm text-red-700">{{ resultError }}</div>
 
-                <template v-if="canConfirm">
+                <template v-if="canConfirm && !autoReused">
                     <h4 v-if="canReuse(selected)" class="text-xs text-gray-500">{{ t('lab.orScreenAgain') }}</h4>
                     <h4 v-else class="text-sm font-medium text-gray-700">{{ t('lab.resultHeading') }}</h4>
                     <div class="grid grid-cols-2 gap-3">
@@ -297,7 +333,7 @@ const record = async (status) => {
                         </button>
                     </div>
                 </template>
-                <p v-else class="text-sm text-gray-500">{{ t('lab.noConfirmPermission') }}</p>
+                <p v-else-if="!canConfirm" class="text-sm text-gray-500">{{ t('lab.noConfirmPermission') }}</p>
 
                 <button
                     v-if="selected.screening_status !== 'pending'"

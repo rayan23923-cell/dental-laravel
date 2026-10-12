@@ -132,6 +132,9 @@ class LabController extends Controller
             $registration->setAttribute('previous_screening', $match ? [
                 'id' => $match->id,
                 'checked_at' => $match->screening_checked_at,
+                'name' => $match->name,
+                'phone' => $match->phone,
+                'matched_by' => $match->matched_by,
             ] : null);
         }
     }
