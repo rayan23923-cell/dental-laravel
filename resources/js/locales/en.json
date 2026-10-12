@@ -456,6 +456,7 @@
         "undoComplete": "Undo Complete"
     },
     "usersAdmin": {
+        "deskRoleHint": "Gets its ready-made permissions automatically and sees only its own page; adjust them on the permissions screen.",
         "addUserTitle": "Add User",
         "saveUser": "Save User"
     },
@@ -1042,5 +1043,16 @@
         "matchedByName": "Found by name only: {name} ({phone}). Make sure it is the same patient first.",
         "matchedByPhone": "Found by phone number: {name} ({phone}).",
         "autoReused": "Clear: valid earlier test, no new test needed. The slip was printed."
+    },
+    "roles": {
+        "super_admin": "Super admin",
+        "admin": "Admin",
+        "editor": "Editor",
+        "doctor": "Doctor (staff account)",
+        "accountant": "Accountant",
+        "senior": "Department head",
+        "hr": "HR",
+        "reception": "Ticket desk",
+        "lab": "Lab technician"
     }
 }

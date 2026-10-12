@@ -28,6 +28,9 @@ const page = usePage();
 const { t } = useI18n();
 
 const isAdmin = computed(() => ['super_admin', 'admin'].includes(page.props.auth.user.role));
+// Desk roles (2026-10-12): `reception` (موظف التذاكر) and `lab` (مختبري)
+// only reach the ticket desk or the lab, so they see only those links.
+const deskRole = computed(() => (['reception', 'lab'].includes(page.props.auth.user.role) ? page.props.auth.user.role : null));
 
 /**
  * Grouping mirrors the original app's navbar.php dropdowns (إدارة البيانات
@@ -88,7 +91,7 @@ const isSettingsGroupActive = computed(
  * longer be added to one and forgotten in the other — which is exactly how
  * the mobile menu ended up missing half the app.
  */
-const primaryLinks = computed(() => [
+const primaryLinks = computed(() => deskRole.value ? [] : [
     { label: t('nav.home'), icon: 'dashboard', href: route('dashboard'), active: route().current('dashboard') },
     { label: t('nav.doctors'), icon: 'stethoscope', href: route('doctors.index'), active: route().current('doctors.*') },
     { label: t('nav.tasks'), icon: 'assignment', href: route('tasks.index'), active: route().current('tasks.*') },
@@ -105,12 +108,19 @@ const primaryLinks = computed(() => [
 // that already existed in the backend but had no navbar entry at all:
 // `patients.index` (the plain patient-record list) and
 // `patient-registrations.create` (its own page, separate from the index).
-const patientsLinks = computed(() => [
-    { label: t('nav.registerPatient'), icon: 'person_add', href: route('patient-registrations.create'), active: route().current('patient-registrations.create') },
-    { label: t('nav.patientRegistrations'), icon: 'how_to_reg', href: route('patient-registrations.index'), active: route().current('patient-registrations.index') },
-    { label: t('nav.patientsList'), icon: 'list_alt', href: route('patients.index'), active: route().current('patients.*') },
-    { label: t('nav.lab'), icon: 'coronavirus', href: route('lab.index'), active: route().current('lab.*') },
-]);
+const patientsLinks = computed(() => {
+    const register = { label: t('nav.registerPatient'), icon: 'person_add', href: route('patient-registrations.create'), active: route().current('patient-registrations.create') };
+    const registry = { label: t('nav.patientRegistrations'), icon: 'how_to_reg', href: route('patient-registrations.index'), active: route().current('patient-registrations.index') };
+    const lab = { label: t('nav.lab'), icon: 'coronavirus', href: route('lab.index'), active: route().current('lab.*') };
+    if (deskRole.value === 'reception') return [register, registry];
+    if (deskRole.value === 'lab') return [lab];
+    return [
+        register,
+        registry,
+        { label: t('nav.patientsList'), icon: 'list_alt', href: route('patients.index'), active: route().current('patients.*') },
+        lab,
+    ];
+});
 
 // "البيانات الأساسية" — admin-only (matches the original's dropdown of the
 // same name); "المجموعات" lives here rather than paired with "الأطباء"

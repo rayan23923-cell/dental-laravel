@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Support\RolePresets;
 use App\Services\CredentialMailer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -44,6 +45,7 @@ class UserController extends Controller
         $validated['status'] = 'active';
 
         $user = User::create($validated);
+        RolePresets::apply($user);
         CredentialMailer::queueWelcome('user', $user->email, $user->full_name, $user->username, $plainPassword);
 
         // Straight into the existing permission-grant screen for the user

@@ -11,6 +11,8 @@ use App\Models\TaskInstance;
 use App\Services\AcademicSessionHelper;
 use App\Services\PermissionManager;
 use Illuminate\Http\JsonResponse;
+use App\Support\RolePresets;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -35,9 +37,15 @@ use Inertia\Response;
  */
 class DashboardController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request): Response|RedirectResponse
     {
         $user = $request->user();
+
+        // Desk roles (2026-10-12) land on their own page: the dashboard's
+        // figures and links are outside what they can open.
+        if (RolePresets::isDeskRole($user->role)) {
+            return redirect()->route(RolePresets::HOME_ROUTES[$user->role]);
+        }
         $permissions = new PermissionManager($user);
         $session = AcademicSessionHelper::resolve();
         $sessionId = $session?->id;

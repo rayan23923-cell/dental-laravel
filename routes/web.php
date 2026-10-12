@@ -259,31 +259,11 @@ Route::middleware('auth')->group(function () {
     Route::post('/waiting-screen/pair', [WaitingScreenPairingController::class, 'store'])
         ->name('waiting-screen-pairing.store');
 
-    Route::middleware('role:super_admin,admin,editor')->group(function () {
-        // Doctor deletion also requires the granular 'doctors.delete' grant
-        // (App\Services\PermissionManager) on top of the role check above.
-        // Extended (2026-08-18) from delete-only to every action — see
-        // README "Granular permissions" for why delete came first and why
-        // the rest followed the same one-line-per-route pattern.
-        Route::resource('doctors', DoctorController::class)->except(['show', 'destroy'])
-            ->middlewareFor('index', 'permission:doctors,view')
-            ->middlewareFor(['create', 'store'], 'permission:doctors,create')
-            ->middlewareFor(['edit', 'update'], 'permission:doctors,edit');
-        Route::delete('/doctors/{doctor}', [DoctorController::class, 'destroy'])
-            ->middleware('permission:doctors,delete')
-            ->name('doctors.destroy');
-        Route::delete('/doctors-bulk', [DoctorController::class, 'destroyMany'])
-            ->middleware('permission:doctors,delete')
-            ->name('doctors.destroy-many');
-
-        Route::resource('patients', PatientController::class)->except(['show', 'destroy'])
-            ->middlewareFor('index', 'permission:patients,view')
-            ->middlewareFor(['create', 'store'], 'permission:patients,create')
-            ->middlewareFor(['edit', 'update'], 'permission:patients,edit');
-        Route::delete('/patients/{patient}', [PatientController::class, 'destroy'])
-            ->middleware('permission:patients,delete')
-            ->name('patients.destroy');
-
+    // Ticket desk and lab (2026-10-12): also open to the `reception`
+    // (موظف التذاكر) and `lab` (مختبري) roles, which reach nothing else.
+    // Every route keeps its own permission gate; see App\Support\RolePresets
+    // for what each role is granted when it is created.
+    Route::middleware('role:super_admin,admin,editor,reception,lab')->group(function () {
         // Reception-desk patient registration (services + days) — separate
         // from `patients` above, see App\Models\PatientRegistration's
         // docblock. Gates reuse the `patients` module exactly like
@@ -325,6 +305,32 @@ Route::middleware('auth')->group(function () {
         Route::post('/lab/scan', [LabController::class, 'scan'])->name('lab.scan');
         Route::get('/lab/{patientRegistration}/print', [LabController::class, 'print'])->name('lab.print');
         Route::post('/lab/{patientRegistration}/reuse', [LabController::class, 'reuse'])->name('lab.reuse');
+    });
+
+    Route::middleware('role:super_admin,admin,editor')->group(function () {
+        // Doctor deletion also requires the granular 'doctors.delete' grant
+        // (App\Services\PermissionManager) on top of the role check above.
+        // Extended (2026-08-18) from delete-only to every action — see
+        // README "Granular permissions" for why delete came first and why
+        // the rest followed the same one-line-per-route pattern.
+        Route::resource('doctors', DoctorController::class)->except(['show', 'destroy'])
+            ->middlewareFor('index', 'permission:doctors,view')
+            ->middlewareFor(['create', 'store'], 'permission:doctors,create')
+            ->middlewareFor(['edit', 'update'], 'permission:doctors,edit');
+        Route::delete('/doctors/{doctor}', [DoctorController::class, 'destroy'])
+            ->middleware('permission:doctors,delete')
+            ->name('doctors.destroy');
+        Route::delete('/doctors-bulk', [DoctorController::class, 'destroyMany'])
+            ->middleware('permission:doctors,delete')
+            ->name('doctors.destroy-many');
+
+        Route::resource('patients', PatientController::class)->except(['show', 'destroy'])
+            ->middlewareFor('index', 'permission:patients,view')
+            ->middlewareFor(['create', 'store'], 'permission:patients,create')
+            ->middlewareFor(['edit', 'update'], 'permission:patients,edit');
+        Route::delete('/patients/{patient}', [PatientController::class, 'destroy'])
+            ->middleware('permission:patients,delete')
+            ->name('patients.destroy');
 
         Route::get('/doctors-import', [DoctorImportExportController::class, 'showImport'])
             ->middleware('permission:doctors,create')

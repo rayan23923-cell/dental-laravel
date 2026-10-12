@@ -11,6 +11,7 @@ import axios from 'axios';
 
 const { t } = useI18n();
 const props = defineProps({
+    can: { type: Object, default: () => ({ archive: true, settings: true, screening: true }) },
     registrations: Object,
     days: { type: Array, default: () => [] },
     filters: Object,
@@ -166,7 +167,7 @@ const confirmScreening = async (status) => {
                     <Link :href="route('patient-registrations.create')">
                         <PrimaryButton>+ {{ t('patientReg.newRegistration') }}</PrimaryButton>
                     </Link>
-                    <Link :href="route('patient-registrations.settings')" class="text-sm text-indigo-600 hover:underline">{{ t('patientReg.settingsLink') }}</Link>
+                    <Link v-if="can.settings" :href="route('patient-registrations.settings')" class="text-sm text-indigo-600 hover:underline">{{ t('patientReg.settingsLink') }}</Link>
                 </div>
             </div>
         </template>
@@ -226,15 +227,15 @@ const confirmScreening = async (status) => {
                         <template v-else>{{ t('patientReg.totalCount', { n: registrations.total }) }}</template>
                     </span>
                     <div v-if="archived" class="flex flex-wrap gap-2">
-                        <button v-if="selected.length" type="button" @click="restoreSelected" class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">
+                        <button v-if="can.archive && selected.length" type="button" @click="restoreSelected" class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">
                             <Icon name="unarchive" class="ml-1" />{{ t('patientReg.restoreSelected') }}
                         </button>
                     </div>
                     <div v-else class="flex flex-wrap gap-2">
-                        <button v-if="selected.length" type="button" @click="destroySelected" class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">
+                        <button v-if="can.archive && selected.length" type="button" @click="destroySelected" class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">
                             <Icon name="inventory_2" class="ml-1" />{{ t('patientReg.archiveSelected') }}
                         </button>
-                        <button v-if="registrations.total" type="button" @click="destroyAll" class="rounded-md border border-red-600 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50">
+                        <button v-if="can.archive && registrations.total" type="button" @click="destroyAll" class="rounded-md border border-red-600 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50">
                             <Icon name="inventory_2" class="ml-1" />{{ hasFilters ? t('patientReg.deleteAllFiltered') : t('patientReg.deleteAll') }}
                         </button>
                     </div>
@@ -281,7 +282,7 @@ const confirmScreening = async (status) => {
                                     <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="screeningBadgeClass(r.screening_status)">
                                         {{ screeningLabel(r.screening_status) }}
                                     </span>
-                                    <button type="button" class="mr-2 text-indigo-600 hover:underline" @click="screeningRegistration = r">{{ t('patientReg.setScreening') }}</button>
+                                    <button v-if="can.screening" type="button" class="mr-2 text-indigo-600 hover:underline" @click="screeningRegistration = r">{{ t('patientReg.setScreening') }}</button>
                                 </td>
                             </tr>
                             <tr v-if="registrations.data.length === 0">

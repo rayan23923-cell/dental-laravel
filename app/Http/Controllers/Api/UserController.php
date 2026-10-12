@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Support\RolePresets;
 use App\Services\CredentialMailer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -44,6 +45,7 @@ class UserController extends Controller
         $validated['status'] = 'active';
 
         $user = User::create($validated);
+        RolePresets::apply($user);
         CredentialMailer::queueWelcome('user', $user->email, $user->full_name, $user->username, $plainPassword);
 
         return (new UserResource($user))->response()->setStatusCode(201);

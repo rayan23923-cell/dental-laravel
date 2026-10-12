@@ -16,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Services\PermissionManager;
 use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -34,6 +35,7 @@ class PatientRegistrationController extends Controller
 {
     public function index(Request $request): Response
     {
+        $permissions = new PermissionManager($request->user());
         $registrations = $this->filteredQuery($request)
             ->with(['service', 'registerDay'])
             ->orderByDesc('created_at')
@@ -44,6 +46,12 @@ class PatientRegistrationController extends Controller
             'registrations' => $registrations,
             'days' => RegisterDay::with('services')->orderBy('sort_order')->orderBy('name')->get(),
             'filters' => $request->only('search', 'register_day_id', 'service_id', 'archived'),
+            // Hides what the desk roles (2026-10-12) can't do here.
+            'can' => [
+                'archive' => $permissions->can('patients', 'delete'),
+                'settings' => $permissions->can('settings', 'edit'),
+                'screening' => $permissions->can('patient_screening', 'confirm'),
+            ],
         ]);
     }
 

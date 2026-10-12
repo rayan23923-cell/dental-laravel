@@ -48,6 +48,7 @@ class HomeScreen extends ConsumerWidget {
           : _StaffDashboard(
               displayName: account?.displayName ?? '',
               profileImageUrl: account is StaffAccount ? account.profileImageUrl : null,
+              role: account is StaffAccount ? account.role : '',
               t: t,
             ),
     );
@@ -60,16 +61,40 @@ class HomeScreen extends ConsumerWidget {
 /// the two module hubs ("السجلات"/"الإدارة") as proper cards instead of
 /// plain buttons.
 class _StaffDashboard extends StatelessWidget {
-  const _StaffDashboard({required this.displayName, required this.profileImageUrl, required this.t});
+  const _StaffDashboard({
+    required this.displayName,
+    required this.profileImageUrl,
+    required this.role,
+    required this.t,
+  });
 
   final String displayName;
   final String? profileImageUrl;
+
+  /// Desk roles (2026-10-12): 'reception' (موظف التذاكر) and 'lab'
+  /// (مختبري) only get their own shortcut, the rest is outside their grants.
+  final String role;
   final Map<String, String> t;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final shortcuts = [
+    final registerShortcut = _Shortcut(
+      t['labels.registerNewPatient']!,
+      Icons.person_add_alt_1_outlined,
+      () => context.push('/records/patient-registrations/new'),
+    );
+    final labShortcut = _Shortcut(
+      t['labels.lab']!,
+      Icons.coronavirus_outlined,
+      () => context.push('/records/patient-registrations/scan-screening'),
+    );
+    final isDeskRole = role == 'reception' || role == 'lab';
+    final shortcuts = role == 'reception'
+        ? [registerShortcut]
+        : role == 'lab'
+            ? [labShortcut]
+            : [
       _Shortcut(t['labels.registerNewPatient']!, Icons.person_add_alt_1_outlined, () => context.push('/records/patient-registrations/new')),
       _Shortcut(t['labels.appointments']!, Icons.event_outlined, () => context.push('/records/appointments')),
       _Shortcut(t['labels.payments']!, Icons.payments_outlined, () => context.push('/records/payments')),
@@ -147,6 +172,7 @@ class _StaffDashboard extends StatelessWidget {
           children: [for (final s in shortcuts) _ShortcutCard(shortcut: s)],
         ),
 
+        if (!isDeskRole) ...[
         const SizedBox(height: 24),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -169,6 +195,7 @@ class _StaffDashboard extends StatelessWidget {
           icon: Icons.admin_panel_settings_outlined,
           onTap: () => context.push('/admin'),
         ),
+        ],
       ],
     );
   }

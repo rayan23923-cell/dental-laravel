@@ -17,7 +17,7 @@ import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 
-const { t } = useI18n();
+const { t, te } = useI18n();
 const props = defineProps({
     targetUser: Object,
     modules: Array,
@@ -97,7 +97,7 @@ const submit = () => {
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <h2 class="text-xl font-semibold leading-tight text-gray-800">
                     {{ t('permissionsAdmin.editTitle', { name: targetUser.full_name }) }}
-                    <span class="mr-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-600">{{ targetUser.role }}</span>
+                    <span class="mr-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-600">{{ te(`roles.${targetUser.role}`) ? t(`roles.${targetUser.role}`) : targetUser.role }}</span>
                 </h2>
                 <Link :href="route('permissions.index')" class="text-sm text-indigo-600 hover:underline">{{ t('common.back') }}</Link>
             </div>
