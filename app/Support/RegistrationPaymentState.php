@@ -20,6 +20,9 @@ class RegistrationPaymentState
         $service = $payments->where('type', '!=', Payment::TYPE_LAB);
         $lab = $payments->where('type', Payment::TYPE_LAB);
         $labFee = ClinicSetting::current()->lab_fee;
+        // A still-valid earlier clear result (same phone) the lab can reuse
+        // instead of screening and charging again (2026-10-12).
+        $previous = $registration->screening_status === 'pending' ? LabFeeGate::previousScreening($registration) : null;
 
         return [
             'registration' => $registrationData,
@@ -35,6 +38,11 @@ class RegistrationPaymentState
             'lab_fee' => $labFee !== null ? (float) $labFee : null,
             'lab_paid' => $lab->isNotEmpty(),
             'lab_paid_amount' => (float) $lab->sum('amount'),
+            'lab_validity_days' => LabFeeGate::validityDays(),
+            'previous_screening' => $previous ? [
+                'id' => $previous->id,
+                'checked_at' => $previous->screening_checked_at,
+            ] : null,
         ];
     }
 }

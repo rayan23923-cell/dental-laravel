@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ClinicSetting;
 use App\Models\PatientRegistration;
 use App\Models\Payment;
+use App\Support\LabFeeGate;
 use App\Support\QrCodeFactory;
 use Endroid\QrCode\ErrorCorrectionLevel;
 use Endroid\QrCode\QrCode;
@@ -41,7 +42,7 @@ class LabController extends Controller
 
         $settings = ClinicSetting::current();
 
-        $registrations = PatientRegistration::with(['service:id,name', 'registerDay:id,name', 'screeningCheckedBy:id,name'])
+        $registrations = PatientRegistration::with(['service:id,name', 'registerDay:id,name', 'screeningCheckedBy:id,full_name'])
             ->withExists(['payments as lab_paid' => fn ($q) => $q->where('type', Payment::TYPE_LAB)])
             ->when($status !== 'all', fn ($q) => $q->where('screening_status', $status))
             ->when($search !== '', function ($query) use ($search) {
@@ -53,6 +54,7 @@ class LabController extends Controller
             ->orderByDesc('created_at')
             ->paginate(20)
             ->withQueryString();
+        $this->attachPreviousScreenings($registrations->getCollection());
 
         return Inertia::render('Lab/Index', [
             'registrations' => $registrations,
@@ -63,6 +65,7 @@ class LabController extends Controller
             // A positive fee means the result waits for the lab payment.
             'labFee' => $settings->lab_fee !== null && (float) $settings->lab_fee > 0 ? $settings->lab_fee : null,
             'currency' => $settings->clinic_currency,
+            'validityDays' => LabFeeGate::validityDays(),
             'canConfirm' => $permissions->can('patient_screening', 'confirm'),
         ]);
     }
@@ -83,15 +86,54 @@ class LabController extends Controller
             return response()->json(['message' => 'رمز غير صالح — هذا ليس رمز تسجيل مريض.'], 422);
         }
 
-        $registration = PatientRegistration::with(['service:id,name', 'registerDay:id,name', 'screeningCheckedBy:id,name'])
+        $registration = PatientRegistration::with(['service:id,name', 'registerDay:id,name', 'screeningCheckedBy:id,full_name'])
             ->withExists(['payments as lab_paid' => fn ($q) => $q->where('type', Payment::TYPE_LAB)])
             ->find($decoded['id']);
 
         if (! $registration) {
             return response()->json(['message' => 'التسجيل غير موجود.'], 404);
         }
+        $this->attachPreviousScreenings(collect([$registration]));
 
         return response()->json(['data' => $registration]);
+    }
+
+    /**
+     * Reuse a still-valid earlier clear result (2026-10-12): no new
+     * screening and no lab fee, the lab only prints the slip.
+     */
+    public function reuse(Request $request, PatientRegistration $patientRegistration): JsonResponse
+    {
+        $permissions = $this->authorizeLab($request);
+        abort_unless($permissions->can('patient_screening', 'confirm'), 403);
+
+        $previous = LabFeeGate::previousScreening($patientRegistration);
+        if (! $previous) {
+            return response()->json(['message' => 'لا يوجد فحص سابق صالح لهذا المريض.'], 422);
+        }
+
+        $patientRegistration->update([
+            'screening_status' => 'clear',
+            'screening_checked_by' => $request->user()->id,
+            'screening_checked_at' => now(),
+            'screening_reused_from' => $previous->id,
+        ]);
+
+        return response()->json(['data' => $patientRegistration->fresh()]);
+    }
+
+    /** Adds `previous_screening` (id + date) to each registration that can reuse one. */
+    private function attachPreviousScreenings($registrations): void
+    {
+        $previous = LabFeeGate::previousScreenings($registrations);
+
+        foreach ($registrations as $registration) {
+            $match = $registration->screening_status === 'pending' ? $previous->get($registration->id) : null;
+            $registration->setAttribute('previous_screening', $match ? [
+                'id' => $match->id,
+                'checked_at' => $match->screening_checked_at,
+            ] : null);
+        }
     }
 
     /**
@@ -104,7 +146,7 @@ class LabController extends Controller
     {
         $this->authorizeLab($request);
 
-        $patientRegistration->load(['service', 'registerDay', 'screeningCheckedBy:id,name'])
+        $patientRegistration->load(['service', 'registerDay', 'screeningCheckedBy:id,full_name', 'screeningReusedFrom:id,screening_checked_at'])
             ->loadExists(['payments as lab_paid' => fn ($q) => $q->where('type', Payment::TYPE_LAB)]);
 
         $qr = (new PngWriter())->write(new QrCode(

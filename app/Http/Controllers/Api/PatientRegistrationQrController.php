@@ -133,6 +133,27 @@ class PatientRegistrationQrController extends Controller
     }
 
     /**
+     * Reuse a still-valid earlier clear result (2026-10-12) — same as the
+     * web lab's `LabController::reuse()`: no new screening, no lab fee.
+     */
+    public function reuseScreening(Request $request, PatientRegistration $patientRegistration): JsonResponse
+    {
+        $previous = LabFeeGate::previousScreening($patientRegistration);
+        if (! $previous) {
+            return response()->json(['message' => 'لا يوجد فحص سابق صالح لهذا المريض.'], 422);
+        }
+
+        $patientRegistration->update([
+            'screening_status' => 'clear',
+            'screening_checked_by' => $request->user()->id,
+            'screening_checked_at' => now(),
+            'screening_reused_from' => $previous->id,
+        ]);
+
+        return $this->stateResponse($patientRegistration->fresh(['service', 'registerDay']));
+    }
+
+    /**
      * `is_paid` is simply "has any payment been recorded against this
      * registration". There is no expected-fee column anywhere in the
      * schema (`register_services` is `(id, name)` only), so a

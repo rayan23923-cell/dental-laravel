@@ -200,6 +200,8 @@ Route::name('api.')->prefix('v1')->group(function () {
         // PatientScreeningGate/PatientRegistrationQrController::confirmScreening().
         Route::post('/patient-registrations/{patientRegistration}/screening', [PatientRegistrationQrController::class, 'confirmScreening'])
             ->middleware('permission:patient_screening,confirm');
+        Route::post('/patient-registrations/{patientRegistration}/screening/reuse', [PatientRegistrationQrController::class, 'reuseScreening'])
+            ->middleware('permission:patient_screening,confirm');
 
         Route::get('/register-days', [RegisterDayController::class, 'index']);
         Route::post('/register-days', [RegisterDayController::class, 'store'])->middleware('permission:settings,edit');

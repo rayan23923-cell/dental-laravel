@@ -57,7 +57,8 @@ class PatientRegistrationController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:20'],
-            'register_day_id' => ['required', 'integer', 'exists:register_days,id'],
+            // The day is no longer asked (2026-10-12); older app builds still send it.
+            'register_day_id' => ['nullable', 'integer', 'exists:register_days,id'],
             'service_id' => ['required', 'integer', 'exists:register_services,id'],
             'task_id' => ['nullable', 'integer', 'exists:tasks,id'],
             'amount_paid' => ['nullable', 'numeric', 'min:0'],
@@ -70,33 +71,8 @@ class PatientRegistrationController extends Controller
         // against that day's allow-list) — done here with a real query
         // against the pivot instead of a PHP array built from an embedded
         // JSON map.
-        $offeredOnDay = Service::whereKey($validated['service_id'])
-            ->whereHas('days', fn ($q) => $q->where('register_days.id', $validated['register_day_id']))
-            ->exists();
-
-        if (! $offeredOnDay) {
-            throw ValidationException::withMessages([
-                'service_id' => ['هذه الخدمة غير متاحة في اليوم المحدد.'],
-            ]);
-        }
-
-        // Day-governed diagnosis — see RegisterDay::tasks()'s docblock.
-        // Opt-in per day, same reasoning as the web twin
-        // (PatientRegistrationController::store()).
-        if (! empty($validated['task_id'])) {
-            $dayHasTaskRules = RegisterDay::whereKey($validated['register_day_id'])->whereHas('tasks')->exists();
-            if ($dayHasTaskRules) {
-                $taskOfferedOnDay = Task::whereKey($validated['task_id'])
-                    ->whereHas('days', fn ($q) => $q->where('register_days.id', $validated['register_day_id']))
-                    ->exists();
-
-                if (! $taskOfferedOnDay) {
-                    throw ValidationException::withMessages([
-                        'task_id' => ['هذا التشخيص غير متاح في اليوم المحدد.'],
-                    ]);
-                }
-            }
-        }
+        // Registration is by service only now (2026-10-12): no day check.
+        // A day an older app build still sends is stored as before.
 
         $registration = PatientRegistration::create($validated);
 

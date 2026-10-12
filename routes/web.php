@@ -322,6 +322,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/lab', [LabController::class, 'index'])->name('lab.index');
         Route::post('/lab/scan', [LabController::class, 'scan'])->name('lab.scan');
         Route::get('/lab/{patientRegistration}/print', [LabController::class, 'print'])->name('lab.print');
+        Route::post('/lab/{patientRegistration}/reuse', [LabController::class, 'reuse'])->name('lab.reuse');
 
         Route::get('/doctors-import', [DoctorImportExportController::class, 'showImport'])
             ->middleware('permission:doctors,create')
@@ -485,6 +486,8 @@ Route::middleware('auth')->group(function () {
             ->middleware('permission:settings,edit')->name('register-services.update');
         Route::delete('/register-services/{service}', [RegisterSettingsController::class, 'destroyService'])
             ->middleware('permission:settings,edit')->name('register-services.destroy');
+        Route::put('/register-settings/lab', [RegisterSettingsController::class, 'updateLab'])
+            ->middleware('permission:settings,edit')->name('register-settings.lab');
         Route::put('/tasks/{task}/register-days', [RegisterSettingsController::class, 'updateTaskDays'])
             ->middleware('permission:settings,edit')->name('tasks.register-days.update');
 

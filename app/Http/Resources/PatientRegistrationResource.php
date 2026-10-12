@@ -26,9 +26,11 @@ class PatientRegistrationResource extends JsonResource
             'register_day_id' => $this->register_day_id,
             'task_id' => $this->task_id,
             'screening_status' => $this->screening_status,
+            'screening_reused_from' => $this->screening_reused_from,
             'service' => $this->whenLoaded('service', fn () => $this->service ? [
                 'id' => $this->service->id,
                 'name' => $this->service->name,
+                'price' => $this->service->price !== null ? (float) $this->service->price : null,
             ] : null),
             'register_day' => $this->whenLoaded('registerDay', fn () => $this->registerDay ? [
                 'id' => $this->registerDay->id,
