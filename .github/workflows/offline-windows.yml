@@ -30,7 +30,28 @@ env:
   COREDNS_VERSION: '1.11.3'
 
 jobs:
+  panel:
+    # The control panel (DentalClinic.exe), compiled with the .NET Framework
+    # compiler that ships with Windows.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile DentalClinic.exe
+        shell: pwsh
+        working-directory: offline/windows/panel
+        run: |
+          & "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /target:winexe /codepage:65001 /optimize+ `
+            /out:DentalClinic.exe /win32icon:icon.ico /win32manifest:app.manifest `
+            /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Management.dll /r:System.Core.dll DentalClinic.cs
+          if ($LASTEXITCODE -ne 0) { throw 'Compile failed.' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: panel
+          path: offline/windows/panel/DentalClinic.exe
+          retention-days: 3
+
   package:
+    needs: panel
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,10 +79,15 @@ jobs:
             --exclude tests --exclude offline --exclude 'public/downloads' --exclude 'public/hot' \
             --exclude '.env' --exclude 'storage/logs/*.log' --exclude codemagic.yaml --exclude docs
           cp offline/windows/env.offline $OUT/app/.env.offline
-          cp offline/windows/*.bat offline/windows/*.ps1 offline/windows/config.txt $OUT/
+          cp offline/windows/prepare.ps1 offline/windows/config.txt $OUT/
           cp -r offline/windows/setup $OUT/setup
           cp offline/README.md $OUT/README.md
-          sed -i 's/\r*$/\r/' $OUT/*.bat $OUT/*.ps1 $OUT/config.txt
+          sed -i 's/\r*$/\r/' $OUT/*.ps1 $OUT/config.txt
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: panel
+          path: dist/DentalClinicOffline
 
       - name: Windows PHP
         run: |
@@ -107,7 +133,7 @@ jobs:
           retention-days: 3
 
   smoke-test:
-    # Unzip on a real Windows machine, run Start.bat and wait for the
+    # Unzip on a real Windows machine, start it through the panel and wait for the
     # login page, so a broken package never gets published.
     needs: package
     runs-on: windows-latest
@@ -116,18 +142,18 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: offline
-      - name: Run Start.bat and wait for the login page
+      - name: Start through DentalClinic.exe and wait for the login page
         shell: pwsh
         run: |
           Expand-Archive DentalClinicOffline-windows.zip -DestinationPath C:\
           # Port 80 is reserved on the runner; exercise the port settings instead.
           (Get-Content C:\DentalClinicOffline\config.txt) -replace '^HTTP_PORT=80$', 'HTTP_PORT=8080' -replace '^HTTPS_PORT=443$', 'HTTPS_PORT=8443' |
             Set-Content C:\DentalClinicOffline\config.txt
-          Start-Process -FilePath cmd.exe -ArgumentList '/c', 'C:\DentalClinicOffline\Start.bat > C:\start.log 2>&1' -WorkingDirectory C:\DentalClinicOffline
+          Start-Process -FilePath C:\DentalClinicOffline\DentalClinic.exe -ArgumentList '--headless' -WorkingDirectory C:\DentalClinicOffline
           Start-Sleep -Seconds 60
           Write-Host '== early check'
           Get-Process php-cgi,caddy -ErrorAction SilentlyContinue | Format-Table Name,Id | Out-String | Write-Host
-          Get-Content C:\DentalClinicOffline\app\storage\logs\workers.log -TotalCount 5 -ErrorAction SilentlyContinue
+          Get-Content C:\DentalClinicOffline\app\storage\logs\panel.log -Encoding UTF8 -ErrorAction SilentlyContinue
           $ok = $false
           for ($i = 0; $i -lt 20; $i++) {
             Start-Sleep -Seconds 5
@@ -139,13 +165,12 @@ jobs:
           Get-ChildItem C:\DentalClinicOffline\app\storage\logs -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "== $($_.Name)"; Get-Content $_.FullName -Tail 40 }
           Get-ChildItem C:\DentalClinicOffline\data\*.err -ErrorAction SilentlyContinue | ForEach-Object { Get-Content $_.FullName -Tail 20 }
           if (-not $ok) {
-            Write-Host '== start.log'; Get-Content C:\start.log -ErrorAction SilentlyContinue
+            Write-Host '== panel.log'; Get-Content C:\DentalClinicOffline\app\storage\logs\panel.log -Encoding UTF8 -ErrorAction SilentlyContinue
             Write-Host '== processes'; Get-Process php*,caddy,coredns,mariadbd -ErrorAction SilentlyContinue | Format-Table Name,Id,Path | Out-String | Write-Host
             Write-Host '== Caddyfile'; Get-Content C:\DentalClinicOffline\Caddyfile -ErrorAction SilentlyContinue
             Write-Host '== caddy validate'; & C:\DentalClinicOffline\caddy\caddy.exe validate --config C:\DentalClinicOffline\Caddyfile --adapter caddyfile 2>&1 | Select-Object -Last 10
             Write-Host '== php-cgi'; & C:\DentalClinicOffline\php\php-cgi.exe -v 2>&1
-            Write-Host '== workers.log'; Get-Content C:\DentalClinicOffline\app\storage\logs\workers.log -TotalCount 20 -ErrorAction SilentlyContinue
-            Write-Host '== php-cgi.log'; Get-Content C:\DentalClinicOffline\app\storage\logs\php-cgi-9100.log -TotalCount 20 -ErrorAction SilentlyContinue
+            Write-Host '== php-cgi.log'; Get-Content C:\DentalClinicOffline\app\storage\logs\php-cgi.log -TotalCount 20 -ErrorAction SilentlyContinue
             Write-Host '== listening'; Get-NetTCPConnection -State Listen | Where-Object { $_.LocalPort -in 53,80,443,3307,8080,8443,9100,9101 } | Format-Table LocalAddress,LocalPort,OwningProcess | Out-String | Write-Host
             throw 'The offline package did not serve the login page.'
           }
@@ -190,6 +215,17 @@ jobs:
           Write-Host "200 OK: $okCount / 200 in $([int]$sw.Elapsed.TotalSeconds)s"
           if ($okCount -lt 195) { throw 'Too many failed requests under load.' }
 
+          Write-Host 'Self-healing: kill the web server, the panel must restart it'
+          Stop-Process -Name caddy -Force
+          Start-Sleep -Seconds 10
+          $back = curl.exe -s -o NUL -w '%{http_code}' --max-time 30 http://127.0.0.1:8080/login
+          if ($back -ne '200') { throw "The panel did not restart the web server, got $back" }
+
+          Write-Host 'Stop: everything must exit and the database shut down cleanly'
+          Start-Process -FilePath C:\DentalClinicOffline\DentalClinic.exe -ArgumentList '--stop' -Wait
+          $left = Get-Process php-cgi,php,caddy,coredns,mariadbd,DentalClinic -ErrorAction SilentlyContinue
+          if ($left) { $left | Format-Table Name,Id | Out-String | Write-Host; throw 'Processes were left running after --stop.' }
+
   release:
     needs: [package, smoke-test]
     runs-on: ubuntu-latest
@@ -204,6 +240,6 @@ jobs:
           target_commitish: ${{ github.sha }}
           body: |
             The whole system running offline on one Windows PC (PHP + MariaDB bundled).
-            Unzip to C:\DentalClinicOffline, run Setup-Firewall.bat once, then Start.bat; open https://clinic.lan (install the certificate from http://clinic.lan/setup on each device) and log in as admin / password.
+            Unzip to C:\DentalClinicOffline and run DentalClinic.exe: one control panel starts everything with no console windows, sits next to the clock and starts with Windows. Press "السماح لأجهزة الشبكة" once, then open https://clinic.lan (install the certificate from http://clinic.lan/setup on each device) and log in as admin / password.
             Built from ${{ github.ref_name }} @ ${{ github.sha }}.
           files: DentalClinicOffline-windows.zip
