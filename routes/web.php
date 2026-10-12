@@ -63,6 +63,7 @@ use App\Http\Controllers\UserPermissionController;
 use App\Models\ClinicSetting;
 use App\Models\Department;
 use App\Models\Doctor;
+use App\Http\Controllers\CaptivePortalController;
 use App\Http\Controllers\PhoneScannerController;
 use App\Http\Controllers\ScannerPairingController;
 use App\Models\EducationType;
@@ -249,6 +250,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 // The phone as a QR scanner for a computer (2026-10-12): the phone's pages
 // need no login, the pairing token is the secret. See PhoneScannerController.
+// Opening the system when a device joins the clinic Wi-Fi (offline
+// package; Caddy sends the devices' connectivity checks to /captive-check).
+Route::get('/captive-check', [CaptivePortalController::class, 'check'])->name('captive.check');
+Route::get('/portal', [CaptivePortalController::class, 'portal'])->name('captive.portal');
+
 Route::get('/scan', [PhoneScannerController::class, 'enter'])->name('phone-scanner.enter');
 Route::post('/scan', [PhoneScannerController::class, 'resolve'])
     ->middleware('throttle:20,1')->name('phone-scanner.resolve');

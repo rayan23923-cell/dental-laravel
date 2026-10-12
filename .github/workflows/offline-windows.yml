@@ -168,6 +168,18 @@ jobs:
           $setup = Invoke-WebRequest -Uri "http://${ip}:8080/setup" -UseBasicParsing -TimeoutSec 30
           if ($setup.Content -notmatch 'ca.crt') { throw 'Setup page failed.' }
 
+          Write-Host 'Auto-open on joining the Wi-Fi (captive check):'
+          $cdns = Resolve-DnsName -Name connectivitycheck.gstatic.com -Server 127.0.0.1 -DnsOnly -Type A
+          if ($cdns.IPAddress -notcontains $ip) { throw 'The connectivity check address does not point at this computer.' }
+          $first = curl.exe -s -o NUL -w '%{http_code} %{redirect_url}' --max-time 30 -H 'Host: connectivitycheck.gstatic.com' "http://${ip}:8080/generate_204"
+          Write-Host "first check: $first"
+          if ($first -notmatch '^302 .*/portal$') { throw "A new device should be sent to the portal, got $first" }
+          $portal = curl.exe -s -o NUL -w '%{http_code} %{redirect_url}' --max-time 30 -H 'Host: clinic.lan' "http://${ip}:8080/portal"
+          Write-Host "portal: $portal"
+          if ($portal -notmatch '^302 .*/setup$') { throw "The portal should open the setup page, got $portal" }
+          $again = curl.exe -s -o NUL -w '%{http_code}' --max-time 30 -H 'Host: connectivitycheck.gstatic.com' "http://${ip}:8080/generate_204"
+          if ($again -ne '204') { throw "After the portal the device should see the Wi-Fi as connected, got $again" }
+
           Write-Host 'Load: 200 HTTPS requests, 50 at a time'
           $sw = [Diagnostics.Stopwatch]::StartNew()
           $codes = 1..200 | ForEach-Object -Parallel {

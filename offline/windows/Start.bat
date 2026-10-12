@@ -11,6 +11,7 @@ set "PHP_WORKERS=16"
 set "SERVER_IP="
 set "HTTP_PORT=80"
 set "HTTPS_PORT=443"
+set "AUTO_OPEN=1"
 for /f "usebackq eol=# tokens=1,* delims==" %%a in ("%ROOT%config.txt") do set "%%a=%%b"
 cd /d "%ROOT%"
 
@@ -18,7 +19,7 @@ echo ============================================
 echo   Dental Clinic - offline edition
 echo ============================================
 
-for /f "usebackq delims=" %%i in (`powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%prepare.ps1" -Root "%ROOT%." -ServerName "%SERVER_NAME%" -Workers %PHP_WORKERS% -ServerIp "%SERVER_IP%" -HttpPort %HTTP_PORT% -HttpsPort %HTTPS_PORT%`) do set "LAN_IP=%%i"
+for /f "usebackq delims=" %%i in (`powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%prepare.ps1" -Root "%ROOT%." -ServerName "%SERVER_NAME%" -Workers %PHP_WORKERS% -ServerIp "%SERVER_IP%" -HttpPort %HTTP_PORT% -HttpsPort %HTTPS_PORT% -AutoOpen %AUTO_OPEN%`) do set "LAN_IP=%%i"
 
 php -v >nul 2>&1
 if errorlevel 1 (
@@ -61,7 +62,7 @@ if not exist ".env" (
   copy /y ".env.offline" ".env" >nul
   php artisan key:generate --force
   cd /d "%ROOT%"
-  powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%prepare.ps1" -Root "%ROOT%." -ServerName "%SERVER_NAME%" -Workers %PHP_WORKERS% -ServerIp "%SERVER_IP%" -HttpPort %HTTP_PORT% -HttpsPort %HTTPS_PORT% >nul
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%prepare.ps1" -Root "%ROOT%." -ServerName "%SERVER_NAME%" -Workers %PHP_WORKERS% -ServerIp "%SERVER_IP%" -HttpPort %HTTP_PORT% -HttpsPort %HTTPS_PORT% -AutoOpen %AUTO_OPEN% >nul
   cd /d "%ROOT%app"
 )
 
