@@ -28,6 +28,9 @@ $httpsHost = if ($HttpsPort -eq 443) { '{host}' } else { "{host}:$HttpsPort" }
 	https_port $HttpsPort
 	local_certs
 	skip_install_trust
+	# Our own http site below serves the certificate and setup page and does
+	# the redirect for everything else, so Caddy must not redirect first.
+	auto_https disable_redirects
 	log {
 		output file "$fwd/app/storage/logs/caddy.log"
 		level ERROR
