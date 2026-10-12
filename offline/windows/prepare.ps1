@@ -43,8 +43,12 @@ $captiveCaddy = if ($captiveOn) {
     @"
 	@captive host $($captiveHosts -join ' ')
 	handle @captive {
+		# Inner block: a rewrite next to php_fastcgi's own rewrite would
+		# cancel it (rewrites in one block are exclusive), giving a 404.
 		rewrite * /captive-check?h={host}&p={path}
-		import app
+		handle {
+			import app
+		}
 	}
 	handle /portal {
 		import app
