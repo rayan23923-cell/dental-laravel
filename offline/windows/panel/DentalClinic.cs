@@ -161,6 +161,61 @@ namespace DentalClinicPanel
             return d;
         }
 
+        public Dictionary<string, string> ReadConfig() { return LoadConfig(); }
+
+        // Updates the given keys in config.txt in place, keeping its comments.
+        public void WriteConfig(Dictionary<string, string> values)
+        {
+            string f = P("config.txt");
+            var lines = File.Exists(f) ? File.ReadAllLines(f).ToList() : new List<string>();
+            var left = new Dictionary<string, string>(values, StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < lines.Count; i++)
+            {
+                string line = lines[i].Trim();
+                if (line.StartsWith("#")) continue;
+                int eq = line.IndexOf('=');
+                if (eq <= 0) continue;
+                string key = line.Substring(0, eq).Trim();
+                if (!left.ContainsKey(key)) continue;
+                lines[i] = key + "=" + left[key];
+                left.Remove(key);
+            }
+            foreach (var kv in left) lines.Add(kv.Key + "=" + kv.Value);
+            File.WriteAllLines(f, lines);
+            Log("حُفظت الإعدادات.");
+            if (CurrentState == State.Stopped || CurrentState == State.Error)
+            {
+                cfg = LoadConfig();
+                BuildServices();
+            }
+        }
+
+        public void Restart()
+        {
+            Stop();
+            Start();
+        }
+
+        public static List<string> LocalAddresses()
+        {
+            var list = new List<string>();
+            try
+            {
+                foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    if (ni.OperationalStatus != OperationalStatus.Up || ni.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+                    foreach (var a in ni.GetIPProperties().UnicastAddresses)
+                    {
+                        if (a.Address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork) continue;
+                        string ip = a.Address.ToString();
+                        if (!ip.StartsWith("169.254.") && !list.Contains(ip)) list.Add(ip);
+                    }
+                }
+            }
+            catch { }
+            return list;
+        }
+
         public void Log(string msg)
         {
             string line = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "  " + msg;
@@ -599,7 +654,9 @@ namespace DentalClinicPanel
 
         public bool FirewallReady()
         {
-            return Run(Path.Combine(Environment.SystemDirectory, "netsh.exe"), "advfirewall firewall show rule name=\"DentalClinic Web\"", Root, 15000).Code == 0;
+            // The rule must also cover the ports in use (they can change in Settings).
+            var r = Run(Path.Combine(Environment.SystemDirectory, "netsh.exe"), "advfirewall firewall show rule name=\"DentalClinic Web\"", Root, 15000);
+            return r.Code == 0 && r.Output.Contains(HttpPort + "," + HttpsPort);
         }
 
         // Lets devices on the local network reach the web server and DNS.
@@ -863,7 +920,7 @@ namespace DentalClinicPanel
             setupBtn = MakeButton("صفحة تجهيز الأجهزة", Gray, 0);
             setupBtn.Click += (s, e) => OpenUrl(engine.LocalUrl.Replace("localhost", "127.0.0.1") + "/setup");
             var cfgBtn = MakeButton("الإعدادات", Gray, 0);
-            cfgBtn.Click += (s, e) => { try { Process.Start("notepad.exe", "\"" + engine.P("config.txt") + "\""); } catch { } };
+            cfgBtn.Click += (s, e) => OpenSettings();
             var logsBtn = MakeButton("مجلد السجلات", Gray, 0);
             logsBtn.Click += (s, e) => { try { Process.Start("explorer.exe", "\"" + engine.LogDir + "\""); } catch { } };
             var exitBtn = MakeButton("إيقاف وخروج", Gray, 0);
@@ -1036,6 +1093,30 @@ namespace DentalClinicPanel
             list.EndUpdate();
         }
 
+        void OpenSettings()
+        {
+            using (var dlg = new SettingsForm(engine.ReadConfig()))
+            {
+                if (dlg.ShowDialog(this) != DialogResult.OK) return;
+                try { engine.WriteConfig(dlg.Values); }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, "تعذّر حفظ الإعدادات: " + ex.Message, "عيادة الأسنان", MessageBoxButtons.OK, MessageBoxIcon.Error,
+                        MessageBoxDefaultButton.Button1, MessageBoxOptions.RightAlign | MessageBoxOptions.RtlReading);
+                    return;
+                }
+                CheckFirewallAsync();
+                if (engine.CurrentState == State.Running)
+                {
+                    var r = MessageBox.Show(this, "حُفظت الإعدادات. تُطبَّق بعد إعادة تشغيل النظام (يتوقف لحظات على كل الأجهزة). إعادة التشغيل الآن؟",
+                        "عيادة الأسنان", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1,
+                        MessageBoxOptions.RightAlign | MessageBoxOptions.RtlReading);
+                    if (r == DialogResult.Yes) ThreadPool.QueueUserWorkItem(_ => engine.Restart());
+                }
+                RefreshUi();
+            }
+        }
+
         void ShowPanel()
         {
             Show();
@@ -1088,6 +1169,165 @@ namespace DentalClinicPanel
             }
             tray.Visible = false;
             base.OnFormClosing(e);
+        }
+    }
+
+    // Edits config.txt through a form instead of a text editor.
+    class SettingsForm : Form
+    {
+        const string AutoIp = "تلقائي";
+        public Dictionary<string, string> Values = new Dictionary<string, string>();
+
+        readonly TextBox nameBox;
+        readonly ComboBox ipBox;
+        readonly NumericUpDown httpBox, httpsBox, workersBox;
+        readonly CheckBox autoOpenBox;
+        readonly Label error;
+
+        public SettingsForm(Dictionary<string, string> cfg)
+        {
+            Text = "الإعدادات";
+            RightToLeft = RightToLeft.Yes;
+            RightToLeftLayout = true;
+            Font = new Font("Segoe UI", 10f);
+            AutoScaleMode = AutoScaleMode.Dpi;
+            AutoScaleDimensions = new SizeF(96f, 96f);
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            MinimizeBox = false;
+            ShowInTaskbar = false;
+            StartPosition = FormStartPosition.CenterParent;
+            AutoSize = true;
+            AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            BackColor = Color.FromArgb(248, 250, 252);
+
+            var grid = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, Padding = new Padding(16, 12, 16, 8), Dock = DockStyle.Fill };
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 320));
+            Controls.Add(grid);
+
+            nameBox = new TextBox { Width = 300, RightToLeft = RightToLeft.No, Text = Value(cfg, "SERVER_NAME", "clinic.lan") };
+            AddField(grid, "اسم النظام على الشبكة", nameBox, "الاسم الذي تفتح به الأجهزة النظام. الافتراضي clinic.lan");
+
+            ipBox = new ComboBox { Width = 300, RightToLeft = RightToLeft.No, DropDownStyle = ComboBoxStyle.DropDown };
+            ipBox.Items.Add(AutoIp);
+            foreach (var ip in Engine.LocalAddresses()) ipBox.Items.Add(ip);
+            string savedIp = Value(cfg, "SERVER_IP", "");
+            ipBox.Text = savedIp.Length == 0 ? AutoIp : savedIp;
+            AddField(grid, "عنوان هذا الجهاز", ipBox, "اتركه «تلقائي» إلا إذا ثبّتّ للجهاز عنوانًا في راوتر Deco.");
+
+            httpBox = Number(1, 65535, IntValue(cfg, "HTTP_PORT", 80));
+            AddField(grid, "منفذ HTTP", httpBox, "80 افتراضيًا. غيّره فقط إذا كان برنامج آخر (مثل XAMPP) يستخدمه.");
+
+            httpsBox = Number(1, 65535, IntValue(cfg, "HTTPS_PORT", 443));
+            AddField(grid, "منفذ HTTPS", httpsBox, "443 افتراضيًا.");
+
+            workersBox = Number(2, 64, IntValue(cfg, "PHP_WORKERS", 16));
+            AddField(grid, "عدد الطلبات المتزامنة", workersBox, "16 مناسب لأغلب العيادات، و24 أو 32 مع ذاكرة 16 غيغابايت.");
+
+            autoOpenBox = new CheckBox { Text = "فتح النظام تلقائيًا عند الاتصال بالواي فاي", AutoSize = true, Checked = Value(cfg, "AUTO_OPEN", "1") != "0" };
+            AddField(grid, "", autoOpenBox, "يحتاج أن يكون هذا الجهاز خادم DNS في راوتر Deco، ومنفذ HTTP هو 80.");
+
+            error = new Label { AutoSize = true, ForeColor = Color.FromArgb(220, 38, 38), MaximumSize = new Size(560, 0), Margin = new Padding(3, 6, 3, 0) };
+            grid.Controls.Add(error, 0, grid.RowCount);
+            grid.SetColumnSpan(error, 2);
+            grid.RowCount++;
+
+            var buttons = new FlowLayoutPanel { AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 10, 0, 4) };
+            var save = Btn("حفظ", Color.FromArgb(15, 118, 110));
+            var cancel = Btn("إلغاء", Color.FromArgb(107, 114, 128));
+            var defaults = Btn("القيم الافتراضية", Color.FromArgb(107, 114, 128));
+            save.Click += (s, e) => Save();
+            cancel.Click += (s, e) => { DialogResult = DialogResult.Cancel; };
+            defaults.Click += (s, e) =>
+            {
+                nameBox.Text = "clinic.lan"; ipBox.Text = AutoIp; httpBox.Value = 80; httpsBox.Value = 443;
+                workersBox.Value = 16; autoOpenBox.Checked = true;
+            };
+            buttons.Controls.Add(save);
+            buttons.Controls.Add(cancel);
+            buttons.Controls.Add(defaults);
+            grid.Controls.Add(buttons, 0, grid.RowCount);
+            grid.SetColumnSpan(buttons, 2);
+            grid.RowCount++;
+
+            AcceptButton = save;
+            CancelButton = cancel;
+        }
+
+        static string Value(Dictionary<string, string> cfg, string key, string def)
+        {
+            string v;
+            return cfg.TryGetValue(key, out v) ? v : def;
+        }
+
+        static int IntValue(Dictionary<string, string> cfg, string key, int def)
+        {
+            int v;
+            return int.TryParse(Value(cfg, key, ""), out v) ? v : def;
+        }
+
+        static NumericUpDown Number(int min, int max, int value)
+        {
+            return new NumericUpDown { Minimum = min, Maximum = max, Value = Math.Max(min, Math.Min(max, value)), Width = 120, RightToLeft = RightToLeft.No };
+        }
+
+        static Button Btn(string text, Color color)
+        {
+            var b = new Button { Text = text, FlatStyle = FlatStyle.Flat, BackColor = color, ForeColor = Color.White, AutoSize = true, Height = 34, Margin = new Padding(4), Padding = new Padding(10, 0, 10, 0), Cursor = Cursors.Hand };
+            b.FlatAppearance.BorderSize = 0;
+            return b;
+        }
+
+        static void AddField(TableLayoutPanel grid, string caption, Control input, string hint)
+        {
+            int row = grid.RowCount;
+            grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            grid.Controls.Add(new Label { Text = caption, AutoSize = true, Margin = new Padding(3, 12, 12, 0), Font = new Font("Segoe UI", 10f, FontStyle.Bold) }, 0, row);
+            var cell = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, AutoSize = true, WrapContents = false, Margin = new Padding(0, 8, 0, 0) };
+            cell.Controls.Add(input);
+            cell.Controls.Add(new Label { Text = hint, AutoSize = true, MaximumSize = new Size(310, 0), ForeColor = Color.FromArgb(107, 114, 128), Font = new Font("Segoe UI", 8.5f) });
+            grid.Controls.Add(cell, 1, row);
+            grid.RowCount++;
+        }
+
+        void Save()
+        {
+            string name = nameBox.Text.Trim().ToLowerInvariant();
+            if (!Regex.IsMatch(name, @"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$"))
+            {
+                error.Text = "اسم النظام غير صالح: أحرف إنجليزية وأرقام ونقاط فقط، مثل clinic.lan";
+                return;
+            }
+            string ip = ipBox.Text.Trim();
+            if (ip == AutoIp) ip = "";
+            IPAddress parsed;
+            if (ip.Length > 0 && (!IPAddress.TryParse(ip, out parsed) || parsed.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork || ip.Split('.').Length != 4))
+            {
+                error.Text = "عنوان الجهاز غير صالح. اكتب عنوانًا مثل 192.168.68.10 أو اختر «تلقائي».";
+                return;
+            }
+            int http = (int)httpBox.Value, https = (int)httpsBox.Value;
+            if (http == https)
+            {
+                error.Text = "منفذ HTTP ومنفذ HTTPS يجب أن يكونا مختلفين.";
+                return;
+            }
+            if (http == Engine.DbPort || https == Engine.DbPort || http == 53 || https == 53 || (http >= 9100 && http < 9200) || (https >= 9100 && https < 9200))
+            {
+                error.Text = "هذا المنفذ محجوز لخدمة أخرى في النظام. اختر منفذًا آخر مثل 8080.";
+                return;
+            }
+            Values = new Dictionary<string, string>
+            {
+                { "SERVER_NAME", name },
+                { "SERVER_IP", ip },
+                { "HTTP_PORT", http.ToString() },
+                { "HTTPS_PORT", https.ToString() },
+                { "PHP_WORKERS", ((int)workersBox.Value).ToString() },
+                { "AUTO_OPEN", autoOpenBox.Checked ? "1" : "0" },
+            };
+            DialogResult = DialogResult.OK;
         }
     }
 }
