@@ -19,6 +19,7 @@ import { computed, ref } from 'vue';
 import BrandMark from '@/Components/BrandMark.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
+import PhoneScannerLink from '@/Components/PhoneScannerLink.vue';
 import Icon from '@/Components/Icon.vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
@@ -258,7 +259,8 @@ const tileClass = (active) => [
                     </div>
 
                     <!-- Account -->
-                    <div class="ms-auto hidden shrink-0 items-center sm:flex">
+                    <div class="ms-auto hidden shrink-0 items-center gap-2 sm:flex">
+                        <PhoneScannerLink />
                         <Dropdown align="right" width="48">
                             <template #trigger>
                                 <button

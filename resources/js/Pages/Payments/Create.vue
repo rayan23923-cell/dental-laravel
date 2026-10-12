@@ -6,6 +6,7 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import QrScanner from '@/Components/QrScanner.vue';
+import { onRemoteScan } from '@/remoteScanner';
 import Icon from '@/Components/Icon.vue';
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, ref, watch } from 'vue';
@@ -75,6 +76,9 @@ const onDecoded = async (text) => {
         scanError.value = e?.response?.data?.message ?? t('payments.qrReadFailed');
     }
 };
+
+// A phone paired as a scanner (2026-10-12) picks the registration too.
+onRemoteScan(onDecoded, () => !scannerRef.value?.scanning);
 
 const registrationSearch = ref('');
 const registrationResults = ref([]);

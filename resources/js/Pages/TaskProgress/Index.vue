@@ -6,6 +6,7 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import QrScanner from '@/Components/QrScanner.vue';
+import { onRemoteScan } from '@/remoteScanner';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -234,6 +235,17 @@ const onDecoded = async (text) => {
         scanError.value = e?.response?.data?.message ?? t('patientReg.qrReadFailed');
     }
 };
+
+// A phone paired as a scanner (2026-10-12): its code opens the scan
+// result here even when this computer's camera is not running.
+onRemoteScan(
+    (text) => {
+        scanResult.value = null;
+        scannerOpen.value = true;
+        onDecoded(text);
+    },
+    () => !scannerRef.value?.scanning,
+);
 
 const rescan = async () => {
     scanResult.value = null;

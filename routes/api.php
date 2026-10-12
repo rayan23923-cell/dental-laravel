@@ -127,6 +127,13 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::put('/me', [ProfileController::class, 'update']);
         Route::put('/me/password', [ProfileController::class, 'updatePassword']);
 
+        // Phone as a QR scanner for the Windows app (2026-10-12); same
+        // controller as the web app's, see ScannerPairingController.
+        Route::post('/scanner-pairings', [\App\Http\Controllers\ScannerPairingController::class, 'store']);
+        Route::get('/scanner-pairings/{scannerPairing}', [\App\Http\Controllers\ScannerPairingController::class, 'show']);
+        Route::get('/scanner-pairings/{scannerPairing}/scans', [\App\Http\Controllers\ScannerPairingController::class, 'scans']);
+        Route::delete('/scanner-pairings/{scannerPairing}', [\App\Http\Controllers\ScannerPairingController::class, 'destroy']);
+
         // The current principal's own notifications (Doctor or User) — see
         // NotificationController docblock. No permission/role middleware,
         // same as /me: everyone reads/manages only their own.

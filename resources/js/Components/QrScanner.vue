@@ -18,13 +18,18 @@
  * secure context — https, or localhost — which is why a plain-http LAN IP
  * gets an explicit warning instead of a silent failure.
  */
-import { onBeforeUnmount, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 import jsQR from 'jsqr';
 import { useI18n } from 'vue-i18n';
 import Icon from '@/Components/Icon.vue';
 
 const { t } = useI18n();
 const emit = defineEmits(['decoded', 'close']);
+const props = defineProps({
+    // Keep scanning after each code (the phone-scanner page, 2026-10-12):
+    // the same code is ignored for a moment so one QR isn't sent twice.
+    continuous: { type: Boolean, default: false },
+});
 
 const video = ref(null);
 const canvas = ref(null);
@@ -100,12 +105,32 @@ const start = async () => {
     }
 };
 
+let lastText = '';
+let lastAt = 0;
 const handle = (text) => {
     if (!text || stopped) return;
+    if (props.continuous) {
+        const now = Date.now();
+        if (text === lastText && now - lastAt < 3000) return;
+        lastText = text;
+        lastAt = now;
+        emit('decoded', text);
+        return;
+    }
     stopped = true;
     emit('decoded', text);
     stop();
 };
+
+// A code read by a paired phone (2026-10-12, see remoteScanner.js) counts
+// as read by this camera while it is running.
+const onRemoteScan = (event) => {
+    if (!scanning.value || props.continuous || event.detail.handled) return;
+    event.detail.handled = true;
+    handle(event.detail.payload);
+};
+onMounted(() => window.addEventListener('remote-scan', onRemoteScan));
+onBeforeUnmount(() => window.removeEventListener('remote-scan', onRemoteScan));
 
 const tick = async () => {
     if (stopped || !video.value || video.value.readyState !== video.value.HAVE_ENOUGH_DATA) {
@@ -116,7 +141,8 @@ const tick = async () => {
     try {
         if (detector) {
             const codes = await detector.detect(video.value);
-            if (codes.length) return handle(codes[0].rawValue);
+            if (codes.length) handle(codes[0].rawValue);
+            if (codes.length && !props.continuous) return;
         } else {
             const c = canvas.value;
             const w = video.value.videoWidth;
@@ -128,7 +154,8 @@ const tick = async () => {
                 ctx.drawImage(video.value, 0, 0, w, h);
                 const img = ctx.getImageData(0, 0, w, h);
                 const code = jsQR(img.data, w, h, { inversionAttempts: 'dontInvert' });
-                if (code?.data) return handle(code.data);
+                if (code?.data) handle(code.data);
+                if (code?.data && !props.continuous) return;
             }
         }
     } catch {
@@ -175,7 +202,7 @@ const stop = () => {
 
 onBeforeUnmount(stop);
 
-defineExpose({ start, stop });
+defineExpose({ start, stop, scanning });
 </script>
 
 <template>

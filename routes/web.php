@@ -63,6 +63,8 @@ use App\Http\Controllers\UserPermissionController;
 use App\Models\ClinicSetting;
 use App\Models\Department;
 use App\Models\Doctor;
+use App\Http\Controllers\PhoneScannerController;
+use App\Http\Controllers\ScannerPairingController;
 use App\Models\EducationType;
 use App\Models\Patient;
 use App\Models\Stage;
@@ -245,8 +247,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('dashboard.tasks-by-education-type');
 });
 
+// The phone as a QR scanner for a computer (2026-10-12): the phone's pages
+// need no login, the pairing token is the secret. See PhoneScannerController.
+Route::get('/scan', [PhoneScannerController::class, 'enter'])->name('phone-scanner.enter');
+Route::post('/scan', [PhoneScannerController::class, 'resolve'])
+    ->middleware('throttle:20,1')->name('phone-scanner.resolve');
+Route::get('/scan/{token}', [PhoneScannerController::class, 'show'])->name('phone-scanner.show');
+Route::post('/scan/{token}/scans', [PhoneScannerController::class, 'store'])
+    ->middleware('throttle:120,1')->name('phone-scanner.store');
+
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+
+    // The computer's side of the phone scanner (2026-10-12).
+    Route::post('/scanner-pairings', [ScannerPairingController::class, 'store'])->name('scanner-pairings.store');
+    Route::get('/scanner-pairings/{scannerPairing}', [ScannerPairingController::class, 'show'])->name('scanner-pairings.show');
+    Route::get('/scanner-pairings/{scannerPairing}/scans', [ScannerPairingController::class, 'scans'])->name('scanner-pairings.scans');
+    Route::delete('/scanner-pairings/{scannerPairing}', [ScannerPairingController::class, 'destroy'])->name('scanner-pairings.destroy');
     Route::post('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
 

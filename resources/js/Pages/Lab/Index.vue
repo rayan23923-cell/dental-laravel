@@ -10,6 +10,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Icon from '@/Components/Icon.vue';
 import Modal from '@/Components/Modal.vue';
 import QrScanner from '@/Components/QrScanner.vue';
+import { onRemoteScan } from '@/remoteScanner';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, nextTick, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -93,6 +94,10 @@ const onDecoded = async (text) => {
         scanError.value = e?.response?.data?.message ?? t('payments.qrReadFailed');
     }
 };
+
+// A phone paired as a scanner (2026-10-12) reads tickets without the
+// camera here being open; while it is open, QrScanner takes the code.
+onRemoteScan(onDecoded, () => !scannerRef.value?.scanning);
 
 // --- Record a result ---
 const selected = ref(null);
