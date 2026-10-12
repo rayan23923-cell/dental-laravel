@@ -9,12 +9,20 @@ $fwd = $Root -replace '\\', '/'
 (Get-Content -LiteralPath "$Root\php\php.ini.template") -replace '__EXT_DIR__', "$Root\php\ext" |
     Set-Content -LiteralPath "$Root\php\php.ini" -Encoding ASCII
 
+# Address detection is best effort: Get-NetIPConfiguration throws on some
+# adapter setups (several virtual adapters), and under 'Stop' that would
+# abort the script before the Caddyfile is written, so the server never
+# starts. Fall through to the next method instead.
 if (-not $ServerIp) {
-    $cfg = Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -and $_.NetAdapter.Status -eq 'Up' } | Select-Object -First 1
-    if ($cfg) { $ServerIp = $cfg.IPv4Address[0].IPAddress }
+    try {
+        $cfg = Get-NetIPConfiguration -ErrorAction Stop | Where-Object { $_.IPv4DefaultGateway -and $_.NetAdapter.Status -eq 'Up' } | Select-Object -First 1
+        if ($cfg) { $ServerIp = $cfg.IPv4Address[0].IPAddress }
+    } catch { $ServerIp = $null }
 }
 if (-not $ServerIp) {
-    $ServerIp = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' } | Select-Object -First 1).IPAddress
+    try {
+        $ServerIp = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop | Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' } | Select-Object -First 1).IPAddress
+    } catch { $ServerIp = $null }
 }
 if (-not $ServerIp) { $ServerIp = '127.0.0.1' }
 
