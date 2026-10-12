@@ -85,17 +85,18 @@ class TaskProgressController extends Controller
         $validated = $request->validate([
             'doctor_id' => ['required', 'exists:doctors,id'],
             'task_id' => ['required', 'exists:tasks,id'],
-            // Required (2026-08-26) — identifies which patient this
-            // instance is for, so `PatientScreeningGate` can be enforced.
-            // See `PatientRegistration`'s docblock for why the table is
-            // `patients_simple`.
-            'patient_registration_id' => ['required', 'exists:patients_simple,id'],
+            // Optional (2026-10-12): a task starts from the case QR or the
+            // doctor search alone; when a patient is given the screening
+            // gate still applies (see TaskStarter).
+            'patient_registration_id' => ['nullable', 'exists:patients_simple,id'],
             'notes' => ['nullable', 'string'],
         ]);
 
         $task = Task::findOrFail($validated['task_id']);
         $doctor = Doctor::findOrFail($validated['doctor_id']);
-        $patientRegistration = PatientRegistration::findOrFail($validated['patient_registration_id']);
+        $patientRegistration = isset($validated['patient_registration_id'])
+            ? PatientRegistration::findOrFail($validated['patient_registration_id'])
+            : null;
 
         try {
             $instance = TaskStarter::start(

@@ -19,7 +19,6 @@ import '../../../core/widgets/academic_year_banner.dart';
 import '../../case_sheet_forms/data/case_sheet_record_repository.dart';
 import '../../clinic_settings/domain/clinic_settings.dart';
 import '../../clinic_settings/presentation/clinic_settings_providers.dart';
-import '../../patient_registration/domain/registration_payment_state.dart';
 import '../../printing/data/pos_printer_service.dart';
 import '../../printing/presentation/printer_error_snackbar.dart';
 import '../../printing/presentation/printer_settings_providers.dart';
@@ -178,25 +177,15 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
     int taskId,
     TaskProgressGroupOption groupOption,
   ) async {
-    final patientState =
-        await context.push<RegistrationPaymentState>('/records/patient-registrations/scan-for-task');
-    if (patientState == null || !mounted) return;
-
+    // No patient QR (2026-10-12, by request): the doctor and task picked
+    // here (or the case QR) are enough to start it.
     final t = ref.read(translationsProvider);
-    if (!patientState.registration.isScreeningClear) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(t['taskProgressAdmin.screeningRequiredMsg']!),
-      ));
-      return;
-    }
-
     final notes = await _promptNotes(title: t['taskProgressAdmin.startTask']!);
     if (notes == null) return;
     try {
       final result = await ref.read(taskProgressRepositoryProvider).start(
             doctorId: doctorId,
             taskId: taskId,
-            patientRegistrationId: patientState.registration.id,
             notes: notes,
           );
       _reloadGroup();
