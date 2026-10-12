@@ -18,6 +18,22 @@
         .reg-ticket table { font-size: 19px; }
         .reg-ticket th, .reg-ticket td { padding: 10px 12px; }
         .reg-ticket .muted { font-size: 16px; }
+
+        /* 80mm thermal printer, same rules as print/lab-result.blade.php:
+           roll-width page, black-and-white logo, no watermark or fills. */
+        @media print {
+            @page { size: 80mm auto; margin: 2mm; }
+            .watermark { display: none !important; }
+            .letterhead { border-bottom-width: 1px; margin-bottom: 8px; padding-bottom: 6px; }
+            .letterhead img { max-width: 60%; filter: grayscale(100%) contrast(1.2); }
+            .letterhead h1 { font-size: 18px; }
+            .letterhead h2 { font-size: 15px; }
+            .letterhead p, .muted { color: #000 !important; }
+            .reg-ticket { max-width: none !important; margin: 0 !important; border: 0 !important; padding: 0 !important; color: #000; }
+            .reg-ticket table { font-size: 15px; }
+            .reg-ticket th, .reg-ticket td { padding: 5px 6px; border-color: #000; background: #fff !important; }
+            .reg-ticket .qr { width: 200px !important; height: 200px !important; }
+        }
     </style>
     <div class="reg-ticket" style="max-width:420px; margin:24px auto; border:1px solid #9ca3af; border-radius:8px; padding:20px;">
         <table style="margin:0 0 16px">
@@ -35,7 +51,7 @@
         </table>
 
         <div style="text-align:center;">
-            <img src="{{ route('patient-registrations.qr', $registration) }}" alt="رمز الدفع" style="width:240px; height:240px;">
+            <img src="{{ route('patient-registrations.qr', $registration) }}" alt="رمز الدفع" class="qr" style="width:240px; height:240px;">
             <p class="muted" style="margin-top:4px">يُمسح هذا الرمز عند الدفع</p>
         </div>
     </div>
