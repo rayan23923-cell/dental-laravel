@@ -330,6 +330,7 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
         context,
         TicketWidget(
           registration: registration,
+          showPaid: true,
           qrBytes: qrBytes,
           logoBytes: logoBytes,
           widthDots: printerSettings.dotsPerLine,

@@ -109,6 +109,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
             context,
             TicketWidget(
               registration: registration,
+              showPaid: true,
               qrBytes: qrBytes,
               logoBytes: logoBytes,
               headerTitle: settings?.universityName ?? settings?.clinicName,

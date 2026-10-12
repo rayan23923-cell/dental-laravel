@@ -41,8 +41,14 @@
                 <tr><th style="width:38%">اسم المريض</th><td>{{ $registration->name }}</td></tr>
                 <tr><th>الهاتف</th><td dir="ltr" style="text-align:left">{{ $registration->phone }}</td></tr>
                 <tr><th>الخدمة</th><td>{{ $registration->service?->name ?? '—' }}</td></tr>
-                @if ($registration->service?->price !== null)
-                    <tr><th>السعر</th><td>{{ number_format((float) $registration->service->price) }}</td></tr>
+                {{-- Printed only after payment, which registration now
+                     takes in full at the service's price (2026-10-12), so
+                     this is the paid receipt. Older registrations without a
+                     recorded payment fall back to the service's price. --}}
+                @php($paid = (float) ($registration->service_paid ?: $registration->service?->price))
+                @if ($paid > 0)
+                    <tr><th>المبلغ المدفوع</th><td>{{ number_format($paid) }} {{ $settings->clinic_currency }}</td></tr>
+                    <tr><th>الحالة</th><td><strong>مدفوع</strong></td></tr>
                 @endif
                 @if ($registration->registerDay)
                     <tr><th>اليوم</th><td>{{ $registration->registerDay->name }}</td></tr>
@@ -52,7 +58,7 @@
 
         <div style="text-align:center;">
             <img src="{{ route('patient-registrations.qr', $registration) }}" alt="رمز الدفع" class="qr" style="width:240px; height:240px;">
-            <p class="muted" style="margin-top:4px">يُمسح هذا الرمز عند الدفع</p>
+            <p class="muted" style="margin-top:4px">رمز المريض</p>
         </div>
     </div>
 @endsection
