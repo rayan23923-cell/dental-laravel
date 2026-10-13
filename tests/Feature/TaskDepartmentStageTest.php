@@ -28,7 +28,7 @@ class TaskDepartmentStageTest extends TestCase
 
         $task = fn ($departmentId) => [
             'department_id' => $departmentId, 'case_sheet_type_id' => $sheet, 'stage_id' => 1,
-            'title' => 'حشوة', 'required_per_doctor' => 1, 'required_count' => 1,
+            'title' => 'حشوة', 'required_per_doctor' => 1, 'required_count' => 1, 'grade' => 10, 'notes' => 'ملاحظة',
         ];
 
         $this->actingAs($admin)->post('/tasks', $task($other->id))->assertSessionHasErrors('department_id');
@@ -37,5 +37,15 @@ class TaskDepartmentStageTest extends TestCase
         $this->post('/tasks', $task($own->id))->assertSessionHasNoErrors();
 
         $this->assertSame([$own->id], Task::pluck('department_id')->map(fn ($id) => (int) $id)->all());
+    }
+
+    public function test_departments_stages_and_tasks_need_every_field(): void
+    {
+        $admin = \App\Models\User::factory()->create(['role' => 'super_admin']);
+        $this->actingAs($admin);
+
+        $this->post('/stages', ['name' => 'رابعة'])->assertSessionHasErrors('education_type_id');
+        $this->post('/departments', ['name' => 'حشوات'])->assertSessionHasErrors(['education_type_id', 'stage_id']);
+        $this->post('/tasks', ['title' => 'حشوة'])->assertSessionHasErrors(['notes', 'grade']);
     }
 }

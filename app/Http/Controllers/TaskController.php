@@ -172,10 +172,11 @@ class TaskController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'required_per_doctor' => ['required', 'integer', 'min:0'],
             'required_count' => ['required', 'integer', 'min:1'],
-            'notes' => ['nullable', 'string'],
+            // Every field is required (2026-10-13, by request).
+            'notes' => ['required', 'string'],
             // "الدرجة / العلامة" — present in the original's add/edit task
             // forms (0.00–100.00) but missing from the first port.
-            'grade' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'grade' => ['required', 'numeric', 'min:0', 'max:100'],
             'academic_session_id' => ['nullable', 'exists:academic_sessions,id'],
             'is_required' => ['sometimes', 'boolean'],
         ]);

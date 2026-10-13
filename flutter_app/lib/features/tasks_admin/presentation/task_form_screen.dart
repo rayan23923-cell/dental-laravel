@@ -317,12 +317,19 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
               controller: _gradeController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: InputDecoration(labelText: t['tasksAdmin.gradeLabel'], border: const OutlineInputBorder()),
+              // Grade and notes are required (2026-10-13, by request), as on the web.
+              validator: (v) {
+                final grade = double.tryParse(v?.trim() ?? '');
+                if (grade == null) return t['tasksAdmin.requiredField'];
+                return grade < 0 || grade > 100 ? '0 - 100' : null;
+              },
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _notesController,
               maxLines: 3,
               decoration: InputDecoration(labelText: t['tasksAdmin.notesLabel'], border: const OutlineInputBorder()),
+              validator: (v) => (v == null || v.trim().isEmpty) ? t['tasksAdmin.requiredField'] : null,
             ),
             const SizedBox(height: 24),
             FilledButton(

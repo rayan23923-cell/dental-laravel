@@ -44,7 +44,8 @@ class StageController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
-            'education_type_id' => ['nullable', 'exists:education_types,id'],
+            // Required (2026-10-13, by request): every field must be filled.
+            'education_type_id' => ['required', 'exists:education_types,id'],
         ]);
 
         Stage::create($validated);
@@ -56,7 +57,8 @@ class StageController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
-            'education_type_id' => ['nullable', 'exists:education_types,id'],
+            // Required (2026-10-13, by request): every field must be filled.
+            'education_type_id' => ['required', 'exists:education_types,id'],
         ]);
 
         $stage->update($validated);

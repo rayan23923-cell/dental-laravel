@@ -62,8 +62,9 @@ class TaskController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'required_per_doctor' => ['required', 'integer', 'min:0'],
             'required_count' => ['required', 'integer', 'min:1'],
-            'notes' => ['nullable', 'string'],
-            'grade' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            // Every field is required (2026-10-13, by request).
+            'notes' => ['required', 'string'],
+            'grade' => ['required', 'numeric', 'min:0', 'max:100'],
             'academic_session_id' => ['nullable', 'exists:academic_sessions,id'],
             'is_required' => ['sometimes', 'boolean'],
         ]);
@@ -96,8 +97,8 @@ class TaskController extends Controller
             'title' => ['sometimes', 'string', 'max:255'],
             'required_per_doctor' => ['sometimes', 'integer', 'min:0'],
             'required_count' => ['sometimes', 'integer', 'min:1'],
-            'notes' => ['nullable', 'string'],
-            'grade' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'notes' => ['sometimes', 'required', 'string'],
+            'grade' => ['sometimes', 'required', 'numeric', 'min:0', 'max:100'],
             'academic_session_id' => ['nullable', 'exists:academic_sessions,id'],
             'is_required' => ['sometimes', 'boolean'],
         ]);

@@ -93,10 +93,11 @@ const columns = [
                             <InputError class="mt-2" :message="createForm.errors.name" />
                         </div>
                         <div class="w-56">
-                            <select v-model="createForm.education_type_id" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                <option value="">{{ t('taxonomyAdmin.noEducationType') }}</option>
+                            <select v-model="createForm.education_type_id" required class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                <option value="" disabled>{{ t('departmentsAdmin.chooseEducationType') }}</option>
                                 <option v-for="type in educationTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
                             </select>
+                            <InputError class="mt-2" :message="createForm.errors.education_type_id" />
                         </div>
                         <PrimaryButton :disabled="createForm.processing">{{ t('common.add') }}</PrimaryButton>
                     </form>
@@ -145,8 +146,8 @@ const columns = [
                 </div>
                 <div class="mt-4">
                     <InputLabel for="edit-education-type" :value="t('taxonomyAdmin.educationTypeLabel')" />
-                    <select id="edit-education-type" v-model="editForm.education_type_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                        <option value="">{{ t('taxonomyAdmin.noEducationType') }}</option>
+                    <select id="edit-education-type" v-model="editForm.education_type_id" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="" disabled>{{ t('departmentsAdmin.chooseEducationType') }}</option>
                         <option v-for="type in educationTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
                     </select>
                     <InputError class="mt-2" :message="editForm.errors.education_type_id" />
