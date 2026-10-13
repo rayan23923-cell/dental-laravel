@@ -55,10 +55,17 @@ watch(educationType, () => {
 
 // See Tasks/Create.vue for why this filters (mirrors the original app's
 // stage -> department cascade).
+// Only the chosen stage's own departments (2026-10-13, by request: no
+// departments of other stages). Stage-less departments are offered only
+// when the stage has none of its own.
+const stageDepartments = (stageId) => {
+    const own = props.departments.filter((d) => Number(d.stage_id) === stageId);
+    return own.length ? own : props.departments.filter((d) => d.stage_id === null);
+};
 const filteredDepartments = computed(() =>
     form.stage_id
-        ? props.departments.filter((d) => d.stage_id === form.stage_id || d.stage_id === null)
-        : props.departments
+        ? stageDepartments(Number(form.stage_id))
+        : []
 );
 
 let initialized = false;
