@@ -5,12 +5,20 @@
  * (education type → cascading stage → search), the same selectable table
  * with a bulk bar ("تم تحديد N صف" + طباعة المحدد / حذف المحدد), and the
  * same columns.
+ *
+ * Chat-list style (2026-10-13, by request): the table became chat-list
+ * rows (checkbox, avatar initial, name + email, chips) with icon actions.
  */
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import SecondaryButton from '@/Components/SecondaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import ChatListCard from '@/Components/ChatList/ChatListCard.vue';
+import ChatListRow from '@/Components/ChatList/ChatListRow.vue';
+import ChatChip from '@/Components/ChatList/ChatChip.vue';
+import ChatAction from '@/Components/ChatList/ChatAction.vue';
+import ChatSearch from '@/Components/ChatList/ChatSearch.vue';
+import ChatAddButton from '@/Components/ChatList/ChatAddButton.vue';
+import ChatPager from '@/Components/ChatList/ChatPager.vue';
+import { toneFor } from '@/Components/ChatList/tones';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Icon from '@/Components/Icon.vue';
@@ -88,6 +96,8 @@ const toggleAll = () => {
     selected.value = allOnPageSelected.value ? [] : props.doctors.data.map((d) => d.id);
 };
 
+const canSeeProgress = computed(() => ['super_admin', 'admin'].includes(page.props.auth.user.role));
+
 const destroy = (doctor) => {
     if (confirm(t('doctorsAdmin.deleteConfirm', { name: doctor.name }))) {
         router.delete(route('doctors.destroy', doctor.id), { preserveScroll: true });
@@ -128,151 +138,103 @@ const printSelectedUrl = computed(() => `${route('doctors.print')}?ids=${selecte
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex flex-wrap items-center justify-between gap-2">
-                <h2 class="text-xl font-semibold leading-tight text-gray-800"><Icon name="stethoscope" class="ml-1" />{{ t('doctorsAdmin.title') }}</h2>
-                <div class="flex gap-2">
-                    <Link :href="route('doctors.import.show')">
-                        <SecondaryButton class="!bg-green-600 !text-white hover:!bg-green-700"><Icon name="table_view" class="ml-1" />{{ t('doctorsAdmin.importExcel') }}</SecondaryButton>
-                    </Link>
-                    <Link :href="route('doctors.create')">
-                        <PrimaryButton><Icon name="add" class="ml-1" />{{ t('doctorsAdmin.addDoctor') }}</PrimaryButton>
-                    </Link>
+            <div class="flex items-center justify-between gap-3">
+                <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('doctorsAdmin.title') }}</h2>
+                <div class="flex items-center gap-2">
+                    <ChatAddButton :label="t('doctorsAdmin.importExcel')" icon="upload_file" secondary :href="route('doctors.import.show')" />
+                    <ChatAddButton :label="t('doctorsAdmin.addDoctor')" :href="route('doctors.create')" />
                 </div>
             </div>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl space-y-4 sm:px-6 lg:px-8">
+        <div class="py-6 sm:py-10">
+            <div class="mx-auto max-w-2xl space-y-4 px-4 sm:px-6 lg:px-8">
                 <StructureTabs />
 
-                <div v-if="page.props.flash?.success" class="rounded-md bg-green-50 p-4 text-sm text-green-700">
+                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
                     {{ page.props.flash.success }}
                 </div>
 
                 <!-- Which academic year this list belongs to -->
-                <div v-if="currentSession" class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
-                    <span class="text-sm text-indigo-900">
-                        <Icon name="calendar_month" class="ml-1" />
+                <div v-if="currentSession" class="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-indigo-50 px-4 py-2.5 text-sm text-indigo-900">
+                    <span class="flex items-center gap-1.5">
+                        <Icon name="calendar_month" size="text-[18px]" />
                         <template v-if="allSessions">{{ t('doctorsAdmin.viewingAllSessionsPrefix') }} <strong>{{ t('doctorsAdmin.allAcademicSessions') }}</strong></template>
                         <template v-else>{{ t('doctorsAdmin.sessionDoctorsPrefix') }} <strong>{{ currentSession.name }}</strong></template>
                     </span>
-                    <label class="flex cursor-pointer items-center gap-2 text-sm text-indigo-900">
+                    <label class="flex cursor-pointer items-center gap-2">
                         <input type="checkbox" v-model="allSessions" @change="applyFilters" class="rounded border-gray-300 text-indigo-600" />
                         {{ t('doctorsAdmin.showAllSessions') }}
                     </label>
                 </div>
 
-                <!-- Filters -->
-                <div class="grid grid-cols-1 gap-3 rounded-lg bg-white p-4 shadow-sm md:grid-cols-4">
-                    <select v-model="educationType" @change="onEducationTypeChange" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                <ChatSearch v-model="search" :placeholder="t('doctorsAdmin.searchPlaceholder')" @submit="applyFilters" />
+
+                <!-- Filters (education type → cascading stage) + print/export -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <select v-model="educationType" @change="onEducationTypeChange" class="rounded-full border-gray-200 bg-white py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                         <option value="">{{ t('doctorsAdmin.filterByEducationType') }}</option>
                         <option v-for="et in educationTypes" :key="et.id" :value="et.id">{{ et.name }}</option>
                     </select>
-
-                    <select v-model="stage" @change="applyFilters" :disabled="!educationType" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100">
+                    <select v-model="stage" @change="applyFilters" :disabled="!educationType" class="rounded-full border-gray-200 bg-white py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400">
                         <option value="">{{ t('doctorsAdmin.filterByStage') }}</option>
                         <option v-for="s in filteredStages" :key="s.id" :value="s.id">{{ s.name }}</option>
                     </select>
-
-                    <div class="flex gap-2">
-                        <TextInput v-model="search" type="text" :placeholder="t('doctorsAdmin.searchPlaceholder')" class="w-full" />
-                        <SecondaryButton v-if="hasFilters" @click="clearFilters">✕</SecondaryButton>
-                    </div>
-
-                    <div class="flex gap-2">
-                        <a :href="printFilteredUrl" target="_blank" class="flex flex-1 items-center justify-center rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-700">
-                            <Icon name="print" class="ml-1" />{{ t('doctorsAdmin.printFiltered') }}
-                        </a>
-                        <a :href="exportUrl" class="flex items-center justify-center rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700" :title="t('doctorsAdmin.exportExcelTitle')">
-                            <Icon name="table_view" />
+                    <ChatAction v-if="hasFilters" icon="filter_alt_off" :label="t('taskProgressAdmin.clearFilters')" @click="clearFilters" />
+                    <div class="ms-auto flex items-center">
+                        <ChatAction icon="print" :label="t('doctorsAdmin.printFiltered')" :href="printFilteredUrl" external />
+                        <a :href="exportUrl" :title="t('doctorsAdmin.exportExcelTitle')" class="inline-flex h-9 w-9 items-center justify-center rounded-full text-emerald-600 transition hover:bg-emerald-50">
+                            <Icon name="table_view" size="text-[20px]" :label="t('doctorsAdmin.exportExcelTitle')" />
                         </a>
                     </div>
                 </div>
 
                 <!-- Bulk bar -->
-                <div v-if="selected.length" class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
-                    <span class="text-sm text-gray-700"><Icon name="warning" class="ml-1" />{{ t('doctorsAdmin.selectedCount', { n: selected.length }) }}</span>
-                    <div class="flex gap-2">
-                        <a :href="printSelectedUrl" target="_blank" class="rounded-md bg-amber-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-600">
-                            <Icon name="print" class="ml-1" />{{ t('doctorsAdmin.printSelected') }}
-                        </a>
-                        <button type="button" @click="destroySelected" class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">
-                            <Icon name="delete" class="ml-1" />{{ t('doctorsAdmin.deleteSelected') }}
-                        </button>
+                <div v-if="selected.length" class="flex items-center justify-between gap-2 rounded-2xl bg-amber-50 px-4 py-2 ring-1 ring-amber-200">
+                    <span class="text-sm font-medium text-amber-900">{{ t('doctorsAdmin.selectedCount', { n: selected.length }) }}</span>
+                    <div class="flex items-center">
+                        <ChatAction icon="print" :label="t('doctorsAdmin.printSelected')" :href="printSelectedUrl" external />
+                        <ChatAction icon="delete" :label="t('doctorsAdmin.deleteSelected')" danger @click="destroySelected" />
                     </div>
                 </div>
 
-                <!-- Table -->
-                <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-4 py-3">
-                                        <input type="checkbox" :checked="allOnPageSelected" @change="toggleAll" class="rounded border-gray-300" />
-                                    </th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('profile.name') }}</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('profile.email') }}</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.educationTypeCol') }}</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.stageCol') }}</th>
-                                    <!-- Only meaningful when the session filter is lifted; otherwise
-                                         every row carries the session named in the banner above. -->
-                                    <th v-if="allSessions" class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.academicSessionCol') }}</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.actionsCol') }}</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-200 bg-white">
-                                <tr v-for="doctor in doctors.data" :key="doctor.id" :class="selected.includes(doctor.id) ? 'bg-indigo-50' : ''">
-                                    <td class="px-4 py-4">
-                                        <input type="checkbox" :value="doctor.id" v-model="selected" class="rounded border-gray-300" />
-                                    </td>
-                                    <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">{{ doctor.name }}</td>
-                                    <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ doctor.email }}</td>
-                                    <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ doctor.education_type?.name ?? '—' }}</td>
-                                    <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ doctor.stage?.name ?? '—' }}</td>
-                                    <td v-if="allSessions" class="whitespace-nowrap px-6 py-4 text-sm">
-                                        <span v-if="doctor.academic_session" class="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800">
-                                            {{ doctor.academic_session.name }}
-                                        </span>
-                                        <span v-else class="text-xs text-gray-400" :title="t('doctorsAdmin.showsInAllSessions')">{{ t('doctorsAdmin.unlinked') }}</span>
-                                    </td>
-                                    <td class="whitespace-nowrap px-6 py-4 text-sm">
-                                        <Link
-                                            v-if="['super_admin', 'admin'].includes(page.props.auth.user.role)"
-                                            :href="route('doctors.progress', doctor.id)"
-                                            class="text-gray-600 hover:text-gray-900"
-                                        >
-                                            {{ t('doctorsAdmin.progressLink') }}
-                                        </Link>
-                                        <a :href="route('doctors.card', doctor.id)" target="_blank" class="mr-3 text-gray-600 hover:text-gray-900" :title="t('doctorsAdmin.printCardTitle')">
-                                            <Icon name="badge" />
-                                        </a>
-                                        <Link :href="route('doctors.edit', doctor.id)" class="mr-3 text-indigo-600 hover:text-indigo-900">{{ t('common.edit') }}</Link>
-                                        <button @click="destroy(doctor)" class="mr-3 text-red-600 hover:text-red-900">{{ t('common.delete') }}</button>
-                                    </td>
-                                </tr>
-                                <tr v-if="doctors.data.length === 0">
-                                    <td :colspan="allSessions ? 7 : 6" class="px-6 py-8 text-center text-sm text-gray-500">{{ t('doctorsAdmin.emptyList') }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div class="flex flex-wrap justify-between gap-1 border-t border-gray-200 p-4">
-                        <Link
-                            v-for="link in doctors.links"
-                            :key="link.label"
-                            :href="link.url ?? ''"
-                            v-html="link.label"
-                            class="mx-1 rounded px-3 py-1 text-sm"
-                            :class="{
-                                'bg-indigo-600 text-white': link.active,
-                                'text-gray-400 pointer-events-none': !link.url,
-                                'text-gray-700 hover:bg-gray-100': link.url && !link.active,
-                            }"
-                        />
-                    </div>
-                </div>
+                <ChatListCard :empty="doctors.data.length === 0" :empty-text="t('doctorsAdmin.emptyList')" empty-icon="stethoscope">
+                    <label v-if="doctors.data.length" class="flex cursor-pointer items-center gap-3 border-b border-gray-100 px-4 py-2 text-xs font-medium text-gray-500">
+                        <input type="checkbox" :checked="allOnPageSelected" @change="toggleAll" class="rounded border-gray-300 text-indigo-600" />
+                        {{ t('groupsAdmin.selectAll') }}
+                    </label>
+                    <ChatListRow
+                        v-for="doctor in doctors.data"
+                        :key="doctor.id"
+                        :title="doctor.name"
+                        :subtitle="doctor.email"
+                        :tone="toneFor(doctor.id)"
+                        :selected="selected.includes(doctor.id)"
+                    >
+                        <template #leading>
+                            <input type="checkbox" :value="doctor.id" v-model="selected" class="rounded border-gray-300 text-indigo-600" />
+                        </template>
+                        <template #meta>
+                            <ChatChip v-if="doctor.education_type" icon="school" tone="sky">{{ doctor.education_type.name }}</ChatChip>
+                            <ChatChip v-if="doctor.stage" icon="stairs" tone="indigo">{{ doctor.stage.name }}</ChatChip>
+                            <!-- Only meaningful when the session filter is lifted; otherwise
+                                 every row carries the session named in the banner above. -->
+                            <template v-if="allSessions">
+                                <ChatChip v-if="doctor.academic_session" icon="calendar_month" tone="violet">{{ doctor.academic_session.name }}</ChatChip>
+                                <ChatChip v-else icon="link_off" :title="t('doctorsAdmin.showsInAllSessions')">{{ t('doctorsAdmin.unlinked') }}</ChatChip>
+                            </template>
+                        </template>
+                        <template #actions>
+                            <ChatAction v-if="canSeeProgress" icon="trending_up" :label="t('doctorsAdmin.progressLink')" :href="route('doctors.progress', doctor.id)" />
+                            <ChatAction icon="badge" :label="t('doctorsAdmin.printCardTitle')" :href="route('doctors.card', doctor.id)" external />
+                            <ChatAction icon="edit" :label="t('common.edit')" :href="route('doctors.edit', doctor.id)" />
+                            <ChatAction icon="delete" :label="t('common.delete')" danger @click="destroy(doctor)" />
+                        </template>
+                    </ChatListRow>
+                    <template #footer>
+                        <ChatPager :links="doctors.links" />
+                    </template>
+                </ChatListCard>
             </div>
         </div>
     </AuthenticatedLayout>

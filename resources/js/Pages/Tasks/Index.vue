@@ -1,8 +1,14 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
 import Icon from '@/Components/Icon.vue';
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import ChatListCard from '@/Components/ChatList/ChatListCard.vue';
+import ChatListRow from '@/Components/ChatList/ChatListRow.vue';
+import ChatChip from '@/Components/ChatList/ChatChip.vue';
+import ChatAction from '@/Components/ChatList/ChatAction.vue';
+import ChatAddButton from '@/Components/ChatList/ChatAddButton.vue';
+import ChatPager from '@/Components/ChatList/ChatPager.vue';
+import { toneFor } from '@/Components/ChatList/tones';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import StructureTabs from '@/Components/StructureTabs.vue';
@@ -96,34 +102,29 @@ const destroy = (task) => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex items-center justify-between">
-                <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                    {{ t('tasksAdmin.title') }}
-                </h2>
-                <Link :href="createTaskHref">
-                    <PrimaryButton>{{ t('tasksAdmin.addTask') }}</PrimaryButton>
-                </Link>
+            <div class="flex items-center justify-between gap-3">
+                <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('tasksAdmin.title') }}</h2>
+                <ChatAddButton :label="t('tasksAdmin.addTask')" :href="createTaskHref" />
             </div>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl space-y-4 sm:px-6 lg:px-8">
+        <!-- Chat-list style (2026-10-13, by request): the table became
+             chat-list rows (title, chips, icon actions). -->
+        <div class="py-6 sm:py-10">
+            <div class="mx-auto max-w-2xl space-y-4 px-4 sm:px-6 lg:px-8">
                 <StructureTabs />
 
-                <div
-                    v-if="page.props.flash?.success"
-                    class="rounded-md bg-green-50 p-4 text-sm text-green-700"
-                >
+                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
                     {{ page.props.flash.success }}
                 </div>
 
-                <div v-if="currentSession" class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
-                    <span class="text-sm text-indigo-900">
-                        <Icon name="calendar_month" class="ml-1" />
+                <div v-if="currentSession" class="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-indigo-50 px-4 py-2.5 text-sm text-indigo-900">
+                    <span class="flex items-center gap-1.5">
+                        <Icon name="calendar_month" size="text-[18px]" />
                         <template v-if="allSessions">{{ t('tasksAdmin.viewingAllSessionsPrefix') }} <strong>{{ t('doctorsAdmin.allAcademicSessions') }}</strong></template>
                         <template v-else>{{ t('tasksAdmin.sessionTasksPrefix') }} <strong>{{ currentSession.name }}</strong></template>
                     </span>
-                    <label class="flex cursor-pointer items-center gap-2 text-sm text-indigo-900">
+                    <label class="flex cursor-pointer items-center gap-2">
                         <input type="checkbox" v-model="allSessions" @change="toggleAllSessions" class="rounded border-gray-300 text-indigo-600" />
                         {{ t('doctorsAdmin.showAllSessions') }}
                     </label>
@@ -131,86 +132,53 @@ const destroy = (task) => {
 
                 <!-- Filters — mirrors admin/manage_tasks.php: education type
                      narrows the stage list, stage narrows the department
-                     list, and the task table below only appears once a
+                     list, and the task list below only appears once a
                      stage AND a department are both chosen. -->
-                <div class="grid grid-cols-1 gap-3 rounded-lg bg-white p-4 shadow-sm md:grid-cols-3">
-                    <select v-model="educationType" @change="onEducationTypeChange" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                <div class="flex flex-wrap items-center gap-2">
+                    <select v-model="educationType" @change="onEducationTypeChange" class="rounded-full border-gray-200 bg-white py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                         <option value="">{{ t('tasksAdmin.educationTypeFilterPlaceholder') }}</option>
                         <option v-for="et in educationTypes" :key="et.id" :value="et.id">{{ et.name }}</option>
                     </select>
-
-                    <select v-model="stage" @change="onStageChange" :disabled="!educationType" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100">
+                    <select v-model="stage" @change="onStageChange" :disabled="!educationType" class="rounded-full border-gray-200 bg-white py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400">
                         <option value="">{{ t('doctorsAdmin.stageCol') }}</option>
                         <option v-for="s in filteredStages" :key="s.id" :value="s.id">{{ s.name }}</option>
                     </select>
-
-                    <select v-model="department" @change="applyFilters" :disabled="!stage" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100">
+                    <select v-model="department" @change="applyFilters" :disabled="!stage" class="rounded-full border-gray-200 bg-white py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400">
                         <option value="">{{ t('tasksAdmin.departmentFilterPlaceholder') }}</option>
                         <option v-for="d in filteredDepartments" :key="d.id" :value="d.id">{{ d.name }}</option>
                     </select>
                 </div>
 
-                <div v-if="!tasks" class="rounded-lg bg-white p-12 text-center text-sm text-gray-500 shadow-sm">
-                    {{ t('tasksAdmin.emptyPrompt') }}
-                </div>
+                <ChatListCard v-if="!tasks" empty :empty-text="t('tasksAdmin.emptyPrompt')" empty-icon="filter_list" />
 
-                <div v-else class="overflow-x-auto bg-white shadow-sm sm:rounded-lg">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('tasksAdmin.titleCol') }}</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.departmentLabel') }}</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('tasksAdmin.caseSheetCol') }}</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.stageCol') }}</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('tasksAdmin.typeCol') }}</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('tasksAdmin.assignmentsCol') }}</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.actionsCol') }}</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200 bg-white">
-                            <tr v-for="task in tasks.data" :key="task.id">
-                                <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
-                                    <Link :href="route('tasks.show', task.id)" class="hover:underline">{{ task.title }}</Link>
-                                </td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ task.department?.name ?? '—' }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ task.case_sheet_type?.name_en ?? '—' }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ task.stage?.name ?? '—' }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm">
-                                    <span
-                                        class="rounded-full px-2 py-0.5 text-xs font-medium"
-                                        :class="task.is_required ? 'bg-indigo-50 text-indigo-700' : 'bg-gray-100 text-gray-600'"
-                                    >
-                                        {{ task.is_required ? t('tasksAdmin.required') : t('tasksAdmin.optional') }}
-                                    </span>
-                                </td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ task.instances_count }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
-                                    <Link :href="route('tasks.show', task.id)" class="text-gray-600 hover:text-gray-900">{{ t('common.view') }}</Link>
-                                    <Link :href="route('tasks.edit', task.id)" class="ml-4 text-indigo-600 hover:text-indigo-900">{{ t('common.edit') }}</Link>
-                                    <button @click="destroy(task)" class="ml-4 text-red-600 hover:text-red-900">{{ t('common.delete') }}</button>
-                                </td>
-                            </tr>
-                            <tr v-if="tasks.data.length === 0">
-                                <td colspan="7" class="px-6 py-8 text-center text-sm text-gray-500">{{ t('tasksAdmin.emptyList') }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <div class="flex justify-between border-t border-gray-200 p-4">
-                        <Link
-                            v-for="link in tasks.links"
-                            :key="link.label"
-                            :href="link.url ?? ''"
-                            v-html="link.label"
-                            class="mx-1 rounded px-3 py-1 text-sm"
-                            :class="{
-                                'bg-indigo-600 text-white': link.active,
-                                'text-gray-400 pointer-events-none': !link.url,
-                                'text-gray-700 hover:bg-gray-100': link.url && !link.active,
-                            }"
-                        />
-                    </div>
-                </div>
+                <ChatListCard v-else :empty="tasks.data.length === 0" :empty-text="t('tasksAdmin.emptyList')" empty-icon="assignment">
+                    <ChatListRow
+                        v-for="task in tasks.data"
+                        :key="task.id"
+                        :title="task.title"
+                        icon="assignment"
+                        :tone="toneFor(task.id)"
+                        :href="route('tasks.show', task.id)"
+                    >
+                        <template #meta>
+                            <ChatChip :icon="task.is_required ? 'star' : 'radio_button_unchecked'" :tone="task.is_required ? 'indigo' : 'gray'">
+                                {{ task.is_required ? t('tasksAdmin.required') : t('tasksAdmin.optional') }}
+                            </ChatChip>
+                            <ChatChip v-if="task.department" icon="apartment" tone="teal">{{ task.department.name }}</ChatChip>
+                            <ChatChip v-if="task.stage" icon="stairs" tone="sky">{{ task.stage.name }}</ChatChip>
+                            <ChatChip v-if="task.case_sheet_type" icon="description" tone="amber">{{ task.case_sheet_type.name_en }}</ChatChip>
+                            <ChatChip icon="group" :title="t('tasksAdmin.assignmentsCol')">{{ task.instances_count }}</ChatChip>
+                        </template>
+                        <template #actions>
+                            <ChatAction icon="visibility" :label="t('common.view')" :href="route('tasks.show', task.id)" />
+                            <ChatAction icon="edit" :label="t('common.edit')" :href="route('tasks.edit', task.id)" />
+                            <ChatAction icon="delete" :label="t('common.delete')" danger @click="destroy(task)" />
+                        </template>
+                    </ChatListRow>
+                    <template #footer>
+                        <ChatPager :links="tasks.links" />
+                    </template>
+                </ChatListCard>
             </div>
         </div>
     </AuthenticatedLayout>

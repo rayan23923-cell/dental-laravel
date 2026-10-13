@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/chat_list_tile.dart';
 import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../data/academic_sessions_repository.dart';
 import '../domain/academic_session_admin.dart';
@@ -22,6 +23,7 @@ class AcademicSessionListScreen extends ConsumerWidget {
       appBar: AppBar(title: Text(t['academicSessionsAdmin.title']!)),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push('/admin/academic-sessions/new'),
+        tooltip: t['academicSessionsAdmin.newTitle'],
         child: const Icon(Icons.add),
       ),
       body: sessionsAsync.when(
@@ -33,12 +35,13 @@ class AcademicSessionListScreen extends ConsumerWidget {
           if (sessions.isEmpty) {
             return Center(child: Text(t['academicSessionsAdmin.emptyList']!));
           }
+          // Chat-list style (2026-10-13, by request).
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(academicSessionListProvider),
             child: ListView.separated(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.only(top: 8, bottom: 88),
               itemCount: sessions.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              separatorBuilder: (_, __) => chatDivider,
               itemBuilder: (context, i) => _SessionTile(session: sessions[i]),
             ),
           );
@@ -91,33 +94,49 @@ class _SessionTileState extends ConsumerState<_SessionTile> {
     final session = widget.session;
     final t = ref.watch(translationsProvider);
 
-    return Card(
-      child: ListTile(
-        title: Text(session.name),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Forced LTR: two dates joined only by "→" have no strong-
-            // direction anchor inside RTL text, so the bidi algorithm
-            // reorders them — confirmed live showing end before start.
-            Directionality(
-              textDirection: TextDirection.ltr,
-              child: Text('${session.startDate} → ${session.endDate}'),
-            ),
-            Text(ref.watch(groupsEnabledProvider)
-                ? trf(t['academicSessionsAdmin.groupsAndTasksCount']!, {'groups': session.groupsCount, 'tasks': session.tasksCount})
-                : trf(t['academicSessionsAdmin.tasksCount']!, {'tasks': session.tasksCount})),
-          ],
+    final groupsEnabled = ref.watch(groupsEnabledProvider);
+
+    // The current year gets a green avatar and a check chip — a status
+    // colour says more here than the per-id rotation.
+    return ChatListTile(
+      title: session.name,
+      icon: Icons.calendar_month,
+      color: session.isCurrent ? Colors.green : chatToneFor(session.id),
+      chips: [
+        if (session.isCurrent)
+          ChatChip(label: t['academicSessionsAdmin.currentLabel']!, icon: Icons.check_circle, color: Colors.green),
+        // Forced LTR: two dates joined only by "→" have no strong-
+        // direction anchor inside RTL text, so the bidi algorithm
+        // reorders them — confirmed live showing end before start.
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: ChatChip(label: '${session.startDate} → ${session.endDate}', icon: Icons.date_range),
         ),
-        isThreeLine: true,
-        trailing: _submitting
-            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-            : CupertinoSwitch(
-                value: session.isCurrent,
-                onChanged: session.isCurrent ? null : (_) => _setCurrent(),
-              ),
-        onTap: () => context.push('/admin/academic-sessions/${session.id}'),
-      ),
+        if (groupsEnabled)
+          Tooltip(
+            message: t['academicSessionsAdmin.groupsStat']!,
+            child: ChatChip(label: '${session.groupsCount}', icon: Icons.groups, color: Colors.indigo),
+          ),
+        Tooltip(
+          message: t['academicSessionsAdmin.requiredTasksStat']!,
+          child: ChatChip(label: '${session.tasksCount}', icon: Icons.assignment, color: Colors.orange.shade800),
+        ),
+      ],
+      actions: [
+        Padding(
+          padding: const EdgeInsetsDirectional.only(end: 8),
+          child: _submitting
+              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              : Tooltip(
+                  message: t['academicSessionsAdmin.setCurrentLabel']!,
+                  child: CupertinoSwitch(
+                    value: session.isCurrent,
+                    onChanged: session.isCurrent ? null : (_) => _setCurrent(),
+                  ),
+                ),
+        ),
+      ],
+      onTap: () => context.push('/admin/academic-sessions/${session.id}'),
     );
   }
 }

@@ -1126,5 +1126,12 @@
         "confirmDelete": "Delete this photo?",
         "defaultLabel": "Paper form photo",
         "attachFromScan": "Attach paper photo"
+    },
+    "chatList": {
+        "addEducationType": "Add education type",
+        "currentSession": "Current",
+        "viewingSession": "Viewing",
+        "addStage": "Add stage",
+        "addDepartment": "Add department"
     }
 }

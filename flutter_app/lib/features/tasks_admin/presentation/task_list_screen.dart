@@ -6,6 +6,7 @@ import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/academic_year_banner.dart';
 import '../../../core/widgets/cascading_dropdown.dart';
+import '../../../core/widgets/chat_list_tile.dart';
 import '../domain/task_admin.dart';
 import 'tasks_admin_providers.dart';
 
@@ -50,59 +51,73 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
           '/admin/tasks/new',
           extra: {'stageId': _stageId, 'educationTypeId': _educationTypeId},
         ),
-        child: const Icon(Icons.add),
+        tooltip: t['tasksAdmin.newTitle'],
+        child: const Icon(Icons.add_task),
       ),
       body: Column(
         children: [
           const AcademicYearBanner(),
+          // Chat-list style (2026-10-13, by request): compact rounded
+          // filter pills instead of three stacked outlined fields.
           Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: [
-                CascadingDropdown(
-                  label: t['tasksAdmin.educationTypeLabel']!,
-                  itemsAsync: educationTypesAsync,
-                  value: _educationTypeId,
-                  onChanged: (v) => setState(() {
-                    _educationTypeId = v;
-                    _stageId = null;
-                    _departmentId = null;
-                  }),
-                ),
-                const SizedBox(height: 8),
-                // Keyed on the parent's value so the widget is fully
-                // recreated (and its internal text resets) whenever the
-                // education type changes — `DropdownMenu.initialSelection`
-                // only applies on first build otherwise, same reasoning
-                // as the day/service cascade in
-                // `patient_registration_form_screen.dart`.
-                CascadingDropdown(
-                  key: ValueKey('stage-$_educationTypeId'),
-                  label: t['tasksAdmin.stageLabel']!,
-                  itemsAsync: stagesAsync.whenData(
-                    (items) => _educationTypeId == null
-                        ? items
-                        : items.where((s) => s.educationTypeId == _educationTypeId).toList(),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+            child: Theme(
+              data: _pillFilterTheme(context),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: CascadingDropdown(
+                          label: t['tasksAdmin.educationTypeLabel']!,
+                          itemsAsync: educationTypesAsync,
+                          value: _educationTypeId,
+                          onChanged: (v) => setState(() {
+                            _educationTypeId = v;
+                            _stageId = null;
+                            _departmentId = null;
+                          }),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Keyed on the parent's value so the widget is fully
+                      // recreated (and its internal text resets) whenever the
+                      // education type changes — `DropdownMenu.initialSelection`
+                      // only applies on first build otherwise, same reasoning
+                      // as the day/service cascade in
+                      // `patient_registration_form_screen.dart`.
+                      Expanded(
+                        child: CascadingDropdown(
+                          key: ValueKey('stage-$_educationTypeId'),
+                          label: t['tasksAdmin.stageLabel']!,
+                          itemsAsync: stagesAsync.whenData(
+                            (items) => _educationTypeId == null
+                                ? items
+                                : items.where((s) => s.educationTypeId == _educationTypeId).toList(),
+                          ),
+                          value: _stageId,
+                          enabled: _educationTypeId != null,
+                          onChanged: (v) => setState(() {
+                            _stageId = v;
+                            _departmentId = null;
+                          }),
+                        ),
+                      ),
+                    ],
                   ),
-                  value: _stageId,
-                  enabled: _educationTypeId != null,
-                  onChanged: (v) => setState(() {
-                    _stageId = v;
-                    _departmentId = null;
-                  }),
-                ),
-                const SizedBox(height: 8),
-                CascadingDropdown(
-                  key: ValueKey('department-$_stageId'),
-                  label: t['tasksAdmin.departmentLabel']!,
-                  itemsAsync: departmentsAsync.whenData(
-                    (items) => _stageId == null ? items : items.where((d) => d.stageId == _stageId).toList(),
+                  const SizedBox(height: 8),
+                  CascadingDropdown(
+                    key: ValueKey('department-$_stageId'),
+                    label: t['tasksAdmin.departmentLabel']!,
+                    itemsAsync: departmentsAsync.whenData(
+                      (items) => _stageId == null ? items : items.where((d) => d.stageId == _stageId).toList(),
+                    ),
+                    value: _departmentId,
+                    enabled: _stageId != null,
+                    onChanged: (v) => setState(() => _departmentId = v),
                   ),
-                  value: _departmentId,
-                  enabled: _stageId != null,
-                  onChanged: (v) => setState(() => _departmentId = v),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           Expanded(
@@ -110,10 +125,17 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                 ? Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
-                      child: Text(
-                        t['tasksAdmin.emptyPrompt']!,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.grey),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.filter_alt_outlined, size: 48, color: Colors.black26),
+                          const SizedBox(height: 8),
+                          Text(
+                            t['tasksAdmin.emptyPrompt']!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.grey),
+                          ),
+                        ],
                       ),
                     ),
                   )
@@ -130,9 +152,9 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                         onRefresh: () async =>
                             ref.invalidate(taskAdminListProvider((stageId: _stageId!, departmentId: _departmentId!))),
                         child: ListView.separated(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.only(top: 4, bottom: 88),
                           itemCount: page.items.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          separatorBuilder: (_, __) => chatDivider,
                           itemBuilder: (context, i) => _TaskTile(task: page.items[i]),
                         ),
                       );
@@ -145,6 +167,9 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
   }
 }
 
+/// Chat-list row (2026-10-13, by request): task icon, title, a
+/// required/optional chip and the case-sheet type. Stage and department are
+/// left out — the list only shows once both are picked in the filters above.
 class _TaskTile extends ConsumerWidget {
   const _TaskTile({required this.task});
   final TaskAdmin task;
@@ -152,38 +177,43 @@ class _TaskTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider);
-    return Card(
-      child: ListTile(
-        title: Text(task.title),
-        subtitle: Text([
-          if (task.departmentName != null) task.departmentName!,
-          if (task.stageName != null) task.stageName!,
-          if (task.caseSheetTypeNameAr != null) task.caseSheetTypeNameAr!,
-        ].join(' · ')),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: task.isRequired
-                    ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.12)
-                    : Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                task.isRequired ? t['tasksAdmin.required']! : t['tasksAdmin.optional']!,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: task.isRequired ? Theme.of(context).colorScheme.primary : null,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ),
-            const Icon(Icons.chevron_left),
-          ],
-        ),
-        onTap: () => context.push('/admin/tasks/${task.id}'),
-      ),
+    final color = chatToneFor(task.id);
+    return ChatListTile(
+      title: task.title,
+      color: color,
+      icon: Icons.assignment_outlined,
+      chips: [
+        task.isRequired
+            ? ChatChip(label: t['tasksAdmin.required']!, icon: Icons.star_rounded, color: Colors.indigo)
+            : ChatChip(label: t['tasksAdmin.optional']!, icon: Icons.star_border_rounded, color: Colors.blueGrey),
+        if (task.caseSheetTypeNameAr != null)
+          ChatChip(label: task.caseSheetTypeNameAr!, icon: Icons.description_outlined, color: Colors.teal),
+      ],
+      onTap: () => context.push('/admin/tasks/${task.id}'),
     );
   }
+}
+
+/// Rounded, dense "pill" look for the filter dropdowns above a chat list.
+ThemeData _pillFilterTheme(BuildContext context) {
+  final theme = Theme.of(context);
+  final border = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(30),
+    borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08)),
+  );
+  return theme.copyWith(
+    dropdownMenuTheme: DropdownMenuThemeData(
+      inputDecorationTheme: InputDecorationTheme(
+        isDense: true,
+        filled: true,
+        fillColor: theme.colorScheme.surface,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        border: border,
+        enabledBorder: border,
+        constraints: const BoxConstraints(maxHeight: 44),
+        labelStyle: const TextStyle(fontSize: 13),
+      ),
+      textStyle: const TextStyle(fontSize: 13),
+    ),
+  );
 }

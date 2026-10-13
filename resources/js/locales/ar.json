@@ -1126,5 +1126,12 @@
         "confirmDelete": "حذف هذه الصورة؟",
         "defaultLabel": "صورة النموذج الورقي",
         "attachFromScan": "إرفاق صورة الورقي"
+    },
+    "chatList": {
+        "addEducationType": "إضافة نوع تعليم",
+        "currentSession": "الحالي",
+        "viewingSession": "المعروض",
+        "addStage": "إضافة مرحلة",
+        "addDepartment": "إضافة قسم"
     }
 }

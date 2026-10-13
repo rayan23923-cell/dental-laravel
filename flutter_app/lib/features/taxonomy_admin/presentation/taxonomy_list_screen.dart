@@ -5,6 +5,7 @@ import '../../../core/data/lookup_repository.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/cascading_dropdown.dart';
+import '../../../core/widgets/chat_list_tile.dart';
 import '../data/taxonomy_repository.dart';
 import '../domain/taxonomy_item.dart';
 import 'taxonomy_providers.dart';
@@ -83,56 +84,76 @@ class _TaxonomyListScreenState extends ConsumerState<TaxonomyListScreen> {
     final stagesAsync = kind.hasStage ? ref.watch(taxonomyListProvider(TaxonomyKind.stage)) : null;
     final t = ref.watch(translationsProvider);
 
+    // Chat-list style (2026-10-13, by request): search pill, compact pill
+    // filters side by side, and avatar rows split by thin dividers.
+    final theme = Theme.of(context);
+    final pillTheme = theme.copyWith(
+      inputDecorationTheme: InputDecorationTheme(
+        isDense: true,
+        filled: true,
+        fillColor: Colors.black.withValues(alpha: 0.04),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+      ),
+    );
+
     return Scaffold(
       appBar: AppBar(title: Text(kind.title(t))),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _openForm(),
+        tooltip: '${kind.singularTitle(t)} ${t['taxonomyAdmin.newItemSuffix']}',
         child: const Icon(Icons.add),
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
             child: Column(
               children: [
-                TextField(
+                ChatSearchField(
                   controller: _searchController,
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.search),
-                    hintText: t['taxonomyAdmin.searchHint'],
-                    border: const OutlineInputBorder(),
-                    isDense: true,
-                  ),
+                  hintText: t['taxonomyAdmin.searchHint']!,
                   onChanged: (v) => setState(() => _search = v.trim()),
                 ),
                 if (kind.hasEducationType) ...[
                   const SizedBox(height: 8),
-                  CascadingDropdown(
-                    label: t['taxonomyAdmin.educationTypeLabel']!,
-                    itemsAsync: (educationTypesAsync ?? const AsyncValue.data(<TaxonomyItem>[]))
-                        .whenData((items) => [for (final e in items) LookupItem(id: e.id, name: e.name)]),
-                    value: _educationTypeId,
-                    onChanged: (v) => setState(() {
-                      _educationTypeId = v;
-                      _stageId = null;
-                    }),
-                  ),
-                ],
-                if (kind.hasStage) ...[
-                  const SizedBox(height: 8),
-                  CascadingDropdown(
-                    key: ValueKey('stage-$_educationTypeId'),
-                    label: t['taxonomyAdmin.stageLabel']!,
-                    itemsAsync: (stagesAsync ?? const AsyncValue.data(<TaxonomyItem>[])).whenData(
-                      (items) => [
-                        for (final s in items)
-                          if (_educationTypeId == null || s.educationTypeId == _educationTypeId)
-                            LookupItem(id: s.id, name: s.name),
+                  Theme(
+                    data: pillTheme,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: CascadingDropdown(
+                            label: t['taxonomyAdmin.educationTypeLabel']!,
+                            itemsAsync: (educationTypesAsync ?? const AsyncValue.data(<TaxonomyItem>[]))
+                                .whenData((items) => [for (final e in items) LookupItem(id: e.id, name: e.name)]),
+                            value: _educationTypeId,
+                            onChanged: (v) => setState(() {
+                              _educationTypeId = v;
+                              _stageId = null;
+                            }),
+                          ),
+                        ),
+                        if (kind.hasStage) ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: CascadingDropdown(
+                              key: ValueKey('stage-$_educationTypeId'),
+                              label: t['taxonomyAdmin.stageLabel']!,
+                              itemsAsync: (stagesAsync ?? const AsyncValue.data(<TaxonomyItem>[])).whenData(
+                                (items) => [
+                                  for (final s in items)
+                                    if (_educationTypeId == null || s.educationTypeId == _educationTypeId)
+                                      LookupItem(id: s.id, name: s.name),
+                                ],
+                              ),
+                              value: _stageId,
+                              enabled: _educationTypeId != null,
+                              onChanged: (v) => setState(() => _stageId = v),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
-                    value: _stageId,
-                    enabled: _educationTypeId != null,
-                    onChanged: (v) => setState(() => _stageId = v),
                   ),
                 ],
               ],
@@ -158,35 +179,43 @@ class _TaxonomyListScreenState extends ConsumerState<TaxonomyListScreen> {
                 final educationTypeNames = {
                   for (final e in educationTypesAsync?.valueOrNull ?? <TaxonomyItem>[]) e.id: e.name,
                 };
+                final stageNames = {
+                  for (final s in stagesAsync?.valueOrNull ?? <TaxonomyItem>[]) s.id: s.name,
+                };
                 return RefreshIndicator(
                   onRefresh: () async => ref.invalidate(taxonomyListProvider(kind)),
                   child: ListView.separated(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.only(top: 4, bottom: 88),
                     itemCount: items.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    separatorBuilder: (_, __) => chatDivider,
                     itemBuilder: (context, i) {
                       final item = items[i];
-                      final subtitle = kind.hasEducationType && item.educationTypeId != null
-                          ? educationTypeNames[item.educationTypeId]
-                          : null;
-                      return Card(
-                        child: ListTile(
-                          title: Text(item.name),
-                          subtitle: subtitle != null ? Text(subtitle) : null,
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.edit_outlined),
-                                onPressed: () => _openForm(item: item),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline),
-                                onPressed: () => _delete(item),
-                              ),
-                            ],
+                      final educationTypeName =
+                          kind.hasEducationType ? educationTypeNames[item.educationTypeId] : null;
+                      final stageName = kind.hasStage ? stageNames[item.stageId] : null;
+                      return ChatListTile(
+                        title: item.name,
+                        icon: _kindIcon(kind),
+                        color: chatToneFor(item.id),
+                        chips: [
+                          if (educationTypeName != null)
+                            ChatChip(label: educationTypeName, icon: Icons.school, color: Colors.indigo),
+                          if (stageName != null) ChatChip(label: stageName, icon: Icons.stairs, color: Colors.teal),
+                        ],
+                        onTap: () => _openForm(item: item),
+                        actions: [
+                          ChatAction(
+                            icon: Icons.edit_outlined,
+                            tooltip: t['taxonomyAdmin.editItemPrefix']!,
+                            onPressed: () => _openForm(item: item),
                           ),
-                        ),
+                          ChatAction(
+                            icon: Icons.delete_outline,
+                            tooltip: t['taxonomyAdmin.deleteTitlePrefix']!,
+                            danger: true,
+                            onPressed: () => _delete(item),
+                          ),
+                        ],
                       );
                     },
                   ),
@@ -199,6 +228,13 @@ class _TaxonomyListScreenState extends ConsumerState<TaxonomyListScreen> {
     );
   }
 }
+
+/// A distinct avatar icon per kind, so the three lists are told apart at a glance.
+IconData _kindIcon(TaxonomyKind kind) => switch (kind) {
+      TaxonomyKind.educationType => Icons.school,
+      TaxonomyKind.stage => Icons.stairs,
+      TaxonomyKind.department => Icons.apartment,
+    };
 
 class _TaxonomyFormDialog extends ConsumerStatefulWidget {
   const _TaxonomyFormDialog({required this.kind, this.item});
