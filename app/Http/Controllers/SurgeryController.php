@@ -8,6 +8,7 @@ use App\Models\Surgery;
 use App\Models\TaskInstance;
 use App\Services\CaseSheetAccess;
 use App\Support\CaseSheetPatientFieldMap;
+use App\Support\CaseSheetReturn;
 use App\Support\CaseSheetSignatures;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\SurgeryForm;
@@ -67,7 +68,7 @@ class SurgeryController extends Controller
 
         Surgery::create($data);
 
-        return redirect()->route('surgeries.index')->with('success', 'Surgery record created.');
+        return CaseSheetReturn::redirect()->with('success', 'Surgery record created.');
     }
 
     public function update(Request $request, Surgery $record): RedirectResponse
@@ -78,14 +79,14 @@ class SurgeryController extends Controller
 
         $record->update($data);
 
-        return redirect()->route('surgeries.index')->with('success', 'Surgery record updated.');
+        return CaseSheetReturn::redirect()->with('success', 'Surgery record updated.');
     }
 
     public function destroy(Surgery $record): RedirectResponse
     {
         $record->delete();
 
-        return redirect()->route('surgeries.index')->with('success', 'Surgery record deleted.');
+        return CaseSheetReturn::redirect()->with('success', 'Surgery record deleted.');
     }
 
     private function form(?Surgery $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null, array $prefill = []): Response

@@ -7,6 +7,7 @@ use App\Models\Doctor;
 use App\Models\TaskInstance;
 use App\Services\CaseSheetAccess;
 use App\Support\CaseSheetPatientFieldMap;
+use App\Support\CaseSheetReturn;
 use App\Support\CaseSheetSignatures;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\CompleteDentureForm;
@@ -63,7 +64,7 @@ class CompleteDentureRecordController extends Controller
         $data = CaseSheetSignatures::applyPending('complete-denture-records', $this->validateRecord($request), null, CaseSheetSignatures::signerName($request));
         CompleteDentureRecord::create($data);
 
-        return redirect()->route('complete-denture-records.index')->with('success', 'Complete denture record created.');
+        return CaseSheetReturn::redirect()->with('success', 'Complete denture record created.');
     }
 
     public function update(Request $request, CompleteDentureRecord $record): RedirectResponse
@@ -71,14 +72,14 @@ class CompleteDentureRecordController extends Controller
         $data = CaseSheetSignatures::applyPending('complete-denture-records', $this->validateRecord($request), $record, CaseSheetSignatures::signerName($request));
         $record->update($data);
 
-        return redirect()->route('complete-denture-records.index')->with('success', 'Complete denture record updated.');
+        return CaseSheetReturn::redirect()->with('success', 'Complete denture record updated.');
     }
 
     public function destroy(CompleteDentureRecord $record): RedirectResponse
     {
         $record->delete();
 
-        return redirect()->route('complete-denture-records.index')->with('success', 'Complete denture record deleted.');
+        return CaseSheetReturn::redirect()->with('success', 'Complete denture record deleted.');
     }
 
     private function form(?CompleteDentureRecord $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null, array $prefill = []): Response

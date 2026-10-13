@@ -6,6 +6,7 @@ use App\Models\AcademicSession;
 use App\Models\ClinicSetting;
 use App\Services\AcademicSessionHelper;
 use App\Support\CaseSheetPrint;
+use App\Support\CaseSheetReturn;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -74,6 +75,8 @@ class HandleInertiaRequests extends Middleware
             // the Flutter side to match.
             // Groups on/off from clinic settings — see ClinicSetting::groupsEnabled().
             'groupsEnabled' => fn () => ClinicSetting::groupsEnabled(),
+            // Where a case sheet's "رجوع" goes — the task page it was opened from.
+            'caseSheetBackUrl' => fn () => CaseSheetReturn::url(),
             'printableCaseSheets' => array_keys(CaseSheetPrint::SHEETS),
             // Gates the "Sign in with Google" button on both login screens —
             // see App\Http\Controllers\Auth\GoogleAuthController. Hidden

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\RendersSatelliteForm;
 use App\Models\{SurgeryMedication};
+use App\Support\CaseSheetReturn;
 use App\Support\SurgerySatelliteForms;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -53,20 +54,20 @@ class SurgeryMedicationController extends Controller
     {
         SurgeryMedication::create($this->satelliteValidate($request, $this->sections(), ['surgery_id' => ['required', 'exists:surgeries,id'], 'medication_name' => ['required', 'string', 'max:255']]));
 
-        return redirect()->route('surgery-medications.index')->with('success', 'Surgery medication created.');
+        return CaseSheetReturn::redirect()->with('success', 'Surgery medication created.');
     }
 
     public function update(Request $request, SurgeryMedication $record): RedirectResponse
     {
         $record->update($this->satelliteValidate($request, $this->sections(), ['surgery_id' => ['required', 'exists:surgeries,id'], 'medication_name' => ['required', 'string', 'max:255']]));
 
-        return redirect()->route('surgery-medications.index')->with('success', 'Surgery medication updated.');
+        return CaseSheetReturn::redirect()->with('success', 'Surgery medication updated.');
     }
 
     public function destroy(SurgeryMedication $record): RedirectResponse
     {
         $record->delete();
 
-        return redirect()->route('surgery-medications.index')->with('success', 'Surgery medication deleted.');
+        return CaseSheetReturn::redirect()->with('success', 'Surgery medication deleted.');
     }
 }

@@ -45,22 +45,12 @@ const deskRole = computed(() => (['reception', 'lab'].includes(page.props.auth.u
  * Two tiers, matching the two role gates actually used:
  *  - "editor,admin,super_admin" routes stay flat or in an always-visible
  *    dropdown (doctors, patients/patient-registrations, tasks, dental
- *    charts, clinical records, appointments, payments).
+ *    charts, appointments, payments).
  *  - "admin,super_admin"-only routes (education-types, stages,
  *    departments, academic-sessions, case-sheet-types, groups,
  *    task-progress, activity-logs, permissions, clinic-settings,
  *    register-settings, department-roles, backup) stay behind `isAdmin`.
  */
-const clinicalRoutes = [
-    'advanced-periodontal-charts', 'complete-denture-records', 'oral-medicine-charts', 'orthodontics-records',
-    'periodontal-charts', 'prevention-records', 'prosthodontics-records',
-    'surgeries', 'surgery-follow-ups', 'surgery-images', 'surgery-medications',
-    'treatment-plans', 'treatment-materials',
-];
-const isClinicalRecordsActive = computed(
-    () => route().current('clinical-records.*') || clinicalRoutes.some((r) => route().current(`${r}.*`))
-);
-
 const isPatientsGroupActive = computed(
     () => route().current('patients.*')
         || route().current('patient-registrations.index')
@@ -97,7 +87,8 @@ const primaryLinks = computed(() => deskRole.value ? [] : [
     { label: t('nav.home'), icon: 'dashboard', href: route('dashboard'), active: route().current('dashboard') },
     // Doctors, tasks and task progress moved under "البيانات الأساسية"
     // (2026-10-13, by request) — see structureLinks.
-    { label: t('nav.clinicalRecords'), icon: 'clinical_notes', href: route('clinical-records.index'), active: isClinicalRecordsActive.value },
+    // Clinical records hidden from the menu (2026-10-13, by request); case
+    // sheets are opened from the task they belong to.
     // Appointments hidden from the menu for now (2026-10-13, by request);
     // the page stays reachable at /appointments.
     { label: t('nav.payments'), icon: 'payments', href: route('payments.index'), active: route().current('payments.*') },

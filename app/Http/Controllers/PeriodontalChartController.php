@@ -8,6 +8,7 @@ use App\Models\PeriodontalChart;
 use App\Models\TaskInstance;
 use App\Services\CaseSheetAccess;
 use App\Support\CaseSheetPatientFieldMap;
+use App\Support\CaseSheetReturn;
 use App\Support\CaseSheetSignatures;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\PeriodontalChartForm;
@@ -69,7 +70,7 @@ class PeriodontalChartController extends Controller
 
         PeriodontalChart::create($data);
 
-        return redirect()->route('periodontal-charts.index')->with('success', 'Periodontal chart created.');
+        return CaseSheetReturn::redirect()->with('success', 'Periodontal chart created.');
     }
 
     public function update(Request $request, PeriodontalChart $record): RedirectResponse
@@ -80,14 +81,14 @@ class PeriodontalChartController extends Controller
 
         $record->update($data);
 
-        return redirect()->route('periodontal-charts.index')->with('success', 'Periodontal chart updated.');
+        return CaseSheetReturn::redirect()->with('success', 'Periodontal chart updated.');
     }
 
     public function destroy(PeriodontalChart $record): RedirectResponse
     {
         $record->delete();
 
-        return redirect()->route('periodontal-charts.index')->with('success', 'Periodontal chart deleted.');
+        return CaseSheetReturn::redirect()->with('success', 'Periodontal chart deleted.');
     }
 
     private function form(?PeriodontalChart $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null, array $prefill = []): Response

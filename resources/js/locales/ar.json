@@ -1027,7 +1027,8 @@
         "scanPatientModalDesc": "امسح رمز تذكرة المريض لتعبئة الحقول الفارغة تلقائياً.",
         "scanReadFailedMsg": "تعذر قراءة الرمز.",
         "linkedTaskPrefix": "هذا النموذج مرتبط بحالة المهمة رقم",
-        "linkedTaskSuffix": "— سيُحفظ باسمها."
+        "linkedTaskSuffix": "— سيُحفظ باسمها.",
+        "backAction": "رجوع"
     },
     "lab": {
         "all": "الكل",

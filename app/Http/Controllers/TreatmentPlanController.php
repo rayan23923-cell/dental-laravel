@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\RendersSatelliteForm;
 use App\Models\{TreatmentPlan};
+use App\Support\CaseSheetReturn;
 use App\Support\SurgerySatelliteForms;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -53,20 +54,20 @@ class TreatmentPlanController extends Controller
     {
         TreatmentPlan::create($this->satelliteValidate($request, $this->sections(), ['chart_id' => ['required', 'exists:dental_charts,id']]));
 
-        return redirect()->route('treatment-plans.index')->with('success', 'Treatment plan created.');
+        return CaseSheetReturn::redirect()->with('success', 'Treatment plan created.');
     }
 
     public function update(Request $request, TreatmentPlan $record): RedirectResponse
     {
         $record->update($this->satelliteValidate($request, $this->sections(), ['chart_id' => ['required', 'exists:dental_charts,id']]));
 
-        return redirect()->route('treatment-plans.index')->with('success', 'Treatment plan updated.');
+        return CaseSheetReturn::redirect()->with('success', 'Treatment plan updated.');
     }
 
     public function destroy(TreatmentPlan $record): RedirectResponse
     {
         $record->delete();
 
-        return redirect()->route('treatment-plans.index')->with('success', 'Treatment plan deleted.');
+        return CaseSheetReturn::redirect()->with('success', 'Treatment plan deleted.');
     }
 }

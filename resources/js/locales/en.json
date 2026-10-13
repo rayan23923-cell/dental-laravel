@@ -1027,7 +1027,8 @@
         "scanPatientModalDesc": "Scan the patient's ticket code to auto-fill the empty fields.",
         "scanReadFailedMsg": "Couldn't read the code.",
         "linkedTaskPrefix": "This form is linked to task case #",
-        "linkedTaskSuffix": "— it will be saved under it."
+        "linkedTaskSuffix": "— it will be saved under it.",
+        "backAction": "Back"
     },
     "lab": {
         "all": "All",

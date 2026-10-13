@@ -582,7 +582,7 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                     >
                         <Icon name="qr_code_scanner" class="ml-1" />{{ t('specialtyForms.scanPatientAction') }}
                     </button>
-                    <Link :href="route(`${resource}.index`)" class="text-sm text-indigo-600 hover:underline">{{ t('specialtyForms.backToList') }}</Link>
+                    <Link :href="page.props.caseSheetBackUrl ?? route(`${resource}.index`)" class="text-sm text-indigo-600 hover:underline">{{ t('specialtyForms.backAction') }}</Link>
                 </div>
             </div>
         </template>

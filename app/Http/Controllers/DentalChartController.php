@@ -7,6 +7,7 @@ use App\Models\Doctor;
 use App\Models\TaskInstance;
 use App\Services\CaseSheetAccess;
 use App\Support\CaseSheetPatientFieldMap;
+use App\Support\CaseSheetReturn;
 use App\Support\CaseSheetSignatures;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\OperativeForm;
@@ -66,7 +67,7 @@ class DentalChartController extends Controller
         $data = CaseSheetSignatures::applyPending('dental-charts', $this->validateRecord($request), null, CaseSheetSignatures::signerName($request));
         DentalChart::create($data);
 
-        return redirect()->route('dental-charts.index')->with('success', 'Operative case sheet created.');
+        return CaseSheetReturn::redirect()->with('success', 'Operative case sheet created.');
     }
 
     public function update(Request $request, DentalChart $dentalChart): RedirectResponse
@@ -74,14 +75,14 @@ class DentalChartController extends Controller
         $data = CaseSheetSignatures::applyPending('dental-charts', $this->validateRecord($request), $dentalChart, CaseSheetSignatures::signerName($request));
         $dentalChart->update($data);
 
-        return redirect()->route('dental-charts.index')->with('success', 'Operative case sheet updated.');
+        return CaseSheetReturn::redirect()->with('success', 'Operative case sheet updated.');
     }
 
     public function destroy(DentalChart $dentalChart): RedirectResponse
     {
         $dentalChart->delete();
 
-        return redirect()->route('dental-charts.index')->with('success', 'Operative case sheet deleted.');
+        return CaseSheetReturn::redirect()->with('success', 'Operative case sheet deleted.');
     }
 
     private function form(?DentalChart $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null, array $prefill = []): Response
