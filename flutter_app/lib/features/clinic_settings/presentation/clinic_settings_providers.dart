@@ -20,3 +20,9 @@ final clinicSettingsProvider = FutureProvider<ClinicSettings?>((ref) async {
     return null;
   }
 });
+
+/// Groups on/off from clinic settings (2026-10-13). True until the settings
+/// load, or when they can't be read, so nothing disappears by mistake.
+final groupsEnabledProvider = Provider<bool>((ref) {
+  return ref.watch(clinicSettingsProvider).valueOrNull?.groupsEnabled ?? true;
+});

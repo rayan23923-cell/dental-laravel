@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/locale_controller.dart';
+import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 
 /// "الإدارة" — staff-only entry point to Phase 3's admin modules, built
 /// incrementally (see flutter_app/README.md's Phase 3 breakdown). Distinct
@@ -36,7 +37,8 @@ class AdminHubScreen extends ConsumerWidget {
     final groups = [
       _AdminGroup(t['adminHub.doctorsGroup']!, [
         _AdminItem(t['adminHub.doctors']!, Icons.medical_information_outlined, '/admin/doctors'),
-        _AdminItem(t['adminHub.groups']!, Icons.groups_outlined, '/admin/groups'),
+        // Hidden while groups are turned off in clinic settings.
+        if (ref.watch(groupsEnabledProvider)) _AdminItem(t['adminHub.groups']!, Icons.groups_outlined, '/admin/groups'),
         // The clinic chair map is hidden (2026-10-12, by request); its
         // route stays registered.
       ]),

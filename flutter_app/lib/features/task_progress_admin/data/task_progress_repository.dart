@@ -55,6 +55,13 @@ class TaskProgressRepository {
     return TaskProgressGroupDetail.fromJson(data);
   }
 
+  /// Every doctor of a stage — used while groups are turned off in clinic
+  /// settings (2026-10-13), same matrix as [fetchGroup].
+  Future<TaskProgressGroupDetail> fetchStage(int stageId) async {
+    final data = await _client.getJson('/task-progress/stages/$stageId') as Map<String, dynamic>;
+    return TaskProgressGroupDetail.fromJson(data);
+  }
+
   Future<void> completeInstance(int instanceId, {double? grade, String? notes}) {
     return _client.putJson('/task-progress/instances/$instanceId/complete', body: {'grade': grade, 'notes': notes});
   }

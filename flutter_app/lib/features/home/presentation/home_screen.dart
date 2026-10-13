@@ -79,10 +79,13 @@ class _StaffDashboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    // One "تسجيل المرضى" entry, the same as the web menu (2026-10-13, by
+    // request): the separate "register a new patient" shortcut confused
+    // users, and the registrations list already registers patients.
     final registerShortcut = _Shortcut(
-      t['labels.registerNewPatient']!,
-      Icons.person_add_alt_1_outlined,
-      () => context.push('/records/patient-registrations/new'),
+      t['labels.registerPatients']!,
+      Icons.how_to_reg_outlined,
+      () => context.push('/records/patient-registrations'),
     );
     final labShortcut = _Shortcut(
       t['labels.lab']!,
@@ -95,8 +98,8 @@ class _StaffDashboard extends StatelessWidget {
         : role == 'lab'
             ? [labShortcut]
             : [
-      _Shortcut(t['labels.registerNewPatient']!, Icons.person_add_alt_1_outlined, () => context.push('/records/patient-registrations/new')),
-      _Shortcut(t['labels.appointments']!, Icons.event_outlined, () => context.push('/records/appointments')),
+      registerShortcut,
+      // Appointments hidden for now (2026-10-13, by request), as on the web.
       _Shortcut(t['labels.payments']!, Icons.payments_outlined, () => context.push('/records/payments')),
       // Real bug found live: this still pointed at the old NFC-only
       // screen's route, removed when it was superseded by the full

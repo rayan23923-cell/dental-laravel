@@ -11,6 +11,7 @@ class ClinicSettings {
     required this.collegeName,
     this.labFee,
     this.labValidityDays = 0,
+    this.groupsEnabled = true,
   });
 
   factory ClinicSettings.fromJson(Map<String, dynamic> json) => ClinicSettings(
@@ -23,6 +24,7 @@ class ClinicSettings {
         // Decimal column — may arrive as a string ("5000.00").
         labFee: json['lab_fee'] == null ? null : double.tryParse(json['lab_fee'].toString()),
         labValidityDays: int.tryParse('${json['lab_validity_days'] ?? 0}') ?? 0,
+        groupsEnabled: json['groups_enabled'] as bool? ?? true,
       );
 
   final String? theme;
@@ -42,6 +44,11 @@ class ClinicSettings {
   /// (2026-10-12), see `LabFeeGate` on the backend.
   final double? labFee;
   final int labValidityDays;
+
+  /// Groups on/off from clinic settings (2026-10-13), the same switch as
+  /// the web's: off hides groups everywhere and task progress lists a
+  /// stage's doctors directly.
+  final bool groupsEnabled;
 
   /// Same precedence as `print.layout.blade.php`'s letterhead: the
   /// university logo if one's uploaded, the clinic logo otherwise — used

@@ -19,6 +19,15 @@
 library;
 
 const Map<String, String> kTranslationsAr = {
+  'paperPhotos.title': 'صور النسخة الورقية',
+  'paperPhotos.button': 'صور الورقي ({n})',
+  'paperPhotos.takePhoto': 'التقط صورة',
+  'paperPhotos.upload': 'رفع صورة',
+  'paperPhotos.none': 'ما مرفوعة صور بعد.',
+  'paperPhotos.failed': 'تعذر رفع أو جلب الصور.',
+  'paperPhotos.confirmDelete': 'حذف هذه الصورة؟',
+  'paperPhotos.cancel': 'إلغاء',
+  'paperPhotos.delete': 'حذف',
   'nav.clinicName': 'العيادة التعليمية',
   'nav.settings': 'الإعدادات',
   'nav.logout': 'تسجيل الخروج',
@@ -448,6 +457,7 @@ const Map<String, String> kTranslationsAr = {
   'academicSessionsAdmin.loadFailed': 'تعذر التحميل.',
   'academicSessionsAdmin.emptyList': 'لا توجد أعوام دراسية بعد.',
   'academicSessionsAdmin.groupsAndTasksCount': '{groups} مجموعة · {tasks} مهمة',
+  'academicSessionsAdmin.tasksCount': '{tasks} مهمة',
   'academicSessionsAdmin.setCurrentFailed': 'تعذر التنفيذ.',
   'academicSessionsAdmin.becameCurrentSuccess': 'أصبح العام الدراسي النشط.',
   'academicSessionsAdmin.deleteTitle': 'حذف العام الدراسي',
@@ -669,6 +679,10 @@ const Map<String, String> kTranslationsAr = {
   'clinicSettingsAdmin.enableNotifications': 'تفعيل الإشعارات',
   'clinicSettingsAdmin.enableSms': 'تفعيل الرسائل النصية',
   'clinicSettingsAdmin.enableEmail': 'تفعيل البريد الإلكتروني',
+  'clinicSettingsAdmin.groupsHeading': 'المجموعات',
+  'clinicSettingsAdmin.groupsEnabled': 'تفعيل المجموعات',
+  'clinicSettingsAdmin.groupsNote': 'كل مرحلة عندها مجموعة A تلقائياً بكل أيام الأسبوع وبأوقات الدوام، وكل طبيب ينضاف لها تلقائياً. عند الإلغاء تختفي المجموعات من القوائم والتقارير، وتقدم المهام يعرض أطباء المرحلة مباشرة.',
+  'taskProgressAdmin.chooseStageHint': 'اختر نوع الدراسة والمرحلة لعرض الأطباء.',
   'clinicSettingsAdmin.saveSettings': 'حفظ الإعدادات',
 
   'printerSettingsAdmin.title': 'إعدادات الطابعة',
@@ -831,6 +845,15 @@ const Map<String, String> kTranslationsAr = {
 };
 
 const Map<String, String> kTranslationsEn = {
+  'paperPhotos.title': 'Paper form photos',
+  'paperPhotos.button': 'Paper photos ({n})',
+  'paperPhotos.takePhoto': 'Take photo',
+  'paperPhotos.upload': 'Upload photo',
+  'paperPhotos.none': 'No photos yet.',
+  'paperPhotos.failed': 'Could not upload or load the photos.',
+  'paperPhotos.confirmDelete': 'Delete this photo?',
+  'paperPhotos.cancel': 'Cancel',
+  'paperPhotos.delete': 'Delete',
   'nav.clinicName': 'Teaching Clinic',
   'nav.settings': 'Settings',
   'nav.logout': 'Log Out',
@@ -1260,6 +1283,7 @@ const Map<String, String> kTranslationsEn = {
   'academicSessionsAdmin.loadFailed': "Couldn't load.",
   'academicSessionsAdmin.emptyList': 'No academic sessions yet.',
   'academicSessionsAdmin.groupsAndTasksCount': '{groups} group(s) · {tasks} task(s)',
+  'academicSessionsAdmin.tasksCount': '{tasks} task(s)',
   'academicSessionsAdmin.setCurrentFailed': "Couldn't complete the action.",
   'academicSessionsAdmin.becameCurrentSuccess': 'This is now the active academic session.',
   'academicSessionsAdmin.deleteTitle': 'Delete Academic Session',
@@ -1481,6 +1505,10 @@ const Map<String, String> kTranslationsEn = {
   'clinicSettingsAdmin.enableNotifications': 'Enable notifications',
   'clinicSettingsAdmin.enableSms': 'Enable SMS',
   'clinicSettingsAdmin.enableEmail': 'Enable email',
+  'clinicSettingsAdmin.groupsHeading': 'Groups',
+  'clinicSettingsAdmin.groupsEnabled': 'Enable groups',
+  'clinicSettingsAdmin.groupsNote': 'Every stage automatically has a group A on all days during working hours, and every doctor is added to it. When off, groups disappear from menus and reports, and task progress lists the stage\'s doctors directly.',
+  'taskProgressAdmin.chooseStageHint': 'Choose the education type and stage to show the doctors.',
   'clinicSettingsAdmin.saveSettings': 'Save Settings',
 
   'printerSettingsAdmin.title': 'Printer Settings',
