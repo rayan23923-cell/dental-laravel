@@ -13,6 +13,7 @@ use App\Services\AcademicSessionHelper;
 use App\Services\ScopeHelper;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -164,7 +165,8 @@ class TaskController extends Controller
     private function validateTask(Request $request): array
     {
         return $request->validate([
-            'department_id' => ['required', 'exists:departments,id'],
+            // Must be one of the chosen stage's own departments (2026-10-13, by request).
+            'department_id' => ['required', Rule::exists('departments', 'id')->where('stage_id', $request->integer('stage_id'))],
             'case_sheet_type_id' => ['required', 'exists:case_sheet_types,id'],
             'stage_id' => ['required', 'exists:stages,id'],
             'title' => ['required', 'string', 'max:255'],
