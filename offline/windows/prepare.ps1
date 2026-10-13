@@ -15,7 +15,14 @@ $fwd = $Root -replace '\\', '/'
 # starts. Fall through to the next method instead.
 if (-not $ServerIp) {
     try {
-        $cfg = Get-NetIPConfiguration -ErrorAction Stop | Where-Object { $_.IPv4DefaultGateway -and $_.NetAdapter.Status -eq 'Up' } | Select-Object -First 1
+        $cfgs = @(Get-NetIPConfiguration -ErrorAction Stop | Where-Object { $_.IPv4DefaultGateway -and $_.NetAdapter.Status -eq 'Up' })
+        # Prefer a network whose router answers: a cable with a static
+        # address but no live router (2026-10-13) was picked first and the
+        # phones on the Wi-Fi could not reach the system.
+        $cfg = $cfgs | Where-Object {
+            try { Test-Connection -ComputerName $_.IPv4DefaultGateway[0].NextHop -Count 1 -Quiet -ErrorAction Stop } catch { $false }
+        } | Select-Object -First 1
+        if (-not $cfg) { $cfg = $cfgs | Select-Object -First 1 }
         if ($cfg) { $ServerIp = $cfg.IPv4Address[0].IPAddress }
     } catch { $ServerIp = $null }
 }
