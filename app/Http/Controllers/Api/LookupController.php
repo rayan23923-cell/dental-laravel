@@ -77,7 +77,8 @@ class LookupController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
-            'education_type_id' => ['nullable', 'exists:education_types,id'],
+            // Required (2026-10-13, by request): every field must be filled.
+            'education_type_id' => ['required', 'exists:education_types,id'],
         ]);
 
         return response()->json(Stage::create($validated))->setStatusCode(201);
@@ -87,7 +88,8 @@ class LookupController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
-            'education_type_id' => ['nullable', 'exists:education_types,id'],
+            // Required (2026-10-13, by request): every field must be filled.
+            'education_type_id' => ['required', 'exists:education_types,id'],
         ]);
 
         $stage->update($validated);
@@ -116,8 +118,10 @@ class LookupController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
-            'stage_id' => ['nullable', 'exists:stages,id'],
-            'education_type_id' => ['nullable', 'exists:education_types,id'],
+            // Every field is required (2026-10-13, by request), and the
+            // stage must belong to the chosen education type.
+            'education_type_id' => ['required', 'exists:education_types,id'],
+            'stage_id' => ['required', Rule::exists('stages', 'id')->where('education_type_id', $request->integer('education_type_id'))],
         ]);
 
         return response()->json(Department::create($validated))->setStatusCode(201);
@@ -127,8 +131,10 @@ class LookupController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
-            'stage_id' => ['nullable', 'exists:stages,id'],
-            'education_type_id' => ['nullable', 'exists:education_types,id'],
+            // Every field is required (2026-10-13, by request), and the
+            // stage must belong to the chosen education type.
+            'education_type_id' => ['required', 'exists:education_types,id'],
+            'stage_id' => ['required', Rule::exists('stages', 'id')->where('education_type_id', $request->integer('education_type_id'))],
         ]);
 
         $department->update($validated);

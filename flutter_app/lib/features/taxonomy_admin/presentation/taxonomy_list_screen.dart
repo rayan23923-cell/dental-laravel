@@ -214,6 +214,7 @@ class _TaxonomyFormDialogState extends ConsumerState<_TaxonomyFormDialog> {
   late final _nameController = TextEditingController(text: widget.item?.name ?? '');
   int? _educationTypeId;
   int? _stageId;
+
   bool _submitting = false;
 
   @override
@@ -289,9 +290,10 @@ class _TaxonomyFormDialogState extends ConsumerState<_TaxonomyFormDialog> {
                   initialValue: types.any((et) => et.id == _educationTypeId) ? _educationTypeId : null,
                   decoration: InputDecoration(labelText: t['taxonomyAdmin.educationTypeLabel'], border: const OutlineInputBorder()),
                   items: [
-                    DropdownMenuItem(value: null, child: Text(t['taxonomyAdmin.noneOption']!)),
-                    for (final et in types) DropdownMenuItem(value: et.id, child: Text(et.name)),
+                                        for (final et in types) DropdownMenuItem(value: et.id, child: Text(et.name)),
                   ],
+                  // Required (2026-10-13, by request), matching the server.
+                  validator: (v) => v == null ? t['taxonomyAdmin.requiredField'] : null,
                   onChanged: (v) => setState(() {
                     _educationTypeId = v;
                     // Real bug, found live: this used to leave whatever
@@ -311,7 +313,7 @@ class _TaxonomyFormDialogState extends ConsumerState<_TaxonomyFormDialog> {
               // the user's own example of what "فلترة مشابهة للمهام"
               // should fix. Narrowed exactly like task_form_screen.dart's
               // stage cascade; the "none" option stays available
-              // regardless, since a department's stage is optional here.
+              // regardless of the education type picked.
               stagesAsync!.when(
                 loading: () => const LinearProgressIndicator(),
                 error: (_, __) => Text(t['taxonomyAdmin.loadStageFailed']!),
@@ -324,9 +326,9 @@ class _TaxonomyFormDialogState extends ConsumerState<_TaxonomyFormDialog> {
                     initialValue: stages.any((s) => s.id == _stageId) ? _stageId : null,
                     decoration: InputDecoration(labelText: t['taxonomyAdmin.stageLabel'], border: const OutlineInputBorder()),
                     items: [
-                      DropdownMenuItem(value: null, child: Text(t['taxonomyAdmin.noneOption']!)),
-                      for (final s in stages) DropdownMenuItem(value: s.id, child: Text(s.name)),
+                                            for (final s in stages) DropdownMenuItem(value: s.id, child: Text(s.name)),
                     ],
+                    validator: (v) => v == null ? t['taxonomyAdmin.requiredField'] : null,
                     onChanged: (v) => setState(() => _stageId = v),
                   );
                 },

@@ -149,7 +149,7 @@ const submit = () => {
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <InputLabel for="grade" :value="t('tasksAdmin.gradeLabel')" />
-                                <TextInput id="grade" v-model="form.grade" type="number" step="0.01" min="0" max="100" placeholder="0.00 - 100.00" class="mt-1 block w-full" />
+                                <TextInput id="grade" v-model="form.grade" type="number" step="0.01" min="0" max="100" placeholder="0.00 - 100.00" class="mt-1 block w-full" required />
                                 <InputError class="mt-2" :message="form.errors.grade" />
                             </div>
                             <div v-if="academicSessions.length">
@@ -179,7 +179,7 @@ const submit = () => {
 
                         <div>
                             <InputLabel for="notes" :value="t('tasksAdmin.notesLabel')" />
-                            <textarea id="notes" v-model="form.notes" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+                            <textarea id="notes" v-model="form.notes" rows="3" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
                             <InputError class="mt-2" :message="form.errors.notes" />
                         </div>
 

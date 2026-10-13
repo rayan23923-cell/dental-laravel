@@ -560,7 +560,9 @@
         "newNamePlaceholder": "New department name",
         "emptyList": "No departments yet.",
         "deleteConfirm": "Delete \"{name}\"?",
-        "editTitle": "Edit Department"
+        "editTitle": "Edit Department",
+        "chooseEducationType": "Choose education type",
+        "chooseStage": "Choose stage"
     },
     "academicSessionsAdmin": {
         "addSession": "Add Academic Session",

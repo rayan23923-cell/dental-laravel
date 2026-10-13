@@ -560,7 +560,9 @@
         "newNamePlaceholder": "اسم القسم الجديد",
         "emptyList": "لا توجد أقسام بعد.",
         "deleteConfirm": "حذف \"{name}\"؟",
-        "editTitle": "تعديل القسم"
+        "editTitle": "تعديل القسم",
+        "chooseEducationType": "اختر نوع الدراسة",
+        "chooseStage": "اختر المرحلة"
     },
     "academicSessionsAdmin": {
         "addSession": "إضافة عام دراسي",
