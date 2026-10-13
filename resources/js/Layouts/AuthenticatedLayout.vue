@@ -100,7 +100,8 @@ const primaryLinks = computed(() => deskRole.value ? [] : [
         ? [{ label: t('nav.taskProgress'), icon: 'monitoring', href: route('task-progress.index'), active: route().current('task-progress.*') }]
         : []),
     { label: t('nav.clinicalRecords'), icon: 'clinical_notes', href: route('clinical-records.index'), active: isClinicalRecordsActive.value },
-    { label: t('nav.appointments'), icon: 'event', href: route('appointments.index'), active: route().current('appointments.*') },
+    // Appointments hidden from the menu for now (2026-10-13, by request);
+    // the page stays reachable at /appointments.
     { label: t('nav.payments'), icon: 'payments', href: route('payments.index'), active: route().current('payments.*') },
 ]);
 
@@ -110,13 +111,14 @@ const primaryLinks = computed(() => deskRole.value ? [] : [
 // `patients.index` (the plain patient-record list) and
 // `patient-registrations.create` (its own page, separate from the index).
 const patientsLinks = computed(() => {
-    const register = { label: t('nav.registerPatient'), icon: 'person_add', href: route('patient-registrations.create'), active: route().current('patient-registrations.create') };
-    const registry = { label: t('nav.patientRegistrations'), icon: 'how_to_reg', href: route('patient-registrations.index'), active: route().current('patient-registrations.index') };
+    // The separate "تسجيل مريض" entry was dropped (2026-10-13, by request):
+    // the registrations page already registers patients, and two entries
+    // confused users. Its create page counts as part of the registry.
+    const registry = { label: t('nav.patientRegistrations'), icon: 'how_to_reg', href: route('patient-registrations.index'), active: route().current('patient-registrations.index') || route().current('patient-registrations.create') };
     const lab = { label: t('nav.lab'), icon: 'coronavirus', href: route('lab.index'), active: route().current('lab.*') };
-    if (deskRole.value === 'reception') return [register, registry];
+    if (deskRole.value === 'reception') return [registry];
     if (deskRole.value === 'lab') return [lab];
     return [
-        register,
         registry,
         { label: t('nav.patientsList'), icon: 'list_alt', href: route('patients.index'), active: route().current('patients.*') },
         lab,
