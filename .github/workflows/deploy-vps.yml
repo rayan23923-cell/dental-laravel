@@ -1,0 +1,86 @@
+name: Deploy to VPS
+
+# Ships main to the VPS (https://dental.azoclinic.duckdns.org) so it runs the
+# same code as the offline package, which offline-windows.yml builds from the
+# same pushes. Copies the repo over SSH and runs deploy/vps/deploy.sh, which
+# rebuilds the Docker image; the app container migrates on start.
+#
+# Needs these repository secrets (Settings > Secrets and variables > Actions):
+#   VPS_HOST     server address
+#   VPS_USER     SSH user (needs sudo for docker)
+#   VPS_SSH_KEY  private key for that user, without a passphrase
+#   VPS_APP_DIR  app folder on the server, e.g. /home/ubuntu/dental-laravel
+# Until VPS_HOST is set the job is skipped.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'bootstrap/**'
+      - 'config/**'
+      - 'database/**'
+      - 'resources/**'
+      - 'routes/**'
+      - 'public/**'
+      - 'lang/**'
+      - 'composer.*'
+      - 'package*.json'
+      - 'vite.config.*'
+      - 'deploy/vps/**'
+      - '.github/workflows/deploy-vps.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+    steps:
+      - name: Check the VPS secrets
+        id: cfg
+        run: |
+          if [ -z "$VPS_HOST" ]; then
+            echo "VPS secrets are not set; skipping the deploy." >> "$GITHUB_STEP_SUMMARY"
+            echo "ready=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=yes" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.cfg.outputs.ready == 'yes'
+
+      - name: Set up SSH
+        if: steps.cfg.outputs.ready == 'yes'
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/vps_key
+          chmod 600 ~/.ssh/vps_key
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Copy the code and deploy
+        if: steps.cfg.outputs.ready == 'yes'
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+        run: |
+          # .env, storage and built files on the server are left alone.
+          tar czf /tmp/app.tgz \
+            --exclude='./.git' --exclude='./.github' --exclude='./node_modules' --exclude='./vendor' \
+            --exclude='./.env' --exclude='./storage' --exclude='./public/build' --exclude='./public/downloads' \
+            --exclude='./public/storage' --exclude='./flutter_app' --exclude='./offline' --exclude='./tests' .
+          ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" "mkdir -p '$VPS_APP_DIR' && tar xzf - -C '$VPS_APP_DIR'" < /tmp/app.tgz
+          ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" "cd '$VPS_APP_DIR' && sh deploy/vps/deploy.sh"
+
+      - name: Check the site answers
+        if: steps.cfg.outputs.ready == 'yes'
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://dental.azoclinic.duckdns.org/login || true)
+            [ "$code" = 200 ] && { echo "Login page answers 200."; exit 0; }
+            sleep 5
+          done
+          echo "Login page did not answer 200 (last: $code)."; exit 1
