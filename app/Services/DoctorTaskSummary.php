@@ -44,6 +44,7 @@ class DoctorTaskSummary
         $instances = TaskInstance::where('doctor_id', $doctor->id)
             ->whereIn('task_id', $tasks->pluck('id'))
             ->with('assignedBy:id,full_name')
+            ->withCount('attachments')
             ->get();
 
         return [

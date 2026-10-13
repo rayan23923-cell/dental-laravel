@@ -86,20 +86,29 @@ class TaskInstanceAttachmentController extends Controller
         return $this->list($attachment->taskInstance);
     }
 
-    /** Staff (the route's permission middleware has checked them) or the instance's own doctor. */
+    /**
+     * Staff (the route's permission middleware has checked them) or the
+     * instance's own doctor. The mobile app reaches the same actions over
+     * the API (2026-10-13), where the Sanctum token carries either one.
+     */
     private function authorizeInstance(TaskInstance $taskInstance): User|Doctor
     {
-        $doctor = Auth::guard('doctor')->user();
-        if ($doctor && request()->routeIs('doctor.*')) {
-            abort_unless($taskInstance->doctor_id === $doctor->id, 403);
+        $doctorRoute = request()->routeIs('doctor.*') || request()->routeIs('api.my-attachments.*');
+        $principal = match (true) {
+            request()->routeIs('doctor.*') => Auth::guard('doctor')->user(),
+            request()->routeIs('api.*') => request()->user(),
+            default => Auth::guard('web')->user(),
+        };
 
-            return $doctor;
+        if ($doctorRoute) {
+            abort_unless($principal instanceof Doctor && $taskInstance->doctor_id === $principal->id, 403);
+
+            return $principal;
         }
 
-        $user = Auth::guard('web')->user();
-        abort_unless($user instanceof User, 403);
+        abort_unless($principal instanceof User, 403);
 
-        return $user;
+        return $principal;
     }
 
     private function list(TaskInstance $taskInstance, int $status = 200): JsonResponse

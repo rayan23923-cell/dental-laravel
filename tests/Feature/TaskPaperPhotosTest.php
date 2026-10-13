@@ -11,6 +11,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class TaskPaperPhotosTest extends TestCase
@@ -96,5 +97,23 @@ class TaskPaperPhotosTest extends TestCase
             ->assertCreated()->json('data.0.id');
         $this->actingAs($otherDoctor, 'doctor')->deleteJson("/doctor/task-instance-attachments/{$id}")->assertForbidden();
         $this->actingAs($doctor, 'doctor')->deleteJson("/doctor/task-instance-attachments/{$id}")->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_the_mobile_app_attaches_photos_over_the_api(): void
+    {
+        Storage::fake('public');
+        $instance = $this->startedCase();
+        $admin = User::factory()->create(['role' => 'super_admin']);
+
+        Sanctum::actingAs($admin);
+        $this->postJson("/api/v1/task-progress/instances/{$instance->id}/attachments", ['photo' => UploadedFile::fake()->image('a.jpg')])
+            ->assertCreated()->assertJsonCount(1, 'data');
+        $this->getJson("/api/v1/my-task-instances/{$instance->id}/attachments")->assertForbidden();
+
+        Sanctum::actingAs($instance->doctor);
+        $this->postJson("/api/v1/my-task-instances/{$instance->id}/attachments", ['photo' => UploadedFile::fake()->image('b.jpg')])
+            ->assertCreated()->assertJsonCount(2, 'data');
+        $this->getJson("/api/v1/task-progress/instances/{$instance->id}/attachments")->assertForbidden();
+        $this->getJson('/api/v1/my-task-progress')->assertOk();
     }
 }
