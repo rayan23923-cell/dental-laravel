@@ -146,7 +146,7 @@ class TaskProgressController extends Controller
 
     /**
      * Ports admin/ajax/assign_task_ajax.php, including its real guards:
-     * required_per_doctor falls back to required_count when unset; refuses
+     * required_count is the per-doctor cap; refuses
      * once the doctor has already completed their required number; and
      * lazily creates a single `pending` instance when the global pool is
      * empty rather than pre-creating them all.

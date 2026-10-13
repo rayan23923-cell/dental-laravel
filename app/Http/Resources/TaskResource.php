@@ -15,7 +15,8 @@ class TaskResource extends JsonResource
             'department_id' => $this->department_id,
             'case_sheet_type_id' => $this->case_sheet_type_id,
             'stage_id' => $this->stage_id,
-            'required_per_doctor' => $this->required_per_doctor,
+            // Kept for older apps; always mirrors the one real cap.
+            'required_per_doctor' => $this->required_count,
             'required_count' => $this->required_count,
             'done' => $this->done,
             'notes' => $this->notes,

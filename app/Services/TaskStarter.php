@@ -16,9 +16,9 @@ use Illuminate\Support\Facades\DB;
  * `Api\TaskInstanceController::store()` already skips these guards
  * entirely, which this extraction does not fix but does avoid repeating.
  *
- * Guards, unchanged from the original: `required_per_doctor` falls back to
- * `required_count` when unset; refuses once the doctor has already
- * completed their required number; lazily creates a single `pending`
+ * Guards: `required_count` is the per-doctor cap (the separate
+ * `required_per_doctor` field was dropped, 2026-10-13, by request); refuses
+ * once the doctor has already completed their required number; lazily creates a single `pending`
  * instance when the global pool is empty rather than pre-creating them all.
  *
  * `$patientRegistration` is optional (2026-10-12, by request): a task is
@@ -44,7 +44,7 @@ class TaskStarter
             PatientScreeningGate::ensureClear($patientRegistration);
         }
 
-        $requiredForDoctor = (int) ($task->required_per_doctor ?: $task->required_count);
+        $requiredForDoctor = (int) $task->required_count;
 
         if ($requiredForDoctor === 0) {
             throw new TaskStartException('This task does not require any cases for this doctor.');

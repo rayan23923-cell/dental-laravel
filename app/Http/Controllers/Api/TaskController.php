@@ -60,7 +60,9 @@ class TaskController extends Controller
             'case_sheet_type_id' => ['required', 'exists:case_sheet_types,id'],
             'stage_id' => ['required', 'exists:stages,id'],
             'title' => ['required', 'string', 'max:255'],
-            'required_per_doctor' => ['required', 'integer', 'min:0'],
+            // Ignored if an older app still sends it: required_count is the
+            // only cap now (2026-10-13, by request).
+            'required_per_doctor' => ['exclude'],
             'required_count' => ['required', 'integer', 'min:1'],
             // Every field is required (2026-10-13, by request).
             'notes' => ['required', 'string'],
@@ -95,7 +97,7 @@ class TaskController extends Controller
             'case_sheet_type_id' => ['sometimes', 'exists:case_sheet_types,id'],
             'stage_id' => ['sometimes', 'exists:stages,id'],
             'title' => ['sometimes', 'string', 'max:255'],
-            'required_per_doctor' => ['sometimes', 'integer', 'min:0'],
+            'required_per_doctor' => ['exclude'],
             'required_count' => ['sometimes', 'integer', 'min:1'],
             'notes' => ['sometimes', 'required', 'string'],
             'grade' => ['sometimes', 'required', 'numeric', 'min:0', 'max:100'],

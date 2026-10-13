@@ -73,8 +73,8 @@ const statusColor = (status) => ({
                             <dd class="font-medium text-gray-900">{{ task.stage?.name ?? '—' }}</dd>
                         </div>
                         <div>
-                            <dt class="text-gray-500">{{ t('tasksAdmin.requiredPerDoctorLabel') }}</dt>
-                            <dd class="font-medium text-gray-900">{{ task.required_per_doctor }}</dd>
+                            <dt class="text-gray-500">{{ t('tasksAdmin.requiredCountLabel') }}</dt>
+                            <dd class="font-medium text-gray-900">{{ task.required_count }}</dd>
                         </div>
                     </dl>
                     <p v-if="task.notes" class="mt-4 text-sm text-gray-600">{{ task.notes }}</p>

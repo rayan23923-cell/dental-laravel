@@ -28,6 +28,18 @@ class Task extends Model
         'is_required',
     ];
 
+    /**
+     * `required_count` is the one per-doctor cap (2026-10-13, by request:
+     * "المطلوب لكل طبيب" was dropped). The NOT NULL legacy column is kept
+     * in step with it so nothing reading it disagrees.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (Task $task) {
+            $task->required_per_doctor = (int) $task->required_count;
+        });
+    }
+
     protected function casts(): array
     {
         return [
