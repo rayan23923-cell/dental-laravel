@@ -484,7 +484,9 @@
         "noOptionsAvailable": "لا خيارات متاحة.",
         "selectAllModuleActions": "تحديد كل إجراءات الوحدة",
         "grantedSummary": "الصلاحيات الممنوحة: {granted} من {total}",
-        "savePermissions": "حفظ الصلاحيات"
+        "savePermissions": "حفظ الصلاحيات",
+        "departmentRolesShort": "أدوار الأقسام",
+        "addUserShort": "إضافة مستخدم"
     },
     "groupsAdmin": {
         "title": "إدارة المجموعات",

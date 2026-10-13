@@ -484,7 +484,9 @@
         "noOptionsAvailable": "No options available.",
         "selectAllModuleActions": "Select all of the module's actions",
         "grantedSummary": "Permissions granted: {granted} of {total}",
-        "savePermissions": "Save Permissions"
+        "savePermissions": "Save Permissions",
+        "departmentRolesShort": "Department roles",
+        "addUserShort": "Add user"
     },
     "groupsAdmin": {
         "title": "Manage Groups",
