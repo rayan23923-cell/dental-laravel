@@ -100,6 +100,14 @@ const reloadGroup = () => {
 
 if (!groupsEnabled.value && props.filters.stage) loadGroup(null);
 
+// Printable report (2026-10-13, by request) — the whole group/stage, one
+// department or one doctor, same three scopes as the app's PDF.
+const printUrl = (extra = {}) => route('task-progress.print', {
+    ...(detail.value?.group.id ? { group: detail.value.group.id } : { stage: detail.value?.group.stage_id }),
+    ...extra,
+    autoprint: 1,
+});
+
 const activeDepartment = computed(
     () => detail.value?.departments.find((d) => d.id === activeDepartmentId.value) ?? null
 );
@@ -368,11 +376,22 @@ const startFromScan = () => {
 
                 <!-- Group detail -->
                 <div v-if="detail" class="space-y-4">
-                    <div class="rounded-lg bg-white p-4 shadow-sm">
+                    <div class="flex items-start justify-between gap-2 rounded-lg bg-white p-4 shadow-sm">
+                        <div>
                         <h3 class="font-medium text-gray-900">{{ detail.group.id ? t('taskProgressAdmin.groupDoctorsHeading', { name: detail.group.name }) : t('taskProgressAdmin.stageDoctorsHeading', { name: detail.group.name }) }}</h3>
                         <p class="mt-1 text-xs text-gray-500">
                             {{ t('doctorsAdmin.stageCol') }}: {{ detail.group.stage_name ?? '—' }} · {{ t('taskProgressAdmin.educationTypeLabel') }}: {{ detail.group.education_type_name ?? '—' }}
                         </p>
+                        </div>
+                        <a
+                            v-if="detail.departments.length"
+                            :href="printUrl()"
+                            target="_blank"
+                            class="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                            :title="t('taskProgressAdmin.printWholeGroupTooltip')"
+                        >
+                            <Icon name="print" size="text-[18px]" />{{ t('taskProgressAdmin.printButton') }}
+                        </a>
                     </div>
 
                     <div v-if="detail.departments.length === 0" class="rounded-lg bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
@@ -402,7 +421,15 @@ const startFromScan = () => {
                                     <span class="ml-2 rounded-full bg-gray-200 px-2 py-0.5 text-xs">{{ activeDepartment.task_count }} {{ t('taskProgressAdmin.tasksCountSuffix') }}</span>
                                     <span class="ml-2 rounded-full bg-blue-200 px-2 py-0.5 text-xs">{{ t('doctorsAdmin.requiredLabel') }}: {{ activeDepartment.total_required }}</span>
                                 </div>
-                                <div class="flex gap-1 text-xs">
+                                <div class="flex flex-wrap items-center gap-1 text-xs">
+                                    <a
+                                        :href="printUrl({ department: activeDepartment.id })"
+                                        target="_blank"
+                                        class="inline-flex items-center rounded-full bg-white p-1 text-gray-600 hover:text-indigo-600"
+                                        :title="t('taskProgressAdmin.printDepartmentOnlyTooltip')"
+                                    >
+                                        <Icon name="print" size="text-[16px]" :label="t('taskProgressAdmin.printDepartmentOnlyTooltip')" />
+                                    </a>
                                     <span class="rounded-full bg-green-100 px-2 py-0.5 text-green-800">{{ t('taskProgressAdmin.statusCompleted') }} {{ activeDepartment.totals.completed }}</span>
                                     <span class="rounded-full bg-yellow-100 px-2 py-0.5 text-yellow-800">{{ t('taskProgressAdmin.statusInProgress') }} {{ activeDepartment.totals.assigned }}</span>
                                     <span class="rounded-full bg-indigo-100 px-2 py-0.5 text-indigo-800">{{ t('taskProgressAdmin.availablePrefix') }} {{ activeDepartment.totals.pending }}</span>
@@ -450,6 +477,15 @@ const startFromScan = () => {
                                                     <td class="whitespace-nowrap px-4 py-2 text-sm font-medium text-gray-900">
                                                         <span class="mr-2 inline-block text-gray-400">{{ expandedDoctors.has(doctor.id) ? '▾' : '▸' }}</span>
                                                         {{ doctor.name }}
+                                                        <a
+                                                            :href="printUrl({ department: activeDepartment.id, doctor: doctor.id })"
+                                                            target="_blank"
+                                                            class="mr-2 inline-flex align-middle text-gray-400 hover:text-indigo-600"
+                                                            :title="t('taskProgressAdmin.printDoctorTasksTooltip')"
+                                                            @click.stop
+                                                        >
+                                                            <Icon name="print" size="text-[16px]" :label="t('taskProgressAdmin.printDoctorTasksTooltip')" />
+                                                        </a>
                                                     </td>
                                                     <td class="px-4 py-2 text-center text-sm"><span class="rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-800">{{ doctor.required }}</span></td>
                                                     <td class="px-4 py-2 text-center text-sm"><span class="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-800">{{ doctor.completed }}</span></td>

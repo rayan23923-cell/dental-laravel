@@ -465,6 +465,8 @@ Route::middleware('auth')->group(function () {
             ->middleware('permission:task_progress,open_case_sheet')->name('case-sheet.open');
         // Resolves a scanned QR code — the page's scanner modal, ported
         // from the original's task_progress_view.php.
+        Route::get('/task-progress/print', [TaskProgressController::class, 'print'])
+            ->middleware('permission:task_progress,view')->name('task-progress.print');
         Route::post('/task-progress/scan', [TaskProgressController::class, 'scan'])
             ->middleware('permission:task_progress,view')->name('task-progress.scan');
         Route::post('/task-progress/start', [TaskProgressController::class, 'start'])

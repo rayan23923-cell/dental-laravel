@@ -742,7 +742,11 @@
         "stageDoctorsHeading": "Stage doctors: {name}",
         "chooseStageHint": "Choose the education type and stage to show the doctors.",
         "groupsHeading": "Groups",
-        "noGroupsForStage": "No groups for this stage."
+        "noGroupsForStage": "No groups for this stage.",
+        "printButton": "Print",
+        "printWholeGroupTooltip": "Print the whole progress",
+        "printDepartmentOnlyTooltip": "Print this department only",
+        "printDoctorTasksTooltip": "Print this doctor's tasks"
     },
     "activityLogsAdmin": {
         "title": "Activity Log",

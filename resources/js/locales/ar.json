@@ -742,7 +742,11 @@
         "stageDoctorsHeading": "أطباء المرحلة: {name}",
         "chooseStageHint": "اختر نوع الدراسة والمرحلة لعرض الأطباء.",
         "groupsHeading": "المجموعات",
-        "noGroupsForStage": "لا توجد مجموعات لهذه المرحلة."
+        "noGroupsForStage": "لا توجد مجموعات لهذه المرحلة.",
+        "printButton": "طباعة",
+        "printWholeGroupTooltip": "طباعة التقدم كاملاً",
+        "printDepartmentOnlyTooltip": "طباعة هذا القسم فقط",
+        "printDoctorTasksTooltip": "طباعة مهام هذا الطبيب"
     },
     "activityLogsAdmin": {
         "title": "سجل النشاط",
