@@ -17,6 +17,12 @@ final taskProgressFiltersProvider =
       );
 });
 
-final taskProgressGroupProvider = FutureProvider.autoDispose.family<TaskProgressGroupDetail, int>((ref, groupId) {
-  return ref.watch(taskProgressRepositoryProvider).fetchGroup(groupId);
+/// One group's matrix, or — while groups are turned off in clinic settings
+/// — every doctor of one stage. Exactly one of the two ids is set.
+typedef TaskProgressDetailKey = ({int? groupId, int? stageId});
+
+final taskProgressGroupProvider =
+    FutureProvider.autoDispose.family<TaskProgressGroupDetail, TaskProgressDetailKey>((ref, key) {
+  final repository = ref.watch(taskProgressRepositoryProvider);
+  return key.groupId != null ? repository.fetchGroup(key.groupId!) : repository.fetchStage(key.stageId!);
 });

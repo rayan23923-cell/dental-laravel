@@ -210,17 +210,6 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
               validator: (v) => (v == null || v.trim().isEmpty) ? t['tasksAdmin.requiredField'] : null,
             ),
             const SizedBox(height: 16),
-            departmentsAsync.when(
-              loading: () => const LinearProgressIndicator(),
-              error: (_, __) => Text(t['tasksAdmin.loadDepartmentsFailed']!),
-              data: (items) => DropdownButtonFormField<int>(
-                initialValue: items.any((d) => d.id == _departmentId) ? _departmentId : null,
-                decoration: InputDecoration(labelText: t['tasksAdmin.departmentLabel'], border: const OutlineInputBorder()),
-                items: [for (final d in items) DropdownMenuItem(value: d.id, child: Text(d.name))],
-                onChanged: (v) => setState(() => _departmentId = v),
-              ),
-            ),
-            const SizedBox(height: 16),
             educationTypesAsync.when(
               loading: () => const LinearProgressIndicator(),
               error: (_, __) => Text(t['tasksAdmin.loadEducationTypesFailed']!),
@@ -252,7 +241,29 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
                   initialValue: filtered.any((s) => s.id == _stageId) ? _stageId : null,
                   decoration: InputDecoration(labelText: t['tasksAdmin.stageLabel'], border: const OutlineInputBorder()),
                   items: [for (final s in filtered) DropdownMenuItem(value: s.id, child: Text(s.name))],
-                  onChanged: _educationTypeId == null ? null : (v) => setState(() => _stageId = v),
+                  onChanged: _educationTypeId == null
+                      ? null
+                      : (v) => setState(() {
+                            if (v != _stageId) _departmentId = null;
+                            _stageId = v;
+                          }),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            // Only the chosen stage's departments (2026-10-13, by request),
+            // so the stage is picked first.
+            departmentsAsync.when(
+              loading: () => const LinearProgressIndicator(),
+              error: (_, __) => Text(t['tasksAdmin.loadDepartmentsFailed']!),
+              data: (items) {
+                final filtered = items.where((d) => _stageId != null && d.stageId == _stageId).toList();
+                return DropdownButtonFormField<int>(
+                  key: ValueKey('department-$_stageId'),
+                  initialValue: filtered.any((d) => d.id == _departmentId) ? _departmentId : null,
+                  decoration: InputDecoration(labelText: t['tasksAdmin.departmentLabel'], border: const OutlineInputBorder()),
+                  items: [for (final d in filtered) DropdownMenuItem(value: d.id, child: Text(d.name))],
+                  onChanged: _stageId == null ? null : (v) => setState(() => _departmentId = v),
                 );
               },
             ),

@@ -72,6 +72,8 @@ class HandleInertiaRequests extends Middleware
             // what the request's own "ماعدا الجدول والمخططات السنية"
             // already excludes. Un-exclude `kCaseSheetPrintableResources` on
             // the Flutter side to match.
+            // Groups on/off from clinic settings — see ClinicSetting::groupsEnabled().
+            'groupsEnabled' => fn () => ClinicSetting::groupsEnabled(),
             'printableCaseSheets' => array_keys(CaseSheetPrint::SHEETS),
             // Gates the "Sign in with Google" button on both login screens —
             // see App\Http\Controllers\Auth\GoogleAuthController. Hidden

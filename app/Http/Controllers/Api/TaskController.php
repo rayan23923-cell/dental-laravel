@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TaskResource;
+use App\Models\Department;
 use App\Models\Task;
 use App\Services\AcademicSessionHelper;
 use App\Services\ScopeHelper;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class TaskController extends Controller
 {
@@ -52,7 +55,8 @@ class TaskController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'department_id' => ['required', 'exists:departments,id'],
+            // Must be one of the chosen stage's own departments (2026-10-13, by request).
+            'department_id' => ['required', Rule::exists('departments', 'id')->where('stage_id', $request->integer('stage_id'))],
             'case_sheet_type_id' => ['required', 'exists:case_sheet_types,id'],
             'stage_id' => ['required', 'exists:stages,id'],
             'title' => ['required', 'string', 'max:255'],
@@ -85,7 +89,8 @@ class TaskController extends Controller
     public function update(Request $request, Task $task): JsonResponse
     {
         $validated = $request->validate([
-            'department_id' => ['sometimes', 'exists:departments,id'],
+            // Checked against the task's (new or current) stage below.
+            'department_id' => ['sometimes', Rule::exists('departments', 'id')->where('stage_id', $request->integer('stage_id') ?: $task->stage_id)],
             'case_sheet_type_id' => ['sometimes', 'exists:case_sheet_types,id'],
             'stage_id' => ['sometimes', 'exists:stages,id'],
             'title' => ['sometimes', 'string', 'max:255'],
@@ -96,6 +101,13 @@ class TaskController extends Controller
             'academic_session_id' => ['nullable', 'exists:academic_sessions,id'],
             'is_required' => ['sometimes', 'boolean'],
         ]);
+
+        // Moving the task to another stage without a new department would
+        // leave it under the old stage's department.
+        if (isset($validated['stage_id']) && ! isset($validated['department_id'])
+            && ! Department::whereKey($task->department_id)->where('stage_id', $validated['stage_id'])->exists()) {
+            throw ValidationException::withMessages(['department_id' => __('validation.exists', ['attribute' => 'department id'])]);
+        }
 
         $task->update($validated);
 

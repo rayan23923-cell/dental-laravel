@@ -66,7 +66,7 @@ const completionPct = (completed, total) => (total > 0 ? Math.round((completed /
                             <dt class="text-gray-500">{{ t('doctorsAdmin.educationTypeCol') }}</dt>
                             <dd class="font-medium text-gray-900">{{ doctor.education_type ?? '—' }}</dd>
                         </div>
-                        <div>
+                        <div v-if="$page.props.groupsEnabled !== false">
                             <dt class="text-gray-500">{{ t('doctorsAdmin.groupCol') }}</dt>
                             <dd class="font-medium text-gray-900">{{ doctor.group ?? '—' }}</dd>
                         </div>

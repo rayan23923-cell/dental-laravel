@@ -135,9 +135,9 @@ const fmt = (v) => (v ? new Date(v).toLocaleDateString() : '—');
                         <h3 class="mt-2 font-semibold">{{ t('dashboard.doctorsProgress') }}</h3>
                         <p class="mt-1 text-xs opacity-90">{{ t('dashboard.doctorsProgressDesc') }}</p>
                     </Link>
-                    <Link v-if="can.patients" :href="route('patient-registrations.create')" class="block rounded-lg bg-indigo-600 p-5 text-center text-white shadow transition hover:bg-indigo-700">
-                        <div class="text-2xl"><Icon name="add" class="ml-1" /></div>
-                        <h3 class="mt-2 font-semibold">{{ t('nav.registerPatient') }}</h3>
+                    <Link v-if="can.patients" :href="route('patient-registrations.index')" class="block rounded-lg bg-indigo-600 p-5 text-center text-white shadow transition hover:bg-indigo-700">
+                        <div class="text-2xl"><Icon name="how_to_reg" class="ml-1" /></div>
+                        <h3 class="mt-2 font-semibold">{{ t('nav.patientRegistrations') }}</h3>
                         <p class="mt-1 text-xs opacity-90">{{ t('dashboard.registerPatientDesc') }}</p>
                     </Link>
                     <Link v-if="can.settings" :href="route('clinic-settings.edit')" class="block rounded-lg bg-slate-700 p-5 text-center text-white shadow transition hover:bg-slate-800">

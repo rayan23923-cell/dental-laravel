@@ -38,6 +38,19 @@ class ScannerPairingController extends Controller
         return response()->json(['data' => $scannerPairing->scansAfter($request->integer('after'))]);
     }
 
+    /**
+     * Ask the phone for a photo (2026-10-13): `label` is shown on its page
+     * (e.g. the task and doctor); empty clears the request.
+     */
+    public function photoRequest(Request $request, ScannerPairing $scannerPairing): JsonResponse
+    {
+        $this->authorizeOwner($request, $scannerPairing);
+        $validated = $request->validate(['label' => ['nullable', 'string', 'max:200']]);
+        $scannerPairing->update(['photo_request' => ($validated['label'] ?? '') !== '' ? $validated['label'] : null]);
+
+        return response()->json(['data' => ['photo_request' => $scannerPairing->photo_request]]);
+    }
+
     public function destroy(Request $request, ScannerPairing $scannerPairing): JsonResponse
     {
         $this->authorizeOwner($request, $scannerPairing);

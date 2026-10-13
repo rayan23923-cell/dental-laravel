@@ -57,7 +57,8 @@ Future<Uint8List> buildTaskProgressPdf({
               title: 'تقرير تقدم المهام',
               settings: settings,
               subtitle: [
-                detail.groupOption.name,
+                // No group name for a whole stage's report (groups turned off).
+                if (detail.groupOption.id != null) detail.groupOption.name,
                 if (detail.groupOption.stageName != null) detail.groupOption.stageName!,
                 if (detail.groupOption.educationTypeName != null) detail.groupOption.educationTypeName!,
                 if (filterLine.isNotEmpty) filterLine,

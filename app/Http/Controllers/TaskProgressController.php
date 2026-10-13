@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Doctor;
 use App\Models\Group;
+use App\Models\Stage;
 use App\Models\PatientRegistration;
 use App\Models\Task;
 use App\Models\TaskInstance;
@@ -12,6 +13,7 @@ use App\Services\PatientScreeningException;
 use App\Services\TaskGradeException;
 use App\Services\TaskInstanceGrader;
 use App\Services\TaskProgressFilters;
+use App\Services\ScopeHelper;
 use App\Services\TaskProgressGroupSummary;
 use App\Services\TaskStartException;
 use App\Services\TaskStarter;
@@ -64,6 +66,17 @@ class TaskProgressController extends Controller
     public function group(Request $request, Group $group): JsonResponse
     {
         return response()->json(TaskProgressGroupSummary::build($group, $request->user(), AcademicSessionHelper::resolveId()));
+    }
+
+    /**
+     * Every doctor of one stage — what task progress shows while groups are
+     * turned off in clinic settings. Limited to the stages the user may see.
+     */
+    public function stage(Request $request, int $stage): JsonResponse
+    {
+        $stage = ScopeHelper::scopeStages(Stage::whereKey($stage), $request->user())->firstOrFail();
+
+        return response()->json(TaskProgressGroupSummary::buildForStage($stage, $request->user(), AcademicSessionHelper::resolveId()));
     }
 
     /**

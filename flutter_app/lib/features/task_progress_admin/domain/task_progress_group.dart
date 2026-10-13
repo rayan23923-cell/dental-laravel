@@ -11,13 +11,15 @@ class TaskProgressGroupOption {
   const TaskProgressGroupOption({required this.id, required this.name, this.stageName, this.educationTypeName});
 
   factory TaskProgressGroupOption.fromJson(Map<String, dynamic> json) => TaskProgressGroupOption(
-        id: json['id'] as int,
+        id: json['id'] as int?,
         name: json['name'] as String? ?? '',
         stageName: json['stage_name'] as String?,
         educationTypeName: json['education_type_name'] as String?,
       );
 
-  final int id;
+  /// Null for a whole stage's doctors (groups turned off in clinic
+  /// settings, `GET /task-progress/stages/{id}`), where `name` is the stage's.
+  final int? id;
   final String name;
   final String? stageName;
   final String? educationTypeName;
@@ -74,6 +76,7 @@ class TaskSlotCard {
     this.startedByName,
     this.paperCaseSheetConfirmedAt,
     this.allSigned = false,
+    this.attachmentsCount = 0,
   });
 
   factory TaskSlotCard.fromJson(Map<String, dynamic> json) => TaskSlotCard(
@@ -94,6 +97,7 @@ class TaskSlotCard {
         startedByName: json['started_by'] as String?,
         paperCaseSheetConfirmedAt: json['paper_case_sheet_confirmed_at'] as String?,
         allSigned: json['all_signed'] as bool? ?? false,
+        attachmentsCount: json['attachments_count'] as int? ?? 0,
       );
 
   final int slot;
@@ -126,6 +130,9 @@ class TaskSlotCard {
   /// comment and `dental_laravel/README.md`'s "Auto-captured case-sheet
   /// signatures" entry for the full design).
   final bool allSigned;
+
+  /// Photos of the paper case sheet (2026-10-13) — see `showPaperPhotosSheet`.
+  final int attachmentsCount;
 }
 
 class TaskProgressDoctorRow {

@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
+use ZipArchive;
 
 /**
  * Ports admin/ajax/backup_db.php's `create_backup()` — mysqldump first,
@@ -12,61 +14,62 @@ use Illuminate\Support\Facades\Storage;
  * strategy, minus the MikroTik SCP upload step, which is out of scope by
  * request — see App\Models\ClinicSetting docblock).
  *
- * Files live on the `local` disk under `backups/` (storage/app/private/
- * backups — Laravel 11+'s default `local` root, not the `public` disk, so
- * it isn't reachable through the `public/storage` symlink at all) — a
- * narrower door than the original's `admin/downloads/backups/`, a plain
- * folder inside the public web root. Downloading goes through
- * BackupController::download, behind the same admin-only route gate as
- * everything else here.
+ * Since 2026-10-13 (by request, so updating or replacing the offline
+ * package can't lose data) a backup is a zip holding `database.sql`, and
+ * the uploaded files (photos, logos) are mirrored into an `uploads` folder
+ * beside the zips: copying that folder keeps every photo once instead of
+ * once per backup. The folder is `config('backup.path')`, outside the
+ * program folder in the offline package; `restore()` puts both back.
+ * Older `.sql`-only backups are still listed, downloadable and restorable.
+ *
+ * Downloading goes through BackupController::download, behind the same
+ * admin-only route gate as everything else here.
  */
 class DatabaseBackupService
 {
-    private const DISK = 'local';
+    public const UPLOADS_DIR = 'uploads';
 
-    private const DIR = 'backups';
+    public function dir(): string
+    {
+        $dir = rtrim(config('backup.path') ?: storage_path('app/private/backups'), '\\/');
+        File::ensureDirectoryExists($dir);
 
-    public function create(): array
+        return $dir;
+    }
+
+    /** `$suffix` marks why it was made, e.g. "before-update". */
+    public function create(string $suffix = ''): array
     {
         $connection = config('database.connections.'.config('database.default'));
-        $database = $connection['database'];
-        $timestamp = now()->format('Ymd_His');
-        $filename = "{$database}_{$timestamp}.sql";
+        $dir = $this->dir();
+        $name = $connection['database'].'_'.now()->format('Ymd_His').($suffix !== '' ? '_'.$suffix : '');
+        $sql = $dir.DIRECTORY_SEPARATOR.$name.'.sql';
 
-        Storage::disk(self::DISK)->makeDirectory(self::DIR);
-        $fullPath = Storage::disk(self::DISK)->path(self::DIR.DIRECTORY_SEPARATOR.$filename);
-
-        if (! $this->dumpWithMysqldump($connection, $fullPath)) {
-            $this->dumpWithPhp($fullPath);
+        if (! $this->dumpWithMysqldump($connection, $sql)) {
+            $this->dumpWithPhp($sql);
         }
 
-        return [
-            'filename' => $filename,
-            'size' => Storage::disk(self::DISK)->size(self::DIR.'/'.$filename),
-        ];
+        $file = $sql;
+        if (class_exists(ZipArchive::class)) {
+            $zip = new ZipArchive();
+            if ($zip->open($dir.DIRECTORY_SEPARATOR.$name.'.zip', ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
+                $zip->addFile($sql, 'database.sql');
+                $zip->close();
+                @unlink($sql);
+                $file = $dir.DIRECTORY_SEPARATOR.$name.'.zip';
+            }
+        }
+
+        $this->mirrorUploads();
+        $this->prune();
+
+        return ['filename' => basename($file), 'size' => filesize($file)];
     }
 
     /** @return array<int, array{name: string, size: int, mtime: int}> */
     public function list(): array
     {
-        if (! Storage::disk(self::DISK)->exists(self::DIR)) {
-            return [];
-        }
-
-        $files = collect(Storage::disk(self::DISK)->files(self::DIR))
-            ->filter(fn ($path) => str_ends_with($path, '.sql'))
-            ->map(fn ($path) => [
-                'name' => basename($path),
-                'size' => Storage::disk(self::DISK)->size($path),
-                'mtime' => Storage::disk(self::DISK)->lastModified($path),
-            ])
-            ->sortByDesc('mtime')
-            ->values();
-
-        // The original caps its list at 10 most-recent files; kept for
-        // parity (the download links stay valid for older files on disk,
-        // this only limits what the status list shows).
-        return $files->take(10)->all();
+        return array_slice($this->files(), 0, 10);
     }
 
     public function fullPath(string $filename): ?string
@@ -74,40 +77,162 @@ class DatabaseBackupService
         // Reject anything that isn't a bare filename before it ever touches
         // the filesystem — path separators or `..` would let a crafted
         // download request escape the backups directory.
-        if ($filename !== basename($filename) || ! str_ends_with($filename, '.sql')) {
+        if ($filename !== basename($filename) || ! preg_match('/\.(sql|zip)$/', $filename)) {
             return null;
         }
 
-        $relative = self::DIR.'/'.$filename;
+        $path = $this->dir().DIRECTORY_SEPARATOR.$filename;
 
-        return Storage::disk(self::DISK)->exists($relative)
-            ? Storage::disk(self::DISK)->path($relative)
-            : null;
+        return is_file($path) ? $path : null;
     }
 
-    /** Tries the bundled XAMPP mysqldump, then whatever `mysqldump` resolves to on PATH. */
+    /**
+     * Replaces the database with the backup's, and copies back the
+     * uploaded files from the `uploads` folder beside it. Tables the backup
+     * doesn't have are dropped too, so migrations can run cleanly after.
+     */
+    public function restore(string $path): void
+    {
+        $sql = $path;
+        $temp = null;
+        if (str_ends_with(strtolower($path), '.zip')) {
+            $zip = new ZipArchive();
+            if ($zip->open($path) !== true || ($contents = $zip->getFromName('database.sql')) === false) {
+                throw new \RuntimeException("Not a backup zip (no database.sql): {$path}");
+            }
+            $zip->close();
+            $temp = $sql = tempnam(sys_get_temp_dir(), 'restore');
+            file_put_contents($temp, $contents);
+            unset($contents);
+        }
+
+        try {
+            if (filesize($sql) === 0) {
+                throw new \RuntimeException("The backup is empty: {$path}");
+            }
+            Schema::dropAllTables();
+            $connection = config('database.connections.'.config('database.default'));
+            if (! $this->importWithClient($connection, $sql)) {
+                DB::unprepared(file_get_contents($sql));
+            }
+        } finally {
+            if ($temp) {
+                @unlink($temp);
+            }
+        }
+
+        $uploads = dirname($path).DIRECTORY_SEPARATOR.self::UPLOADS_DIR;
+        if (is_dir($uploads)) {
+            $this->copyNewer($uploads, storage_path('app/public'));
+        }
+    }
+
+    /** @return array<int, array{name: string, size: int, mtime: int}> newest first */
+    private function files(): array
+    {
+        $files = array_merge(glob($this->dir().DIRECTORY_SEPARATOR.'*.zip') ?: [], glob($this->dir().DIRECTORY_SEPARATOR.'*.sql') ?: []);
+        $rows = array_map(fn ($path) => ['name' => basename($path), 'size' => filesize($path), 'mtime' => filemtime($path)], $files);
+        usort($rows, fn ($a, $b) => [$b['mtime'], $b['name']] <=> [$a['mtime'], $a['name']]);
+
+        return $rows;
+    }
+
+    private function prune(): void
+    {
+        $keep = (int) config('backup.keep');
+        if ($keep <= 0) {
+            return;
+        }
+        foreach (array_slice($this->files(), $keep) as $old) {
+            @unlink($this->dir().DIRECTORY_SEPARATOR.$old['name']);
+        }
+    }
+
+    /** Copies uploaded files that are new or changed into the mirror; never deletes from it. */
+    private function mirrorUploads(): void
+    {
+        $source = storage_path('app/public');
+        if (is_dir($source)) {
+            $this->copyNewer($source, $this->dir().DIRECTORY_SEPARATOR.self::UPLOADS_DIR);
+        }
+    }
+
+    private function copyNewer(string $from, string $to): void
+    {
+        foreach (File::allFiles($from, true) as $file) {
+            if ($file->getFilename() === '.gitignore') {
+                continue;
+            }
+            $target = $to.DIRECTORY_SEPARATOR.$file->getRelativePathname();
+            if (is_file($target) && filesize($target) === $file->getSize() && filemtime($target) >= $file->getMTime()) {
+                continue;
+            }
+            File::ensureDirectoryExists(dirname($target));
+            copy($file->getPathname(), $target);
+            touch($target, $file->getMTime());
+        }
+    }
+
+    /**
+     * MariaDB's own tools first (the offline package puts its bundled ones
+     * on PATH), then XAMPP's, then MySQL's.
+     */
+    private function binaries(string $tool): array
+    {
+        return $tool === 'dump'
+            ? ['mariadb-dump', 'C:\\xampp\\mysql\\bin\\mysqldump.exe', 'mysqldump']
+            : ['mariadb', 'C:\\xampp\\mysql\\bin\\mysql.exe', 'mysql'];
+    }
+
+    private function connectionArgs(array $connection): string
+    {
+        return sprintf(
+            ' --host=%s --port=%s --user=%s --password=%s',
+            escapeshellarg($connection['host']),
+            escapeshellarg((string) $connection['port']),
+            escapeshellarg($connection['username']),
+            escapeshellarg((string) $connection['password'])
+        );
+    }
+
     private function dumpWithMysqldump(array $connection, string $fullPath): bool
     {
-        $candidates = ['C:\\xampp\\mysql\\bin\\mysqldump.exe', 'mysqldump'];
+        if (! function_exists('exec')) {
+            return false;
+        }
 
-        foreach ($candidates as $binary) {
-            $command = sprintf(
-                '%s --host=%s --port=%s --user=%s --password=%s --databases %s'
+        foreach ($this->binaries('dump') as $binary) {
+            $command = escapeshellarg($binary).$this->connectionArgs($connection)
                 .' --single-transaction --quick --routines --events --triggers --default-character-set=utf8mb4'
-                .' --result-file=%s 2>&1',
-                escapeshellarg($binary),
-                escapeshellarg($connection['host']),
-                escapeshellarg((string) $connection['port']),
-                escapeshellarg($connection['username']),
-                escapeshellarg($connection['password']),
-                escapeshellarg($connection['database']),
-                escapeshellarg($fullPath)
-            );
+                .' --result-file='.escapeshellarg($fullPath).' '.escapeshellarg($connection['database']).' 2>&1';
 
             @unlink($fullPath);
-            @shell_exec($command);
+            $output = [];
+            @exec($command, $output, $code);
 
-            if (file_exists($fullPath) && filesize($fullPath) > 0) {
+            if ($code === 0 && file_exists($fullPath) && filesize($fullPath) > 0) {
+                return true;
+            }
+        }
+
+        @unlink($fullPath);
+
+        return false;
+    }
+
+    private function importWithClient(array $connection, string $sql): bool
+    {
+        if (! function_exists('exec')) {
+            return false;
+        }
+
+        foreach ($this->binaries('client') as $binary) {
+            $command = escapeshellarg($binary).$this->connectionArgs($connection)
+                .' --default-character-set=utf8mb4 '.escapeshellarg($connection['database'])
+                .' < '.escapeshellarg($sql).' 2>&1';
+            $output = [];
+            @exec($command, $output, $code);
+            if ($code === 0) {
                 return true;
             }
         }
@@ -127,12 +252,12 @@ class DatabaseBackupService
 
         fwrite($handle, "SET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\n\n");
 
-        $tables = array_map(fn ($row) => array_values((array) $row)[0], $pdo->query('SHOW TABLES')->fetchAll(\PDO::FETCH_NUM));
+        $tables = array_map(fn ($row) => array_values((array) $row)[0], $pdo->query('SHOW FULL TABLES WHERE Table_type = \'BASE TABLE\'')->fetchAll(\PDO::FETCH_NUM));
 
         foreach ($tables as $table) {
             $quoted = str_replace('`', '``', $table);
             $create = $pdo->query("SHOW CREATE TABLE `{$quoted}`")->fetch(\PDO::FETCH_ASSOC);
-            fwrite($handle, "--\n-- Table structure for table `{$table}`\n--\n\n".($create['Create Table'] ?? '').";\n\n");
+            fwrite($handle, "--\n-- Table structure for table `{$table}`\n--\n\nDROP TABLE IF EXISTS `{$quoted}`;\n".($create['Create Table'] ?? '').";\n\n");
 
             $stmt = $pdo->query("SELECT * FROM `{$quoted}`");
             $batch = [];

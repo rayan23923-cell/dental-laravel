@@ -19,6 +19,25 @@ if [ ! -f .env ]; then
     echo "Created .env with fresh secrets."
 fi
 
+# Back up the database and uploaded files before every update (2026-10-13), the same safety
+# net the offline package has. Kept in ~/dental-backups: the last 20 database dumps and the
+# last 3 copies of the uploads. A failed backup stops the deploy. Skipped on the very first run.
+if sudo docker ps --format '{{.Names}}' | grep -qx dental-db; then
+    backups="$HOME/dental-backups"
+    stamp="$(date +%Y%m%d_%H%M%S)"
+    mkdir -p "$backups"
+    sudo docker exec dental-db sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines "$MYSQL_DATABASE"' \
+        | gzip > "$backups/db_$stamp.sql.gz"
+    gzip -dc "$backups/db_$stamp.sql.gz" | grep -q 'CREATE TABLE' \
+        || { echo "Database backup failed; stopping before the update." >&2; rm -f "$backups/db_$stamp.sql.gz"; exit 1; }
+    if sudo docker ps --format '{{.Names}}' | grep -qx dental-app; then
+        sudo docker exec dental-app tar czf - -C storage/app public > "$backups/uploads_$stamp.tgz"
+    fi
+    ls -1t "$backups"/db_*.sql.gz | tail -n +21 | xargs -r rm -f
+    ls -1t "$backups"/uploads_*.tgz 2>/dev/null | tail -n +4 | xargs -r rm -f
+    echo "Backed up to $backups (db_$stamp.sql.gz)."
+fi
+
 compose build
 compose up -d
 

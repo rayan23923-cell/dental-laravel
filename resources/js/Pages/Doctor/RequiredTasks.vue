@@ -1,6 +1,7 @@
 <script setup>
 import DoctorLayout from '@/Layouts/DoctorLayout.vue';
 import Modal from '@/Components/Modal.vue';
+import PaperPhotos from '@/Components/PaperPhotos.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
@@ -40,6 +41,9 @@ const confirmPaper = (slot) => {
     if (!confirm(t('tasks.confirmPaperConfirmMsg'))) return;
     router.post(route('doctor.task-instances.confirm-paper', slot.instance_id), {}, { preserveScroll: true });
 };
+
+// Photos of the paper case sheet (2026-10-13), e.g. taken with this phone.
+const photosSlot = ref(null);
 
 // "رمز QR" (2026-08-30) — mirrors the Flutter app's "مهامي" screen: every
 // slot shows a code, even an unstarted one, since scanning it is how a
@@ -161,12 +165,32 @@ const openQr = (task, slot) => {
                                 >
                                     <Icon name="edit_note" class="ml-1" />{{ t('tasks.confirmPaper') }}
                                 </button>
+                                <button
+                                    v-if="slot.instance_id"
+                                    type="button"
+                                    @click="photosSlot = { task, slot }"
+                                    class="mt-1 block w-full rounded px-2 py-1 text-center text-xs font-medium"
+                                    :class="slot.attachments_count ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+                                >
+                                    <Icon name="photo_library" class="ml-1" />{{ t('paperPhotos.button', { count: slot.attachments_count ?? 0 }) }}
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <Modal :show="photosSlot !== null" @close="photosSlot = null">
+            <div v-if="photosSlot" class="p-6">
+                <h3 class="text-lg font-medium text-gray-900"><Icon name="photo_library" class="ml-1" />{{ t('paperPhotos.title') }}</h3>
+                <p class="mt-1 text-sm text-gray-500">{{ photosSlot.task.title }}</p>
+                <PaperPhotos class="mt-4" mode="doctor" :instance-id="photosSlot.slot.instance_id" @changed="(n) => (photosSlot.slot.attachments_count = n)" />
+                <div class="mt-6 flex justify-end">
+                    <SecondaryButton @click="photosSlot = null">{{ t('common.close') }}</SecondaryButton>
+                </div>
+            </div>
+        </Modal>
 
         <Modal :show="showingQr !== null" @close="showingQr = null">
             <div class="p-6">

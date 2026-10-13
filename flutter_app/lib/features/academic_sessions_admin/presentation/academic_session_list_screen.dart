@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
+import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../data/academic_sessions_repository.dart';
 import '../domain/academic_session_admin.dart';
 import 'academic_sessions_providers.dart';
@@ -103,7 +104,9 @@ class _SessionTileState extends ConsumerState<_SessionTile> {
               textDirection: TextDirection.ltr,
               child: Text('${session.startDate} → ${session.endDate}'),
             ),
-            Text(trf(t['academicSessionsAdmin.groupsAndTasksCount']!, {'groups': session.groupsCount, 'tasks': session.tasksCount})),
+            Text(ref.watch(groupsEnabledProvider)
+                ? trf(t['academicSessionsAdmin.groupsAndTasksCount']!, {'groups': session.groupsCount, 'tasks': session.tasksCount})
+                : trf(t['academicSessionsAdmin.tasksCount']!, {'tasks': session.tasksCount})),
           ],
         ),
         isThreeLine: true,

@@ -37,6 +37,7 @@ const form = useForm({
     enable_notifications: !!props.settings.enable_notifications,
     enable_sms: !!props.settings.enable_sms,
     enable_email: !!props.settings.enable_email,
+    groups_enabled: !!(props.settings.groups_enabled ?? true),
     clinic_logo: null,
     university_logo: null,
     mail_host: props.settings.mail_host ?? '',
@@ -357,6 +358,15 @@ const sendTest = () => testForm.post(route('clinic-settings.test-email'), { pres
                                 {{ t('clinicSettingsAdmin.enableEmail') }}
                             </label>
                         </div>
+                    </div>
+
+                    <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
+                        <h3 class="mb-2 text-sm font-semibold text-gray-700">{{ t('clinicSettingsAdmin.groupsHeading') }}</h3>
+                        <label class="flex items-center gap-2 text-sm text-gray-700">
+                            <input type="checkbox" v-model="form.groups_enabled" class="rounded border-gray-300" />
+                            {{ t('clinicSettingsAdmin.groupsEnabled') }}
+                        </label>
+                        <p class="mt-2 text-xs text-gray-500">{{ t('clinicSettingsAdmin.groupsNote') }}</p>
                     </div>
 
                     <div class="flex justify-end">

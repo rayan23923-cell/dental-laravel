@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
+import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../data/academic_sessions_repository.dart';
 import '../domain/academic_session_admin.dart';
 import 'academic_sessions_providers.dart';
@@ -120,7 +121,8 @@ class AcademicSessionDetailScreen extends ConsumerWidget {
                 child: Column(
                   children: [
                     _StatRow(label: t['academicSessionsAdmin.doctorsStat']!, value: stats.doctors),
-                    _StatRow(label: t['academicSessionsAdmin.groupsStat']!, value: stats.groups),
+                    if (ref.watch(groupsEnabledProvider))
+                      _StatRow(label: t['academicSessionsAdmin.groupsStat']!, value: stats.groups),
                     _StatRow(label: t['academicSessionsAdmin.requiredTasksStat']!, value: stats.requiredTasks),
                     _StatRow(label: t['academicSessionsAdmin.doneTasksStat']!, value: stats.doneTasks),
                     _StatRow(label: t['academicSessionsAdmin.remainingTasksStat']!, value: stats.remainingTasks),

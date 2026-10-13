@@ -63,10 +63,13 @@ watch(educationType, () => {
 // wired in admin/manage_tasks.php): once a stage is picked, only departments belonging to that
 // stage are selectable. departments.stage_id is nullable, so departments with no stage stay
 // available regardless of the selected stage (matches the schema, not a restriction to invent).
+// Only the chosen stage's own departments (2026-10-13, by request): a task
+// must belong to a department of its stage, which TaskController enforces.
+const stageDepartments = (stageId) => props.departments.filter((d) => Number(d.stage_id) === stageId);
 const filteredDepartments = computed(() =>
     form.stage_id
-        ? props.departments.filter((d) => d.stage_id === form.stage_id || d.stage_id === null)
-        : props.departments
+        ? stageDepartments(Number(form.stage_id))
+        : []
 );
 
 let initialized = false;

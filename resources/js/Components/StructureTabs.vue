@@ -41,6 +41,7 @@ defineProps({
             {{ t('structureTabs.academicSessions') }}
         </Link>
         <Link
+            v-if="$page.props.groupsEnabled !== false"
             :href="route('groups.index')"
             class="shrink-0 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium"
             :class="active === 'groups' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"

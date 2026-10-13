@@ -8,6 +8,7 @@ import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/clinic_settings_admin_repository.dart';
 import '../domain/clinic_settings_admin.dart';
+import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import 'clinic_settings_admin_providers.dart';
 
 class ClinicSettingsEditScreen extends ConsumerStatefulWidget {
@@ -35,6 +36,7 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
   bool _enableNotifications = true;
   bool _enableSms = false;
   bool _enableEmail = true;
+  bool _groupsEnabled = true;
   bool _seeded = false;
   bool _submitting = false;
 
@@ -79,6 +81,7 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
     _enableNotifications = settings.enableNotifications;
     _enableSms = settings.enableSms;
     _enableEmail = settings.enableEmail;
+    _groupsEnabled = settings.groupsEnabled;
   }
 
   Future<void> _pickClinicLogo() async {
@@ -121,6 +124,7 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
       'enable_notifications': _enableNotifications,
       'enable_sms': _enableSms,
       'enable_email': _enableEmail,
+      'groups_enabled': _groupsEnabled,
     };
 
     try {
@@ -130,6 +134,8 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
             universityLogo: _universityLogoPick,
           );
       ref.invalidate(clinicSettingsAdminProvider);
+      // The app-wide copy (theme, groups switch) re-reads the saved values.
+      ref.invalidate(clinicSettingsProvider);
       if (mounted) {
         final t = ref.read(translationsProvider);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['clinicSettingsAdmin.savedSuccess']!)));
@@ -299,6 +305,15 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
                   title: Text(t['clinicSettingsAdmin.enableEmail']!),
                   controlAffinity: ListTileControlAffinity.leading,
                   onChanged: (v) => setState(() => _enableEmail = v ?? true),
+                ),
+                const SizedBox(height: 16),
+                Text(t['clinicSettingsAdmin.groupsHeading']!, style: Theme.of(context).textTheme.titleSmall),
+                CheckboxListTile(
+                  value: _groupsEnabled,
+                  title: Text(t['clinicSettingsAdmin.groupsEnabled']!),
+                  subtitle: Text(t['clinicSettingsAdmin.groupsNote']!),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  onChanged: (v) => setState(() => _groupsEnabled = v ?? true),
                 ),
                 const SizedBox(height: 24),
                 FilledButton(

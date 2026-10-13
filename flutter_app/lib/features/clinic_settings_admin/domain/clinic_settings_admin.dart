@@ -22,6 +22,7 @@ class ClinicSettingsAdmin {
     required this.enableNotifications,
     required this.enableSms,
     required this.enableEmail,
+    this.groupsEnabled = true,
     required this.logoUrl,
     required this.universityLogoUrl,
   });
@@ -42,6 +43,7 @@ class ClinicSettingsAdmin {
         enableNotifications: json['enable_notifications'] as bool? ?? false,
         enableSms: json['enable_sms'] as bool? ?? false,
         enableEmail: json['enable_email'] as bool? ?? false,
+        groupsEnabled: json['groups_enabled'] as bool? ?? true,
         logoUrl: json['logo_url'] as String?,
         universityLogoUrl: json['university_logo_url'] as String?,
       );
@@ -61,6 +63,9 @@ class ClinicSettingsAdmin {
   final bool enableNotifications;
   final bool enableSms;
   final bool enableEmail;
+
+  /// Groups on/off (2026-10-13) — see `ClinicSettings.groupsEnabled`.
+  final bool groupsEnabled;
   final String? logoUrl;
   final String? universityLogoUrl;
 }

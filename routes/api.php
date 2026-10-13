@@ -44,6 +44,7 @@ use App\Http\Controllers\Api\SurgeryMedicationController;
 use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\TaskInstanceController;
 use App\Http\Controllers\Api\TaskProgressController;
+use App\Http\Controllers\TaskInstanceAttachmentController;
 use App\Http\Controllers\Api\TaskInstanceQrController;
 use App\Http\Controllers\Api\CaseSheetController;
 use App\Http\Controllers\Api\PendingTaskQrController;
@@ -133,6 +134,7 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::get('/scanner-pairings/{scannerPairing}', [\App\Http\Controllers\ScannerPairingController::class, 'show']);
         Route::get('/scanner-pairings/{scannerPairing}/scans', [\App\Http\Controllers\ScannerPairingController::class, 'scans']);
         Route::delete('/scanner-pairings/{scannerPairing}', [\App\Http\Controllers\ScannerPairingController::class, 'destroy']);
+        Route::put('/scanner-pairings/{scannerPairing}/photo-request', [\App\Http\Controllers\ScannerPairingController::class, 'photoRequest']);
 
         // The current principal's own notifications (Doctor or User) — see
         // NotificationController docblock. No permission/role middleware,
@@ -305,6 +307,13 @@ Route::name('api.')->prefix('v1')->group(function () {
         // The doctor's own department-grouped task summary — see
         // Api\TaskProgressController::mine()/DoctorTaskSummary.
         Route::get('/my-task-progress', [TaskProgressController::class, 'mine']);
+        // A doctor's photos of their own paper case sheets (2026-10-13).
+        Route::get('/my-task-instances/{taskInstance}/attachments', [TaskInstanceAttachmentController::class, 'index'])
+            ->name('my-attachments.index');
+        Route::post('/my-task-instances/{taskInstance}/attachments', [TaskInstanceAttachmentController::class, 'store'])
+            ->name('my-attachments.store');
+        Route::delete('/my-task-instances/attachments/{attachment}', [TaskInstanceAttachmentController::class, 'destroy'])
+            ->name('my-attachments.destroy');
         Route::get('/task-instances/{taskInstance}', [TaskInstanceController::class, 'show']);
         Route::post('/task-instances', [TaskInstanceController::class, 'store']);
         Route::put('/task-instances/{taskInstance}', [TaskInstanceController::class, 'update']);
@@ -348,6 +357,15 @@ Route::name('api.')->prefix('v1')->group(function () {
             ->middleware('permission:task_progress,view');
         Route::get('/task-progress/groups/{group}', [TaskProgressController::class, 'group'])
             ->middleware('permission:task_progress,view');
+        Route::get('/task-progress/stages/{stage}', [TaskProgressController::class, 'stage'])
+            ->middleware('permission:task_progress,view');
+        // Paper case-sheet photos (2026-10-13) — see TaskInstanceAttachmentController.
+        Route::get('/task-progress/instances/{taskInstance}/attachments', [TaskInstanceAttachmentController::class, 'index'])
+            ->middleware('permission:task_progress,view')->name('task-attachments.index');
+        Route::post('/task-progress/instances/{taskInstance}/attachments', [TaskInstanceAttachmentController::class, 'store'])
+            ->middleware('permission:task_progress,view')->name('task-attachments.store');
+        Route::delete('/task-progress/attachments/{attachment}', [TaskInstanceAttachmentController::class, 'destroy'])
+            ->middleware('permission:task_progress,view')->name('task-attachments.destroy');
         Route::put('/task-progress/instances/{taskInstance}/complete', [TaskProgressController::class, 'complete'])
             ->middleware('permission:task_progress,finish');
         Route::put('/task-progress/instances/{taskInstance}', [TaskProgressController::class, 'updateInstance'])

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\DefaultGroups;
 use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -44,6 +45,21 @@ class Doctor extends Authenticatable
             'password' => 'hashed',
             'created_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Every doctor lands in their stage's group A (2026-10-13, by request)
+     * — when created, and again when moved to another stage. See
+     * App\Services\DefaultGroups.
+     */
+    protected static function booted(): void
+    {
+        static::created(fn (Doctor $doctor) => DefaultGroups::assign($doctor));
+        static::updated(function (Doctor $doctor) {
+            if ($doctor->wasChanged('stage_id')) {
+                DefaultGroups::assign($doctor, stageChanged: true);
+            }
+        });
     }
 
     public function educationType(): BelongsTo

@@ -7,6 +7,7 @@ import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/qr_dialog.dart';
 import '../../case_sheet_forms/data/case_sheet_record_repository.dart';
+import '../../paper_photos/presentation/paper_photos_sheet.dart';
 import '../../task_progress_admin/domain/task_progress_group.dart';
 import '../data/task_instance_repository.dart';
 import '../domain/my_task_department.dart';
@@ -309,6 +310,17 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
               style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0), visualDensity: VisualDensity.compact),
               onPressed: _confirmPaper,
               child: Text(t['myTasks.confirmPaperButton']!, style: const TextStyle(fontSize: 12)),
+            ),
+          // Photos of the paper case sheet (2026-10-13), as on the web.
+          if (slot.instanceId != null)
+            TextButton.icon(
+              style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0), visualDensity: VisualDensity.compact),
+              onPressed: () async {
+                await showPaperPhotosSheet(context, instanceId: slot.instanceId!, title: slot.taskTitle, doctor: true);
+                ref.invalidate(myTaskProgressProvider);
+              },
+              icon: const Icon(Icons.photo_library_outlined, size: 16),
+              label: Text(trf(t['paperPhotos.button']!, {'n': slot.attachmentsCount}), style: const TextStyle(fontSize: 12)),
             ),
         ],
       ),

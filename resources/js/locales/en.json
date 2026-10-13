@@ -735,7 +735,9 @@
         "instanceNotesLabel": "Case Notes",
         "confirmComplete": "Confirm Completion",
         "editModalTitle": "Edit the Task's Notes and Grade",
-        "noGradeHintEdit": "Can't set a grade because the task has no grade defined in the tasks table."
+        "noGradeHintEdit": "Can't set a grade because the task has no grade defined in the tasks table.",
+        "stageDoctorsHeading": "Stage doctors: {name}",
+        "chooseStageHint": "Choose the education type and stage to show the doctors."
     },
     "activityLogsAdmin": {
         "title": "Activity Log",
@@ -759,13 +761,14 @@
         "enableDailyAuto": "Enable Automatic Daily Backup",
         "creating": "Creating...",
         "createNow": "Create Backup Now",
-        "scheduleNote": "The daily backup runs automatically on Laravel's own schedule (not just when this page loads), and each copy is saved to the server's own storage — only downloadable from this page.",
+        "scheduleNote": "The daily backup runs by itself once a day, in the first hour the computer is on, and only the latest backups are kept. They can be downloaded from this page only.",
         "fileCol": "File",
         "sizeCol": "Size",
         "dateCol": "Date",
         "downloadCol": "Download",
         "emptyList": "No backups yet",
-        "download": "Download"
+        "download": "Download",
+        "folderNote": "Each backup holds the database; uploaded photos and files are kept in the uploads folder beside them. Folder:"
     },
     "clinicSettingsAdmin": {
         "title": "Clinic Settings",
@@ -835,7 +838,10 @@
         "mailUsernameLabel": "Username",
         "mailPasswordLabel": "Password",
         "labFeeLabel": "Lab Screening Fee",
-        "labValidityLabel": "Lab test validity (days)"
+        "labValidityLabel": "Lab test validity (days)",
+        "groupsHeading": "Groups",
+        "groupsEnabled": "Enable groups",
+        "groupsNote": "Every stage automatically has a group A on all days of the week during the working hours above (e.g. 08:00 - 14:00), and every doctor is added to it automatically. When disabled, groups disappear from menus, reports and prints, and task progress lists the stage's doctors directly."
     },
     "authPages": {
         "confirmPasswordTitle": "Confirm Password",
@@ -1088,6 +1094,27 @@
         "none": "Nothing scanned yet. Point the camera at a QR code.",
         "expiresAt": "Pairing ends at {time}",
         "inScannerConnected": "Phone linked as scanner: scan with it or with this camera.",
-        "inScannerWaiting": "Phone pairing is waiting for the phone to open the link."
+        "inScannerWaiting": "Phone pairing is waiting for the phone to open the link.",
+        "photoRequested": "The computer is asking for a photo:",
+        "takePhoto": "Take photo",
+        "photoSending": "Sending the photo...",
+        "photoSent": "The photo reached the computer",
+        "photoFailed": "The photo could not be sent. Try again."
+    },
+    "paperPhotos": {
+        "title": "Paper form photos",
+        "button": "Paper photos ({count})",
+        "upload": "Upload photo",
+        "fromPhone": "Get from phone",
+        "pairFirst": "To get the photo from the phone, pair the phone first with the button beside it.",
+        "waitingPhone": "Photograph the paper with the phone now; each photo is added here by itself. Take the pages one after another.",
+        "done": "Done",
+        "loading": "Loading...",
+        "none": "No photos yet.",
+        "uploading": "Uploading...",
+        "failed": "That did not work. Try again.",
+        "confirmDelete": "Delete this photo?",
+        "defaultLabel": "Paper form photo",
+        "attachFromScan": "Attach paper photo"
     }
 }

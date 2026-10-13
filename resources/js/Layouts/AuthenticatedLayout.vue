@@ -70,6 +70,7 @@ const isPatientsGroupActive = computed(
 
 const structureRoutes = [
     'departments', 'stages', 'education-types',
+    'doctors', 'tasks', 'task-progress',
     'academic-sessions', 'groups', 'case-sheet-types',
 ];
 const isStructureActive = computed(() => structureRoutes.some((r) => route().current(`${r}.*`)));
@@ -94,13 +95,11 @@ const isSettingsGroupActive = computed(
  */
 const primaryLinks = computed(() => deskRole.value ? [] : [
     { label: t('nav.home'), icon: 'dashboard', href: route('dashboard'), active: route().current('dashboard') },
-    { label: t('nav.doctors'), icon: 'stethoscope', href: route('doctors.index'), active: route().current('doctors.*') },
-    { label: t('nav.tasks'), icon: 'assignment', href: route('tasks.index'), active: route().current('tasks.*') },
-    ...(isAdmin.value
-        ? [{ label: t('nav.taskProgress'), icon: 'monitoring', href: route('task-progress.index'), active: route().current('task-progress.*') }]
-        : []),
+    // Doctors, tasks and task progress moved under "البيانات الأساسية"
+    // (2026-10-13, by request) — see structureLinks.
     { label: t('nav.clinicalRecords'), icon: 'clinical_notes', href: route('clinical-records.index'), active: isClinicalRecordsActive.value },
-    { label: t('nav.appointments'), icon: 'event', href: route('appointments.index'), active: route().current('appointments.*') },
+    // Appointments hidden from the menu for now (2026-10-13, by request);
+    // the page stays reachable at /appointments.
     { label: t('nav.payments'), icon: 'payments', href: route('payments.index'), active: route().current('payments.*') },
 ]);
 
@@ -110,13 +109,14 @@ const primaryLinks = computed(() => deskRole.value ? [] : [
 // `patients.index` (the plain patient-record list) and
 // `patient-registrations.create` (its own page, separate from the index).
 const patientsLinks = computed(() => {
-    const register = { label: t('nav.registerPatient'), icon: 'person_add', href: route('patient-registrations.create'), active: route().current('patient-registrations.create') };
-    const registry = { label: t('nav.patientRegistrations'), icon: 'how_to_reg', href: route('patient-registrations.index'), active: route().current('patient-registrations.index') };
+    // The separate "تسجيل مريض" entry was dropped (2026-10-13, by request):
+    // the registrations page already registers patients, and two entries
+    // confused users. Its create page counts as part of the registry.
+    const registry = { label: t('nav.patientRegistrations'), icon: 'how_to_reg', href: route('patient-registrations.index'), active: route().current('patient-registrations.index') || route().current('patient-registrations.create') };
     const lab = { label: t('nav.lab'), icon: 'coronavirus', href: route('lab.index'), active: route().current('lab.*') };
-    if (deskRole.value === 'reception') return [register, registry];
+    if (deskRole.value === 'reception') return [registry];
     if (deskRole.value === 'lab') return [lab];
     return [
-        register,
         registry,
         { label: t('nav.patientsList'), icon: 'list_alt', href: route('patients.index'), active: route().current('patients.*') },
         lab,
@@ -127,16 +127,33 @@ const patientsLinks = computed(() => {
 // same name); "المجموعات" lives here rather than paired with "الأطباء"
 // above because — unlike the original — this app's `groups` routes are
 // admin-only while `doctors` is editor-accessible.
-const structureLinks = computed(() => [
-    { label: t('nav.educationTypes'), icon: 'school', href: route('education-types.index'), active: route().current('education-types.*') },
-    { label: t('nav.stages'), icon: 'stairs', href: route('stages.index'), active: route().current('stages.*') },
-    { label: t('nav.departments'), icon: 'apartment', href: route('departments.index'), active: route().current('departments.*') },
-    { label: t('nav.academicSessions'), icon: 'calendar_month', href: route('academic-sessions.index'), active: route().current('academic-sessions.*') },
-    { label: t('nav.groups'), icon: 'groups', href: route('groups.index'), active: route().current('groups.*') },
-    // The clinic chair map is hidden from the menus (2026-10-12, by
-    // request); its page stays reachable at /clinic-chairs.
-    { label: t('nav.caseSheetTypes'), icon: 'description', href: route('case-sheet-types.index'), active: route().current('case-sheet-types.*') },
-]);
+// Doctors, tasks and task progress live here too (2026-10-13, by request),
+// ordered tasks → academic year → doctors → groups → task progress. Doctors and tasks are
+// editor-accessible, so editors see a short version of this group with
+// just those two; everything else stays admin-only.
+const structureLinks = computed(() => {
+    if (deskRole.value) return [];
+    const doctors = { label: t('nav.doctors'), icon: 'stethoscope', href: route('doctors.index'), active: route().current('doctors.*') };
+    const tasks = { label: t('nav.tasks'), icon: 'assignment', href: route('tasks.index'), active: route().current('tasks.*') };
+    if (!isAdmin.value) return [tasks, doctors];
+
+    return [
+        { label: t('nav.educationTypes'), icon: 'school', href: route('education-types.index'), active: route().current('education-types.*') },
+        { label: t('nav.stages'), icon: 'stairs', href: route('stages.index'), active: route().current('stages.*') },
+        { label: t('nav.departments'), icon: 'apartment', href: route('departments.index'), active: route().current('departments.*') },
+        tasks,
+        { label: t('nav.academicSessions'), icon: 'calendar_month', href: route('academic-sessions.index'), active: route().current('academic-sessions.*') },
+        doctors,
+        // Hidden while groups are turned off in clinic settings.
+        ...(usePage().props.groupsEnabled !== false
+            ? [{ label: t('nav.groups'), icon: 'groups', href: route('groups.index'), active: route().current('groups.*') }]
+            : []),
+        { label: t('nav.taskProgress'), icon: 'monitoring', href: route('task-progress.index'), active: route().current('task-progress.*') },
+        // The clinic chair map is hidden from the menus (2026-10-12, by
+        // request); its page stays reachable at /clinic-chairs.
+        { label: t('nav.caseSheetTypes'), icon: 'description', href: route('case-sheet-types.index'), active: route().current('case-sheet-types.*') },
+    ];
+});
 
 // "الإعدادات" — admin-only, new grouped dropdown replacing the flat
 // `adminLinks` strip. Folds in three routes that existed in the backend
@@ -224,7 +241,7 @@ const tileClass = (active) => [
                             </template>
                         </Dropdown>
 
-                        <template v-if="isAdmin">
+                        <template v-if="structureLinks.length">
                             <div class="h-6 w-px shrink-0 bg-hairline"></div>
 
                             <Dropdown align="left" width="56">
@@ -241,7 +258,9 @@ const tileClass = (active) => [
                                     </DropdownLink>
                                 </template>
                             </Dropdown>
+                        </template>
 
+                        <template v-if="isAdmin">
                             <Dropdown align="left" width="56">
                                 <template #trigger>
                                     <button type="button" :class="tileClass(isSettingsGroupActive)">
@@ -313,7 +332,7 @@ const tileClass = (active) => [
                         </Link>
                     </div>
 
-                    <template v-if="isAdmin">
+                    <template v-if="structureLinks.length">
                         <div class="mt-3 px-1 text-xs font-semibold uppercase tracking-wider text-muted">
                             {{ t('nav.structureGroup') }}
                         </div>
@@ -323,7 +342,9 @@ const tileClass = (active) => [
                                 <span class="truncate">{{ link.label }}</span>
                             </Link>
                         </div>
+                    </template>
 
+                    <template v-if="isAdmin">
                         <div class="mt-3 px-1 text-xs font-semibold uppercase tracking-wider text-muted">
                             {{ t('nav.settingsGroup') }}
                         </div>

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TaskInstance extends Model
 {
@@ -69,5 +70,11 @@ class TaskInstance extends Model
     {
         // Archived registrations still name their records (2026-10-12).
         return $this->belongsTo(PatientRegistration::class)->withTrashed();
+    }
+
+    /** Photos of the paper case sheet (2026-10-13). */
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(TaskInstanceAttachment::class)->orderBy('id');
     }
 }

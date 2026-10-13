@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/locale_controller.dart';
+import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 
 /// "الإدارة" — staff-only entry point to Phase 3's admin modules, built
 /// incrementally (see flutter_app/README.md's Phase 3 breakdown). Distinct
@@ -34,22 +35,22 @@ class AdminHubScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider);
     final groups = [
-      _AdminGroup(t['adminHub.doctorsGroup']!, [
-        _AdminItem(t['adminHub.doctors']!, Icons.medical_information_outlined, '/admin/doctors'),
-        _AdminItem(t['adminHub.groups']!, Icons.groups_outlined, '/admin/groups'),
-        // The clinic chair map is hidden (2026-10-12, by request); its
-        // route stays registered.
-      ]),
+      // Doctors, tasks and task progress sit with the reference data,
+      // ordered tasks → academic year → doctors → groups → task progress
+      // (2026-10-13, by request — the same order as the web's menu).
       _AdminGroup(t['adminHub.referenceData']!, [
-        _AdminItem(t['adminHub.academicSessions']!, Icons.event_note_outlined, '/admin/academic-sessions'),
         _AdminItem(t['adminHub.educationTypes']!, Icons.school_outlined, '/admin/education-types'),
         _AdminItem(t['adminHub.stages']!, Icons.layers_outlined, '/admin/stages'),
         _AdminItem(t['adminHub.departments']!, Icons.apartment_outlined, '/admin/departments'),
         _AdminItem(t['adminHub.tasks']!, Icons.checklist_outlined, '/admin/tasks'),
-        _AdminItem(t['adminHub.caseSheetTypes']!, Icons.description_outlined, '/admin/case-sheet-types'),
-      ]),
-      _AdminGroup(t['adminHub.workflow']!, [
+        _AdminItem(t['adminHub.academicSessions']!, Icons.event_note_outlined, '/admin/academic-sessions'),
+        _AdminItem(t['adminHub.doctors']!, Icons.medical_information_outlined, '/admin/doctors'),
+        // Hidden while groups are turned off in clinic settings.
+        if (ref.watch(groupsEnabledProvider)) _AdminItem(t['adminHub.groups']!, Icons.groups_outlined, '/admin/groups'),
         _AdminItem(t['labels.taskProgress']!, Icons.fact_check_outlined, '/admin/task-progress'),
+        // The clinic chair map is hidden (2026-10-12, by request); its
+        // route stays registered.
+        _AdminItem(t['adminHub.caseSheetTypes']!, Icons.description_outlined, '/admin/case-sheet-types'),
       ]),
       _AdminGroup(t['nav.settings']!, [
         _AdminItem(t['settingsMenu.printerSettings']!, Icons.print_outlined, '/admin/printer-settings'),

@@ -55,6 +55,7 @@ use App\Http\Controllers\SurgeryImageController;
 use App\Http\Controllers\SurgeryMedicationController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TaskInstanceController;
+use App\Http\Controllers\TaskInstanceAttachmentController;
 use App\Http\Controllers\TaskProgressController;
 use App\Http\Controllers\TreatmentMaterialController;
 use App\Http\Controllers\TreatmentPlanController;
@@ -186,6 +187,9 @@ Route::middleware('auth:doctor')->group(function () {
     Route::put('/doctor/task-instances/{taskInstance}', [DoctorTaskInstanceController::class, 'update'])->name('doctor.task-instances.update');
     Route::post('/doctor/task-instances/{taskInstance}/confirm-paper', [DoctorTaskInstanceController::class, 'confirmPaper'])->name('doctor.task-instances.confirm-paper');
     Route::get('/doctor/task-instances/{taskInstance}/qr', [DoctorTaskInstanceController::class, 'qr'])->name('doctor.task-instances.qr');
+    Route::get('/doctor/task-instances/{taskInstance}/attachments', [TaskInstanceAttachmentController::class, 'index'])->name('doctor.task-instances.attachments.index');
+    Route::post('/doctor/task-instances/{taskInstance}/attachments', [TaskInstanceAttachmentController::class, 'store'])->name('doctor.task-instances.attachments.store');
+    Route::delete('/doctor/task-instance-attachments/{attachment}', [TaskInstanceAttachmentController::class, 'destroy'])->name('doctor.task-instances.attachments.destroy');
 
     // The remaining three items of the original's doctor navbar
     // (doctor_navbar.php), plus its academic-session switcher.
@@ -260,6 +264,10 @@ Route::post('/scan', [PhoneScannerController::class, 'resolve'])
 Route::get('/scan/{token}', [PhoneScannerController::class, 'show'])->name('phone-scanner.show');
 Route::post('/scan/{token}/scans', [PhoneScannerController::class, 'store'])
     ->middleware('throttle:120,1')->name('phone-scanner.store');
+Route::get('/scan/{token}/status', [PhoneScannerController::class, 'status'])
+    ->middleware('throttle:120,1')->name('phone-scanner.status');
+Route::post('/scan/{token}/photos', [PhoneScannerController::class, 'photo'])
+    ->middleware('throttle:30,1')->name('phone-scanner.photo');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -269,6 +277,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/scanner-pairings/{scannerPairing}', [ScannerPairingController::class, 'show'])->name('scanner-pairings.show');
     Route::get('/scanner-pairings/{scannerPairing}/scans', [ScannerPairingController::class, 'scans'])->name('scanner-pairings.scans');
     Route::delete('/scanner-pairings/{scannerPairing}', [ScannerPairingController::class, 'destroy'])->name('scanner-pairings.destroy');
+    Route::put('/scanner-pairings/{scannerPairing}/photo-request', [ScannerPairingController::class, 'photoRequest'])->name('scanner-pairings.photo-request');
     Route::post('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
 
@@ -448,6 +457,8 @@ Route::middleware('auth')->group(function () {
             ->middleware('permission:task_progress,view')->name('task-progress.index');
         Route::get('/task-progress/groups/{group}', [TaskProgressController::class, 'group'])
             ->middleware('permission:task_progress,view')->name('task-progress.group');
+        Route::get('/task-progress/stages/{stage}', [TaskProgressController::class, 'stage'])
+            ->middleware('permission:task_progress,view')->name('task-progress.stage');
         // Staff-side "فتح النموذج" — the original gates this with
         // task_progress.open_case_sheet, checked inside the controller too.
         Route::get('/case-sheet/{taskInstance}', [CaseSheetController::class, 'open'])
@@ -468,6 +479,14 @@ Route::middleware('auth')->group(function () {
         // reproduced here.) Gated on `finish`, matching effective behaviour.
         Route::put('/task-progress/instances/{taskInstance}', [TaskProgressController::class, 'updateInstance'])
             ->middleware('permission:task_progress,finish')->name('task-progress.update-instance');
+        // Photos of the paper case sheet (2026-10-13); deleting checks
+        // task_progress,finish in the controller.
+        Route::get('/task-progress/instances/{taskInstance}/attachments', [TaskInstanceAttachmentController::class, 'index'])
+            ->middleware('permission:task_progress,view')->name('task-progress.attachments.index');
+        Route::post('/task-progress/instances/{taskInstance}/attachments', [TaskInstanceAttachmentController::class, 'store'])
+            ->middleware('permission:task_progress,view')->name('task-progress.attachments.store');
+        Route::delete('/task-progress/attachments/{attachment}', [TaskInstanceAttachmentController::class, 'destroy'])
+            ->middleware('permission:task_progress,view')->name('task-progress.attachments.destroy');
 
         Route::get('/activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
 

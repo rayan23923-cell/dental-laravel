@@ -90,7 +90,7 @@ const destroy = (session) => {
                             <tr>
                                 <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('profile.name') }}</th>
                                 <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('academicSessionsAdmin.datesCol') }}</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('structureTabs.groups') }}</th>
+                                <th v-if="$page.props.groupsEnabled !== false" class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('structureTabs.groups') }}</th>
                                 <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('academicSessionsAdmin.tasksCol') }}</th>
                                 <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('academicSessionsAdmin.activeCol') }}</th>
                                 <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.actionsCol') }}</th>
@@ -104,7 +104,7 @@ const destroy = (session) => {
                                     </Link>
                                 </td>
                                 <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ session.start_date }} ← {{ session.end_date }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ session.groups_count }}</td>
+                                <td v-if="$page.props.groupsEnabled !== false" class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ session.groups_count }}</td>
                                 <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ session.tasks_count }}</td>
                                 <td class="whitespace-nowrap px-6 py-4 text-sm">
                                     <!-- iOS-style toggle — turning a year on makes it current and

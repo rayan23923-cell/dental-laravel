@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -16,12 +17,18 @@ use Illuminate\Support\Str;
  * typing the code at `/scan`), needs no login of its own, and posts every
  * code it reads; the computer polls for them. The token is the secret: it
  * is long and random and the pairing expires after `LIFETIME_HOURS`.
+ *
+ * The computer can also ask the phone for a photo (2026-10-13, the paper
+ * case sheet of a task): `photo_request` holds what it is for, the phone's
+ * page shows it with a camera button, and the photo arrives as a scan with
+ * `photo_path` (local disk, `scanner-photos/{id}/`) for the computer to
+ * attach. See TaskInstanceAttachmentController.
  */
 class ScannerPairing extends Model
 {
     public const LIFETIME_HOURS = 12;
 
-    protected $fillable = ['user_id', 'token', 'code', 'phone_joined_at', 'expires_at'];
+    protected $fillable = ['user_id', 'token', 'code', 'phone_joined_at', 'photo_request', 'expires_at'];
 
     protected function casts(): array
     {
@@ -34,7 +41,7 @@ class ScannerPairing extends Model
     public static function open(User $user): self
     {
         // One live pairing per user: opening a new one ends the old.
-        static::where('user_id', $user->id)->delete();
+        static::where('user_id', $user->id)->get()->each->delete();
 
         do {
             $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
@@ -46,6 +53,17 @@ class ScannerPairing extends Model
             'code' => $code,
             'expires_at' => now()->addHours(self::LIFETIME_HOURS),
         ]);
+    }
+
+    protected static function booted(): void
+    {
+        // Photos the computer never attached go with the pairing.
+        static::deleting(fn (self $pairing) => Storage::disk('local')->deleteDirectory($pairing->photoDir()));
+    }
+
+    public function photoDir(): string
+    {
+        return 'scanner-photos/'.$this->id;
     }
 
     public function scopeActive(Builder $query): Builder
@@ -89,13 +107,22 @@ class ScannerPairing extends Model
         ];
     }
 
-    /** Scans newer than `$afterId`, oldest first, for the computer's poll. */
+    /**
+     * Scans newer than `$afterId`, oldest first, for the computer's poll. A
+     * photo comes as `photo: true` (attached by its id), not as a code.
+     */
     public function scansAfter(int $afterId): array
     {
         return [
             'phone_joined' => $this->phone_joined_at !== null,
+            'photo_request' => $this->photo_request,
             'scans' => $this->scans()->where('id', '>', $afterId)->orderBy('id')->limit(50)
-                ->get(['id', 'payload'])->toArray(),
+                ->get(['id', 'payload'])
+                ->map(fn (ScannerScan $scan) => [
+                    'id' => $scan->id,
+                    'payload' => $scan->payload,
+                    'photo' => $scan->payload === ScannerScan::PHOTO,
+                ])->all(),
         ];
     }
 

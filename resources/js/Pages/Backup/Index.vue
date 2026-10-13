@@ -15,6 +15,9 @@ import { useI18n } from 'vue-i18n';
 const { t } = useI18n();
 const props = defineProps({
     enabled: Boolean,
+    // The offline package backs up daily whatever the toggle says (2026-10-13).
+    alwaysDaily: Boolean,
+    folder: String,
     lastBackupAt: String,
     files: { type: Array, default: () => [] },
 });
@@ -74,7 +77,8 @@ const formatDate = (unixSeconds) => new Date(unixSeconds * 1000).toLocaleString(
                         <label class="flex items-center gap-2 text-sm text-gray-700">
                             <input
                                 type="checkbox"
-                                :checked="enabled"
+                                :disabled="alwaysDaily"
+                                :checked="enabled || alwaysDaily"
                                 class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                 @change="toggleAuto($event.target.checked)"
                             />
@@ -95,6 +99,7 @@ const formatDate = (unixSeconds) => new Date(unixSeconds * 1000).toLocaleString(
                     <div class="mb-4 rounded-md bg-sky-50 p-3 text-sm text-sky-800">
                         <Icon name="info" class="ml-1" />
                         {{ t('backupAdmin.scheduleNote') }}
+                        <p v-if="folder" class="mt-2">{{ t('backupAdmin.folderNote') }} <span class="font-mono" dir="ltr">{{ folder }}</span></p>
                     </div>
 
                     <div class="overflow-x-auto">

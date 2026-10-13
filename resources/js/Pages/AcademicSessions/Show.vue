@@ -32,7 +32,7 @@ defineProps({
                         <div class="text-2xl font-semibold text-gray-900">{{ stats.doctors }}</div>
                         <div class="text-xs text-gray-500">{{ t('academicSessionsAdmin.doctorsStat') }}</div>
                     </div>
-                    <div class="rounded-lg bg-white p-4 shadow-sm">
+                    <div v-if="$page.props.groupsEnabled !== false" class="rounded-lg bg-white p-4 shadow-sm">
                         <div class="text-2xl font-semibold text-gray-900">{{ stats.groups }}</div>
                         <div class="text-xs text-gray-500">{{ t('structureTabs.groups') }}</div>
                     </div>
@@ -50,7 +50,7 @@ defineProps({
                     </div>
                 </div>
 
-                <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                <div v-if="$page.props.groupsEnabled !== false" class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                     <div class="border-b border-gray-200 px-6 py-4 text-sm font-medium text-gray-700">{{ t('academicSessionsAdmin.groupsInSessionHeading') }}</div>
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">

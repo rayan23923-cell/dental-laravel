@@ -56,6 +56,8 @@ class WaitingScreenController extends Controller
 
         $settings = WaitingScreenSetting::current();
         $clinic = ClinicSetting::current();
+        // Groups turned off in clinic settings: no group filter, no group name.
+        $groupId = ClinicSetting::groupsEnabled() ? $settings->group_id : null;
 
         $appointments = Appointment::with('caseSheetDoctor')
             ->whereDate('appointment_date', today())
@@ -63,7 +65,7 @@ class WaitingScreenController extends Controller
                 'caseSheetDoctor',
                 fn ($dq) => $dq->where('stage_id', $stageId)
             ))
-            ->when($settings->group_id, fn ($q, $groupId) => $q->whereHas(
+            ->when($groupId, fn ($q, $groupId) => $q->whereHas(
                 'caseSheetDoctor.groups',
                 fn ($gq) => $gq->where('groups.id', $groupId)
             ))
@@ -81,7 +83,7 @@ class WaitingScreenController extends Controller
             'clinic_name' => $clinic->clinic_name,
             'logo_url' => $clinic->logoUrl(),
             'stage_name' => $pairing->stage?->name,
-            'group_name' => $settings->group?->name,
+            'group_name' => $groupId ? $settings->group?->name : null,
             'patients_per_page' => $settings->patients_per_page,
             'rotation_seconds' => $settings->rotation_seconds,
             'date' => today()->toDateString(),

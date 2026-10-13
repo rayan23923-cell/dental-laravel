@@ -55,10 +55,13 @@ watch(educationType, () => {
 
 // See Tasks/Create.vue for why this filters (mirrors the original app's
 // stage -> department cascade).
+// Only the chosen stage's own departments (2026-10-13, by request): a task
+// must belong to a department of its stage, which TaskController enforces.
+const stageDepartments = (stageId) => props.departments.filter((d) => Number(d.stage_id) === stageId);
 const filteredDepartments = computed(() =>
     form.stage_id
-        ? props.departments.filter((d) => d.stage_id === form.stage_id || d.stage_id === null)
-        : props.departments
+        ? stageDepartments(Number(form.stage_id))
+        : []
 );
 
 let initialized = false;

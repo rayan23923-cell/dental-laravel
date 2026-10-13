@@ -7,6 +7,7 @@ import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import QrScanner from '@/Components/QrScanner.vue';
 import PhoneScannerLink from '@/Components/PhoneScannerLink.vue';
+import PaperPhotos from '@/Components/PaperPhotos.vue';
 import { onRemoteScan } from '@/remoteScanner';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, ref } from 'vue';
@@ -25,6 +26,9 @@ const props = defineProps({
 });
 
 const page = usePage();
+// Groups turned off in clinic settings: no day/group step, the chosen
+// stage's doctors are shown directly (task-progress.stage).
+const groupsEnabled = computed(() => page.props.groupsEnabled !== false);
 
 // --- Filters (day / education type / stage), reloading the page like the
 // original's GET-based filter form ---
@@ -75,7 +79,7 @@ const loadGroup = async (groupId) => {
     loading.value = true;
     detail.value = null;
     try {
-        const { data } = await axios.get(route('task-progress.group', groupId));
+        const { data } = await axios.get(groupId ? route('task-progress.group', groupId) : route('task-progress.stage', props.filters.stage));
         detail.value = data;
         activeDepartmentId.value = data.departments[0]?.id ?? null;
         expandedDoctors.value = new Set();
@@ -88,12 +92,14 @@ const reloadGroup = () => {
     if (detail.value) {
         const expanded = new Set(expandedDoctors.value);
         const active = activeDepartmentId.value;
-        loadGroup(detail.value.group.id).then(() => {
+        loadGroup(detail.value.group.id ?? null).then(() => {
             expandedDoctors.value = expanded;
             activeDepartmentId.value = active;
         });
     }
 };
+
+if (!groupsEnabled.value && props.filters.stage) loadGroup(null);
 
 const activeDepartment = computed(
     () => detail.value?.departments.find((d) => d.id === activeDepartmentId.value) ?? null
@@ -248,6 +254,18 @@ onRemoteScan(
     () => !scannerRef.value?.scanning,
 );
 
+// Photos of the paper case sheet (2026-10-13): from a card, or straight
+// after scanning a case's QR. `card` (when opened from one) gets the new count.
+const photosTarget = ref(null);
+const openPhotos = (instanceId, title, doctorName, card = null) => {
+    photosTarget.value = { instanceId, label: [title, doctorName].filter(Boolean).join(' - '), title, doctorName, card };
+};
+const photosFromScan = () => {
+    const r = scanResult.value;
+    closeScanner();
+    openPhotos(r.instance_id, r.task.title, r.doctor.name);
+};
+
 const rescan = async () => {
     scanResult.value = null;
     scanError.value = '';
@@ -298,7 +316,7 @@ const startFromScan = () => {
                 <!-- Filters -->
                 <div class="rounded-lg bg-white p-4 shadow-sm">
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-4">
-                        <div>
+                        <div v-if="groupsEnabled">
                             <InputLabel :value="t('taskProgressAdmin.dayLabel')" />
                             <select v-model="day" @change="applyFilters" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                                 <option value="">{{ t('taskProgressAdmin.chooseDayOption') }}</option>
@@ -329,7 +347,11 @@ const startFromScan = () => {
                 </div>
 
                 <!-- Groups for the selected day -->
-                <div v-if="filters.day && groups.length" class="rounded-lg bg-white p-4 shadow-sm">
+                <div v-if="!groupsEnabled && !filters.stage" class="rounded-md bg-blue-50 p-4 text-sm text-blue-700">
+                    {{ t('taskProgressAdmin.chooseStageHint') }}
+                </div>
+                <template v-else-if="!groupsEnabled"></template>
+                <div v-else-if="filters.day && groups.length" class="rounded-lg bg-white p-4 shadow-sm">
                     <h3 class="mb-3 text-sm font-semibold text-gray-700">{{ t('taskProgressAdmin.groupsAvailableOnDay', { day: filters.day }) }}</h3>
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div v-for="g in groups" :key="g.id" class="rounded-lg border border-indigo-200 p-3">
@@ -353,7 +375,7 @@ const startFromScan = () => {
                 <!-- Group detail -->
                 <div v-if="detail" class="space-y-4">
                     <div class="rounded-lg bg-white p-4 shadow-sm">
-                        <h3 class="font-medium text-gray-900">{{ t('taskProgressAdmin.groupDoctorsHeading', { name: detail.group.name }) }}</h3>
+                        <h3 class="font-medium text-gray-900">{{ detail.group.id ? t('taskProgressAdmin.groupDoctorsHeading', { name: detail.group.name }) : t('taskProgressAdmin.stageDoctorsHeading', { name: detail.group.name }) }}</h3>
                         <p class="mt-1 text-xs text-gray-500">
                             {{ t('doctorsAdmin.stageCol') }}: {{ detail.group.stage_name ?? '—' }} · {{ t('taskProgressAdmin.educationTypeLabel') }}: {{ detail.group.education_type_name ?? '—' }}
                         </p>
@@ -506,6 +528,14 @@ const startFromScan = () => {
                                                                     <button v-if="card.instance_id && ['assigned', 'completed'].includes(card.status)" @click.stop="openEdit(card)" class="rounded bg-blue-500 px-2 py-1 text-white hover:bg-blue-600">
                                                                         {{ t('common.edit') }}
                                                                     </button>
+                                                                    <button
+                                                                        v-if="card.instance_id"
+                                                                        @click.stop="openPhotos(card.instance_id, card.task_title, doctor.name, card)"
+                                                                        class="rounded px-2 py-1"
+                                                                        :class="card.attachments_count ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
+                                                                    >
+                                                                        <Icon name="photo_library" class="ml-1" />{{ t('paperPhotos.button', { count: card.attachments_count ?? 0 }) }}
+                                                                    </button>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -549,6 +579,9 @@ const startFromScan = () => {
                     </div>
                     <div class="flex flex-wrap justify-end gap-2">
                         <SecondaryButton @click="rescan">{{ t('taskProgressAdmin.scanAnother') }}</SecondaryButton>
+                        <button type="button" class="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700" @click="photosFromScan">
+                            <Icon name="add_a_photo" class="ml-1" />{{ t('paperPhotos.attachFromScan') }}
+                        </button>
                         <a :href="scanResult.case_sheet_url" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
                             <Icon name="description" class="ml-1" />{{ t('taskProgressAdmin.openForm') }}
                         </a>
@@ -574,6 +607,24 @@ const startFromScan = () => {
 
                 <div class="mt-6 flex justify-end">
                     <SecondaryButton @click="closeScanner">{{ t('common.close') }}</SecondaryButton>
+                </div>
+            </div>
+        </Modal>
+
+        <!-- Paper case sheet photos (2026-10-13) -->
+        <Modal :show="photosTarget !== null" @close="photosTarget = null">
+            <div v-if="photosTarget" class="p-6">
+                <h2 class="text-lg font-medium text-gray-900"><Icon name="photo_library" class="ml-1" />{{ t('paperPhotos.title') }}</h2>
+                <p class="mt-1 text-sm text-gray-500">{{ photosTarget.label }}</p>
+                <PaperPhotos
+                    class="mt-4"
+                    mode="staff"
+                    :instance-id="photosTarget.instanceId"
+                    :label="photosTarget.label"
+                    @changed="(n) => photosTarget.card && (photosTarget.card.attachments_count = n)"
+                />
+                <div class="mt-6 flex justify-end">
+                    <SecondaryButton @click="photosTarget = null">{{ t('common.close') }}</SecondaryButton>
                 </div>
             </div>
         </Modal>
