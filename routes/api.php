@@ -133,6 +133,7 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::get('/scanner-pairings/{scannerPairing}', [\App\Http\Controllers\ScannerPairingController::class, 'show']);
         Route::get('/scanner-pairings/{scannerPairing}/scans', [\App\Http\Controllers\ScannerPairingController::class, 'scans']);
         Route::delete('/scanner-pairings/{scannerPairing}', [\App\Http\Controllers\ScannerPairingController::class, 'destroy']);
+        Route::put('/scanner-pairings/{scannerPairing}/photo-request', [\App\Http\Controllers\ScannerPairingController::class, 'photoRequest']);
 
         // The current principal's own notifications (Doctor or User) — see
         // NotificationController docblock. No permission/role middleware,

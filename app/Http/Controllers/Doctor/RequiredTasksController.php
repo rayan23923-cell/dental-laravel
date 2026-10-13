@@ -35,6 +35,7 @@ class RequiredTasksController extends Controller
 
         $instances = TaskInstance::where('doctor_id', $doctor->id)
             ->whereIn('task_id', $tasks->pluck('id'))
+            ->withCount('attachments')
             ->orderBy('id')
             ->get();
 
@@ -63,6 +64,8 @@ class RequiredTasksController extends Controller
                             // only; never gates the electronic form link
                             // above it.
                             'paper_case_sheet_confirmed_at' => $instance?->paper_case_sheet_confirmed_at,
+                            // Photos of the paper case sheet (2026-10-13).
+                            'attachments_count' => $instance?->attachments_count ?? 0,
                         ];
                     }
 

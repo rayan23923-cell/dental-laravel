@@ -6,6 +6,11 @@
  * event `{ payload, handled }`: an open QrScanner, or a page that scans
  * without opening one (the lab), takes it and sets `handled`. Codes nobody
  * takes are kept in `unhandled` so the pairing button can show them.
+ *
+ * Photos (2026-10-13): `requestPhonePhoto(label)` asks the phone for a
+ * picture (its page shows `label` and a camera button); each photo it
+ * sends is dispatched as a `remote-photo` event `{ scanId, handled }` for
+ * the open PaperPhotos dialog to attach.
  */
 import axios from 'axios';
 import { onBeforeUnmount, onMounted, reactive } from 'vue';
@@ -17,6 +22,7 @@ export const remoteScanner = reactive({
     lastId: 0,
     lastScan: null, // { payload, at }
     unhandled: null,
+    photoRequest: null, // what the phone is being asked to photograph
     error: '',
 });
 
@@ -50,11 +56,14 @@ const poll = async () => {
     try {
         const { data } = await axios.get(route('scanner-pairings.scans', pairing.id), { params: { after: remoteScanner.lastId } });
         pairing.phone_joined = data.data.phone_joined;
+        remoteScanner.photoRequest = data.data.photo_request ?? null;
         const skip = skipBacklog;
         skipBacklog = false;
         for (const scan of data.data.scans) {
             remoteScanner.lastId = scan.id;
-            if (!skip) dispatch(scan.payload);
+            if (skip) continue;
+            if (scan.photo) window.dispatchEvent(new CustomEvent('remote-photo', { detail: { scanId: scan.id, handled: false } }));
+            else dispatch(scan.payload);
         }
         remoteScanner.error = '';
         save();
@@ -123,4 +132,23 @@ export const onRemoteScan = (handler, isFree = () => true) => {
     };
     onMounted(() => window.addEventListener('remote-scan', listener));
     onBeforeUnmount(() => window.removeEventListener('remote-scan', listener));
+};
+
+/** Ask the paired phone for a photo; an empty label withdraws the request. */
+export const requestPhonePhoto = async (label) => {
+    const pairing = remoteScanner.pairing;
+    if (!pairing) return;
+    const { data } = await axios.put(route('scanner-pairings.photo-request', pairing.id), { label: label || '' });
+    remoteScanner.photoRequest = data.data.photo_request;
+};
+
+/** `handler(scanId)` for each photo the phone sends while mounted. */
+export const onRemotePhoto = (handler) => {
+    const listener = (event) => {
+        if (event.detail.handled) return;
+        event.detail.handled = true;
+        handler(event.detail.scanId);
+    };
+    onMounted(() => window.addEventListener('remote-photo', listener));
+    onBeforeUnmount(() => window.removeEventListener('remote-photo', listener));
 };

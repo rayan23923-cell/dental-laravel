@@ -7,6 +7,7 @@ import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import QrScanner from '@/Components/QrScanner.vue';
 import PhoneScannerLink from '@/Components/PhoneScannerLink.vue';
+import PaperPhotos from '@/Components/PaperPhotos.vue';
 import { onRemoteScan } from '@/remoteScanner';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, ref } from 'vue';
@@ -247,6 +248,18 @@ onRemoteScan(
     },
     () => !scannerRef.value?.scanning,
 );
+
+// Photos of the paper case sheet (2026-10-13): from a card, or straight
+// after scanning a case's QR. `card` (when opened from one) gets the new count.
+const photosTarget = ref(null);
+const openPhotos = (instanceId, title, doctorName, card = null) => {
+    photosTarget.value = { instanceId, label: [title, doctorName].filter(Boolean).join(' - '), title, doctorName, card };
+};
+const photosFromScan = () => {
+    const r = scanResult.value;
+    closeScanner();
+    openPhotos(r.instance_id, r.task.title, r.doctor.name);
+};
 
 const rescan = async () => {
     scanResult.value = null;
@@ -506,6 +519,14 @@ const startFromScan = () => {
                                                                     <button v-if="card.instance_id && ['assigned', 'completed'].includes(card.status)" @click.stop="openEdit(card)" class="rounded bg-blue-500 px-2 py-1 text-white hover:bg-blue-600">
                                                                         {{ t('common.edit') }}
                                                                     </button>
+                                                                    <button
+                                                                        v-if="card.instance_id"
+                                                                        @click.stop="openPhotos(card.instance_id, card.task_title, doctor.name, card)"
+                                                                        class="rounded px-2 py-1"
+                                                                        :class="card.attachments_count ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
+                                                                    >
+                                                                        <Icon name="photo_library" class="ml-1" />{{ t('paperPhotos.button', { count: card.attachments_count ?? 0 }) }}
+                                                                    </button>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -549,6 +570,9 @@ const startFromScan = () => {
                     </div>
                     <div class="flex flex-wrap justify-end gap-2">
                         <SecondaryButton @click="rescan">{{ t('taskProgressAdmin.scanAnother') }}</SecondaryButton>
+                        <button type="button" class="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700" @click="photosFromScan">
+                            <Icon name="add_a_photo" class="ml-1" />{{ t('paperPhotos.attachFromScan') }}
+                        </button>
                         <a :href="scanResult.case_sheet_url" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
                             <Icon name="description" class="ml-1" />{{ t('taskProgressAdmin.openForm') }}
                         </a>
@@ -574,6 +598,24 @@ const startFromScan = () => {
 
                 <div class="mt-6 flex justify-end">
                     <SecondaryButton @click="closeScanner">{{ t('common.close') }}</SecondaryButton>
+                </div>
+            </div>
+        </Modal>
+
+        <!-- Paper case sheet photos (2026-10-13) -->
+        <Modal :show="photosTarget !== null" @close="photosTarget = null">
+            <div v-if="photosTarget" class="p-6">
+                <h2 class="text-lg font-medium text-gray-900"><Icon name="photo_library" class="ml-1" />{{ t('paperPhotos.title') }}</h2>
+                <p class="mt-1 text-sm text-gray-500">{{ photosTarget.label }}</p>
+                <PaperPhotos
+                    class="mt-4"
+                    mode="staff"
+                    :instance-id="photosTarget.instanceId"
+                    :label="photosTarget.label"
+                    @changed="(n) => photosTarget.card && (photosTarget.card.attachments_count = n)"
+                />
+                <div class="mt-6 flex justify-end">
+                    <SecondaryButton @click="photosTarget = null">{{ t('common.close') }}</SecondaryButton>
                 </div>
             </div>
         </Modal>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ScannerPairing;
+use App\Models\ScannerScan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,6 +16,9 @@ use Inertia\Response;
  * request). No login: the phone reaches `/scan/{token}` from the
  * computer's QR, or types the six-digit code at `/scan`, and then sends
  * every code its camera reads. See App\Models\ScannerPairing.
+ *
+ * When the computer asks for a photo (2026-10-13), `status()` tells the
+ * page so, and `photo()` takes the picture the phone sends.
  */
 class PhoneScannerController extends Controller
 {
@@ -58,6 +62,31 @@ class PhoneScannerController extends Controller
 
         $validated = $request->validate(['payload' => ['required', 'string', 'max:2000']]);
         $scan = $pairing->scans()->create(['payload' => $validated['payload']]);
+
+        return response()->json(['data' => ['id' => $scan->id]], 201);
+    }
+
+    /** What the computer is waiting for, polled by the phone's page. */
+    public function status(string $token): JsonResponse
+    {
+        $pairing = ScannerPairing::findActiveByToken($token);
+        abort_unless($pairing, 410, 'انتهى الربط. امسح رمز الحاسوب من جديد.');
+
+        return response()->json(['data' => ['photo_request' => $pairing->photo_request]]);
+    }
+
+    public function photo(Request $request, string $token): JsonResponse
+    {
+        $pairing = ScannerPairing::findActiveByToken($token);
+        abort_unless($pairing, 410, 'انتهى الربط. امسح رمز الحاسوب من جديد.');
+
+        $validated = $request->validate([
+            'photo' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:15360'],
+        ]);
+
+        $path = $validated['photo']->store($pairing->photoDir(), 'local');
+        $scan = $pairing->scans()->create(['payload' => ScannerScan::PHOTO, 'photo_path' => $path]);
+        $pairing->update(['photo_request' => null]);
 
         return response()->json(['data' => ['id' => $scan->id]], 201);
     }
