@@ -3,10 +3,11 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
+import { computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
-defineProps({
+const props = defineProps({
     assignments: Array,
     users: Array,
     departments: Array,
@@ -22,6 +23,17 @@ const form = useForm({
     role_type: 'senior',
     notes: '',
 });
+
+// Only the chosen stage's departments, so same-named departments of
+// different stages don't show up as duplicates (2026-10-13, by request).
+const stageDepartments = computed(() =>
+    form.stage_id ? props.departments.filter((d) => d.stage_id === Number(form.stage_id)) : []
+);
+watch(() => form.stage_id, () => {
+    if (!stageDepartments.value.some((d) => d.id === Number(form.department_id))) form.department_id = '';
+});
+
+const roleLabel = (type) => (type === 'senior' ? t('departmentRolesAdmin.seniorOption') : type === 'hr' ? t('departmentRolesAdmin.hrOption') : type);
 
 const assign = () => {
     form.post(route('department-roles.store'), {
@@ -68,18 +80,18 @@ const remove = (assignment) => {
                             <InputError :message="form.errors.user_id" />
                         </div>
                         <div>
-                            <select v-model="form.department_id" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
-                                <option value="" disabled>{{ t('doctorsAdmin.departmentLabel') }}</option>
-                                <option v-for="d in departments" :key="d.id" :value="d.id">{{ d.name }}</option>
-                            </select>
-                            <InputError :message="form.errors.department_id" />
-                        </div>
-                        <div>
                             <select v-model="form.stage_id" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
                                 <option value="" disabled>{{ t('doctorsAdmin.stageCol') }}</option>
                                 <option v-for="s in stages" :key="s.id" :value="s.id">{{ s.name }}</option>
                             </select>
                             <InputError :message="form.errors.stage_id" />
+                        </div>
+                        <div>
+                            <select v-model="form.department_id" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100" :disabled="!form.stage_id" required>
+                                <option value="" disabled>{{ form.stage_id ? t('tasksAdmin.selectDepartment') : t('tasksAdmin.selectStageFirst') }}</option>
+                                <option v-for="d in stageDepartments" :key="d.id" :value="d.id">{{ d.name }}</option>
+                            </select>
+                            <InputError :message="form.errors.department_id" />
                         </div>
                         <div>
                             <select v-model="form.role_type" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
@@ -108,7 +120,7 @@ const remove = (assignment) => {
                                 <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">{{ a.user?.full_name ?? '—' }}</td>
                                 <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ a.department?.name ?? '—' }}</td>
                                 <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ a.stage?.name ?? '—' }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ a.role_type }}</td>
+                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ roleLabel(a.role_type) }}</td>
                                 <td class="whitespace-nowrap px-6 py-4 text-sm">
                                     <span class="rounded-full px-2 py-1 text-xs font-medium" :class="a.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'">{{ a.status }}</span>
                                 </td>
