@@ -157,7 +157,14 @@
         "noTasksForEduType": "لا توجد مهام لنوع الدراسة المحدد.",
         "requiredLabel": "المطلوب",
         "taskCol": "المهمة",
-        "remainingCol": "المتبقي"
+        "remainingCol": "المتبقي",
+        "latestPayments": "أحدث المدفوعات",
+        "noPaymentsYet": "لا توجد مدفوعات بعد.",
+        "viewAll": "عرض الكل",
+        "todayIncome": "دخل اليوم",
+        "monthIncome": "الشهر: {amount}",
+        "todayCount": "اليوم: {n}",
+        "paymentsDesc": "الدفعات والوصولات والتقارير"
     },
     "doctorDashboard": {
         "title": "لوحة الطبيب",

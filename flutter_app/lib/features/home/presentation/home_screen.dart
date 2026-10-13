@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:intl/intl.dart';
+
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/widgets/academic_year_banner.dart';
+import '../../../core/widgets/chat_list_tile.dart';
 import '../../auth/domain/account_type.dart';
 import '../../auth/domain/auth_account.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../auth/presentation/auth_state.dart';
+import '../../patient_registration/presentation/patient_registration_providers.dart';
+import '../../records/presentation/records_providers.dart';
 import '../../task_instances/presentation/my_tasks_screen.dart';
 
 /// A doctor's home *is* their task list (`/my-task-progress` is
@@ -86,11 +91,13 @@ class _StaffDashboard extends StatelessWidget {
       t['labels.registerPatients']!,
       Icons.how_to_reg_outlined,
       () => context.push('/records/patient-registrations'),
+      Colors.indigo,
     );
     final labShortcut = _Shortcut(
       t['labels.lab']!,
       Icons.coronavirus_outlined,
       () => context.push('/records/patient-registrations/scan-screening'),
+      Colors.red,
     );
     final isDeskRole = role == 'reception' || role == 'lab';
     final shortcuts = role == 'reception'
@@ -100,190 +107,200 @@ class _StaffDashboard extends StatelessWidget {
             : [
       registerShortcut,
       // Appointments hidden for now (2026-10-13, by request), as on the web.
-      _Shortcut(t['labels.payments']!, Icons.payments_outlined, () => context.push('/records/payments')),
+      _Shortcut(t['labels.payments']!, Icons.payments_outlined, () => context.push('/records/payments'), Colors.orange),
       // Real bug found live: this still pointed at the old NFC-only
       // screen's route, removed when it was superseded by the full
       // day→group→department→doctor matrix (see that screen's own
       // docblock) — every tap crashed straight to "Page Not Found"
       // (`GoException: no routes for location: /admin/task-progress/nfc`).
       // The admin hub's own tile was updated at the time; this one was missed.
-      _Shortcut(t['labels.taskProgress']!, Icons.fact_check_outlined, () => context.push('/admin/task-progress')),
+      _Shortcut(t['labels.taskProgress']!, Icons.fact_check_outlined, () => context.push('/admin/task-progress'), Colors.lightBlue),
       // The infectious-disease screening feature (2026-08-25) had no
       // dashboard entry point at all — the only way in was a small icon
       // inside the patient-registrations list, easy to miss. Added
       // (2026-08-26) so "المختبر" is a first-class shortcut like every
       // other daily action here.
-      _Shortcut(
-        t['labels.lab']!,
-        Icons.coronavirus_outlined,
-        () => context.push('/records/patient-registrations/scan-screening'),
-      ),
+      labShortcut,
+    ];
+
+    // Chat-list layout (2026-10-13, by request), as on the web dashboard:
+    // the shortcuts as rows, then the latest registrations (opening the
+    // patient registry) and the latest payments.
+    final rows = [
+      for (final s in shortcuts) (s.label, null as String?, s.icon, s.color, s.onTap),
+      if (!isDeskRole) ...[
+        (t['nav.records']!, t['home.recordsSubtitle'], Icons.folder_shared_outlined, Colors.blueGrey, () => context.push('/records')),
+        (t['nav.admin']!, t['home.adminSubtitle'], Icons.admin_panel_settings_outlined, Colors.deepPurple, () => context.push('/admin')),
+      ],
     ];
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // Welcome header.
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: colors.primary.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: colors.primary.withValues(alpha: 0.2)),
-          ),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 26,
-                backgroundColor: colors.primary,
-                backgroundImage: profileImageUrl != null ? NetworkImage(profileImageUrl!) : null,
-                child: profileImageUrl == null ? const Icon(Icons.person, color: Colors.white, size: 28) : null,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(displayName, style: Theme.of(context).textTheme.titleLarge),
-                    const SizedBox(height: 2),
-                    Text(t['home.staffRole']!, style: Theme.of(context).textTheme.bodySmall),
-                  ],
-                ),
-              ),
-            ],
+        Card(
+          margin: EdgeInsets.zero,
+          clipBehavior: Clip.antiAlias,
+          child: ChatListTile(
+            title: displayName,
+            subtitle: t['home.staffRole'],
+            color: colors.primary,
+            icon: Icons.person,
+            imageUrl: profileImageUrl,
           ),
         ),
-
         const AcademicYearBanner(margin: EdgeInsets.only(top: 8)),
-
-        const SizedBox(height: 24),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Text(
-            t['home.quickShortcuts']!,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(color: colors.primary, fontWeight: FontWeight.w700),
+        const SizedBox(height: 16),
+        _SectionCard(
+          children: [
+            for (final r in rows)
+              ChatListTile(title: r.$1, subtitle: r.$2, icon: r.$3, color: r.$4, onTap: r.$5),
+          ],
+        ),
+        if (role != 'lab') ...[
+          const SizedBox(height: 20),
+          _SectionHeader(
+            title: t['home.latestPatients']!,
+            onViewAll: () => context.push('/records/patient-registrations'),
+            t: t,
           ),
-        ),
-        const SizedBox(height: 8),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          childAspectRatio: 2.2,
-          children: [for (final s in shortcuts) _ShortcutCard(shortcut: s)],
-        ),
-
+          const _LatestRegistrations(),
+        ],
         if (!isDeskRole) ...[
-        const SizedBox(height: 24),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Text(
-            t['home.sections']!,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(color: colors.primary, fontWeight: FontWeight.w700),
+          const SizedBox(height: 20),
+          _SectionHeader(
+            title: t['home.latestPayments']!,
+            onViewAll: () => context.push('/records/payments'),
+            t: t,
           ),
-        ),
-        const SizedBox(height: 8),
-        _HubCard(
-          title: t['nav.records']!,
-          subtitle: t['home.recordsSubtitle']!,
-          icon: Icons.folder_shared_outlined,
-          onTap: () => context.push('/records'),
-        ),
-        const SizedBox(height: 10),
-        _HubCard(
-          title: t['nav.admin']!,
-          subtitle: t['home.adminSubtitle']!,
-          icon: Icons.admin_panel_settings_outlined,
-          onTap: () => context.push('/admin'),
-        ),
+          const _LatestPayments(),
         ],
       ],
     );
   }
 }
 
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({required this.children});
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) chatDivider,
+            children[i],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, required this.onViewAll, required this.t});
+  final String title;
+  final VoidCallback onViewAll;
+  final Map<String, String> t;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(start: 4, bottom: 4),
+      child: Row(
+        children: [
+          Expanded(child: Text(title, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700))),
+          TextButton(onPressed: onViewAll, child: Text(t['home.viewAll']!)),
+        ],
+      ),
+    );
+  }
+}
+
+String _fmtDate(String? iso) {
+  final d = iso == null ? null : DateTime.tryParse(iso)?.toLocal();
+  return d == null ? '—' : DateFormat('yyyy/MM/dd HH:mm').format(d);
+}
+
+/// The five newest registrations; each opens the patient registry.
+class _LatestRegistrations extends ConsumerWidget {
+  const _LatestRegistrations();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider);
+    final async = ref.watch(patientRegistrationListProvider(null));
+    return async.when(
+      loading: () => const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator())),
+      error: (e, _) => _SectionCard(children: [ListTile(title: Text(e.toString()))]),
+      data: (items) {
+        if (items.isEmpty) return _SectionCard(children: [ListTile(title: Text(t['home.noPatientsYet']!))]);
+        return _SectionCard(
+          children: [
+            for (final r in items.take(5))
+              ChatListTile(
+                title: r.name,
+                color: chatToneFor(r.id),
+                onTap: () => context.push('/records/patient-registrations'),
+                chips: [
+                  if (r.phone.isNotEmpty) ChatChip(label: r.phone, icon: Icons.call_outlined),
+                  if (r.serviceName != null) ChatChip(label: r.serviceName!, icon: Icons.medical_services_outlined, color: Colors.indigo),
+                  switch (r.screeningStatus) {
+                    'clear' => ChatChip(label: t['patientRegFlutter.screeningClear']!, icon: Icons.verified_outlined, color: Colors.green),
+                    'flagged' => ChatChip(label: t['patientRegFlutter.screeningFlagged']!, icon: Icons.coronavirus_outlined, color: Colors.red),
+                    _ => ChatChip(label: t['patientRegFlutter.screeningPending']!, icon: Icons.hourglass_empty, color: Colors.orange),
+                  },
+                  ChatChip(label: _fmtDate(r.createdAt), icon: Icons.schedule),
+                ],
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// The five newest payments; each opens the payments list.
+class _LatestPayments extends ConsumerWidget {
+  const _LatestPayments();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider);
+    final async = ref.watch(paymentListProvider((search: null, from: null, to: null, source: null)));
+    final money = NumberFormat('#,##0', 'en');
+    return async.when(
+      loading: () => const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator())),
+      error: (e, _) => _SectionCard(children: [ListTile(title: Text(e.toString()))]),
+      data: (page) {
+        if (page.items.isEmpty) return _SectionCard(children: [ListTile(title: Text(t['home.noPaymentsYet']!))]);
+        return _SectionCard(
+          children: [
+            for (final p in page.items.take(5))
+              ChatListTile(
+                title: p.personName,
+                color: Colors.teal,
+                icon: Icons.payments_outlined,
+                onTap: () => context.push('/records/payments'),
+                chips: [
+                  ChatChip(label: money.format(p.amount), icon: Icons.payments_outlined, color: Colors.green),
+                  ChatChip(label: _fmtDate(p.paidAt), icon: Icons.schedule),
+                ],
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _Shortcut {
-  const _Shortcut(this.label, this.icon, this.onTap);
+  const _Shortcut(this.label, this.icon, this.onTap, [this.color = Colors.indigo]);
   final String label;
   final IconData icon;
   final VoidCallback onTap;
-}
-
-class _ShortcutCard extends StatelessWidget {
-  const _ShortcutCard({required this.shortcut});
-  final _Shortcut shortcut;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: shortcut.onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            children: [
-              Icon(shortcut.icon, color: colors.primary),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  shortcut.label,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _HubCard extends StatelessWidget {
-  const _HubCard({required this.title, required this.subtitle, required this.icon, required this.onTap});
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: colors.primary.withValues(alpha: 0.12),
-                child: Icon(icon, color: colors.primary),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 2),
-                    Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_left),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  final Color color;
 }

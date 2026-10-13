@@ -157,7 +157,14 @@
         "noTasksForEduType": "No tasks for the selected education type.",
         "requiredLabel": "Required",
         "taskCol": "Task",
-        "remainingCol": "Remaining"
+        "remainingCol": "Remaining",
+        "latestPayments": "Latest payments",
+        "noPaymentsYet": "No payments yet.",
+        "viewAll": "View all",
+        "todayIncome": "Today's income",
+        "monthIncome": "Month: {amount}",
+        "todayCount": "Today: {n}",
+        "paymentsDesc": "Payments, receipts and reports"
     },
     "doctorDashboard": {
         "title": "Doctor Dashboard",

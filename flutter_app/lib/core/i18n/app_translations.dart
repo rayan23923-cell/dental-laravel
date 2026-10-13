@@ -98,6 +98,11 @@ const Map<String, String> kTranslationsAr = {
   'home.sections': 'الأقسام',
   'home.recordsSubtitle': 'المرضى، المواعيد، الدفعات',
   'home.adminSubtitle': 'الأطباء، البيانات الأساسية، الإعدادات',
+  'home.latestPatients': 'أحدث المراجعين',
+  'home.latestPayments': 'أحدث المدفوعات',
+  'home.viewAll': 'عرض الكل',
+  'home.noPatientsYet': 'لا يوجد مراجعون بعد.',
+  'home.noPaymentsYet': 'لا توجد مدفوعات بعد.',
 
   'labels.registerNewPatient': 'تسجيل مريض جديد',
   'labels.registerPatients': 'تسجيل المرضى',
@@ -923,6 +928,11 @@ const Map<String, String> kTranslationsEn = {
   'home.sections': 'Sections',
   'home.recordsSubtitle': 'Patients, appointments, payments',
   'home.adminSubtitle': 'Doctors, reference data, settings',
+  'home.latestPatients': 'Latest patients',
+  'home.latestPayments': 'Latest payments',
+  'home.viewAll': 'View all',
+  'home.noPatientsYet': 'No patients yet.',
+  'home.noPaymentsYet': 'No payments yet.',
 
   'labels.registerNewPatient': 'Register New Patient',
   'labels.registerPatients': 'Register Patients',
