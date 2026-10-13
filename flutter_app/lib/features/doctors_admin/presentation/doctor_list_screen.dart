@@ -10,6 +10,7 @@ import '../../../core/nfc/nfc_uid_reader.dart';
 import '../../../core/pdf/pdf_letterhead.dart';
 import '../../../core/widgets/academic_year_banner.dart';
 import '../../../core/widgets/cascading_dropdown.dart';
+import '../../../core/widgets/chat_list_tile.dart';
 import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../domain/doctor_admin.dart';
 import 'doctor_roster_pdf.dart';
@@ -117,53 +118,69 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push('/admin/doctors/new'),
-        child: const Icon(Icons.add),
+        tooltip: t['doctorsAdmin.newTitle'],
+        child: const Icon(Icons.person_add_alt_1),
       ),
       body: Column(
         children: [
           const AcademicYearBanner(),
+          // Chat-list style (2026-10-13, by request): search pill + compact
+          // rounded filter row instead of stacked outlined fields.
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
             child: Column(
               children: [
-                TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.search),
-                    hintText: t['doctorsAdmin.searchHint'],
-                    border: const OutlineInputBorder(),
-                    isDense: true,
-                    suffixIcon: _scanningNfc
+                Row(
+                  children: [
+                    Expanded(
+                      child: ChatSearchField(
+                        controller: _searchController,
+                        hintText: t['doctorsAdmin.searchHint']!,
+                        onSubmitted: (v) => setState(() => _search = v.trim().isEmpty ? null : v.trim()),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    _scanningNfc
                         ? const Padding(
                             padding: EdgeInsets.all(12),
                             child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
                           )
                         : IconButton(icon: const Icon(Icons.nfc), tooltip: t['doctorsAdmin.scanNfcTooltip'], onPressed: _scanNfc),
-                  ),
-                  onSubmitted: (v) => setState(() => _search = v.trim().isEmpty ? null : v.trim()),
+                  ],
                 ),
                 const SizedBox(height: 8),
-                CascadingDropdown(
-                  label: t['doctorsAdmin.educationTypeLabel']!,
-                  itemsAsync: educationTypesAsync,
-                  value: _educationTypeId,
-                  onChanged: (v) => setState(() {
-                    _educationTypeId = v;
-                    _stageId = null;
-                  }),
-                ),
-                const SizedBox(height: 8),
-                CascadingDropdown(
-                  key: ValueKey('stage-$_educationTypeId'),
-                  label: t['doctorsAdmin.stageLabel']!,
-                  itemsAsync: stagesAsync.whenData(
-                    (items) => _educationTypeId == null
-                        ? items
-                        : items.where((s) => s.educationTypeId == _educationTypeId).toList(),
+                Theme(
+                  data: _pillFilterTheme(context),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: CascadingDropdown(
+                          label: t['doctorsAdmin.educationTypeLabel']!,
+                          itemsAsync: educationTypesAsync,
+                          value: _educationTypeId,
+                          onChanged: (v) => setState(() {
+                            _educationTypeId = v;
+                            _stageId = null;
+                          }),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: CascadingDropdown(
+                          key: ValueKey('stage-$_educationTypeId'),
+                          label: t['doctorsAdmin.stageLabel']!,
+                          itemsAsync: stagesAsync.whenData(
+                            (items) => _educationTypeId == null
+                                ? items
+                                : items.where((s) => s.educationTypeId == _educationTypeId).toList(),
+                          ),
+                          value: _stageId,
+                          enabled: _educationTypeId != null,
+                          onChanged: (v) => setState(() => _stageId = v),
+                        ),
+                      ),
+                    ],
                   ),
-                  value: _stageId,
-                  enabled: _educationTypeId != null,
-                  onChanged: (v) => setState(() => _stageId = v),
                 ),
               ],
             ),
@@ -181,9 +198,9 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
                 return RefreshIndicator(
                   onRefresh: () async => ref.invalidate(doctorAdminListProvider(_filter)),
                   child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    padding: const EdgeInsets.only(top: 4, bottom: 88),
                     itemCount: page.items.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    separatorBuilder: (_, __) => chatDivider,
                     itemBuilder: (context, i) => _DoctorTile(doctor: page.items[i]),
                   ),
                 );
@@ -196,27 +213,50 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
   }
 }
 
+/// Chat-list row (2026-10-13, by request): photo or initial avatar, name,
+/// username, and stage/education-type chips.
 class _DoctorTile extends StatelessWidget {
   const _DoctorTile({required this.doctor});
   final DoctorAdmin doctor;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundImage: doctor.profileImageUrl != null ? NetworkImage(doctor.profileImageUrl!) : null,
-          child: doctor.profileImageUrl == null ? Text(doctor.name.isNotEmpty ? doctor.name[0] : '?') : null,
-        ),
-        title: Text(doctor.name),
-        subtitle: Text([
-          doctor.username,
-          if (doctor.stageName != null) doctor.stageName!,
-          if (doctor.educationTypeName != null) doctor.educationTypeName!,
-        ].join(' · ')),
-        trailing: const Icon(Icons.chevron_left),
-        onTap: () => context.push('/admin/doctors/${doctor.id}'),
-      ),
+    final color = chatToneFor(doctor.id);
+    return ChatListTile(
+      title: doctor.name,
+      color: color,
+      imageUrl: doctor.profileImageUrl,
+      subtitle: doctor.username,
+      chips: [
+        if (doctor.stageName != null) ChatChip(label: doctor.stageName!, icon: Icons.stairs_outlined, color: color),
+        if (doctor.educationTypeName != null)
+          ChatChip(label: doctor.educationTypeName!, icon: Icons.school_outlined, color: Colors.blueGrey),
+      ],
+      onTap: () => context.push('/admin/doctors/${doctor.id}'),
     );
   }
+}
+
+/// Rounded, dense "pill" look for the filter dropdowns above a chat list.
+ThemeData _pillFilterTheme(BuildContext context) {
+  final theme = Theme.of(context);
+  final border = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(30),
+    borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08)),
+  );
+  return theme.copyWith(
+    dropdownMenuTheme: DropdownMenuThemeData(
+      inputDecorationTheme: InputDecorationTheme(
+        isDense: true,
+        filled: true,
+        fillColor: theme.colorScheme.surface,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        border: border,
+        enabledBorder: border,
+        constraints: const BoxConstraints(maxHeight: 44),
+        labelStyle: const TextStyle(fontSize: 13),
+      ),
+      textStyle: const TextStyle(fontSize: 13),
+    ),
+  );
 }

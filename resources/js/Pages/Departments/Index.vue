@@ -1,6 +1,12 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import DataTable from '@/Components/DataTable.vue';
+import ChatListCard from '@/Components/ChatList/ChatListCard.vue';
+import ChatListRow from '@/Components/ChatList/ChatListRow.vue';
+import ChatChip from '@/Components/ChatList/ChatChip.vue';
+import ChatAction from '@/Components/ChatList/ChatAction.vue';
+import ChatSearch from '@/Components/ChatList/ChatSearch.vue';
+import ChatAddButton from '@/Components/ChatList/ChatAddButton.vue';
+import { toneFor } from '@/Components/ChatList/tones';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import Modal from '@/Components/Modal.vue';
@@ -67,9 +73,20 @@ watch(
         }
     }
 );
+// Chat-list style (2026-10-13, by request): adding opens a dialog from
+// the round "+" in the header instead of an inline form.
+const creating = ref(false);
+const openCreate = () => {
+    createForm.reset();
+    createForm.clearErrors();
+    creating.value = true;
+};
 const submitCreate = () => {
     createForm.post(route('departments.store'), {
-        onSuccess: () => createForm.reset(),
+        onSuccess: () => {
+            createForm.reset();
+            creating.value = false;
+        },
     });
 };
 
@@ -105,13 +122,6 @@ const destroy = (department) => {
         router.delete(route('departments.destroy', department.id));
     }
 };
-
-const columns = [
-    { key: 'name', label: t('profile.name'), sortable: true },
-    { key: 'stage.name', label: t('doctorsAdmin.stageCol'), sortable: true },
-    { key: 'education_type.name', label: t('taxonomyAdmin.educationTypeLabel'), sortable: true },
-    { key: 'actions', label: t('doctorsAdmin.actionsCol'), align: 'right' },
-];
 </script>
 
 <template>
@@ -119,59 +129,28 @@ const columns = [
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                {{ t('structureTabs.departments') }}
-            </h2>
+            <div class="flex items-center justify-between gap-3">
+                <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('structureTabs.departments') }}</h2>
+                <ChatAddButton :label="t('chatList.addDepartment')" @click="openCreate" />
+            </div>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-5xl space-y-4 sm:px-6 lg:px-8">
+        <div class="py-6 sm:py-10">
+            <div class="mx-auto max-w-2xl space-y-4 px-4 sm:px-6 lg:px-8">
                 <StructureTabs active="departments" />
 
-                <div
-                    v-if="page.props.flash?.success"
-                    class="rounded-md bg-green-50 p-4 text-sm text-green-700"
-                >
+                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
                     {{ page.props.flash.success }}
                 </div>
 
-                <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                    <form @submit.prevent="submitCreate" class="flex flex-wrap items-start gap-3">
-                        <div class="flex-1" style="min-width: 12rem">
-                            <TextInput v-model="createForm.name" type="text" :placeholder="t('departmentsAdmin.newNamePlaceholder')" class="block w-full" required />
-                            <InputError class="mt-2" :message="createForm.errors.name" />
-                        </div>
-                        <div class="w-48">
-                            <select v-model="createForm.education_type_id" required class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                <option value="" disabled>{{ t('departmentsAdmin.chooseEducationType') }}</option>
-                                <option v-for="type in educationTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
-                            </select>
-                            <InputError class="mt-2" :message="createForm.errors.education_type_id" />
-                        </div>
-                        <div class="w-48">
-                            <select v-model="createForm.stage_id" required class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                <option value="" disabled>{{ t('departmentsAdmin.chooseStage') }}</option>
-                                <option v-for="stage in filteredCreateStages" :key="stage.id" :value="stage.id">{{ stage.name }}</option>
-                            </select>
-                            <InputError class="mt-2" :message="createForm.errors.stage_id" />
-                        </div>
-                        <PrimaryButton :disabled="createForm.processing">{{ t('common.add') }}</PrimaryButton>
-                    </form>
-                </div>
+                <ChatSearch v-model="search" :placeholder="t('taxonomyAdmin.searchPlaceholder')" @submit="applyFilters" />
 
-                <div class="flex flex-wrap gap-2 rounded-lg bg-white p-4 shadow-sm">
-                    <input
-                        v-model="search"
-                        @keyup.enter="applyFilters"
-                        type="text"
-                        :placeholder="t('taxonomyAdmin.searchPlaceholder')"
-                        class="block flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                        style="min-width: 12rem"
-                    />
+                <div class="flex flex-wrap gap-2">
                     <select
                         v-model="filterEducationTypeId"
                         @change="onFilterEducationTypeChange"
-                        class="w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        :aria-label="t('taxonomyAdmin.educationTypeLabel')"
+                        class="rounded-full border-gray-200 bg-white py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     >
                         <option value="">{{ t('taxonomyAdmin.allEducationTypes') }}</option>
                         <option v-for="type in educationTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
@@ -179,26 +158,63 @@ const columns = [
                     <select
                         v-model="filterStageId"
                         @change="applyFilters"
-                        class="w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        :aria-label="t('doctorsAdmin.stageCol')"
+                        class="rounded-full border-gray-200 bg-white py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     >
                         <option value="">{{ t('taxonomyAdmin.allStages') }}</option>
                         <option v-for="stage in filteredStages" :key="stage.id" :value="stage.id">{{ stage.name }}</option>
                     </select>
-                    <SecondaryButton @click="applyFilters">{{ t('taxonomyAdmin.searchButton') }}</SecondaryButton>
                 </div>
 
-                <DataTable
-                    :columns="columns"
-                    :rows="departments"
+                <ChatListCard
+                    :empty="departments.length === 0"
                     :empty-text="search || filterStageId || filterEducationTypeId ? t('taxonomyAdmin.noMatchingResults') : t('departmentsAdmin.emptyList')"
+                    empty-icon="apartment"
                 >
-                    <template #cell-actions="{ row: department }">
-                        <button @click="openEdit(department)" class="text-indigo-600 hover:text-indigo-900">{{ t('common.edit') }}</button>
-                        <button @click="destroy(department)" class="ml-4 text-red-600 hover:text-red-900">{{ t('common.delete') }}</button>
-                    </template>
-                </DataTable>
+                    <ChatListRow v-for="department in departments" :key="department.id" :title="department.name" icon="apartment" :tone="toneFor(department.id)">
+                        <template #meta>
+                            <ChatChip v-if="department.stage?.name" icon="stairs" tone="indigo">{{ department.stage.name }}</ChatChip>
+                            <ChatChip v-if="department.education_type?.name" icon="school" tone="sky">{{ department.education_type.name }}</ChatChip>
+                        </template>
+                        <template #actions>
+                            <ChatAction icon="edit" :label="t('common.edit')" @click="openEdit(department)" />
+                            <ChatAction icon="delete" :label="t('common.delete')" danger @click="destroy(department)" />
+                        </template>
+                    </ChatListRow>
+                </ChatListCard>
             </div>
         </div>
+
+        <Modal :show="creating" @close="creating = false">
+            <form @submit.prevent="submitCreate" class="p-6">
+                <h2 class="text-lg font-medium text-gray-900">{{ t('chatList.addDepartment') }}</h2>
+                <div class="mt-4">
+                    <InputLabel for="create-name" :value="t('profile.name')" />
+                    <TextInput id="create-name" v-model="createForm.name" type="text" :placeholder="t('departmentsAdmin.newNamePlaceholder')" class="mt-1 block w-full" required />
+                    <InputError class="mt-2" :message="createForm.errors.name" />
+                </div>
+                <div class="mt-4">
+                    <InputLabel for="create-education-type" :value="t('taxonomyAdmin.educationTypeLabel')" />
+                    <select id="create-education-type" v-model="createForm.education_type_id" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="" disabled>{{ t('departmentsAdmin.chooseEducationType') }}</option>
+                        <option v-for="type in educationTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
+                    </select>
+                    <InputError class="mt-2" :message="createForm.errors.education_type_id" />
+                </div>
+                <div class="mt-4">
+                    <InputLabel for="create-stage" :value="t('doctorsAdmin.stageCol')" />
+                    <select id="create-stage" v-model="createForm.stage_id" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="" disabled>{{ t('departmentsAdmin.chooseStage') }}</option>
+                        <option v-for="stage in filteredCreateStages" :key="stage.id" :value="stage.id">{{ stage.name }}</option>
+                    </select>
+                    <InputError class="mt-2" :message="createForm.errors.stage_id" />
+                </div>
+                <div class="mt-6 flex justify-end gap-3">
+                    <SecondaryButton @click="creating = false">{{ t('common.cancel') }}</SecondaryButton>
+                    <PrimaryButton :disabled="createForm.processing">{{ t('common.add') }}</PrimaryButton>
+                </div>
+            </form>
+        </Modal>
 
         <Modal :show="editing !== null" @close="editing = null">
             <form @submit.prevent="submitEdit" class="p-6">

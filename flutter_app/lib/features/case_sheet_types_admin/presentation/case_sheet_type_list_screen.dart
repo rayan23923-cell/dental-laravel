@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/chat_list_tile.dart';
 import '../data/case_sheet_types_admin_repository.dart';
 import '../domain/case_sheet_type_admin.dart';
 import 'case_sheet_types_admin_providers.dart';
@@ -55,6 +56,7 @@ class CaseSheetTypeListScreen extends ConsumerWidget {
       appBar: AppBar(title: Text(t['caseSheetTypesAdmin.title']!)),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _openForm(context, ref),
+        tooltip: t['caseSheetTypesAdmin.newTitle'],
         child: const Icon(Icons.add),
       ),
       body: itemsAsync.when(
@@ -66,37 +68,47 @@ class CaseSheetTypeListScreen extends ConsumerWidget {
           if (items.isEmpty) {
             return Center(child: Text(t['caseSheetTypesAdmin.emptyList']!));
           }
+          // Chat-list style (2026-10-13, by request).
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(caseSheetTypeListProvider),
             child: ListView.separated(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.only(top: 8, bottom: 88),
               itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              separatorBuilder: (_, __) => chatDivider,
               itemBuilder: (context, i) {
                 final item = items[i];
-                return Card(
-                  child: ListTile(
-                    title: Text(item.nameAr),
-                    subtitle: Text('${item.nameEn} · ${item.typeCode} · ${item.tasksCount} ${t['caseSheetTypesAdmin.tasksSuffix']}'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (!item.isActive)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4),
-                            child: Chip(label: Text(t['caseSheetTypesAdmin.inactiveChip']!), visualDensity: VisualDensity.compact),
-                          ),
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined),
-                          onPressed: () => _openForm(context, ref, item: item),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: () => _delete(context, ref, item),
-                        ),
-                      ],
+                return ChatListTile(
+                  title: item.nameAr,
+                  subtitle: item.nameEn,
+                  icon: Icons.description,
+                  color: item.isActive ? chatToneFor(item.id) : Colors.grey,
+                  chips: [
+                    Directionality(
+                      textDirection: TextDirection.ltr,
+                      child: ChatChip(label: item.typeCode, icon: Icons.tag),
                     ),
-                  ),
+                    ChatChip(
+                      label: '${item.tasksCount} ${t['caseSheetTypesAdmin.tasksSuffix']}',
+                      icon: Icons.assignment,
+                      color: Colors.indigo,
+                    ),
+                    if (!item.isActive)
+                      ChatChip(label: t['caseSheetTypesAdmin.inactiveChip']!, icon: Icons.block, color: Colors.red),
+                  ],
+                  onTap: () => _openForm(context, ref, item: item),
+                  actions: [
+                    ChatAction(
+                      icon: Icons.edit_outlined,
+                      tooltip: t['caseSheetTypesAdmin.editTitle']!,
+                      onPressed: () => _openForm(context, ref, item: item),
+                    ),
+                    ChatAction(
+                      icon: Icons.delete_outline,
+                      tooltip: t['caseSheetTypesAdmin.delete']!,
+                      danger: true,
+                      onPressed: () => _delete(context, ref, item),
+                    ),
+                  ],
                 );
               },
             ),
