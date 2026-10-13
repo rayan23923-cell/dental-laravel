@@ -8,6 +8,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/chat_list_tile.dart';
 import '../data/backup_admin_repository.dart';
 import '../domain/backup_status.dart';
 import 'backup_admin_providers.dart';
@@ -88,46 +89,59 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(backupStatusProvider),
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.only(bottom: 24),
               children: [
-                Text(
-                  status.lastBackupAt != null
-                      ? trf(t['backupAdmin.lastBackupAt']!, {'date': dateFormat.format(status.lastBackupAt!)})
-                      : t['backupAdmin.noPreviousBackup']!,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 8),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: status.enabled,
-                  onChanged: _togglingAuto ? null : _toggleAuto,
-                  title: Text(t['backupAdmin.enableDailyAuto']!),
-                ),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: _creating ? null : _createBackup,
-                  icon: _creating
-                      ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.backup_outlined),
-                  label: Text(_creating ? t['backupAdmin.creating']! : t['backupAdmin.createNow']!),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(8),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        status.lastBackupAt != null
+                            ? trf(t['backupAdmin.lastBackupAt']!, {'date': dateFormat.format(status.lastBackupAt!)})
+                            : t['backupAdmin.noPreviousBackup']!,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: status.enabled,
+                        onChanged: _togglingAuto ? null : _toggleAuto,
+                        title: Text(t['backupAdmin.enableDailyAuto']!),
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton.icon(
+                        onPressed: _creating ? null : _createBackup,
+                        icon: _creating
+                            ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.backup_outlined),
+                        label: Text(_creating ? t['backupAdmin.creating']! : t['backupAdmin.createNow']!),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          t['backupAdmin.scheduleNote']!,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Text(t['backupAdmin.recentBackupsHeading']!, style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 4),
+                      if (status.files.isEmpty) Text(t['backupAdmin.emptyList']!),
+                    ],
                   ),
-                  child: Text(
-                    t['backupAdmin.scheduleNote']!,
-                    style: const TextStyle(fontSize: 12),
-                  ),
                 ),
-                const SizedBox(height: 24),
-                Text(t['backupAdmin.recentBackupsHeading']!, style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                if (status.files.isEmpty) Text(t['backupAdmin.emptyList']!),
-                for (final file in status.files) _BackupFileTile(file: file, formatSize: _formatSize, dateFormat: dateFormat),
+                // Chat-list style (2026-10-13, by request): backup files as
+                // divided chat rows instead of cards.
+                for (final (i, file) in status.files.indexed) ...[
+                  if (i > 0) chatDivider,
+                  _BackupFileTile(file: file, formatSize: _formatSize, dateFormat: dateFormat),
+                ],
               ],
             ),
           );
@@ -145,22 +159,17 @@ class _BackupFileTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        dense: true,
-        leading: const Icon(Icons.description_outlined),
-        title: Directionality(
-          textDirection: TextDirection.ltr,
-          child: Text(file.name, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
-        ),
-        // Forced LTR: two LTR-ish values (a size, a date) joined only by
-        // "·" have no strong-direction anchor inside RTL text — same bidi
-        // reordering issue documented in permission_edit_screen.dart.
-        subtitle: Directionality(
-          textDirection: TextDirection.ltr,
-          child: Text('${formatSize(file.size)} · ${dateFormat.format(file.mtime)}'),
-        ),
-      ),
+    // Chat-list row (2026-10-13, by request). The file name and the size /
+    // date chips are LTR-isolated: LTR-ish values have no strong-direction
+    // anchor inside RTL text (see permission_edit_screen.dart).
+    return ChatListTile(
+      title: '\u2066${file.name}\u2069',
+      color: Colors.indigo,
+      icon: Icons.inventory_2_outlined,
+      chips: [
+        ChatChip(label: '\u2066${formatSize(file.size)}\u2069', icon: Icons.sd_storage_outlined, color: Colors.teal),
+        ChatChip(label: '\u2066${dateFormat.format(file.mtime)}\u2069', icon: Icons.schedule, color: Colors.blueGrey),
+      ],
     );
   }
 }

@@ -1132,6 +1132,7 @@
         "currentSession": "Current",
         "viewingSession": "Viewing",
         "addStage": "Add stage",
-        "addDepartment": "Add department"
+        "addDepartment": "Add department",
+        "printReceipt": "Print receipt"
     }
 }

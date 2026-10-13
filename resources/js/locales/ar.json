@@ -1132,6 +1132,7 @@
         "currentSession": "الحالي",
         "viewingSession": "المعروض",
         "addStage": "إضافة مرحلة",
-        "addDepartment": "إضافة قسم"
+        "addDepartment": "إضافة قسم",
+        "printReceipt": "طباعة الوصل"
     }
 }
