@@ -18,6 +18,7 @@ class Appointment extends Model
         'patient_id',
         'patient_registration_id',
         'doctor_id',
+        'case_sheet_doctor_id',
         'task_id',
         'appointment_date',
         'confirmed_by_accountant',
@@ -46,7 +47,8 @@ class Appointment extends Model
 
     public function patientRegistration(): BelongsTo
     {
-        return $this->belongsTo(PatientRegistration::class);
+        // Archived registrations still name their records (2026-10-12).
+        return $this->belongsTo(PatientRegistration::class)->withTrashed();
     }
 
     /**
@@ -64,6 +66,17 @@ class Appointment extends Model
     public function task(): BelongsTo
     {
         return $this->belongsTo(Task::class);
+    }
+
+    /**
+     * The student actually treating this patient's case sheet for this
+     * task (`doctors.id`) — kept in sync by `AppointmentPatientSync`, not
+     * a value the appointment form itself sets. Distinct from `doctor()`
+     * above, which is the staff user who booked/manages the appointment.
+     */
+    public function caseSheetDoctor(): BelongsTo
+    {
+        return $this->belongsTo(Doctor::class, 'case_sheet_doctor_id');
     }
 
     public function payments(): HasMany

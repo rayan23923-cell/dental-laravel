@@ -7,6 +7,7 @@ use App\Models\Doctor;
 use App\Models\EducationType;
 use App\Models\Stage;
 use App\Services\AcademicSessionHelper;
+use App\Services\CredentialMailer;
 use App\Services\ScopeHelper;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -103,7 +104,9 @@ class DoctorController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $this->validateDoctor($request);
-        $validated['password'] = Hash::make($validated['password']);
+        // Left blank: generate one. Either way it goes to the new doctor by email.
+        $plainPassword = $validated['password'] ?? null ?: CredentialMailer::generatePassword();
+        $validated['password'] = Hash::make($plainPassword);
 
         // A new doctor belongs to the session currently being worked in —
         // the same rule GroupController uses when creating a group, so a new
@@ -114,7 +117,8 @@ class DoctorController extends Controller
             $validated['profile_image'] = $request->file('profile_image')->store('doctors', 'public');
         }
 
-        Doctor::create($validated);
+        $doctor = Doctor::create($validated);
+        CredentialMailer::queueWelcome('doctor', $doctor->email, $doctor->name, $doctor->username, $plainPassword);
 
         return redirect()->route('doctors.index')->with('success', 'Doctor added successfully.');
     }
@@ -191,7 +195,8 @@ class DoctorController extends Controller
             'phone' => ['nullable', 'string', 'max:50'],
             'education_type_id' => ['required', 'exists:education_types,id'],
             'stage_id' => ['required', 'exists:stages,id'],
-            'password' => [$doctorId ? 'nullable' : 'required', 'string', 'min:6'],
+            // Optional on create too: blank means "generate one" (see store()).
+            'password' => ['nullable', 'string', 'min:6'],
             'profile_image' => ['nullable', 'image', 'max:2048'],
             // Only the edit form posts this; on create it's filled from the
             // session being worked in (see store()).

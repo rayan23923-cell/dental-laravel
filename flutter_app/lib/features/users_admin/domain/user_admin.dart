@@ -40,4 +40,6 @@ const List<(String value, String label)> kAssignableUserRoles = [
   ('accountant', 'محاسب'),
   ('senior', 'مسؤول قسم'),
   ('hr', 'موارد بشرية'),
+  ('reception', 'موظف التذاكر'),
+  ('lab', 'مختبري'),
 ];

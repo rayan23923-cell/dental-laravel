@@ -1,4 +1,4 @@
-# Dental Clinic offline settings. Edit, then restart (Stop.bat then Start.bat).
+# Dental Clinic offline settings. Edit (Settings button in the panel), then press Stop and Start.
 # Name devices on the network use to open the system: https://clinic.lan
 SERVER_NAME=clinic.lan
 # How many requests are handled at the same time (raise for more users).
@@ -8,3 +8,6 @@ HTTP_PORT=80
 HTTPS_PORT=443
 # Leave empty to detect this computer's network address automatically.
 SERVER_IP=
+# 1 = a phone or computer joining the Wi-Fi opens the system by itself
+# (the "sign in to network" page). Needs the router DNS set to this computer.
+AUTO_OPEN=1

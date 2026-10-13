@@ -11,6 +11,7 @@ import axios from 'axios';
 
 const { t } = useI18n();
 const props = defineProps({
+    can: { type: Object, default: () => ({ archive: true, settings: true, screening: true }) },
     registrations: Object,
     days: { type: Array, default: () => [] },
     filters: Object,
@@ -20,6 +21,10 @@ const page = usePage();
 const search = ref(props.filters.search || '');
 const registerDayId = ref(props.filters.register_day_id ?? '');
 const serviceId = ref(props.filters.service_id ?? '');
+// Archive tab (2026-10-12): deleting archives a registration instead of
+// removing it, so its payments stay; archived ones are listed here and
+// can be restored.
+const archived = computed(() => ['1', 1, true, 'true'].includes(props.filters.archived));
 
 // Day narrows the service dropdown's *options* only — a soft convenience
 // cascade, not a hard requirement, since this is a filter (picking a
@@ -38,9 +43,15 @@ const applyFilters = () => {
             ...(search.value ? { search: search.value } : {}),
             ...(registerDayId.value ? { register_day_id: registerDayId.value } : {}),
             ...(serviceId.value ? { service_id: serviceId.value } : {}),
+            ...(archived.value ? { archived: 1 } : {}),
         },
         { preserveState: true, replace: true }
     );
+};
+
+const showArchive = (value) => {
+    selected.value = [];
+    router.get(route('patient-registrations.index'), value ? { archived: 1 } : {});
 };
 
 let searchTimer;
@@ -62,7 +73,7 @@ const clearFilters = () => {
     search.value = '';
     registerDayId.value = '';
     serviceId.value = '';
-    router.get(route('patient-registrations.index'));
+    router.get(route('patient-registrations.index'), archived.value ? { archived: 1 } : {});
 };
 
 // --- Selection + bulk delete (2026-10-11), same as the doctors table ---
@@ -87,6 +98,13 @@ const destroySelected = () => {
             onSuccess: () => (selected.value = []),
         });
     }
+};
+const restoreSelected = () => {
+    if (!selected.value.length) return;
+    router.post(route('patient-registrations.restore-many'), { ids: selected.value }, {
+        preserveScroll: true,
+        onSuccess: () => (selected.value = []),
+    });
 };
 const destroyAll = () => {
     const n = props.registrations.total;
@@ -149,7 +167,7 @@ const confirmScreening = async (status) => {
                     <Link :href="route('patient-registrations.create')">
                         <PrimaryButton>+ {{ t('patientReg.newRegistration') }}</PrimaryButton>
                     </Link>
-                    <Link :href="route('patient-registrations.settings')" class="text-sm text-indigo-600 hover:underline">{{ t('patientReg.settingsLink') }}</Link>
+                    <Link v-if="can.settings" :href="route('patient-registrations.settings')" class="text-sm text-indigo-600 hover:underline">{{ t('patientReg.settingsLink') }}</Link>
                 </div>
             </div>
         </template>
@@ -183,18 +201,42 @@ const confirmScreening = async (status) => {
                     <SecondaryButton v-if="hasFilters" @click="clearFilters">{{ t('patientReg.clearFilters') }}</SecondaryButton>
                 </div>
 
+                <div class="flex gap-2">
+                    <button
+                        type="button"
+                        @click="showArchive(false)"
+                        class="rounded-full px-4 py-1.5 text-sm font-medium"
+                        :class="!archived ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50'"
+                    >
+                        {{ t('patientReg.currentTab') }}
+                    </button>
+                    <button
+                        type="button"
+                        @click="showArchive(true)"
+                        class="rounded-full px-4 py-1.5 text-sm font-medium"
+                        :class="archived ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50'"
+                    >
+                        <Icon name="inventory_2" class="ml-1" />{{ t('patientReg.archiveTab') }}
+                    </button>
+                </div>
+
                 <!-- Bulk bar -->
                 <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3" :class="selected.length ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-white'">
                     <span class="text-sm text-gray-700">
                         <template v-if="selected.length"><Icon name="warning" class="ml-1" />{{ t('doctorsAdmin.selectedCount', { n: selected.length }) }}</template>
                         <template v-else>{{ t('patientReg.totalCount', { n: registrations.total }) }}</template>
                     </span>
-                    <div class="flex flex-wrap gap-2">
-                        <button v-if="selected.length" type="button" @click="destroySelected" class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">
-                            <Icon name="delete" class="ml-1" />{{ t('doctorsAdmin.deleteSelected') }}
+                    <div v-if="archived" class="flex flex-wrap gap-2">
+                        <button v-if="can.archive && selected.length" type="button" @click="restoreSelected" class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">
+                            <Icon name="unarchive" class="ml-1" />{{ t('patientReg.restoreSelected') }}
                         </button>
-                        <button v-if="registrations.total" type="button" @click="destroyAll" class="rounded-md border border-red-600 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50">
-                            <Icon name="delete_sweep" class="ml-1" />{{ hasFilters ? t('patientReg.deleteAllFiltered') : t('patientReg.deleteAll') }}
+                    </div>
+                    <div v-else class="flex flex-wrap gap-2">
+                        <button v-if="can.archive && selected.length" type="button" @click="destroySelected" class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">
+                            <Icon name="inventory_2" class="ml-1" />{{ t('patientReg.archiveSelected') }}
+                        </button>
+                        <button v-if="can.archive && registrations.total" type="button" @click="destroyAll" class="rounded-md border border-red-600 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50">
+                            <Icon name="inventory_2" class="ml-1" />{{ hasFilters ? t('patientReg.deleteAllFiltered') : t('patientReg.deleteAll') }}
                         </button>
                     </div>
                 </div>
@@ -240,7 +282,7 @@ const confirmScreening = async (status) => {
                                     <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="screeningBadgeClass(r.screening_status)">
                                         {{ screeningLabel(r.screening_status) }}
                                     </span>
-                                    <button type="button" class="mr-2 text-indigo-600 hover:underline" @click="screeningRegistration = r">{{ t('patientReg.setScreening') }}</button>
+                                    <button v-if="can.screening" type="button" class="mr-2 text-indigo-600 hover:underline" @click="screeningRegistration = r">{{ t('patientReg.setScreening') }}</button>
                                 </td>
                             </tr>
                             <tr v-if="registrations.data.length === 0">

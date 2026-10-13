@@ -26,7 +26,8 @@ class TicketWidget extends StatelessWidget {
     this.headerSubtitle,
     this.resultBanner,
     this.extraRows = const [],
-    this.qrCaption = 'يُمسح هذا الرمز عند الدفع',
+    this.qrCaption = 'رمز المريض',
+    this.showPaid = false,
     this.widthDots = 384,
   });
 
@@ -39,6 +40,11 @@ class TicketWidget extends StatelessWidget {
   final List<(String, String)> extraRows;
 
   final String qrCaption;
+
+  /// The registration ticket is printed only after payment, which is the
+  /// service's price in full (2026-10-12), so it shows the amount paid and
+  /// "مدفوع". Off for the lab slip, which reuses this layout.
+  final bool showPaid;
 
   final PatientRegistration registration;
 
@@ -127,6 +133,10 @@ class TicketWidget extends StatelessWidget {
               ('الهاتف', registration.phone),
               ('الخدمة', registration.serviceName ?? '—'),
               if (registration.registerDayName != null) ('اليوم', registration.registerDayName!),
+              if (showPaid && (registration.servicePrice ?? 0) > 0) ...[
+                ('المبلغ المدفوع', NumberFormat('#,##0.##').format(registration.servicePrice)),
+                ('الحالة', 'مدفوع'),
+              ],
               ...extraRows,
             ]),
             const SizedBox(height: 8),

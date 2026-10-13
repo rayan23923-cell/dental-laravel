@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * `patients_simple` — the reception-desk "register a new patient" table:
@@ -27,6 +28,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class PatientRegistration extends Model
 {
+    // Deleting archives (2026-10-12): `deleted_at` is stamped and the row
+    // drops out of every list, but its payments still resolve to it.
+    use SoftDeletes;
+
     protected $table = 'patients_simple';
 
     public $timestamps = false;

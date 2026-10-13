@@ -30,10 +30,10 @@ return [
         'zip_url' => 'https://dental.azoclinic.duckdns.org/downloads/DentalClinicApp-1.0.1.zip',
         'notes' => null,
     ],
+    // Unsigned .ipa — sideloaded with Sideloadly/AltStore (see the install
+    // steps on /download), so there is no zip wrapper and no self-update.
     'ios' => [
         'version' => '1.0.1',
-        // Unsigned build — installed with Sideloadly/AltStore under the
-        // user's own Apple ID (see the iPhone steps on /download).
         'url' => 'https://dental.azoclinic.duckdns.org/downloads/DentalClinicApp-1.0.1.ipa',
         'notes' => null,
     ],

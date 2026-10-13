@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\DoctorResource;
 use App\Models\Doctor;
 use App\Services\AcademicSessionHelper;
+use App\Services\CredentialMailer;
 use App\Services\ScopeHelper;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -101,7 +102,9 @@ class DoctorController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $this->validateDoctor($request);
-        $validated['password'] = Hash::make($validated['password']);
+        // Left blank: generate one. Either way it goes to the new doctor by email.
+        $plainPassword = $validated['password'] ?? null ?: CredentialMailer::generatePassword();
+        $validated['password'] = Hash::make($plainPassword);
 
         // Defaults to the active session, as in the web controller.
         $validated['academic_session_id'] ??= AcademicSessionHelper::resolveId();
@@ -111,6 +114,7 @@ class DoctorController extends Controller
         }
 
         $doctor = Doctor::create($validated);
+        CredentialMailer::queueWelcome('doctor', $doctor->email, $doctor->name, $doctor->username, $plainPassword);
 
         return (new DoctorResource($doctor))->response()->setStatusCode(201);
     }
@@ -167,7 +171,8 @@ class DoctorController extends Controller
             'phone' => ['nullable', 'string', 'max:50'],
             'education_type_id' => ['required', 'exists:education_types,id'],
             'stage_id' => ['required', 'exists:stages,id'],
-            'password' => [$doctorId ? 'nullable' : 'required', 'string', 'min:6'],
+            // Optional on create too: blank means "generate one" (see store()).
+            'password' => ['nullable', 'string', 'min:6'],
             'profile_image' => ['nullable', 'image', 'max:2048'],
             'academic_session_id' => ['nullable', 'exists:academic_sessions,id'],
             'nfc_tag_id' => ['nullable', 'string', 'max:64', Rule::unique('doctors', 'nfc_tag_id')->ignore($doctorId)],

@@ -51,6 +51,8 @@ use App\Http\Controllers\Api\TaskRegisterDaysController;
 use App\Http\Controllers\Api\TreatmentMaterialController;
 use App\Http\Controllers\Api\TreatmentPlanController;
 use App\Http\Controllers\Api\TvBoardController;
+use App\Http\Controllers\Api\WaitingScreenController;
+use App\Http\Controllers\Api\WaitingScreenPairingController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\UserPermissionController;
 use Illuminate\Support\Facades\Route;
@@ -96,6 +98,14 @@ Route::name('api.')->prefix('v1')->group(function () {
     // reproduce.
     Route::get('/tv-board', TvBoardController::class);
 
+    // Public, unauthenticated — feeds the /waiting-screen kiosk display.
+    // See WaitingScreenController's own docblock.
+    Route::get('/waiting-screen', WaitingScreenController::class);
+    // Public — the QR image itself (the TV has no login). Confirming a
+    // pairing (choosing a stage) is authenticated, further down in the
+    // auth:sanctum group below.
+    Route::get('/waiting-screen/pairings/{token}/qr', [WaitingScreenPairingController::class, 'qr']);
+
     // Public, unauthenticated — the Flutter login screen needs the clinic
     // logo/name before any Sanctum token exists. See BrandingController
     // docblock for why this hand-picks fields instead of reusing the
@@ -116,6 +126,13 @@ Route::name('api.')->prefix('v1')->group(function () {
         // AuthController::me() does — see ProfileController docblock.
         Route::put('/me', [ProfileController::class, 'update']);
         Route::put('/me/password', [ProfileController::class, 'updatePassword']);
+
+        // Phone as a QR scanner for the Windows app (2026-10-12); same
+        // controller as the web app's, see ScannerPairingController.
+        Route::post('/scanner-pairings', [\App\Http\Controllers\ScannerPairingController::class, 'store']);
+        Route::get('/scanner-pairings/{scannerPairing}', [\App\Http\Controllers\ScannerPairingController::class, 'show']);
+        Route::get('/scanner-pairings/{scannerPairing}/scans', [\App\Http\Controllers\ScannerPairingController::class, 'scans']);
+        Route::delete('/scanner-pairings/{scannerPairing}', [\App\Http\Controllers\ScannerPairingController::class, 'destroy']);
 
         // The current principal's own notifications (Doctor or User) — see
         // NotificationController docblock. No permission/role middleware,
@@ -217,6 +234,16 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::post('/stages', [LookupController::class, 'storeStage'])->middleware(['role:super_admin,admin', 'permission:stages,create']);
         Route::put('/stages/{stage}', [LookupController::class, 'updateStage'])->middleware(['role:super_admin,admin', 'permission:stages,edit']);
         Route::delete('/stages/{stage}', [LookupController::class, 'destroyStage'])->middleware(['role:super_admin,admin', 'permission:stages,delete']);
+
+        // Confirming a scanned waiting-screen pairing QR with a chosen
+        // stage — the Flutter side of the privacy gate described in
+        // WaitingScreenPairingController's own docblock. No extra
+        // role/permission gate: same reasoning as /stages just above (both
+        // a staff User and a Doctor token may call this).
+        Route::post('/waiting-screen/pairings/{token}/confirm', [WaitingScreenPairingController::class, 'confirm']);
+        // The "enter the 4-digit code instead of scanning" alternative —
+        // resolves to a token, then the app calls confirm() above as usual.
+        Route::post('/waiting-screen/pairings/resolve-code', [WaitingScreenPairingController::class, 'resolveCode']);
 
         Route::get('/departments', [LookupController::class, 'departments']);
         Route::post('/departments', [LookupController::class, 'storeDepartment'])->middleware(['role:super_admin,admin', 'permission:departments,create']);

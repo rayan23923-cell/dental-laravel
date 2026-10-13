@@ -1,7 +1,5 @@
-import 'dart:io' show Platform;
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -10,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:printing/printing.dart';
 
+import '../../../core/platform/platform_support.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
@@ -19,7 +18,6 @@ import '../../../core/widgets/academic_year_banner.dart';
 import '../../case_sheet_forms/data/case_sheet_record_repository.dart';
 import '../../clinic_settings/domain/clinic_settings.dart';
 import '../../clinic_settings/presentation/clinic_settings_providers.dart';
-import '../../patient_registration/domain/registration_payment_state.dart';
 import '../../printing/data/pos_printer_service.dart';
 import '../../printing/presentation/printer_error_snackbar.dart';
 import '../../printing/presentation/printer_settings_providers.dart';
@@ -178,25 +176,15 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
     int taskId,
     TaskProgressGroupOption groupOption,
   ) async {
-    final patientState =
-        await context.push<RegistrationPaymentState>('/records/patient-registrations/scan-for-task');
-    if (patientState == null || !mounted) return;
-
+    // No patient QR (2026-10-12, by request): the doctor and task picked
+    // here (or the case QR) are enough to start it.
     final t = ref.read(translationsProvider);
-    if (!patientState.registration.isScreeningClear) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(t['taskProgressAdmin.screeningRequiredMsg']!),
-      ));
-      return;
-    }
-
     final notes = await _promptNotes(title: t['taskProgressAdmin.startTask']!);
     if (notes == null) return;
     try {
       final result = await ref.read(taskProgressRepositoryProvider).start(
             doctorId: doctorId,
             taskId: taskId,
-            patientRegistrationId: patientState.registration.id,
             notes: notes,
           );
       _reloadGroup();
@@ -253,7 +241,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
     TaskStartResult result,
     TaskProgressGroupOption groupOption,
   ) async {
-    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return;
+    if (!canPrintTickets) return;
     try {
       Uint8List? qrBytes;
       try {

@@ -15,6 +15,7 @@ class PatientRegistration {
     required this.serviceId,
     required this.registerDayId,
     required this.serviceName,
+    this.servicePrice,
     required this.registerDayName,
     required this.createdAt,
     required this.taskId,
@@ -42,6 +43,8 @@ class PatientRegistration {
       serviceId: json['service_id'] as int?,
       registerDayId: json['register_day_id'] as int?,
       serviceName: service?['name'] as String?,
+      // A decimal column, so it may arrive as a string ("25000.00").
+      servicePrice: service?['price'] == null ? null : double.tryParse(service!['price'].toString()),
       registerDayName: day?['name'] as String?,
       createdAt: json['created_at'] as String?,
       taskId: json['task_id'] as int?,
@@ -65,6 +68,10 @@ class PatientRegistration {
   final int? serviceId;
   final int? registerDayId;
   final String? serviceName;
+
+  /// The service's price, which registration charges in full (2026-10-12);
+  /// printed on the ticket as the amount paid.
+  final double? servicePrice;
   final String? registerDayName;
   final String? createdAt;
   final int? taskId;

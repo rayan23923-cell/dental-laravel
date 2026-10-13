@@ -19,6 +19,11 @@
 <main>
   <h1>تجهيز الجهاز لنظام العيادة</h1>
   <div class="card">
+    <p>إذا كانت شهادة العيادة مثبتة على هذا الجهاز فافتح النظام مباشرة:</p>
+    <p><a class="btn" href="/" id="open">فتح النظام</a></p>
+    <p class="muted">إذا ظهرت هذه الصفحة عند الاتصال بالواي فاي، فاضغط الزر، أو افتح المتصفح على العنوان أدناه.</p>
+  </div>
+  <div class="card">
     <p>مرة واحدة لكل جهاز: نزّل شهادة العيادة وثبّتها، ليعمل النظام عبر HTTPS وتعمل كاميرا مسح QR.</p>
     <p><a class="btn" href="/ca.crt">تنزيل شهادة العيادة</a></p>
   </div>
@@ -55,6 +60,7 @@
   var a = document.getElementById('go');
   a.href = 'https://' + location.host + '/';
   a.textContent = a.href;
+  document.getElementById('open').href = a.href;
 </script>
 </body>
 </html>

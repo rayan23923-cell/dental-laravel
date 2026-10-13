@@ -6,6 +6,8 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import QrScanner from '@/Components/QrScanner.vue';
+import PhoneScannerLink from '@/Components/PhoneScannerLink.vue';
+import { onRemoteScan } from '@/remoteScanner';
 import Icon from '@/Components/Icon.vue';
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, ref, watch } from 'vue';
@@ -75,6 +77,9 @@ const onDecoded = async (text) => {
         scanError.value = e?.response?.data?.message ?? t('payments.qrReadFailed');
     }
 };
+
+// A phone paired as a scanner (2026-10-12) picks the registration too.
+onRemoteScan(onDecoded, () => !scannerRef.value?.scanning);
 
 const registrationSearch = ref('');
 const registrationResults = ref([]);
@@ -257,10 +262,11 @@ const submit = () => {
 
                             <!-- Not found yet: scan or search -->
                             <div v-else class="mt-1 space-y-3">
-                                <div v-if="!scanning">
+                                <div v-if="!scanning" class="flex flex-wrap items-center gap-2">
                                     <SecondaryButton type="button" @click="openScanner">
                                         <Icon name="qr_code_scanner" class="ml-1" />{{ t('payments.scanPatientCode') }}
                                     </SecondaryButton>
+                                    <PhoneScannerLink variant="page" />
                                 </div>
                                 <QrScanner v-else ref="scannerRef" @decoded="onDecoded" />
                                 <div v-if="scanError" class="rounded-md bg-red-50 p-2 text-sm text-red-700">{{ scanError }}</div>

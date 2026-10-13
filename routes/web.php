@@ -11,6 +11,8 @@ use App\Http\Controllers\CaseSheetTypeController;
 use App\Http\Controllers\AdminBroadcastController;
 use App\Http\Controllers\ClinicChairController;
 use App\Http\Controllers\ClinicSettingController;
+use App\Http\Controllers\WaitingScreenPairingController;
+use App\Http\Controllers\WaitingScreenSettingController;
 use App\Http\Controllers\CompleteDentureRecordController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DentalChartController;
@@ -61,6 +63,9 @@ use App\Http\Controllers\UserPermissionController;
 use App\Models\ClinicSetting;
 use App\Models\Department;
 use App\Models\Doctor;
+use App\Http\Controllers\CaptivePortalController;
+use App\Http\Controllers\PhoneScannerController;
+use App\Http\Controllers\ScannerPairingController;
 use App\Models\EducationType;
 use App\Models\Patient;
 use App\Models\Stage;
@@ -135,6 +140,14 @@ Route::get('/tv', function () {
         'stages' => Stage::orderBy('name')->get(['id', 'name', 'education_type_id']),
     ]);
 })->name('tv-board');
+
+// Public waiting-room appointments display (2026-09-09) — a newer sibling
+// of /tv built on Appointment/case_sheet_doctor_id rather than the legacy
+// Patient/group.slots schedule; see Api\WaitingScreenController's own
+// docblock. All display options (stage/group filter, page size, rotation
+// timing) come from WaitingScreenSetting, edited at /waiting-screen-settings
+// — no query params here, the kiosk display itself has no controls.
+Route::get('/waiting-screen', fn () => Inertia::render('WaitingScreen'))->name('waiting-screen');
 
 // Doctor-facing area — separate guard/session from the staff `web` guard
 // above (see config/auth.php `doctor` guard, `doctors` table). Login itself
@@ -235,10 +248,86 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('dashboard.tasks-by-education-type');
 });
 
+// The phone as a QR scanner for a computer (2026-10-12): the phone's pages
+// need no login, the pairing token is the secret. See PhoneScannerController.
+// Opening the system when a device joins the clinic Wi-Fi (offline
+// package; the checks themselves are answered by AnswerConnectivityChecks).
+Route::get('/portal', [CaptivePortalController::class, 'portal'])->name('captive.portal');
+
+Route::get('/scan', [PhoneScannerController::class, 'enter'])->name('phone-scanner.enter');
+Route::post('/scan', [PhoneScannerController::class, 'resolve'])
+    ->middleware('throttle:20,1')->name('phone-scanner.resolve');
+Route::get('/scan/{token}', [PhoneScannerController::class, 'show'])->name('phone-scanner.show');
+Route::post('/scan/{token}/scans', [PhoneScannerController::class, 'store'])
+    ->middleware('throttle:120,1')->name('phone-scanner.store');
+
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+
+    // The computer's side of the phone scanner (2026-10-12).
+    Route::post('/scanner-pairings', [ScannerPairingController::class, 'store'])->name('scanner-pairings.store');
+    Route::get('/scanner-pairings/{scannerPairing}', [ScannerPairingController::class, 'show'])->name('scanner-pairings.show');
+    Route::get('/scanner-pairings/{scannerPairing}/scans', [ScannerPairingController::class, 'scans'])->name('scanner-pairings.scans');
+    Route::delete('/scanner-pairings/{scannerPairing}', [ScannerPairingController::class, 'destroy'])->name('scanner-pairings.destroy');
     Route::post('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+
+    // Open to any logged-in staff member, not gated behind a role/permission
+    // — pairing a physical TV is an on-the-spot operational task (see
+    // Api\WaitingScreenPairingController's own docblock for the Flutter
+    // side of this same flow), not a settings change.
+    Route::get('/waiting-screen/pair', [WaitingScreenPairingController::class, 'create'])
+        ->name('waiting-screen-pairing.create');
+    Route::post('/waiting-screen/pair', [WaitingScreenPairingController::class, 'store'])
+        ->name('waiting-screen-pairing.store');
+
+    // Ticket desk and lab (2026-10-12): also open to the `reception`
+    // (موظف التذاكر) and `lab` (مختبري) roles, which reach nothing else.
+    // Every route keeps its own permission gate; see App\Support\RolePresets
+    // for what each role is granted when it is created.
+    Route::middleware('role:super_admin,admin,editor,reception,lab')->group(function () {
+        // Reception-desk patient registration (services + days) — separate
+        // from `patients` above, see App\Models\PatientRegistration's
+        // docblock. Gates reuse the `patients` module exactly like
+        // admin/patient_register.php does in the original (no new
+        // permission module invented).
+        Route::get('/patient-registrations', [PatientRegistrationController::class, 'index'])
+            ->middleware('permission:patients,view')->name('patient-registrations.index');
+        Route::get('/patient-registrations/create', [PatientRegistrationController::class, 'create'])
+            ->middleware('permission:patients,create')->name('patient-registrations.create');
+        // Autocomplete for Payments/Create.vue's "ابحث عن مريض" field
+        // (2026-08-26).
+        Route::get('/patient-registrations/search', [PatientRegistrationController::class, 'search'])
+            ->middleware('permission:patients,view')->name('patient-registrations.search');
+        Route::post('/patient-registrations', [PatientRegistrationController::class, 'store'])
+            ->middleware('permission:patients,create')->name('patient-registrations.store');
+        Route::delete('/patient-registrations-bulk', [PatientRegistrationController::class, 'destroyMany'])
+            ->middleware('permission:patients,delete')->name('patient-registrations.destroy-many');
+        Route::post('/patient-registrations-restore', [PatientRegistrationController::class, 'restoreMany'])
+            ->middleware('permission:patients,delete')->name('patient-registrations.restore-many');
+        Route::get('/patient-registrations/{patientRegistration}/qr', [PatientRegistrationController::class, 'qr'])
+            ->middleware('permission:patients,view')->name('patient-registrations.qr');
+        // Reprint an already-registered patient's ticket — same gate as
+        // `.qr` (a read/display action, not a create).
+        Route::get('/patient-registrations/{patientRegistration}/print', [PatientRegistrationPrintController::class, 'ticket'])
+            ->middleware('permission:patients,view')->name('patient-registrations.print');
+        // Payment-desk scanner — see Api\PatientRegistrationQrController's
+        // docblock for the payload convention and Step 5 of Phase 5's plan.
+        Route::post('/patient-registrations/scan', [PatientRegistrationController::class, 'scan'])
+            ->middleware('permission:patients,view')->name('patient-registrations.scan');
+
+        // Infectious-disease screening gate (2026-08-26) — see
+        // PatientScreeningGate/PatientRegistrationController::confirmScreening().
+        Route::post('/patient-registrations/{patientRegistration}/screening', [PatientRegistrationController::class, 'confirmScreening'])
+            ->middleware('permission:patient_screening,confirm')->name('patient-registrations.screening');
+
+        // "المختبر" — web twin of the Flutter lab screen (2026-10-11); see
+        // LabController for its own patient_screening permission check.
+        Route::get('/lab', [LabController::class, 'index'])->name('lab.index');
+        Route::post('/lab/scan', [LabController::class, 'scan'])->name('lab.scan');
+        Route::get('/lab/{patientRegistration}/print', [LabController::class, 'print'])->name('lab.print');
+        Route::post('/lab/{patientRegistration}/reuse', [LabController::class, 'reuse'])->name('lab.reuse');
+    });
 
     Route::middleware('role:super_admin,admin,editor')->group(function () {
         // Doctor deletion also requires the granular 'doctors.delete' grant
@@ -264,46 +353,6 @@ Route::middleware('auth')->group(function () {
         Route::delete('/patients/{patient}', [PatientController::class, 'destroy'])
             ->middleware('permission:patients,delete')
             ->name('patients.destroy');
-
-        // Reception-desk patient registration (services + days) — separate
-        // from `patients` above, see App\Models\PatientRegistration's
-        // docblock. Gates reuse the `patients` module exactly like
-        // admin/patient_register.php does in the original (no new
-        // permission module invented).
-        Route::get('/patient-registrations', [PatientRegistrationController::class, 'index'])
-            ->middleware('permission:patients,view')->name('patient-registrations.index');
-        Route::get('/patient-registrations/create', [PatientRegistrationController::class, 'create'])
-            ->middleware('permission:patients,create')->name('patient-registrations.create');
-        // Autocomplete for Payments/Create.vue's "ابحث عن مريض" field
-        // (2026-08-26).
-        Route::get('/patient-registrations/search', [PatientRegistrationController::class, 'search'])
-            ->middleware('permission:patients,view')->name('patient-registrations.search');
-        Route::post('/patient-registrations', [PatientRegistrationController::class, 'store'])
-            ->middleware('permission:patients,create')->name('patient-registrations.store');
-        Route::delete('/patient-registrations-bulk', [PatientRegistrationController::class, 'destroyMany'])
-            ->middleware('permission:patients,delete')->name('patient-registrations.destroy-many');
-        Route::get('/patient-registrations/{patientRegistration}/qr', [PatientRegistrationController::class, 'qr'])
-            ->middleware('permission:patients,view')->name('patient-registrations.qr');
-        // Reprint an already-registered patient's ticket — same gate as
-        // `.qr` (a read/display action, not a create).
-        Route::get('/patient-registrations/{patientRegistration}/print', [PatientRegistrationPrintController::class, 'ticket'])
-            ->middleware('permission:patients,view')->name('patient-registrations.print');
-        // Payment-desk scanner — see Api\PatientRegistrationQrController's
-        // docblock for the payload convention and Step 5 of Phase 5's plan.
-        Route::post('/patient-registrations/scan', [PatientRegistrationController::class, 'scan'])
-            ->middleware('permission:patients,view')->name('patient-registrations.scan');
-
-        // Infectious-disease screening gate (2026-08-26) — see
-        // PatientScreeningGate/PatientRegistrationController::confirmScreening().
-        Route::post('/patient-registrations/{patientRegistration}/screening', [PatientRegistrationController::class, 'confirmScreening'])
-            ->middleware('permission:patient_screening,confirm')->name('patient-registrations.screening');
-
-        // "المختبر" — web twin of the Flutter lab screen (2026-10-11); see
-        // LabController for its own patient_screening permission check.
-        Route::get('/lab', [LabController::class, 'index'])->name('lab.index');
-        Route::post('/lab/scan', [LabController::class, 'scan'])->name('lab.scan');
-        Route::get('/lab/{patientRegistration}/print', [LabController::class, 'print'])->name('lab.print');
-        Route::post('/lab/{patientRegistration}/reuse', [LabController::class, 'reuse'])->name('lab.reuse');
 
         Route::get('/doctors-import', [DoctorImportExportController::class, 'showImport'])
             ->middleware('permission:doctors,create')
@@ -445,6 +494,13 @@ Route::middleware('auth')->group(function () {
         Route::post('/clinic-settings/test-email', [ClinicSettingController::class, 'sendTestEmail'])
             ->middleware(['permission:settings,edit', 'throttle:6,1'])->name('clinic-settings.test-email');
 
+        // Admin controls for the public /waiting-screen display — same
+        // 'settings' module/gate as clinic-settings above.
+        Route::get('/waiting-screen-settings', [WaitingScreenSettingController::class, 'edit'])
+            ->middleware('permission:settings,view')->name('waiting-screen-settings.edit');
+        Route::put('/waiting-screen-settings', [WaitingScreenSettingController::class, 'update'])
+            ->middleware('permission:settings,edit')->name('waiting-screen-settings.update');
+
         // Services/days config for patient registration — mirrors
         // admin/register_settings.php, gated the same way it is there
         // ($perm->requirePermission('settings', 'edit')).
@@ -510,6 +566,7 @@ Route::middleware('auth')->group(function () {
 
         // Lab screening fee + printable receipt (2026-10-11).
         Route::post('/payments/lab', [PaymentController::class, 'storeLab'])->name('payments.store-lab');
+        Route::get('/payments/report', [PaymentController::class, 'report'])->name('payments.report');
         Route::get('/payments/{payment}/receipt', [PaymentController::class, 'receipt'])->name('payments.receipt');
         Route::resource('payments', PaymentController::class)->only(['index', 'create', 'store']);
         Route::delete('/payments/{payment}', [PaymentController::class, 'destroy'])

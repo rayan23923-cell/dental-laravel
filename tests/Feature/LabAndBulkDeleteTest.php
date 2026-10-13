@@ -44,7 +44,7 @@ class LabAndBulkDeleteTest extends TestCase
         $a = $this->registration(['name' => 'Ali', 'screening_status' => 'flagged', 'screening_checked_at' => now()]);
 
         $this->actingAs($this->admin())->get("/lab/{$a->id}/print?autoprint=1")
-            ->assertOk()->assertSee('غير سليم')->assertSee('غير مدفوع')->assertSee('data:image/png;base64', false)->assertSee('window.print()', false);
+            ->assertOk()->assertSee('غير سليم')->assertDontSee('مدفوع')->assertSee('data:image/png;base64', false)->assertSee('window.print()', false);
     }
 
     public function test_lab_fee_payment_skips_screening_gate_and_prints_receipt(): void
@@ -74,24 +74,29 @@ class LabAndBulkDeleteTest extends TestCase
         $this->actingAs($admin)->get('/lab')->assertInertia(fn ($p) => $p->where('registrations.data.0.lab_paid', true));
     }
 
-    public function test_lab_result_needs_lab_fee_paid_first(): void
+    public function test_recording_a_lab_result_charges_the_fee_once_and_prints_it_paid(): void
     {
         \App\Models\ClinicSetting::current(); // first call creates the row
         \App\Models\ClinicSetting::current()->update(['lab_fee' => 5000]);
         $a = $this->registration(['name' => 'Ali']);
+        $b = $this->registration(['name' => 'Sara', 'phone' => '0779']);
         $admin = $this->admin();
 
-        $this->actingAs($admin)->postJson("/patient-registrations/{$a->id}/screening", ['screening_status' => 'clear'])
-            ->assertStatus(422);
-        $this->actingAs($admin)->postJson("/api/v1/patient-registrations/{$a->id}/screening", ['screening_status' => 'clear'])
-            ->assertStatus(422);
-        $this->assertSame('pending', $a->fresh()->screening_status);
-
-        $this->actingAs($admin)->postJson('/payments/lab', ['patient_registration_id' => $a->id])->assertCreated();
-
+        $this->actingAs($admin)->postJson("/patient-registrations/{$a->id}/screening", ['screening_status' => 'flagged'])
+            ->assertOk();
+        $this->assertSame('flagged', $a->fresh()->screening_status);
+        // Recording it again (a correction) does not charge twice.
         $this->actingAs($admin)->postJson("/patient-registrations/{$a->id}/screening", ['screening_status' => 'clear'])
             ->assertOk();
-        $this->assertSame('clear', $a->fresh()->screening_status);
+        $this->assertSame(1, \App\Models\Payment::where('patient_registration_id', $a->id)->where('type', 'lab')->count());
+        $this->assertDatabaseHas('payments', ['patient_registration_id' => $a->id, 'type' => 'lab', 'amount' => 5000]);
+
+        $this->actingAs($admin)->postJson("/api/v1/patient-registrations/{$b->id}/screening", ['screening_status' => 'clear'])
+            ->assertOk();
+        $this->assertDatabaseHas('payments', ['patient_registration_id' => $b->id, 'type' => 'lab', 'amount' => 5000]);
+
+        $this->actingAs($admin)->get("/lab/{$a->id}/print")->assertOk()
+            ->assertSee('سليم')->assertSee('5,000')->assertSee('مدفوع');
     }
 
     public function test_lab_result_allowed_when_no_lab_fee_set(): void
@@ -100,37 +105,40 @@ class LabAndBulkDeleteTest extends TestCase
 
         $this->actingAs($this->admin())->postJson("/patient-registrations/{$a->id}/screening", ['screening_status' => 'flagged'])
             ->assertOk();
+        $this->assertDatabaseMissing('payments', ['patient_registration_id' => $a->id]);
     }
 
-    public function test_registration_records_amount_paid(): void
+    public function test_registration_charges_the_service_price(): void
     {
-        $day = DB::table('register_days')->insertGetId(['name' => 'Sat']);
-        $service = DB::table('register_services')->insertGetId(['name' => 'Check']);
-        DB::table(\App\Models\Service::make()->days()->getTable())->insert([
-            \App\Models\Service::make()->days()->getForeignPivotKeyName() => $service,
-            \App\Models\Service::make()->days()->getRelatedPivotKeyName() => $day,
-        ]);
+        $priced = DB::table('register_services')->insertGetId(['name' => 'Filling', 'price' => 25000]);
+        $unpriced = DB::table('register_services')->insertGetId(['name' => 'Implant']);
         $admin = $this->admin();
 
+        // An amount the client sends is ignored: the payment is the service's price.
         $this->actingAs($admin)->post('/patient-registrations', [
-            'name' => 'Ali', 'phone' => '0770', 'register_day_id' => $day, 'service_id' => $service, 'amount_paid' => 15000,
+            'name' => 'Ali', 'phone' => '0770', 'service_id' => $priced, 'amount_paid' => 1,
         ])->assertRedirect();
         $ali = PatientRegistration::where('name', 'Ali')->firstOrFail();
-        $this->assertDatabaseHas('payments', ['patient_registration_id' => $ali->id, 'amount' => 15000, 'type' => 'service']);
+        $this->assertDatabaseHas('payments', ['patient_registration_id' => $ali->id, 'amount' => 25000, 'type' => 'service']);
 
         $this->actingAs($admin)->postJson('/api/v1/patient-registrations', [
-            'name' => 'Sara', 'phone' => '0771', 'register_day_id' => $day, 'service_id' => $service, 'amount_paid' => 7000,
+            'name' => 'Sara', 'phone' => '0771', 'service_id' => $priced,
         ])->assertCreated();
         $sara = PatientRegistration::where('name', 'Sara')->firstOrFail();
-        $this->assertDatabaseHas('payments', ['patient_registration_id' => $sara->id, 'amount' => 7000]);
+        $this->assertDatabaseHas('payments', ['patient_registration_id' => $sara->id, 'amount' => 25000, 'type' => 'service']);
 
+        // A service with no price cannot be registered.
         $this->actingAs($admin)->postJson('/api/v1/patient-registrations', [
-            'name' => 'Omar', 'phone' => '0772', 'register_day_id' => $day, 'service_id' => $service,
-        ])->assertCreated();
+            'name' => 'Omar', 'phone' => '0772', 'service_id' => $unpriced,
+        ])->assertUnprocessable()->assertJsonValidationErrors('service_id');
+        $this->actingAs($admin)->post('/patient-registrations', [
+            'name' => 'Omar', 'phone' => '0772', 'service_id' => $unpriced,
+        ])->assertSessionHasErrors('service_id');
+        $this->assertFalse(PatientRegistration::where('name', 'Omar')->exists());
         $this->assertSame(2, \App\Models\Payment::count());
     }
 
-    public function test_bulk_delete_selected_and_all(): void
+    public function test_bulk_delete_archives_selected_and_all(): void
     {
         $a = $this->registration(['name' => 'Ali']);
         $b = $this->registration(['name' => 'Bob']);
@@ -138,7 +146,7 @@ class LabAndBulkDeleteTest extends TestCase
         $admin = $this->admin();
 
         $this->actingAs($admin)->delete('/patient-registrations-bulk', ['ids' => [$b->id]])->assertRedirect();
-        $this->assertDatabaseMissing('patients_simple', ['id' => $b->id]);
+        $this->assertSoftDeleted('patients_simple', ['id' => $b->id]);
 
         $this->actingAs($admin)->delete('/patient-registrations-bulk', ['all' => true, 'search' => 'Ali'])->assertRedirect();
         $this->assertSame(0, PatientRegistration::count());
@@ -189,12 +197,39 @@ class LabAndBulkDeleteTest extends TestCase
 
         // Older than the validity window: screen and pay as usual.
         $this->actingAs($admin)->postJson("/lab/{$other->id}/reuse")->assertStatus(422);
-        $this->actingAs($admin)->postJson("/patient-registrations/{$other->id}/screening", ['screening_status' => 'clear'])->assertStatus(422);
+        $this->actingAs($admin)->postJson("/patient-registrations/{$other->id}/screening", ['screening_status' => 'clear'])->assertOk();
+        $this->assertDatabaseHas('payments', ['patient_registration_id' => $other->id, 'type' => 'lab']);
 
         // A reused result does not extend the window for the next visit.
         $old->update(['screening_checked_at' => now()->subDays(100)]);
         $third = $this->registration(['name' => 'Ali', 'phone' => '0772']);
         $this->actingAs($admin)->postJson("/lab/{$third->id}/reuse")->assertStatus(422);
+    }
+
+    public function test_previous_screening_is_found_by_phone_or_name(): void
+    {
+        \App\Models\ClinicSetting::current();
+        \App\Models\ClinicSetting::current()->update(['lab_fee' => 5000, 'lab_validity_days' => 90]);
+        $old = $this->registration(['name' => 'زينب أحمد', 'phone' => '07701112233', 'screening_status' => 'clear', 'screening_checked_at' => now()->subDays(5)]);
+        $admin = $this->admin();
+
+        // Same number written differently.
+        $byPhone = $this->registration(['name' => 'Zainab', 'phone' => '+964 770 111 2233']);
+        // New number, same name with a spelling variant and extra spaces.
+        $byName = $this->registration(['name' => ' زينب  احمد ', 'phone' => '07809990000']);
+        $stranger = $this->registration(['name' => 'Someone Else', 'phone' => '07801234000']);
+
+        $scan = fn ($r) => $this->actingAs($admin)->postJson('/lab/scan', ['payload' => json_encode(['type' => 'patient_registration', 'id' => $r->id])]);
+
+        $scan($byPhone)->assertOk()->assertJsonPath('data.previous_screening.id', $old->id)
+            ->assertJsonPath('data.previous_screening.matched_by', 'phone');
+        $scan($byName)->assertOk()->assertJsonPath('data.previous_screening.id', $old->id)
+            ->assertJsonPath('data.previous_screening.matched_by', 'name')
+            ->assertJsonPath('data.previous_screening.phone', '07701112233');
+        $scan($stranger)->assertOk()->assertJsonPath('data.previous_screening', null);
+
+        $this->actingAs($admin)->postJson("/lab/{$byName->id}/reuse")->assertOk();
+        $this->assertDatabaseMissing('payments', ['patient_registration_id' => $byName->id]);
     }
 
     public function test_api_offers_and_reuses_previous_screening(): void

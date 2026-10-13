@@ -207,7 +207,7 @@ const year = new Date().getFullYear();
                     {{ t.hero.ctaLogin }}
                 </Link>
                 <Link
-                    :href="route('tv-board')"
+                    :href="route('waiting-screen')"
                     class="flex w-full items-center justify-center gap-2 rounded-lg border border-ig-border-light px-6 py-3 font-semibold transition hover:bg-ig-off-white dark:border-ig-border-dark dark:hover:bg-ig-dark-surface sm:w-auto"
                 >
                     <Icon name="tv" size="text-[20px]" />

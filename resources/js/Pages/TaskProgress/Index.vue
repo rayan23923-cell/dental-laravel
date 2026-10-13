@@ -6,6 +6,8 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import QrScanner from '@/Components/QrScanner.vue';
+import PhoneScannerLink from '@/Components/PhoneScannerLink.vue';
+import { onRemoteScan } from '@/remoteScanner';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -146,17 +148,15 @@ const borderClass = (status) =>
     }[status] ?? 'border-r-4 border-indigo-500');
 
 // --- Start task ---
-const startForm = useForm({ doctor_id: null, task_id: null, patient_registration_id: null, notes: '' });
+// No patient QR (2026-10-12, by request): a task starts from the case QR or
+// by picking the doctor and task here.
+const startForm = useForm({ doctor_id: null, task_id: null, notes: '' });
 const startTarget = ref(null);
 const openStart = (doctor, card) => {
     startTarget.value = { doctor, card };
     startForm.doctor_id = doctor.id;
     startForm.task_id = card.task_id;
-    startForm.patient_registration_id = null;
     startForm.notes = '';
-    startPatientResult.value = null;
-    startPatientError.value = '';
-    startPatientScanning.value = false;
 };
 const submitStart = () => {
     startForm.post(route('task-progress.start'), {
@@ -166,42 +166,6 @@ const submitStart = () => {
             reloadGroup();
         },
     });
-};
-
-// --- Patient screening scan, inside the start-task modal (2026-08-26) —
-// a task can't be started without first identifying which patient it's
-// for and confirming their infectious-disease screening is "سليم". Real
-// enforcement is server-side (`PatientScreeningGate`); this just avoids a
-// wasted round trip and matches this page's existing `QrScanner.vue`
-// pattern (see `onDecoded`/`openScanner` above) rather than a new widget.
-const startPatientScannerRef = ref(null);
-const startPatientResult = ref(null);
-const startPatientError = ref('');
-const startPatientScanning = ref(false);
-
-const openStartPatientScanner = async () => {
-    startPatientError.value = '';
-    startPatientScanning.value = true;
-    await nextTick();
-    startPatientScannerRef.value?.start();
-};
-
-const onStartPatientDecoded = async (text) => {
-    startPatientError.value = '';
-    try {
-        const { data } = await axios.post(route('patient-registrations.scan'), { payload: text });
-        startPatientResult.value = data.data.registration;
-        startForm.patient_registration_id = data.data.registration.id;
-        startPatientScannerRef.value?.stop();
-        startPatientScanning.value = false;
-    } catch (e) {
-        startPatientError.value = e?.response?.data?.message ?? t('patientReg.qrReadFailed');
-    }
-};
-
-const rescanStartPatient = () => {
-    startPatientResult.value = null;
-    startForm.patient_registration_id = null;
 };
 
 // --- Complete task ---
@@ -273,6 +237,17 @@ const onDecoded = async (text) => {
     }
 };
 
+// A phone paired as a scanner (2026-10-12): its code opens the scan
+// result here even when this computer's camera is not running.
+onRemoteScan(
+    (text) => {
+        scanResult.value = null;
+        scannerOpen.value = true;
+        onDecoded(text);
+    },
+    () => !scannerRef.value?.scanning,
+);
+
 const rescan = async () => {
     scanResult.value = null;
     scanError.value = '';
@@ -298,7 +273,10 @@ const startFromScan = () => {
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('taskProgressAdmin.heading') }}</h2>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('taskProgressAdmin.heading') }}</h2>
+                <PhoneScannerLink variant="page" />
+            </div>
         </template>
 
         <div class="py-12">
@@ -606,38 +584,13 @@ const startFromScan = () => {
                 <h2 class="text-lg font-medium text-gray-900">{{ t('taskProgressAdmin.startTaskModalTitle') }}</h2>
                 <p class="mt-1 text-sm text-gray-500">{{ startTarget?.doctor.name }} — {{ startTarget?.card.task_title }}</p>
 
-                <!-- Infectious-disease screening gate (2026-08-26) — must scan
-                     the patient's registration ticket QR and confirm their
-                     screening is "سليم" before the task can start. -->
-                <div class="mt-4">
-                    <InputLabel :value="t('taskProgressAdmin.patientLabel')" />
-                    <div v-if="!startPatientResult" class="mt-1">
-                        <SecondaryButton type="button" @click="openStartPatientScanner" v-if="!startPatientScanning">
-                            <Icon name="qr_code_scanner" class="ml-1" />{{ t('taskProgressAdmin.scanPatientCode') }}
-                        </SecondaryButton>
-                        <div v-else class="mt-2">
-                            <QrScanner ref="startPatientScannerRef" @decoded="onStartPatientDecoded" />
-                        </div>
-                        <div v-if="startPatientError" class="mt-2 rounded-md bg-red-50 p-2 text-sm text-red-700">{{ startPatientError }}</div>
-                    </div>
-                    <div v-else class="mt-1 rounded-lg border p-3" :class="startPatientResult.screening_status === 'clear' ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'">
-                        <p class="text-sm font-medium text-gray-800">{{ startPatientResult.name }} — {{ startPatientResult.phone }}</p>
-                        <p class="mt-1 text-sm" :class="startPatientResult.screening_status === 'clear' ? 'text-green-800' : 'text-red-800'">
-                            <template v-if="startPatientResult.screening_status === 'clear'"><Icon name="check_circle" class="ml-1" />{{ t('taskProgressAdmin.screeningClear') }}</template>
-                            <template v-else-if="startPatientResult.screening_status === 'flagged'"><Icon name="cancel" class="ml-1" />{{ t('taskProgressAdmin.screeningFlagged') }}</template>
-                            <template v-else><Icon name="hourglass_empty" class="ml-1" />{{ t('taskProgressAdmin.screeningPendingMsg') }}</template>
-                        </p>
-                        <button type="button" class="mt-2 text-sm text-indigo-600 hover:underline" @click="rescanStartPatient">{{ t('taskProgressAdmin.scanAnother') }}</button>
-                    </div>
-                </div>
-
                 <div class="mt-4">
                     <InputLabel for="start-notes" :value="t('tasksAdmin.notesLabel')" />
                     <textarea id="start-notes" v-model="startForm.notes" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
                 </div>
                 <div class="mt-6 flex justify-end gap-3">
                     <SecondaryButton @click="startTarget = null">{{ t('common.cancel') }}</SecondaryButton>
-                    <PrimaryButton :disabled="startForm.processing || startPatientResult?.screening_status !== 'clear'">{{ t('taskProgressAdmin.startButton') }}</PrimaryButton>
+                    <PrimaryButton :disabled="startForm.processing">{{ t('taskProgressAdmin.startButton') }}</PrimaryButton>
                 </div>
             </form>
         </Modal>

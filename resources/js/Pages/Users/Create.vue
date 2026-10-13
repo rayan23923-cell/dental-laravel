@@ -7,7 +7,7 @@ import TextInput from '@/Components/TextInput.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 
-const { t } = useI18n();
+const { t, te } = useI18n();
 const props = defineProps({
     roles: Array,
 });
@@ -72,14 +72,16 @@ const submit = () => {
                                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                 required
                             >
-                                <option v-for="r in roles" :key="r" :value="r">{{ r }}</option>
+                                <option v-for="r in roles" :key="r" :value="r">{{ te(`roles.${r}`) ? t(`roles.${r}`) : r }}</option>
                             </select>
+                            <p v-if="form.role === 'reception' || form.role === 'lab'" class="mt-1 text-xs text-gray-500">{{ t('usersAdmin.deskRoleHint') }}</p>
                             <InputError class="mt-2" :message="form.errors.role" />
                         </div>
 
                         <div>
                             <InputLabel for="password" :value="t('common.password')" />
-                            <TextInput id="password" v-model="form.password" type="password" class="mt-1 block w-full" required />
+                            <TextInput id="password" v-model="form.password" type="password" class="mt-1 block w-full" autocomplete="new-password" />
+                            <p class="mt-1 text-xs text-gray-500">{{ t('common.passwordAutoHint') }}</p>
                             <InputError class="mt-2" :message="form.errors.password" />
                         </div>
 

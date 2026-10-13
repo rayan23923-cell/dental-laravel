@@ -30,6 +30,11 @@ class AppointmentResource extends JsonResource
                 'phone' => $this->patientRegistration->phone,
             ] : null),
             'doctor' => $this->whenLoaded('doctor', fn () => ['id' => $this->doctor->id, 'full_name' => $this->doctor->full_name]),
+            'case_sheet_doctor_id' => $this->case_sheet_doctor_id,
+            'case_sheet_doctor' => $this->whenLoaded('caseSheetDoctor', fn () => $this->caseSheetDoctor ? [
+                'id' => $this->caseSheetDoctor->id,
+                'name' => $this->caseSheetDoctor->name,
+            ] : null),
             'task' => $this->whenLoaded('task', fn () => ['id' => $this->task->id, 'title' => $this->task->title]),
             'paid_total' => $this->whenLoaded('payments', fn () => $this->payments->sum('amount')),
         ];

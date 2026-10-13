@@ -225,7 +225,7 @@
             @endif
 
             <div class="header-content">
-                {{ $settings->university_name ?: 'University of Baghdad' }}<br>
+                {{ $settings->university_name ?: 'Tikrit University' }}<br>
                 {{ $settings->college_name ?: 'College of Dentistry' }}
                 @if ($headerDepartment)
                     <br>{{ $headerDepartment }}

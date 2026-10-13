@@ -14,9 +14,10 @@ const props = defineProps({
 
 const page = usePage();
 const search = ref(props.filters.search ?? '');
+const date = ref(props.filters.date ?? '');
 
-watch(search, (value) => {
-    router.get(route('appointments.index'), { search: value }, { preserveState: true, replace: true });
+watch([search, date], ([searchValue, dateValue]) => {
+    router.get(route('appointments.index'), { search: searchValue, date: dateValue }, { preserveState: true, replace: true });
 });
 
 const destroy = (appointment) => {
@@ -55,8 +56,17 @@ const paidTotal = (appointment) => appointment.payments.reduce((sum, p) => sum +
                 </div>
 
                 <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-                    <div class="border-b border-gray-200 p-4">
+                    <div class="flex flex-wrap items-center gap-3 border-b border-gray-200 p-4">
                         <TextInput v-model="search" type="text" :placeholder="t('appointments.searchPlaceholder')" class="w-full max-w-sm" />
+                        <TextInput v-model="date" type="date" class="w-full max-w-[10rem]" />
+                        <button
+                            v-if="date"
+                            type="button"
+                            @click="date = ''"
+                            class="text-sm text-gray-500 hover:text-gray-700"
+                        >
+                            {{ t('appointments.clearDate') }}
+                        </button>
                     </div>
 
                     <table class="min-w-full divide-y divide-gray-200">
@@ -64,6 +74,7 @@ const paidTotal = (appointment) => appointment.payments.reduce((sum, p) => sum +
                             <tr>
                                 <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('appointments.patientCol') }}</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patients.doctorCol') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('appointments.caseSheetDoctorCol') }}</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('appointments.taskCol') }}</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('appointments.dateCol') }}</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('appointments.paidCol') }}</th>
@@ -73,8 +84,9 @@ const paidTotal = (appointment) => appointment.payments.reduce((sum, p) => sum +
                         </thead>
                         <tbody class="divide-y divide-gray-200 bg-white">
                             <tr v-for="appointment in appointments.data" :key="appointment.id">
-                                <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">{{ appointment.full_name }}</td>
+                                <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">{{ appointment.patient_registration?.name ?? appointment.full_name }}</td>
                                 <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ appointment.doctor?.full_name ?? '—' }}</td>
+                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ appointment.case_sheet_doctor?.name ?? '—' }}</td>
                                 <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ appointment.task?.title ?? '—' }}</td>
                                 <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ appointment.appointment_date }}</td>
                                 <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ paidTotal(appointment).toFixed(2) }}</td>
@@ -92,7 +104,7 @@ const paidTotal = (appointment) => appointment.payments.reduce((sum, p) => sum +
                                 </td>
                             </tr>
                             <tr v-if="appointments.data.length === 0">
-                                <td colspan="7" class="px-6 py-8 text-center text-sm text-gray-500">{{ t('appointments.empty') }}</td>
+                                <td colspan="8" class="px-6 py-8 text-center text-sm text-gray-500">{{ t('appointments.empty') }}</td>
                             </tr>
                         </tbody>
                     </table>

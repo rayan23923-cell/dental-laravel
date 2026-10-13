@@ -1,11 +1,10 @@
-import 'dart:io' show Platform;
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
+import '../../../core/platform/platform_support.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
@@ -107,7 +106,7 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
   /// as the operation having failed (same convention as the registration
   /// ticket in `patient_registration_form_screen.dart`).
   Future<void> _printReceipt(RegistrationPaymentState updated, double amount, {bool labFee = false}) async {
-    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS) || !mounted) return;
+    if (!canPrintTickets || !mounted) return;
     final t = ref.read(translationsProvider);
     try {
       Uint8List? logoBytes;

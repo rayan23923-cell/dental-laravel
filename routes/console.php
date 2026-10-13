@@ -15,3 +15,7 @@ Artisan::command('inspire', function () {
 // README "Daily backup — server setup" for the one-time Windows Task
 // Scheduler entry XAMPP doesn't set up on its own).
 Schedule::command('backup:run')->daily();
+
+// Welcome emails with login details (App\Services\CredentialMailer), sent a
+// batch at a time within the daily cap (config mail.daily_limit).
+Schedule::command('mail:send-queued')->everyMinute()->withoutOverlapping();

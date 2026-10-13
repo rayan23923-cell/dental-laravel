@@ -5,7 +5,7 @@ import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, useForm } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
@@ -28,6 +28,20 @@ const form = useForm({
     confirmed_by_accountant: a.confirmed_by_accountant ?? false,
     pinned: a.pinned ?? false,
 });
+
+// The server always overwrites full_name from the chosen registration's
+// name on save anyway (App\Services\AppointmentPatientSync::refresh()) —
+// this watcher just keeps the visible field from looking wrong/stale
+// between picking a patient and actually submitting the form.
+watch(
+    () => form.patient_registration_id,
+    (id) => {
+        const patient = props.patientRegistrations.find((p) => p.id === id);
+        if (patient) {
+            form.full_name = patient.name;
+        }
+    },
+);
 
 // Mirrors PatientRegistrations/Create.vue's own taskFilter/filteredTasks
 // — this task <select> had no filter at all, unusable once there are

@@ -1,0 +1,76 @@
+# Dental clinic app on the VPS: nginx + PHP-FPM + MySQL + scheduler.
+# Reached through the existing Caddy (network `headscale_default`) at https://dental.azoclinic.duckdns.org .
+# Run from the repo root:  docker compose --env-file .env -f deploy/vps/docker-compose.yml up -d --build
+name: dental
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: dental-db
+    restart: unless-stopped
+    # No binlog (single server, nothing replicates) and no performance_schema: ~200 MB RAM and IO back for PHP.
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-time-zone=+03:00 --skip-log-bin --performance-schema=OFF --max-connections=200
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - dental_db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks: [default]
+
+  app:
+    build:
+      context: ../..
+      dockerfile: deploy/vps/Dockerfile
+      target: app
+    image: dental-app:latest
+    container_name: dental-app
+    restart: unless-stopped
+    env_file: ../../.env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - dental_storage:/var/www/html/storage
+    networks: [default]
+
+  # Laravel's scheduler (the daily backup:run). Same image, no migrations: the entrypoint only prepares on php-fpm.
+  scheduler:
+    image: dental-app:latest
+    container_name: dental-scheduler
+    restart: unless-stopped
+    env_file: ../../.env
+    user: www-data
+    command: ["php", "artisan", "schedule:work"]
+    depends_on: [app]
+    volumes:
+      - dental_storage:/var/www/html/storage
+    networks: [default]
+
+  web:
+    build:
+      context: ../..
+      dockerfile: deploy/vps/Dockerfile
+      target: web
+    image: dental-web:latest
+    container_name: dental-web
+    restart: unless-stopped
+    depends_on: [app]
+    volumes:
+      - dental_storage:/var/www/html/storage:ro
+    networks: [default, edge]
+
+volumes:
+  dental_db:
+  dental_storage:
+
+networks:
+  edge:
+    external: true
+    name: headscale_default

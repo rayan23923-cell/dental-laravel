@@ -18,11 +18,12 @@ const form = useForm({
     name: '',
     phone: '',
     service_id: '',
-    amount_paid: '',
 });
 
-// Registration is name + phone + a priced service (2026-10-12). Picking a
-// service fills the amount paid with its price; the desk can still change it.
+// Registration is name + phone + a priced service (2026-10-12). Services
+// are picked from cards; payment is mandatory and is the service's price,
+// recorded by the server, so there is no amount field. A service with no
+// price yet cannot be picked.
 const serviceFilter = ref('');
 const filteredServices = computed(() =>
     serviceFilter.value.trim()
@@ -31,10 +32,10 @@ const filteredServices = computed(() =>
 );
 const selectedService = computed(() => props.services.find((s) => s.id === form.service_id) ?? null);
 const formatPrice = (price) => `${Number(price).toLocaleString()} ${props.currency ?? ''}`.trim();
+const isPriced = (service) => service.price !== null && service.price !== undefined;
 
-const onServiceChange = () => {
-    const price = selectedService.value?.price;
-    form.amount_paid = price !== null && price !== undefined ? String(Number(price)) : '';
+const pickService = (service) => {
+    if (isPriced(service)) form.service_id = service.id;
 };
 
 const submit = () => {
@@ -70,7 +71,7 @@ const submit = () => {
                         </div>
 
                         <div>
-                            <InputLabel for="service_id" :value="t('patientReg.serviceLabel')" />
+                            <InputLabel :value="t('patientReg.serviceLabel')" />
                             <TextInput
                                 v-if="services.length > 6"
                                 v-model="serviceFilter"
@@ -78,31 +79,40 @@ const submit = () => {
                                 :placeholder="t('patientReg.filterServices')"
                                 class="mt-1 block w-full"
                             />
-                            <select
-                                id="service_id"
-                                v-model="form.service_id"
-                                @change="onServiceChange"
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                required
-                            >
-                                <option value="" disabled>{{ t('patientReg.chooseService') }}</option>
-                                <option v-for="service in filteredServices" :key="service.id" :value="service.id">
-                                    {{ service.name }}<template v-if="service.price !== null"> — {{ formatPrice(service.price) }}</template>
-                                </option>
-                            </select>
+                            <div role="radiogroup" class="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                                <button
+                                    v-for="service in filteredServices"
+                                    :key="service.id"
+                                    type="button"
+                                    role="radio"
+                                    :aria-checked="form.service_id === service.id"
+                                    :disabled="!isPriced(service)"
+                                    @click="pickService(service)"
+                                    class="flex min-h-[5.5rem] flex-col items-center justify-center gap-1 rounded-lg border-2 p-3 text-center transition"
+                                    :class="
+                                        form.service_id === service.id
+                                            ? 'border-indigo-600 bg-indigo-50 ring-2 ring-indigo-200'
+                                            : isPriced(service)
+                                              ? 'border-gray-200 bg-white hover:border-indigo-300'
+                                              : 'cursor-not-allowed border-dashed border-gray-200 bg-gray-50 opacity-60'
+                                    "
+                                >
+                                    <span class="font-semibold text-gray-900">{{ service.name }}</span>
+                                    <span v-if="isPriced(service)" class="text-sm text-indigo-700" dir="ltr">{{ formatPrice(service.price) }}</span>
+                                    <span v-else class="text-xs text-amber-700">{{ t('patientReg.noPriceYet') }}</span>
+                                </button>
+                            </div>
                             <InputError class="mt-2" :message="form.errors.service_id" />
                             <p v-if="services.length === 0" class="mt-2 text-sm text-amber-600">{{ t('patientReg.noServicesYet') }}</p>
                         </div>
 
-                        <div>
-                            <InputLabel for="amount_paid" :value="t('patientReg.amountPaid')" />
-                            <TextInput id="amount_paid" v-model="form.amount_paid" type="number" min="0" step="any" class="mt-1 block w-full" dir="ltr" />
-                            <p class="mt-1 text-xs text-gray-500">{{ t('patientReg.amountPaidHint') }}</p>
-                            <InputError class="mt-2" :message="form.errors.amount_paid" />
+                        <div v-if="selectedService" class="flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3">
+                            <span class="text-sm text-gray-600">{{ t('patientReg.amountDue') }}</span>
+                            <span class="text-lg font-bold text-gray-900" dir="ltr">{{ formatPrice(selectedService.price) }}</span>
                         </div>
 
                         <div class="flex justify-end">
-                            <PrimaryButton :disabled="form.processing">{{ t('patientReg.submitRegistration') }}</PrimaryButton>
+                            <PrimaryButton :disabled="form.processing || !selectedService">{{ t('patientReg.submitRegistration') }}</PrimaryButton>
                         </div>
                     </form>
                 </div>

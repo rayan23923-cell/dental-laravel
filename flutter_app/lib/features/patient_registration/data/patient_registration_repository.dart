@@ -86,12 +86,11 @@ class PatientRegistrationRepository {
     required String phone,
     required int serviceId,
     int? taskId,
-    double? amountPaid,
   }) async {
     // No `register_day_id` since 2026-10-12 — registration is by service
-    // only (the server column is nullable now).
+    // only (the server column is nullable now). No amount either: the
+    // server charges the service's price.
     final data = await _client.postJson('/patient-registrations', body: {
-      if (amountPaid != null && amountPaid > 0) 'amount_paid': amountPaid,
       'name': name,
       'phone': phone,
       'service_id': serviceId,

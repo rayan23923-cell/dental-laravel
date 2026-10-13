@@ -1,15 +1,13 @@
-import 'dart:io' show Platform;
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
+import '../../../core/platform/platform_support.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
-import '../../../core/widgets/cascading_dropdown.dart';
 import '../../clinic_settings/domain/clinic_settings.dart';
 import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../../printing/data/pos_printer_service.dart';
@@ -23,9 +21,10 @@ import '../domain/service.dart';
 import 'patient_registration_providers.dart';
 
 /// "تسجيل مريض جديد" — mirrors `PatientRegistrations/Create.vue`: name,
-/// phone, a service from the registration settings and the amount paid,
-/// which the service's price pre-fills (2026-10-12 — the day picker is
-/// gone, registration is by service only). On Android, a successful submit also
+/// phone and a service picked from cards with its price (2026-10-12 — the
+/// day picker is gone, registration is by service only). Payment is
+/// mandatory and is the service's price, recorded by the server, so there
+/// is no amount field; a service with no price yet cannot be picked. On Android, a successful submit also
 /// prints a ticket on the device's built-in POS printer — see
 /// `PosPrinterService`'s doc comment. A print failure never blocks or
 /// rolls back the registration itself, which already succeeded server-side
@@ -41,7 +40,6 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _amountController = TextEditingController();
   int? _serviceId;
   int? _taskId;
   bool _submitting = false;
@@ -50,12 +48,8 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
-    _amountController.dispose();
     super.dispose();
   }
-
-  /// Plain (ungrouped) number for the amount field, so it parses back.
-  static String _plainAmount(double v) => v == v.truncateToDouble() ? v.toInt().toString() : v.toString();
 
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? true)) return;
@@ -69,14 +63,13 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
             phone: _phoneController.text.trim(),
             serviceId: _serviceId!,
             taskId: _taskId,
-            amountPaid: double.tryParse(_amountController.text.trim()),
           );
       ref.invalidate(patientRegistrationListProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['patientRegFlutter.registeredSuccess']!)));
       }
 
-      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS) && mounted) {
+      if (canPrintTickets && mounted) {
         try {
           // Best-effort: the registration already succeeded server-side,
           // so a QR fetch failure (offline, slow network) must not block
@@ -115,6 +108,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
             context,
             TicketWidget(
               registration: registration,
+              showPaid: true,
               qrBytes: qrBytes,
               logoBytes: logoBytes,
               headerTitle: settings?.universityName ?? settings?.clinicName,
@@ -160,6 +154,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(child: Text(error is ApiException ? error.userMessage : t['common.loadFailed']!)),
         data: (services) {
+          final Service? selected = services.where((s) => s.id == _serviceId).firstOrNull;
           return Form(
             key: _formKey,
             child: ListView(
@@ -179,64 +174,64 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                   validator: (v) => (v == null || v.trim().isEmpty) ? t['profile.requiredField']! : null,
                 ),
                 const SizedBox(height: 16),
-                // DropdownMenu (not DropdownButtonFormField) so a clinic
-                // with dozens of services gets type-to-filter for free
-                // (`enableFilter`). Wrapped in a bare FormField to keep the
-                // same required-field validation the plain dropdown had —
-                // DropdownMenu has no FormField variant.
+                Text(t['patientRegFlutter.serviceLabel']!, style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 8),
                 FormField<int>(
                   initialValue: services.any((s) => s.id == _serviceId) ? _serviceId : null,
                   validator: (v) => v == null ? t['profile.requiredField'] : null,
-                  builder: (field) => DropdownMenu<int>(
-                    initialSelection: field.value,
-                    enableFilter: true,
-                    requestFocusOnTap: true,
-                    expandedInsets: EdgeInsets.zero,
-                    label: Text(t['patientRegFlutter.serviceLabel']!),
-                    helperText: services.isEmpty ? t['patientRegFlutter.noServices'] : null,
-                    errorText: field.errorText,
-                    dropdownMenuEntries: [
-                      for (final s in services)
-                        DropdownMenuEntry(
-                          value: s.id,
-                          label: s.price == null ? s.name : '${s.name} — ${priceFormat.format(s.price)}',
+                  builder: (field) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (services.isEmpty) Text(t['patientRegFlutter.noServices']!),
+                      GridView.count(
+                        crossAxisCount: 2,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
+                        childAspectRatio: 1.9,
+                        children: [
+                          for (final s in services)
+                            _ServiceCard(
+                              service: s,
+                              selected: s.id == field.value,
+                              priceLabel: s.price == null
+                                  ? t['patientRegFlutter.noPriceYet']!
+                                  : priceFormat.format(s.price),
+                              onTap: s.price == null
+                                  ? null
+                                  : () {
+                                      field.didChange(s.id);
+                                      setState(() => _serviceId = s.id);
+                                    },
+                            ),
+                        ],
+                      ),
+                      if (field.errorText != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(field.errorText!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
                         ),
                     ],
-                    onSelected: (v) {
-                      field.didChange(v);
-                      final Service? service = services.where((s) => s.id == v).firstOrNull;
-                      setState(() {
-                        _serviceId = v;
-                        // The price only pre-fills the amount; it stays editable.
-                        if (service?.price != null) _amountController.text = _plainAmount(service!.price!);
-                      });
-                    },
                   ),
                 ),
                 // "التشخيص" picker removed from registration (2026-10-11, by
                 // request); registrations are saved with no task.
-                const SizedBox(height: 16),
-                // "المبلغ المدفوع" (2026-10-11, by request): recorded as the
-                // patient's payment together with the registration.
-                TextFormField(
-                  controller: _amountController,
-                  textDirection: TextDirection.ltr,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(
-                    labelText: t['patientRegFlutter.amountPaidLabel']!,
-                    helperText: t['patientRegFlutter.amountPaidHint']!,
-                    border: const OutlineInputBorder(),
+                if (selected != null) ...[
+                  const SizedBox(height: 16),
+                  Card(
+                    child: ListTile(
+                      title: Text(t['patientRegFlutter.amountDue']!),
+                      trailing: Text(
+                        priceFormat.format(selected.price),
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ),
                   ),
-                  validator: (v) {
-                    final text = v?.trim() ?? '';
-                    if (text.isEmpty) return null;
-                    final n = double.tryParse(text);
-                    return (n == null || n < 0) ? t['patientRegFlutter.amountPaidInvalid']! : null;
-                  },
-                ),
+                ],
                 const SizedBox(height: 24),
                 FilledButton(
-                  onPressed: _submitting ? null : _submit,
+                  onPressed: _submitting || _serviceId == null ? null : _submit,
                   child: _submitting
                       ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
                       : Text(t['patientRegFlutter.submit']!),
@@ -245,6 +240,59 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// One service in the registration picker: its name and price; tapping
+/// selects it. A service with no price yet is shown greyed out and cannot
+/// be picked.
+class _ServiceCard extends StatelessWidget {
+  const _ServiceCard({required this.service, required this.selected, required this.priceLabel, required this.onTap});
+
+  final Service service;
+  final bool selected;
+  final String priceLabel;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final enabled = onTap != null;
+    return Opacity(
+      opacity: enabled ? 1 : 0.5,
+      child: Material(
+        color: selected ? scheme.primaryContainer : scheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: selected ? scheme.primary : scheme.outlineVariant, width: selected ? 2 : 1),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  service.name,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  priceLabel,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: enabled ? scheme.primary : scheme.error, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

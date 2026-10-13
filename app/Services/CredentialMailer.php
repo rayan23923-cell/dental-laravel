@@ -1,0 +1,82 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\QueuedEmail;
+use Illuminate\Support\Str;
+
+/**
+ * Queues the welcome email (username + password) for a newly created account.
+ * Nothing is sent here: `mail:send-queued` drains the queue every minute
+ * without exceeding the daily cap, so a 600-row Excel import spreads over two
+ * days instead of getting the Gmail account blocked.
+ */
+class CredentialMailer
+{
+    /** Readable passwords: no 0/O/1/l/I lookalikes, since people type them from an email. */
+    public static function generatePassword(int $length = 10): string
+    {
+        $alphabet = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
+        $password = '';
+        for ($i = 0; $i < $length; $i++) {
+            $password .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+        }
+
+        return $password;
+    }
+
+    public static function isDeliverable(?string $email): bool
+    {
+        $email = trim((string) $email);
+
+        return $email !== '' && ! Str::endsWith($email, '@placeholder.local') && filter_var($email, FILTER_VALIDATE_EMAIL);
+    }
+
+    /**
+     * Usernames in an import sheet whose generated password nobody could ever
+     * learn: no default password was given and the row has no usable email.
+     *
+     * @param  array<int, array<int, mixed>>  $rows  sheet rows, header first
+     * @return list<string>
+     */
+    public static function unreachableImportRows(array $rows): array
+    {
+        $missing = [];
+        foreach (array_slice($rows, 1) as $row) {
+            [, , $email, , $username] = array_pad($row, 5, null);
+            $username = trim((string) $username);
+            if ($username !== '' && ! self::isDeliverable((string) $email)) {
+                $missing[] = $username;
+            }
+        }
+
+        return $missing;
+    }
+
+    /**
+     * @param  'doctor'|'user'  $accountType
+     */
+    public static function queueWelcome(string $accountType, ?string $email, string $name, string $username, string $plainPassword): bool
+    {
+        // The Excel importer fills a missing email with {username}@placeholder.local.
+        if (! self::isDeliverable($email)) {
+            return false;
+        }
+        $email = trim((string) $email);
+
+        QueuedEmail::create([
+            'kind' => QueuedEmail::KIND_WELCOME,
+            'recipient_email' => $email,
+            'recipient_name' => $name,
+            'payload' => [
+                'account_type' => $accountType,
+                'name' => $name,
+                'username' => $username,
+                'password' => $plainPassword,
+            ],
+            'status' => QueuedEmail::STATUS_PENDING,
+        ]);
+
+        return true;
+    }
+}

@@ -1,12 +1,11 @@
 import 'dart:async';
-import 'dart:io' show Platform;
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/platform/platform_support.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
@@ -227,7 +226,7 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                               : Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
+                                    if (canPrintTickets)
                                       IconButton(
                                         icon: const Icon(Icons.print_outlined),
                                         tooltip: t['patientRegFlutter.reprintTicket']!,
@@ -330,6 +329,7 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
         context,
         TicketWidget(
           registration: registration,
+          showPaid: true,
           qrBytes: qrBytes,
           logoBytes: logoBytes,
           widthDots: printerSettings.dotsPerLine,

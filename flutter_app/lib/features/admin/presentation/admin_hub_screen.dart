@@ -37,7 +37,8 @@ class AdminHubScreen extends ConsumerWidget {
       _AdminGroup(t['adminHub.doctorsGroup']!, [
         _AdminItem(t['adminHub.doctors']!, Icons.medical_information_outlined, '/admin/doctors'),
         _AdminItem(t['adminHub.groups']!, Icons.groups_outlined, '/admin/groups'),
-        _AdminItem(t['adminHub.clinicChairs']!, Icons.event_seat_outlined, '/admin/clinic-chairs'),
+        // The clinic chair map is hidden (2026-10-12, by request); its
+        // route stays registered.
       ]),
       _AdminGroup(t['adminHub.referenceData']!, [
         _AdminItem(t['adminHub.academicSessions']!, Icons.event_note_outlined, '/admin/academic-sessions'),

@@ -7,6 +7,8 @@ import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../patient_registration/data/patient_registration_repository.dart';
 import '../data/task_instance_repository.dart';
+import '../../../core/platform/platform_support.dart';
+import 'desktop_qr_scanner.dart';
 import 'task_instances_providers.dart';
 
 /// Which QR flow this screen is resolving a scan for — see `_onDetect`.
@@ -62,18 +64,24 @@ class QrScanScreen extends ConsumerStatefulWidget {
 class _QrScanScreenState extends ConsumerState<QrScanScreen> {
   bool _handled = false;
   String? _error;
-  final MobileScannerController _controller = MobileScannerController();
+  // Windows has no mobile_scanner camera (2026-10-12): DesktopQrScanner
+  // is used there instead, so this controller is only made elsewhere.
+  final MobileScannerController? _controller = isWindowsDesktop ? null : MobileScannerController();
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
   Future<void> _onDetect(BarcodeCapture capture) async {
-    if (_handled) return;
     final raw = capture.barcodes.firstOrNull?.rawValue;
     if (raw == null) return;
+    await _handle(raw);
+  }
+
+  Future<void> _handle(String raw) async {
+    if (_handled) return;
 
     setState(() {
       _handled = true;
@@ -127,6 +135,7 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
       appBar: AppBar(
         title: Text(_title(t)),
         actions: [
+          if (_controller != null)
           // Torch toggle — mirrors the web QrScanner.vue's existing
           // "تشغيل/إطفاء الفلاش" control (same feature, previously missing
           // here). ValueListenableBuilder keeps the icon in sync whether
@@ -150,12 +159,16 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
+          if (_controller == null)
+            DesktopQrScanner(onCode: _handle, paused: _handled)
+          else ...[
           MobileScanner(controller: _controller, onDetect: _onDetect),
           // Square aiming frame with corner brackets — purely visual (the
           // scanner itself reads the whole camera frame regardless), so a
           // user pointing at a QR code gets the same "aim here" cue this
           // app already gives on web (QrScanner.vue's green frame overlay).
           const IgnorePointer(child: CustomPaint(painter: _ScannerFramePainter())),
+          ],
           if (_error != null)
             Positioned(
               left: 16,

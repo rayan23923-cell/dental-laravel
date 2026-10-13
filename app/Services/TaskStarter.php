@@ -21,11 +21,11 @@ use Illuminate\Support\Facades\DB;
  * completed their required number; lazily creates a single `pending`
  * instance when the global pool is empty rather than pre-creating them all.
  *
- * `$patientRegistration` is required (2026-08-26, the infectious-disease
- * screening feature) — every task instance is now stamped with the
- * specific patient it was started for, and `PatientScreeningGate` refuses
- * to let this proceed until that patient's registration is confirmed
- * `screening_status === 'clear'` by a lab/reception scan.
+ * `$patientRegistration` is optional (2026-10-12, by request): a task is
+ * started from the case QR or by picking the doctor and task, without
+ * scanning the patient's QR. When a patient is given, the instance is
+ * stamped with it and `PatientScreeningGate` still refuses to proceed until
+ * that registration is `screening_status === 'clear'`.
  */
 class TaskStarter
 {
@@ -36,11 +36,13 @@ class TaskStarter
     public static function start(
         Task $task,
         Doctor $doctor,
-        PatientRegistration $patientRegistration,
+        ?PatientRegistration $patientRegistration,
         ?string $notes,
         ?int $assignedByUserId
     ): TaskInstance {
-        PatientScreeningGate::ensureClear($patientRegistration);
+        if ($patientRegistration) {
+            PatientScreeningGate::ensureClear($patientRegistration);
+        }
 
         $requiredForDoctor = (int) ($task->required_per_doctor ?: $task->required_count);
 
@@ -75,7 +77,7 @@ class TaskStarter
 
             $pending->update([
                 'doctor_id' => $doctor->id,
-                'patient_registration_id' => $patientRegistration->id,
+                'patient_registration_id' => $patientRegistration?->id,
                 'status' => 'assigned',
                 'assigned_date' => now(),
                 'notes' => $notes,
@@ -88,6 +90,14 @@ class TaskStarter
             ->where('status', 'assigned')
             ->latest('id')
             ->firstOrFail();
+
+        // Push the newly-assigned treating doctor into any appointment
+        // already booked for this patient/task (see AppointmentPatientSync's
+        // own docblock) — appointments and task instances are otherwise
+        // two disconnected subsystems that both reference PatientRegistration.
+        if ($patientRegistration) {
+            AppointmentPatientSync::syncForPatient($patientRegistration, $task->id);
+        }
 
         // Outside the transaction so a mail failure can't roll back the
         // assignment — same reasoning as the original controller method.
