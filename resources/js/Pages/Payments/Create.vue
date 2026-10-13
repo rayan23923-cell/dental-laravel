@@ -185,14 +185,15 @@ const submit = () => {
             <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('payments.recordPayment') }}</h2>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-2xl sm:px-6 lg:px-8">
-                <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
+        <!-- Restyled to match the chat-list pages (2026-10-13, by request). -->
+        <div class="py-6 sm:py-10">
+            <div class="mx-auto max-w-2xl px-4 sm:px-6 lg:px-8">
+                <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 sm:p-6">
                     <!-- Surfaces PatientScreeningGate's refusal (2026-08-26) —
                          this form previously had no flash-message display at
                          all, so `back()->with('error', ...)` from the
                          screening gate (or anything else) went unseen. -->
-                    <div v-if="page.props.flash?.error" class="mb-6 rounded-md bg-red-50 p-4 text-sm text-red-700">
+                    <div v-if="page.props.flash?.error" class="mb-6 rounded-xl bg-red-50 p-4 text-sm text-red-700">
                         {{ page.props.flash.error }}
                     </div>
                     <form @submit.prevent="submit" class="space-y-6">
@@ -212,7 +213,7 @@ const submit = () => {
 
                         <div v-if="source === 'appointment'">
                             <InputLabel for="appointment_id" :value="t('payments.appointmentLabel')" />
-                            <select id="appointment_id" v-model="form.appointment_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
+                            <select id="appointment_id" v-model="form.appointment_id" class="mt-1 block w-full rounded-xl border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
                                 <option value="" disabled>{{ t('payments.selectAppointment') }}</option>
                                 <option v-for="a in appointments" :key="a.id" :value="a.id">{{ a.full_name }} — {{ a.appointment_date }}</option>
                             </select>
@@ -230,7 +231,7 @@ const submit = () => {
                                  Flutter screen's _ScreeningBlockedBanner. -->
                             <div
                                 v-if="selectedRegistration && !isScreeningClear(selectedRegistration)"
-                                class="mt-1 rounded-md border border-red-200 bg-red-50 p-3"
+                                class="mt-1 rounded-xl border border-red-200 bg-red-50 p-3"
                             >
                                 <div class="flex items-start justify-between gap-2">
                                     <div>
@@ -251,7 +252,7 @@ const submit = () => {
                             <!-- A patient was found (scan or search) and is screening-clear -->
                             <div
                                 v-else-if="selectedRegistration"
-                                class="mt-1 flex items-center justify-between rounded-md border border-green-200 bg-green-50 p-3"
+                                class="mt-1 flex items-center justify-between rounded-xl border border-green-200 bg-green-50 p-3"
                             >
                                 <div>
                                     <p class="text-sm font-medium text-gray-900">{{ selectedRegistration.name }}</p>
@@ -263,13 +264,13 @@ const submit = () => {
                             <!-- Not found yet: scan or search -->
                             <div v-else class="mt-1 space-y-3">
                                 <div v-if="!scanning" class="flex flex-wrap items-center gap-2">
-                                    <SecondaryButton type="button" @click="openScanner">
+                                    <SecondaryButton type="button" class="rounded-full" @click="openScanner">
                                         <Icon name="qr_code_scanner" class="ml-1" />{{ t('payments.scanPatientCode') }}
                                     </SecondaryButton>
                                     <PhoneScannerLink variant="page" />
                                 </div>
                                 <QrScanner v-else ref="scannerRef" @decoded="onDecoded" />
-                                <div v-if="scanError" class="rounded-md bg-red-50 p-2 text-sm text-red-700">{{ scanError }}</div>
+                                <div v-if="scanError" class="rounded-xl bg-red-50 p-2 text-sm text-red-700">{{ scanError }}</div>
 
                                 <div class="relative">
                                     <TextInput
@@ -277,9 +278,9 @@ const submit = () => {
                                         @input="onSearchInput"
                                         type="text"
                                         :placeholder="t('payments.orSearchPlaceholder')"
-                                        class="block w-full"
+                                        class="block w-full rounded-full"
                                     />
-                                    <div v-if="registrationResults.length" class="absolute z-10 mt-1 w-full rounded-md border border-gray-200 bg-white shadow-lg">
+                                    <div v-if="registrationResults.length" class="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
                                         <button
                                             v-for="r in registrationResults"
                                             :key="r.id"
@@ -297,7 +298,7 @@ const submit = () => {
                             <InputError class="mt-2" :message="form.errors.patient_registration_id" />
 
                             <!-- Lab screening fee -->
-                            <div v-if="selectedRegistration && hasLabFee" class="mt-3 rounded-md border p-3" :class="selectedRegistration.lab_paid ? 'border-sky-200 bg-sky-50' : 'border-amber-200 bg-amber-50'">
+                            <div v-if="selectedRegistration && hasLabFee" class="mt-3 rounded-xl border p-3" :class="selectedRegistration.lab_paid ? 'border-sky-200 bg-sky-50' : 'border-amber-200 bg-amber-50'">
                                 <div class="flex flex-wrap items-center justify-between gap-2">
                                     <p class="text-sm font-medium text-gray-900">
                                         <Icon name="science" class="ml-1" />{{ t('payments.labFee') }}: <span dir="ltr">{{ labFeeText }}</span>
@@ -310,7 +311,7 @@ const submit = () => {
                                         type="button"
                                         :disabled="payingLab"
                                         @click="payLabFee"
-                                        class="rounded-md bg-amber-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+                                        class="rounded-full bg-amber-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
                                     >
                                         <Icon name="print" class="ml-1" />{{ t('payments.payLabFee') }}
                                     </button>
@@ -322,18 +323,18 @@ const submit = () => {
                         <template v-if="!registrationBlocked">
                             <div>
                                 <InputLabel for="amount" :value="t('payments.amountCol')" />
-                                <TextInput id="amount" v-model="form.amount" type="text" inputmode="decimal" class="mt-1 block w-full" dir="ltr" required autofocus />
+                                <TextInput id="amount" v-model="form.amount" type="text" inputmode="decimal" class="mt-1 block w-full rounded-xl" dir="ltr" required autofocus />
                                 <div class="mt-2 flex flex-wrap gap-2">
                                     <button
                                         v-for="digits in ['0', '00', '000']"
                                         :key="digits"
                                         type="button"
-                                        class="rounded-md border border-gray-300 px-4 py-1 text-sm text-gray-700 hover:bg-gray-50"
+                                        class="rounded-full border border-gray-300 px-4 py-1 text-sm text-gray-700 hover:bg-gray-50"
                                         @click="appendDigits(digits)"
                                     >
                                         {{ digits }}
                                     </button>
-                                    <button type="button" class="rounded-md border border-gray-300 px-4 py-1 text-sm text-gray-700 hover:bg-gray-50" @click="clearAmount">
+                                    <button type="button" class="rounded-full border border-gray-300 px-4 py-1 text-sm text-gray-700 hover:bg-gray-50" @click="clearAmount">
                                         {{ t('payments.clearAmount') }}
                                     </button>
                                 </div>
@@ -342,12 +343,12 @@ const submit = () => {
 
                             <div>
                                 <InputLabel for="paid_by" :value="t('payments.paidByCol')" />
-                                <TextInput id="paid_by" v-model="form.paid_by" type="text" class="mt-1 block w-full" />
+                                <TextInput id="paid_by" v-model="form.paid_by" type="text" class="mt-1 block w-full rounded-xl" />
                                 <InputError class="mt-2" :message="form.errors.paid_by" />
                             </div>
 
                             <div class="flex justify-end">
-                                <PrimaryButton :disabled="form.processing">{{ t('payments.savePayment') }}</PrimaryButton>
+                                <PrimaryButton class="rounded-full" :disabled="form.processing">{{ t('payments.savePayment') }}</PrimaryButton>
                             </div>
                         </template>
                     </form>

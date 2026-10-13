@@ -8,6 +8,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/chat_list_tile.dart';
 import '../data/activity_logs_repository.dart';
 import '../domain/activity_log_entry.dart';
 
@@ -103,11 +104,24 @@ class _ActivityLogListScreenState extends ConsumerState<ActivityLogListScreen> {
       case 'create':
         return Colors.green;
       case 'update':
-        return Colors.amber;
+        return Colors.amber.shade800;
       case 'delete':
         return Colors.red;
       default:
         return Colors.grey;
+    }
+  }
+
+  IconData _actionIcon(String action) {
+    switch (action) {
+      case 'create':
+        return Icons.add_circle_outline;
+      case 'update':
+        return Icons.edit_outlined;
+      case 'delete':
+        return Icons.delete_outline;
+      default:
+        return Icons.history;
     }
   }
 
@@ -120,16 +134,13 @@ class _ActivityLogListScreenState extends ConsumerState<ActivityLogListScreen> {
       appBar: AppBar(title: Text(t['activityLogsAdmin.title']!)),
       body: Column(
         children: [
+          // Chat-list style (2026-10-13, by request): search pill + compact
+          // action filter chips.
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: TextField(
+            child: ChatSearchField(
               controller: _searchController,
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search),
-                hintText: t['activityLogsAdmin.searchHint'],
-                border: const OutlineInputBorder(),
-                isDense: true,
-              ),
+              hintText: t['activityLogsAdmin.searchHint']!,
               onSubmitted: (v) {
                 _search = v.trim().isEmpty ? null : v.trim();
                 _load();
@@ -137,13 +148,16 @@ class _ActivityLogListScreenState extends ConsumerState<ActivityLogListScreen> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
             child: Wrap(
               spacing: 8,
               children: [
                 for (final (value, label) in _actionFilters(t))
                   ChoiceChip(
                     label: Text(label),
+                    avatar: value == null ? null : Icon(_actionIcon(value), size: 16),
+                    shape: const StadiumBorder(),
+                    visualDensity: VisualDensity.compact,
                     selected: _action == value,
                     onSelected: (_) {
                       setState(() => _action = value);
@@ -163,9 +177,9 @@ class _ActivityLogListScreenState extends ConsumerState<ActivityLogListScreen> {
                         : RefreshIndicator(
                             onRefresh: _load,
                             child: ListView.separated(
-                              padding: const EdgeInsets.all(12),
+                              padding: const EdgeInsets.only(top: 4, bottom: 24),
                               itemCount: _entries.length + (_hasMore ? 1 : 0),
-                              separatorBuilder: (_, __) => const SizedBox(height: 8),
+                              separatorBuilder: (_, __) => chatDivider,
                               itemBuilder: (context, i) {
                                 if (i >= _entries.length) {
                                   return Center(
@@ -178,31 +192,42 @@ class _ActivityLogListScreenState extends ConsumerState<ActivityLogListScreen> {
                                   );
                                 }
                                 final entry = _entries[i];
-                                return Card(
-                                  child: ListTile(
-                                    title: Text('${entry.username} (${entry.userRole})'),
-                                    // A chip + date in `trailing` overflowed the
-                                    // tile's fixed trailing height by a few
-                                    // pixels (confirmed live) — the date lives
-                                    // in `subtitle` instead, which sizes to its
-                                    // content rather than a fixed slot.
-                                    subtitle: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('${entry.module} · ${entry.description}'),
-                                        Directionality(
-                                          textDirection: TextDirection.ltr,
-                                          child: Text(
-                                            dateFormat.format(entry.createdAt.toLocal()),
-                                            style: Theme.of(context).textTheme.bodySmall,
-                                          ),
-                                        ),
-                                      ],
+                                // Chat-list row (2026-10-13, by request): the
+                                // action as a coloured avatar + chip, the user
+                                // as the title, the description below and
+                                // module/role/date chips.
+                                final color = _actionColor(entry.action);
+                                final actionLabel = _actionFilters(t)
+                                        .where((f) => f.$1 == entry.action)
+                                        .map((f) => f.$2)
+                                        .firstOrNull ??
+                                    entry.action;
+                                return ChatListTile(
+                                  title: entry.username,
+                                  color: color,
+                                  icon: _actionIcon(entry.action),
+                                  subtitle: entry.description,
+                                  chips: [
+                                    ChatChip(label: actionLabel, icon: _actionIcon(entry.action), color: color),
+                                    ChatChip(label: entry.module, icon: Icons.widgets_outlined, color: Colors.indigo),
+                                    ChatChip(label: entry.userRole, icon: Icons.badge_outlined, color: Colors.blueGrey),
+                                    // LTR isolate: a date/time inside RTL text.
+                                    ChatChip(
+                                      label: '\u2066${dateFormat.format(entry.createdAt.toLocal())}\u2069',
+                                      icon: Icons.schedule,
+                                      color: Colors.blueGrey,
                                     ),
-                                    isThreeLine: true,
-                                    trailing: Chip(
-                                      label: Text(entry.action, style: TextStyle(color: _actionColor(entry.action))),
-                                      visualDensity: VisualDensity.compact,
+                                  ],
+                                  // The subtitle is one line now; a tap shows
+                                  // the full description.
+                                  onTap: () => showDialog<void>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: Text(entry.username),
+                                      content: Text('${entry.module} · ${entry.description}'),
+                                      actions: [
+                                        TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(t['common.close']!)),
+                                      ],
                                     ),
                                   ),
                                 );

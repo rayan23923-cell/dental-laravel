@@ -67,18 +67,19 @@ const sendTest = () => testForm.post(route('clinic-settings.test-email'), { pres
     <Head :title="t('clinicSettingsAdmin.title')" />
 
     <AuthenticatedLayout>
+        <!-- Chat-list style (2026-10-13, by request): rounded cards with section icons, rounded inputs. -->
         <template #header>
             <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('clinicSettingsAdmin.title') }}</h2>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-4xl space-y-6 sm:px-6 lg:px-8">
-                <div v-if="page.props.flash?.success" class="rounded-md bg-green-50 p-4 text-sm text-green-700">
+        <div class="py-6 sm:py-10">
+            <div class="mx-auto max-w-4xl space-y-6 px-4 sm:px-6 lg:px-8">
+                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
                     {{ page.props.flash.success }}
                 </div>
                 <!-- The test-send reports the transport's real error here; without
                      this the SMTP failure text would be invisible. -->
-                <div v-if="page.props.flash?.error" class="rounded-md bg-red-50 p-4 text-sm text-red-700">
+                <div v-if="page.props.flash?.error" class="rounded-xl bg-red-50 p-4 text-sm text-red-700">
                     {{ page.props.flash.error }}
                 </div>
 
@@ -86,9 +87,9 @@ const sendTest = () => testForm.post(route('clinic-settings.test-email'), { pres
                     <!-- Appearance. Applied app-wide from clinic_settings.theme
                          (App\Support\ThemePalette) — it drives the login screens
                          and the navigation chrome. -->
-                    <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                        <h3 class="mb-1 text-sm font-semibold text-gray-700">
-                            <Icon name="palette" class="ml-1" />{{ t('clinicSettingsAdmin.themeHeading') }}
+                    <div class="overflow-hidden rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-6">
+                        <h3 class="mb-1 flex items-center gap-2 text-sm font-semibold text-gray-800">
+                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fuchsia-50 text-fuchsia-600"><Icon name="palette" size="text-[18px]" /></span>{{ t('clinicSettingsAdmin.themeHeading') }}
                         </h3>
                         <p class="mb-4 text-xs text-gray-500">
                             {{ t('clinicSettingsAdmin.themeDesc') }}
@@ -125,25 +126,27 @@ const sendTest = () => testForm.post(route('clinic-settings.test-email'), { pres
                         <InputError class="mt-2" :message="form.errors.theme" />
                     </div>
 
-                    <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                        <h3 class="mb-4 text-sm font-semibold text-gray-700">{{ t('clinicSettingsAdmin.basicInfoHeading') }}</h3>
+                    <div class="overflow-hidden rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-6">
+                        <h3 class="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-800">
+                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-indigo-600"><Icon name="store" size="text-[18px]" /></span>{{ t('clinicSettingsAdmin.basicInfoHeading') }}
+                        </h3>
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div class="sm:col-span-2">
                                 <InputLabel for="clinic_name" :value="t('clinicSettingsAdmin.clinicNameLabel')" />
-                                <TextInput id="clinic_name" v-model="form.clinic_name" type="text" class="mt-1 block w-full" required />
+                                <TextInput id="clinic_name" v-model="form.clinic_name" type="text" class="mt-1 block w-full rounded-xl" required />
                                 <InputError class="mt-2" :message="form.errors.clinic_name" />
                             </div>
                             <div class="sm:col-span-2">
                                 <InputLabel for="clinic_description" :value="t('clinicSettingsAdmin.descriptionLabel')" />
-                                <textarea id="clinic_description" v-model="form.clinic_description" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+                                <textarea id="clinic_description" v-model="form.clinic_description" rows="2" class="mt-1 block w-full rounded-xl border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
                             </div>
                             <div>
                                 <InputLabel for="clinic_phone" :value="t('clinicSettingsAdmin.phoneLabel')" />
-                                <TextInput id="clinic_phone" v-model="form.clinic_phone" type="text" class="mt-1 block w-full" />
+                                <TextInput id="clinic_phone" v-model="form.clinic_phone" type="text" class="mt-1 block w-full rounded-xl" />
                             </div>
                             <div>
                                 <InputLabel for="clinic_email" :value="t('clinicSettingsAdmin.emailLabel')" />
-                                <TextInput id="clinic_email" v-model="form.clinic_email" type="email" class="mt-1 block w-full" />
+                                <TextInput id="clinic_email" v-model="form.clinic_email" type="email" class="mt-1 block w-full rounded-xl" />
                                 <InputError class="mt-2" :message="form.errors.clinic_email" />
                             </div>
                             <div class="sm:col-span-2">
@@ -155,36 +158,40 @@ const sendTest = () => testForm.post(route('clinic-settings.test-email'), { pres
                         </div>
                     </div>
 
-                    <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                        <h3 class="mb-4 text-sm font-semibold text-gray-700">{{ t('clinicSettingsAdmin.contactInfoHeading') }}</h3>
+                    <div class="overflow-hidden rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-6">
+                        <h3 class="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-800">
+                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-50 text-sky-600"><Icon name="contact_phone" size="text-[18px]" /></span>{{ t('clinicSettingsAdmin.contactInfoHeading') }}
+                        </h3>
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div class="sm:col-span-2">
                                 <InputLabel for="clinic_address" :value="t('clinicSettingsAdmin.addressLabel')" />
-                                <textarea id="clinic_address" v-model="form.clinic_address" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+                                <textarea id="clinic_address" v-model="form.clinic_address" rows="2" class="mt-1 block w-full rounded-xl border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
                             </div>
                             <div>
                                 <InputLabel for="clinic_website" :value="t('clinicSettingsAdmin.websiteLabel')" />
-                                <TextInput id="clinic_website" v-model="form.clinic_website" type="url" class="mt-1 block w-full" placeholder="https://example.com" />
+                                <TextInput id="clinic_website" v-model="form.clinic_website" type="url" class="mt-1 block w-full rounded-xl" placeholder="https://example.com" />
                                 <InputError class="mt-2" :message="form.errors.clinic_website" />
                             </div>
                             <div>
                                 <InputLabel for="clinic_working_hours" :value="t('clinicSettingsAdmin.workingHoursLabel')" />
-                                <TextInput id="clinic_working_hours" v-model="form.clinic_working_hours" type="text" class="mt-1 block w-full" />
+                                <TextInput id="clinic_working_hours" v-model="form.clinic_working_hours" type="text" class="mt-1 block w-full rounded-xl" />
                             </div>
                         </div>
                     </div>
 
-                    <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                        <h3 class="mb-4 text-sm font-semibold text-gray-700">{{ t('clinicSettingsAdmin.universityCollegeHeading') }}</h3>
+                    <div class="overflow-hidden rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-6">
+                        <h3 class="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-800">
+                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-50 text-violet-600"><Icon name="school" size="text-[18px]" /></span>{{ t('clinicSettingsAdmin.universityCollegeHeading') }}
+                        </h3>
                         <p class="mb-4 text-xs text-gray-400">{{ t('clinicSettingsAdmin.usedInPrintHeadersNote') }}</p>
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
                                 <InputLabel for="university_name" :value="t('clinicSettingsAdmin.universityNameLabel')" />
-                                <TextInput id="university_name" v-model="form.university_name" type="text" class="mt-1 block w-full" />
+                                <TextInput id="university_name" v-model="form.university_name" type="text" class="mt-1 block w-full rounded-xl" />
                             </div>
                             <div>
                                 <InputLabel for="college_name" :value="t('clinicSettingsAdmin.collegeNameLabel')" />
-                                <TextInput id="college_name" v-model="form.college_name" type="text" class="mt-1 block w-full" />
+                                <TextInput id="college_name" v-model="form.college_name" type="text" class="mt-1 block w-full rounded-xl" />
                             </div>
                             <div class="sm:col-span-2">
                                 <InputLabel for="university_logo" :value="t('clinicSettingsAdmin.universityLogoLabel')" />
@@ -195,20 +202,22 @@ const sendTest = () => testForm.post(route('clinic-settings.test-email'), { pres
                         </div>
                     </div>
 
-                    <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                        <h3 class="mb-4 text-sm font-semibold text-gray-700">{{ t('clinicSettingsAdmin.systemHeading') }}</h3>
+                    <div class="overflow-hidden rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-6">
+                        <h3 class="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-800">
+                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-600"><Icon name="tune" size="text-[18px]" /></span>{{ t('clinicSettingsAdmin.systemHeading') }}
+                        </h3>
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                             <div>
                                 <InputLabel for="clinic_currency" :value="t('clinicSettingsAdmin.currencyLabel')" />
-                                <TextInput id="clinic_currency" v-model="form.clinic_currency" type="text" class="mt-1 block w-full" />
+                                <TextInput id="clinic_currency" v-model="form.clinic_currency" type="text" class="mt-1 block w-full rounded-xl" />
                             </div>
                             <div>
                                 <InputLabel for="lab_fee" :value="t('clinicSettingsAdmin.labFeeLabel')" />
-                                <TextInput id="lab_fee" v-model="form.lab_fee" type="text" inputmode="decimal" dir="ltr" class="mt-1 block w-full" />
+                                <TextInput id="lab_fee" v-model="form.lab_fee" type="text" inputmode="decimal" dir="ltr" class="mt-1 block w-full rounded-xl" />
                             </div>
                             <div>
                                 <InputLabel for="lab_validity_days" :value="t('clinicSettingsAdmin.labValidityLabel')" />
-                                <TextInput id="lab_validity_days" v-model="form.lab_validity_days" type="number" min="0" dir="ltr" class="mt-1 block w-full" />
+                                <TextInput id="lab_validity_days" v-model="form.lab_validity_days" type="number" min="0" dir="ltr" class="mt-1 block w-full rounded-xl" />
                             </div>
                             <div>
                                 <InputLabel for="clinic_timezone" :value="t('clinicSettingsAdmin.timezoneLabel')" />
@@ -222,7 +231,7 @@ const sendTest = () => testForm.post(route('clinic-settings.test-email'), { pres
                                      here" even though Asia/Baghdad was
                                      technically present, just unlabelled
                                      and last. -->
-                                <select id="clinic_timezone" v-model="form.clinic_timezone" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                <select id="clinic_timezone" v-model="form.clinic_timezone" class="mt-1 block w-full rounded-xl border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                                     <option value="Asia/Baghdad">{{ t('clinicSettingsAdmin.timezoneIraq') }}</option>
                                     <option value="Asia/Riyadh">{{ t('clinicSettingsAdmin.timezoneSaudi') }}</option>
                                     <option value="Asia/Kuwait">{{ t('clinicSettingsAdmin.timezoneKuwait') }}</option>
@@ -234,14 +243,16 @@ const sendTest = () => testForm.post(route('clinic-settings.test-email'), { pres
                     </div>
 
                     <!-- Email (SMTP) -->
-                    <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                        <h3 class="text-sm font-semibold text-gray-700">{{ t('clinicSettingsAdmin.mailSectionHeading') }}</h3>
+                    <div class="overflow-hidden rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-6">
+                        <h3 class="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600"><Icon name="mail" size="text-[18px]" /></span>{{ t('clinicSettingsAdmin.mailSectionHeading') }}
+                        </h3>
                         <p class="mt-1 text-xs text-gray-500">
                             {{ t('clinicSettingsAdmin.mailSectionDesc') }}
                         </p>
 
                         <div
-                            class="mt-3 rounded-md p-3 text-xs"
+                            class="mt-3 rounded-xl p-3 text-xs"
                             :class="mailConfigured ? 'bg-green-50 text-green-800' : 'bg-amber-50 text-amber-800'"
                         >
                             <template v-if="mailConfigured">
@@ -256,17 +267,17 @@ const sendTest = () => testForm.post(route('clinic-settings.test-email'), { pres
                         <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
                                 <InputLabel for="mail_host" :value="t('clinicSettingsAdmin.mailHostLabel')" />
-                                <TextInput id="mail_host" v-model="form.mail_host" type="text" class="mt-1 block w-full" placeholder="smtp.gmail.com" />
+                                <TextInput id="mail_host" v-model="form.mail_host" type="text" class="mt-1 block w-full rounded-xl" placeholder="smtp.gmail.com" />
                                 <InputError class="mt-2" :message="form.errors.mail_host" />
                             </div>
                             <div>
                                 <InputLabel for="mail_port" :value="t('clinicSettingsAdmin.mailPortLabel')" />
-                                <TextInput id="mail_port" v-model="form.mail_port" type="number" class="mt-1 block w-full" placeholder="587" />
+                                <TextInput id="mail_port" v-model="form.mail_port" type="number" class="mt-1 block w-full rounded-xl" placeholder="587" />
                                 <InputError class="mt-2" :message="form.errors.mail_port" />
                             </div>
                             <div>
                                 <InputLabel for="mail_username" :value="t('clinicSettingsAdmin.mailUsernameLabel')" />
-                                <TextInput id="mail_username" v-model="form.mail_username" type="text" class="mt-1 block w-full" />
+                                <TextInput id="mail_username" v-model="form.mail_username" type="text" class="mt-1 block w-full rounded-xl" />
                             </div>
                             <div>
                                 <InputLabel for="mail_password" :value="t('clinicSettingsAdmin.mailPasswordLabel')" />
@@ -274,14 +285,14 @@ const sendTest = () => testForm.post(route('clinic-settings.test-email'), { pres
                                     id="mail_password"
                                     v-model="form.mail_password"
                                     type="password"
-                                    class="mt-1 block w-full"
+                                    class="mt-1 block w-full rounded-xl"
                                     :placeholder="settings.mail_password_set ? t('clinicSettingsAdmin.mailPasswordPlaceholder') : ''"
                                 />
                                 <InputError class="mt-2" :message="form.errors.mail_password" />
                             </div>
                             <div>
                                 <InputLabel for="mail_encryption" :value="t('clinicSettingsAdmin.mailEncryptionLabel')" />
-                                <select id="mail_encryption" v-model="form.mail_encryption" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                <select id="mail_encryption" v-model="form.mail_encryption" class="mt-1 block w-full rounded-xl border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                                     <option value="">{{ t('clinicSettingsAdmin.mailEncryptionNone') }}</option>
                                     <option value="tls">TLS</option>
                                     <option value="ssl">SSL</option>
@@ -289,17 +300,17 @@ const sendTest = () => testForm.post(route('clinic-settings.test-email'), { pres
                             </div>
                             <div>
                                 <InputLabel for="mail_from_address" :value="t('clinicSettingsAdmin.mailFromAddressLabel')" />
-                                <TextInput id="mail_from_address" v-model="form.mail_from_address" type="email" class="mt-1 block w-full" placeholder="clinic@example.com" />
+                                <TextInput id="mail_from_address" v-model="form.mail_from_address" type="email" class="mt-1 block w-full rounded-xl" placeholder="clinic@example.com" />
                                 <InputError class="mt-2" :message="form.errors.mail_from_address" />
                             </div>
                             <div>
                                 <InputLabel for="mail_from_name" :value="t('clinicSettingsAdmin.mailFromNameLabel')" />
-                                <TextInput id="mail_from_name" v-model="form.mail_from_name" type="text" class="mt-1 block w-full" :placeholder="settings.clinic_name" />
+                                <TextInput id="mail_from_name" v-model="form.mail_from_name" type="text" class="mt-1 block w-full rounded-xl" :placeholder="settings.clinic_name" />
                             </div>
                         </div>
 
                         <!-- Gmail helper -->
-                        <details class="mt-4 rounded-md border border-gray-200 p-3 text-xs text-gray-600">
+                        <details class="mt-4 rounded-xl border border-gray-200 p-3 text-xs text-gray-600">
                             <summary class="cursor-pointer font-medium text-gray-700">{{ t('clinicSettingsAdmin.gmailHelperSummary') }}</summary>
                             <div class="mt-2 space-y-2">
                                 <p class="rounded bg-amber-50 p-2 text-amber-800">
@@ -322,14 +333,14 @@ const sendTest = () => testForm.post(route('clinic-settings.test-email'), { pres
                         <div class="mt-4 flex flex-wrap items-end gap-2 border-t border-gray-100 pt-4">
                             <div class="min-w-0 flex-grow">
                                 <InputLabel for="test_to" :value="t('clinicSettingsAdmin.testEmailLabel')" />
-                                <TextInput id="test_to" v-model="testForm.to" type="email" class="mt-1 block w-full" placeholder="you@example.com" />
+                                <TextInput id="test_to" v-model="testForm.to" type="email" class="mt-1 block w-full rounded-xl" placeholder="you@example.com" />
                                 <InputError class="mt-2" :message="testForm.errors.to" />
                             </div>
                             <button
                                 type="button"
                                 :disabled="testForm.processing || !testForm.to"
                                 @click="sendTest"
-                                class="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-40"
+                                class="rounded-full bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-40"
                             >
                                 {{ testForm.processing ? t('clinicSettingsAdmin.testEmailSending') : t('clinicSettingsAdmin.testEmailSend') }}
                             </button>
@@ -339,8 +350,10 @@ const sendTest = () => testForm.post(route('clinic-settings.test-email'), { pres
                         </p>
                     </div>
 
-                    <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                        <h3 class="mb-4 text-sm font-semibold text-gray-700">{{ t('clinicSettingsAdmin.notificationsHeading') }}</h3>
+                    <div class="overflow-hidden rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-6">
+                        <h3 class="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-800">
+                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-600"><Icon name="notifications" size="text-[18px]" /></span>{{ t('clinicSettingsAdmin.notificationsHeading') }}
+                        </h3>
                         <p class="mb-3 text-xs text-gray-500">
                             {{ t('clinicSettingsAdmin.notificationsRequireBothNote') }}
                         </p>
@@ -360,8 +373,10 @@ const sendTest = () => testForm.post(route('clinic-settings.test-email'), { pres
                         </div>
                     </div>
 
-                    <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                        <h3 class="mb-2 text-sm font-semibold text-gray-700">{{ t('clinicSettingsAdmin.groupsHeading') }}</h3>
+                    <div class="overflow-hidden rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-6">
+                        <h3 class="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-800">
+                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-50 text-teal-600"><Icon name="groups" size="text-[18px]" /></span>{{ t('clinicSettingsAdmin.groupsHeading') }}
+                        </h3>
                         <label class="flex items-center gap-2 text-sm text-gray-700">
                             <input type="checkbox" v-model="form.groups_enabled" class="rounded border-gray-300" />
                             {{ t('clinicSettingsAdmin.groupsEnabled') }}
@@ -370,7 +385,7 @@ const sendTest = () => testForm.post(route('clinic-settings.test-email'), { pres
                     </div>
 
                     <div class="flex justify-end">
-                        <PrimaryButton :disabled="form.processing">{{ t('clinicSettingsAdmin.saveSettings') }}</PrimaryButton>
+                        <PrimaryButton class="gap-1 rounded-full" :disabled="form.processing"><Icon name="save" size="text-[18px]" />{{ t('clinicSettingsAdmin.saveSettings') }}</PrimaryButton>
                     </div>
                 </form>
             </div>
