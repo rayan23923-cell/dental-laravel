@@ -34,6 +34,7 @@ Releases باسم `offline-build-N`، والملف هو `DentalClinicOffline-win
 ## الاسم الثابت clinic.lan على كل الأجهزة
 
 1. في تطبيق Deco ثبّت عنوان الحاسوب: More ← Advanced ← Address Reservation.
+   الماك أدريس تعرضه اللوحة في «ماك الإيثرنت» و«ماك الواي فاي»، وبجانب كل عنوان زر «نسخ».
 2. اجعل الحاسوب خادم DNS للشبكة: More ← Advanced ← IPv4 ← DNS Server ← Custom،
    وضع فيه عنوان الحاسوب (تعرضه اللوحة في «DNS في راوتر Deco»).
 3. أعد الاتصال بالواي فاي في الأجهزة.

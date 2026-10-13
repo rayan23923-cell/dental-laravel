@@ -216,6 +216,34 @@ namespace DentalClinicPanel
             return list;
         }
 
+        // The MAC address of the computer's real Ethernet or Wi-Fi adapter (virtual,
+        // VPN and Bluetooth adapters are skipped), written like Windows does:
+        // 04-D4-C4-DD-5D-5D. The adapter that carries serverIp comes first, then one
+        // that is connected. Empty when there is none.
+        public static string MacAddress(bool wifi, string serverIp)
+        {
+            string best = ""; int bestRank = -1;
+            try
+            {
+                var type = wifi ? NetworkInterfaceType.Wireless80211 : NetworkInterfaceType.Ethernet;
+                foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    if (ni.NetworkInterfaceType != type) continue;
+                    string desc = (ni.Description + " " + ni.Name).ToLowerInvariant();
+                    if (new[] { "virtual", "hyper-v", "vmware", "vpn", "tap-", "tunnel", "bluetooth", "loopback", "wan miniport" }.Any(k => desc.Contains(k))) continue;
+                    byte[] b = ni.GetPhysicalAddress().GetAddressBytes();
+                    if (b.Length != 6) continue;
+                    int rank = ni.OperationalStatus == OperationalStatus.Up ? 1 : 0;
+                    if (serverIp.Length > 0 && ni.GetIPProperties().UnicastAddresses.Any(a => a.Address.ToString() == serverIp)) rank = 2;
+                    if (rank <= bestRank) continue;
+                    bestRank = rank;
+                    best = string.Join("-", b.Select(x => x.ToString("X2")).ToArray());
+                }
+            }
+            catch { }
+            return best;
+        }
+
         public void Log(string msg)
         {
             string line = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "  " + msg;
@@ -752,7 +780,9 @@ namespace DentalClinicPanel
         bool firewallOk = true;
         DateTime lastFirewallCheck = DateTime.MinValue;
 
-        Label stateDot, stateText, errorText, addrLocal, addrNet, addrIp, addrDns;
+        Label stateDot, stateText, errorText, addrLocal, addrNet, addrIp, addrDns, macEth, macWifi;
+        DateTime lastMacCheck = DateTime.MinValue;
+        string macIp;
         Button toggleBtn, openBtn, setupBtn, firewallBtn;
         ListView list;
         TextBox logBox;
@@ -893,13 +923,16 @@ namespace DentalClinicPanel
 
             // Addresses
             var addr = new GroupBox { Text = "العناوين", Dock = DockStyle.Fill, Margin = new Padding(12, 0, 12, 6), Padding = new Padding(10, 6, 10, 6), AutoSize = true };
-            var addrGrid = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, AutoSize = true };
+            var addrGrid = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, AutoSize = true };
             addrGrid.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             addrGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            addrGrid.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             addrLocal = AddAddress(addrGrid, "على هذا الجهاز:");
             addrNet = AddAddress(addrGrid, "على كل الأجهزة:");
             addrIp = AddAddress(addrGrid, "بالرقم:");
             addrDns = AddAddress(addrGrid, "DNS في راوتر Deco:");
+            macEth = AddAddress(addrGrid, "ماك الإيثرنت (MAC):");
+            macWifi = AddAddress(addrGrid, "ماك الواي فاي (MAC):");
             addr.Controls.Add(addrGrid);
             AddRow(grid, addr, SizeType.AutoSize, 0);
 
@@ -964,8 +997,27 @@ namespace DentalClinicPanel
             g.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             g.Controls.Add(cap, 0, row);
             g.Controls.Add(val, 1, row);
+            var copy = new Button
+            {
+                Text = "نسخ", FlatStyle = FlatStyle.Flat, AutoSize = true, Height = 26, Margin = new Padding(3, 1, 3, 1),
+                Padding = new Padding(6, 0, 6, 0), Cursor = Cursors.Hand, Font = new Font("Segoe UI", 8.5f), ForeColor = Teal
+            };
+            copy.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
+            copy.Click += (s, e) => CopyText(val.Text, copy);
+            g.Controls.Add(copy, 2, row);
             g.RowCount++;
             return val;
+        }
+
+        void CopyText(string text, Button btn)
+        {
+            if (text.Length == 0 || text == "-") return;
+            try { Clipboard.SetText(text); }
+            catch (Exception ex) { AppendLog("تعذّر النسخ: " + ex.Message); return; }
+            btn.Text = "تم ✓";
+            var t = new System.Windows.Forms.Timer { Interval = 1500 };
+            t.Tick += (s, e) => { t.Dispose(); btn.Text = "نسخ"; };
+            t.Start();
         }
 
         static Button MakeButton(string text, Color color, int width)
@@ -1068,6 +1120,14 @@ namespace DentalClinicPanel
             addrNet.Text = engine.NetUrl;
             addrIp.Text = hasIp ? engine.IpUrl : "-";
             addrDns.Text = hasIp ? engine.LanIp : "-";
+            if (macIp != engine.LanIp || (DateTime.Now - lastMacCheck).TotalSeconds > 10)
+            {
+                macIp = engine.LanIp;
+                lastMacCheck = DateTime.Now;
+                string eth = Engine.MacAddress(false, macIp), wifi = Engine.MacAddress(true, macIp);
+                macEth.Text = eth.Length > 0 ? eth : "-";
+                macWifi.Text = wifi.Length > 0 ? wifi : "-";
+            }
 
             var services = engine.Services;
             list.BeginUpdate();
