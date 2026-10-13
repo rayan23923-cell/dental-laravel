@@ -16,7 +16,9 @@
                     <th style="width:25%">الاسم</th>
                     <th style="width:30%">البريد الإلكتروني</th>
                     <th style="width:20%">نوع الدراسة</th>
-                    <th style="width:20%">المجموعة</th>
+                    @if ($groupsEnabled)
+                        <th style="width:20%">المجموعة</th>
+                    @endif
                 </tr>
             </thead>
             <tbody>
@@ -26,7 +28,9 @@
                         <td>{{ $doctor->name }}</td>
                         <td>{{ $doctor->email }}</td>
                         <td>{{ $doctor->educationType?->name ?? '-' }}</td>
-                        <td>{{ $doctor->groups->pluck('name')->implode('، ') ?: '-' }}</td>
+                        @if ($groupsEnabled)
+                            <td>{{ $doctor->groups->pluck('name')->implode('، ') ?: '-' }}</td>
+                        @endif
                     </tr>
                 @endforeach
             </tbody>

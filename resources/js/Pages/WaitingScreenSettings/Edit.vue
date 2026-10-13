@@ -50,7 +50,7 @@ const submit = () => {
                     </p>
 
                     <form @submit.prevent="submit" class="space-y-6">
-                        <div>
+                        <div v-if="$page.props.groupsEnabled !== false">
                             <InputLabel for="group_id" :value="t('waitingScreenSettings.groupLabel')" />
                             <select
                                 id="group_id"

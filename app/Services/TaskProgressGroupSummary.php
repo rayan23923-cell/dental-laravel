@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Department;
 use App\Models\Doctor;
 use App\Models\Group;
+use App\Models\Stage;
 use App\Models\Task;
 use App\Models\TaskInstance;
 use App\Models\User;
@@ -39,15 +40,51 @@ class TaskProgressGroupSummary
 
         $doctors = $group->doctors()->orderBy('name')->get(['doctors.id', 'doctors.name', 'doctors.username', 'doctors.email']);
 
-        // Departments of this group's stage, scoped — these become the tabs.
+        return self::summarize($group->stage_id, $doctors, [
+            'id' => $group->id,
+            'name' => $group->name,
+            'stage_name' => $group->stage?->name,
+            'education_type_name' => $group->stage?->educationType?->name,
+        ], $user, $academicSessionId);
+    }
+
+    /**
+     * The same matrix for every doctor of a stage — used while groups are
+     * turned off in clinic settings (ClinicSetting::groupsEnabled()), when
+     * task progress goes straight from the stage to its doctors. `group.id`
+     * is null and `group.stage_id` tells the page what to reload.
+     */
+    public static function buildForStage(Stage $stage, User $user, ?int $academicSessionId = null): array
+    {
+        $stage->load('educationType');
+
+        $doctors = Doctor::where('stage_id', $stage->id)
+            ->when($academicSessionId, fn ($q) => $q->where(
+                fn ($q2) => $q2->where('academic_session_id', $academicSessionId)->orWhereNull('academic_session_id')
+            ))
+            ->orderBy('name')
+            ->get(['id', 'name', 'username', 'email']);
+
+        return self::summarize($stage->id, $doctors, [
+            'id' => null,
+            'stage_id' => $stage->id,
+            'name' => $stage->name,
+            'stage_name' => $stage->name,
+            'education_type_name' => $stage->educationType?->name,
+        ], $user, $academicSessionId);
+    }
+
+    private static function summarize(?int $stageId, Collection $doctors, array $header, User $user, ?int $academicSessionId): array
+    {
+        // Departments of this stage, scoped — these become the tabs.
         $departments = ScopeHelper::scopeDepartments(
-            Department::where('stage_id', $group->stage_id),
+            Department::where('stage_id', $stageId),
             $user
         )->orderBy('name')->get(['id', 'name']);
 
         // Every task defined for this stage, with global instance counts,
         // grouped by department (matches the original's tasks_stmt).
-        $tasks = Task::where('stage_id', $group->stage_id)
+        $tasks = Task::where('stage_id', $stageId)
             ->whereIn('department_id', $departments->pluck('id'))
             ->when($academicSessionId, fn ($q) => $q->where(
                 fn ($q2) => $q2->where('academic_session_id', $academicSessionId)->orWhereNull('academic_session_id')
@@ -90,12 +127,7 @@ class TaskProgressGroupSummary
         })->values();
 
         return [
-            'group' => [
-                'id' => $group->id,
-                'name' => $group->name,
-                'stage_name' => $group->stage?->name,
-                'education_type_name' => $group->stage?->educationType?->name,
-            ],
+            'group' => $header,
             'departments' => $payload,
         ];
     }

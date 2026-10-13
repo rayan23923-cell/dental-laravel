@@ -68,6 +68,8 @@ class DoctorPrintController extends Controller
             // "مراحل متعددة" when the selection spans more than one stage,
             // matching the original's header logic.
             'stageLabel' => $byStage->count() === 1 ? $byStage->keys()->first() : 'مراحل متعددة',
+            // No group column while groups are turned off in clinic settings.
+            'groupsEnabled' => ClinicSetting::groupsEnabled(),
         ]);
     }
 
@@ -78,6 +80,7 @@ class DoctorPrintController extends Controller
         return view('print.doctor-card', [
             'settings' => ClinicSetting::current(),
             'doctor' => $doctor,
+            'groupsEnabled' => ClinicSetting::groupsEnabled(),
         ]);
     }
 }

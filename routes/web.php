@@ -457,6 +457,8 @@ Route::middleware('auth')->group(function () {
             ->middleware('permission:task_progress,view')->name('task-progress.index');
         Route::get('/task-progress/groups/{group}', [TaskProgressController::class, 'group'])
             ->middleware('permission:task_progress,view')->name('task-progress.group');
+        Route::get('/task-progress/stages/{stage}', [TaskProgressController::class, 'stage'])
+            ->middleware('permission:task_progress,view')->name('task-progress.stage');
         // Staff-side "فتح النموذج" — the original gates this with
         // task_progress.open_case_sheet, checked inside the controller too.
         Route::get('/case-sheet/{taskInstance}', [CaseSheetController::class, 'open'])

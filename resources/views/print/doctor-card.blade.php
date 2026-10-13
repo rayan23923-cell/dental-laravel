@@ -20,7 +20,9 @@
                         <tr><th>رقم الهاتف</th><td>{{ $doctor->phone ?: '-' }}</td></tr>
                         <tr><th>نوع الدراسة</th><td>{{ $doctor->educationType?->name ?? '-' }}</td></tr>
                         <tr><th>المرحلة</th><td>{{ $doctor->stage?->name ?? '-' }}</td></tr>
-                        <tr><th>المجموعة</th><td>{{ $doctor->groups->pluck('name')->implode('، ') ?: '-' }}</td></tr>
+                        @if ($groupsEnabled)
+                            <tr><th>المجموعة</th><td>{{ $doctor->groups->pluck('name')->implode('، ') ?: '-' }}</td></tr>
+                        @endif
                     </tbody>
                 </table>
             </div>

@@ -735,7 +735,9 @@
         "instanceNotesLabel": "Case Notes",
         "confirmComplete": "Confirm Completion",
         "editModalTitle": "Edit the Task's Notes and Grade",
-        "noGradeHintEdit": "Can't set a grade because the task has no grade defined in the tasks table."
+        "noGradeHintEdit": "Can't set a grade because the task has no grade defined in the tasks table.",
+        "stageDoctorsHeading": "Stage doctors: {name}",
+        "chooseStageHint": "Choose the education type and stage to show the doctors."
     },
     "activityLogsAdmin": {
         "title": "Activity Log",
@@ -836,7 +838,10 @@
         "mailUsernameLabel": "Username",
         "mailPasswordLabel": "Password",
         "labFeeLabel": "Lab Screening Fee",
-        "labValidityLabel": "Lab test validity (days)"
+        "labValidityLabel": "Lab test validity (days)",
+        "groupsHeading": "Groups",
+        "groupsEnabled": "Enable groups",
+        "groupsNote": "Every stage automatically has a group A on all days of the week during the working hours above (e.g. 08:00 - 14:00), and every doctor is added to it automatically. When disabled, groups disappear from menus, reports and prints, and task progress lists the stage's doctors directly."
     },
     "authPages": {
         "confirmPasswordTitle": "Confirm Password",

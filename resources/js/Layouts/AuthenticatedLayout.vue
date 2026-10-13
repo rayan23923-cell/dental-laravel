@@ -132,7 +132,10 @@ const structureLinks = computed(() => [
     { label: t('nav.stages'), icon: 'stairs', href: route('stages.index'), active: route().current('stages.*') },
     { label: t('nav.departments'), icon: 'apartment', href: route('departments.index'), active: route().current('departments.*') },
     { label: t('nav.academicSessions'), icon: 'calendar_month', href: route('academic-sessions.index'), active: route().current('academic-sessions.*') },
-    { label: t('nav.groups'), icon: 'groups', href: route('groups.index'), active: route().current('groups.*') },
+    // Hidden while groups are turned off in clinic settings.
+    ...(usePage().props.groupsEnabled !== false
+        ? [{ label: t('nav.groups'), icon: 'groups', href: route('groups.index'), active: route().current('groups.*') }]
+        : []),
     // The clinic chair map is hidden from the menus (2026-10-12, by
     // request); its page stays reachable at /clinic-chairs.
     { label: t('nav.caseSheetTypes'), icon: 'description', href: route('case-sheet-types.index'), active: route().current('case-sheet-types.*') },

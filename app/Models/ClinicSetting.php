@@ -50,6 +50,7 @@ class ClinicSetting extends Model
         'last_backup_at',
         'lab_fee',
         'lab_validity_days',
+        'groups_enabled',
     ];
 
     /**
@@ -79,6 +80,7 @@ class ClinicSetting extends Model
             'mail_password' => 'encrypted',
             'enable_daily_backup' => 'boolean',
             'last_backup_at' => 'datetime',
+            'groups_enabled' => 'boolean',
         ];
     }
 
@@ -86,6 +88,17 @@ class ClinicSetting extends Model
     public function mailConfigured(): bool
     {
         return filled($this->mail_host) && filled($this->mail_from_address);
+    }
+
+    /**
+     * Groups on/off (2026-10-13, by request). Off hides groups everywhere
+     * they appear — menus, doctor pages, prints, the waiting screen — and
+     * task progress lists a stage's doctors directly. Defaults to on when
+     * the column has not been migrated yet.
+     */
+    public static function groupsEnabled(): bool
+    {
+        return (bool) (static::current()->groups_enabled ?? true);
     }
 
     public static function current(): self

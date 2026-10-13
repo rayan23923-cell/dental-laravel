@@ -349,6 +349,8 @@ Route::name('api.')->prefix('v1')->group(function () {
             ->middleware('permission:task_progress,view');
         Route::get('/task-progress/groups/{group}', [TaskProgressController::class, 'group'])
             ->middleware('permission:task_progress,view');
+        Route::get('/task-progress/stages/{stage}', [TaskProgressController::class, 'stage'])
+            ->middleware('permission:task_progress,view');
         Route::put('/task-progress/instances/{taskInstance}/complete', [TaskProgressController::class, 'complete'])
             ->middleware('permission:task_progress,finish');
         Route::put('/task-progress/instances/{taskInstance}', [TaskProgressController::class, 'updateInstance'])

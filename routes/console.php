@@ -19,3 +19,7 @@ Schedule::command('backup:run')->hourly();
 // Welcome emails with login details (App\Services\CredentialMailer), sent a
 // batch at a time within the daily cap (config mail.daily_limit).
 Schedule::command('mail:send-queued')->everyMinute()->withoutOverlapping();
+
+// Group A for every stage, with any doctor not yet in a group — catches a
+// new academic year or doctors added by import (App\Services\DefaultGroups).
+Schedule::command('groups:sync-default')->daily();
