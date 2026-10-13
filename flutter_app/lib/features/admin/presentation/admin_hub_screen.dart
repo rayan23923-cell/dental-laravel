@@ -35,19 +35,19 @@ class AdminHubScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider);
     final groups = [
-      // Doctors, tasks and task progress sit with the reference data, with
-      // the academic year right after tasks (2026-10-13, by request — the
-      // same order as the web's "البيانات الأساسية" menu).
+      // Doctors, tasks and task progress sit with the reference data,
+      // ordered tasks → academic year → doctors → groups → task progress
+      // (2026-10-13, by request — the same order as the web's menu).
       _AdminGroup(t['adminHub.referenceData']!, [
         _AdminItem(t['adminHub.educationTypes']!, Icons.school_outlined, '/admin/education-types'),
         _AdminItem(t['adminHub.stages']!, Icons.layers_outlined, '/admin/stages'),
         _AdminItem(t['adminHub.departments']!, Icons.apartment_outlined, '/admin/departments'),
-        _AdminItem(t['adminHub.doctors']!, Icons.medical_information_outlined, '/admin/doctors'),
         _AdminItem(t['adminHub.tasks']!, Icons.checklist_outlined, '/admin/tasks'),
         _AdminItem(t['adminHub.academicSessions']!, Icons.event_note_outlined, '/admin/academic-sessions'),
-        _AdminItem(t['labels.taskProgress']!, Icons.fact_check_outlined, '/admin/task-progress'),
+        _AdminItem(t['adminHub.doctors']!, Icons.medical_information_outlined, '/admin/doctors'),
         // Hidden while groups are turned off in clinic settings.
         if (ref.watch(groupsEnabledProvider)) _AdminItem(t['adminHub.groups']!, Icons.groups_outlined, '/admin/groups'),
+        _AdminItem(t['labels.taskProgress']!, Icons.fact_check_outlined, '/admin/task-progress'),
         // The clinic chair map is hidden (2026-10-12, by request); its
         // route stays registered.
         _AdminItem(t['adminHub.caseSheetTypes']!, Icons.description_outlined, '/admin/case-sheet-types'),
