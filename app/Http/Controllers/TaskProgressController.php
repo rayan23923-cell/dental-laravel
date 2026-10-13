@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ClinicSetting;
 use App\Models\Doctor;
 use App\Models\Group;
 use App\Models\Stage;
@@ -20,6 +21,7 @@ use App\Services\TaskStarter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\View\View;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -77,6 +79,52 @@ class TaskProgressController extends Controller
         $stage = ScopeHelper::scopeStages(Stage::whereKey($stage), $request->user())->firstOrFail();
 
         return response()->json(TaskProgressGroupSummary::buildForStage($stage, $request->user(), AcademicSessionHelper::resolveId()));
+    }
+
+    /**
+     * Printable task progress (2026-10-13, by request) — the web side of the
+     * app's PDF (task_progress_pdf.dart) and the original's
+     * task_progress_print.php: a whole group (or a whole stage while groups
+     * are off), optionally narrowed to one department or one doctor.
+     */
+    public function print(Request $request): View
+    {
+        $user = $request->user();
+        $sessionId = AcademicSessionHelper::resolveId();
+
+        if ($groupId = $request->integer('group')) {
+            $data = TaskProgressGroupSummary::build(Group::findOrFail($groupId), $user, $sessionId);
+        } else {
+            $stage = ScopeHelper::scopeStages(Stage::whereKey($request->integer('stage')), $user)->firstOrFail();
+            $data = TaskProgressGroupSummary::buildForStage($stage, $user, $sessionId);
+        }
+
+        $departmentId = $request->integer('department') ?: null;
+        $doctorId = $request->integer('doctor') ?: null;
+
+        $departments = collect($data['departments'])
+            ->when($departmentId, fn ($c) => $c->where('id', $departmentId))
+            ->map(function ($department) use ($doctorId) {
+                $department['doctors'] = collect($department['doctors'])
+                    ->when($doctorId, fn ($c) => $c->where('id', $doctorId))
+                    ->values()
+                    ->all();
+
+                return $department;
+            })
+            ->filter(fn ($department) => count($department['doctors']) > 0)
+            ->values();
+
+        return view('print.task-progress', [
+            'settings' => ClinicSetting::current(),
+            'group' => $data['group'],
+            'departments' => $departments,
+            'scopeLine' => implode(' — ', array_filter([
+                $departmentId && $departments->isNotEmpty() ? 'القسم: '.$departments->first()['name'] : null,
+                $doctorId && $departments->isNotEmpty() ? 'الطبيب: '.$departments->first()['doctors'][0]['name'] : null,
+            ])),
+            'autoprint' => $request->boolean('autoprint'),
+        ]);
     }
 
     /**
