@@ -43,10 +43,13 @@ class TaskProgressFilters
             )->orderBy('name')->get(['id', 'name']);
         }
 
+        // The day filter is gone from the screens (2026-10-13, by request:
+        // "ازل اليوم"): groups list once a stage is chosen. A day sent by an
+        // older app still narrows the list.
         $groups = [];
-        if ($day) {
+        if ($day || $stageId) {
             $query = Group::query()
-                ->whereHas('slots', fn ($q) => $q->where('day', $day))
+                ->when($day, fn ($q, $d) => $q->whereHas('slots', fn ($q2) => $q2->where('day', $d)))
                 ->with(['stage.educationType'])
                 ->when($stageId, fn ($q, $id) => $q->where('stage_id', $id))
                 ->when($educationTypeId, fn ($q, $id) => $q->whereHas('stage', fn ($q2) => $q2->where('education_type_id', $id)))

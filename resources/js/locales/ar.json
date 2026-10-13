@@ -741,7 +741,9 @@
         "editModalTitle": "تعديل ملاحظات ودرجة المهمة",
         "noGradeHintEdit": "لا يمكن تعيين درجة لأن درجة المهمة غير محددة في جدول المهام.",
         "stageDoctorsHeading": "أطباء المرحلة: {name}",
-        "chooseStageHint": "اختر نوع الدراسة والمرحلة لعرض الأطباء."
+        "chooseStageHint": "اختر نوع الدراسة والمرحلة لعرض الأطباء.",
+        "groupsHeading": "المجموعات",
+        "noGroupsForStage": "لا توجد مجموعات لهذه المرحلة."
     },
     "activityLogsAdmin": {
         "title": "سجل النشاط",

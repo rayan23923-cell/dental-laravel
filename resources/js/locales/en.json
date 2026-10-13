@@ -741,7 +741,9 @@
         "editModalTitle": "Edit the Task's Notes and Grade",
         "noGradeHintEdit": "Can't set a grade because the task has no grade defined in the tasks table.",
         "stageDoctorsHeading": "Stage doctors: {name}",
-        "chooseStageHint": "Choose the education type and stage to show the doctors."
+        "chooseStageHint": "Choose the education type and stage to show the doctors.",
+        "groupsHeading": "Groups",
+        "noGroupsForStage": "No groups for this stage."
     },
     "activityLogsAdmin": {
         "title": "Activity Log",
