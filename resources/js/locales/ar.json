@@ -484,7 +484,9 @@
         "noOptionsAvailable": "لا خيارات متاحة.",
         "selectAllModuleActions": "تحديد كل إجراءات الوحدة",
         "grantedSummary": "الصلاحيات الممنوحة: {granted} من {total}",
-        "savePermissions": "حفظ الصلاحيات"
+        "savePermissions": "حفظ الصلاحيات",
+        "departmentRolesShort": "أدوار الأقسام",
+        "addUserShort": "إضافة مستخدم"
     },
     "groupsAdmin": {
         "title": "إدارة المجموعات",
@@ -636,8 +638,7 @@
         "selectStageFirst": "اختر المرحلة أولاً",
         "caseSheetTypeLabel": "نوع النموذج",
         "selectCaseSheetType": "اختر نوع النموذج",
-        "requiredPerDoctorLabel": "المطلوب لكل طبيب",
-        "requiredCountLabel": "العدد المطلوب",
+        "requiredCountLabel": "العدد المطلوب لكل طبيب",
         "gradeLabel": "الدرجة / العلامة",
         "currentTermOption": "الفصل الحالي",
         "taskTypeLabel": "نوع المهمة",
@@ -739,7 +740,9 @@
         "editModalTitle": "تعديل ملاحظات ودرجة المهمة",
         "noGradeHintEdit": "لا يمكن تعيين درجة لأن درجة المهمة غير محددة في جدول المهام.",
         "stageDoctorsHeading": "أطباء المرحلة: {name}",
-        "chooseStageHint": "اختر نوع الدراسة والمرحلة لعرض الأطباء."
+        "chooseStageHint": "اختر نوع الدراسة والمرحلة لعرض الأطباء.",
+        "groupsHeading": "المجموعات",
+        "noGroupsForStage": "لا توجد مجموعات لهذه المرحلة."
     },
     "activityLogsAdmin": {
         "title": "سجل النشاط",

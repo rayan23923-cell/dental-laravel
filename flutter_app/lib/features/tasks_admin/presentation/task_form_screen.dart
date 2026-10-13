@@ -27,7 +27,6 @@ class TaskFormScreen extends ConsumerStatefulWidget {
 class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
-  final _requiredPerDoctorController = TextEditingController(text: '1');
   final _requiredCountController = TextEditingController(text: '1');
   final _notesController = TextEditingController();
   final _gradeController = TextEditingController();
@@ -56,7 +55,6 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
   @override
   void dispose() {
     _titleController.dispose();
-    _requiredPerDoctorController.dispose();
     _requiredCountController.dispose();
     _notesController.dispose();
     _gradeController.dispose();
@@ -67,7 +65,6 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
     if (_seeded) return;
     _seeded = true;
     _titleController.text = task.title;
-    _requiredPerDoctorController.text = (task.requiredPerDoctor ?? 1).toString();
     _requiredCountController.text = (task.requiredCount ?? 1).toString();
     _notesController.text = task.notes ?? '';
     _gradeController.text = task.grade?.toString() ?? '';
@@ -106,7 +103,6 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
       'department_id': _departmentId,
       'stage_id': _stageId,
       'case_sheet_type_id': _caseSheetTypeId,
-      'required_per_doctor': int.tryParse(_requiredPerDoctorController.text.trim()) ?? 1,
       'required_count': int.tryParse(_requiredCountController.text.trim()) ?? 1,
       'notes': _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
       'grade': _gradeController.text.trim().isEmpty ? null : double.tryParse(_gradeController.text.trim()),
@@ -293,24 +289,12 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _requiredPerDoctorController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(labelText: t['tasksAdmin.requiredPerDoctorLabel'], border: const OutlineInputBorder()),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _requiredCountController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(labelText: t['tasksAdmin.requiredCountLabel'], border: const OutlineInputBorder()),
-                  ),
-                ),
-              ],
+            // One cap per doctor (2026-10-13, by request), as on the web.
+            TextFormField(
+              controller: _requiredCountController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(labelText: t['tasksAdmin.requiredCountLabel'], border: const OutlineInputBorder()),
+              validator: (v) => (int.tryParse(v?.trim() ?? '') ?? 0) < 1 ? t['tasksAdmin.requiredField'] : null,
             ),
             const SizedBox(height: 16),
             TextFormField(

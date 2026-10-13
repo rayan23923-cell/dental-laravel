@@ -484,7 +484,9 @@
         "noOptionsAvailable": "No options available.",
         "selectAllModuleActions": "Select all of the module's actions",
         "grantedSummary": "Permissions granted: {granted} of {total}",
-        "savePermissions": "Save Permissions"
+        "savePermissions": "Save Permissions",
+        "departmentRolesShort": "Department roles",
+        "addUserShort": "Add user"
     },
     "groupsAdmin": {
         "title": "Manage Groups",
@@ -636,8 +638,7 @@
         "selectStageFirst": "Select a stage first",
         "caseSheetTypeLabel": "Case Sheet Type",
         "selectCaseSheetType": "Select a case sheet type",
-        "requiredPerDoctorLabel": "Required per Doctor",
-        "requiredCountLabel": "Required Count",
+        "requiredCountLabel": "Required per doctor",
         "gradeLabel": "Grade / Mark",
         "currentTermOption": "Current term",
         "taskTypeLabel": "Task Type",
@@ -739,7 +740,9 @@
         "editModalTitle": "Edit the Task's Notes and Grade",
         "noGradeHintEdit": "Can't set a grade because the task has no grade defined in the tasks table.",
         "stageDoctorsHeading": "Stage doctors: {name}",
-        "chooseStageHint": "Choose the education type and stage to show the doctors."
+        "chooseStageHint": "Choose the education type and stage to show the doctors.",
+        "groupsHeading": "Groups",
+        "noGroupsForStage": "No groups for this stage."
     },
     "activityLogsAdmin": {
         "title": "Activity Log",

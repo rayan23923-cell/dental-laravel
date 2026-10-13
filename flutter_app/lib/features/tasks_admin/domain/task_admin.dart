@@ -9,7 +9,6 @@ class TaskAdmin {
     required this.departmentId,
     required this.caseSheetTypeId,
     required this.stageId,
-    required this.requiredPerDoctor,
     required this.requiredCount,
     required this.notes,
     required this.grade,
@@ -25,7 +24,6 @@ class TaskAdmin {
         departmentId: json['department_id'] as int?,
         caseSheetTypeId: json['case_sheet_type_id'] as int?,
         stageId: json['stage_id'] as int?,
-        requiredPerDoctor: json['required_per_doctor'] as int?,
         requiredCount: json['required_count'] as int?,
         notes: json['notes'] as String?,
         // Laravel's decimal cast serializes to a JSON *string* ("100.00"),
@@ -48,7 +46,6 @@ class TaskAdmin {
   final int? departmentId;
   final int? caseSheetTypeId;
   final int? stageId;
-  final int? requiredPerDoctor;
   final int? requiredCount;
   final String? notes;
   final double? grade;

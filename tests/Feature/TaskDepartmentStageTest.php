@@ -37,6 +37,11 @@ class TaskDepartmentStageTest extends TestCase
         $this->post('/tasks', $task($own->id))->assertSessionHasNoErrors();
 
         $this->assertSame([$own->id], Task::pluck('department_id')->map(fn ($id) => (int) $id)->all());
+
+        // "المطلوب لكل طبيب" is gone: an old value sent by an older app is
+        // ignored and the stored column follows required_count.
+        $this->post('/tasks', ['required_per_doctor' => 9, 'required_count' => 3] + $task($own->id))->assertSessionHasNoErrors();
+        $this->assertSame(3, (int) Task::latest('id')->value('required_per_doctor'));
     }
 
     public function test_departments_stages_and_tasks_need_every_field(): void

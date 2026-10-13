@@ -105,11 +105,8 @@ const submit = () => {
 
         <div class="py-12">
             <div class="mx-auto max-w-5xl space-y-4 sm:px-6 lg:px-8">
-                <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white p-4 shadow-sm">
-                    <p class="text-sm text-gray-500">
-                        {{ t('permissionsAdmin.description') }}
-                        <span class="block text-xs text-gray-400">{{ t('permissionsAdmin.superAdminNote') }}</span>
-                    </p>
+                <div class="flex flex-wrap items-center justify-end gap-2 rounded-lg bg-white p-4 shadow-sm">
+                    <!-- Explanatory notes removed (2026-10-13, by request). -->
                     <div class="flex gap-2">
                         <SecondaryButton @click="selectAll">{{ t('permissionsAdmin.selectAll') }}</SecondaryButton>
                         <SecondaryButton @click="clearAll">{{ t('permissionsAdmin.clearAll') }}</SecondaryButton>
@@ -124,9 +121,6 @@ const submit = () => {
                     <div class="overflow-hidden rounded-lg bg-white shadow-sm">
                         <div class="border-b border-gray-100 bg-gray-50 px-4 py-3">
                             <span class="font-medium text-gray-900">{{ t('permissionsAdmin.scopeTitle') }}</span>
-                            <p class="mt-0.5 text-xs text-gray-500">
-                                {{ t('permissionsAdmin.scopeDescription') }}
-                            </p>
                         </div>
 
                         <div class="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">

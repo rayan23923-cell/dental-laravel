@@ -27,7 +27,6 @@ const form = useForm({
     department_id: '',
     case_sheet_type_id: '',
     stage_id: props.initialStageId ?? '',
-    required_per_doctor: 1,
     required_count: 1,
     notes: '',
     grade: '',
@@ -144,17 +143,10 @@ const submit = () => {
                             <InputError class="mt-2" :message="form.errors.case_sheet_type_id" />
                         </div>
 
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <InputLabel for="required_per_doctor" :value="t('tasksAdmin.requiredPerDoctorLabel')" />
-                                <TextInput id="required_per_doctor" v-model="form.required_per_doctor" type="number" min="0" class="mt-1 block w-full" required />
-                                <InputError class="mt-2" :message="form.errors.required_per_doctor" />
-                            </div>
-                            <div>
-                                <InputLabel for="required_count" :value="t('tasksAdmin.requiredCountLabel')" />
-                                <TextInput id="required_count" v-model="form.required_count" type="number" min="1" class="mt-1 block w-full" required />
-                                <InputError class="mt-2" :message="form.errors.required_count" />
-                            </div>
+                        <div>
+                            <InputLabel for="required_count" :value="t('tasksAdmin.requiredCountLabel')" />
+                            <TextInput id="required_count" v-model="form.required_count" type="number" min="1" class="mt-1 block w-full" required />
+                            <InputError class="mt-2" :message="form.errors.required_count" />
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">

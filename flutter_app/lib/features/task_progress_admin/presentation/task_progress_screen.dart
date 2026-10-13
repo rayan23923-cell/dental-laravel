@@ -567,7 +567,8 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
                 error: (_, __) => Text(t['taskProgressAdmin.loadFiltersFailed']!),
                 data: (filters) => _FilterRow(
                   filters: filters,
-                  showDay: groupsEnabled,
+                  // The day filter was removed (2026-10-13, by request).
+                  showDay: false,
                   day: _day,
                   educationTypeId: _educationTypeId,
                   stageId: _stageId,
@@ -602,12 +603,12 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
                               ),
                             ),
                           )
-                        : _day == null
+                        : _stageId == null
                         ? Center(
                             child: Padding(
                               padding: const EdgeInsets.all(24),
                               child: Text(
-                                t['taskProgressAdmin.chooseDayToViewGroups']!,
+                                t['taskProgressAdmin.chooseStageHint']!,
                                 style: const TextStyle(color: Colors.grey),
                               ),
                             ),

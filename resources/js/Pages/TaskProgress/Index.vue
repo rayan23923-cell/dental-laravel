@@ -31,9 +31,9 @@ const page = usePage();
 // stage's doctors are shown directly (task-progress.stage).
 const groupsEnabled = computed(() => page.props.groupsEnabled !== false);
 
-// --- Filters (day / education type / stage), reloading the page like the
+// --- Filters (education type / stage; the day filter was removed
+// 2026-10-13, by request), reloading the page like the
 // original's GET-based filter form ---
-const day = ref(props.filters.day ?? '');
 const educationType = ref(props.filters.education_type ?? '');
 const stage = ref(props.filters.stage ?? '');
 
@@ -41,7 +41,6 @@ const applyFilters = () => {
     router.get(
         route('task-progress.index'),
         {
-            ...(day.value ? { day: day.value } : {}),
             ...(educationType.value ? { education_type: educationType.value } : {}),
             ...(stage.value ? { stage: stage.value } : {}),
         },
@@ -55,7 +54,6 @@ const onEducationTypeChange = () => {
 };
 
 const clearFilters = () => {
-    day.value = '';
     educationType.value = '';
     stage.value = '';
     router.get(route('task-progress.index'));
@@ -318,14 +316,7 @@ const startFromScan = () => {
 
                 <!-- Filters -->
                 <div class="rounded-lg bg-white p-4 shadow-sm">
-                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-4">
-                        <div v-if="groupsEnabled">
-                            <InputLabel :value="t('taskProgressAdmin.dayLabel')" />
-                            <select v-model="day" @change="applyFilters" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                <option value="">{{ t('taskProgressAdmin.chooseDayOption') }}</option>
-                                <option v-for="d in days" :key="d" :value="d">{{ d }}</option>
-                            </select>
-                        </div>
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                         <div>
                             <InputLabel :value="t('taskProgressAdmin.educationTypeLabel')" />
                             <select v-model="educationType" @change="onEducationTypeChange" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
@@ -349,13 +340,13 @@ const startFromScan = () => {
                     </div>
                 </div>
 
-                <!-- Groups for the selected day -->
-                <div v-if="!groupsEnabled && !filters.stage" class="rounded-md bg-blue-50 p-4 text-sm text-blue-700">
+                <!-- Groups of the selected stage -->
+                <div v-if="!filters.stage" class="rounded-md bg-blue-50 p-4 text-sm text-blue-700">
                     {{ t('taskProgressAdmin.chooseStageHint') }}
                 </div>
                 <template v-else-if="!groupsEnabled"></template>
-                <div v-else-if="filters.day && groups.length" class="rounded-lg bg-white p-4 shadow-sm">
-                    <h3 class="mb-3 text-sm font-semibold text-gray-700">{{ t('taskProgressAdmin.groupsAvailableOnDay', { day: filters.day }) }}</h3>
+                <div v-else-if="groups.length" class="rounded-lg bg-white p-4 shadow-sm">
+                    <h3 class="mb-3 text-sm font-semibold text-gray-700">{{ t('taskProgressAdmin.groupsHeading') }}</h3>
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div v-for="g in groups" :key="g.id" class="rounded-lg border border-indigo-200 p-3">
                             <div class="font-medium text-indigo-700">{{ g.name }}</div>
@@ -367,8 +358,8 @@ const startFromScan = () => {
                         </div>
                     </div>
                 </div>
-                <div v-else-if="filters.day" class="rounded-md bg-blue-50 p-4 text-sm text-blue-700">
-                    {{ t('taskProgressAdmin.noGroupsForDay', { day: filters.day }) }}
+                <div v-else class="rounded-md bg-blue-50 p-4 text-sm text-blue-700">
+                    {{ t('taskProgressAdmin.noGroupsForStage') }}
                 </div>
 
                 <div v-if="loading" class="rounded-lg bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
