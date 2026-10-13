@@ -7,6 +7,7 @@ use App\Models\OrthodonticsRecord;
 use App\Models\TaskInstance;
 use App\Services\CaseSheetAccess;
 use App\Support\CaseSheetPatientFieldMap;
+use App\Support\CaseSheetReturn;
 use App\Support\CaseSheetSignatures;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\OrthodonticsForm;
@@ -62,21 +63,21 @@ class OrthodonticsRecordController extends Controller
     {
         OrthodonticsRecord::create($this->prepare($request, isCreate: true));
 
-        return redirect()->route('orthodontics-records.index')->with('success', 'Orthodontics record created.');
+        return CaseSheetReturn::redirect()->with('success', 'Orthodontics record created.');
     }
 
     public function update(Request $request, OrthodonticsRecord $record): RedirectResponse
     {
         $record->update($this->prepare($request, existing: $record));
 
-        return redirect()->route('orthodontics-records.index')->with('success', 'Orthodontics record updated.');
+        return CaseSheetReturn::redirect()->with('success', 'Orthodontics record updated.');
     }
 
     public function destroy(OrthodonticsRecord $record): RedirectResponse
     {
         $record->delete();
 
-        return redirect()->route('orthodontics-records.index')->with('success', 'Orthodontics record deleted.');
+        return CaseSheetReturn::redirect()->with('success', 'Orthodontics record deleted.');
     }
 
     private function form(?OrthodonticsRecord $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null, array $prefill = []): Response

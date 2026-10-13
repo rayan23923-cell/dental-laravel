@@ -7,6 +7,7 @@ use App\Models\ProsthodonticsRecord;
 use App\Models\TaskInstance;
 use App\Services\CaseSheetAccess;
 use App\Support\CaseSheetPatientFieldMap;
+use App\Support\CaseSheetReturn;
 use App\Support\CaseSheetSignatures;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\ProsthodonticsForm;
@@ -63,21 +64,21 @@ class ProsthodonticsRecordController extends Controller
     {
         ProsthodonticsRecord::create($this->prepare($request));
 
-        return redirect()->route('prosthodontics-records.index')->with('success', 'Prosthodontics record created.');
+        return CaseSheetReturn::redirect()->with('success', 'Prosthodontics record created.');
     }
 
     public function update(Request $request, ProsthodonticsRecord $record): RedirectResponse
     {
         $record->update($this->prepare($request, $record));
 
-        return redirect()->route('prosthodontics-records.index')->with('success', 'Prosthodontics record updated.');
+        return CaseSheetReturn::redirect()->with('success', 'Prosthodontics record updated.');
     }
 
     public function destroy(ProsthodonticsRecord $record): RedirectResponse
     {
         $record->delete();
 
-        return redirect()->route('prosthodontics-records.index')->with('success', 'Prosthodontics record deleted.');
+        return CaseSheetReturn::redirect()->with('success', 'Prosthodontics record deleted.');
     }
 
     private function form(?ProsthodonticsRecord $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null, array $prefill = []): Response

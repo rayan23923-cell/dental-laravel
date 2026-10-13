@@ -6,6 +6,7 @@ use App\Models\Task;
 use App\Models\TaskInstance;
 use App\Services\PermissionManager;
 use App\Support\CaseSheetResolver;
+use App\Support\CaseSheetReturn;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 
@@ -46,6 +47,7 @@ class CaseSheetController extends Controller
         }
 
         $resource = CaseSheetResolver::resourceFor($taskInstance);
+        CaseSheetReturn::remember();
 
         // Reuse the sheet already filled for this instance if there is one,
         // otherwise open a blank sheet pre-linked to it — this is what makes
@@ -71,6 +73,7 @@ class CaseSheetController extends Controller
         abort_unless($doctor, 403);
 
         $resource = CaseSheetResolver::resourceForTask($task);
+        CaseSheetReturn::remember();
         $existing = CaseSheetResolver::existingDraftRecordId($resource, $doctor->id, $task->id);
 
         return $existing

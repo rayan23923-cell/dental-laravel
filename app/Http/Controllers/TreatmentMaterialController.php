@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\RendersSatelliteForm;
 use App\Models\{TreatmentMaterial};
+use App\Support\CaseSheetReturn;
 use App\Support\SurgerySatelliteForms;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -53,20 +54,20 @@ class TreatmentMaterialController extends Controller
     {
         TreatmentMaterial::create($this->satelliteValidate($request, $this->sections(), ['tooth_treatment_id' => ['required', 'exists:tooth_treatments,id'], 'material_name' => ['required', 'string', 'max:255']]));
 
-        return redirect()->route('treatment-materials.index')->with('success', 'Treatment material created.');
+        return CaseSheetReturn::redirect()->with('success', 'Treatment material created.');
     }
 
     public function update(Request $request, TreatmentMaterial $record): RedirectResponse
     {
         $record->update($this->satelliteValidate($request, $this->sections(), ['tooth_treatment_id' => ['required', 'exists:tooth_treatments,id'], 'material_name' => ['required', 'string', 'max:255']]));
 
-        return redirect()->route('treatment-materials.index')->with('success', 'Treatment material updated.');
+        return CaseSheetReturn::redirect()->with('success', 'Treatment material updated.');
     }
 
     public function destroy(TreatmentMaterial $record): RedirectResponse
     {
         $record->delete();
 
-        return redirect()->route('treatment-materials.index')->with('success', 'Treatment material deleted.');
+        return CaseSheetReturn::redirect()->with('success', 'Treatment material deleted.');
     }
 }

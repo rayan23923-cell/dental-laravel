@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\RendersSatelliteForm;
 use App\Models\SurgeryImage;
+use App\Support\CaseSheetReturn;
 use App\Support\SurgerySatelliteForms;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -57,7 +58,7 @@ class SurgeryImageController extends Controller
 
         SurgeryImage::create($data);
 
-        return redirect()->route('surgery-images.index')->with('success', 'Surgery image uploaded.');
+        return CaseSheetReturn::redirect()->with('success', 'Surgery image uploaded.');
     }
 
     public function update(Request $request, SurgeryImage $record): RedirectResponse
@@ -76,7 +77,7 @@ class SurgeryImageController extends Controller
 
         $record->update($data);
 
-        return redirect()->route('surgery-images.index')->with('success', 'Surgery image updated.');
+        return CaseSheetReturn::redirect()->with('success', 'Surgery image updated.');
     }
 
     public function destroy(SurgeryImage $record): RedirectResponse
@@ -87,7 +88,7 @@ class SurgeryImageController extends Controller
 
         $record->delete();
 
-        return redirect()->route('surgery-images.index')->with('success', 'Surgery image deleted.');
+        return CaseSheetReturn::redirect()->with('success', 'Surgery image deleted.');
     }
 
     private function withPreview(SurgeryImage $record): array

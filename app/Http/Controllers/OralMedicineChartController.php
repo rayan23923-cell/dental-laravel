@@ -7,6 +7,7 @@ use App\Models\OralMedicineChart;
 use App\Models\TaskInstance;
 use App\Services\CaseSheetAccess;
 use App\Support\CaseSheetPatientFieldMap;
+use App\Support\CaseSheetReturn;
 use App\Support\CaseSheetSignatures;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\OralMedicineForm;
@@ -62,7 +63,7 @@ class OralMedicineChartController extends Controller
         $data = CaseSheetSignatures::applyPending('oral-medicine-charts', $this->validateRecord($request), null, CaseSheetSignatures::signerName($request));
         OralMedicineChart::create($data);
 
-        return redirect()->route('oral-medicine-charts.index')->with('success', 'Oral medicine chart created.');
+        return CaseSheetReturn::redirect()->with('success', 'Oral medicine chart created.');
     }
 
     public function update(Request $request, OralMedicineChart $record): RedirectResponse
@@ -70,14 +71,14 @@ class OralMedicineChartController extends Controller
         $data = CaseSheetSignatures::applyPending('oral-medicine-charts', $this->validateRecord($request), $record, CaseSheetSignatures::signerName($request));
         $record->update($data);
 
-        return redirect()->route('oral-medicine-charts.index')->with('success', 'Oral medicine chart updated.');
+        return CaseSheetReturn::redirect()->with('success', 'Oral medicine chart updated.');
     }
 
     public function destroy(OralMedicineChart $record): RedirectResponse
     {
         $record->delete();
 
-        return redirect()->route('oral-medicine-charts.index')->with('success', 'Oral medicine chart deleted.');
+        return CaseSheetReturn::redirect()->with('success', 'Oral medicine chart deleted.');
     }
 
     private function form(?OralMedicineChart $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null, array $prefill = []): Response
