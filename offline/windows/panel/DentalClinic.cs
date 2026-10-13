@@ -144,6 +144,20 @@ namespace DentalClinicPanel
         public int HttpPort { get { return GetInt("HTTP_PORT", 80); } }
         public int HttpsPort { get { return GetInt("HTTPS_PORT", 443); } }
         public int Workers { get { return Math.Max(1, GetInt("PHP_WORKERS", 16)); } }
+        // Backups live outside this folder so replacing or deleting the
+        // program never takes them along (2026-10-13).
+        public string BackupDir
+        {
+            get
+            {
+                string d = Get("BACKUP_DIR", "");
+                return d.Length > 0 ? d : DefaultBackupDir(Root);
+            }
+        }
+        public static string DefaultBackupDir(string root)
+        {
+            return Path.Combine(Path.GetPathRoot(root) ?? @"C:\", "DentalClinicBackups");
+        }
 
         Dictionary<string, string> LoadConfig()
         {
@@ -410,6 +424,11 @@ namespace DentalClinicPanel
             Environment.SetEnvironmentVariable("XDG_CONFIG_HOME", P("caddy-data"));
             Environment.SetEnvironmentVariable("PHPRC", P("php"));
             Environment.SetEnvironmentVariable("PHP_FCGI_MAX_REQUESTS", "10000");
+            // Read by config/backup.php (and cached by `artisan optimize`).
+            Environment.SetEnvironmentVariable("BACKUP_PATH", BackupDir);
+            Environment.SetEnvironmentVariable("BACKUP_DAILY", "true");
+            try { Directory.CreateDirectory(BackupDir); }
+            catch (Exception ex) { Log("تنبيه: تعذّر إنشاء مجلد النسخ الاحتياطية " + BackupDir + ": " + ex.Message); }
             string path = Environment.GetEnvironmentVariable("PATH") ?? "";
             if (path.IndexOf(P("php"), StringComparison.OrdinalIgnoreCase) < 0)
                 Environment.SetEnvironmentVariable("PATH", P("php") + ";" + P(@"mariadb\bin") + ";" + path);
@@ -468,6 +487,17 @@ namespace DentalClinicPanel
                 Artisan("key:generate --force", 120000, true);
                 Prepare(); // writes APP_URL into the new .env
             }
+            else
+            {
+                // A new version brings migrations: keep a copy of the data
+                // as it was before they run (the command skips otherwise).
+                // The settings cached by the previous version may predate
+                // the backup settings, so they are dropped first.
+                Artisan("config:clear", 120000, false);
+                var b = RunArtisan("backup:run --before-update", 1800000);
+                if (b.Code != 0) Log("تنبيه: تعذّرت النسخة الاحتياطية قبل التحديث. التفاصيل في artisan.log");
+                else if (b.Output.Contains("Backup created")) Log("حُفظت نسخة احتياطية قبل التحديث في " + BackupDir);
+            }
             Log("تحديث جداول قاعدة البيانات...");
             Artisan("migrate --force", 900000, true);
             if (!File.Exists(Path.Combine(data, ".seeded")))
@@ -497,6 +527,52 @@ namespace DentalClinicPanel
             if (!ok) Log("تنبيه: الموقع لم يستجب بعد، قد يحتاج لحظات.");
             if (DnsBusy || Svc("dns").Alive == 0)
                 Log("تنبيه: المنفذ 53 مستخدم من برنامج آخر، فلن يعمل الاسم " + ServerName + ". يمكن الدخول بالرقم https://" + LanIp);
+            SaveSettingsCopy();
+        }
+
+        // The settings and the clinic certificate, so a reinstall can put
+        // them back and devices keep trusting it (BackupDir\settings).
+        void SaveSettingsCopy()
+        {
+            try
+            {
+                string dest = Path.Combine(BackupDir, "settings");
+                Directory.CreateDirectory(dest);
+                File.Copy(P(@"app\.env"), Path.Combine(dest, ".env"), true);
+                if (File.Exists(P("config.txt"))) File.Copy(P("config.txt"), Path.Combine(dest, "config.txt"), true);
+                CopyDir(P("caddy-data"), Path.Combine(dest, "caddy-data"));
+            }
+            catch (Exception ex) { Log("تنبيه: تعذّر حفظ نسخة من الإعدادات: " + ex.Message); }
+        }
+
+        static void CopyDir(string from, string to)
+        {
+            if (!Directory.Exists(from)) return;
+            Directory.CreateDirectory(to);
+            foreach (var f in Directory.GetFiles(from)) File.Copy(f, Path.Combine(to, Path.GetFileName(f)), true);
+            foreach (var d in Directory.GetDirectories(from)) CopyDir(d, Path.Combine(to, Path.GetFileName(d)));
+        }
+
+        // "نسخة احتياطية الآن": the database and uploaded files, now.
+        public bool BackupNow(out string message)
+        {
+            var r = RunArtisan("backup:run --force", 1800000);
+            bool ok = r.Code == 0;
+            message = ok ? "حُفظت نسخة احتياطية في " + BackupDir : "تعذّرت النسخة الاحتياطية: " + Tail(r.Output, 3);
+            Log(message);
+            return ok;
+        }
+
+        // Puts a backup back; the current data is saved first by the command.
+        public bool RestoreBackup(string file, out string message)
+        {
+            Log("استعادة النسخة " + Path.GetFileName(file) + "...");
+            var r = RunArtisan("backup:restore \"" + file + "\" --force", 3600000);
+            bool ok = r.Code == 0;
+            message = ok ? "تمت الاستعادة من " + Path.GetFileName(file) + ". حُفظت البيانات السابقة كنسخة احتياطية أيضًا."
+                         : "تعذّرت الاستعادة: " + Tail(r.Output, 3);
+            Log(message);
+            return ok;
         }
 
         static bool Answers(string url)
@@ -525,10 +601,16 @@ namespace DentalClinicPanel
             catch { return ""; }
         }
 
-        bool Artisan(string args, int timeoutMs, bool required)
+        Result RunArtisan(string args, int timeoutMs)
         {
             var r = Run(P(@"php\php.exe"), "artisan " + args, P("app"), timeoutMs);
             AppendTo(Path.Combine(LogDir, "artisan.log"), DateTime.Now.ToString("s") + " artisan " + args + " (" + r.Code + ")" + Environment.NewLine + r.Output);
+            return r;
+        }
+
+        bool Artisan(string args, int timeoutMs, bool required)
+        {
+            var r = RunArtisan(args, timeoutMs);
             if (r.Code != 0)
             {
                 if (required) throw new Exception("فشل أمر " + args + ": " + Tail(r.Output, 3));
@@ -783,7 +865,8 @@ namespace DentalClinicPanel
         Label stateDot, stateText, errorText, addrLocal, addrNet, addrIp, addrDns, macEth, macWifi;
         DateTime lastMacCheck = DateTime.MinValue;
         string macIp;
-        Button toggleBtn, openBtn, setupBtn, firewallBtn;
+        Button toggleBtn, openBtn, setupBtn, firewallBtn, backupBtn, restoreBtn;
+        bool backupBusy;
         ListView list;
         TextBox logBox;
         CheckBox bootBox, servicesBox;
@@ -961,6 +1044,23 @@ namespace DentalClinicPanel
             foreach (var b in new[] { firewallBtn, setupBtn, cfgBtn, logsBtn, exitBtn }) tools2.Controls.Add(b);
             AddRow(grid, tools2, SizeType.AutoSize, 0);
 
+            // Backups (2026-10-13): daily and before every update by themselves.
+            var tools3 = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, Padding = new Padding(8, 0, 8, 4) };
+            var backupCaption = new Label { Text = "النسخ الاحتياطي (يوميًا وقبل كل تحديث):", AutoSize = true, ForeColor = Gray, Margin = new Padding(6, 12, 6, 4) };
+            backupBtn = MakeButton("نسخة احتياطية الآن", Teal, 0);
+            backupBtn.Click += (s, e) => BackupNow();
+            restoreBtn = MakeButton("استعادة نسخة", Gray, 0);
+            restoreBtn.Click += (s, e) => RestoreBackup();
+            var backupDirBtn = MakeButton("مجلد النسخ", Gray, 0);
+            backupDirBtn.Click += (s, e) =>
+            {
+                try { Directory.CreateDirectory(engine.BackupDir); Process.Start("explorer.exe", "\"" + engine.BackupDir + "\""); }
+                catch (Exception ex) { AppendLog(ex.Message); }
+            };
+            tools3.Controls.Add(backupCaption);
+            foreach (var b in new[] { backupBtn, restoreBtn, backupDirBtn }) tools3.Controls.Add(b);
+            AddRow(grid, tools3, SizeType.AutoSize, 0);
+
             // Event log
             logBox = new TextBox
             {
@@ -1059,6 +1159,56 @@ namespace DentalClinicPanel
             ThreadPool.QueueUserWorkItem(_ => engine.Stop());
         }
 
+        void BackupNow()
+        {
+            if (backupBusy || engine.CurrentState != State.Running) return;
+            backupBusy = true;
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                string msg;
+                bool ok = engine.BackupNow(out msg);
+                backupBusy = false;
+                try { BeginInvoke(new Action(() => Notify(msg, ok))); } catch { }
+            });
+        }
+
+        void RestoreBackup()
+        {
+            if (backupBusy || engine.CurrentState != State.Running) return;
+            string file;
+            using (var dlg = new OpenFileDialog
+            {
+                Title = "اختر النسخة الاحتياطية",
+                Filter = "نسخ احتياطية (*.zip;*.sql)|*.zip;*.sql",
+                InitialDirectory = Directory.Exists(engine.BackupDir) ? engine.BackupDir : engine.Root,
+            })
+            {
+                if (dlg.ShowDialog(this) != DialogResult.OK) return;
+                file = dlg.FileName;
+            }
+            var r = MessageBox.Show(this,
+                "ستُستبدل كل البيانات الحالية (المرضى والمهام والمدفوعات والصور) ببيانات هذه النسخة:" + Environment.NewLine +
+                Path.GetFileName(file) + Environment.NewLine + Environment.NewLine +
+                "تُحفظ البيانات الحالية كنسخة احتياطية أولًا. هل تريد المتابعة؟",
+                "عيادة الأسنان", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2,
+                MessageBoxOptions.RightAlign | MessageBoxOptions.RtlReading);
+            if (r != DialogResult.Yes) return;
+            backupBusy = true;
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                string msg;
+                bool ok = engine.RestoreBackup(file, out msg);
+                backupBusy = false;
+                try { BeginInvoke(new Action(() => Notify(msg, ok))); } catch { }
+            });
+        }
+
+        void Notify(string msg, bool ok)
+        {
+            MessageBox.Show(this, msg, "عيادة الأسنان", MessageBoxButtons.OK, ok ? MessageBoxIcon.Information : MessageBoxIcon.Error,
+                MessageBoxDefaultButton.Button1, MessageBoxOptions.RightAlign | MessageBoxOptions.RtlReading);
+        }
+
         void CheckFirewallAsync()
         {
             lastFirewallCheck = DateTime.Now;
@@ -1107,6 +1257,9 @@ namespace DentalClinicPanel
             openBtn.Enabled = st == State.Running;
             setupBtn.Enabled = st == State.Running;
             openBtn.BackColor = openBtn.Enabled ? Teal : Color.FromArgb(156, 163, 175);
+            backupBtn.Enabled = restoreBtn.Enabled = st == State.Running && !backupBusy;
+            backupBtn.Text = backupBusy ? "انتظر..." : "نسخة احتياطية الآن";
+            backupBtn.BackColor = backupBtn.Enabled ? Teal : Color.FromArgb(156, 163, 175);
             trayToggle.Text = st == State.Running ? "إيقاف النظام" : "تشغيل النظام";
             trayToggle.Enabled = !busy;
             tray.Text = st == State.Running ? "عيادة الأسنان - يعمل" : "عيادة الأسنان - " + text;
@@ -1155,7 +1308,7 @@ namespace DentalClinicPanel
 
         void OpenSettings()
         {
-            using (var dlg = new SettingsForm(engine.ReadConfig()))
+            using (var dlg = new SettingsForm(engine.ReadConfig(), engine.Root))
             {
                 if (dlg.ShowDialog(this) != DialogResult.OK) return;
                 try { engine.WriteConfig(dlg.Values); }
@@ -1242,10 +1395,13 @@ namespace DentalClinicPanel
         readonly ComboBox ipBox;
         readonly NumericUpDown httpBox, httpsBox, workersBox;
         readonly CheckBox autoOpenBox;
+        readonly TextBox backupBox;
+        readonly string root;
         readonly Label error;
 
-        public SettingsForm(Dictionary<string, string> cfg)
+        public SettingsForm(Dictionary<string, string> cfg, string root)
         {
+            this.root = root;
             Text = "الإعدادات";
             RightToLeft = RightToLeft.Yes;
             RightToLeftLayout = true;
@@ -1288,6 +1444,19 @@ namespace DentalClinicPanel
             autoOpenBox = new CheckBox { Text = "فتح النظام تلقائيًا عند الاتصال بالواي فاي", AutoSize = true, Checked = Value(cfg, "AUTO_OPEN", "1") != "0" };
             AddField(grid, "", autoOpenBox, "يحتاج أن يكون هذا الجهاز خادم DNS في راوتر Deco، ومنفذ HTTP هو 80.");
 
+            var backupRow = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0) };
+            backupBox = new TextBox { Width = 220, RightToLeft = RightToLeft.No, Text = Value(cfg, "BACKUP_DIR", "") };
+            if (backupBox.Text.Length == 0) backupBox.Text = Engine.DefaultBackupDir(root);
+            var browse = Btn("اختيار...", Color.FromArgb(107, 114, 128));
+            browse.Click += (s, e) =>
+            {
+                using (var dlg = new FolderBrowserDialog { Description = "مجلد النسخ الاحتياطية", SelectedPath = backupBox.Text })
+                    if (dlg.ShowDialog(this) == DialogResult.OK) backupBox.Text = dlg.SelectedPath;
+            };
+            backupRow.Controls.Add(backupBox);
+            backupRow.Controls.Add(browse);
+            AddField(grid, "مجلد النسخ الاحتياطية", backupRow, "خارج مجلد البرنامج حتى لا يُحذف معه. يمكن اختيار قرص آخر أو فلاشة تبقى موصولة.");
+
             error = new Label { AutoSize = true, ForeColor = Color.FromArgb(220, 38, 38), MaximumSize = new Size(560, 0), Margin = new Padding(3, 6, 3, 0) };
             grid.Controls.Add(error, 0, grid.RowCount);
             grid.SetColumnSpan(error, 2);
@@ -1302,7 +1471,7 @@ namespace DentalClinicPanel
             defaults.Click += (s, e) =>
             {
                 nameBox.Text = "clinic.lan"; ipBox.Text = AutoIp; httpBox.Value = 80; httpsBox.Value = 443;
-                workersBox.Value = 16; autoOpenBox.Checked = true;
+                workersBox.Value = 16; autoOpenBox.Checked = true; backupBox.Text = Engine.DefaultBackupDir(root);
             };
             buttons.Controls.Add(save);
             buttons.Controls.Add(cancel);
@@ -1378,6 +1547,18 @@ namespace DentalClinicPanel
                 error.Text = "هذا المنفذ محجوز لخدمة أخرى في النظام. اختر منفذًا آخر مثل 8080.";
                 return;
             }
+            string backup = backupBox.Text.Trim().TrimEnd('\\');
+            if (backup.Length == 0 || !Path.IsPathRooted(backup))
+            {
+                error.Text = "اكتب مسارًا كاملًا لمجلد النسخ الاحتياطية، مثل C:\\DentalClinicBackups";
+                return;
+            }
+            if ((backup + "\\").StartsWith(root.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase))
+            {
+                error.Text = "اختر مجلدًا خارج مجلد البرنامج، حتى لا تُحذف النسخ إذا استبدلت البرنامج.";
+                return;
+            }
+            if (string.Equals(backup, Engine.DefaultBackupDir(root), StringComparison.OrdinalIgnoreCase)) backup = "";
             Values = new Dictionary<string, string>
             {
                 { "SERVER_NAME", name },
@@ -1386,6 +1567,7 @@ namespace DentalClinicPanel
                 { "HTTPS_PORT", https.ToString() },
                 { "PHP_WORKERS", ((int)workersBox.Value).ToString() },
                 { "AUTO_OPEN", autoOpenBox.Checked ? "1" : "0" },
+                { "BACKUP_DIR", backup },
             };
             DialogResult = DialogResult.OK;
         }

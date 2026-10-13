@@ -759,13 +759,14 @@
         "enableDailyAuto": "Enable Automatic Daily Backup",
         "creating": "Creating...",
         "createNow": "Create Backup Now",
-        "scheduleNote": "The daily backup runs automatically on Laravel's own schedule (not just when this page loads), and each copy is saved to the server's own storage — only downloadable from this page.",
+        "scheduleNote": "The daily backup runs by itself once a day, in the first hour the computer is on, and only the latest backups are kept. They can be downloaded from this page only.",
         "fileCol": "File",
         "sizeCol": "Size",
         "dateCol": "Date",
         "downloadCol": "Download",
         "emptyList": "No backups yet",
-        "download": "Download"
+        "download": "Download",
+        "folderNote": "Each backup holds the database; uploaded photos and files are kept in the uploads folder beside them. Folder:"
     },
     "clinicSettingsAdmin": {
         "title": "Clinic Settings",
