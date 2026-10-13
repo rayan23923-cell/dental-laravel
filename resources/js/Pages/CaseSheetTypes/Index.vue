@@ -9,6 +9,7 @@ import TextInput from '@/Components/TextInput.vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import StructureTabs from '@/Components/StructureTabs.vue';
 
 const { t } = useI18n();
 defineProps({
@@ -60,6 +61,8 @@ const destroy = (type) => {
 
         <div class="py-12">
             <div class="mx-auto max-w-4xl space-y-4 sm:px-6 lg:px-8">
+                <StructureTabs />
+
                 <div v-if="page.props.flash?.success" class="rounded-md bg-green-50 p-4 text-sm text-green-700">
                     {{ page.props.flash.success }}
                 </div>

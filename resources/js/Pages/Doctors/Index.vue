@@ -14,6 +14,7 @@ import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Icon from '@/Components/Icon.vue';
+import StructureTabs from '@/Components/StructureTabs.vue';
 
 const { t } = useI18n();
 const props = defineProps({
@@ -142,6 +143,8 @@ const printSelectedUrl = computed(() => `${route('doctors.print')}?ids=${selecte
 
         <div class="py-12">
             <div class="mx-auto max-w-7xl space-y-4 sm:px-6 lg:px-8">
+                <StructureTabs />
+
                 <div v-if="page.props.flash?.success" class="rounded-md bg-green-50 p-4 text-sm text-green-700">
                     {{ page.props.flash.success }}
                 </div>

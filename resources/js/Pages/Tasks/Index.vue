@@ -5,6 +5,7 @@ import Icon from '@/Components/Icon.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import StructureTabs from '@/Components/StructureTabs.vue';
 
 const { t } = useI18n();
 const props = defineProps({
@@ -107,6 +108,8 @@ const destroy = (task) => {
 
         <div class="py-12">
             <div class="mx-auto max-w-7xl space-y-4 sm:px-6 lg:px-8">
+                <StructureTabs />
+
                 <div
                     v-if="page.props.flash?.success"
                     class="rounded-md bg-green-50 p-4 text-sm text-green-700"

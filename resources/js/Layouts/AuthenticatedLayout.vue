@@ -23,6 +23,7 @@ import PhoneScannerLink from '@/Components/PhoneScannerLink.vue';
 import Icon from '@/Components/Icon.vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
+import { useStructureLinks } from '@/Composables/useStructureLinks';
 
 const showingNavigationDropdown = ref(false);
 const page = usePage();
@@ -120,29 +121,7 @@ const patientsLinks = computed(() => {
 // ordered tasks → academic year → doctors → groups → task progress. Doctors and tasks are
 // editor-accessible, so editors see a short version of this group with
 // just those two; everything else stays admin-only.
-const structureLinks = computed(() => {
-    if (deskRole.value) return [];
-    const doctors = { label: t('nav.doctors'), icon: 'stethoscope', href: route('doctors.index'), active: route().current('doctors.*') };
-    const tasks = { label: t('nav.tasks'), icon: 'assignment', href: route('tasks.index'), active: route().current('tasks.*') };
-    if (!isAdmin.value) return [tasks, doctors];
-
-    return [
-        { label: t('nav.educationTypes'), icon: 'school', href: route('education-types.index'), active: route().current('education-types.*') },
-        { label: t('nav.stages'), icon: 'stairs', href: route('stages.index'), active: route().current('stages.*') },
-        { label: t('nav.departments'), icon: 'apartment', href: route('departments.index'), active: route().current('departments.*') },
-        tasks,
-        { label: t('nav.academicSessions'), icon: 'calendar_month', href: route('academic-sessions.index'), active: route().current('academic-sessions.*') },
-        doctors,
-        // Hidden while groups are turned off in clinic settings.
-        ...(usePage().props.groupsEnabled !== false
-            ? [{ label: t('nav.groups'), icon: 'groups', href: route('groups.index'), active: route().current('groups.*') }]
-            : []),
-        { label: t('nav.taskProgress'), icon: 'monitoring', href: route('task-progress.index'), active: route().current('task-progress.*') },
-        // The clinic chair map is hidden from the menus (2026-10-12, by
-        // request); its page stays reachable at /clinic-chairs.
-        { label: t('nav.caseSheetTypes'), icon: 'description', href: route('case-sheet-types.index'), active: route().current('case-sheet-types.*') },
-    ];
-});
+const structureLinks = useStructureLinks();
 
 // "الإعدادات" — admin-only, new grouped dropdown replacing the flat
 // `adminLinks` strip. Folds in three routes that existed in the backend

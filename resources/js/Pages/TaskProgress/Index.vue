@@ -14,6 +14,7 @@ import { computed, nextTick, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import axios from 'axios';
 import Icon from '@/Components/Icon.vue';
+import StructureTabs from '@/Components/StructureTabs.vue';
 
 const { t } = useI18n();
 const props = defineProps({
@@ -299,6 +300,8 @@ const startFromScan = () => {
 
         <div class="py-12">
             <div class="mx-auto max-w-7xl space-y-4 sm:px-6 lg:px-8">
+                <StructureTabs />
+
                 <!-- New — this screen previously had no active-year banner
                      at all, unlike Doctors/Groups/Tasks. -->
                 <div v-if="currentSession" class="flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900">
