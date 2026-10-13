@@ -107,11 +107,9 @@ const patientsLinks = computed(() => {
     const lab = { label: t('nav.lab'), icon: 'coronavirus', href: route('lab.index'), active: route().current('lab.*') };
     if (deskRole.value === 'reception') return [registry];
     if (deskRole.value === 'lab') return [lab];
-    return [
-        registry,
-        { label: t('nav.patientsList'), icon: 'list_alt', href: route('patients.index'), active: route().current('patients.*') },
-        lab,
-    ];
+    // "قائمة المرضى" dropped too (2026-10-13, by request): the registry
+    // covers it. The page stays reachable at /patients.
+    return [registry, lab];
 });
 
 // "البيانات الأساسية" — admin-only (matches the original's dropdown of the
