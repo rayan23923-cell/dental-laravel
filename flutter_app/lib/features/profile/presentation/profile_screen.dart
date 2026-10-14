@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/settings_list.dart';
 import '../../auth/domain/account_type.dart';
 import '../../auth/domain/auth_account.dart';
 import '../../auth/presentation/auth_controller.dart';
@@ -45,6 +46,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   // '' = "follow system language" (stored as null server-side) — same
   // convention the web's Profile/Edit.vue language select uses.
   String _locale = '';
+  // Telegram-style list (2026-10-14, by request): the open section, if any.
+  String? _open;
 
   @override
   void dispose() {
@@ -72,7 +75,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _locale = account.locale ?? '';
   }
 
-  Future<void> _pickPhoto() async {
+  /// Picking a photo saves it straight away, like Instagram.
+  Future<void> _pickPhoto(AccountType accountType) async {
     final file = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
     if (file == null) return;
     final bytes = await file.readAsBytes();
@@ -80,10 +84,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       _photoPick = file;
       _photoPreview = bytes;
     });
+    await _saveInfo(accountType);
   }
 
+  void _toggle(String key) => setState(() => _open = _open == key ? null : key);
+
   Future<void> _saveInfo(AccountType accountType) async {
-    if (!(_infoFormKey.currentState?.validate() ?? true)) return;
+    if (!(_infoFormKey.currentState?.validate() ?? true)) {
+      setState(() => _open = 'personal');
+      return;
+    }
     setState(() => _savingInfo = true);
 
     final fields = {
@@ -99,11 +109,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     final t = ref.read(translationsProvider);
     try {
-      final account = await ref.read(profileRepositoryProvider).update(
-            accountType: accountType,
-            fields: fields,
-            photo: _photoPick,
-          );
+      final account = await ref.read(profileRepositoryProvider).update(accountType: accountType, fields: fields, photo: _photoPick);
       ref.read(authControllerProvider.notifier).updateAccount(account);
       if (mounted) {
         setState(() {
@@ -123,15 +129,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _savePassword() async {
-    if (!(_passwordFormKey.currentState?.validate() ?? true)) return;
+    if (!(_passwordFormKey.currentState?.validate() ?? true)) {
+      setState(() => _open = 'password');
+      return;
+    }
     setState(() => _savingPassword = true);
     final t = ref.read(translationsProvider);
 
     try {
-      await ref.read(profileRepositoryProvider).updatePassword(
-            oldPassword: _oldPasswordController.text,
-            newPassword: _newPasswordController.text,
-          );
+      await ref
+          .read(profileRepositoryProvider)
+          .updatePassword(oldPassword: _oldPasswordController.text, newPassword: _newPasswordController.text);
       if (mounted) {
         _oldPasswordController.clear();
         _newPasswordController.clear();
@@ -168,134 +176,229 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     };
     final t = ref.watch(translationsProvider);
 
+    final scheme = Theme.of(context).colorScheme;
+    final chips = switch (account) {
+      StaffAccount(:final role) => [t['roles.$role'] ?? role],
+      DoctorAccount(:final educationTypeName, :final stageName) => [?educationTypeName, ?stageName],
+    };
+    final username = switch (account) {
+      StaffAccount(:final username) => username,
+      DoctorAccount(:final username) => username,
+    };
+    final photo = _photoPreview != null
+        ? MemoryImage(_photoPreview!)
+        : (currentPhotoUrl != null ? NetworkImage(currentPhotoUrl) : null) as ImageProvider?;
+    final languageLabel = switch (_locale) {
+      'ar' => t['profile.languageAr']!,
+      'en' => t['profile.languageEn']!,
+      _ => t['profile.languageSystem']!,
+    };
+
+    Widget saveButton(String label, bool busy, VoidCallback onPressed) => Align(
+      alignment: AlignmentDirectional.centerEnd,
+      child: FilledButton(
+        onPressed: busy ? null : onPressed,
+        child: busy ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : Text(label),
+      ),
+    );
+
     return Scaffold(
       appBar: AppBar(title: Text(t['profile.title']!)),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
+          // Instagram-style header: big photo with a camera badge, name,
+          // @username and role / stage chips.
           Center(
             child: GestureDetector(
-              onTap: _pickPhoto,
-              child: CircleAvatar(
-                radius: 48,
-                backgroundImage: _photoPreview != null
-                    ? MemoryImage(_photoPreview!)
-                    : (currentPhotoUrl != null ? NetworkImage(currentPhotoUrl) : null) as ImageProvider?,
-                child: (_photoPreview == null && currentPhotoUrl == null)
-                    ? const Icon(Icons.person, size: 40)
-                    : null,
+              onTap: _savingInfo ? null : () => _pickPhoto(account.accountType),
+              child: Stack(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(shape: BoxShape.circle, color: scheme.primaryContainer),
+                    child: CircleAvatar(
+                      radius: 54,
+                      backgroundColor: scheme.primary,
+                      backgroundImage: photo,
+                      child: photo == null ? const Icon(Icons.person, size: 54, color: Colors.white) : null,
+                    ),
+                  ),
+                  PositionedDirectional(
+                    end: 2,
+                    bottom: 2,
+                    child: Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: scheme.primary,
+                        border: Border.all(color: scheme.surface, width: 2),
+                      ),
+                      child: _savingInfo && _photoPick != null
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.photo_camera, size: 18, color: Colors.white),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-          Center(
-            child: TextButton.icon(
-              onPressed: _pickPhoto,
-              icon: const Icon(Icons.photo_camera_outlined),
-              label: Text(t['profile.changePhoto']!),
-            ),
+          const SizedBox(height: 12),
+          Text(account.displayName, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            '@$username',
+            textAlign: TextAlign.center,
+            textDirection: TextDirection.ltr,
+            style: TextStyle(color: scheme.onSurfaceVariant),
           ),
-          const SizedBox(height: 16),
-          Text(t['profile.personalInfo']!, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
+          if (chips.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final chip in chips)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(20)),
+                    child: Text(chip, style: TextStyle(fontSize: 12, color: scheme.onPrimaryContainer)),
+                  ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 20),
           Form(
             key: _infoFormKey,
-            child: Column(
+            child: SettingsGroupCard(
               children: [
-                TextFormField(
-                  controller: _nameController,
-                  decoration: InputDecoration(labelText: t['profile.name']!, border: const OutlineInputBorder()),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? t['profile.requiredField']! : null,
-                ),
-                const SizedBox(height: 12),
-                // Forced LTR — same RTL-bidi-reordering class already found
-                // and fixed on the clinic-settings email/phone fields
-                // (`ClinicSettingsEditScreen`): a value mixing strong-LTR
-                // characters with bidi-neutral separators (`@`, digits with
-                // no separator here, but the risk is the same shape) gets
-                // visually reordered inside an RTL ancestor otherwise.
-                TextFormField(
-                  controller: _emailController,
-                  textDirection: TextDirection.ltr,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(labelText: t['profile.email']!, border: const OutlineInputBorder()),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? t['profile.requiredField']! : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _phoneController,
-                  textDirection: TextDirection.ltr,
-                  keyboardType: TextInputType.phone,
-                  decoration: InputDecoration(labelText: t['profile.phone']!, border: const OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: _locale,
-                  decoration: InputDecoration(labelText: t['profile.language']!, border: const OutlineInputBorder()),
-                  items: [
-                    DropdownMenuItem(value: '', child: Text(t['profile.languageSystem']!)),
-                    DropdownMenuItem(value: 'ar', child: Text(t['profile.languageAr']!)),
-                    DropdownMenuItem(value: 'en', child: Text(t['profile.languageEn']!)),
+                SettingsSection(
+                  icon: Icons.person_outline,
+                  color: const Color(0xFF6366F1),
+                  title: t['profile.personalInfo']!,
+                  summary: [_emailController.text, _phoneController.text].where((v) => v.trim().isNotEmpty).join(' · '),
+                  open: _open == 'personal',
+                  onToggle: () => _toggle('personal'),
+                  children: [
+                    TextFormField(
+                      controller: _nameController,
+                      decoration: InputDecoration(labelText: t['profile.name']!, border: const OutlineInputBorder()),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? t['profile.requiredField']! : null,
+                    ),
+                    const SizedBox(height: 12),
+                    // Forced LTR: an email mixes strong-LTR letters with
+                    // bidi-neutral `@`/`.`, which an RTL field reorders.
+                    TextFormField(
+                      controller: _emailController,
+                      textDirection: TextDirection.ltr,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: InputDecoration(labelText: t['profile.email']!, border: const OutlineInputBorder()),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? t['profile.requiredField']! : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _phoneController,
+                      textDirection: TextDirection.ltr,
+                      keyboardType: TextInputType.phone,
+                      decoration: InputDecoration(labelText: t['profile.phone']!, border: const OutlineInputBorder()),
+                    ),
+                    const SizedBox(height: 12),
+                    saveButton(t['profile.saveChanges']!, _savingInfo, () => _saveInfo(account.accountType)),
                   ],
-                  onChanged: (value) => setState(() => _locale = value ?? ''),
                 ),
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: _savingInfo ? null : () => _saveInfo(account.accountType),
-                  child: _savingInfo
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                      : Text(t['profile.saveChanges']!),
+                SettingsSection(
+                  icon: Icons.translate,
+                  color: const Color(0xFF0EA5E9),
+                  title: t['profile.language']!,
+                  summary: languageLabel,
+                  open: _open == 'language',
+                  onToggle: () => _toggle('language'),
+                  children: [
+                    RadioGroup<String>(
+                      groupValue: _locale,
+                      onChanged: (v) => setState(() => _locale = v ?? ''),
+                      child: Column(
+                        children: [
+                          for (final (value, label) in [
+                            ('', t['profile.languageSystem']!),
+                            ('ar', t['profile.languageAr']!),
+                            ('en', t['profile.languageEn']!),
+                          ])
+                            RadioListTile<String>(contentPadding: EdgeInsets.zero, value: value, title: Text(label)),
+                        ],
+                      ),
+                    ),
+                    saveButton(t['profile.saveChanges']!, _savingInfo, () => _saveInfo(account.accountType)),
+                  ],
+                ),
+                SettingsSection(
+                  icon: Icons.lock_outline,
+                  color: const Color(0xFFF59E0B),
+                  title: t['profile.changePassword']!,
+                  summary: '',
+                  open: _open == 'password',
+                  onToggle: () => _toggle('password'),
+                  children: [
+                    Form(
+                      key: _passwordFormKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          TextFormField(
+                            controller: _oldPasswordController,
+                            obscureText: true,
+                            decoration: InputDecoration(labelText: t['profile.currentPassword']!, border: const OutlineInputBorder()),
+                            validator: (v) => (v == null || v.isEmpty) ? t['profile.requiredField']! : null,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _newPasswordController,
+                            obscureText: true,
+                            decoration: InputDecoration(labelText: t['profile.newPassword']!, border: const OutlineInputBorder()),
+                            validator: (v) => (v == null || v.length < 6) ? t['profile.passwordTooShort']! : null,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _confirmPasswordController,
+                            obscureText: true,
+                            decoration: InputDecoration(labelText: t['profile.confirmPassword']!, border: const OutlineInputBorder()),
+                            validator: (v) => (v != _newPasswordController.text) ? t['profile.passwordMismatch']! : null,
+                          ),
+                          const SizedBox(height: 12),
+                          saveButton(t['profile.changePassword']!, _savingPassword, _savePassword),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                InkWell(
+                  onTap: () => context.push('/sessions'),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    child: Row(
+                      children: [
+                        const SettingsSectionIcon(icon: Icons.devices_outlined, color: Color(0xFF10B981)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(t['profile.activeSessions']!, style: const TextStyle(fontWeight: FontWeight.w600)),
+                              Text(
+                                t['profile.activeSessionsSubtitle']!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(Icons.chevron_left, color: scheme.onSurfaceVariant),
+                      ],
+                    ),
+                  ),
                 ),
               ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          const Divider(),
-          const SizedBox(height: 8),
-          Text(t['profile.changePassword']!, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Form(
-            key: _passwordFormKey,
-            child: Column(
-              children: [
-                TextFormField(
-                  controller: _oldPasswordController,
-                  obscureText: true,
-                  decoration: InputDecoration(labelText: t['profile.currentPassword']!, border: const OutlineInputBorder()),
-                  validator: (v) => (v == null || v.isEmpty) ? t['profile.requiredField']! : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _newPasswordController,
-                  obscureText: true,
-                  decoration: InputDecoration(labelText: t['profile.newPassword']!, border: const OutlineInputBorder()),
-                  validator: (v) => (v == null || v.length < 6) ? t['profile.passwordTooShort']! : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _confirmPasswordController,
-                  obscureText: true,
-                  decoration: InputDecoration(labelText: t['profile.confirmPassword']!, border: const OutlineInputBorder()),
-                  validator: (v) => (v != _newPasswordController.text) ? t['profile.passwordMismatch']! : null,
-                ),
-                const SizedBox(height: 16),
-                OutlinedButton(
-                  onPressed: _savingPassword ? null : _savePassword,
-                  child: _savingPassword
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                      : Text(t['profile.changePassword']!),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          const Divider(),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.devices_outlined),
-              title: Text(t['profile.activeSessions']!),
-              subtitle: Text(t['profile.activeSessionsSubtitle']!),
-              trailing: const Icon(Icons.chevron_left),
-              onTap: () => context.push('/sessions'),
             ),
           ),
         ],

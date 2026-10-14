@@ -12,6 +12,9 @@ import { useI18n } from 'vue-i18n';
 import Icon from '@/Components/Icon.vue';
 
 const { t } = useI18n();
+// `bare`: drop the card and heading when the panel sits inside a
+// collapsible profile section (2026-10-14).
+defineProps({ bare: { type: Boolean, default: false } });
 const sessions = ref([]);
 const loading = ref(true);
 const busyId = ref(null);
@@ -58,9 +61,9 @@ onMounted(load);
 </script>
 
 <template>
-    <div class="rounded-lg bg-white p-6 shadow-sm">
-        <div class="flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-gray-700">{{ t('sessions.title') }}</h3>
+    <div :class="bare ? '' : 'rounded-lg bg-white p-6 shadow-sm'">
+        <div class="flex items-center" :class="bare ? 'justify-end' : 'justify-between'">
+            <h3 v-if="!bare" class="text-sm font-semibold text-gray-700">{{ t('sessions.title') }}</h3>
             <button
                 v-if="sessions.length"
                 type="button"
@@ -72,10 +75,10 @@ onMounted(load);
             </button>
         </div>
 
-        <div v-if="loading" class="mt-4 text-sm text-gray-500">{{ t('common.loading') }}</div>
-        <div v-else-if="!sessions.length" class="mt-4 text-sm text-gray-500">{{ t('sessions.empty') }}</div>
+        <div v-if="loading" class="text-sm text-gray-500">{{ t('common.loading') }}</div>
+        <div v-else-if="!sessions.length" class="text-sm text-gray-500">{{ t('sessions.empty') }}</div>
 
-        <ul v-else class="mt-4 divide-y divide-gray-100">
+        <ul v-else class="mt-2 divide-y divide-gray-100">
             <li v-for="session in sessions" :key="session.id" class="flex items-center justify-between gap-3 py-3">
                 <div class="flex items-center gap-3">
                     <div class="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-500">

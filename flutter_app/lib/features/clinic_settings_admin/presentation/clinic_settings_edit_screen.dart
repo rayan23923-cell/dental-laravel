@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/i18n/locale_controller.dart';
+import '../../../core/widgets/settings_list.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/clinic_settings_admin_repository.dart';
 import '../domain/clinic_settings_admin.dart';
@@ -177,10 +178,10 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               children: [
-                _GroupHeader(t['clinicSettingsAdmin.groupClinic']!),
-                _GroupCard(
+                SettingsGroupHeader(t['clinicSettingsAdmin.groupClinic']!),
+                SettingsGroupCard(
                   children: [
-                    _SettingsSection(
+                    SettingsSection(
                       icon: Icons.storefront_outlined,
                       color: const Color(0xFF6366F1),
                       title: t['clinicSettingsAdmin.basicInfoHeading']!,
@@ -214,7 +215,7 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
                         ),
                       ],
                     ),
-                    _SettingsSection(
+                    SettingsSection(
                       icon: Icons.contact_phone_outlined,
                       color: const Color(0xFF0EA5E9),
                       title: t['clinicSettingsAdmin.contactInfoHeading']!,
@@ -275,7 +276,7 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
                         ),
                       ],
                     ),
-                    _SettingsSection(
+                    SettingsSection(
                       icon: Icons.school_outlined,
                       color: const Color(0xFF8B5CF6),
                       title: t['clinicSettingsAdmin.universityCollegeHeading']!,
@@ -310,10 +311,10 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
                   ],
                 ),
                 const SizedBox(height: 20),
-                _GroupHeader(t['clinicSettingsAdmin.groupSystem']!),
-                _GroupCard(
+                SettingsGroupHeader(t['clinicSettingsAdmin.groupSystem']!),
+                SettingsGroupCard(
                   children: [
-                    _SettingsSection(
+                    SettingsSection(
                       icon: Icons.tune,
                       color: const Color(0xFFF59E0B),
                       title: t['clinicSettingsAdmin.systemHeading']!,
@@ -351,7 +352,7 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const _SectionIcon(icon: Icons.groups_outlined, color: Color(0xFF14B8A6)),
+                          const SettingsSectionIcon(icon: Icons.groups_outlined, color: Color(0xFF14B8A6)),
                           const SizedBox(width: 12),
                           Expanded(
                             child: SwitchListTile(
@@ -368,10 +369,10 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
                   ],
                 ),
                 const SizedBox(height: 20),
-                _GroupHeader(t['clinicSettingsAdmin.groupMessaging']!),
-                _GroupCard(
+                SettingsGroupHeader(t['clinicSettingsAdmin.groupMessaging']!),
+                SettingsGroupCard(
                   children: [
-                    _SettingsSection(
+                    SettingsSection(
                       icon: Icons.notifications_outlined,
                       color: const Color(0xFFF43F5E),
                       title: t['clinicSettingsAdmin.notificationsHeading']!,
@@ -438,137 +439,6 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
       if (_enableEmail) t['clinicSettingsAdmin.emailShort']!,
     ];
     return on.isEmpty ? t['clinicSettingsAdmin.off']! : on.join('، ');
-  }
-}
-
-/// Section label above a settings card (Telegram-style, 2026-10-14).
-class _GroupHeader extends StatelessWidget {
-  const _GroupHeader(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsetsDirectional.only(start: 8, bottom: 6),
-      child: Text(
-        text,
-        style: TextStyle(color: scheme.primary, fontSize: 12, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-}
-
-class _GroupCard extends StatelessWidget {
-  const _GroupCard({required this.children});
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 0,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      child: Column(
-        children: [
-          for (var i = 0; i < children.length; i++) ...[
-            if (i > 0) Divider(height: 1, indent: 60, color: scheme.outlineVariant.withValues(alpha: 0.5)),
-            children[i],
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionIcon extends StatelessWidget {
-  const _SectionIcon({required this.icon, required this.color});
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 36,
-    height: 36,
-    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
-    child: Icon(icon, color: Colors.white, size: 20),
-  );
-}
-
-/// A collapsible settings row: icon, title, summary of the current values
-/// and a chevron. Closed fields stay mounted (just hidden) so the form still
-/// validates them.
-class _SettingsSection extends StatelessWidget {
-  const _SettingsSection({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.summary,
-    required this.open,
-    required this.onToggle,
-    required this.children,
-  });
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String summary;
-  final bool open;
-  final VoidCallback onToggle;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        InkWell(
-          onTap: onToggle,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              children: [
-                _SectionIcon(icon: icon, color: color),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-                      if (summary.isNotEmpty)
-                        Text(
-                          summary,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
-                        ),
-                    ],
-                  ),
-                ),
-                AnimatedRotation(
-                  turns: open ? 0.5 : 0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Icon(Icons.expand_more, color: scheme.onSurfaceVariant),
-                ),
-              ],
-            ),
-          ),
-        ),
-        Visibility(
-          visible: open,
-          maintainState: true,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
-          ),
-        ),
-      ],
-    );
   }
 }
 
