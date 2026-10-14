@@ -8,8 +8,9 @@ services:
     image: mysql:8.0
     container_name: dental-db
     restart: unless-stopped
-    # No binlog (single server, nothing replicates) and no performance_schema: ~200 MB RAM and IO back for PHP.
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-time-zone=+03:00 --skip-log-bin --performance-schema=OFF --max-connections=200
+    # No binlog (single server, nothing replicates) and no performance_schema: RAM and IO back for PHP.
+    # A 2 GB buffer pool (default 128 MB) keeps the whole clinic database in memory on the 24 GB server.
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-time-zone=+03:00 --skip-log-bin --performance-schema=OFF --max-connections=200 --innodb-buffer-pool-size=2G
     environment:
       MYSQL_DATABASE: ${DB_DATABASE}
       MYSQL_USER: ${DB_USERNAME}
