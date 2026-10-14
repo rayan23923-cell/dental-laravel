@@ -8,11 +8,19 @@ import '../../users_admin/domain/user_admin.dart';
 import '../domain/permission_admin.dart';
 import 'permissions_admin_providers.dart';
 
-class PermissionUserListScreen extends ConsumerWidget {
+class PermissionUserListScreen extends ConsumerStatefulWidget {
   const PermissionUserListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PermissionUserListScreen> createState() => _PermissionUserListScreenState();
+}
+
+class _PermissionUserListScreenState extends ConsumerState<PermissionUserListScreen> {
+  // Role filter (2026-10-14, by request), like the web page's chips.
+  String? _role;
+
+  @override
+  Widget build(BuildContext context) {
     final usersAsync = ref.watch(permissionUserListProvider);
     final t = ref.watch(translationsProvider);
 
@@ -32,14 +40,53 @@ class PermissionUserListScreen extends ConsumerWidget {
           if (users.isEmpty) {
             return Center(child: Text(t['permissionsAdmin.emptyUsers']!));
           }
-          return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(permissionUserListProvider),
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: users.length,
-              separatorBuilder: (_, __) => const Divider(height: 1, indent: 76),
-              itemBuilder: (context, i) => _UserTile(user: users[i]),
-            ),
+          final counts = <String, int>{};
+          for (final u in users) {
+            counts[u.role] = (counts[u.role] ?? 0) + 1;
+          }
+          final shown = _role == null ? users : users.where((u) => u.role == _role).toList();
+          return Column(
+            children: [
+              if (counts.length > 1)
+                SizedBox(
+                  height: 52,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsetsDirectional.only(end: 6),
+                        child: ChoiceChip(
+                          label: Text('${t['permissionsAdmin.allRoles']!} ${users.length}'),
+                          selected: _role == null,
+                          onSelected: (_) => setState(() => _role = null),
+                        ),
+                      ),
+                      for (final e in counts.entries)
+                        Padding(
+                          padding: const EdgeInsetsDirectional.only(end: 6),
+                          child: ChoiceChip(
+                            avatar: Icon(_roleStyle(e.key).$1, size: 16, color: _roleStyle(e.key).$2),
+                            label: Text('${_roleLabel(e.key)} ${e.value}'),
+                            selected: _role == e.key,
+                            onSelected: (on) => setState(() => _role = on ? e.key : null),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () async => ref.invalidate(permissionUserListProvider),
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: shown.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1, indent: 76),
+                    itemBuilder: (context, i) => _UserTile(user: shown[i]),
+                  ),
+                ),
+              ),
+            ],
           );
         },
       ),
@@ -47,29 +94,32 @@ class PermissionUserListScreen extends ConsumerWidget {
   }
 }
 
+const _roleStyles = <String, (IconData, Color)>{
+  'admin': (Icons.admin_panel_settings_outlined, Colors.indigo),
+  'editor': (Icons.edit_note, Colors.lightBlue),
+  'doctor': (Icons.medical_services_outlined, Colors.green),
+  'accountant': (Icons.payments_outlined, Colors.orange),
+  'senior': (Icons.workspace_premium_outlined, Colors.purple),
+  'hr': (Icons.badge_outlined, Colors.pink),
+  'reception': (Icons.confirmation_number_outlined, Colors.teal),
+  'lab': (Icons.biotech_outlined, Colors.deepPurple),
+};
+
+(IconData, Color) _roleStyle(String role) => _roleStyles[role] ?? (Icons.person_outline, Colors.blueGrey);
+
+String _roleLabel(String role) =>
+    kAssignableUserRoles.firstWhere((r) => r.$1 == role, orElse: () => (role, role)).$2;
+
 /// Chat-list row (2026-10-13, by request: "مشابه لتصميم انستاكرام او
 /// تيليجرام"), matching the web page: avatar, name and a coloured role chip.
 class _UserTile extends StatelessWidget {
   const _UserTile({required this.user});
   final PermissionUser user;
 
-  static const _styles = <String, (IconData, Color)>{
-    'admin': (Icons.admin_panel_settings_outlined, Colors.indigo),
-    'editor': (Icons.edit_note, Colors.lightBlue),
-    'doctor': (Icons.medical_services_outlined, Colors.green),
-    'accountant': (Icons.payments_outlined, Colors.orange),
-    'senior': (Icons.workspace_premium_outlined, Colors.purple),
-    'hr': (Icons.badge_outlined, Colors.pink),
-    'reception': (Icons.confirmation_number_outlined, Colors.teal),
-    'lab': (Icons.biotech_outlined, Colors.deepPurple),
-  };
-
   @override
   Widget build(BuildContext context) {
-    final (icon, color) = _styles[user.role] ?? (Icons.person_outline, Colors.blueGrey);
-    final roleLabel = kAssignableUserRoles
-        .firstWhere((r) => r.$1 == user.role, orElse: () => (user.role, user.role))
-        .$2;
+    final (icon, color) = _roleStyle(user.role);
+    final roleLabel = _roleLabel(user.role);
     final name = user.fullName.trim().isEmpty ? user.username : user.fullName;
 
     return ListTile(

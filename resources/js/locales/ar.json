@@ -510,7 +510,8 @@
         "noType": "بدون نوع تعليم",
         "filteredByTypes": "ضمن أنواع التعليم المختارة",
         "filteredByStages": "ضمن المراحل المختارة",
-        "scopeHintFiltered": "تظهر هنا الخيارات {level} فقط. اختر منها، أو خلّيها على الكل."
+        "scopeHintFiltered": "تظهر هنا الخيارات {level} فقط. اختر منها، أو خلّيها على الكل.",
+        "allRoles": "الكل"
     },
     "groupsAdmin": {
         "title": "إدارة المجموعات",

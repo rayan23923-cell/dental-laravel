@@ -510,7 +510,8 @@
         "noType": "No education type",
         "filteredByTypes": "within the chosen education types",
         "filteredByStages": "within the chosen stages",
-        "scopeHintFiltered": "Only options {level} are shown. Pick from them, or leave it on “All”."
+        "scopeHintFiltered": "Only options {level} are shown. Pick from them, or leave it on “All”.",
+        "allRoles": "All"
     },
     "groupsAdmin": {
         "title": "Manage Groups",
