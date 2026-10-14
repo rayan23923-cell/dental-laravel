@@ -92,14 +92,30 @@ watch(
 // saved as its own task with its points setup.
 const rows = ref(null);
 const passPercent = ref(null);
+// Rows of one stage only (row.stage 4/5) follow the chosen stage: the other
+// stage's rows start switched off.
+const stageNumber = () => {
+    const name = props.stages.find((s) => s.id === Number(form.stage_id))?.name ?? '';
+    if (/fourth|رابع|\b4\b/i.test(name)) return 4;
+    if (/fifth|خامس|\b5\b/i.test(name)) return 5;
+    return null;
+};
+const applyStage = () => {
+    const n = stageNumber();
+    rows.value?.forEach((row) => {
+        if (row.stage) row.enabled = !n || row.stage === n;
+    });
+};
 watch(
     () => form.case_sheet_type_id,
     (id) => {
         const template = props.scoringTemplates?.[id];
         rows.value = template ? JSON.parse(JSON.stringify(template.rows)) : null;
         passPercent.value = template?.pass_percent ?? null;
+        applyStage();
     },
 );
+watch(() => form.stage_id, applyStage);
 
 const submit = () => {
     form.transform((data) => {
@@ -193,6 +209,7 @@ const submit = () => {
                                     <span v-if="row.scoring.weight" class="rounded-full bg-amber-100 px-2 py-0.5 text-amber-700">{{ row.scoring.weight }}%</span>
                                     <span v-if="row.scoring.steps?.length" class="rounded-full bg-gray-100 px-2 py-0.5">{{ t('taskScoring.stepsCount', { n: row.scoring.steps.filter((x) => x.enabled).length }) }}</span>
                                     <span v-for="(o, oi) in row.scoring.options" :key="oi" class="rounded-full bg-gray-100 px-2 py-0.5">{{ o.label }} {{ o.points }}</span>
+                                    <span v-for="(c, ci) in row.scoring.checklist ?? []" :key="'c' + ci" class="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">✓ {{ c.label }}</span>
                                 </div>
                                 <details v-if="row.enabled" class="mt-2">
                                     <summary class="cursor-pointer text-xs text-indigo-600">{{ t('taskScoring.pointsSetup') }}</summary>

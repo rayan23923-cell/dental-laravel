@@ -55,6 +55,7 @@ class TaskScoring
         $complete = self::steps(CompleteDentureForm::stages(), false);
         $row = fn ($title, $count, $sheet, $steps) => [
             'enabled' => true,
+            'stage' => str_contains($title, 'الرابع') ? 4 : 5,
             'title' => $title,
             'required_count' => $count,
             'case_sheet' => $sheet,
@@ -71,6 +72,57 @@ class TaskScoring
                 $row('طقم كامل منفرد علوي أو سفلي — الخامس', 1, 'complete_denture', $complete),
                 $row('طقم متحرك جزئي — الخامس', 1, 'partial_denture', $partial),
                 $row('طقم متحرك مرن (flexible) — الخامس', 1, 'partial_denture', $partial),
+            ],
+        ];
+    }
+
+    /**
+     * Periodontics (2026-10-14, by request). Fourth stage: 1000 points from
+     * treating patients, each case graded by the supervisor on the sheet's
+     * items up to each item's max. Fifth stage: 4 patients of two sessions
+     * each, one of them with root planing.
+     */
+    private static function periodontics(): array
+    {
+        return [
+            'pass_percent' => 100,
+            'rows' => [
+                self::row('علاج مرضى اللثة (1000 نقطة) — الرابع', 20, 'points', 1000, null, [
+                    ['label' => 'Case sheet', 'points' => 10],
+                    ['label' => 'Motivation + instruction', 'points' => 10],
+                    ['label' => 'Indices (Bleeding on probing + Calculus index)', 'points' => 20],
+                    ['label' => 'Diagnosis', 'points' => 20],
+                    ['label' => 'Scaling', 'points' => 40],
+                    ['label' => 'Clinical case difficulty (Calculus index total score)', 'points' => 360],
+                ], sheet: 'periodontal', stage: 4, graded: true),
+                self::row('علاج مريض لثة بواقع جلستين — الخامس', 4, 'count', null, null, sheet: 'periodontal', stage: 5,
+                    checklist: ['الجلسة الأولى', 'الجلسة الثانية']),
+                self::row('Root planing — الخامس', 1, 'count', null, null, sheet: 'periodontal', stage: 5),
+            ],
+        ];
+    }
+
+    /**
+     * Orthodontics (2026-10-14, by request). Fourth stage: every lab form of
+     * the curriculum, one row each (names editable). Fifth stage: a record
+     * session with all its parts, and a seminar.
+     */
+    private static function orthodontics(): array
+    {
+        $lab = ['Adams clasp', 'Ball-ended clasp', 'Labial bow', 'Finger spring', 'Z-spring', 'T-spring', 'Coffin spring', 'Canine retractor', 'Removable appliance (acrylic base)'];
+
+        return [
+            'pass_percent' => 100,
+            'rows' => [
+                ...array_map(fn ($name) => self::row("شكل مختبري: $name — الرابع", 1, 'count', null, null, sheet: 'orthodontics', stage: 4), $lab),
+                self::row('Record session — الخامس', 1, 'count', null, null, sheet: 'orthodontics', stage: 5, checklist: [
+                    'Case sheet filling',
+                    'Full set of extra-oral and intra-oral photographs',
+                    'Impressions (upper and lower arches)',
+                    'Properly made and trimmed study models',
+                    'Case presentation',
+                ]),
+                self::row('سمنار — الخامس', 1, 'count', null, null, sheet: 'orthodontics', stage: 5),
             ],
         ];
     }
@@ -123,6 +175,9 @@ class TaskScoring
                 ],
             ],
             'prosthodontics' => self::prosthodontics(),
+            'periodontal' => self::periodontics(),
+            'advanced_periodontal' => self::periodontics(),
+            'orthodontics' => self::orthodontics(),
             'partial_denture' => self::prosthodontics(),
             'complete_denture' => self::prosthodontics(),
         ];
@@ -147,11 +202,18 @@ class TaskScoring
             ->all();
     }
 
-    /** $sheet: the case-sheet type_code this row's task uses; null keeps the chosen one. */
-    private static function row(string $title, int $count, string $measure, ?float $minPoints, ?float $weight, array $options = [], array $modifiers = [], ?string $sheet = null): array
+    /**
+     * $sheet: the case-sheet type_code this row's task uses; null keeps the chosen one.
+     * $stage: 4 or 5 when the row belongs to one stage only (the form
+     * switches off the other stage's rows). $graded: options are items the
+     * supervisor grades up to their points. $checklist: parts that must all
+     * be ticked to complete a case.
+     */
+    private static function row(string $title, int $count, string $measure, ?float $minPoints, ?float $weight, array $options = [], array $modifiers = [], ?string $sheet = null, ?int $stage = null, bool $graded = false, array $checklist = []): array
     {
         return [
             'enabled' => true,
+            'stage' => $stage,
             'title' => $title,
             'required_count' => $count,
             'case_sheet' => $sheet,
@@ -161,6 +223,8 @@ class TaskScoring
                 'weight' => $weight,
                 'options' => $options,
                 'modifiers' => $modifiers,
+                'graded' => $graded,
+                'checklist' => array_map(fn ($label) => ['label' => $label], $checklist),
             ],
         ];
     }
@@ -184,6 +248,9 @@ class TaskScoring
             "$prefix.steps.*.label" => ['required', 'string', 'max:100'],
             "$prefix.steps.*.max" => ['required', 'numeric', 'min:0'],
             "$prefix.steps.*.enabled" => ['boolean'],
+            "$prefix.graded" => ['boolean'],
+            "$prefix.checklist" => ['nullable', 'array', 'max:20'],
+            "$prefix.checklist.*.label" => ['required', 'string', 'max:150'],
         ];
     }
 
@@ -215,6 +282,11 @@ class TaskScoring
                 'max' => (float) $st['max'],
                 'enabled' => (bool) ($st['enabled'] ?? true),
             ])->values()->all(),
+            'graded' => (bool) ($scoring['graded'] ?? false),
+            'checklist' => collect($scoring['checklist'] ?? [])
+                ->map(fn ($c) => ['label' => trim((string) $c['label'])])
+                ->filter(fn ($c) => $c['label'] !== '')
+                ->values()->all(),
         ];
     }
 
@@ -223,8 +295,11 @@ class TaskScoring
     {
         return [
             'work_items' => ['nullable', 'array', 'max:50'],
-            'work_items.*.option' => ['required', 'integer', 'min:0'],
+            // An item is a kind of work (`option`) or a ticked checklist part (`check`).
+            'work_items.*.option' => ['required_without:work_items.*.check', 'integer', 'min:0'],
+            'work_items.*.check' => ['nullable', 'integer', 'min:0'],
             'work_items.*.qty' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'work_items.*.grade' => ['nullable', 'numeric', 'min:0'],
             'work_items.*.modifiers' => ['nullable', 'array'],
             'work_items.*.modifiers.*' => ['integer', 'min:0'],
         ];
@@ -239,15 +314,28 @@ class TaskScoring
      */
     public static function resolveWorkItems(Task $task, ?array $items): ?array
     {
-        if ($items === null) {
+        $checklist = $task->scoring['checklist'] ?? [];
+        if ($items === null && ! $checklist) {
             return null;
         }
+        $items ??= [];
         $options = $task->scoring['options'] ?? [];
         $modifiers = $task->scoring['modifiers'] ?? [];
+        $graded = (bool) ($task->scoring['graded'] ?? false);
 
-        $resolved = [];
+        // Every checklist part must be ticked to complete the case.
+        $ticked = collect($items)->pluck('check')->filter(fn ($c) => $c !== null)->map(fn ($c) => (int) $c)->unique();
+        $missing = collect($checklist)->keys()->diff($ticked);
+        if ($missing->isNotEmpty()) {
+            throw ValidationException::withMessages(['work_items' => 'أكمل كل البنود قبل الإنجاز: '.collect($checklist)->only($missing->all())->pluck('label')->implode('، ')]);
+        }
+
+        $resolved = collect($checklist)->map(fn ($c) => ['option' => $c['label'], 'qty' => 1, 'modifiers' => [], 'points' => 0, 'check' => true])->values()->all();
         $total = 0.0;
         foreach (array_values($items) as $i => $item) {
+            if (($item['check'] ?? null) !== null) {
+                continue;
+            }
             $option = $options[(int) $item['option']] ?? null;
             if (! $option) {
                 throw ValidationException::withMessages(["work_items.$i.option" => 'نوع العمل غير موجود بهذه المهمة.']);
@@ -263,13 +351,17 @@ class TaskScoring
                 $factor *= (float) $modifier['factor'];
                 $labels[] = $modifier['label'];
             }
-            $points = round((float) $option['points'] * $qty * $factor, 2);
+            // A graded item scores the supervisor's grade, up to its points.
+            $base = $graded ? min((float) ($item['grade'] ?? 0), (float) $option['points']) : (float) $option['points'] * $qty;
+            $qty = $graded ? 1 : $qty;
+            $points = round($base * $factor, 2);
             $total += $points;
             $resolved[] = [
                 'option' => $option['label'],
                 'qty' => $qty,
                 'modifiers' => $labels,
                 'points' => $points,
+                ...($graded ? ['grade' => $base] : []),
             ];
         }
 

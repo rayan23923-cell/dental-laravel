@@ -123,4 +123,51 @@ class TaskScoringTest extends TestCase
         $this->put(route('task-progress.complete', $instance), [])->assertSessionHasNoErrors();
         $this->assertEqualsWithDelta(27, $instance->fresh()->points, 0.01);
     }
+
+    public function test_periodontics_grades_items_and_requires_every_session(): void
+    {
+        EducationType::create(['id' => 1, 'name' => 'صباحي']);
+        Stage::create(['id' => 1, 'name' => 'الرابعة', 'education_type_id' => 1]);
+        $department = Department::create(['name' => 'اللثة', 'stage_id' => 1, 'education_type_id' => 1]);
+        $sheet = DB::table('case_sheet_types')->where('type_code', 'periodontal')->value('id')
+            ?? DB::table('case_sheet_types')->insertGetId(['type_code' => 'periodontal', 'name_ar' => 'اللثة', 'name_en' => 'Periodontal', 'is_active' => 1]);
+        $this->actingAs(User::factory()->create(['role' => 'super_admin']));
+
+        $rows = TaskScoring::templatesByTypeId()[$sheet]['rows'];
+        $this->assertSame([4, 5, 5], array_column($rows, 'stage'));
+        $this->post('/tasks', [
+            'department_id' => $department->id, 'case_sheet_type_id' => $sheet, 'stage_id' => 1,
+            'notes' => 'متطلبات', 'grade' => 10, 'rows' => $rows,
+        ])->assertSessionHasNoErrors();
+
+        $doctor = Doctor::create([
+            'name' => 'د. زينب', 'username' => 'zainab', 'password' => 'secret', 'email' => 'z@example.com',
+            'education_type_id' => 1, 'stage_id' => 1,
+        ]);
+
+        // Graded: each item scores the supervisor's grade, up to its max.
+        $points = Task::where('title', 'like', '%1000%')->firstOrFail();
+        $this->assertTrue($points->scoring['graded']);
+        $instance = TaskInstance::create(['task_id' => $points->id, 'doctor_id' => $doctor->id, 'status' => 'assigned']);
+        $this->put(route('task-progress.complete', $instance), [
+            'work_items' => [
+                ['option' => 0, 'grade' => 8],
+                ['option' => 4, 'grade' => 99], // Scaling, max 40
+                ['option' => 5, 'grade' => 120],
+            ],
+        ])->assertSessionHasNoErrors();
+        $this->assertEqualsWithDelta(168, $instance->fresh()->points, 0.01);
+
+        // Checklist: both sessions must be ticked.
+        $sessions = Task::where('title', 'like', '%جلستين%')->firstOrFail();
+        $case = TaskInstance::create(['task_id' => $sessions->id, 'doctor_id' => $doctor->id, 'status' => 'assigned']);
+        $this->put(route('task-progress.complete', $case), ['work_items' => [['check' => 0]]])
+            ->assertSessionHasErrors('work_items');
+        $this->assertSame('assigned', $case->fresh()->status);
+        $this->put(route('task-progress.complete', $case), ['work_items' => [['check' => 0], ['check' => 1]]])
+            ->assertSessionHasNoErrors();
+        $this->assertSame('completed', $case->fresh()->status);
+        $this->assertNull($case->fresh()->points);
+        $this->assertCount(2, $case->fresh()->work_items);
+    }
 }

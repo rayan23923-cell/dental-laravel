@@ -61,7 +61,10 @@ class TaskInstanceGrader
         }
         [$items, $points] = $resolved;
 
-        return ['work_items' => $items, 'points' => $items ? $points : null];
+        // Ticked checklist parts carry no points of their own.
+        $scored = collect($items)->contains(fn ($item) => empty($item['check']));
+
+        return ['work_items' => $items, 'points' => $scored ? $points : null];
     }
 
     /** @throws TaskGradeException */
