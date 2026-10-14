@@ -18,6 +18,7 @@ use App\Services\ScopeHelper;
 use App\Services\TaskProgressGroupSummary;
 use App\Services\TaskStartException;
 use App\Services\TaskStarter;
+use App\Services\TaskStartRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -56,6 +57,8 @@ class TaskProgressController extends Controller
             // Matches Doctors/Groups/Tasks — this screen previously had no
             // active-year banner at all.
             'currentSession' => $session?->only('id', 'name'),
+            // Badge on the "الطلبات" tab (2026-10-14).
+            'pendingRequests' => TaskStartRequests::visibleTo($request->user())->where('status', 'pending')->count(),
         ]);
     }
 

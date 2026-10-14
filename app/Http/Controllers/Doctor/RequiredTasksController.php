@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Doctor;
 use App\Http\Controllers\Controller;
 use App\Models\Task;
 use App\Models\TaskInstance;
+use App\Models\TaskStartRequest;
 use App\Services\AcademicSessionHelper;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -39,10 +40,14 @@ class RequiredTasksController extends Controller
             ->orderBy('id')
             ->get();
 
+        // "طلبات بدء المهام" (2026-10-14): the doctor's own requests.
+        $requests = TaskStartRequest::where('doctor_id', $doctor->id)->latest()->limit(200)->get();
+        $pendingTaskIds = $requests->where('status', 'pending')->pluck('task_id')->map(fn ($id) => (int) $id)->all();
+
         $departments = $tasks
             ->groupBy(fn ($t) => $t->department?->name ?? 'Unassigned')
-            ->map(function ($deptTasks, $name) use ($instances) {
-                $rows = $deptTasks->map(function ($task) use ($instances) {
+            ->map(function ($deptTasks, $name) use ($instances, $pendingTaskIds) {
+                $rows = $deptTasks->map(function ($task) use ($instances, $pendingTaskIds) {
                     $own = $instances->where('task_id', $task->id)->values();
                     $required = (int) $task->required_count;
 
@@ -79,6 +84,8 @@ class RequiredTasksController extends Controller
                         'completed' => $own->where('status', 'completed')->count(),
                         'remaining' => max(0, $required - $own->where('status', 'completed')->count()),
                         'slots' => $slots,
+                        'department' => $task->department?->name,
+                        'request_pending' => in_array((int) $task->id, $pendingTaskIds, true),
                     ];
                 })->values();
 
@@ -93,6 +100,7 @@ class RequiredTasksController extends Controller
         return Inertia::render('Doctor/RequiredTasks', [
             'stage' => $doctor->stage?->name,
             'departments' => $departments,
+            'requests' => $requests->map->toView()->values(),
         ]);
     }
 }

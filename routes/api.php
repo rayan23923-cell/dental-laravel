@@ -307,6 +307,10 @@ Route::name('api.')->prefix('v1')->group(function () {
         // The doctor's own department-grouped task summary — see
         // Api\TaskProgressController::mine()/DoctorTaskSummary.
         Route::get('/my-task-progress', [TaskProgressController::class, 'mine']);
+        // "طلبات بدء المهام" (2026-10-14) — a doctor's own requests.
+        Route::get('/my-task-start-requests', [\App\Http\Controllers\TaskStartRequestController::class, 'mine']);
+        Route::post('/my-task-start-requests', [\App\Http\Controllers\TaskStartRequestController::class, 'store']);
+        Route::delete('/my-task-start-requests/{taskStartRequest}', [\App\Http\Controllers\TaskStartRequestController::class, 'destroy']);
         // A doctor's photos of their own paper case sheets (2026-10-13).
         Route::get('/my-task-instances/{taskInstance}/attachments', [TaskInstanceAttachmentController::class, 'index'])
             ->name('my-attachments.index');
@@ -350,6 +354,13 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::post('/task-progress/nfc-scan', [TaskProgressController::class, 'nfcScan'])
             ->middleware('permission:task_progress,view');
         Route::post('/task-progress/start', [TaskProgressController::class, 'start'])
+            ->middleware('permission:task_progress,start');
+        // Doctors' requests to start a task (2026-10-14).
+        Route::get('/task-progress/requests', [\App\Http\Controllers\TaskStartRequestController::class, 'index'])
+            ->middleware('permission:task_progress,view');
+        Route::post('/task-progress/requests/{taskStartRequest}/approve', [\App\Http\Controllers\TaskStartRequestController::class, 'approve'])
+            ->middleware('permission:task_progress,start');
+        Route::post('/task-progress/requests/{taskStartRequest}/reject', [\App\Http\Controllers\TaskStartRequestController::class, 'reject'])
             ->middleware('permission:task_progress,start');
         // The full matrix screen — see Api\TaskProgressController's
         // docblock. Same permission gates as their web counterparts.

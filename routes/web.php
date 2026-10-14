@@ -57,6 +57,7 @@ use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TaskInstanceController;
 use App\Http\Controllers\TaskInstanceAttachmentController;
 use App\Http\Controllers\TaskProgressController;
+use App\Http\Controllers\TaskStartRequestController;
 use App\Http\Controllers\TreatmentMaterialController;
 use App\Http\Controllers\TreatmentPlanController;
 use App\Http\Controllers\UserController;
@@ -184,6 +185,10 @@ Route::middleware('auth:doctor')->group(function () {
     Route::get('/doctor/profile', [DoctorProfileController::class, 'edit'])->name('doctor.profile.edit');
     Route::post('/doctor/profile', [DoctorProfileController::class, 'update'])->name('doctor.profile.update');
     Route::put('/doctor/profile/password', [DoctorProfileController::class, 'updatePassword'])->name('doctor.profile.password');
+    // "طلبات بدء المهام" (2026-10-14) — see TaskStartRequestController.
+    Route::get('/doctor/task-start-requests', [TaskStartRequestController::class, 'mine'])->name('doctor.task-start-requests.index');
+    Route::post('/doctor/task-start-requests', [TaskStartRequestController::class, 'store'])->name('doctor.task-start-requests.store');
+    Route::delete('/doctor/task-start-requests/{taskStartRequest}', [TaskStartRequestController::class, 'destroy'])->name('doctor.task-start-requests.destroy');
     Route::put('/doctor/task-instances/{taskInstance}', [DoctorTaskInstanceController::class, 'update'])->name('doctor.task-instances.update');
     Route::post('/doctor/task-instances/{taskInstance}/confirm-paper', [DoctorTaskInstanceController::class, 'confirmPaper'])->name('doctor.task-instances.confirm-paper');
     Route::get('/doctor/task-instances/{taskInstance}/qr', [DoctorTaskInstanceController::class, 'qr'])->name('doctor.task-instances.qr');
@@ -471,6 +476,13 @@ Route::middleware('auth')->group(function () {
             ->middleware('permission:task_progress,view')->name('task-progress.scan');
         Route::post('/task-progress/start', [TaskProgressController::class, 'start'])
             ->middleware('permission:task_progress,start')->name('task-progress.start');
+        // Doctors' requests to start a task (2026-10-14) — see TaskStartRequestController.
+        Route::get('/task-progress/requests', [TaskStartRequestController::class, 'index'])
+            ->middleware('permission:task_progress,view')->name('task-progress.requests.index');
+        Route::post('/task-progress/requests/{taskStartRequest}/approve', [TaskStartRequestController::class, 'approve'])
+            ->middleware('permission:task_progress,start')->name('task-progress.requests.approve');
+        Route::post('/task-progress/requests/{taskStartRequest}/reject', [TaskStartRequestController::class, 'reject'])
+            ->middleware('permission:task_progress,start')->name('task-progress.requests.reject');
         Route::put('/task-progress/instances/{taskInstance}/complete', [TaskProgressController::class, 'complete'])
             ->middleware('permission:task_progress,finish')->name('task-progress.complete');
         // The original guards this with `finish || edit` — but
