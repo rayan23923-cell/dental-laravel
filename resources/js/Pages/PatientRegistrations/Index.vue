@@ -25,35 +25,27 @@ const { t } = useI18n();
 const props = defineProps({
     can: { type: Object, default: () => ({ archive: true, settings: true, screening: true }) },
     registrations: Object,
-    days: { type: Array, default: () => [] },
+    services: { type: Array, default: () => [] },
     filters: Object,
 });
 
 const page = usePage();
 const search = ref(props.filters.search || '');
-const registerDayId = ref(props.filters.register_day_id ?? '');
+const from = ref(props.filters.from ?? '');
+const to = ref(props.filters.to ?? '');
 const serviceId = ref(props.filters.service_id ?? '');
 // Archive tab (2026-10-12): deleting archives a registration instead of
 // removing it, so its payments stay; archived ones are listed here and
 // can be restored.
 const archived = computed(() => ['1', 1, true, 'true'].includes(props.filters.archived));
 
-// Day narrows the service dropdown's *options* only — a soft convenience
-// cascade, not a hard requirement, since this is a filter (picking a
-// service without a day first should still work), unlike the create
-// form's picker where day-then-service is actual data entry.
-const servicesForSelectedDay = computed(() => {
-    if (!registerDayId.value) return props.days.flatMap((d) => d.services ?? []).filter((s, i, arr) => arr.findIndex((x) => x.id === s.id) === i);
-    const day = props.days.find((d) => d.id === Number(registerDayId.value));
-    return day ? day.services : [];
-});
-
 const applyFilters = () => {
     router.get(
         route('patient-registrations.index'),
         {
             ...(search.value ? { search: search.value } : {}),
-            ...(registerDayId.value ? { register_day_id: registerDayId.value } : {}),
+            ...(from.value ? { from: from.value } : {}),
+            ...(to.value ? { to: to.value } : {}),
             ...(serviceId.value ? { service_id: serviceId.value } : {}),
             ...(archived.value ? { archived: 1 } : {}),
         },
@@ -72,18 +64,12 @@ const runSearch = () => {
     searchTimer = setTimeout(applyFilters, 300);
 };
 
-const onDayChange = () => {
-    if (!servicesForSelectedDay.value.some((s) => s.id === Number(serviceId.value))) {
-        serviceId.value = '';
-    }
-    applyFilters();
-};
-
-const hasFilters = computed(() => !!(search.value || registerDayId.value || serviceId.value));
+const hasFilters = computed(() => !!(search.value || from.value || to.value || serviceId.value));
 
 const clearFilters = () => {
     search.value = '';
-    registerDayId.value = '';
+    from.value = '';
+    to.value = '';
     serviceId.value = '';
     router.get(route('patient-registrations.index'), archived.value ? { archived: 1 } : {});
 };
@@ -98,7 +84,8 @@ const toggleAll = () => {
 };
 const currentFilters = () => ({
     ...(search.value ? { search: search.value } : {}),
-    ...(registerDayId.value ? { register_day_id: registerDayId.value } : {}),
+    ...(from.value ? { from: from.value } : {}),
+    ...(to.value ? { to: to.value } : {}),
     ...(serviceId.value ? { service_id: serviceId.value } : {}),
 });
 const destroySelected = () => {
@@ -217,15 +204,19 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
 
                 <ChatSearch v-model="search" :placeholder="t('patientReg.searchPlaceholder')" @update:model-value="runSearch" @submit="applyFilters" />
 
-                <!-- Filters (day → service) + archive all -->
+                <!-- Filters (date range, service) + archive all -->
                 <div class="flex flex-wrap items-center gap-2">
-                    <select v-model="registerDayId" @change="onDayChange" class="rounded-full border-gray-200 bg-white py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                        <option value="">{{ t('patientReg.dayLabel') }}</option>
-                        <option v-for="day in days" :key="day.id" :value="day.id">{{ day.name }}</option>
-                    </select>
+                    <label class="flex items-center gap-1 rounded-full bg-white py-0.5 ps-3 text-xs text-gray-500 shadow-sm ring-1 ring-gray-200">
+                        {{ t('payments.fromDate') }}
+                        <input v-model="from" type="date" @change="applyFilters" class="rounded-full border-0 bg-transparent py-1 text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500" />
+                    </label>
+                    <label class="flex items-center gap-1 rounded-full bg-white py-0.5 ps-3 text-xs text-gray-500 shadow-sm ring-1 ring-gray-200">
+                        {{ t('payments.toDate') }}
+                        <input v-model="to" type="date" @change="applyFilters" class="rounded-full border-0 bg-transparent py-1 text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500" />
+                    </label>
                     <select v-model="serviceId" @change="applyFilters" class="rounded-full border-gray-200 bg-white py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                         <option value="">{{ t('patientReg.serviceLabel') }}</option>
-                        <option v-for="service in servicesForSelectedDay" :key="service.id" :value="service.id">{{ service.name }}</option>
+                        <option v-for="service in services" :key="service.id" :value="service.id">{{ service.name }}</option>
                     </select>
                     <ChatAction v-if="hasFilters" icon="filter_alt_off" :label="t('patientReg.clearFilters')" @click="clearFilters" />
                     <div v-if="!archived && can.archive && registrations.total" class="ms-auto flex items-center">
@@ -260,7 +251,6 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
                         <template #meta>
                             <ChatChip v-if="r.phone" icon="call"><span dir="ltr">{{ r.phone }}</span></ChatChip>
                             <ChatChip v-if="r.service" icon="medical_services" tone="sky">{{ r.service.name }}</ChatChip>
-                            <ChatChip v-if="r.register_day" icon="event" tone="violet">{{ r.register_day.name }}</ChatChip>
                             <ChatChip icon="schedule">{{ fmtDate(r.created_at) }}</ChatChip>
                             <ChatChip :icon="screeningIcon(r.screening_status)" :tone="screeningTone(r.screening_status)">{{ screeningLabel(r.screening_status) }}</ChatChip>
                         </template>
