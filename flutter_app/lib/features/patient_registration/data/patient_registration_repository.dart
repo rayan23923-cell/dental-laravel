@@ -72,10 +72,11 @@ class PatientRegistrationRepository {
   Future<void> updateTaskDays(int taskId, List<int> dayIds) =>
       _client.putJson('/tasks/$taskId/register-days', body: {'day_ids': dayIds});
 
-  Future<Paginated<PatientRegistration>> list({String? search, int? registerDayId, int? serviceId}) async {
+  Future<Paginated<PatientRegistration>> list({String? search, String? from, String? to, int? serviceId}) async {
     final data = await _client.getJson('/patient-registrations', query: {
       if (search != null && search.isNotEmpty) 'search': search,
-      if (registerDayId != null) 'register_day_id': registerDayId,
+      if (from != null) 'from': from,
+      if (to != null) 'to': to,
       if (serviceId != null) 'service_id': serviceId,
     }) as Map<String, dynamic>;
     return Paginated.fromJson(data, PatientRegistration.fromJson);

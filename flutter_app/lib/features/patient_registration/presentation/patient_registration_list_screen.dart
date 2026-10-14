@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -45,7 +46,7 @@ class PatientRegistrationListScreen extends ConsumerStatefulWidget {
 class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrationListScreen> {
   final _searchController = TextEditingController();
   String _search = '';
-  int? _registerDayId;
+  DateTimeRange? _range;
   int? _serviceId;
   Timer? _debounce;
 
@@ -61,17 +62,34 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
     _debounce = Timer(const Duration(milliseconds: 350), () => setState(() => _search = value));
   }
 
-  PatientRegistrationFilter get _filter =>
-      (search: _search.isEmpty ? null : _search, registerDayId: _registerDayId, serviceId: _serviceId);
+  static final _ymd = DateFormat('yyyy-MM-dd');
 
-  bool get _hasFilters => _search.isNotEmpty || _registerDayId != null || _serviceId != null;
+  PatientRegistrationFilter get _filter => (
+        search: _search.isEmpty ? null : _search,
+        from: _range == null ? null : _ymd.format(_range!.start),
+        to: _range == null ? null : _ymd.format(_range!.end),
+        serviceId: _serviceId,
+      );
+
+  bool get _hasFilters => _search.isNotEmpty || _range != null || _serviceId != null;
+
+  Future<void> _pickRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      initialDateRange: _range,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(now.year + 1),
+    );
+    if (picked != null) setState(() => _range = picked);
+  }
 
   void _clearFilters() {
     _searchController.clear();
     _debounce?.cancel();
     setState(() {
       _search = '';
-      _registerDayId = null;
+      _range = null;
       _serviceId = null;
     });
   }
@@ -79,15 +97,8 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
   @override
   Widget build(BuildContext context) {
     final registrationsAsync = ref.watch(patientRegistrationListProvider(_filter));
-    final daysAsync = ref.watch(registerDaysProvider);
     final servicesAsync = ref.watch(servicesProvider);
-
-    // Day narrows the service dropdown's *options* only (a filter, not
-    // data entry — matches Index.vue's soft cascade), falling back to the
-    // full flat service list when no day is picked yet.
-    final days = daysAsync.valueOrNull ?? const [];
-    final selectedDay = days.where((d) => d.id == _registerDayId).firstOrNull;
-    final servicesForFilter = selectedDay?.services ?? servicesAsync.valueOrNull ?? const [];
+    final servicesForFilter = servicesAsync.valueOrNull ?? const [];
     final t = ref.watch(translationsProvider);
 
     return Scaffold(
@@ -155,26 +166,25 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                   child: Row(
                     children: [
                       Expanded(
-                        child: DropdownMenu<int>(
-                          key: ValueKey('filter-day-$_registerDayId'),
-                          enableFilter: true,
-                          requestFocusOnTap: true,
-                          expandedInsets: EdgeInsets.zero,
-                          label: Text(t['patientRegFlutter.dayLabel']!),
-                          initialSelection: days.any((d) => d.id == _registerDayId) ? _registerDayId : null,
-                          dropdownMenuEntries: [
-                            for (final d in days) DropdownMenuEntry(value: d.id, label: d.name),
-                          ],
-                          onSelected: (v) => setState(() {
-                            _registerDayId = v;
-                            if (!servicesForFilter.any((s) => s.id == _serviceId)) _serviceId = null;
-                          }),
+                        child: OutlinedButton.icon(
+                          onPressed: _pickRange,
+                          icon: const Icon(Icons.date_range_outlined, size: 18),
+                          style: OutlinedButton.styleFrom(
+                            shape: const StadiumBorder(),
+                            minimumSize: const Size.fromHeight(48),
+                          ),
+                          label: Text(
+                            _range == null
+                                ? t['patientRegFlutter.dateRange']!
+                                : '${_ymd.format(_range!.start)} ← ${_ymd.format(_range!.end)}',
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: DropdownMenu<int>(
-                          key: ValueKey('filter-service-$_registerDayId'),
+                          key: const ValueKey('filter-service'),
                           enableFilter: true,
                           requestFocusOnTap: true,
                           expandedInsets: EdgeInsets.zero,
@@ -222,8 +232,6 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                           _ScreeningBadge(status: r.screeningStatus),
                           if (r.serviceName != null)
                             ChatChip(label: r.serviceName!, icon: Icons.medical_services_outlined, color: Colors.indigo),
-                          if (r.registerDayName != null)
-                            ChatChip(label: r.registerDayName!, icon: Icons.event_outlined, color: Colors.blueGrey),
                         ],
                         onTap: widget.pickMode ? () => Navigator.of(context).pop(r) : () => _openPayment(context, r),
                         actions: widget.pickMode

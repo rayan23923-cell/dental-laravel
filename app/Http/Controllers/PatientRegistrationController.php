@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\PatientRegistration;
 use App\Models\Payment;
-use App\Models\RegisterDay;
 use App\Models\Service;
 use App\Models\Task;
 use App\Services\PatientScreeningException;
@@ -37,15 +36,18 @@ class PatientRegistrationController extends Controller
     {
         $permissions = new PermissionManager($request->user());
         $registrations = $this->filteredQuery($request)
-            ->with(['service', 'registerDay'])
+            ->with(['service'])
             ->orderByDesc('created_at')
             ->paginate(15)
             ->withQueryString();
 
         return Inertia::render('PatientRegistrations/Index', [
             'registrations' => $registrations,
-            'days' => RegisterDay::with('services')->orderBy('sort_order')->orderBy('name')->get(),
-            'filters' => $request->only('search', 'register_day_id', 'service_id', 'archived'),
+            // A from/to date range replaces the old register-day filter
+            // (2026-10-14, by request): the days came from settings that
+            // were removed. Same as the payments page.
+            'services' => Service::orderBy('name')->get(['id', 'name']),
+            'filters' => $request->only('search', 'from', 'to', 'service_id', 'archived'),
             // Hides what the desk roles (2026-10-12) can't do here.
             'can' => [
                 'archive' => $permissions->can('patients', 'delete'),
@@ -70,7 +72,8 @@ class PatientRegistrationController extends Controller
                         ->orWhere('phone', 'like', "%{$search}%");
                 });
             })
-            ->when($request->integer('register_day_id'), fn ($q, $id) => $q->where('register_day_id', $id))
+            ->when($request->date('from'), fn ($q, $from) => $q->whereDate('created_at', '>=', $from))
+            ->when($request->date('to'), fn ($q, $to) => $q->whereDate('created_at', '<=', $to))
             ->when($request->integer('service_id'), fn ($q, $id) => $q->where('service_id', $id));
     }
 

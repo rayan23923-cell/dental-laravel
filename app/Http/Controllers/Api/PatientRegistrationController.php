@@ -41,6 +41,9 @@ class PatientRegistrationController extends Controller
                 });
             })
             ->when($request->integer('register_day_id'), fn ($q, $id) => $q->where('register_day_id', $id))
+            // Date range (2026-10-14), replacing the day filter in the apps.
+            ->when($request->date('from'), fn ($q, $from) => $q->whereDate('created_at', '>=', $from))
+            ->when($request->date('to'), fn ($q, $to) => $q->whereDate('created_at', '<=', $to))
             ->when($request->integer('service_id'), fn ($q, $id) => $q->where('service_id', $id))
             ->orderByDesc('created_at')
             ->paginate(15);
