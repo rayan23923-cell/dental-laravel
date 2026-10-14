@@ -53,7 +53,9 @@ class TaskInstanceGrader
      */
     private static function work(TaskInstance $taskInstance, ?array $workItems): array
     {
-        $resolved = TaskScoring::resolveWorkItems($taskInstance->task, $workItems);
+        // A task graded by its case sheet's steps takes its points from there.
+        $resolved = TaskScoring::pointsFromCaseSheet($taskInstance)
+            ?? TaskScoring::resolveWorkItems($taskInstance->task, $workItems);
         if ($resolved === null) {
             return [];
         }

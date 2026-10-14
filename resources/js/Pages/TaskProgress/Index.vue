@@ -798,6 +798,7 @@ const startFromScan = () => {
                         {{ t('taskProgressAdmin.noGradeHintComplete') }}
                     </p>
                 </div>
+                <p v-if="completeTarget?.task_scoring?.steps?.length" class="mt-4 rounded-md bg-indigo-50 p-3 text-sm text-indigo-800">{{ t('taskScoring.fromSheet') }}</p>
                 <div v-if="hasOptions(completeTarget)" class="mt-4">
                     <WorkItemsInput v-model="completeForm.work_items" :scoring="completeTarget.task_scoring" />
                     <InputError class="mt-2" :message="Object.entries(completeForm.errors).find(([k]) => k.startsWith('work_items'))?.[1]" />

@@ -182,14 +182,30 @@ const submit = () => {
                                         <input v-model.number="row.required_count" type="number" min="1" class="w-16 rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" :disabled="!row.enabled" required />
                                     </label>
                                 </div>
-                                <div class="mt-1 flex flex-wrap gap-1 text-xs text-gray-500">
+                                <label v-if="row.enabled" class="mt-2 flex items-center gap-2 text-xs text-gray-600">
+                                    {{ t('taskScoring.rowSheet') }}
+                                    <select v-model="row.case_sheet_type_id" class="min-w-0 flex-1 rounded-md border-gray-300 py-1 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                        <option v-for="c in caseSheetTypes" :key="c.id" :value="c.id">{{ c.name_ar || c.name_en }}</option>
+                                    </select>
+                                </label>
+                                <div v-if="row.scoring" class="mt-1 flex flex-wrap gap-1 text-xs text-gray-500">
                                     <span v-if="row.scoring.min_points" class="rounded-full bg-indigo-100 px-2 py-0.5 text-indigo-700">{{ t('taskScoring.pointsValue', { n: row.scoring.min_points }) }}</span>
                                     <span v-if="row.scoring.weight" class="rounded-full bg-amber-100 px-2 py-0.5 text-amber-700">{{ row.scoring.weight }}%</span>
+                                    <span v-if="row.scoring.steps?.length" class="rounded-full bg-gray-100 px-2 py-0.5">{{ t('taskScoring.stepsCount', { n: row.scoring.steps.filter((x) => x.enabled).length }) }}</span>
                                     <span v-for="(o, oi) in row.scoring.options" :key="oi" class="rounded-full bg-gray-100 px-2 py-0.5">{{ o.label }} {{ o.points }}</span>
                                 </div>
                                 <details v-if="row.enabled" class="mt-2">
                                     <summary class="cursor-pointer text-xs text-indigo-600">{{ t('taskScoring.pointsSetup') }}</summary>
-                                    <ScoringEditor v-model="row.scoring" class="mt-2" />
+                                    <label class="mt-2 flex items-center gap-2 text-xs text-gray-700">
+                                        <input
+                                            type="checkbox"
+                                            :checked="!!row.scoring"
+                                            class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                            @change="row.scoring = $event.target.checked ? { measure: 'count', min_points: null, weight: null, options: [], modifiers: [] } : null"
+                                        />
+                                        {{ t('taskScoring.enablePoints') }}
+                                    </label>
+                                    <ScoringEditor v-if="row.scoring" v-model="row.scoring" class="mt-2" />
                                 </details>
                             </div>
                             <label class="flex items-center gap-2 text-sm text-gray-700">
