@@ -12,6 +12,9 @@ const props = defineProps({
 
 const page = usePage();
 const search = ref('');
+// Role filter (2026-10-14, by request): chips for the roles present, with
+// how many users each has; works together with the search.
+const roleFilter = ref('');
 
 /**
  * Chat-list style (2026-10-13, by request: "مشابه لتصميم انستاكرام او
@@ -34,11 +37,18 @@ const styleFor = (role) => ROLE_STYLES[role] ?? FALLBACK;
 const roleLabel = (role) => (te(`roles.${role}`) ? t(`roles.${role}`) : role);
 const initial = (user) => (user.full_name || user.username || '?').trim().charAt(0).toUpperCase();
 
+const roleCounts = computed(() => {
+    const counts = {};
+    for (const u of props.users) counts[u.role] = (counts[u.role] ?? 0) + 1;
+    return Object.entries(counts).map(([role, count]) => ({ role, count }));
+});
+
 const filtered = computed(() => {
     const q = search.value.trim().toLowerCase();
-    if (!q) return props.users;
-    return props.users.filter((u) =>
-        [u.full_name, u.username, u.role, roleLabel(u.role)].some((v) => (v ?? '').toLowerCase().includes(q))
+    return props.users.filter(
+        (u) =>
+            (!roleFilter.value || u.role === roleFilter.value) &&
+            (!q || [u.full_name, u.username, u.role, roleLabel(u.role)].some((v) => (v ?? '').toLowerCase().includes(q))),
     );
 });
 </script>
@@ -84,6 +94,31 @@ const filtered = computed(() => {
                         :placeholder="t('permissionsAdmin.searchPlaceholder')"
                         class="block w-full rounded-full border-0 bg-gray-100 py-2.5 pe-4 ps-11 text-sm text-gray-900 placeholder:text-gray-500 focus:bg-white focus:ring-2 focus:ring-indigo-500"
                     />
+                </div>
+
+                <!-- Role filter -->
+                <div v-if="roleCounts.length > 1" class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+                    <button
+                        type="button"
+                        class="inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium ring-1 transition"
+                        :class="roleFilter === '' ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-gray-700 ring-gray-200 hover:bg-gray-50'"
+                        @click="roleFilter = ''"
+                    >
+                        {{ t('permissionsAdmin.allRoles') }}
+                        <span class="opacity-70">{{ users.length }}</span>
+                    </button>
+                    <button
+                        v-for="r in roleCounts"
+                        :key="r.role"
+                        type="button"
+                        class="inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium ring-1 transition"
+                        :class="roleFilter === r.role ? 'bg-indigo-600 text-white ring-indigo-600' : [styleFor(r.role).chip, 'ring-transparent hover:opacity-80']"
+                        @click="roleFilter = roleFilter === r.role ? '' : r.role"
+                    >
+                        <Icon :name="styleFor(r.role).icon" size="text-[16px]" />
+                        {{ roleLabel(r.role) }}
+                        <span class="opacity-70">{{ r.count }}</span>
+                    </button>
                 </div>
 
                 <!-- User list -->

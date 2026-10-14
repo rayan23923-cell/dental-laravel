@@ -424,6 +424,7 @@ const Map<String, String> kTranslationsAr = {
   'usersAdmin.saveFailed': 'تعذر الحفظ.',
 
   'permissionsAdmin.title': 'الصلاحيات',
+  'permissionsAdmin.allRoles': 'الكل',
   'permissionsAdmin.newUserFab': 'مستخدم جديد',
   'permissionsAdmin.loadFailed': 'تعذر التحميل.',
   'permissionsAdmin.emptyUsers': 'لا يوجد مستخدمون.',
@@ -1308,6 +1309,7 @@ const Map<String, String> kTranslationsEn = {
   'usersAdmin.saveFailed': "Couldn't save.",
 
   'permissionsAdmin.title': 'Permissions',
+  'permissionsAdmin.allRoles': 'All',
   'permissionsAdmin.newUserFab': 'New User',
   'permissionsAdmin.loadFailed': "Couldn't load.",
   'permissionsAdmin.emptyUsers': 'No users.',
