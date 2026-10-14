@@ -82,4 +82,24 @@ class TaskStartRequestTest extends TestCase
         $this->actingAs($this->doctor, 'doctor')->getJson(route('doctor.task-start-requests.index'))
             ->assertJsonPath('data.0.status', 'rejected');
     }
+
+    public function test_staff_hear_about_new_requests_and_doctors_about_turned_down_ones(): void
+    {
+        \App\Models\ClinicSetting::current()->update(['enable_notifications' => true]);
+        $admin = User::factory()->create(['role' => 'super_admin', 'status' => 'active']);
+
+        $this->actingAs($this->doctor, 'doctor')
+            ->post(route('doctor.task-start-requests.store'), ['task_id' => $this->task->id, 'form_type' => 'electronic'])
+            ->assertCreated();
+
+        $this->assertSame(1, $admin->notifications()->count());
+        $this->actingAs($admin)->getJson(route('notifications.index'))
+            ->assertJsonPath('unread', 1)
+            ->assertJsonPath('data.0.kind', 'new');
+
+        $this->postJson(route('task-progress.requests.reject', TaskStartRequest::first()), ['note' => 'لاحقاً'])->assertOk();
+        $this->actingAs($this->doctor, 'doctor')->getJson(route('doctor.notifications.index'))
+            ->assertJsonPath('unread', 1)
+            ->assertJsonPath('data.0.kind', 'rejected');
+    }
 }

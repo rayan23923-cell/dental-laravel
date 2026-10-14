@@ -7,6 +7,7 @@ use App\Models\Task;
 use App\Models\TaskInstance;
 use App\Models\TaskStartRequest;
 use App\Models\User;
+use App\Notifications\TaskStartRequestNotice;
 use App\Support\CaseSheetResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
@@ -43,7 +44,7 @@ class TaskStartRequests
             throw ValidationException::withMessages(['photo' => 'أرفق صورة النموذج الورقي.']);
         }
 
-        return TaskStartRequest::create([
+        $request = TaskStartRequest::create([
             'doctor_id' => $doctor->id,
             'task_id' => $task->id,
             'form_type' => $formType,
@@ -51,6 +52,26 @@ class TaskStartRequests
             'notes' => $notes,
             'status' => 'pending',
         ]);
+
+        foreach (self::reviewersOf($request) as $user) {
+            Notifier::send($user, new TaskStartRequestNotice(
+                'طلب بدء مهمة جديد',
+                "{$doctor->name} يطلب بدء مهمة \"{$task->title}\".",
+                $request->id,
+                'new',
+            ));
+        }
+
+        return $request;
+    }
+
+    /** Active staff who may start tasks and can see this request's task. */
+    public static function reviewersOf(TaskStartRequest $request): \Illuminate\Support\Collection
+    {
+        return User::query()->where('status', 'active')->get()
+            ->filter(fn (User $user) => (new PermissionManager($user))->can('task_progress', 'start')
+                && self::visibleTo($user)->whereKey($request->id)->exists())
+            ->values();
     }
 
     /** Requests a staff member may review: tasks of the stages and departments they can see. */
@@ -115,6 +136,12 @@ class TaskStartRequests
             'review_note' => $note,
         ]);
 
+        Notifier::send($request->doctor, new TaskStartRequestNotice(
+            'لم تتم الموافقة على طلب البدء',
+            "لم تتم الموافقة على بدء مهمة \"{$request->task?->title}\".".($note ? " السبب: {$note}" : ''),
+            $request->id,
+            'rejected',
+        ));
         PushNotifier::send($request->doctor, 'طلب بدء مهمة', "لم تتم الموافقة على بدء مهمة \"{$request->task?->title}\".".($note ? " السبب: {$note}" : ''), [
             'task_start_request_id' => (string) $request->id,
         ]);

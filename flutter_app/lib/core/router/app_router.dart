@@ -53,6 +53,7 @@ import '../../features/tasks_admin/presentation/task_list_screen.dart';
 import '../../features/taxonomy_admin/domain/taxonomy_item.dart';
 import '../../features/taxonomy_admin/presentation/taxonomy_list_screen.dart';
 import '../widgets/app_shell.dart';
+import '../../features/notifications/presentation/notification_alerts.dart';
 
 /// Bridges Riverpod's `authControllerProvider` to go_router's
 /// `refreshListenable` — the mechanism that re-evaluates `redirect()`
@@ -292,7 +293,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Scaffold, so none of these screens' own Scaffold/AppBar needed to
       // change for this wrap.
       ShellRoute(
-        builder: (context, state, child) => AppShell(child: child),
+        builder: (context, state, child) => AppShell(child: NotificationAlerts(child: child)),
         routes: [
           GoRoute(
             path: '/home',

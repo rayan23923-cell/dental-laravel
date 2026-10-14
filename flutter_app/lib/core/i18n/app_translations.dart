@@ -266,6 +266,7 @@ const Map<String, String> kTranslationsAr = {
 
   'notifications.markAllRead': 'تحديد الكل كمقروء',
   'notifications.empty': 'لا توجد إشعارات.',
+  'notifications.view': 'عرض',
 
   'patientRegFlutter.choosePatient': 'اختر مريضًا مسجلاً',
   'patientRegFlutter.title': 'تسجيل المرضى',
@@ -1151,6 +1152,7 @@ const Map<String, String> kTranslationsEn = {
 
   'notifications.markAllRead': 'Mark All as Read',
   'notifications.empty': 'No notifications.',
+  'notifications.view': 'View',
 
   'patientRegFlutter.choosePatient': 'Choose a registered patient',
   'patientRegFlutter.title': 'Patient Registrations',

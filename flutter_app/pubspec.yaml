@@ -71,6 +71,7 @@ dependencies:
   camera_windows: ^0.3.0
   zxing2: ^0.2.4
   image: ^4.12.0
+  audioplayers: ^6.8.1
 
 # permission_handler_android 14.0.0 (its own independently-versioned
 # native-Android implementation package) ships an android/build.gradle.kts
@@ -116,6 +117,8 @@ flutter:
 
   assets:
     - assets/branding/app_logo.png
+    # New-notification chime (2026-10-14), see notification_alerts.dart.
+    - assets/sounds/notify.wav
     - assets/fonts/Tajawal-Regular.ttf
     - assets/fonts/Tajawal-Bold.ttf
     # Head pain-location diagram reference images (Oral Medicine's
