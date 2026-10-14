@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Appointment;
 use App\Models\ClinicSetting;
 use App\Models\Payment;
 use App\Models\PatientRegistration;
@@ -90,19 +89,6 @@ class PaymentController extends Controller
             'to' => $request->string('to')->toString() ?: null,
             'source' => $request->string('source')->toString() ?: null,
         ];
-    }
-
-    public function create(): Response
-    {
-        return Inertia::render('Payments/Create', [
-            'appointments' => Appointment::orderByDesc('appointment_date')->get(['id', 'full_name', 'appointment_date']),
-            'labFee' => ClinicSetting::current()->lab_fee,
-            'currency' => ClinicSetting::current()->clinic_currency,
-            // No longer loads every registration up front (2026-08-26) —
-            // that full-table `<select>` didn't scale and was the exact
-            // thing the user asked to replace with scan-or-search; see
-            // `PatientRegistrationController::search()`.
-        ]);
     }
 
     public function store(Request $request): RedirectResponse

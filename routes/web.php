@@ -589,7 +589,10 @@ Route::middleware('auth')->group(function () {
         Route::post('/payments/lab', [PaymentController::class, 'storeLab'])->name('payments.store-lab');
         Route::get('/payments/report', [PaymentController::class, 'report'])->name('payments.report');
         Route::get('/payments/{payment}/receipt', [PaymentController::class, 'receipt'])->name('payments.receipt');
-        Route::resource('payments', PaymentController::class)->only(['index', 'create', 'store']);
+        // No "تسجيل دفعة" page any more (2026-10-14, by request): payments
+        // are taken from patient registration and the lab. `store` stays for
+        // those flows' own posts.
+        Route::resource('payments', PaymentController::class)->only(['index', 'store']);
         Route::delete('/payments/{payment}', [PaymentController::class, 'destroy'])
             ->name('payments.destroy');
 

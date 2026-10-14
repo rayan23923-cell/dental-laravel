@@ -8,7 +8,7 @@
 
 @section('title', ($isLab ? 'وصل أجور المختبر' : 'وصل دفع') . ' — ' . ($registration?->name ?? $payment->appointment?->full_name ?? ''))
 
-@section('back_url', route('payments.create'))
+@section('back_url', route('payments.index'))
 
 @section('content')
     {{-- Same box/sizes as print/patient-registration-ticket.blade.php. --}}
