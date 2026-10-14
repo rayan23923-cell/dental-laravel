@@ -857,7 +857,18 @@
         "labValidityLabel": "Lab test validity (days)",
         "groupsHeading": "Groups",
         "groupsEnabled": "Enable groups",
-        "groupsNote": "Every stage automatically has a group A on all days of the week during the working hours above (e.g. 08:00 - 14:00), and every doctor is added to it automatically. When disabled, groups disappear from menus, reports and prints, and task progress lists the stage's doctors directly."
+        "groupsNote": "Every stage automatically has a group A on all days of the week during the working hours above (e.g. 08:00 - 14:00), and every doctor is added to it automatically. When disabled, groups disappear from menus, reports and prints, and task progress lists the stage's doctors directly.",
+        "on": "On",
+        "off": "Off",
+        "emailShort": "Email",
+        "mailConfiguredShort": "Email is set up",
+        "mailNotConfiguredShort": "Email is not set up",
+        "groupClinic": "Clinic",
+        "groupSystem": "System and appearance",
+        "groupMessaging": "Notifications and email",
+        "unsavedChanges": "You have unsaved changes",
+        "allSaved": "All changes saved",
+        "discardChanges": "Discard"
     },
     "authPages": {
         "confirmPasswordTitle": "Confirm Password",
