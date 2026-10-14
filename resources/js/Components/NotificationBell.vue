@@ -109,10 +109,10 @@ onBeforeUnmount(() => {
         <div v-if="open" class="fixed inset-0 z-40" @click="open = false"></div>
         <div
             v-if="open"
-            class="absolute end-0 z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-hairline/70 bg-surface shadow-panel"
+            class="fixed inset-x-4 top-20 z-50 overflow-hidden rounded-xl border border-hairline/70 bg-surface shadow-panel sm:absolute sm:inset-x-auto sm:end-0 sm:top-auto sm:mt-2 sm:w-80"
         >
             <div class="border-b border-hairline/70 px-4 py-2.5 text-sm font-semibold text-content">{{ t('notificationsBell.title') }}</div>
-            <div class="max-h-96 overflow-y-auto">
+            <div class="max-h-[70vh] overflow-y-auto sm:max-h-96">
                 <div v-if="!items.length" class="px-4 py-8 text-center text-sm text-muted">{{ t('notificationsBell.empty') }}</div>
                 <div
                     v-for="n in items"
