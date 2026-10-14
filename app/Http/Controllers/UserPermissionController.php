@@ -63,18 +63,22 @@ class UserPermissionController extends Controller
             'targetUser' => $user,
             'modules' => PermissionMatrix::forUi(),
             'granted' => $granted,
-            'scopeOptions' => [
-                'departments' => Department::orderBy('name')->get(['id', 'name']),
-                'stages' => Stage::orderBy('name')->get(['id', 'name']),
-                'educationTypes' => EducationType::orderBy('name')->get(['id', 'name']),
-                'academicSessions' => AcademicSession::orderByDesc('start_date')->get(['id', 'name']),
-            ],
-            // null in any of these means "unrestricted" — ScopeHelper's own
-            // convention (zero rows = sees everything), not an empty
-            // selection the form should treat as "nothing checked".
+            // Each option carries its parent so the screen can cascade:
+            // education type → stages → departments (2026-10-14).
+            'scopeOptions' => (function () {
+                $o = ScopeHelper::options();
+
+                return [
+                    'departments' => $o['departments'],
+                    'stages' => $o['stages'],
+                    'educationTypes' => $o['education_types'],
+                    'academicSessions' => $o['academic_sessions'],
+                ];
+            })(),
+            // null in any of these means "unrestricted" (nothing picked).
             'scope' => [
-                'departments' => ScopeHelper::allowedDepartmentIds($user),
-                'stages' => ScopeHelper::allowedStageIds($user),
+                'departments' => ScopeHelper::chosenDepartmentIds($user),
+                'stages' => ScopeHelper::chosenStageIds($user),
                 'educationTypes' => ScopeHelper::allowedEducationTypeIds($user),
                 'academicSessions' => ScopeHelper::allowedAcademicSessionIds($user),
             ],
@@ -119,10 +123,7 @@ class UserPermissionController extends Controller
                 }
             }
 
-            ScopeHelper::setAllowedDepartments($user, $scope['departments'] ?? []);
-            ScopeHelper::setAllowedStages($user, $scope['stages'] ?? []);
-            ScopeHelper::setAllowedEducationTypes($user, $scope['education_types'] ?? []);
-            ScopeHelper::setAllowedAcademicSessions($user, $scope['academic_sessions'] ?? []);
+            ScopeHelper::saveScope($user, $scope);
         });
 
         return redirect()->route('permissions.index')->with('success', "Permissions updated for {$user->full_name}.");

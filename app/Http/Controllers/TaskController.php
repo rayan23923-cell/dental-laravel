@@ -42,6 +42,9 @@ class TaskController extends Controller
                 ->withCount('instances')
                 ->where('stage_id', $stageId)
                 ->where('department_id', $departmentId);
+            // Only within the account's access scope, like the app's list.
+            ScopeHelper::scopeStages($query, $request->user(), 'stage_id');
+            ScopeHelper::scopeDepartments($query, $request->user(), 'department_id');
 
             // Same rule as the original's tasks_ajax/get_tasks.php:
             // `academic_session_id = active OR IS NULL`. Tasks belong to
