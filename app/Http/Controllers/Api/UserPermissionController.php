@@ -50,18 +50,13 @@ class UserPermissionController extends Controller
                 ->get(['module', 'permission'])
                 ->map(fn ($p) => "{$p->module}.{$p->permission}")
                 ->values(),
-            'scope_options' => [
-                'departments' => Department::orderBy('name')->get(['id', 'name']),
-                'stages' => Stage::orderBy('name')->get(['id', 'name']),
-                'education_types' => EducationType::orderBy('name')->get(['id', 'name']),
-                'academic_sessions' => AcademicSession::orderByDesc('start_date')->get(['id', 'name']),
-            ],
-            // null on any dimension means "unrestricted" — ScopeHelper's
-            // own convention (zero rows = sees everything), not "nothing
-            // selected".
+            // Each option carries its parent so the screen can cascade:
+            // education type → stages → departments (2026-10-14).
+            'scope_options' => ScopeHelper::options(),
+            // null on any dimension means "unrestricted" (nothing picked).
             'scope' => [
-                'departments' => ScopeHelper::allowedDepartmentIds($user),
-                'stages' => ScopeHelper::allowedStageIds($user),
+                'departments' => ScopeHelper::chosenDepartmentIds($user),
+                'stages' => ScopeHelper::chosenStageIds($user),
                 'education_types' => ScopeHelper::allowedEducationTypeIds($user),
                 'academic_sessions' => ScopeHelper::allowedAcademicSessionIds($user),
             ],
@@ -103,10 +98,7 @@ class UserPermissionController extends Controller
                 }
             }
 
-            ScopeHelper::setAllowedDepartments($user, $scope['departments'] ?? []);
-            ScopeHelper::setAllowedStages($user, $scope['stages'] ?? []);
-            ScopeHelper::setAllowedEducationTypes($user, $scope['education_types'] ?? []);
-            ScopeHelper::setAllowedAcademicSessions($user, $scope['academic_sessions'] ?? []);
+            ScopeHelper::saveScope($user, $scope);
         });
 
         return response()->json(['message' => 'Permissions updated.']);

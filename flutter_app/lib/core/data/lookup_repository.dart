@@ -40,7 +40,7 @@ class LookupItem {
       name: (json['name'] ?? json['title'] ?? json['name_ar']) as String? ?? '',
       stageId: (json['stage_id'] ?? stage?['id']) as int?,
       educationTypeId: json['education_type_id'] as int?,
-      stageName: stage?['name'] as String?,
+      stageName: (stage?['name'] ?? json['stage_name']) as String?,
       educationTypeName: educationType?['name'] as String?,
     );
   }
