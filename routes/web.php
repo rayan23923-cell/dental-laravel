@@ -423,7 +423,11 @@ Route::middleware('auth')->group(function () {
         Route::put('/academic-sessions/{academic_session}/set-current', [AcademicSessionController::class, 'setCurrent'])->name('academic-sessions.set-current');
         Route::post('/academic-sessions/select', [AcademicSessionController::class, 'select'])->name('academic-sessions.select');
 
-        Route::resource('case-sheet-types', CaseSheetTypeController::class)->except(['show', 'create', 'edit']);
+        Route::resource('case-sheet-types', CaseSheetTypeController::class)->except(['show', 'create', 'edit'])
+            ->middlewareFor('index', 'permission:case_sheet_types,view')
+            ->middlewareFor('store', 'permission:case_sheet_types,create')
+            ->middlewareFor('update', 'permission:case_sheet_types,edit')
+            ->middlewareFor('destroy', 'permission:case_sheet_types,delete');
 
         Route::get('/admin-broadcast', [AdminBroadcastController::class, 'create'])->name('admin-broadcast.create');
         Route::post('/admin-broadcast', [AdminBroadcastController::class, 'store'])->name('admin-broadcast.store');

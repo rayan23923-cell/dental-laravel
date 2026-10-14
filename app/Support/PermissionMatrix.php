@@ -22,32 +22,15 @@ class PermissionMatrix
     public static function modules(): array
     {
         return [
+            // Listed in the order the admin works through them (2026-10-14,
+            // by request): education types → stages → departments → tasks →
+            // clinical forms → doctors → groups → task progress.
             'dashboard' => [
                 'name' => 'لوحة التحكم',
                 'permissions' => ['view' => 'عرض', 'edit' => 'تعديل'],
             ],
             'users' => [
                 'name' => 'إدارة المستخدمين',
-                'permissions' => ['view' => 'عرض', 'create' => 'إنشاء', 'edit' => 'تعديل', 'delete' => 'حذف'],
-            ],
-            'doctors' => [
-                'name' => 'إدارة الأطباء',
-                'permissions' => ['view' => 'عرض', 'create' => 'إنشاء', 'edit' => 'تعديل', 'delete' => 'حذف', 'export' => 'تصدير'],
-            ],
-            'patients' => [
-                'name' => 'إدارة المرضى',
-                'permissions' => ['view' => 'عرض', 'create' => 'إنشاء', 'edit' => 'تعديل', 'delete' => 'حذف', 'export' => 'تصدير'],
-            ],
-            'tasks' => [
-                'name' => 'إدارة المهام',
-                'permissions' => ['view' => 'عرض', 'create' => 'إنشاء', 'edit' => 'تعديل', 'delete' => 'حذف', 'assign' => 'تخصيص'],
-            ],
-            'groups' => [
-                'name' => 'إدارة المجموعات',
-                'permissions' => ['view' => 'عرض', 'create' => 'إنشاء', 'edit' => 'تعديل', 'delete' => 'حذف'],
-            ],
-            'stages' => [
-                'name' => 'إدارة المراحل',
                 'permissions' => ['view' => 'عرض', 'create' => 'إنشاء', 'edit' => 'تعديل', 'delete' => 'حذف'],
             ],
             // Not in the original's own module list (its education-types
@@ -57,11 +40,33 @@ class PermissionMatrix
             // 'stages'/'departments' already exceed the original's actual
             // enforcement in this rebuild.
             'education_types' => [
-                'name' => 'أنواع التعليم',
+                'name' => 'إدارة أنواع التعليم',
+                'permissions' => ['view' => 'عرض', 'create' => 'إنشاء', 'edit' => 'تعديل', 'delete' => 'حذف'],
+            ],
+            'stages' => [
+                'name' => 'إدارة المراحل',
                 'permissions' => ['view' => 'عرض', 'create' => 'إنشاء', 'edit' => 'تعديل', 'delete' => 'حذف'],
             ],
             'departments' => [
                 'name' => 'إدارة الأقسام',
+                'permissions' => ['view' => 'عرض', 'create' => 'إنشاء', 'edit' => 'تعديل', 'delete' => 'حذف'],
+            ],
+            'tasks' => [
+                'name' => 'إدارة المهام',
+                'permissions' => ['view' => 'عرض', 'create' => 'إنشاء', 'edit' => 'تعديل', 'delete' => 'حذف', 'assign' => 'تخصيص'],
+            ],
+            // Clinical form types (2026-10-14, by request): their own module,
+            // ahead of which the page was open to every admin.
+            'case_sheet_types' => [
+                'name' => 'إدارة النماذج السريرية',
+                'permissions' => ['view' => 'عرض', 'create' => 'إنشاء', 'edit' => 'تعديل', 'delete' => 'حذف'],
+            ],
+            'doctors' => [
+                'name' => 'إدارة الأطباء',
+                'permissions' => ['view' => 'عرض', 'create' => 'إنشاء', 'edit' => 'تعديل', 'delete' => 'حذف', 'export' => 'تصدير'],
+            ],
+            'groups' => [
+                'name' => 'إدارة المجموعات',
                 'permissions' => ['view' => 'عرض', 'create' => 'إنشاء', 'edit' => 'تعديل', 'delete' => 'حذف'],
             ],
             'task_progress' => [
@@ -74,6 +79,10 @@ class PermissionMatrix
                     'finish' => 'إنهاء المهمة',
                     'open_case_sheet' => 'فتح Case Sheet',
                 ],
+            ],
+            'patients' => [
+                'name' => 'إدارة المرضى',
+                'permissions' => ['view' => 'عرض', 'create' => 'إنشاء', 'edit' => 'تعديل', 'delete' => 'حذف', 'export' => 'تصدير'],
             ],
             // New for the infectious-disease screening feature (2026-08-26)
             // — not part of the legacy app's module list, same precedent
