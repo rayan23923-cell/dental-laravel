@@ -142,6 +142,26 @@ class ScopeHelper
      * a department of such a stage), so the saved scope always hangs
      * together whatever the client sent.
      */
+    /**
+     * Validation for a `scope` payload (the four dimensions, each a list of
+     * ids; empty or missing = unrestricted). Shared by every form that
+     * saves one.
+     */
+    public static function rules(): array
+    {
+        return [
+            'scope' => ['nullable', 'array'],
+            'scope.departments' => ['nullable', 'array'],
+            'scope.departments.*' => ['integer', 'exists:departments,id'],
+            'scope.stages' => ['nullable', 'array'],
+            'scope.stages.*' => ['integer', 'exists:stages,id'],
+            'scope.education_types' => ['nullable', 'array'],
+            'scope.education_types.*' => ['integer', 'exists:education_types,id'],
+            'scope.academic_sessions' => ['nullable', 'array'],
+            'scope.academic_sessions.*' => ['integer', 'exists:academic_sessions,id'],
+        ];
+    }
+
     public static function saveScope(User $user, array $scope): void
     {
         $types = array_values(array_unique(array_map('intval', $scope['education_types'] ?? [])));

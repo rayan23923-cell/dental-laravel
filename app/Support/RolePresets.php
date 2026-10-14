@@ -39,6 +39,25 @@ class RolePresets
         }
     }
 
+    /**
+     * Each role's ready-made grants as "module.permission" pairs, which the
+     * add-user form pre-ticks when that role is picked. Roles without a
+     * preset start with nothing ticked.
+     */
+    public static function defaults(): array
+    {
+        $out = [];
+        foreach (self::GRANTS as $role => $modules) {
+            foreach ($modules as $module => $permissions) {
+                foreach ($permissions as $permission) {
+                    $out[$role][] = "{$module}.{$permission}";
+                }
+            }
+        }
+
+        return $out;
+    }
+
     public static function isDeskRole(?string $role): bool
     {
         return isset(self::HOME_ROUTES[$role]);

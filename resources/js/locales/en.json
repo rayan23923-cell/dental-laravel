@@ -463,9 +463,11 @@
         "undoComplete": "Undo Complete"
     },
     "usersAdmin": {
-        "deskRoleHint": "Gets its ready-made permissions automatically and sees only its own page; adjust them on the permissions screen.",
+        "deskRoleHint": "Its ready-made permissions are ticked below, and it only sees its own page.",
         "addUserTitle": "Add User",
-        "saveUser": "Save User"
+        "saveUser": "Save User",
+        "accountSection": "Account",
+        "roleDefaultsHint": "Picking a role ticks its ready-made permissions; adjust them before saving."
     },
     "permissionsAdmin": {
         "indexTitle": "User Permissions",

@@ -4,13 +4,21 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/settings_list.dart';
+import '../../permissions_admin/domain/permission_admin.dart';
+import '../../permissions_admin/presentation/permissions_admin_providers.dart';
+import '../../permissions_admin/presentation/permissions_editor.dart';
 import '../data/users_admin_repository.dart';
 import '../domain/user_admin.dart';
 
-/// Create-only — see `UsersAdminRepository`'s docblock. On success, goes
-/// straight to `permissions_admin`'s existing edit screen for the new
-/// user (`pushReplacement`, not `push`: the create form shouldn't sit on
-/// the back stack behind the permission editor).
+final userFormOptionsProvider = FutureProvider.autoDispose<UserFormOptions>((ref) {
+  return ref.watch(usersAdminRepositoryProvider).formOptions();
+});
+
+/// Create-only — see `UsersAdminRepository`'s docblock. The account's
+/// permissions and access scope are picked on the same screen with the
+/// shared [PermissionsEditor] (2026-10-14, by request): picking a role
+/// ticks its ready-made grants, which can be changed before saving.
 class UserFormScreen extends ConsumerStatefulWidget {
   const UserFormScreen({super.key});
 
@@ -27,6 +35,11 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
   final _passwordController = TextEditingController();
   String _role = 'editor';
   bool _submitting = false;
+  Set<String> _grants = {};
+  final PermissionScopeSelection _scope = PermissionScopeSelection();
+  UserFormOptions? _options;
+
+  void _applyRoleDefaults() => _grants = Set.of(_options?.roleDefaults[_role] ?? const <String>[]);
 
   @override
   void dispose() {
@@ -49,14 +62,24 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
       'phone': _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
       'password': _passwordController.text,
       'role': _role,
+      // Only once the editor has loaded; otherwise the role preset applies.
+      if (_options != null) 'grants': _grants.toList(),
+      if (_options != null)
+        'scope': {
+          'departments': _scope.departmentIds,
+          'stages': _scope.stageIds,
+          'education_types': _scope.educationTypeIds,
+          'academic_sessions': _scope.academicSessionIds,
+        },
     };
 
     try {
-      final UserAdmin user = await ref.read(usersAdminRepositoryProvider).create(payload);
+      await ref.read(usersAdminRepositoryProvider).create(payload);
+      ref.invalidate(permissionUserListProvider);
       if (mounted) {
         final t = ref.read(translationsProvider);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['usersAdmin.addedSuccess']!)));
-        context.pushReplacement('/admin/permissions/${user.id}');
+        context.pop();
       }
     } catch (e) {
       if (mounted) {
@@ -72,6 +95,12 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
   @override
   Widget build(BuildContext context) {
     final t = ref.watch(translationsProvider);
+    final optionsAsync = ref.watch(userFormOptionsProvider);
+    final options = optionsAsync.valueOrNull;
+    if (options != null && _options == null) {
+      _options = options;
+      _applyRoleDefaults();
+    }
     return Scaffold(
       appBar: AppBar(title: Text(t['usersAdmin.newUserTitle']!)),
       body: Form(
@@ -79,6 +108,8 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            SettingsGroupHeader(t['usersAdmin.accountSection']!),
+            const SizedBox(height: 8),
             TextFormField(
               controller: _fullNameController,
               decoration: InputDecoration(labelText: t['usersAdmin.fullNameLabel'], border: const OutlineInputBorder()),
@@ -110,7 +141,14 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
               initialValue: _role,
               decoration: InputDecoration(labelText: t['usersAdmin.roleLabel'], border: const OutlineInputBorder()),
               items: [for (final r in kAssignableUserRoles) DropdownMenuItem(value: r.$1, child: Text(r.$2))],
-              onChanged: (v) => setState(() => _role = v ?? _role),
+              onChanged: (v) => setState(() {
+                _role = v ?? _role;
+                _applyRoleDefaults();
+              }),
+            ),
+            Padding(
+              padding: const EdgeInsetsDirectional.only(start: 4, top: 6),
+              child: Text(t['usersAdmin.roleDefaultsHint']!, style: const TextStyle(fontSize: 12, color: Colors.grey)),
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -120,13 +158,36 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
               validator: (v) => (v == null || v.length < 6) ? t['usersAdmin.passwordTooShort'] : null,
             ),
             const SizedBox(height: 24),
-            FilledButton(
-              onPressed: _submitting ? null : _submit,
-              child: _submitting
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text(t['usersAdmin.saveAndContinue']!),
+            optionsAsync.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (error, stackTrace) => Text(
+                error is ApiException ? error.userMessage : t['permissionsAdmin.loadFailed']!,
+                style: const TextStyle(color: Colors.grey),
+              ),
+              data: (o) => PermissionsEditor(
+                modules: o.modules,
+                scopeOptions: o.scopeOptions,
+                grants: _grants,
+                scope: _scope,
+                onChanged: () => setState(() {}),
+              ),
             ),
           ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: FilledButton.icon(
+            onPressed: _submitting ? null : _submit,
+            icon: _submitting
+                ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.save_outlined),
+            label: Text(t['usersAdmin.saveAndContinue']!),
+          ),
         ),
       ),
     );
