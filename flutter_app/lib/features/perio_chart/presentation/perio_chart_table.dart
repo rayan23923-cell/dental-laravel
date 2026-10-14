@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/numeric_input.dart';
 
 /// FDI tooth order, port of `Components/PerioChart.vue`'s own `UPPER`/
 /// `LOWER` arrays.
@@ -109,6 +110,7 @@ class PerioChartTable extends StatelessWidget {
           enabled: !readOnly,
           textAlign: TextAlign.center,
           keyboardType: TextInputType.number,
+          inputFormatters: digitsOnly,
           maxLength: 2,
           style: const TextStyle(fontSize: 11),
           decoration: InputDecoration(

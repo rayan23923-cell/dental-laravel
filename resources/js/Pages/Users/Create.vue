@@ -81,7 +81,7 @@ const submit = () => {
 
                         <div>
                             <InputLabel for="phone" :value="t('profile.phone')" />
-                            <TextInput id="phone" v-model="form.phone" type="text" class="mt-1 block w-full rounded-xl" />
+                            <TextInput id="phone" v-model="form.phone" type="tel" class="mt-1 block w-full rounded-xl" />
                             <InputError class="mt-2" :message="form.errors.phone" />
                         </div>
 

@@ -7,6 +7,7 @@ import '../../../core/network/api_exception.dart';
 import '../data/tasks_admin_repository.dart';
 import '../domain/task_admin.dart';
 import 'tasks_admin_providers.dart';
+import '../../../core/widgets/numeric_input.dart';
 
 class TaskFormScreen extends ConsumerStatefulWidget {
   const TaskFormScreen({super.key, this.taskId, this.initialEducationTypeId, this.initialStageId});
@@ -293,6 +294,7 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
             TextFormField(
               controller: _requiredCountController,
               keyboardType: TextInputType.number,
+              inputFormatters: digitsOnly,
               decoration: InputDecoration(labelText: t['tasksAdmin.requiredCountLabel'], border: const OutlineInputBorder()),
               validator: (v) => (int.tryParse(v?.trim() ?? '') ?? 0) < 1 ? t['tasksAdmin.requiredField'] : null,
             ),
@@ -300,6 +302,7 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
             TextFormField(
               controller: _gradeController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: decimalOnly,
               decoration: InputDecoration(labelText: t['tasksAdmin.gradeLabel'], border: const OutlineInputBorder()),
               // Grade and notes are required (2026-10-13, by request), as on the web.
               validator: (v) {

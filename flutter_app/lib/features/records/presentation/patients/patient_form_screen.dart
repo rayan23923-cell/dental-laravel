@@ -6,6 +6,7 @@ import '../../../../core/network/api_exception.dart';
 import '../../data/records_repository.dart';
 import '../../domain/patient.dart';
 import '../records_providers.dart';
+import '../../../../core/widgets/numeric_input.dart';
 
 /// `patientId == null` means create. `doctor_id` (the treating `Doctor`,
 /// distinct from the staff `doctor_id` on `Appointment` — see that
@@ -152,6 +153,7 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
             TextFormField(
               controller: _phoneController,
               keyboardType: TextInputType.phone,
+              inputFormatters: phoneOnly,
               decoration: InputDecoration(labelText: t['recordsHub.phoneLabel'], border: const OutlineInputBorder()),
             ),
             const SizedBox(height: 16),

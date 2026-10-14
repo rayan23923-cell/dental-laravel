@@ -13,6 +13,7 @@ import '../../auth/domain/auth_account.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../auth/presentation/auth_state.dart';
 import '../data/profile_repository.dart';
+import '../../../core/widgets/numeric_input.dart';
 
 /// Self-service profile + settings, for both account types — mirrors the
 /// web app's `ProfileController`/`Doctor\ProfileController`, which each
@@ -292,6 +293,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       controller: _emailController,
                       textDirection: TextDirection.ltr,
                       keyboardType: TextInputType.emailAddress,
+                      inputFormatters: digitsOnly,
                       decoration: InputDecoration(labelText: t['profile.email']!, border: const OutlineInputBorder()),
                       validator: (v) => (v == null || v.trim().isEmpty) ? t['profile.requiredField']! : null,
                     ),
@@ -300,6 +302,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       controller: _phoneController,
                       textDirection: TextDirection.ltr,
                       keyboardType: TextInputType.phone,
+                      inputFormatters: phoneOnly,
                       decoration: InputDecoration(labelText: t['profile.phone']!, border: const OutlineInputBorder()),
                     ),
                     const SizedBox(height: 12),

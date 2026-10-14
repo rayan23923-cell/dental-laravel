@@ -136,7 +136,7 @@ const languageLabel = computed(() => ({
                             </div>
                             <div>
                                 <InputLabel for="phone" :value="t('profile.phone')" />
-                                <TextInput id="phone" v-model="profileForm.phone" type="text" dir="ltr" class="mt-1 block w-full rounded-xl" />
+                                <TextInput id="phone" v-model="profileForm.phone" type="tel" dir="ltr" class="mt-1 block w-full rounded-xl" />
                                 <InputError class="mt-2" :message="profileForm.errors.phone" />
                             </div>
                             <div class="flex justify-end">

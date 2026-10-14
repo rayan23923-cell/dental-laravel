@@ -19,6 +19,7 @@ import '../../printing/presentation/ticket_widget.dart';
 import '../data/patient_registration_repository.dart';
 import '../domain/service.dart';
 import 'patient_registration_providers.dart';
+import '../../../core/widgets/numeric_input.dart';
 
 /// "تسجيل مريض جديد" — mirrors `PatientRegistrations/Create.vue`: name,
 /// phone and a service picked from cards with its price (2026-10-12 — the
@@ -170,6 +171,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                   controller: _phoneController,
                   textDirection: TextDirection.ltr,
                   keyboardType: TextInputType.phone,
+                  inputFormatters: phoneOnly,
                   decoration: InputDecoration(labelText: t['profile.phone']!, border: const OutlineInputBorder()),
                   validator: (v) => (v == null || v.trim().isEmpty) ? t['profile.requiredField']! : null,
                 ),

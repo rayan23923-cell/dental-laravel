@@ -32,6 +32,7 @@ import '../data/task_progress_repository.dart';
 import '../domain/task_progress_group.dart';
 import 'task_progress_pdf.dart';
 import 'task_progress_providers.dart';
+import '../../../core/widgets/numeric_input.dart';
 
 /// "تقدم المهام" — the full day → education type/stage → group →
 /// department (tabs) → doctor (expandable) → per-slot task-card matrix,
@@ -502,6 +503,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
+              inputFormatters: decimalOnly,
               decoration: InputDecoration(
                 labelText: t['taskProgressAdmin.gradeOptionalLabel'],
                 border: const OutlineInputBorder(),
