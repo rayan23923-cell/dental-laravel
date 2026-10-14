@@ -28,7 +28,11 @@
             </div>
         </div>
 
-        <div class="signatures" style="margin-top:32px">
+        <div style="text-align:center; margin-top:20px;">
+            <img src="{{ $qr }}" alt="QR" style="width:140px; height:140px;">
+        </div>
+
+        <div class="signatures" style="margin-top:24px">
             <div class="signature">توقيع الطبيب</div>
             <div class="signature">ختم الكلية</div>
         </div>

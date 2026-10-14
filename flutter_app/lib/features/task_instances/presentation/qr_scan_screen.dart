@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -66,7 +68,16 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
   String? _error;
   // Windows has no mobile_scanner camera (2026-10-12): DesktopQrScanner
   // is used there instead, so this controller is only made elsewhere.
-  final MobileScannerController? _controller = isWindowsDesktop ? null : MobileScannerController();
+  final MobileScannerController? _controller =
+      isWindowsDesktop ? null : MobileScannerController(facing: _lastFacing);
+
+  // The camera last switched to (2026-10-14), so the next scan opens on it.
+  static CameraFacing _lastFacing = CameraFacing.back;
+
+  Future<void> _switchCamera() async {
+    await _controller?.switchCamera();
+    _lastFacing = _lastFacing == CameraFacing.back ? CameraFacing.front : CameraFacing.back;
+  }
 
   @override
   void dispose() {
@@ -80,6 +91,15 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
     await _handle(raw);
   }
 
+  /// `{"type":"doctor","id":N}`, printed on the doctor's ID card.
+  int? _doctorIdOf(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map && decoded['type'] == 'doctor' && decoded['id'] is int) return decoded['id'] as int;
+    } catch (_) {}
+    return null;
+  }
+
   Future<void> _handle(String raw) async {
     if (_handled) return;
 
@@ -91,6 +111,12 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
     try {
       switch (widget.mode) {
         case QrScanMode.taskInstance:
+          // A doctor's ID card QR (2026-10-14) opens that doctor.
+          final doctorId = _doctorIdOf(raw);
+          if (doctorId != null) {
+            if (mounted) context.pushReplacement('/admin/doctors/$doctorId');
+            return;
+          }
           final instance = await ref.read(taskInstanceRepositoryProvider).scan(raw);
           invalidateTaskInstance(ref, instance.id);
           if (mounted) context.pushReplacement('/tasks/${instance.id}');
@@ -154,6 +180,13 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
               );
             },
           ),
+          // Rear ↔ front camera, like the web scanner's switch button.
+          if (_controller != null)
+            IconButton(
+              onPressed: _switchCamera,
+              icon: const Icon(Icons.cameraswitch_outlined),
+              tooltip: t['qrScan.switchCamera']!,
+            ),
         ],
       ),
       body: Stack(

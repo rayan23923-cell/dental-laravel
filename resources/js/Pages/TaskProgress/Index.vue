@@ -693,6 +693,22 @@ const startFromScan = () => {
                     </div>
                 </div>
 
+                <!-- Result: a doctor's ID card (2026-10-14) -->
+                <div v-else-if="scanResult.kind === 'doctor'" class="mt-4 space-y-3">
+                    <div class="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
+                        <dl class="space-y-1 text-sm text-gray-700">
+                            <div><span class="text-gray-500">{{ t('patients.doctorCol') }}:</span> {{ scanResult.doctor.name }}</div>
+                            <div v-if="scanResult.doctor.stage"><span class="text-gray-500">{{ t('taskProgressAdmin.stageLabel') }}:</span> {{ scanResult.doctor.stage }}</div>
+                        </dl>
+                    </div>
+                    <div class="flex flex-wrap justify-end gap-2">
+                        <SecondaryButton @click="rescan">{{ t('taskProgressAdmin.scanAnother') }}</SecondaryButton>
+                        <a :href="scanResult.progress_url" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+                            <Icon name="monitoring" class="ml-1" />{{ t('taskProgressAdmin.openDoctorProgress') }}
+                        </a>
+                    </div>
+                </div>
+
                 <div class="mt-6 flex justify-end">
                     <SecondaryButton @click="closeScanner">{{ t('common.close') }}</SecondaryButton>
                 </div>

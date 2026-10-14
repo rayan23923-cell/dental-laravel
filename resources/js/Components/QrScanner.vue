@@ -11,6 +11,12 @@
  * Both paths feed the same callback, so behaviour doesn't change with the
  * browser.
  *
+ * Camera switch flips between the rear and front camera by `facingMode`
+ * (2026-10-14). It used to step through the device list, but phones list
+ * several rear lenses (wide, ultra-wide, telephoto) ahead of the front one,
+ * so "switch" only ever moved to another rear lens. The choice is
+ * remembered on this device.
+ *
  * Torch is only exposable where the platform allows it: it needs an active
  * video track whose capabilities advertise `torch`. Android Chrome does;
  * **iOS Safari does not expose torch to web pages at all**, so the button
@@ -39,7 +45,15 @@ const error = ref('');
 const torchOn = ref(false);
 const torchSupported = ref(false);
 const cameras = ref([]);
-const cameraIndex = ref(0);
+const FACING_KEY = 'qrScanner.facing';
+const readFacing = () => {
+    try {
+        return localStorage.getItem(FACING_KEY) === 'user' ? 'user' : 'environment';
+    } catch {
+        return 'environment';
+    }
+};
+const facing = ref(readFacing());
 
 let stream = null;
 let track = null;
@@ -69,13 +83,20 @@ const start = async () => {
 
     try {
         stopped = false;
-        const deviceId = cameras.value[cameraIndex.value]?.deviceId;
-        stream = await navigator.mediaDevices.getUserMedia({
-            video: deviceId
-                ? { deviceId: { exact: deviceId } }
-                : { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
-            audio: false,
-        });
+        const size = { width: { ideal: 1280 }, height: { ideal: 720 } };
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { exact: facing.value }, ...size },
+                audio: false,
+            });
+        } catch (e) {
+            // A computer with one webcam has no "rear"; take what there is.
+            if (e?.name !== 'OverconstrainedError' && e?.name !== 'NotFoundError') throw e;
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { ideal: facing.value }, ...size },
+                audio: false,
+            });
+        }
 
         // Labels are only populated after permission is granted, so the
         // camera list is (re)read here rather than on mount.
@@ -86,6 +107,8 @@ const start = async () => {
 
         track = stream.getVideoTracks()[0];
         torchSupported.value = !!track?.getCapabilities?.().torch;
+        // Mirror the front camera so it moves like a mirror.
+        video.value.style.transform = track?.getSettings?.().facingMode === 'user' ? 'scaleX(-1)' : '';
         torchOn.value = false;
 
         if ('BarcodeDetector' in window) {
@@ -178,8 +201,12 @@ const toggleTorch = async () => {
 };
 
 const switchCamera = async () => {
-    if (cameras.value.length < 2) return;
-    cameraIndex.value = (cameraIndex.value + 1) % cameras.value.length;
+    facing.value = facing.value === 'user' ? 'environment' : 'user';
+    try {
+        localStorage.setItem(FACING_KEY, facing.value);
+    } catch {
+        // Private mode: the choice just isn't remembered.
+    }
     stop();
     await start();
 };

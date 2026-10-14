@@ -230,6 +230,7 @@ const Map<String, String> kTranslationsAr = {
   'qrScan.titlePatientAutofill': 'مسح رمز المريض',
   'qrScan.torchOff': 'إطفاء الفلاش',
   'qrScan.torchOn': 'تشغيل الفلاش',
+  'qrScan.switchCamera': 'تبديل الكاميرا',
 
   'tasksQr.pendingIntro': 'المهام التي لم تبدأ بها بعد في مرحلتك. اعرض رمز المهمة ليمسحه المشرف ويبدأها لك.',
   'tasksQr.pendingEmpty': 'لا توجد مهام معلقة — بدأت جميع مهام مرحلتك.',
@@ -1113,6 +1114,7 @@ const Map<String, String> kTranslationsEn = {
   'qrScan.titlePatientAutofill': "Scan Patient's Code",
   'qrScan.torchOff': 'Turn Off Flash',
   'qrScan.torchOn': 'Turn On Flash',
+  'qrScan.switchCamera': 'Switch Camera',
 
   'tasksQr.pendingIntro': "Tasks you haven't started yet in your stage. Show the task's code for a supervisor to scan and start it.",
   'tasksQr.pendingEmpty': "No pending tasks — you've started every task in your stage.",

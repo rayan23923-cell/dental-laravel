@@ -749,7 +749,9 @@
         "printButton": "Print",
         "printWholeGroupTooltip": "Print the whole progress",
         "printDepartmentOnlyTooltip": "Print this department only",
-        "printDoctorTasksTooltip": "Print this doctor's tasks"
+        "printDoctorTasksTooltip": "Print this doctor's tasks",
+        "openDoctorProgress": "Open doctor's progress",
+        "stageLabel": "Stage"
     },
     "activityLogsAdmin": {
         "title": "Activity Log",
