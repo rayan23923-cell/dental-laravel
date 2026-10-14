@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\LinkedRecords;
 use App\Models\Doctor;
 use App\Models\EducationType;
 use App\Models\Group;
@@ -110,9 +111,13 @@ class GroupController extends Controller
 
     public function destroy(Group $group): RedirectResponse
     {
+        if ($linked = LinkedRecords::message($group)) {
+            return back()->with('error', $linked);
+        }
+
         $group->delete();
 
-        return back()->with('success', 'Group deleted.');
+        return back()->with('success', 'تمت أرشفة المجموعة.');
     }
 
     public function availableDoctors(Request $request): JsonResponse

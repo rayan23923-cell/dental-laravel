@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Support\LinkedRecords;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TaskResource;
 use App\Models\Department;
@@ -119,6 +120,10 @@ class TaskController extends Controller
 
     public function destroy(Task $task): JsonResponse
     {
+        if ($linked = LinkedRecords::message($task)) {
+            return response()->json(['message' => $linked, 'linked' => LinkedRecords::for($task)], 422);
+        }
+
         $task->delete();
 
         return response()->json(null, 204);

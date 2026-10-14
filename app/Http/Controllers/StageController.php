@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\LinkedRecords;
 use App\Models\EducationType;
 use App\Models\Stage;
 use App\Services\ScopeHelper;
@@ -68,8 +69,12 @@ class StageController extends Controller
 
     public function destroy(Stage $stage): RedirectResponse
     {
+        if ($linked = LinkedRecords::message($stage)) {
+            return back()->with('error', $linked);
+        }
+
         $stage->delete();
 
-        return back()->with('success', 'Stage deleted.');
+        return back()->with('success', 'تمت أرشفة المرحلة.');
     }
 }

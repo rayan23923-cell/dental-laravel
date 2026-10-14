@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\LinkedRecords;
 use App\Models\AcademicSession;
 use App\Models\CaseSheetType;
 use App\Models\Department;
@@ -141,9 +142,13 @@ class TaskController extends Controller
 
     public function destroy(Task $task): RedirectResponse
     {
+        if ($linked = LinkedRecords::message($task)) {
+            return back()->with('error', $linked);
+        }
+
         $task->delete();
 
-        return redirect()->route('tasks.index')->with('success', 'Task deleted.');
+        return redirect()->route('tasks.index')->with('success', 'تمت أرشفة المهمة.');
     }
 
     private function formOptions(): array

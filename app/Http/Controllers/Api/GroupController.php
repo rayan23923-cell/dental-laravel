@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Support\LinkedRecords;
 use App\Http\Controllers\Controller;
 use App\Models\AcademicSession;
 use App\Models\Doctor;
@@ -114,6 +115,10 @@ class GroupController extends Controller
 
     public function destroy(Group $group): JsonResponse
     {
+        if ($linked = LinkedRecords::message($group)) {
+            return response()->json(['message' => $linked, 'linked' => LinkedRecords::for($group)], 422);
+        }
+
         $group->delete();
 
         return response()->json(null, 204);

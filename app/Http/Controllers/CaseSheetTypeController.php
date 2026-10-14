@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\LinkedRecords;
 use App\Models\CaseSheetType;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -75,13 +76,12 @@ class CaseSheetTypeController extends Controller
 
     public function destroy(CaseSheetType $caseSheetType): RedirectResponse
     {
-        $taskCount = $caseSheetType->tasks()->count();
-        if ($taskCount > 0) {
-            return back()->with('error', "Can't delete this type — it's used by {$taskCount} task(s).");
+        if ($linked = LinkedRecords::message($caseSheetType)) {
+            return back()->with('error', $linked);
         }
 
         $caseSheetType->delete();
 
-        return back()->with('success', 'Case sheet type deleted.');
+        return back()->with('success', 'تمت أرشفة نوع الاستمارة.');
     }
 }

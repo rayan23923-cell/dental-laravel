@@ -4,13 +4,15 @@ namespace App\Models;
 
 use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Task extends Model
 {
-    use LogsActivity;
+    // Archived instead of deleted (2026-10-14, by request); see App\Support\LinkedRecords.
+    use LogsActivity, SoftDeletes;
 
     public $timestamps = false;
 

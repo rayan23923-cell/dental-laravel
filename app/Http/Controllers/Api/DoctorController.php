@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Support\LinkedRecords;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\DoctorResource;
 use App\Models\Doctor;
@@ -143,10 +144,11 @@ class DoctorController extends Controller
 
     public function destroy(Doctor $doctor): JsonResponse
     {
-        if ($doctor->profile_image) {
-            Storage::disk('public')->delete($doctor->profile_image);
+        if ($linked = LinkedRecords::message($doctor)) {
+            return response()->json(['message' => $linked, 'linked' => LinkedRecords::for($doctor)], 422);
         }
 
+        // Archived, so the photo stays with the record.
         $doctor->delete();
 
         return response()->json(null, 204);
