@@ -1195,5 +1195,36 @@
     "notificationsBell": {
         "title": "Notifications",
         "empty": "No notifications."
+    },
+    "taskScoring": {
+        "measure": "Measured by",
+        "measureCount": "Cases",
+        "measurePoints": "Points",
+        "measureBoth": "Cases and points",
+        "minPoints": "Points required",
+        "weight": "Weight %",
+        "weightAuto": "Equal",
+        "options": "Kinds of work and points",
+        "addOption": "Kind of work",
+        "optionLabel": "Kind of work",
+        "noOptions": "No points: only cases count.",
+        "modifiers": "Multipliers (optional)",
+        "addModifier": "Multiplier",
+        "modifierLabel": "e.g. GIC",
+        "table": "Requirements table",
+        "tableHint": "This case-sheet type's table. Edit counts and points, and switch any row on or off. Each enabled row becomes a task.",
+        "cases": "Cases",
+        "passPercent": "Department pass %",
+        "pointsSetup": "Points setup",
+        "enablePoints": "Use points for this task",
+        "workDone": "Work done",
+        "addWork": "Add work",
+        "qty": "Count",
+        "pointsValue": "{n} pts",
+        "result": "Result",
+        "passed": "Passed",
+        "notPassed": "Not passed yet",
+        "passAt": "pass at {n}%",
+        "needsWork": "Complete it from task progress with the work done"
     }
 }

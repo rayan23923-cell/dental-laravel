@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\TaskInstance;
+use App\Support\TaskScoring;
 
 /**
  * Grade validation + the two mutations that apply it — extracted from
@@ -32,7 +33,7 @@ class TaskInstanceGrader
     }
 
     /** @throws TaskGradeException */
-    public static function complete(TaskInstance $taskInstance, $grade, $notes): void
+    public static function complete(TaskInstance $taskInstance, $grade, $notes, ?array $workItems = null): void
     {
         static::validateGrade($taskInstance, $grade);
 
@@ -41,17 +42,35 @@ class TaskInstanceGrader
             'completion_date' => now(),
             'grade' => $grade ?? $taskInstance->grade,
             'notes' => $notes ?? $taskInstance->notes,
+            ...static::work($taskInstance, $workItems),
         ]);
     }
 
+    /**
+     * The work done and its points (2026-10-14), resolved against the
+     * task's own options so the points always follow its setup; nothing
+     * when the client sent no `work_items`.
+     */
+    private static function work(TaskInstance $taskInstance, ?array $workItems): array
+    {
+        $resolved = TaskScoring::resolveWorkItems($taskInstance->task, $workItems);
+        if ($resolved === null) {
+            return [];
+        }
+        [$items, $points] = $resolved;
+
+        return ['work_items' => $items, 'points' => $items ? $points : null];
+    }
+
     /** @throws TaskGradeException */
-    public static function updateNotesGrade(TaskInstance $taskInstance, $grade, $notes): void
+    public static function updateNotesGrade(TaskInstance $taskInstance, $grade, $notes, ?array $workItems = null): void
     {
         static::validateGrade($taskInstance, $grade);
 
         $taskInstance->update([
             'grade' => $grade,
             'notes' => $notes,
+            ...static::work($taskInstance, $workItems),
         ]);
     }
 }

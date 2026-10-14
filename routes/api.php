@@ -288,6 +288,8 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::post('/groups/{group}/doctors', [GroupController::class, 'addDoctors']);
         Route::delete('/groups/{group}/doctors', [GroupController::class, 'removeDoctors']);
 
+        Route::get('/tasks/scoring-templates', [TaskController::class, 'scoringTemplates'])
+            ->middleware('permission:tasks,create');
         Route::apiResource('tasks', TaskController::class)
             ->middlewareFor(['index', 'show'], 'permission:tasks,view')
             ->middlewareFor('store', 'permission:tasks,create')

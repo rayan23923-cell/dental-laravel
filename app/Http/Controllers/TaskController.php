@@ -12,6 +12,7 @@ use App\Models\Stage;
 use App\Models\Task;
 use App\Services\AcademicSessionHelper;
 use App\Services\ScopeHelper;
+use App\Support\TaskScoring;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -103,9 +104,10 @@ class TaskController extends Controller
         // onto every new task.
         $validated['academic_session_id'] ??= AcademicSessionHelper::resolveId();
 
-        Task::create($validated);
+        // One task, or one per enabled row of the case-sheet type's table.
+        $created = TaskScoring::createTasks($validated);
 
-        return redirect()->route('tasks.index')->with('success', 'Task created.');
+        return redirect()->route('tasks.index')->with('success', $created->count() > 1 ? 'تمت إضافة '.$created->count().' مهام.' : 'Task created.');
     }
 
     public function show(Task $task): Response
@@ -130,6 +132,8 @@ class TaskController extends Controller
 
     public function edit(Task $task): Response
     {
+        $task->load('department:id,pass_percent');
+
         return Inertia::render('Tasks/Edit', [
             'task' => $task,
             ...$this->formOptions(),
@@ -138,7 +142,14 @@ class TaskController extends Controller
 
     public function update(Request $request, Task $task): RedirectResponse
     {
-        $task->update($this->validateTask($request));
+        $validated = $this->validateTask($request, $task);
+        if (array_key_exists('scoring', $validated)) {
+            $validated['scoring'] = TaskScoring::normalize($validated['scoring']);
+        }
+        if (array_key_exists('pass_percent', $validated)) {
+            TaskScoring::setPassPercent((int) $validated['department_id'], $validated['pass_percent']);
+        }
+        $task->update(collect($validated)->except('pass_percent')->all());
 
         return redirect()->route('tasks.index')->with('success', 'Task updated.');
     }
@@ -167,21 +178,27 @@ class TaskController extends Controller
             // Editable so a task can be moved between academic years and
             // legacy session-less tasks can be assigned one.
             'academicSessions' => AcademicSession::orderByDesc('start_date')->get(['id', 'name']),
+            // Requirement tables pre-filled by the chosen case-sheet type (2026-10-14).
+            'scoringTemplates' => (object) TaskScoring::templatesByTypeId(),
         ];
     }
 
-    private function validateTask(Request $request): array
+    private function validateTask(Request $request, ?Task $task = null): array
     {
+        // Adding from a case-sheet type's table sends `rows` instead of a
+        // single title/count (2026-10-14, by request).
+        $table = ! $task && $request->has('rows');
+
         return $request->validate([
             // Must be one of the chosen stage's own departments (2026-10-13, by request).
             'department_id' => ['required', Rule::exists('departments', 'id')->where('stage_id', $request->integer('stage_id'))],
             'case_sheet_type_id' => ['required', 'exists:case_sheet_types,id'],
             'stage_id' => ['required', 'exists:stages,id'],
-            'title' => ['required', 'string', 'max:255'],
+            'title' => $table ? ['exclude'] : ['required', 'string', 'max:255'],
             // Ignored if an older app still sends it: required_count is the
             // only cap now (2026-10-13, by request).
             'required_per_doctor' => ['exclude'],
-            'required_count' => ['required', 'integer', 'min:1'],
+            'required_count' => $table ? ['exclude'] : ['required', 'integer', 'min:1'],
             // Every field is required (2026-10-13, by request).
             'notes' => ['required', 'string'],
             // "الدرجة / العلامة" — present in the original's add/edit task
@@ -189,6 +206,10 @@ class TaskController extends Controller
             'grade' => ['required', 'numeric', 'min:0', 'max:100'],
             'academic_session_id' => ['nullable', 'exists:academic_sessions,id'],
             'is_required' => ['sometimes', 'boolean'],
+            ...($table ? TaskScoring::tableRules() : [
+                ...TaskScoring::rules('scoring'),
+                'pass_percent' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:100'],
+            ]),
         ]);
     }
 }

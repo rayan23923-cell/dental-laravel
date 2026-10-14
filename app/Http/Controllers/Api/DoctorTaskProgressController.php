@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Support\TaskScoring;
 use App\Http\Controllers\Controller;
 use App\Models\AcademicSession;
 use App\Models\Doctor;
@@ -24,7 +25,8 @@ class DoctorTaskProgressController extends Controller
 
         $group = $doctor->groups()
             ->when($sessionId, fn ($q) => $q->where(function ($q2) use ($sessionId) {
-                $q2->where('academic_session_id', $sessionId)->orWhereNull('academic_session_id');
+                // Qualified: the members pivot has its own academic_session_id.
+                $q2->where('groups.academic_session_id', $sessionId)->orWhereNull('groups.academic_session_id');
             }))
             ->first();
 
@@ -72,6 +74,8 @@ class DoctorTaskProgressController extends Controller
             ],
             'stats' => $stats,
             'tasks' => $tasks,
+            // Points/percentage per scored department (2026-10-14).
+            'scores' => TaskScoring::doctorResults($doctor, $sessionId ?: null),
         ]);
     }
 }

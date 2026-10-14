@@ -4,6 +4,7 @@ import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
+import ScoringEditor from '@/Components/Tasks/ScoringEditor.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -29,6 +30,12 @@ const form = useForm({
     academic_session_id: props.task.academic_session_id ?? '',
     is_required: props.task.is_required,
 });
+
+// Points setup (2026-10-14, by request); see App\Support\TaskScoring.
+const blankScoring = () => ({ measure: 'points', min_points: null, weight: null, options: [], modifiers: [] });
+const usePoints = ref(!!props.task.scoring);
+const scoring = ref(props.task.scoring ? JSON.parse(JSON.stringify(props.task.scoring)) : blankScoring());
+const passPercent = ref(props.task.department?.pass_percent ?? null);
 
 // A task doesn't store its education type (see Tasks/Create.vue) — derive
 // the one implied by its current stage, the same trick Tasks/Index.vue uses
@@ -78,7 +85,12 @@ watch(
 );
 
 const submit = () => {
-    form.put(route('tasks.update', props.task.id));
+    form.transform((data) => ({
+        ...data,
+        scoring: usePoints.value ? scoring.value : null,
+        // Only sent for the department this task was loaded with.
+        ...(Number(data.department_id) === props.task.department_id ? { pass_percent: passPercent.value } : {}),
+    })).put(route('tasks.update', props.task.id));
 };
 </script>
 
@@ -136,6 +148,18 @@ const submit = () => {
                             <InputLabel for="required_count" :value="t('tasksAdmin.requiredCountLabel')" />
                             <TextInput id="required_count" v-model="form.required_count" type="number" min="1" class="mt-1 block w-full" required />
                             <InputError class="mt-2" :message="form.errors.required_count" />
+                        </div>
+
+                        <div class="space-y-3 rounded-lg border border-indigo-100 bg-indigo-50/40 p-3">
+                            <label class="flex items-center gap-2 text-sm font-medium text-gray-800">
+                                <input v-model="usePoints" type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                {{ t('taskScoring.enablePoints') }}
+                            </label>
+                            <ScoringEditor v-if="usePoints" v-model="scoring" />
+                            <label class="flex items-center gap-2 text-sm text-gray-700">
+                                {{ t('taskScoring.passPercent') }}
+                                <input v-model.number="passPercent" type="number" min="0" max="100" step="0.5" class="w-24 rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                            </label>
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
