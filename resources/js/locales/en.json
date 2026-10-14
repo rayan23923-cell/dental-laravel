@@ -1192,5 +1192,9 @@
         "paperPhoto": "Photo of the paper form",
         "notesPlaceholder": "Note for the reviewer (optional)",
         "send": "Send request"
+    },
+    "notificationsBell": {
+        "title": "Notifications",
+        "empty": "No notifications."
     }
 }

@@ -1192,5 +1192,9 @@
         "paperPhoto": "صورة النموذج الورقي",
         "notesPlaceholder": "ملاحظة للمسؤول (اختياري)",
         "send": "إرسال الطلب"
+    },
+    "notificationsBell": {
+        "title": "الإشعارات",
+        "empty": "لا توجد إشعارات."
     }
 }

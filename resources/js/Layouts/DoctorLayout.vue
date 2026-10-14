@@ -20,6 +20,7 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import BrandMark from '@/Components/BrandMark.vue';
 import Icon from '@/Components/Icon.vue';
+import NotificationBell from '@/Components/NotificationBell.vue';
 
 const { t } = useI18n();
 const page = usePage();
@@ -91,6 +92,7 @@ const tileClass = (active) => [
                     </div>
 
                     <div class="ms-auto flex items-center gap-2">
+                        <NotificationBell doctor />
                         <!-- Academic session switcher -->
                         <select
                             v-if="sessions.length"

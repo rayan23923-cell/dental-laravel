@@ -20,6 +20,7 @@ import BrandMark from '@/Components/BrandMark.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import PhoneScannerLink from '@/Components/PhoneScannerLink.vue';
+import NotificationBell from '@/Components/NotificationBell.vue';
 import Icon from '@/Components/Icon.vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
@@ -246,8 +247,10 @@ const tileClass = (active) => [
                         </template>
                     </div>
 
+                    <NotificationBell class="ms-auto shrink-0" />
+
                     <!-- Account -->
-                    <div class="ms-auto hidden shrink-0 items-center gap-2 sm:flex">
+                    <div class="hidden shrink-0 items-center gap-2 sm:flex">
                         <PhoneScannerLink />
                         <Dropdown align="right" width="48">
                             <template #trigger>
@@ -273,7 +276,7 @@ const tileClass = (active) => [
                     <button
                         type="button"
                         @click="showingNavigationDropdown = !showingNavigationDropdown"
-                        class="ms-auto inline-flex items-center justify-center rounded-xl bg-surface-2 p-2 text-muted transition hover:text-content sm:hidden"
+                        class="inline-flex items-center justify-center rounded-xl bg-surface-2 p-2 text-muted transition hover:text-content sm:hidden"
                         :aria-label="showingNavigationDropdown ? t('nav.closeMenu') : t('nav.openMenu')"
                     >
                         <Icon :name="showingNavigationDropdown ? 'close' : 'menu'" size="text-[22px]" />

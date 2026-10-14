@@ -58,6 +58,7 @@ use App\Http\Controllers\TaskInstanceController;
 use App\Http\Controllers\TaskInstanceAttachmentController;
 use App\Http\Controllers\TaskProgressController;
 use App\Http\Controllers\TaskStartRequestController;
+use App\Http\Controllers\NotificationFeedController;
 use App\Http\Controllers\TreatmentMaterialController;
 use App\Http\Controllers\TreatmentPlanController;
 use App\Http\Controllers\UserController;
@@ -186,6 +187,9 @@ Route::middleware('auth:doctor')->group(function () {
     Route::post('/doctor/profile', [DoctorProfileController::class, 'update'])->name('doctor.profile.update');
     Route::put('/doctor/profile/password', [DoctorProfileController::class, 'updatePassword'])->name('doctor.profile.password');
     // "طلبات بدء المهام" (2026-10-14) — see TaskStartRequestController.
+    // Notification bell (2026-10-14).
+    Route::get('/doctor/notifications', [NotificationFeedController::class, 'index'])->name('doctor.notifications.index');
+    Route::post('/doctor/notifications/read-all', [NotificationFeedController::class, 'markAllRead'])->name('doctor.notifications.read-all');
     Route::get('/doctor/task-start-requests', [TaskStartRequestController::class, 'mine'])->name('doctor.task-start-requests.index');
     Route::post('/doctor/task-start-requests', [TaskStartRequestController::class, 'store'])->name('doctor.task-start-requests.store');
     Route::delete('/doctor/task-start-requests/{taskStartRequest}', [TaskStartRequestController::class, 'destroy'])->name('doctor.task-start-requests.destroy');
@@ -275,6 +279,9 @@ Route::post('/scan/{token}/photos', [PhoneScannerController::class, 'photo'])
     ->middleware('throttle:30,1')->name('phone-scanner.photo');
 
 Route::middleware('auth')->group(function () {
+    // Notification bell (2026-10-14).
+    Route::get('/notifications', [NotificationFeedController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/read-all', [NotificationFeedController::class, 'markAllRead'])->name('notifications.read-all');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
 
     // The computer's side of the phone scanner (2026-10-12).
