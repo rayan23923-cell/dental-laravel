@@ -42,7 +42,8 @@ jobs:
         run: |
           & "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /target:winexe /codepage:65001 /optimize+ `
             /out:DentalClinic.exe /win32icon:icon.ico /win32manifest:app.manifest `
-            /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Management.dll /r:System.Core.dll DentalClinic.cs
+            /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Management.dll /r:System.Core.dll `
+            /r:System.Web.Extensions.dll /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll DentalClinic.cs
           if ($LASTEXITCODE -ne 0) { throw 'Compile failed.' }
       - uses: actions/upload-artifact@v4
         with:
@@ -82,6 +83,8 @@ jobs:
           cp offline/windows/prepare.ps1 offline/windows/config.txt $OUT/
           cp -r offline/windows/setup $OUT/setup
           cp offline/README.md $OUT/README.md
+          # The panel compares this with the newest release to offer updates.
+          echo ${{ github.run_number }} > $OUT/version.txt
           sed -i 's/\r*$/\r/' $OUT/*.ps1 $OUT/config.txt
 
       - uses: actions/download-artifact@v4
@@ -137,7 +140,7 @@ jobs:
     # login page, so a broken package never gets published.
     needs: package
     runs-on: windows-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -263,8 +266,80 @@ jobs:
           if (-not (Get-ChildItem "$backups\*_before-update.zip")) { throw 'No backup was made before the update.' }
           Start-Process -FilePath C:\DentalClinicOffline\DentalClinic.exe -ArgumentList '--stop' -Wait
 
+      - name: In-app update keeps the data, and a broken update rolls back
+        shell: pwsh
+        run: |
+          $root = 'C:\DentalClinicOffline'
+          $env:PATH = "$root\mariadb\bin;$env:PATH"
+          $db = @('--user=root', '--host=127.0.0.1', '--port=3307', '-N')
+          function Wait-Login {
+            for ($i = 0; $i -lt 60; $i++) {
+              Start-Sleep -Seconds 5
+              if ((curl.exe -s -o NUL -w '%{http_code}' --max-time 10 http://127.0.0.1:8080/login) -eq '200') { return $true }
+            }
+            return $false
+          }
+          function New-Package($build, [scriptblock]$change) {
+            $dir = "C:\pkg-$build"
+            Expand-Archive DentalClinicOffline-windows.zip -DestinationPath $dir
+            Set-Content "$dir\DentalClinicOffline\version.txt" $build
+            if ($change) { & $change "$dir\DentalClinicOffline" }
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            [IO.Compression.ZipFile]::CreateFromDirectory("$dir\DentalClinicOffline", "C:\update-$build.zip", 'Fastest', $true)
+            Remove-Item $dir -Recurse -Force
+            return "C:\update-$build.zip"
+          }
+          function Show-Log { Get-Content "$root\app\storage\logs\panel.log" -Encoding UTF8 -Tail 30 }
+
+          Start-Process -FilePath "$root\DentalClinic.exe" -ArgumentList '--headless' -WorkingDirectory $root
+          if (-not (Wait-Login)) { Show-Log; throw 'The system did not start.' }
+          mariadb @db -e "create table if not exists dental.smoke_keep (v int); insert into dental.smoke_keep values (42)"
+          Set-Content "$root\app\storage\app\smoke-keep.txt" 'kept'
+          $key = (Select-String -Path "$root\app\.env" -Pattern '^APP_KEY=').Line
+          $before = (Get-ChildItem 'C:\DentalClinicBackups\*.zip').Count
+
+          Write-Host 'Update to build 99999 while the system runs'
+          $zip = New-Package 99999 $null
+          # -Wait would also wait for the new panel it starts, which keeps running.
+          $p = Start-Process -FilePath "$root\DentalClinic.exe" -ArgumentList '--apply-update', $zip -PassThru
+          $p.WaitForExit()
+          if ($p.ExitCode -ne 0) { Show-Log; throw 'Applying the update failed.' }
+          if (-not (Wait-Login)) { Show-Log; throw 'The updated system did not start.' }
+          for ($i = 0; $i -lt 30 -and (Test-Path "$root\updates\rollback"); $i++) { Start-Sleep -Seconds 2 }
+          Show-Log
+          if ((Get-Content "$root\version.txt").Trim() -ne '99999') { throw 'The new version was not put in place.' }
+          if (Test-Path "$root\updates\rollback") { throw 'The previous version was not cleaned up after a good update.' }
+          if ((mariadb @db -e 'select v from dental.smoke_keep') -ne '42') { throw 'The data was lost in the update.' }
+          if ((Get-Content "$root\app\storage\app\smoke-keep.txt") -ne 'kept') { throw 'Uploaded files were lost in the update.' }
+          if ((Select-String -Path "$root\app\.env" -Pattern '^APP_KEY=').Line -ne $key) { throw 'The settings (.env) changed in the update.' }
+          if ((Get-ChildItem 'C:\DentalClinicBackups\*.zip').Count -le $before) { throw 'No backup was made before applying the update.' }
+
+          Write-Host 'A broken update (build 100000) must roll back to 99999 with its data'
+          $bad = New-Package 100000 { param($d) Set-Content "$d\app\bootstrap\app.php" '<?php throw new Exception("broken on purpose");' }
+          mariadb @db -e "update dental.smoke_keep set v = 43"
+          # -Wait would also wait for the new panel it starts, which keeps running.
+          $p = Start-Process -FilePath "$root\DentalClinic.exe" -ArgumentList '--apply-update', $bad -PassThru
+          $p.WaitForExit()
+          if ($p.ExitCode -ne 0) { Show-Log; throw 'Applying the broken update did not get as far as starting it.' }
+          $ok = $false
+          for ($i = 0; $i -lt 60 -and -not $ok; $i++) {
+            Start-Sleep -Seconds 5
+            $ok = (Test-Path "$root\updates\failed-build.txt") -and -not (Test-Path "$root\updates\rollback") -and
+              ((curl.exe -s -o NUL -w '%{http_code}' --max-time 10 http://127.0.0.1:8080/login) -eq '200')
+          }
+          Show-Log
+          if (-not $ok) { throw 'The broken update did not roll back.' }
+          if ((Get-Content "$root\version.txt").Trim() -ne '99999') { throw 'The previous version did not come back.' }
+          if ((Get-Content "$root\updates\failed-build.txt").Trim() -ne '100000') { throw 'The failed build was not recorded.' }
+          if ((mariadb @db -e 'select v from dental.smoke_keep') -ne '43') { throw 'The data changed in the rollback.' }
+          if ((Get-Content "$root\app\storage\app\smoke-keep.txt") -ne 'kept') { throw 'Uploaded files were lost in the rollback.' }
+          Start-Process -FilePath "$root\DentalClinic.exe" -ArgumentList '--stop' -Wait
+
   release:
     needs: [package, smoke-test]
+    # Installed clinics update themselves to the newest release, so only
+    # main publishes one; other branches just build and test.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
