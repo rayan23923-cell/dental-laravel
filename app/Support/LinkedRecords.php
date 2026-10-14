@@ -55,7 +55,6 @@ class LinkedRecords
         Group::class => [
             ['doctor_group_members', 'group_id', 'طبيب'],
             ['patients', 'group_id', 'مريض'],
-            ['clinic_chairs', 'group_id', 'كرسي'],
         ],
         Doctor::class => [
             ['task_instances', 'doctor_id', 'حالة مهمة'],

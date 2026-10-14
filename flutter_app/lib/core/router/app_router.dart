@@ -34,7 +34,6 @@ import '../../features/printing/presentation/printer_settings_screen.dart';
 import '../../features/task_progress_admin/presentation/task_progress_screen.dart';
 import '../../features/groups_admin/presentation/group_detail_screen.dart';
 import '../../features/groups_admin/presentation/group_form_screen.dart';
-import '../../features/clinic_chairs_admin/presentation/clinic_chairs_screen.dart';
 import '../../features/groups_admin/presentation/group_list_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/notifications/presentation/notification_inbox_screen.dart';
@@ -352,10 +351,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/admin/groups',
             builder: (context, state) => const GroupListScreen(),
-          ),
-          GoRoute(
-            path: '/admin/clinic-chairs',
-            builder: (context, state) => const ClinicChairsScreen(),
           ),
           GoRoute(
             path: '/admin/tasks',

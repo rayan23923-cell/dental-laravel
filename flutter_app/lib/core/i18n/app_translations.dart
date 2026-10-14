@@ -163,7 +163,6 @@ const Map<String, String> kTranslationsAr = {
   'adminHub.doctorsGroup': 'إدارة الأطباء',
   'adminHub.doctors': 'الأطباء',
   'adminHub.groups': 'المجموعات',
-  'adminHub.clinicChairs': 'خريطة كراسي العيادة',
   'adminHub.referenceData': 'البيانات الأساسية',
   'adminHub.academicSessions': 'الأعوام الدراسية',
   'adminHub.educationTypes': 'أنواع التعليم',
@@ -500,7 +499,7 @@ const Map<String, String> kTranslationsAr = {
   'groupsAdmin.slotTo': 'إلى',
   'groupsAdmin.save': 'حفظ',
 
-  // Phase 6 — taxonomy/academic-sessions/clinic-chairs admin screens
+  // Phase 6 — taxonomy/academic-sessions admin screens
   'taxonomyAdmin.deleteTitlePrefix': 'حذف',
   'taxonomyAdmin.deleteConfirmBody': 'أرشفة "{name}"؟ سيتم أرشفته ولن يُحذف نهائياً، وإذا كان مرتبطاً ببيانات فلن تتم الأرشفة.',
   'taxonomyAdmin.deletedSuccess': 'تمت الأرشفة.',
@@ -562,27 +561,6 @@ const Map<String, String> kTranslationsAr = {
   'academicSessionsAdmin.setCurrentLabel': 'اجعله العام الدراسي النشط',
   'academicSessionsAdmin.save': 'حفظ',
 
-  'clinicChairsAdmin.title': 'خريطة كراسي العيادة',
-  'clinicChairsAdmin.loadFailed': 'تعذر تحميل خريطة الكراسي.',
-  'clinicChairsAdmin.distributeFailed': 'تعذر التوزيع.',
-  'clinicChairsAdmin.operationFailed': 'فشلت العملية.',
-  'clinicChairsAdmin.unassignFailed': 'تعذر إلغاء التخصيص.',
-  'clinicChairsAdmin.deleteChairTitle': 'حذف الكرسي؟',
-  'clinicChairsAdmin.cancel': 'إلغاء',
-  'clinicChairsAdmin.delete': 'حذف',
-  'clinicChairsAdmin.restOfGroup': 'باقي المجموعة',
-  'clinicChairsAdmin.noDoctorsInGroupYet': 'لا يوجد أطباء في هذه المجموعة بعد.',
-  'clinicChairsAdmin.chairPositionLabel': 'كرسي {position}',
-  'clinicChairsAdmin.academicSessionLabel': 'العام الدراسي: {name}',
-  'clinicChairsAdmin.instructions': 'اضغط "توزيع" لتوزيع أطباء مجموعة على كراسي مستقلة. اسحب مجموعة إلى كرسي لتخصيصه للمجموعة كاملة. اسحب كرسيًا إلى آخر لتبديل مكانيهما.',
-  'clinicChairsAdmin.rowLabel': 'صف {n}',
-  'clinicChairsAdmin.emptyChairsMsg': 'لا توجد كراسي بعد — ابدأ صفًا جديدًا.',
-  'clinicChairsAdmin.newRow': 'صف جديد',
-  'clinicChairsAdmin.noGroups': 'لا توجد مجموعات.',
-  'clinicChairsAdmin.doctorsSuffix': 'طبيب',
-  'clinicChairsAdmin.distribute': 'توزيع',
-  'clinicChairsAdmin.updateWithCount': 'تحديث ({n} جديد)',
-  'clinicChairsAdmin.emptyChairLabel': 'فارغ',
 
   // Phase 7 — tasks admin screens
   'tasksAdmin.title': 'المهام',
@@ -1068,7 +1046,6 @@ const Map<String, String> kTranslationsEn = {
   'adminHub.doctorsGroup': 'Doctor Management',
   'adminHub.doctors': 'Doctors',
   'adminHub.groups': 'Groups',
-  'adminHub.clinicChairs': 'Clinic Chair Map',
   'adminHub.referenceData': 'Reference Data',
   'adminHub.academicSessions': 'Academic Sessions',
   'adminHub.educationTypes': 'Education Types',
@@ -1405,7 +1382,7 @@ const Map<String, String> kTranslationsEn = {
   'groupsAdmin.slotTo': 'To',
   'groupsAdmin.save': 'Save',
 
-  // Phase 6 — taxonomy/academic-sessions/clinic-chairs admin screens
+  // Phase 6 — taxonomy/academic-sessions admin screens
   'taxonomyAdmin.deleteTitlePrefix': 'Delete',
   'taxonomyAdmin.deleteConfirmBody': 'Archive "{name}"? It will be archived, not erased; anything still linked to data cannot be archived.',
   'taxonomyAdmin.deletedSuccess': 'Archived.',
@@ -1467,27 +1444,6 @@ const Map<String, String> kTranslationsEn = {
   'academicSessionsAdmin.setCurrentLabel': 'Set as the active academic session',
   'academicSessionsAdmin.save': 'Save',
 
-  'clinicChairsAdmin.title': 'Clinic Chair Map',
-  'clinicChairsAdmin.loadFailed': "Couldn't load the chair map.",
-  'clinicChairsAdmin.distributeFailed': "Couldn't distribute.",
-  'clinicChairsAdmin.operationFailed': 'Operation failed.',
-  'clinicChairsAdmin.unassignFailed': "Couldn't unassign.",
-  'clinicChairsAdmin.deleteChairTitle': 'Delete this chair?',
-  'clinicChairsAdmin.cancel': 'Cancel',
-  'clinicChairsAdmin.delete': 'Delete',
-  'clinicChairsAdmin.restOfGroup': 'Rest of the group',
-  'clinicChairsAdmin.noDoctorsInGroupYet': 'No doctors in this group yet.',
-  'clinicChairsAdmin.chairPositionLabel': 'Chair {position}',
-  'clinicChairsAdmin.academicSessionLabel': 'Academic Session: {name}',
-  'clinicChairsAdmin.instructions': 'Click "Distribute" to seat a group\'s doctors on their own chairs. Drag a group onto a chair to assign the whole group there. Drag a chair onto another to swap positions.',
-  'clinicChairsAdmin.rowLabel': 'Row {n}',
-  'clinicChairsAdmin.emptyChairsMsg': 'No chairs yet — start a new row.',
-  'clinicChairsAdmin.newRow': 'New Row',
-  'clinicChairsAdmin.noGroups': 'No groups.',
-  'clinicChairsAdmin.doctorsSuffix': 'doctor(s)',
-  'clinicChairsAdmin.distribute': 'Distribute',
-  'clinicChairsAdmin.updateWithCount': 'Update ({n} new)',
-  'clinicChairsAdmin.emptyChairLabel': 'Empty',
 
   // Phase 7 — tasks admin screens
   'tasksAdmin.title': 'Tasks',
