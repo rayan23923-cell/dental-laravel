@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\DentalChart;
 use App\Models\Doctor;
+use App\Models\Task;
 use App\Models\TaskInstance;
 use App\Services\CaseSheetAccess;
 use App\Support\CaseSheetPatientFieldMap;
@@ -11,6 +12,7 @@ use App\Support\CaseSheetReturn;
 use App\Support\CaseSheetSignatures;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\OperativeForm;
+use App\Support\TaskScoring;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -103,6 +105,11 @@ class DentalChartController extends Controller
             'supervisorFields' => CaseSheetSupervisorFields::fieldsFor('dental-charts'),
             'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
             'taskId' => $record?->task_id ?? $taskId,
+            // A root-filling task opens with the Endodontics section on (2026-10-14).
+            'rootFilling' => TaskScoring::isRootFilling(
+                Task::find($record?->task_id ?? $taskId)
+                    ?? TaskInstance::find($record?->task_instances_id ?? $taskInstanceId)?->task
+            ),
         ]);
     }
 

@@ -22,13 +22,17 @@ import { computed, ref } from 'vue';
 import EndodonticsCanalTable from '@/Components/EndodonticsCanalTable.vue';
 import Icon from '@/Components/Icon.vue';
 import IosToggle from '@/Components/IosToggle.vue';
+import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
     modelValue: { type: Object, default: () => ({}) },
     disabled: Boolean,
+    // The case is a root-filling task (2026-10-14): the section starts on.
+    rootFilling: Boolean,
 });
 
 const emit = defineEmits(['update:modelValue']);
+const { t } = useI18n();
 
 // The section only exists once enabled — matches the original exactly
 // (`if (!empty($existing_chart['endodontics_data']))`: an empty/absent
@@ -42,7 +46,7 @@ const emit = defineEmits(['update:modelValue']);
 // so the derived getter recomputes `false` and the toggle visually snaps
 // off before a doctor can enter anything). Mirrors
 // `flutter_app/.../endodontics_field.dart`'s own `_enabled` field exactly.
-const enabled = ref(Object.keys(props.modelValue ?? {}).length > 0);
+const enabled = ref(props.rootFilling || Object.keys(props.modelValue ?? {}).length > 0);
 const toggleEnabled = (value) => {
     enabled.value = value;
     if (!value) emit('update:modelValue', {});
@@ -89,6 +93,7 @@ const setThirdVisit = (key, value) => set('third_visit_data', { ...thirdVisit.va
         <div class="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-3">
             <h3 class="flex items-center gap-2 font-medium text-gray-900">
                 <Icon name="dentistry" />Endodontic Treatment Record
+                <span v-if="rootFilling" class="rounded-full bg-indigo-600 px-2 py-0.5 text-xs text-white">{{ t('taskScoring.rootFilling') }}</span>
             </h3>
             <label class="flex items-center gap-2 text-sm text-gray-600">
                 <span>Enable</span>

@@ -170,4 +170,35 @@ class TaskScoringTest extends TestCase
         $this->assertNull($case->fresh()->points);
         $this->assertCount(2, $case->fresh()->work_items);
     }
+
+    public function test_an_operative_root_filling_opens_with_endodontics_on(): void
+    {
+        EducationType::create(['id' => 1, 'name' => 'صباحي']);
+        Stage::create(['id' => 1, 'name' => 'الخامسة', 'education_type_id' => 1]);
+        $department = Department::create(['name' => 'المعالجة', 'stage_id' => 1, 'education_type_id' => 1]);
+        $sheet = DB::table('case_sheet_types')->where('type_code', 'operative')->value('id')
+            ?? DB::table('case_sheet_types')->insertGetId(['type_code' => 'operative', 'name_ar' => 'المعالجة', 'name_en' => 'Operative', 'is_active' => 1]);
+        $this->actingAs(User::factory()->create(['role' => 'super_admin']));
+
+        // The fifth stage's rows only, as the form leaves them.
+        $rows = array_map(fn ($r) => ['enabled' => $r['stage'] === 5] + $r, TaskScoring::templatesByTypeId()[$sheet]['rows']);
+        $this->assertSame(13, array_sum(array_map(fn ($r) => $r['enabled'] && ! str_contains($r['title'], 'crown') && ! $r['scoring']['endo'] ? $r['required_count'] : 0, $rows)));
+        $this->post('/tasks', [
+            'department_id' => $department->id, 'case_sheet_type_id' => $sheet, 'stage_id' => 1,
+            'notes' => 'متطلبات', 'grade' => 10, 'rows' => $rows,
+        ])->assertSessionHasNoErrors();
+        $this->assertSame(9, Task::count());
+
+        $doctor = Doctor::create([
+            'name' => 'د. حسين', 'username' => 'hussein', 'password' => 'secret', 'email' => 'h@example.com',
+            'education_type_id' => 1, 'stage_id' => 1,
+        ]);
+        $endo = TaskInstance::create(['task_id' => Task::where('title', 'like', 'Endo%')->value('id'), 'doctor_id' => $doctor->id, 'status' => 'assigned']);
+        $filling = TaskInstance::create(['task_id' => Task::where('title', 'like', 'Cl III%')->value('id'), 'doctor_id' => $doctor->id, 'status' => 'assigned']);
+
+        $this->get(route('dental-charts.create', ['task_instances_id' => $endo->id]))
+            ->assertInertia(fn ($page) => $page->where('rootFilling', true));
+        $this->get(route('dental-charts.create', ['task_instances_id' => $filling->id]))
+            ->assertInertia(fn ($page) => $page->where('rootFilling', false));
+    }
 }

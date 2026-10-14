@@ -69,6 +69,8 @@ const props = defineProps({
     // CaseSheetController) — carried through so the saved sheet stays tied
     // to that task, as in the original.
     taskInstanceId: { type: [Number, String], default: null },
+    // Operative only: the task is a root filling, so Endodontics starts on.
+    rootFilling: Boolean,
     // The optional pre-instance draft's linkage (2026-08-28) — mutually
     // exclusive with taskInstanceId: set instead when opened from a
     // not-yet-started slot via CaseSheetController::openForTask(). No
@@ -732,6 +734,7 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                                             v-else-if="field.type === 'endodontics'"
                                             v-model="form[formKey(field)]"
                                             :disabled="fieldDisabled(field)"
+                                            :root-filling="rootFilling"
                                             class="mt-1"
                                         />
 
