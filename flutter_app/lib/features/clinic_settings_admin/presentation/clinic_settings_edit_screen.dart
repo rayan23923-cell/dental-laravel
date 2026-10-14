@@ -37,6 +37,7 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
   bool _enableSms = false;
   bool _enableEmail = true;
   bool _groupsEnabled = true;
+  String? _open;
   bool _seeded = false;
   bool _submitting = false;
 
@@ -105,7 +106,11 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
   }
 
   Future<void> _submit() async {
-    if (!(_formKey.currentState?.validate() ?? true)) return;
+    if (!(_formKey.currentState?.validate() ?? true)) {
+      // Only the basic section has validated fields (name, email).
+      setState(() => _open = 'basic');
+      return;
+    }
     setState(() => _submitting = true);
 
     final fields = {
@@ -128,11 +133,9 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
     };
 
     try {
-      await ref.read(clinicSettingsAdminRepositoryProvider).update(
-            fields,
-            clinicLogo: _clinicLogoPick,
-            universityLogo: _universityLogoPick,
-          );
+      await ref
+          .read(clinicSettingsAdminRepositoryProvider)
+          .update(fields, clinicLogo: _clinicLogoPick, universityLogo: _universityLogoPick);
       ref.invalidate(clinicSettingsAdminProvider);
       // The app-wide copy (theme, groups switch) re-reads the saved values.
       ref.invalidate(clinicSettingsProvider);
@@ -166,167 +169,405 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
       appBar: AppBar(title: Text(t['clinicSettingsAdmin.title']!)),
       body: settingsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stackTrace) => Center(
-          child: Text(error is ApiException ? error.userMessage : t['clinicSettingsAdmin.loadFailed']!),
-        ),
+        error: (error, stackTrace) => Center(child: Text(error is ApiException ? error.userMessage : t['clinicSettingsAdmin.loadFailed']!)),
         data: (settings) {
           _seed(settings);
           return Form(
             key: _formKey,
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               children: [
-                Text(t['clinicSettingsAdmin.basicInfoHeading']!, style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _nameController,
-                  decoration: InputDecoration(labelText: t['clinicSettingsAdmin.clinicNameLabel'], border: const OutlineInputBorder()),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? t['clinicSettingsAdmin.requiredField'] : null,
+                _GroupHeader(t['clinicSettingsAdmin.groupClinic']!),
+                _GroupCard(
+                  children: [
+                    _SettingsSection(
+                      icon: Icons.storefront_outlined,
+                      color: const Color(0xFF6366F1),
+                      title: t['clinicSettingsAdmin.basicInfoHeading']!,
+                      summary: _join([_nameController.text, _phoneController.text]),
+                      open: _open == 'basic',
+                      onToggle: () => setState(() => _open = _open == 'basic' ? null : 'basic'),
+                      children: [
+                        TextFormField(
+                          controller: _nameController,
+                          decoration: InputDecoration(
+                            labelText: t['clinicSettingsAdmin.clinicNameLabel'],
+                            border: const OutlineInputBorder(),
+                          ),
+                          validator: (v) => (v == null || v.trim().isEmpty) ? t['clinicSettingsAdmin.requiredField'] : null,
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _descriptionController,
+                          decoration: InputDecoration(
+                            labelText: t['clinicSettingsAdmin.descriptionLabel'],
+                            border: const OutlineInputBorder(),
+                          ),
+                          maxLines: 2,
+                        ),
+                        const SizedBox(height: 12),
+                        _LogoPicker(
+                          label: t['clinicSettingsAdmin.clinicLogoLabel']!,
+                          networkUrl: _current?.logoUrl,
+                          previewBytes: _clinicLogoPreview,
+                          onPick: _pickClinicLogo,
+                        ),
+                      ],
+                    ),
+                    _SettingsSection(
+                      icon: Icons.contact_phone_outlined,
+                      color: const Color(0xFF0EA5E9),
+                      title: t['clinicSettingsAdmin.contactInfoHeading']!,
+                      summary: _join([_addressController.text, _workingHoursController.text]),
+                      open: _open == 'contact',
+                      onToggle: () => setState(() => _open = _open == 'contact' ? null : 'contact'),
+                      children: [
+                        TextFormField(
+                          controller: _addressController,
+                          decoration: InputDecoration(labelText: t['clinicSettingsAdmin.addressLabel'], border: const OutlineInputBorder()),
+                          maxLines: 2,
+                        ),
+                        const SizedBox(height: 12),
+                        // Forced LTR — confirmed live: typing "0770-CDP-TEST"
+                        // displayed as "CDP-TEST-0770". Same bidi cause as the
+                        // other fields above.
+                        TextFormField(
+                          controller: _phoneController,
+                          textDirection: TextDirection.ltr,
+                          decoration: InputDecoration(labelText: t['clinicSettingsAdmin.phoneLabel'], border: const OutlineInputBorder()),
+                        ),
+                        const SizedBox(height: 12),
+                        // Forced LTR — same reasoning as the website/base_url
+                        // fields below: an email address mixes strong-LTR letters
+                        // with bidi-neutral `@`/`.` characters, the same shape that
+                        // caused the base_url reordering.
+                        TextFormField(
+                          controller: _emailController,
+                          textDirection: TextDirection.ltr,
+                          decoration: InputDecoration(labelText: t['clinicSettingsAdmin.emailLabel'], border: const OutlineInputBorder()),
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) return null;
+                            return v.contains('@') ? null : t['clinicSettingsAdmin.invalidEmail'];
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        // Forced LTR — a URL/path value shown inside an ambient-RTL
+                        // field gets visually reordered otherwise (confirmed live
+                        // on `base_url`: stored "/dental_clinic" rendered as
+                        // "dental_clinic/", the leading "/" — a bidi-neutral
+                        // character next to strong-LTR text — pushed to the visual
+                        // end). Same root cause as every other bidi fix this
+                        // session, here inside an editable field rather than a
+                        // `Text`; the stored `TextEditingController.text` itself
+                        // was never wrong, only the on-screen rendering.
+                        TextFormField(
+                          controller: _websiteController,
+                          textDirection: TextDirection.ltr,
+                          decoration: InputDecoration(labelText: t['clinicSettingsAdmin.websiteLabel'], border: const OutlineInputBorder()),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _workingHoursController,
+                          decoration: InputDecoration(
+                            labelText: t['clinicSettingsAdmin.workingHoursLabel'],
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
+                      ],
+                    ),
+                    _SettingsSection(
+                      icon: Icons.school_outlined,
+                      color: const Color(0xFF8B5CF6),
+                      title: t['clinicSettingsAdmin.universityCollegeHeading']!,
+                      summary: _join([_universityNameController.text, _collegeNameController.text]),
+                      open: _open == 'university',
+                      onToggle: () => setState(() => _open = _open == 'university' ? null : 'university'),
+                      children: [
+                        TextFormField(
+                          controller: _universityNameController,
+                          decoration: InputDecoration(
+                            labelText: t['clinicSettingsAdmin.universityNameLabel'],
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _collegeNameController,
+                          decoration: InputDecoration(
+                            labelText: t['clinicSettingsAdmin.collegeNameLabel'],
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _LogoPicker(
+                          label: t['clinicSettingsAdmin.universityLogoLabel']!,
+                          networkUrl: _current?.universityLogoUrl,
+                          previewBytes: _universityLogoPreview,
+                          onPick: _pickUniversityLogo,
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _descriptionController,
-                  decoration: InputDecoration(labelText: t['clinicSettingsAdmin.descriptionLabel'], border: const OutlineInputBorder()),
-                  maxLines: 2,
+                const SizedBox(height: 20),
+                _GroupHeader(t['clinicSettingsAdmin.groupSystem']!),
+                _GroupCard(
+                  children: [
+                    _SettingsSection(
+                      icon: Icons.tune,
+                      color: const Color(0xFFF59E0B),
+                      title: t['clinicSettingsAdmin.systemHeading']!,
+                      summary: _join([_currencyController.text, _timezoneLabel()]),
+                      open: _open == 'system',
+                      onToggle: () => setState(() => _open = _open == 'system' ? null : 'system'),
+                      children: [
+                        TextFormField(
+                          controller: _currencyController,
+                          decoration: InputDecoration(
+                            labelText: t['clinicSettingsAdmin.currencyLabel'],
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          initialValue: kClinicTimezones.any((tz) => tz.$1 == _timezone) ? _timezone : null,
+                          decoration: InputDecoration(
+                            labelText: t['clinicSettingsAdmin.timezoneLabel'],
+                            border: const OutlineInputBorder(),
+                          ),
+                          items: [for (final tz in kClinicTimezones) DropdownMenuItem(value: tz.$1, child: Text(tz.$2))],
+                          onChanged: (v) => setState(() => _timezone = v),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _baseUrlController,
+                          textDirection: TextDirection.ltr,
+                          decoration: InputDecoration(labelText: t['clinicSettingsAdmin.baseUrlLabel'], border: const OutlineInputBorder()),
+                        ),
+                      ],
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const _SectionIcon(icon: Icons.groups_outlined, color: Color(0xFF14B8A6)),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              value: _groupsEnabled,
+                              title: Text(t['clinicSettingsAdmin.groupsEnabled']!),
+                              subtitle: Text(t['clinicSettingsAdmin.groupsNote']!, maxLines: 2, overflow: TextOverflow.ellipsis),
+                              onChanged: (v) => setState(() => _groupsEnabled = v),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                _LogoPicker(
-                  label: t['clinicSettingsAdmin.clinicLogoLabel']!,
-                  networkUrl: _current?.logoUrl,
-                  previewBytes: _clinicLogoPreview,
-                  onPick: _pickClinicLogo,
-                ),
-                const SizedBox(height: 24),
-                Text(t['clinicSettingsAdmin.contactInfoHeading']!, style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _addressController,
-                  decoration: InputDecoration(labelText: t['clinicSettingsAdmin.addressLabel'], border: const OutlineInputBorder()),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 12),
-                // Forced LTR — confirmed live: typing "0770-CDP-TEST"
-                // displayed as "CDP-TEST-0770". Same bidi cause as the
-                // other fields above.
-                TextFormField(
-                  controller: _phoneController,
-                  textDirection: TextDirection.ltr,
-                  decoration: InputDecoration(labelText: t['clinicSettingsAdmin.phoneLabel'], border: const OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
-                // Forced LTR — same reasoning as the website/base_url
-                // fields below: an email address mixes strong-LTR letters
-                // with bidi-neutral `@`/`.` characters, the same shape that
-                // caused the base_url reordering.
-                TextFormField(
-                  controller: _emailController,
-                  textDirection: TextDirection.ltr,
-                  decoration: InputDecoration(labelText: t['clinicSettingsAdmin.emailLabel'], border: const OutlineInputBorder()),
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) return null;
-                    return v.contains('@') ? null : t['clinicSettingsAdmin.invalidEmail'];
-                  },
-                ),
-                const SizedBox(height: 12),
-                // Forced LTR — a URL/path value shown inside an ambient-RTL
-                // field gets visually reordered otherwise (confirmed live
-                // on `base_url`: stored "/dental_clinic" rendered as
-                // "dental_clinic/", the leading "/" — a bidi-neutral
-                // character next to strong-LTR text — pushed to the visual
-                // end). Same root cause as every other bidi fix this
-                // session, here inside an editable field rather than a
-                // `Text`; the stored `TextEditingController.text` itself
-                // was never wrong, only the on-screen rendering.
-                TextFormField(
-                  controller: _websiteController,
-                  textDirection: TextDirection.ltr,
-                  decoration: InputDecoration(labelText: t['clinicSettingsAdmin.websiteLabel'], border: const OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _workingHoursController,
-                  decoration: InputDecoration(labelText: t['clinicSettingsAdmin.workingHoursLabel'], border: const OutlineInputBorder()),
-                ),
-                const SizedBox(height: 24),
-                Text(t['clinicSettingsAdmin.universityCollegeHeading']!, style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _universityNameController,
-                  decoration: InputDecoration(labelText: t['clinicSettingsAdmin.universityNameLabel'], border: const OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _collegeNameController,
-                  decoration: InputDecoration(labelText: t['clinicSettingsAdmin.collegeNameLabel'], border: const OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
-                _LogoPicker(
-                  label: t['clinicSettingsAdmin.universityLogoLabel']!,
-                  networkUrl: _current?.universityLogoUrl,
-                  previewBytes: _universityLogoPreview,
-                  onPick: _pickUniversityLogo,
-                ),
-                const SizedBox(height: 24),
-                Text(t['clinicSettingsAdmin.systemHeading']!, style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _currencyController,
-                  decoration: InputDecoration(labelText: t['clinicSettingsAdmin.currencyLabel'], border: const OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: kClinicTimezones.any((tz) => tz.$1 == _timezone) ? _timezone : null,
-                  decoration: InputDecoration(labelText: t['clinicSettingsAdmin.timezoneLabel'], border: const OutlineInputBorder()),
-                  items: [for (final tz in kClinicTimezones) DropdownMenuItem(value: tz.$1, child: Text(tz.$2))],
-                  onChanged: (v) => setState(() => _timezone = v),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _baseUrlController,
-                  textDirection: TextDirection.ltr,
-                  decoration: InputDecoration(labelText: t['clinicSettingsAdmin.baseUrlLabel'], border: const OutlineInputBorder()),
-                ),
-                const SizedBox(height: 24),
-                Text(t['clinicSettingsAdmin.notificationsHeading']!, style: Theme.of(context).textTheme.titleMedium),
-                CheckboxListTile(
-                  value: _enableNotifications,
-                  title: Text(t['clinicSettingsAdmin.enableNotifications']!),
-                  controlAffinity: ListTileControlAffinity.leading,
-                  onChanged: (v) => setState(() => _enableNotifications = v ?? true),
-                ),
-                CheckboxListTile(
-                  value: _enableSms,
-                  title: Text(t['clinicSettingsAdmin.enableSms']!),
-                  controlAffinity: ListTileControlAffinity.leading,
-                  onChanged: (v) => setState(() => _enableSms = v ?? false),
-                ),
-                CheckboxListTile(
-                  value: _enableEmail,
-                  title: Text(t['clinicSettingsAdmin.enableEmail']!),
-                  controlAffinity: ListTileControlAffinity.leading,
-                  onChanged: (v) => setState(() => _enableEmail = v ?? true),
-                ),
-                const SizedBox(height: 16),
-                Text(t['clinicSettingsAdmin.groupsHeading']!, style: Theme.of(context).textTheme.titleSmall),
-                CheckboxListTile(
-                  value: _groupsEnabled,
-                  title: Text(t['clinicSettingsAdmin.groupsEnabled']!),
-                  subtitle: Text(t['clinicSettingsAdmin.groupsNote']!),
-                  controlAffinity: ListTileControlAffinity.leading,
-                  onChanged: (v) => setState(() => _groupsEnabled = v ?? true),
-                ),
-                const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: _submitting ? null : _submit,
-                  child: _submitting
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                      : Text(t['clinicSettingsAdmin.saveSettings']!),
+                const SizedBox(height: 20),
+                _GroupHeader(t['clinicSettingsAdmin.groupMessaging']!),
+                _GroupCard(
+                  children: [
+                    _SettingsSection(
+                      icon: Icons.notifications_outlined,
+                      color: const Color(0xFFF43F5E),
+                      title: t['clinicSettingsAdmin.notificationsHeading']!,
+                      summary: _notificationsSummary(t),
+                      open: _open == 'notifications',
+                      onToggle: () => setState(() => _open = _open == 'notifications' ? null : 'notifications'),
+                      children: [
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: _enableNotifications,
+                          title: Text(t['clinicSettingsAdmin.enableNotifications']!),
+                          onChanged: (v) => setState(() => _enableNotifications = v),
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: _enableSms,
+                          title: Text(t['clinicSettingsAdmin.enableSms']!),
+                          onChanged: (v) => setState(() => _enableSms = v),
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: _enableEmail,
+                          title: Text(t['clinicSettingsAdmin.enableEmail']!),
+                          onChanged: (v) => setState(() => _enableEmail = v),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ],
             ),
           );
         },
       ),
+      // Save bar stays reachable whichever section is open.
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: FilledButton.icon(
+            onPressed: _submitting || !settingsAsync.hasValue ? null : _submit,
+            icon: _submitting
+                ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.save_outlined),
+            label: Text(t['clinicSettingsAdmin.saveSettings']!),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _join(List<String> parts) => parts.map((p) => p.trim()).where((p) => p.isNotEmpty).join(' · ');
+
+  String _timezoneLabel() {
+    for (final tz in kClinicTimezones) {
+      if (tz.$1 == _timezone) return tz.$2;
+    }
+    return '';
+  }
+
+  String _notificationsSummary(Map<String, String> t) {
+    final on = [
+      if (_enableNotifications) t['clinicSettingsAdmin.enableNotifications']!,
+      if (_enableSms) 'SMS',
+      if (_enableEmail) t['clinicSettingsAdmin.emailShort']!,
+    ];
+    return on.isEmpty ? t['clinicSettingsAdmin.off']! : on.join('، ');
+  }
+}
+
+/// Section label above a settings card (Telegram-style, 2026-10-14).
+class _GroupHeader extends StatelessWidget {
+  const _GroupHeader(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(start: 8, bottom: 6),
+      child: Text(
+        text,
+        style: TextStyle(color: scheme.primary, fontSize: 12, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+class _GroupCard extends StatelessWidget {
+  const _GroupCard({required this.children});
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: 0,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) Divider(height: 1, indent: 60, color: scheme.outlineVariant.withValues(alpha: 0.5)),
+            children[i],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionIcon extends StatelessWidget {
+  const _SectionIcon({required this.icon, required this.color});
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 36,
+    height: 36,
+    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
+    child: Icon(icon, color: Colors.white, size: 20),
+  );
+}
+
+/// A collapsible settings row: icon, title, summary of the current values
+/// and a chevron. Closed fields stay mounted (just hidden) so the form still
+/// validates them.
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.summary,
+    required this.open,
+    required this.onToggle,
+    required this.children,
+  });
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String summary;
+  final bool open;
+  final VoidCallback onToggle;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InkWell(
+          onTap: onToggle,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                _SectionIcon(icon: icon, color: color),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      if (summary.isNotEmpty)
+                        Text(
+                          summary,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                        ),
+                    ],
+                  ),
+                ),
+                AnimatedRotation(
+                  turns: open ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(Icons.expand_more, color: scheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Visibility(
+          visible: open,
+          maintainState: true,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -352,17 +593,11 @@ class _LogoPicker extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           child: previewBytes != null
               ? Image.memory(previewBytes!, fit: BoxFit.contain)
-              : (networkUrl != null
-                  ? Image.network(networkUrl!, fit: BoxFit.contain)
-                  : const Icon(Icons.image_outlined)),
+              : (networkUrl != null ? Image.network(networkUrl!, fit: BoxFit.contain) : const Icon(Icons.image_outlined)),
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: OutlinedButton.icon(
-            onPressed: onPick,
-            icon: const Icon(Icons.upload_outlined),
-            label: Text(label),
-          ),
+          child: OutlinedButton.icon(onPressed: onPick, icon: const Icon(Icons.upload_outlined), label: Text(label)),
         ),
       ],
     );

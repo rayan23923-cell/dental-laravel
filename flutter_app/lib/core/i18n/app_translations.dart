@@ -689,6 +689,11 @@ const Map<String, String> kTranslationsAr = {
   'clinicSettingsAdmin.groupsNote': 'كل مرحلة عندها مجموعة A تلقائياً بكل أيام الأسبوع وبأوقات الدوام، وكل طبيب ينضاف لها تلقائياً. عند الإلغاء تختفي المجموعات من القوائم والتقارير، وتقدم المهام يعرض أطباء المرحلة مباشرة.',
   'taskProgressAdmin.chooseStageHint': 'اختر نوع الدراسة والمرحلة لعرض الأطباء.',
   'clinicSettingsAdmin.saveSettings': 'حفظ الإعدادات',
+  'clinicSettingsAdmin.off': 'متوقف',
+  'clinicSettingsAdmin.emailShort': 'البريد',
+  'clinicSettingsAdmin.groupClinic': 'العيادة',
+  'clinicSettingsAdmin.groupSystem': 'النظام',
+  'clinicSettingsAdmin.groupMessaging': 'التنبيهات',
 
   'printerSettingsAdmin.title': 'إعدادات الطابعة',
   'printerSettingsAdmin.loadFailed': 'تعذر تحميل الإعدادات: {error}',
@@ -1520,6 +1525,11 @@ const Map<String, String> kTranslationsEn = {
   'clinicSettingsAdmin.groupsNote': 'Every stage automatically has a group A on all days during working hours, and every doctor is added to it. When off, groups disappear from menus and reports, and task progress lists the stage\'s doctors directly.',
   'taskProgressAdmin.chooseStageHint': 'Choose the education type and stage to show the doctors.',
   'clinicSettingsAdmin.saveSettings': 'Save Settings',
+  'clinicSettingsAdmin.off': 'Off',
+  'clinicSettingsAdmin.emailShort': 'Email',
+  'clinicSettingsAdmin.groupClinic': 'Clinic',
+  'clinicSettingsAdmin.groupSystem': 'System',
+  'clinicSettingsAdmin.groupMessaging': 'Notifications',
 
   'printerSettingsAdmin.title': 'Printer Settings',
   'printerSettingsAdmin.loadFailed': "Couldn't load the settings: {error}",
