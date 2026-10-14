@@ -5,16 +5,20 @@
 //
 // Built with the .NET Framework compiler that ships with Windows (C# 5):
 //   csc /target:winexe /codepage:65001 /win32icon:icon.ico /win32manifest:app.manifest
-//       /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Management.dll DentalClinic.cs
+//       /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Management.dll /r:System.Core.dll
+//       /r:System.Web.Extensions.dll /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll DentalClinic.cs
 //
 // Command line: --autostart (from the Windows Run key: start hidden in the
 // tray and start the system), --headless (no window, used by CI), --stop
-// (stop everything this folder started, then exit).
+// (stop everything this folder started, then exit), --apply-update <zip>
+// (CI: update to that package), --after-update / --rolled-back (internal,
+// see Updater).
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Management;
 using System.Net;
@@ -22,6 +26,7 @@ using System.Net.NetworkInformation;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Web.Script.Serialization;
 using System.Windows.Forms;
 using Microsoft.Win32;
 
@@ -44,10 +49,25 @@ namespace DentalClinicPanel
                 engine.StopLeftovers();
                 return 0;
             }
+            var updater = new Updater(engine);
+            int apply = Array.IndexOf(args, "--apply-update");
+            if (apply >= 0 && apply + 1 < args.Length)
+            {
+                try { updater.Apply(args[apply + 1], true); return 0; }
+                catch (Exception ex) { engine.Log("تعذّر التحديث: " + ex.Message); return 1; }
+            }
+            bool afterUpdate = args.Contains("--after-update"), rolledBack = args.Contains("--rolled-back");
             if (args.Contains("--headless"))
             {
                 engine.Start();
-                if (engine.CurrentState != State.Running) return 1;
+                bool started = engine.CurrentState == State.Running;
+                if (afterUpdate)
+                {
+                    updater.AfterUpdate(started, true);
+                    if (!started) return 1;
+                }
+                if (rolledBack && started) updater.AfterRollback();
+                if (!started) return 1;
                 Thread.Sleep(Timeout.Infinite);
                 return 0;
             }
@@ -55,6 +75,11 @@ namespace DentalClinicPanel
             bool created;
             using (var mutex = new Mutex(true, "Local\\DentalClinicPanel", out created))
             {
+                if (!created && (afterUpdate || rolledBack))
+                {
+                    // The previous panel is still closing after handing over.
+                    try { created = mutex.WaitOne(60000); } catch (AbandonedMutexException) { created = true; }
+                }
                 if (!created)
                 {
                     // Already open: bring that window forward instead.
@@ -63,7 +88,7 @@ namespace DentalClinicPanel
                 }
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
-                Application.Run(new MainForm(engine, args.Contains("--autostart")));
+                Application.Run(new MainForm(engine, updater, args.Contains("--autostart"), afterUpdate, rolledBack));
                 GC.KeepAlive(mutex);
             }
             return 0;
@@ -563,6 +588,21 @@ namespace DentalClinicPanel
             return ok;
         }
 
+        public bool DatabaseUp()
+        {
+            return Run(P(@"mariadb\bin\mariadb-admin.exe"), "--user=root --host=127.0.0.1 --port=" + DbPort + " ping", Root, 10000).Code == 0;
+        }
+
+        public string LatestBackup()
+        {
+            try
+            {
+                var f = new DirectoryInfo(BackupDir).GetFiles("*.zip").OrderByDescending(x => x.LastWriteTimeUtc).FirstOrDefault();
+                return f == null ? null : f.FullName;
+            }
+            catch { return null; }
+        }
+
         // Puts a backup back; the current data is saved first by the command.
         public bool RestoreBackup(string file, out string message)
         {
@@ -791,6 +831,420 @@ namespace DentalClinicPanel
         public string SetupUrl { get { return "http://" + ServerName + (HttpPort == 80 ? "" : ":" + HttpPort) + "/setup"; } }
     }
 
+    // In-app updates (2026-10-14, by request), like Telegram Desktop: the
+    // panel looks for a newer offline build on GitHub, downloads it in the
+    // background with a progress bar (resuming where it stopped), checks the
+    // whole file against its SHA-256, and only then offers "تحديث الآن".
+    // Updating backs the data up, stops the system, swaps the program
+    // folders while keeping data, config.txt, the certificate, app\.env and
+    // app\storage, and starts the new version. If the new version does not
+    // start, the old files come back and the data is restored from the
+    // backup taken just before.
+    class UpdateInfo
+    {
+        public int Build;
+        public string Url, Sha256;
+        public long Size;
+    }
+
+    enum UpdateState { Idle, Checking, UpToDate, Downloading, Paused, Ready, Applying, Error }
+
+    class Updater
+    {
+        const string ReleasesApi = "https://api.github.com/repos/rayan23923-cell/dental-laravel/releases?per_page=30";
+        const string AssetName = "DentalClinicOffline-windows.zip";
+        const string TagPrefix = "offline-build-";
+        // Never replaced by an update: the data and this computer's settings.
+        static readonly string[] KeepRoot = { "data", "config.txt", "caddy-data", "Caddyfile", "Corefile", "lan-ip.txt", "updates", "panel.ini" };
+        static readonly string[] KeepApp = { ".env", "storage" };
+
+        readonly Engine engine;
+        public readonly int CurrentBuild;
+        public volatile UpdateState State = UpdateState.Idle;
+        public volatile UpdateInfo Available;
+        public string Error = "";
+        public long Received, Total;
+        public double Speed;
+        public volatile bool PauseRequested;
+        public event Action<UpdateInfo> BecameReady;
+        readonly AutoResetEvent wake = new AutoResetEvent(false);
+        Thread loop;
+
+        public Updater(Engine engine)
+        {
+            this.engine = engine;
+            CurrentBuild = ReadBuild(engine.P("version.txt"));
+        }
+
+        string Dir { get { return engine.P("updates"); } }
+        string RollbackDir { get { return Path.Combine(Dir, "rollback"); } }
+        string ZipPath(UpdateInfo info) { return Path.Combine(Dir, TagPrefix + info.Build + ".zip"); }
+
+        static int ReadBuild(string file)
+        {
+            int n;
+            try { if (File.Exists(file) && int.TryParse(File.ReadAllText(file).Trim(), out n)) return n; } catch { }
+            return 0;
+        }
+
+        // Checks now and then every 3 hours; downloads by itself.
+        public void StartBackground()
+        {
+            if (loop != null) return;
+            loop = new Thread(() =>
+            {
+                wake.WaitOne(15000);
+                while (true)
+                {
+                    TimeSpan next = TimeSpan.FromHours(3);
+                    try
+                    {
+                        if (State != UpdateState.Applying && !PauseRequested) CheckAndDownload();
+                    }
+                    catch (Exception ex)
+                    {
+                        Error = ex.Message;
+                        State = PauseRequested ? UpdateState.Paused : UpdateState.Error;
+                        if (!PauseRequested) next = TimeSpan.FromMinutes(10);
+                    }
+                    wake.WaitOne(next);
+                }
+            });
+            loop.IsBackground = true;
+            loop.Start();
+        }
+
+        public void CheckNow() { PauseRequested = false; wake.Set(); }
+        public void Pause() { PauseRequested = true; }
+
+        void CheckAndDownload()
+        {
+            if (State == UpdateState.Ready) return;
+            State = UpdateState.Checking;
+            Error = "";
+            var info = Check();
+            if (info == null) { State = UpdateState.UpToDate; return; }
+            Available = info;
+            Download(info);
+            State = UpdateState.Ready;
+            var h = BecameReady;
+            if (h != null) h(info);
+        }
+
+        UpdateInfo Check()
+        {
+            ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072; // TLS 1.2
+            var req = (HttpWebRequest)WebRequest.Create(ReleasesApi);
+            req.UserAgent = "DentalClinicPanel";
+            req.Accept = "application/vnd.github+json";
+            req.Timeout = 30000;
+            string json;
+            using (var resp = req.GetResponse())
+            using (var sr = new StreamReader(resp.GetResponseStream())) json = sr.ReadToEnd();
+            var releases = new JavaScriptSerializer { MaxJsonLength = int.MaxValue }.DeserializeObject(json) as object[];
+            UpdateInfo best = null;
+            if (releases == null) return null;
+            foreach (var o in releases)
+            {
+                var r = o as Dictionary<string, object>;
+                if (r == null) continue;
+                var tag = r.ContainsKey("tag_name") ? r["tag_name"] as string : null;
+                int n;
+                if (tag == null || !tag.StartsWith(TagPrefix) || !int.TryParse(tag.Substring(TagPrefix.Length), out n)) continue;
+                if (r.ContainsKey("draft") && true.Equals(r["draft"])) continue;
+                if (n <= CurrentBuild || (best != null && n <= best.Build)) continue;
+                var assets = r.ContainsKey("assets") ? r["assets"] as object[] : null;
+                if (assets == null) continue;
+                foreach (var ao in assets)
+                {
+                    var a = ao as Dictionary<string, object>;
+                    if (a == null || (a["name"] as string) != AssetName) continue;
+                    string digest = a.ContainsKey("digest") ? a["digest"] as string : null;
+                    best = new UpdateInfo
+                    {
+                        Build = n,
+                        Url = (string)a["browser_download_url"],
+                        Size = Convert.ToInt64(a["size"]),
+                        Sha256 = digest != null && digest.StartsWith("sha256:") ? digest.Substring(7).ToLowerInvariant() : null,
+                    };
+                }
+            }
+            return best;
+        }
+
+        // Resumable download into updates\, kept as .part until it is whole
+        // and its SHA-256 matches.
+        void Download(UpdateInfo info)
+        {
+            Directory.CreateDirectory(Dir);
+            string done = ZipPath(info);
+            Total = info.Size;
+            if (File.Exists(done) && new FileInfo(done).Length == info.Size) { Received = info.Size; return; }
+            foreach (var old in Directory.GetFiles(Dir, TagPrefix + "*"))
+                if (!Path.GetFileName(old).StartsWith(TagPrefix + info.Build + ".")) TryDelete(old);
+
+            long free = new DriveInfo(Path.GetPathRoot(engine.Root)).AvailableFreeSpace;
+            if (free < info.Size * 4 + 500L * 1024 * 1024)
+                throw new Exception("لا توجد مساحة كافية على القرص للتحديث (يحتاج " + Mb(info.Size * 4) + " م.ب تقريبًا).");
+
+            string part = done + ".part";
+            long have = File.Exists(part) ? new FileInfo(part).Length : 0;
+            if (have > info.Size) { TryDelete(part); have = 0; }
+            if (have < info.Size)
+            {
+                State = UpdateState.Downloading;
+                var req = (HttpWebRequest)WebRequest.Create(info.Url);
+                req.UserAgent = "DentalClinicPanel";
+                req.Timeout = 30000;
+                req.ReadWriteTimeout = 60000;
+                if (have > 0) req.AddRange(have);
+                using (var resp = (HttpWebResponse)req.GetResponse())
+                {
+                    bool resumed = have > 0 && resp.StatusCode == HttpStatusCode.PartialContent;
+                    if (!resumed) have = 0;
+                    Received = have;
+                    using (var input = resp.GetResponseStream())
+                    using (var output = new FileStream(part, resumed ? FileMode.Append : FileMode.Create, FileAccess.Write))
+                    {
+                        var buf = new byte[81920];
+                        var sw = Stopwatch.StartNew();
+                        long mark = Received;
+                        int n;
+                        while ((n = input.Read(buf, 0, buf.Length)) > 0)
+                        {
+                            if (PauseRequested) { State = UpdateState.Paused; throw new Exception("أُوقف التنزيل مؤقتًا."); }
+                            output.Write(buf, 0, n);
+                            Received += n;
+                            if (sw.ElapsedMilliseconds >= 1000)
+                            {
+                                Speed = (Received - mark) * 1000.0 / sw.ElapsedMilliseconds;
+                                mark = Received;
+                                sw.Restart();
+                            }
+                        }
+                    }
+                }
+            }
+            if (new FileInfo(part).Length != info.Size)
+                throw new Exception("انقطع التنزيل قبل اكتماله، سيُستكمل تلقائيًا.");
+            if (info.Sha256 != null && Sha256Of(part) != info.Sha256)
+            {
+                TryDelete(part);
+                throw new Exception("الملف المنزّل تالف، سيُعاد تنزيله.");
+            }
+            TryDelete(done);
+            File.Move(part, done);
+            engine.Log("نُزّل التحديث إلى النسخة " + info.Build + " بالكامل وتم التحقق منه.");
+        }
+
+        static string Sha256Of(string file)
+        {
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+            using (var fs = File.OpenRead(file))
+                return BitConverter.ToString(sha.ComputeHash(fs)).Replace("-", "").ToLowerInvariant();
+        }
+
+        public static string Mb(long bytes) { return (bytes / 1048576.0).ToString("0.0"); }
+
+        // Swaps in the downloaded version and starts it; the caller exits.
+        public void Apply(bool headless) { Apply(ZipPath(Available), headless); }
+
+        public void Apply(string zip, bool headless)
+        {
+            var previous = State;
+            State = UpdateState.Applying;
+            try
+            {
+                engine.Log("تجهيز التحديث...");
+                string staging = Path.Combine(Dir, "staging");
+                DeleteDir(staging);
+                ZipFile.ExtractToDirectory(zip, staging);
+                string src = Path.Combine(staging, "DentalClinicOffline");
+                if (!Directory.Exists(src)) src = staging;
+                if (!File.Exists(Path.Combine(src, "DentalClinic.exe")) || !File.Exists(Path.Combine(src, @"app\artisan")))
+                    throw new Exception("ملف التحديث لا يحتوي على النظام.");
+
+                string backup = null;
+                if (engine.DatabaseUp())
+                {
+                    engine.Log("نسخة احتياطية قبل التحديث...");
+                    string msg;
+                    if (!engine.BackupNow(out msg)) throw new Exception("تعذّرت النسخة الاحتياطية، فلم يُحدَّث النظام. " + msg);
+                    backup = engine.LatestBackup();
+                }
+
+                engine.Log("إيقاف النظام للتحديث...");
+                engine.Stop();
+                engine.StopLeftovers();
+
+                DeleteDir(RollbackDir);
+                Directory.CreateDirectory(RollbackDir);
+                var moved = new List<string>();
+                try
+                {
+                    foreach (var item in Directory.GetFileSystemEntries(src))
+                    {
+                        string name = Path.GetFileName(item);
+                        if (KeepRoot.Contains(name, StringComparer.OrdinalIgnoreCase)) continue;
+                        string target = engine.P(name);
+                        moved.Add(name);
+                        if (Exists(target)) Move(target, Path.Combine(RollbackDir, name));
+                        Move(item, target);
+                    }
+                    string oldApp = Path.Combine(RollbackDir, "app");
+                    foreach (var keep in KeepApp)
+                    {
+                        string from = Path.Combine(oldApp, keep), to = engine.P(@"app\" + keep);
+                        if (!Exists(from)) continue;
+                        if (Exists(to)) DeleteAny(to);
+                        Move(from, to);
+                    }
+                    File.WriteAllLines(Path.Combine(RollbackDir, "items.txt"), moved);
+                    if (backup != null) File.WriteAllText(Path.Combine(RollbackDir, "backup.txt"), backup);
+                }
+                catch (Exception ex)
+                {
+                    engine.Log("تعذّر استبدال الملفات، إرجاع النسخة السابقة: " + ex.Message);
+                    PutBack(moved);
+                    throw;
+                }
+                DeleteDir(staging);
+                engine.Log("استُبدلت الملفات، تشغيل النسخة الجديدة...");
+                Launch(headless ? "--headless --after-update" : "--after-update");
+            }
+            catch
+            {
+                State = previous;
+                throw;
+            }
+        }
+
+        // In the new version, after its first start.
+        public void AfterUpdate(bool started, bool headless)
+        {
+            if (started)
+            {
+                engine.Log("تم التحديث إلى النسخة " + CurrentBuild + ".");
+                RemoveJunctions(RollbackDir);
+                DeleteDir(RollbackDir);
+                foreach (var f in Directory.Exists(Dir) ? Directory.GetFiles(Dir, TagPrefix + "*") : new string[0]) TryDelete(f);
+                return;
+            }
+            engine.Log("النسخة الجديدة لم تعمل، الرجوع إلى النسخة السابقة...");
+            engine.Stop();
+            engine.StopLeftovers();
+            string items = Path.Combine(RollbackDir, "items.txt");
+            PutBack(File.Exists(items) ? File.ReadAllLines(items).ToList() : new List<string>());
+            try { File.WriteAllText(Path.Combine(Dir, "failed-build.txt"), CurrentBuild.ToString()); } catch { }
+            Launch(headless ? "--headless --rolled-back" : "--rolled-back");
+        }
+
+        // In the old version again: the data goes back to how it was.
+        public void AfterRollback()
+        {
+            string note = Path.Combine(RollbackDir, "backup.txt");
+            if (File.Exists(note))
+            {
+                string backup = File.ReadAllText(note).Trim();
+                if (File.Exists(backup))
+                {
+                    string msg;
+                    engine.RestoreBackup(backup, out msg);
+                }
+            }
+            engine.Log("تعذّر التحديث، فرجع النظام للنسخة السابقة كما كان.");
+            RemoveJunctions(RollbackDir);
+            DeleteDir(RollbackDir);
+            string failed = Path.Combine(Dir, "failed");
+            RemoveJunctions(failed);
+            try { DeleteDir(failed); } catch { }
+        }
+
+        public int FailedBuild { get { return ReadBuild(Path.Combine(Dir, "failed-build.txt")); } }
+
+        void PutBack(List<string> moved)
+        {
+            string failed = Path.Combine(Dir, "failed");
+            RemoveJunctions(failed);
+            DeleteDir(failed);
+            Directory.CreateDirectory(failed);
+            string oldApp = Path.Combine(RollbackDir, "app");
+            if (Directory.Exists(oldApp))
+                foreach (var keep in KeepApp)
+                {
+                    string from = engine.P(@"app\" + keep), to = Path.Combine(oldApp, keep);
+                    if (Exists(from) && !Exists(to)) Move(from, to);
+                }
+            foreach (var name in moved)
+            {
+                string current = engine.P(name), saved = Path.Combine(RollbackDir, name);
+                if (!Exists(saved)) continue;
+                if (Exists(current)) Move(current, Path.Combine(failed, name));
+                Move(saved, current);
+            }
+        }
+
+        void Launch(string args)
+        {
+            var si = new ProcessStartInfo(engine.P("DentalClinic.exe"), args);
+            si.UseShellExecute = false;
+            si.WorkingDirectory = engine.Root;
+            Process.Start(si);
+        }
+
+        static bool Exists(string path) { return File.Exists(path) || Directory.Exists(path); }
+
+        static void Move(string from, string to)
+        {
+            for (int i = 0; ; i++)
+            {
+                try
+                {
+                    if (Directory.Exists(from)) Directory.Move(from, to); else File.Move(from, to);
+                    return;
+                }
+                catch (IOException)
+                {
+                    // A file can stay locked for a moment after its process exits.
+                    if (i >= 20) throw;
+                    Thread.Sleep(500);
+                }
+            }
+        }
+
+        static void DeleteAny(string path)
+        {
+            if (Directory.Exists(path)) DeleteDir(path); else TryDelete(path);
+        }
+
+        static void TryDelete(string file)
+        {
+            try { if (File.Exists(file)) { File.SetAttributes(file, FileAttributes.Normal); File.Delete(file); } } catch { }
+        }
+
+        // The storage link (app\public\storage) is a junction: remove the link
+        // itself so deleting an old copy can never reach the live uploads.
+        static void RemoveJunctions(string dir)
+        {
+            string link = Path.Combine(dir, @"app\public\storage");
+            try
+            {
+                if (Directory.Exists(link) && (new DirectoryInfo(link).Attributes & FileAttributes.ReparsePoint) != 0) Directory.Delete(link, false);
+            }
+            catch { }
+        }
+
+        static void DeleteDir(string dir)
+        {
+            var di = new DirectoryInfo(dir);
+            if (!di.Exists) return;
+            if ((di.Attributes & FileAttributes.ReparsePoint) != 0) { di.Delete(false); return; }
+            foreach (var f in di.GetFiles()) { f.Attributes = FileAttributes.Normal; f.Delete(); }
+            foreach (var d in di.GetDirectories()) DeleteDir(d.FullName);
+            di.Delete(false);
+        }
+    }
+
     // Small key=value settings file next to the panel.
     class Settings
     {
@@ -855,6 +1309,7 @@ namespace DentalClinicPanel
         static readonly Color Gray = Color.FromArgb(107, 114, 128);
 
         readonly Engine engine;
+        readonly Updater updater;
         readonly Settings settings;
         bool startHidden;
         bool exiting;
@@ -872,11 +1327,19 @@ namespace DentalClinicPanel
         CheckBox bootBox, servicesBox;
         NotifyIcon tray;
         ToolStripMenuItem trayToggle;
-        System.Windows.Forms.Timer uiTimer;
+        System.Windows.Forms.Timer uiTimer, updateTimer;
+        Label updateText;
+        ProgressBar updateBar;
+        Button updateBtn;
+        bool updateBusy;
+        readonly bool afterUpdate, rolledBack;
 
-        public MainForm(Engine engine, bool autostart)
+        public MainForm(Engine engine, Updater updater, bool autostart, bool afterUpdate, bool rolledBack)
         {
             this.engine = engine;
+            this.updater = updater;
+            this.afterUpdate = afterUpdate;
+            this.rolledBack = rolledBack;
             settings = new Settings(engine.Root);
             startHidden = autostart;
 
@@ -911,6 +1374,20 @@ namespace DentalClinicPanel
             uiTimer.Tick += (s, e) => RefreshUi();
             uiTimer.Start();
 
+            // The download progress moves faster than the rest of the panel.
+            updateTimer = new System.Windows.Forms.Timer { Interval = 300 };
+            updateTimer.Tick += (s, e) => RefreshUpdate();
+            updateTimer.Start();
+            updater.BecameReady += info =>
+            {
+                try
+                {
+                    BeginInvoke(new Action(() => tray.ShowBalloonTip(8000, "عيادة الأسنان",
+                        "نُزّل تحديث جديد (النسخة " + info.Build + ") بالكامل. افتح اللوحة واضغط \"تحديث الآن\".", ToolTipIcon.Info)));
+                }
+                catch { }
+            };
+
             this.autostart = autostart;
             Load += (s, e) => Init();
         }
@@ -923,8 +1400,27 @@ namespace DentalClinicPanel
             if (initialized) return;
             initialized = true;
             RefreshUi();
-            if (autostart || settings.AutoStartServices) StartSystem();
+            RefreshUpdate();
+            if (afterUpdate)
+            {
+                // First start of a new version: keep it, or go back to the old one.
+                StartSystem(started =>
+                {
+                    updater.AfterUpdate(started, false);
+                    if (!started) { exiting = true; try { BeginInvoke(new Action(() => { tray.Visible = false; Application.Exit(); })); } catch { } }
+                });
+            }
+            else if (rolledBack)
+            {
+                StartSystem(started =>
+                {
+                    if (started) updater.AfterRollback();
+                    try { BeginInvoke(new Action(() => Notify("تعذّر تشغيل النسخة الجديدة، فرجع النظام تلقائيًا للنسخة السابقة وبياناتها كما كانت.", false))); } catch { }
+                });
+            }
+            else if (autostart || settings.AutoStartServices) StartSystem();
             CheckFirewallAsync();
+            updater.StartBackground();
         }
 
         protected override void SetVisibleCore(bool value)
@@ -1061,6 +1557,22 @@ namespace DentalClinicPanel
             foreach (var b in new[] { backupBtn, restoreBtn, backupDirBtn }) tools3.Controls.Add(b);
             AddRow(grid, tools3, SizeType.AutoSize, 0);
 
+            // Updates (2026-10-14): downloaded in the background, applied on request.
+            var upd = new GroupBox { Text = "التحديثات", Dock = DockStyle.Fill, Margin = new Padding(12, 0, 12, 6), Padding = new Padding(10, 4, 10, 6), AutoSize = true };
+            var updGrid = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, AutoSize = true };
+            updGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            updGrid.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            updateText = new Label { Text = "النسخة الحالية " + updater.CurrentBuild, AutoSize = true, Margin = new Padding(3, 6, 3, 2), MaximumSize = new Size(520, 0) };
+            updateBar = new ProgressBar { Dock = DockStyle.Fill, Height = 14, Minimum = 0, Maximum = 1000, Margin = new Padding(3, 2, 3, 4), Visible = false, RightToLeftLayout = true };
+            updateBtn = MakeButton("تحقق الآن", Gray, 0);
+            updateBtn.Click += (s, e) => UpdateAction();
+            updGrid.Controls.Add(updateText, 0, 0);
+            updGrid.Controls.Add(updateBtn, 1, 0);
+            updGrid.Controls.Add(updateBar, 0, 1);
+            updGrid.SetColumnSpan(updateBar, 2);
+            upd.Controls.Add(updGrid);
+            AddRow(grid, upd, SizeType.AutoSize, 0);
+
             // Event log
             logBox = new TextBox
             {
@@ -1139,12 +1651,15 @@ namespace DentalClinicPanel
             logBox.AppendText(line + Environment.NewLine);
         }
 
-        void StartSystem()
+        void StartSystem() { StartSystem(null); }
+
+        void StartSystem(Action<bool> done)
         {
             if (engine.CurrentState == State.Starting || engine.CurrentState == State.Stopping) return;
             ThreadPool.QueueUserWorkItem(_ =>
             {
                 engine.Start();
+                if (done != null) done(engine.CurrentState == State.Running);
                 CheckFirewallAsync();
                 if (engine.CurrentState == State.Error && IsHandleCreated)
                 {
@@ -1201,6 +1716,113 @@ namespace DentalClinicPanel
                 backupBusy = false;
                 try { BeginInvoke(new Action(() => Notify(msg, ok))); } catch { }
             });
+        }
+
+        void RefreshUpdate()
+        {
+            var st = updater.State;
+            var info = updater.Available;
+            string text, btn = null;
+            Color btnColor = Gray;
+            int progress = -1;
+            switch (st)
+            {
+                case UpdateState.Checking:
+                    text = "جارٍ التحقق من وجود تحديث...";
+                    break;
+                case UpdateState.Downloading:
+                case UpdateState.Paused:
+                    long total = Math.Max(1, updater.Total), got = Math.Min(updater.Received, total);
+                    progress = (int)(got * 1000 / total);
+                    text = "تحديث جديد (النسخة " + (info != null ? info.Build : 0) + "): " +
+                        (st == UpdateState.Paused ? "التنزيل متوقف مؤقتًا " : "جارٍ التنزيل ") + (progress / 10) + "٪، " +
+                        Updater.Mb(got) + " من " + Updater.Mb(total) + " م.ب" +
+                        (st == UpdateState.Downloading && updater.Speed > 0 ? "، " + Updater.Mb((long)updater.Speed) + " م.ب/ث" : "");
+                    btn = st == UpdateState.Paused ? "متابعة" : "إيقاف مؤقت";
+                    break;
+                case UpdateState.Ready:
+                    progress = 1000;
+                    text = "التحديث للنسخة " + info.Build + " جاهز (نُزّل بالكامل وتم التحقق منه). يتوقف النظام دقيقة أثناء التحديث وتبقى كل البيانات.";
+                    btn = "تحديث الآن";
+                    btnColor = Green;
+                    break;
+                case UpdateState.Applying:
+                    text = "جارٍ التحديث، لا تطفئ الحاسوب...";
+                    break;
+                case UpdateState.Error:
+                    text = "تعذّر التحقق من التحديثات أو تنزيلها: " + updater.Error + " (يُعاد تلقائيًا)";
+                    btn = "إعادة المحاولة";
+                    break;
+                case UpdateState.UpToDate:
+                    text = "النسخة الحالية " + updater.CurrentBuild + "، لا يوجد تحديث.";
+                    btn = "تحقق الآن";
+                    break;
+                default:
+                    text = "النسخة الحالية " + updater.CurrentBuild + ".";
+                    btn = "تحقق الآن";
+                    break;
+            }
+            if (st != UpdateState.Ready && st != UpdateState.Applying && updater.FailedBuild > 0 && updater.FailedBuild >= updater.CurrentBuild)
+                text += Environment.NewLine + "آخر تحديث (النسخة " + updater.FailedBuild + ") لم يعمل فرجع النظام للنسخة السابقة.";
+            if (updateText.Text != text) updateText.Text = text;
+            updateText.ForeColor = st == UpdateState.Error ? Red : (st == UpdateState.Ready ? Green : Color.Black);
+
+            bool marquee = st == UpdateState.Applying || st == UpdateState.Checking;
+            updateBar.Visible = marquee || progress >= 0;
+            updateBar.Style = marquee ? ProgressBarStyle.Marquee : ProgressBarStyle.Continuous;
+            if (!marquee && progress >= 0 && updateBar.Value != progress) updateBar.Value = progress;
+
+            updateBtn.Visible = btn != null && !updateBusy;
+            if (btn != null && updateBtn.Text != btn) updateBtn.Text = btn;
+            updateBtn.BackColor = btnColor;
+        }
+
+        void UpdateAction()
+        {
+            switch (updater.State)
+            {
+                case UpdateState.Downloading: updater.Pause(); break;
+                case UpdateState.Ready: ApplyUpdate(); break;
+                case UpdateState.Applying: case UpdateState.Checking: break;
+                default: updater.CheckNow(); break;
+            }
+            RefreshUpdate();
+        }
+
+        void ApplyUpdate()
+        {
+            if (updateBusy || updater.Available == null) return;
+            var r = MessageBox.Show(this,
+                "سيُحدَّث النظام إلى النسخة " + updater.Available.Build + "." + Environment.NewLine +
+                "تُحفظ نسخة احتياطية من البيانات أولًا، ثم يتوقف النظام على كل الأجهزة دقيقة أو اثنتين ويعود وحده." + Environment.NewLine +
+                "إذا لم تعمل النسخة الجديدة يرجع النظام تلقائيًا للنسخة السابقة وبياناتها." + Environment.NewLine + Environment.NewLine +
+                "هل تريد التحديث الآن؟",
+                "عيادة الأسنان", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2,
+                MessageBoxOptions.RightAlign | MessageBoxOptions.RtlReading);
+            if (r != DialogResult.Yes) return;
+            updateBusy = true;
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try
+                {
+                    updater.Apply(false);
+                    // The new version is starting; this one steps aside.
+                    try { BeginInvoke(new Action(() => { exiting = true; tray.Visible = false; Application.Exit(); })); } catch { }
+                }
+                catch (Exception ex)
+                {
+                    updateBusy = false;
+                    string msg = "لم يتم التحديث، والنظام على النسخة الحالية دون تغيير: " + ex.Message;
+                    engine.Log(msg);
+                    if (engine.CurrentState != State.Running) StartAgain();
+                    try { BeginInvoke(new Action(() => Notify(msg, false))); } catch { }
+                }
+            });
+        }
+
+        void StartAgain()
+        {
+            try { BeginInvoke(new Action(() => StartSystem())); } catch { }
         }
 
         void Notify(string msg, bool ok)
