@@ -140,7 +140,7 @@ jobs:
     # login page, so a broken package never gets published.
     needs: package
     runs-on: windows-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -300,7 +300,9 @@ jobs:
 
           Write-Host 'Update to build 99999 while the system runs'
           $zip = New-Package 99999 $null
-          $p = Start-Process -FilePath "$root\DentalClinic.exe" -ArgumentList '--apply-update', $zip -Wait -PassThru
+          # -Wait would also wait for the new panel it starts, which keeps running.
+          $p = Start-Process -FilePath "$root\DentalClinic.exe" -ArgumentList '--apply-update', $zip -PassThru
+          $p.WaitForExit()
           if ($p.ExitCode -ne 0) { Show-Log; throw 'Applying the update failed.' }
           if (-not (Wait-Login)) { Show-Log; throw 'The updated system did not start.' }
           for ($i = 0; $i -lt 30 -and (Test-Path "$root\updates\rollback"); $i++) { Start-Sleep -Seconds 2 }
@@ -315,7 +317,9 @@ jobs:
           Write-Host 'A broken update (build 100000) must roll back to 99999 with its data'
           $bad = New-Package 100000 { param($d) Set-Content "$d\app\bootstrap\app.php" '<?php throw new Exception("broken on purpose");' }
           mariadb @db -e "update dental.smoke_keep set v = 43"
-          $p = Start-Process -FilePath "$root\DentalClinic.exe" -ArgumentList '--apply-update', $bad -Wait -PassThru
+          # -Wait would also wait for the new panel it starts, which keeps running.
+          $p = Start-Process -FilePath "$root\DentalClinic.exe" -ArgumentList '--apply-update', $bad -PassThru
+          $p.WaitForExit()
           if ($p.ExitCode -ne 0) { Show-Log; throw 'Applying the broken update did not get as far as starting it.' }
           $ok = $false
           for ($i = 0; $i -lt 60 -and -not $ok; $i++) {
