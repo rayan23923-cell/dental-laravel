@@ -416,8 +416,8 @@
         "progressLink": "التقدم",
         "printCardTitle": "طباعة بطاقة الطبيب",
         "emptyList": "لا يوجد أطباء مطابقون.",
-        "deleteConfirm": "حذف الطبيب \"{name}\"؟",
-        "deleteSelectedConfirm": "حذف {n} طبيب/أطباء؟ لا يمكن التراجع.",
+        "deleteConfirm": "أرشفة الطبيب \"{name}\"؟ سيتم أرشفته (لن يُحذف نهائياً). إذا كان مرتبطاً ببيانات فلن تتم الأرشفة.",
+        "deleteSelectedConfirm": "أرشفة {n} طبيب/أطباء؟ الأطباء المرتبطون ببيانات لن تتم أرشفتهم.",
         "editTitle": "تعديل بيانات الطبيب",
         "selectEducationType": "اختر نوع الدراسة",
         "selectStage": "اختر المرحلة",
@@ -532,7 +532,7 @@
         "searchPlaceholder": "ابحث...",
         "noAvailableDoctors": "لا يوجد أطباء متاحون.",
         "addSelected": "إضافة المحدد",
-        "deleteConfirm": "حذف المجموعة \"{name}\"؟ لن يُحذف أطباؤها أو مرضاها.",
+        "deleteConfirm": "أرشفة المجموعة \"{name}\"؟ سيتم أرشفته (لن يُحذف نهائياً). إذا كان مرتبطاً ببيانات فلن تتم الأرشفة.",
         "removeSelectedConfirm": "إزالة {n} طبيب/أطباء من \"{name}\"؟"
     },
     "structureTabs": {
@@ -556,19 +556,19 @@
     "educationTypesAdmin": {
         "newNamePlaceholder": "اسم نوع التعليم الجديد",
         "emptyList": "لا توجد أنواع تعليم بعد.",
-        "deleteConfirm": "حذف \"{name}\"؟ سيؤدي هذا أيضاً لحذف الأقسام والأطباء المرتبطين (تتالي).",
+        "deleteConfirm": "أرشفة \"{name}\"؟ سيتم أرشفته (لن يُحذف نهائياً). إذا كان مرتبطاً ببيانات فلن تتم الأرشفة.",
         "editTitle": "تعديل نوع التعليم"
     },
     "stagesAdmin": {
         "newNamePlaceholder": "اسم المرحلة الجديد",
         "emptyList": "لا توجد مراحل بعد.",
-        "deleteConfirm": "حذف \"{name}\"؟",
+        "deleteConfirm": "أرشفة \"{name}\"؟ سيتم أرشفته (لن يُحذف نهائياً). إذا كان مرتبطاً ببيانات فلن تتم الأرشفة.",
         "editTitle": "تعديل المرحلة"
     },
     "departmentsAdmin": {
         "newNamePlaceholder": "اسم القسم الجديد",
         "emptyList": "لا توجد أقسام بعد.",
-        "deleteConfirm": "حذف \"{name}\"؟",
+        "deleteConfirm": "أرشفة \"{name}\"؟ سيتم أرشفته (لن يُحذف نهائياً). إذا كان مرتبطاً ببيانات فلن تتم الأرشفة.",
         "editTitle": "تعديل القسم",
         "chooseEducationType": "اختر نوع الدراسة",
         "chooseStage": "اختر المرحلة"
@@ -587,7 +587,7 @@
         "endDateLabel": "تاريخ الانتهاء",
         "activeLabel": "مفعّل",
         "setCurrentLabel": "تعيينه كعام دراسي نشط",
-        "deleteConfirm": "حذف \"{name}\"؟",
+        "deleteConfirm": "أرشفة \"{name}\"؟ سيتم أرشفته (لن يُحذف نهائياً). إذا كان مرتبطاً ببيانات فلن تتم الأرشفة.",
         "backLink": "رجوع للأعوام الدراسية",
         "doctorsStat": "الطلاب (الأطباء)",
         "requiredTasksStat": "المهام المطلوبة",
@@ -637,7 +637,7 @@
         "required": "أساسية",
         "optional": "اختيارية",
         "emptyList": "لا توجد مهام بعد.",
-        "deleteConfirm": "حذف المهمة \"{title}\"؟",
+        "deleteConfirm": "أرشفة المهمة \"{title}\"؟ سيتم أرشفته (لن يُحذف نهائياً). إذا كان مرتبطاً ببيانات فلن تتم الأرشفة.",
         "editTaskTitle": "تعديل المهمة",
         "titleLabel": "العنوان",
         "selectStage": "اختر المرحلة",
@@ -691,7 +691,7 @@
         "activeLabel": "مفعّل",
         "editTitle": "تعديل نوع النموذج السريري",
         "codeNotEditable": "الرمز: {code} (غير قابل للتعديل)",
-        "deleteConfirm": "حذف \"{name}\"؟"
+        "deleteConfirm": "أرشفة \"{name}\"؟ سيتم أرشفته (لن يُحذف نهائياً). إذا كان مرتبطاً ببيانات فلن تتم الأرشفة."
     },
     "taskProgressAdmin": {
         "title": "تقدم المهام",

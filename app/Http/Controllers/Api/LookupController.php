@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Support\LinkedRecords;
 use App\Http\Controllers\Controller;
 use App\Models\Department;
 use App\Models\EducationType;
@@ -61,6 +62,10 @@ class LookupController extends Controller
 
     public function destroyEducationType(EducationType $educationType): JsonResponse
     {
+        if ($linked = LinkedRecords::message($educationType)) {
+            return response()->json(['message' => $linked, 'linked' => LinkedRecords::for($educationType)], 422);
+        }
+
         $educationType->delete();
 
         return response()->json(null, 204);
@@ -99,6 +104,10 @@ class LookupController extends Controller
 
     public function destroyStage(Stage $stage): JsonResponse
     {
+        if ($linked = LinkedRecords::message($stage)) {
+            return response()->json(['message' => $linked, 'linked' => LinkedRecords::for($stage)], 422);
+        }
+
         $stage->delete();
 
         return response()->json(null, 204);
@@ -144,6 +153,10 @@ class LookupController extends Controller
 
     public function destroyDepartment(Department $department): JsonResponse
     {
+        if ($linked = LinkedRecords::message($department)) {
+            return response()->json(['message' => $linked, 'linked' => LinkedRecords::for($department)], 422);
+        }
+
         $department->delete();
 
         return response()->json(null, 204);

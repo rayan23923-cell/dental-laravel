@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\LinkedRecords;
 use App\Models\AcademicSession;
 use App\Models\Doctor;
 use App\Models\EducationType;
@@ -83,14 +84,21 @@ class DoctorController extends Controller
 
         $doctors = Doctor::whereIn('id', $validated['ids'])->get();
 
+        // Linked doctors are skipped and named; the rest are archived.
+        $blocked = [];
+        $archived = 0;
         foreach ($doctors as $doctor) {
-            if ($doctor->profile_image) {
-                Storage::disk('public')->delete($doctor->profile_image);
+            if ($linked = LinkedRecords::message($doctor)) {
+                $blocked[] = "{$doctor->name}: {$linked}";
+                continue;
             }
             $doctor->delete();
+            $archived++;
         }
 
-        return back()->with('success', $doctors->count().' doctor(s) deleted.');
+        $redirect = back()->with('success', "تمت أرشفة {$archived} طبيب.");
+
+        return $blocked ? $redirect->with('error', implode("\n", $blocked)) : $redirect;
     }
 
     public function create(): Response
@@ -163,13 +171,14 @@ class DoctorController extends Controller
 
     public function destroy(Doctor $doctor): RedirectResponse
     {
-        if ($doctor->profile_image) {
-            Storage::disk('public')->delete($doctor->profile_image);
+        if ($linked = LinkedRecords::message($doctor)) {
+            return back()->with('error', $linked);
         }
 
+        // Archived, so the photo stays with the record.
         $doctor->delete();
 
-        return redirect()->route('doctors.index')->with('success', 'Doctor deleted successfully.');
+        return redirect()->route('doctors.index')->with('success', 'تمت أرشفة الطبيب.');
     }
 
     private function validateDoctor(Request $request, ?int $doctorId = null): array

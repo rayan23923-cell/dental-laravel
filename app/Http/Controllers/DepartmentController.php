@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\LinkedRecords;
 use App\Models\Department;
 use App\Models\EducationType;
 use App\Models\Stage;
@@ -71,8 +72,12 @@ class DepartmentController extends Controller
 
     public function destroy(Department $department): RedirectResponse
     {
+        if ($linked = LinkedRecords::message($department)) {
+            return back()->with('error', $linked);
+        }
+
         $department->delete();
 
-        return back()->with('success', 'Department deleted.');
+        return back()->with('success', 'تمت أرشفة القسم.');
     }
 }

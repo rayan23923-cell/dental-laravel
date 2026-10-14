@@ -416,8 +416,8 @@
         "progressLink": "Progress",
         "printCardTitle": "Print Doctor's Card",
         "emptyList": "No matching doctors.",
-        "deleteConfirm": "Delete doctor \"{name}\"?",
-        "deleteSelectedConfirm": "Delete {n} doctor(s)? This cannot be undone.",
+        "deleteConfirm": "Archive doctor \"{name}\"? It will be archived, not erased. Anything still linked to data cannot be archived.",
+        "deleteSelectedConfirm": "Archive {n} doctor(s)? Doctors linked to data will be skipped.",
         "editTitle": "Edit Doctor's Info",
         "selectEducationType": "Select an education type",
         "selectStage": "Select a stage",
@@ -532,7 +532,7 @@
         "searchPlaceholder": "Search...",
         "noAvailableDoctors": "No doctors available.",
         "addSelected": "Add Selected",
-        "deleteConfirm": "Delete group \"{name}\"? Its doctors and patients will not be deleted.",
+        "deleteConfirm": "Archive group \"{name}\"? It will be archived, not erased. Anything still linked to data cannot be archived.",
         "removeSelectedConfirm": "Remove {n} doctor(s) from \"{name}\"?"
     },
     "structureTabs": {
@@ -556,19 +556,19 @@
     "educationTypesAdmin": {
         "newNamePlaceholder": "New education type name",
         "emptyList": "No education types yet.",
-        "deleteConfirm": "Delete \"{name}\"? This will also delete related departments and doctors (cascade).",
+        "deleteConfirm": "Archive \"{name}\"? It will be archived, not erased. Anything still linked to data cannot be archived.",
         "editTitle": "Edit Education Type"
     },
     "stagesAdmin": {
         "newNamePlaceholder": "New stage name",
         "emptyList": "No stages yet.",
-        "deleteConfirm": "Delete \"{name}\"?",
+        "deleteConfirm": "Archive \"{name}\"? It will be archived, not erased. Anything still linked to data cannot be archived.",
         "editTitle": "Edit Stage"
     },
     "departmentsAdmin": {
         "newNamePlaceholder": "New department name",
         "emptyList": "No departments yet.",
-        "deleteConfirm": "Delete \"{name}\"?",
+        "deleteConfirm": "Archive \"{name}\"? It will be archived, not erased. Anything still linked to data cannot be archived.",
         "editTitle": "Edit Department",
         "chooseEducationType": "Choose education type",
         "chooseStage": "Choose stage"
@@ -587,7 +587,7 @@
         "endDateLabel": "End Date",
         "activeLabel": "Active",
         "setCurrentLabel": "Set as the active academic session",
-        "deleteConfirm": "Delete \"{name}\"?",
+        "deleteConfirm": "Archive \"{name}\"? It will be archived, not erased. Anything still linked to data cannot be archived.",
         "backLink": "Back to academic sessions",
         "doctorsStat": "Students (Doctors)",
         "requiredTasksStat": "Required Tasks",
@@ -637,7 +637,7 @@
         "required": "Required",
         "optional": "Optional",
         "emptyList": "No tasks yet.",
-        "deleteConfirm": "Delete task \"{title}\"?",
+        "deleteConfirm": "Archive task \"{title}\"? It will be archived, not erased. Anything still linked to data cannot be archived.",
         "editTaskTitle": "Edit Task",
         "titleLabel": "Title",
         "selectStage": "Select a stage",
@@ -691,7 +691,7 @@
         "activeLabel": "Active",
         "editTitle": "Edit Case Sheet Type",
         "codeNotEditable": "Code: {code} (not editable)",
-        "deleteConfirm": "Delete \"{name}\"?"
+        "deleteConfirm": "Archive \"{name}\"? It will be archived, not erased. Anything still linked to data cannot be archived."
     },
     "taskProgressAdmin": {
         "title": "Task Progress",

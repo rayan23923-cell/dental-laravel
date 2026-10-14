@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Services\DefaultGroups;
 use App\Traits\LogsActivity;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -13,6 +14,9 @@ use Laravel\Sanctum\HasApiTokens;
 
 class Doctor extends Authenticatable
 {
+    // Archived instead of deleted (2026-10-14, by request); see App\Support\LinkedRecords.
+    use SoftDeletes;
+
     // Notifiable brings routeNotificationFor()/notify(), needed both for
     // password-reset links and the mail notifications added alongside them.
     // Illuminate\Foundation\Auth\User already supplies CanResetPassword.

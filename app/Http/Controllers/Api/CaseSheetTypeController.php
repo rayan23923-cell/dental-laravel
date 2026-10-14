@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Support\LinkedRecords;
 use App\Http\Controllers\Controller;
 use App\Models\CaseSheetType;
 use Illuminate\Http\JsonResponse;
@@ -65,9 +66,8 @@ class CaseSheetTypeController extends Controller
 
     public function destroy(CaseSheetType $caseSheetType): JsonResponse
     {
-        $taskCount = $caseSheetType->tasks()->count();
-        if ($taskCount > 0) {
-            return response()->json(['message' => "Can't delete this type — it's used by {$taskCount} task(s)."], 422);
+        if ($linked = LinkedRecords::message($caseSheetType)) {
+            return response()->json(['message' => $linked, 'linked' => LinkedRecords::for($caseSheetType)], 422);
         }
 
         $caseSheetType->delete();

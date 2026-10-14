@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\LinkedRecords;
 use App\Models\EducationType;
 use App\Services\ScopeHelper;
 use Illuminate\Http\RedirectResponse;
@@ -47,8 +48,12 @@ class EducationTypeController extends Controller
 
     public function destroy(EducationType $educationType): RedirectResponse
     {
+        if ($linked = LinkedRecords::message($educationType)) {
+            return back()->with('error', $linked);
+        }
+
         $educationType->delete();
 
-        return back()->with('success', 'Education type deleted.');
+        return back()->with('success', 'تمت أرشفة نوع الدراسة.');
     }
 }
