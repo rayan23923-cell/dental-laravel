@@ -1231,6 +1231,13 @@
         "stepsHint": "A case's points are its grades on these case-sheet steps, each up to its max.",
         "stepMax": "Max grade",
         "fromSheet": "Points come from this case's case-sheet step grades.",
-        "stepsCount": "{n} steps"
+        "stepsCount": "{n} steps",
+        "graded": "Supervisor grades each item (up to its points)",
+        "checklist": "Checklist",
+        "addCheck": "Add item",
+        "checkLabel": "Item",
+        "checklistHint": "All items must be ticked to complete a case.",
+        "checklistDone": "Completed parts",
+        "gradeItems": "Item grades"
     }
 }

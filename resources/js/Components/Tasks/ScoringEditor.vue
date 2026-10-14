@@ -13,6 +13,7 @@ const scoring = defineModel({ type: Object, required: true });
 const input = 'rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500';
 const addOption = () => scoring.value.options.push({ label: '', points: 0 });
 const addModifier = () => scoring.value.modifiers.push({ label: '', factor: 1 });
+const addCheck = () => (scoring.value.checklist ??= []).push({ label: '' });
 </script>
 
 <template>
@@ -61,6 +62,26 @@ const addModifier = () => scoring.value.modifiers.push({ label: '', factor: 1 })
                 </button>
             </div>
             <p v-if="!scoring.options.length" class="text-xs text-gray-400">{{ t('taskScoring.noOptions') }}</p>
+            <label v-if="scoring.options.length" class="mt-1 flex items-center gap-2 text-xs text-gray-600">
+                <input v-model="scoring.graded" type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                {{ t('taskScoring.graded') }}
+            </label>
+        </div>
+
+        <div>
+            <div class="mb-1 flex items-center justify-between text-xs font-medium text-gray-700">
+                {{ t('taskScoring.checklist') }}
+                <button type="button" class="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800" @click="addCheck">
+                    <Icon name="add" size="text-[16px]" /> {{ t('taskScoring.addCheck') }}
+                </button>
+            </div>
+            <div v-for="(c, i) in scoring.checklist ?? []" :key="i" class="mb-1 flex items-center gap-2">
+                <input v-model="c.label" type="text" :placeholder="t('taskScoring.checkLabel')" class="min-w-0 flex-1" :class="input" required />
+                <button type="button" class="shrink-0 text-gray-400 hover:text-red-600" :title="t('common.delete')" @click="scoring.checklist.splice(i, 1)">
+                    <Icon name="close" size="text-[18px]" />
+                </button>
+            </div>
+            <p v-if="scoring.checklist?.length" class="text-xs text-gray-500">{{ t('taskScoring.checklistHint') }}</p>
         </div>
 
         <div>
