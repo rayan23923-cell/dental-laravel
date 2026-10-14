@@ -1225,6 +1225,12 @@
         "passed": "Passed",
         "notPassed": "Not passed yet",
         "passAt": "pass at {n}%",
-        "needsWork": "Complete it from task progress with the work done"
+        "needsWork": "Complete it from task progress with the work done",
+        "rowSheet": "Case sheet",
+        "steps": "Case-sheet steps and grades",
+        "stepsHint": "A case's points are its grades on these case-sheet steps, each up to its max.",
+        "stepMax": "Max grade",
+        "fromSheet": "Points come from this case's case-sheet step grades.",
+        "stepsCount": "{n} steps"
     }
 }

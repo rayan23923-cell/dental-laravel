@@ -82,4 +82,45 @@ class TaskScoringTest extends TestCase
         $this->assertFalse($score['passed']);
         $this->assertEquals(30, $score['pass_percent']);
     }
+
+    public function test_each_table_row_can_use_its_own_case_sheet(): void
+    {
+        EducationType::create(['id' => 1, 'name' => 'صباحي']);
+        Stage::create(['id' => 1, 'name' => 'الرابعة', 'education_type_id' => 1]);
+        $department = Department::create(['name' => 'صناعة الأسنان', 'stage_id' => 1, 'education_type_id' => 1]);
+        foreach (['prosthodontics', 'partial_denture', 'complete_denture'] as $code) {
+            DB::table('case_sheet_types')->insertOrIgnore(['type_code' => $code, 'name_ar' => $code, 'name_en' => $code, 'is_active' => 1]);
+        }
+        $ids = DB::table('case_sheet_types')->pluck('id', 'type_code');
+        $this->actingAs(User::factory()->create(['role' => 'super_admin']));
+
+        $template = TaskScoring::templatesByTypeId()[$ids['prosthodontics']];
+        $this->assertSame($ids['partial_denture'], $template['rows'][0]['case_sheet_type_id']);
+
+        $rows = array_map(fn ($r) => ['enabled' => str_contains($r['title'], 'الرابع')] + $r, $template['rows']);
+        $this->post('/tasks', [
+            'department_id' => $department->id, 'case_sheet_type_id' => $ids['prosthodontics'], 'stage_id' => 1,
+            'notes' => 'متطلبات', 'grade' => 10, 'rows' => $rows,
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame(3, Task::count());
+        $this->assertEquals(
+            [$ids['partial_denture'], $ids['partial_denture'], $ids['prosthodontics']],
+            Task::orderBy('id')->pluck('case_sheet_type_id')->map(fn ($id) => (int) $id)->all()
+        );
+        // The case's points are its step grades on the case sheet, each up to its max (10).
+        $task = Task::orderBy('id')->first();
+        $this->assertCount(10, $task->scoring['steps']);
+        $doctor = Doctor::create([
+            'name' => 'د. علي', 'username' => 'ali', 'password' => 'secret', 'email' => 'a@example.com',
+            'education_type_id' => 1, 'stage_id' => 1,
+        ]);
+        $instance = TaskInstance::create(['task_id' => $task->id, 'doctor_id' => $doctor->id, 'status' => 'assigned']);
+        \App\Models\ProsthodonticsRecord::create([
+            'doctor_id' => $doctor->id, 'task_instances_id' => $instance->id,
+            'diagnosis_grade' => '9', 'stage_preliminary_grade' => '8', 'stage_trial_grade' => '15', 'stage_final_grade' => 'جيد',
+        ]);
+        $this->put(route('task-progress.complete', $instance), [])->assertSessionHasNoErrors();
+        $this->assertEqualsWithDelta(27, $instance->fresh()->points, 0.01);
+    }
 }

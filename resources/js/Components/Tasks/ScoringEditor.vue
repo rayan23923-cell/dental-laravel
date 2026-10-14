@@ -28,7 +28,7 @@ const addModifier = () => scoring.value.modifiers.push({ label: '', factor: 1 })
             </label>
             <label class="text-xs text-gray-600">
                 {{ t('taskScoring.minPoints') }}
-                <input v-model.number="scoring.min_points" type="number" min="0" step="0.5" :disabled="scoring.measure === 'count'" :class="input" class="mt-1 block w-full disabled:bg-gray-100" />
+                <input v-model.number="scoring.min_points" type="number" min="0" step="0.5" :disabled="scoring.measure === 'count' || !!scoring.steps?.length" :class="input" class="mt-1 block w-full disabled:bg-gray-100" />
             </label>
             <label class="text-xs text-gray-600">
                 {{ t('taskScoring.weight') }}
@@ -36,7 +36,17 @@ const addModifier = () => scoring.value.modifiers.push({ label: '', factor: 1 })
             </label>
         </div>
 
-        <div>
+        <div v-if="scoring.steps?.length">
+            <div class="mb-1 text-xs font-medium text-gray-700">{{ t('taskScoring.steps') }}</div>
+            <p class="mb-1 text-xs text-gray-500">{{ t('taskScoring.stepsHint') }}</p>
+            <div v-for="(st, i) in scoring.steps" :key="i" class="mb-1 flex items-center gap-2" :class="st.enabled ? '' : 'opacity-50'">
+                <input v-model="st.enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                <span class="min-w-0 flex-1 text-sm text-gray-700">{{ st.label }}</span>
+                <input v-model.number="st.max" type="number" min="0" step="0.5" class="w-24 shrink-0" :class="input" :disabled="!st.enabled" :title="t('taskScoring.stepMax')" />
+            </div>
+        </div>
+
+        <div v-if="!scoring.steps?.length">
             <div class="mb-1 flex items-center justify-between text-xs font-medium text-gray-700">
                 {{ t('taskScoring.options') }}
                 <button type="button" class="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800" @click="addOption">

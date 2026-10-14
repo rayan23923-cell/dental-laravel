@@ -43,6 +43,48 @@ class TaskScoring
         ['label' => 'C.C (كيس شيت)', 'points' => 25],
     ];
 
+    /**
+     * Dental prosthetics (2026-10-14, by request): the fourth- and
+     * fifth-stage rows of the sheet together (the other stage's rows are
+     * switched off in the form). Each case is graded on its case sheet's
+     * steps; a row's points are those step grades, up to each step's max.
+     */
+    private static function prosthodontics(): array
+    {
+        $partial = self::steps(ProsthodonticsForm::stages(), true);
+        $complete = self::steps(CompleteDentureForm::stages(), false);
+        $row = fn ($title, $count, $sheet, $steps) => [
+            'enabled' => true,
+            'title' => $title,
+            'required_count' => $count,
+            'case_sheet' => $sheet,
+            'scoring' => ['measure' => 'both', 'min_points' => null, 'weight' => null, 'options' => [], 'modifiers' => [], 'steps' => $steps],
+        ];
+
+        return [
+            'pass_percent' => 100,
+            'rows' => [
+                $row('طقم متحرك جزئي (FEE) — الرابع', 2, 'partial_denture', $partial),
+                $row('طقم متحرك جزئي (Bounded) — الرابع', 1, 'partial_denture', $partial),
+                $row('Repair or relining — الرابع', 1, 'prosthodontics', $partial),
+                $row('طقم كامل علوي وسفلي (قطعتين) — الخامس', 1, 'complete_denture', $complete),
+                $row('طقم كامل منفرد علوي أو سفلي — الخامس', 1, 'complete_denture', $complete),
+                $row('طقم متحرك جزئي — الخامس', 1, 'partial_denture', $partial),
+                $row('طقم متحرك مرن (flexible) — الخامس', 1, 'partial_denture', $partial),
+            ],
+        ];
+    }
+
+    private static function steps(array $stages, bool $withDiagnosis): array
+    {
+        $steps = $withDiagnosis ? [['key' => 'diagnosis', 'label' => 'Diagnosis', 'max' => 10, 'enabled' => true]] : [];
+        foreach ($stages as $stage) {
+            $steps[] = ['key' => $stage['key'], 'label' => $stage['label'], 'max' => 10, 'enabled' => true];
+        }
+
+        return $steps;
+    }
+
     /** type_code => ['pass_percent' => .., 'rows' => [..]] */
     public static function templates(): array
     {
@@ -50,11 +92,11 @@ class TaskScoring
             'pediatric' => [
                 'pass_percent' => 100,
                 'rows' => [
-                    self::row('Prophylaxis', 2, 'both', 6, null, [['label' => 'Prophylaxis', 'points' => 3]]),
-                    self::row('Fluoride', 2, 'both', 4, null, [['label' => 'Fluoride', 'points' => 2]]),
-                    self::row('Fillings', 4, 'both', 50, null, self::FILLINGS),
-                    self::row('Extraction', 2, 'both', 10, null, [['label' => 'Extraction', 'points' => 5]]),
-                    self::row('Fixed pulpotomy', 1, 'both', 15, null, [['label' => 'Fixed pulpotomy', 'points' => 15]]),
+                    self::row('Prophylaxis', 2, 'both', 6, null, [['label' => 'Prophylaxis', 'points' => 3]], sheet: 'prevention'),
+                    self::row('Fluoride', 2, 'both', 4, null, [['label' => 'Fluoride', 'points' => 2]], sheet: 'prevention'),
+                    self::row('Fillings', 4, 'both', 50, null, self::FILLINGS, sheet: 'operative'),
+                    self::row('Extraction', 2, 'both', 10, null, [['label' => 'Extraction', 'points' => 5]], sheet: 'surgery'),
+                    self::row('Fixed pulpotomy', 1, 'both', 15, null, [['label' => 'Fixed pulpotomy', 'points' => 15]], sheet: 'operative'),
                 ],
             ],
             'prevention' => [
@@ -76,10 +118,13 @@ class TaskScoring
                         ['label' => 'GIC filling', 'factor' => 0.6667],
                         ['label' => 'TF filling', 'factor' => 0.5],
                         ['label' => 'Within finished case', 'factor' => 1.5],
-                    ]),
+                    ], sheet: 'operative'),
                     self::row('Finished case + report', 2, 'count', null, 5),
                 ],
             ],
+            'prosthodontics' => self::prosthodontics(),
+            'partial_denture' => self::prosthodontics(),
+            'complete_denture' => self::prosthodontics(),
         ];
     }
 
@@ -87,19 +132,29 @@ class TaskScoring
     public static function templatesByTypeId(): array
     {
         $templates = self::templates();
+        $ids = CaseSheetType::where('is_active', true)->pluck('id', 'type_code');
 
-        return CaseSheetType::whereIn('type_code', array_keys($templates))
-            ->pluck('type_code', 'id')
-            ->map(fn ($code) => $templates[$code])
+        return $ids->only(array_keys($templates))
+            ->flip()
+            ->map(fn ($code, $typeId) => [
+                ...$templates[$code],
+                // Each row's own case sheet, defaulting to the chosen type.
+                'rows' => array_map(fn ($row) => [
+                    ...collect($row)->except('case_sheet')->all(),
+                    'case_sheet_type_id' => $ids[$row['case_sheet'] ?? ''] ?? $typeId,
+                ], $templates[$code]['rows']),
+            ])
             ->all();
     }
 
-    private static function row(string $title, int $count, string $measure, ?float $minPoints, ?float $weight, array $options = [], array $modifiers = []): array
+    /** $sheet: the case-sheet type_code this row's task uses; null keeps the chosen one. */
+    private static function row(string $title, int $count, string $measure, ?float $minPoints, ?float $weight, array $options = [], array $modifiers = [], ?string $sheet = null): array
     {
         return [
             'enabled' => true,
             'title' => $title,
             'required_count' => $count,
+            'case_sheet' => $sheet,
             'scoring' => [
                 'measure' => $measure,
                 'min_points' => $minPoints,
@@ -124,6 +179,11 @@ class TaskScoring
             "$prefix.modifiers" => ['nullable', 'array', 'max:10'],
             "$prefix.modifiers.*.label" => ['required', 'string', 'max:100'],
             "$prefix.modifiers.*.factor" => ['required', 'numeric', 'min:0', 'max:10'],
+            "$prefix.steps" => ['nullable', 'array', 'max:20'],
+            "$prefix.steps.*.key" => ['required', 'string', 'max:30'],
+            "$prefix.steps.*.label" => ['required', 'string', 'max:100'],
+            "$prefix.steps.*.max" => ['required', 'numeric', 'min:0'],
+            "$prefix.steps.*.enabled" => ['boolean'],
         ];
     }
 
@@ -147,6 +207,13 @@ class TaskScoring
             'modifiers' => collect($scoring['modifiers'] ?? [])->map(fn ($m) => [
                 'label' => (string) $m['label'],
                 'factor' => (float) $m['factor'],
+            ])->values()->all(),
+            // Case-sheet steps graded on the sheet (prosthodontics).
+            'steps' => collect($scoring['steps'] ?? [])->map(fn ($st) => [
+                'key' => (string) $st['key'],
+                'label' => (string) $st['label'],
+                'max' => (float) $st['max'],
+                'enabled' => (bool) ($st['enabled'] ?? true),
             ])->values()->all(),
         ];
     }
@@ -234,7 +301,7 @@ class TaskScoring
             $cases = $done->count();
             $points = round((float) $done->sum('points'), 2);
             $required = (int) $task->required_count;
-            $minPoints = $s['min_points'] ?? null;
+            $minPoints = self::stepsMax($s) !== null ? self::stepsMax($s) * $required : ($s['min_points'] ?? null);
 
             $caseRatio = $required > 0 ? min(1, $cases / $required) : 1;
             $pointRatio = $minPoints ? min(1, $points / $minPoints) : 1;
@@ -280,6 +347,7 @@ class TaskScoring
             'rows.*.enabled' => ['boolean'],
             'rows.*.title' => ['required', 'string', 'max:255'],
             'rows.*.required_count' => ['required', 'integer', 'min:1'],
+            'rows.*.case_sheet_type_id' => ['nullable', 'exists:case_sheet_types,id'],
             ...self::rules('rows.*.scoring'),
             'pass_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ];
@@ -309,6 +377,7 @@ class TaskScoring
                 ...$base,
                 'title' => $r['title'],
                 'required_count' => (int) $r['required_count'],
+                'case_sheet_type_id' => $r['case_sheet_type_id'] ?? $base['case_sheet_type_id'],
                 'scoring' => self::normalize($r['scoring'] ?? null),
             ]));
         }
@@ -343,6 +412,45 @@ class TaskScoring
             'department' => $d->name,
             'score' => self::doctorResult($tasks->where('department_id', $d->id)->values(), $instances, $d->pass_percent),
         ])->filter(fn ($r) => $r['score'] !== null)->values()->all();
+    }
+
+    /** Total max of a task's enabled steps, or null when it has none. */
+    public static function stepsMax(?array $scoring): ?float
+    {
+        $steps = collect($scoring['steps'] ?? [])->where('enabled', true);
+
+        return $steps->isEmpty() ? null : (float) $steps->sum('max');
+    }
+
+    /**
+     * Points of a case graded by steps: each enabled step's grade on the
+     * linked case sheet (stage_{key}_grade, diagnosis_grade), up to its
+     * max. Null when the task has no steps.
+     *
+     * @return array{0: array, 1: float}|null
+     */
+    public static function pointsFromCaseSheet(TaskInstance $instance): ?array
+    {
+        $steps = collect($instance->task?->scoring['steps'] ?? [])->where('enabled', true);
+        if ($steps->isEmpty()) {
+            return null;
+        }
+        $resource = CaseSheetResolver::resourceFor($instance);
+        $model = CaseSheetResolver::modelFor($resource);
+        $recordId = CaseSheetResolver::existingRecordId($resource, $instance->id);
+        $record = $model && $recordId ? $model::find($recordId) : null;
+
+        $items = [];
+        $total = 0.0;
+        foreach ($steps as $step) {
+            $column = $step['key'] === 'diagnosis' ? 'diagnosis_grade' : "stage_{$step['key']}_grade";
+            $raw = $record?->getAttribute($column);
+            $grade = is_numeric($raw) ? min((float) $raw, (float) $step['max']) : 0.0;
+            $total += $grade;
+            $items[] = ['option' => $step['label'], 'qty' => 1, 'modifiers' => [], 'points' => round($grade, 2)];
+        }
+
+        return [$items, round($total, 2)];
     }
 
     public static function setPassPercent(int $departmentId, $passPercent): void
