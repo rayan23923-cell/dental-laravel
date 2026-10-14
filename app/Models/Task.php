@@ -28,6 +28,8 @@ class Task extends Model
         'grade',
         'academic_session_id',
         'is_required',
+        // Points-based requirements (2026-10-14); see App\Support\TaskScoring.
+        'scoring',
     ];
 
     /**
@@ -48,6 +50,7 @@ class Task extends Model
             'done' => 'boolean',
             'grade' => 'decimal:2',
             'is_required' => 'boolean',
+            'scoring' => 'array',
         ];
     }
 

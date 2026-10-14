@@ -4,6 +4,7 @@ import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
+import ScoringEditor from '@/Components/Tasks/ScoringEditor.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -20,6 +21,7 @@ const props = defineProps({
     // empty and are picked manually, same as before this existed.
     initialStageId: { type: Number, default: null },
     initialEducationTypeId: { type: Number, default: null },
+    scoringTemplates: { type: Object, default: () => ({}) },
 });
 
 const form = useForm({
@@ -85,8 +87,26 @@ watch(
     }
 );
 
+// Requirements table (2026-10-14, by request): a case-sheet type with a
+// table (pediatric, prevention) pre-fills it here; every enabled row is
+// saved as its own task with its points setup.
+const rows = ref(null);
+const passPercent = ref(null);
+watch(
+    () => form.case_sheet_type_id,
+    (id) => {
+        const template = props.scoringTemplates?.[id];
+        rows.value = template ? JSON.parse(JSON.stringify(template.rows)) : null;
+        passPercent.value = template?.pass_percent ?? null;
+    },
+);
+
 const submit = () => {
-    form.post(route('tasks.store'));
+    form.transform((data) => {
+        if (!rows.value) return data;
+        const { title, required_count, ...rest } = data;
+        return { ...rest, rows: rows.value, pass_percent: passPercent.value };
+    }).post(route('tasks.store'));
 };
 </script>
 
@@ -102,7 +122,7 @@ const submit = () => {
             <div class="mx-auto max-w-2xl sm:px-6 lg:px-8">
                 <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
                     <form @submit.prevent="submit" class="space-y-6">
-                        <div>
+                        <div v-if="!rows">
                             <InputLabel for="title" :value="t('tasksAdmin.titleLabel')" />
                             <TextInput id="title" v-model="form.title" type="text" class="mt-1 block w-full" required autofocus />
                             <InputError class="mt-2" :message="form.errors.title" />
@@ -143,7 +163,43 @@ const submit = () => {
                             <InputError class="mt-2" :message="form.errors.case_sheet_type_id" />
                         </div>
 
-                        <div>
+                        <div v-if="rows" class="space-y-3 rounded-lg border border-indigo-100 bg-indigo-50/40 p-3">
+                            <div>
+                                <div class="text-sm font-semibold text-gray-800">{{ t('taskScoring.table') }}</div>
+                                <p class="mt-1 text-xs text-gray-500">{{ t('taskScoring.tableHint') }}</p>
+                            </div>
+                            <div
+                                v-for="(row, i) in rows"
+                                :key="i"
+                                class="rounded-md bg-white p-3 shadow-sm transition"
+                                :class="row.enabled ? '' : 'opacity-50'"
+                            >
+                                <div class="flex items-center gap-2">
+                                    <input v-model="row.enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                    <input v-model="row.title" type="text" class="min-w-0 flex-1 rounded-md border-gray-300 text-sm font-medium shadow-sm focus:border-indigo-500 focus:ring-indigo-500" :disabled="!row.enabled" required />
+                                    <label class="flex shrink-0 items-center gap-1 text-xs text-gray-600">
+                                        {{ t('taskScoring.cases') }}
+                                        <input v-model.number="row.required_count" type="number" min="1" class="w-16 rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" :disabled="!row.enabled" required />
+                                    </label>
+                                </div>
+                                <div class="mt-1 flex flex-wrap gap-1 text-xs text-gray-500">
+                                    <span v-if="row.scoring.min_points" class="rounded-full bg-indigo-100 px-2 py-0.5 text-indigo-700">{{ t('taskScoring.pointsValue', { n: row.scoring.min_points }) }}</span>
+                                    <span v-if="row.scoring.weight" class="rounded-full bg-amber-100 px-2 py-0.5 text-amber-700">{{ row.scoring.weight }}%</span>
+                                    <span v-for="(o, oi) in row.scoring.options" :key="oi" class="rounded-full bg-gray-100 px-2 py-0.5">{{ o.label }} {{ o.points }}</span>
+                                </div>
+                                <details v-if="row.enabled" class="mt-2">
+                                    <summary class="cursor-pointer text-xs text-indigo-600">{{ t('taskScoring.pointsSetup') }}</summary>
+                                    <ScoringEditor v-model="row.scoring" class="mt-2" />
+                                </details>
+                            </div>
+                            <label class="flex items-center gap-2 text-sm text-gray-700">
+                                {{ t('taskScoring.passPercent') }}
+                                <input v-model.number="passPercent" type="number" min="0" max="100" step="0.5" class="w-24 rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                            </label>
+                            <InputError :message="form.errors.rows" />
+                        </div>
+
+                        <div v-if="!rows">
                             <InputLabel for="required_count" :value="t('tasksAdmin.requiredCountLabel')" />
                             <TextInput id="required_count" v-model="form.required_count" type="number" min="1" class="mt-1 block w-full" required />
                             <InputError class="mt-2" :message="form.errors.required_count" />

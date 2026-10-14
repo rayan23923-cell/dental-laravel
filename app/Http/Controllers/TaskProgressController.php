@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\TaskScoring;
 use App\Models\ClinicSetting;
 use App\Models\Doctor;
 use App\Models\Group;
@@ -254,10 +255,11 @@ class TaskProgressController extends Controller
         $validated = $request->validate([
             'grade' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string'],
+            ...TaskScoring::workItemRules(),
         ]);
 
         try {
-            TaskInstanceGrader::complete($taskInstance, $validated['grade'] ?? null, $validated['notes'] ?? null);
+            TaskInstanceGrader::complete($taskInstance, $validated['grade'] ?? null, $validated['notes'] ?? null, $validated['work_items'] ?? null);
         } catch (TaskGradeException $e) {
             return back()->with('error', $e->getMessage());
         }
@@ -271,10 +273,11 @@ class TaskProgressController extends Controller
         $validated = $request->validate([
             'grade' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string'],
+            ...TaskScoring::workItemRules(),
         ]);
 
         try {
-            TaskInstanceGrader::updateNotesGrade($taskInstance, $validated['grade'] ?? null, $validated['notes'] ?? null);
+            TaskInstanceGrader::updateNotesGrade($taskInstance, $validated['grade'] ?? null, $validated['notes'] ?? null, $validated['work_items'] ?? null);
         } catch (TaskGradeException $e) {
             return back()->with('error', $e->getMessage());
         }

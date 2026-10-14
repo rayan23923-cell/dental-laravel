@@ -1195,5 +1195,36 @@
     "notificationsBell": {
         "title": "الإشعارات",
         "empty": "لا توجد إشعارات."
+    },
+    "taskScoring": {
+        "measure": "القياس",
+        "measureCount": "بالحالات",
+        "measurePoints": "بالنقاط",
+        "measureBoth": "حالات ونقاط",
+        "minPoints": "النقاط المطلوبة",
+        "weight": "الوزن %",
+        "weightAuto": "متساوي",
+        "options": "أنواع العمل ونقاطها",
+        "addOption": "نوع عمل",
+        "optionLabel": "نوع العمل",
+        "noOptions": "بدون نقاط: تنحسب الحالات بس.",
+        "modifiers": "المعاملات (اختياري)",
+        "addModifier": "معامل",
+        "modifierLabel": "مثلاً GIC",
+        "table": "جدول المتطلبات",
+        "tableHint": "هذا جدول نوع النموذج. عدّل العدد والنقاط، وفعّل أو ألغِ أي خانة. كل خانة مفعّلة تصير مهمة.",
+        "cases": "عدد الحالات",
+        "passPercent": "نسبة النجاح للقسم %",
+        "pointsSetup": "إعداد النقاط",
+        "enablePoints": "تفعيل النقاط لهذه المهمة",
+        "workDone": "العمل المنجز",
+        "addWork": "إضافة عمل",
+        "qty": "العدد",
+        "pointsValue": "{n} نقطة",
+        "result": "النتيجة",
+        "passed": "ناجح",
+        "notPassed": "لم ينجح بعد",
+        "passAt": "النجاح {n}%",
+        "needsWork": "يُكمَل من تقدّم المهام مع العمل المنجز"
     }
 }

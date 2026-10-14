@@ -33,6 +33,9 @@ class TaskInstance extends Model
         // actually written.
         'paper_case_sheet_confirmed_by',
         'paper_case_sheet_confirmed_at',
+        // The work done and its points (2026-10-14); see App\Support\TaskScoring.
+        'points',
+        'work_items',
     ];
 
     protected function casts(): array
@@ -43,6 +46,8 @@ class TaskInstance extends Model
             'created_at' => 'datetime',
             'grade' => 'decimal:2',
             'paper_case_sheet_confirmed_at' => 'datetime',
+            'points' => 'float',
+            'work_items' => 'array',
         ];
     }
 

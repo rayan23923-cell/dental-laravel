@@ -11,6 +11,7 @@ use App\Models\TaskInstance;
 use App\Models\User;
 use App\Support\CaseSheetResolver;
 use App\Support\CaseSheetSignatures;
+use App\Support\TaskScoring;
 use Illuminate\Support\Collection;
 
 /**
@@ -80,7 +81,7 @@ class TaskProgressGroupSummary
         $departments = ScopeHelper::scopeDepartments(
             Department::where('stage_id', $stageId),
             $user
-        )->orderBy('name')->get(['id', 'name']);
+        )->orderBy('name')->get(['id', 'name', 'pass_percent']);
 
         // Every task defined for this stage, with global instance counts,
         // grouped by department (matches the original's tasks_stmt).
@@ -115,6 +116,7 @@ class TaskProgressGroupSummary
                 'id' => $department->id,
                 'name' => $department->name,
                 'task_count' => $deptTasks->count(),
+                'pass_percent' => $department->pass_percent,
                 'total_required' => (int) $deptTasks->sum('required_count'),
                 'totals' => [
                     'total_instances' => (int) $deptTasks->sum('total_instances'),
@@ -122,7 +124,7 @@ class TaskProgressGroupSummary
                     'assigned' => (int) $deptTasks->sum('assigned_count'),
                     'completed' => (int) $deptTasks->sum('completed_count'),
                 ],
-                'doctors' => $doctors->map(fn ($doctor) => self::buildDoctorRow($doctor, $deptTasks, $instances))->values(),
+                'doctors' => $doctors->map(fn ($doctor) => self::buildDoctorRow($doctor, $deptTasks, $instances, $department->pass_percent))->values(),
             ];
         })->values();
 
@@ -146,7 +148,7 @@ class TaskProgressGroupSummary
      *         the relevant doctor(s)/tasks — filtered down to just this
      *         $doctor's own inside this method.
      */
-    public static function buildDoctorRow(Doctor $doctor, Collection $deptTasks, Collection $instances): array
+    public static function buildDoctorRow(Doctor $doctor, Collection $deptTasks, Collection $instances, $passPercent = null): array
     {
         $doctorInstances = $instances->where('doctor_id', $doctor->id);
 
@@ -187,6 +189,8 @@ class TaskProgressGroupSummary
                     'task_title' => $task->title,
                     'task_notes' => $task->notes,
                     'task_grade' => $task->grade,
+                    // Work options/multipliers for the complete dialog (2026-10-14).
+                    'task_scoring' => $task->scoring,
                     'case_sheet' => $task->caseSheetType ? [
                         'name' => $task->caseSheetType->name_ar,
                         'color' => $task->caseSheetType->color,
@@ -201,6 +205,8 @@ class TaskProgressGroupSummary
                     'completion_date' => $instance?->completion_date,
                     'notes' => $instance?->notes,
                     'grade' => $instance?->grade,
+                    'points' => $instance?->points,
+                    'work_items' => $instance?->work_items,
                     // Who started this task — lets the client
                     // (re)print the start receipt at any time,
                     // not only at the moment of starting.
@@ -232,6 +238,9 @@ class TaskProgressGroupSummary
             'pending' => $pending,
             'unassigned' => $unassigned,
             'tasks' => $taskCards,
+            // Points, percentage and pass/fail (2026-10-14); null for a
+            // department that is only counted in cases.
+            'score' => TaskScoring::doctorResult($deptTasks, $doctorInstances, $passPercent),
         ];
     }
 }

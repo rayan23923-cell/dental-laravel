@@ -13,7 +13,13 @@ class Department extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['name', 'stage_id', 'education_type_id'];
+    // pass_percent: the result a doctor needs here (2026-10-14); see App\Support\TaskScoring.
+    protected $fillable = ['name', 'stage_id', 'education_type_id', 'pass_percent'];
+
+    protected function casts(): array
+    {
+        return ['pass_percent' => 'float'];
+    }
 
     public function stage(): BelongsTo
     {

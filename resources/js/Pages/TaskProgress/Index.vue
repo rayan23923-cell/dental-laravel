@@ -1,5 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import Modal from '@/Components/Modal.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
@@ -14,6 +15,8 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import axios from 'axios';
 import Icon from '@/Components/Icon.vue';
+import ScoreSummary from '@/Components/Tasks/ScoreSummary.vue';
+import WorkItemsInput from '@/Components/Tasks/WorkItemsInput.vue';
 import StructureTabs from '@/Components/StructureTabs.vue';
 import TaskStartRequestsPanel from '@/Components/TaskStartRequestsPanel.vue';
 
@@ -217,17 +220,30 @@ const submitStart = () => {
 };
 
 // --- Complete task ---
-const completeForm = useForm({ grade: '', notes: '' });
+const completeForm = useForm({ grade: '', notes: '', work_items: [] });
 const completeTarget = ref(null);
+// Kinds of work with points (2026-10-14); see App\Support\TaskScoring.
+const hasOptions = (card) => !!card?.task_scoring?.options?.length;
+// Stored items keep labels; map them back to the task's option/multiplier indexes.
+const itemsFor = (card) =>
+    (card.work_items ?? [])
+        .map((w) => ({
+            option: card.task_scoring.options.findIndex((o) => o.label === w.option),
+            qty: w.qty ?? 1,
+            modifiers: (w.modifiers ?? []).map((m) => card.task_scoring.modifiers.findIndex((x) => x.label === m)).filter((i) => i >= 0),
+        }))
+        .filter((w) => w.option >= 0);
 const openComplete = (card) => {
     completeTarget.value = card;
+    completeForm.work_items = hasOptions(card) ? itemsFor(card) : [];
+    if (hasOptions(card) && !completeForm.work_items.length) completeForm.work_items.push({ option: 0, qty: 1, modifiers: [] });
     // Matches the original: pre-fill with the instance's own grade if it has
     // one, otherwise suggest the task's grade.
     completeForm.grade = card.grade ?? card.task_grade ?? '';
     completeForm.notes = card.notes ?? '';
 };
 const submitComplete = () => {
-    completeForm.put(route('task-progress.complete', completeTarget.value.instance_id), {
+    completeForm.transform((data) => (hasOptions(completeTarget.value) ? data : { grade: data.grade, notes: data.notes })).put(route('task-progress.complete', completeTarget.value.instance_id), {
         preserveScroll: true,
         onSuccess: () => {
             completeTarget.value = null;
@@ -237,15 +253,16 @@ const submitComplete = () => {
 };
 
 // --- Edit instance (notes + grade) ---
-const editForm = useForm({ grade: '', notes: '' });
+const editForm = useForm({ grade: '', notes: '', work_items: [] });
 const editTarget = ref(null);
 const openEdit = (card) => {
     editTarget.value = card;
+    editForm.work_items = hasOptions(card) ? itemsFor(card) : [];
     editForm.grade = card.grade ?? '';
     editForm.notes = card.notes ?? '';
 };
 const submitEdit = () => {
-    editForm.put(route('task-progress.update-instance', editTarget.value.instance_id), {
+    editForm.transform((data) => (hasOptions(editTarget.value) ? data : { grade: data.grade, notes: data.notes })).put(route('task-progress.update-instance', editTarget.value.instance_id), {
         preserveScroll: true,
         onSuccess: () => {
             editTarget.value = null;
@@ -534,6 +551,11 @@ const startFromScan = () => {
                                                     <td class="whitespace-nowrap px-4 py-2 text-sm font-medium text-gray-900">
                                                         <span class="mr-2 inline-block text-gray-400">{{ expandedDoctors.has(doctor.id) ? '▾' : '▸' }}</span>
                                                         {{ doctor.name }}
+                                                        <span
+                                                            v-if="doctor.score"
+                                                            class="mr-1 rounded-full px-2 py-0.5 text-xs"
+                                                            :class="doctor.score.passed ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'"
+                                                        ><span dir="ltr">{{ doctor.score.percent }}%</span></span>
                                                         <a
                                                             :href="printUrl({ department: activeDepartment.id, doctor: doctor.id })"
                                                             target="_blank"
@@ -552,6 +574,7 @@ const startFromScan = () => {
                                                 </tr>
                                                 <tr v-if="expandedDoctors.has(doctor.id) && doctor.tasks.length" class="bg-gray-50">
                                                     <td colspan="6" class="p-3">
+                                                        <ScoreSummary v-if="doctor.score" :score="doctor.score" />
                                                         <div v-if="filteredTasks(doctor.tasks).length === 0" class="rounded-md bg-yellow-50 p-3 text-center text-sm text-yellow-700">
                                                             {{ t('taskProgressAdmin.noMatchingStatusTasks') }}
                                                         </div>
@@ -580,6 +603,7 @@ const startFromScan = () => {
                                                                         <span v-if="card.task_grade" class="rounded-full bg-indigo-100 px-2 py-0.5 text-indigo-800">{{ t('tasksAdmin.gradeColShort') }}: {{ card.task_grade }}</span>
                                                                         <span v-if="card.notes" class="rounded-full bg-blue-100 px-2 py-0.5 text-blue-800" :title="card.notes">{{ card.notes.slice(0, 30) }}{{ card.notes.length > 30 ? '…' : '' }}</span>
                                                                         <span v-if="card.grade" class="rounded-full bg-green-100 px-2 py-0.5 text-green-800">{{ t('taskProgressAdmin.instanceGradePrefix') }} {{ card.grade }}</span>
+                                                                        <span v-if="card.points !== null && card.points !== undefined" class="rounded-full bg-indigo-600 px-2 py-0.5 text-white" :title="(card.work_items ?? []).map((w) => `${w.option} ×${w.qty}`).join('، ')">{{ t('taskScoring.pointsValue', { n: card.points }) }}</span>
                                                         <!-- "كل التواقيع جاهزة" (2026-08-30) — every
                                                              *_signature field on the linked case
                                                              sheet is filled in; just a hint next
@@ -774,6 +798,10 @@ const startFromScan = () => {
                         {{ t('taskProgressAdmin.noGradeHintComplete') }}
                     </p>
                 </div>
+                <div v-if="hasOptions(completeTarget)" class="mt-4">
+                    <WorkItemsInput v-model="completeForm.work_items" :scoring="completeTarget.task_scoring" />
+                    <InputError class="mt-2" :message="Object.entries(completeForm.errors).find(([k]) => k.startsWith('work_items'))?.[1]" />
+                </div>
                 <div class="mt-4">
                     <InputLabel for="complete-notes" :value="t('taskProgressAdmin.instanceNotesLabel')" />
                     <textarea id="complete-notes" v-model="completeForm.notes" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
@@ -805,6 +833,10 @@ const startFromScan = () => {
                     <p v-if="!editTarget?.task_grade" class="mt-1 text-xs text-gray-500">
                         {{ t('taskProgressAdmin.noGradeHintEdit') }}
                     </p>
+                </div>
+                <div v-if="hasOptions(editTarget)" class="mt-4">
+                    <WorkItemsInput v-model="editForm.work_items" :scoring="editTarget.task_scoring" />
+                    <InputError class="mt-2" :message="Object.entries(editForm.errors).find(([k]) => k.startsWith('work_items'))?.[1]" />
                 </div>
                 <div class="mt-4">
                     <InputLabel for="edit-notes" :value="t('tasksAdmin.notesLabel')" />
