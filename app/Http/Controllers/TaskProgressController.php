@@ -192,6 +192,21 @@ class TaskProgressController extends Controller
             ]);
         }
 
+        // The doctor's own QR, printed on their ID card (2026-10-14).
+        if (($decoded['type'] ?? null) === 'doctor' && ! empty($decoded['id'])) {
+            $doctor = Doctor::with(['stage:id,name'])->find($decoded['id']);
+
+            if (! $doctor) {
+                return response()->json(['message' => 'الطبيب غير موجود.'], 404);
+            }
+
+            return response()->json([
+                'kind' => 'doctor',
+                'doctor' => ['id' => $doctor->id, 'name' => $doctor->name, 'stage' => $doctor->stage?->name],
+                'progress_url' => route('doctors.progress', $doctor->id),
+            ]);
+        }
+
         return response()->json(['message' => 'رمز غير معروف — ليس رمز مهمة صالحاً.'], 422);
     }
 

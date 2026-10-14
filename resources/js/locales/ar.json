@@ -749,7 +749,9 @@
         "printButton": "طباعة",
         "printWholeGroupTooltip": "طباعة التقدم كاملاً",
         "printDepartmentOnlyTooltip": "طباعة هذا القسم فقط",
-        "printDoctorTasksTooltip": "طباعة مهام هذا الطبيب"
+        "printDoctorTasksTooltip": "طباعة مهام هذا الطبيب",
+        "openDoctorProgress": "عرض تقدم الطبيب",
+        "stageLabel": "المرحلة"
     },
     "activityLogsAdmin": {
         "title": "سجل النشاط",
