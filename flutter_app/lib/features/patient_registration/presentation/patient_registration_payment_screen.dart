@@ -19,6 +19,7 @@ import '../../printing/presentation/ticket_renderer.dart';
 import '../../records/data/records_repository.dart';
 import '../data/patient_registration_repository.dart';
 import '../domain/registration_payment_state.dart';
+import '../../../core/widgets/numeric_input.dart';
 
 /// The payment-desk screen reached after scanning a registration's ticket
 /// QR (or its on-screen equivalent) — shows whether it's paid, and if
@@ -241,6 +242,7 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
             TextField(
               controller: _amountController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: decimalOnly,
               textDirection: TextDirection.ltr,
               textAlign: TextAlign.left,
               decoration: InputDecoration(labelText: t['payments.amountLabel']!, border: const OutlineInputBorder()),

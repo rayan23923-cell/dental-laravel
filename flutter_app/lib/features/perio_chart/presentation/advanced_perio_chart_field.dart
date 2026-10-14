@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../../../core/widgets/numeric_input.dart';
 
 /// One tooth position's crown + root outline(s), extracted verbatim (see
 /// `AdvancedPerioChart.vue`'s own doc comment) from a reference asset the
@@ -676,6 +677,7 @@ class _ArchBlock extends StatelessWidget {
               enabled: !field.readOnly,
               textAlign: TextAlign.center,
               keyboardType: TextInputType.number,
+              inputFormatters: digitsOnly,
               maxLength: 1,
               style: const TextStyle(fontSize: 11),
               decoration: const InputDecoration(counterText: '', contentPadding: EdgeInsets.zero, border: InputBorder.none),
@@ -751,6 +753,7 @@ class _ArchBlock extends StatelessWidget {
         enabled: !field.readOnly && !locked,
         textAlign: TextAlign.center,
         keyboardType: const TextInputType.numberWithOptions(signed: true),
+        inputFormatters: signedDigitsOnly,
         maxLength: 3,
         style: TextStyle(fontSize: 10, color: highPd ? Colors.red : null, fontWeight: highPd ? FontWeight.bold : null),
         decoration: const InputDecoration(counterText: '', contentPadding: EdgeInsets.zero, border: OutlineInputBorder(borderRadius: BorderRadius.zero)),

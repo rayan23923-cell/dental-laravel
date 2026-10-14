@@ -10,6 +10,7 @@ import '../../permissions_admin/presentation/permissions_admin_providers.dart';
 import '../../permissions_admin/presentation/permissions_editor.dart';
 import '../data/users_admin_repository.dart';
 import '../domain/user_admin.dart';
+import '../../../core/widgets/numeric_input.dart';
 
 final userFormOptionsProvider = FutureProvider.autoDispose<UserFormOptions>((ref) {
   return ref.watch(usersAdminRepositoryProvider).formOptions();
@@ -126,6 +127,7 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
               controller: _emailController,
               textDirection: TextDirection.ltr,
               keyboardType: TextInputType.emailAddress,
+              inputFormatters: digitsOnly,
               decoration: InputDecoration(labelText: t['usersAdmin.emailLabel'], border: const OutlineInputBorder()),
               validator: (v) => (v == null || v.trim().isEmpty) ? t['usersAdmin.requiredField'] : null,
             ),
@@ -134,6 +136,7 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
               controller: _phoneController,
               textDirection: TextDirection.ltr,
               keyboardType: TextInputType.phone,
+              inputFormatters: phoneOnly,
               decoration: InputDecoration(labelText: t['usersAdmin.phoneLabel'], border: const OutlineInputBorder()),
             ),
             const SizedBox(height: 16),

@@ -13,6 +13,7 @@ import '../../../patient_registration/presentation/patient_registration_list_scr
 import '../../data/records_repository.dart';
 import '../../domain/payment.dart';
 import '../records_providers.dart';
+import '../../../../core/widgets/numeric_input.dart';
 
 class PaymentFormScreen extends ConsumerStatefulWidget {
   const PaymentFormScreen({super.key, this.paymentId});
@@ -340,6 +341,7 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
               TextFormField(
                 controller: _amountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: decimalOnly,
                 decoration: InputDecoration(labelText: t['recordsHub.amountLabel'], border: const OutlineInputBorder()),
                 validator: (v) => (v == null || double.tryParse(v.trim()) == null) ? t['recordsHub.invalidAmountMsg'] : null,
               ),

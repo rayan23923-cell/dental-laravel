@@ -9,6 +9,7 @@ import '../data/auth_repository.dart';
 import '../data/branding_repository.dart';
 import 'auth_controller.dart';
 import 'auth_state.dart';
+import '../../../core/widgets/numeric_input.dart';
 
 /// One field, either the account's email or its username, and a password —
 /// no staff/doctor toggle. The server (`Api\AuthController::login()`)
@@ -97,6 +98,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         autofocus: true,
                         enabled: !sending,
                         keyboardType: TextInputType.emailAddress,
+                        inputFormatters: digitsOnly,
                         autofillHints: const [AutofillHints.email],
                         decoration: const InputDecoration(
                           labelText: 'البريد الإلكتروني',
@@ -121,6 +123,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         autofocus: true,
                         enabled: !sending,
                         keyboardType: TextInputType.number,
+                        inputFormatters: digitsOnly,
                         maxLength: 6,
                         decoration: const InputDecoration(
                           labelText: 'رمز التحقق',
@@ -329,6 +332,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       controller: _identifierController,
                       enabled: !isLoading,
                       keyboardType: TextInputType.emailAddress,
+                      inputFormatters: digitsOnly,
                       autofillHints: const [
                         AutofillHints.username,
                         AutofillHints.email,

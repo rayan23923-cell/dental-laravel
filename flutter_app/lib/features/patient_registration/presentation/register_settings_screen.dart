@@ -9,6 +9,7 @@ import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../data/patient_registration_repository.dart';
 import '../domain/service.dart';
 import 'patient_registration_providers.dart';
+import '../../../core/widgets/numeric_input.dart';
 
 /// "إعدادات التسجيل" — mirrors `PatientRegistrations/Settings.vue`:
 /// services with a name and a price (the price pre-fills the registration
@@ -187,6 +188,7 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
             controller: _servicePriceController,
             textDirection: TextDirection.ltr,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: decimalOnly,
             decoration: InputDecoration(labelText: t['registerSettings.priceLabel']!, border: const OutlineInputBorder()),
           ),
           const SizedBox(height: 8),
@@ -241,6 +243,7 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
               controller: _labFeeController,
               textDirection: TextDirection.ltr,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: decimalOnly,
               decoration: InputDecoration(
                 labelText: t['registerSettings.labFeeLabel']!,
                 helperText: t['registerSettings.labFeeHint']!,
@@ -252,6 +255,7 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
               controller: _labValidityController,
               textDirection: TextDirection.ltr,
               keyboardType: TextInputType.number,
+              inputFormatters: digitsOnly,
               decoration: InputDecoration(
                 labelText: t['registerSettings.labValidityLabel']!,
                 helperText: t['registerSettings.labValidityHint']!,
@@ -321,6 +325,7 @@ class _ServiceDialogState extends ConsumerState<_ServiceDialog> {
               controller: _priceController,
               textDirection: TextDirection.ltr,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: decimalOnly,
               decoration: InputDecoration(labelText: t['registerSettings.priceLabel']!, border: const OutlineInputBorder()),
               validator: (v) => _parsePrice(v ?? '') == null ? t['registerSettings.priceInvalid']! : null,
             ),
