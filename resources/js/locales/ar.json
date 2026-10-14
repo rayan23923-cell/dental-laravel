@@ -1238,6 +1238,8 @@
         "checkLabel": "البند",
         "checklistHint": "لازم كل البنود تتعلّم حتى تكمل الحالة.",
         "checklistDone": "البنود المنجزة",
-        "gradeItems": "درجات البنود"
+        "gradeItems": "درجات البنود",
+        "rootFilling": "حشوة جذر",
+        "endoHint": "حشوة جذر: نموذج المعالجة يفتح وقسم Endo مفعّل"
     }
 }

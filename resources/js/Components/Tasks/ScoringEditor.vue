@@ -68,6 +68,11 @@ const addCheck = () => (scoring.value.checklist ??= []).push({ label: '' });
             </label>
         </div>
 
+        <label class="flex items-center gap-2 text-xs text-gray-700">
+            <input v-model="scoring.endo" type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+            {{ t('taskScoring.endoHint') }}
+        </label>
+
         <div>
             <div class="mb-1 flex items-center justify-between text-xs font-medium text-gray-700">
                 {{ t('taskScoring.checklist') }}

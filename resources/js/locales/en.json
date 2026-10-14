@@ -1238,6 +1238,8 @@
         "checkLabel": "Item",
         "checklistHint": "All items must be ticked to complete a case.",
         "checklistDone": "Completed parts",
-        "gradeItems": "Item grades"
+        "gradeItems": "Item grades",
+        "rootFilling": "Root filling",
+        "endoHint": "Root filling: the operative case sheet opens with Endodontics on"
     }
 }

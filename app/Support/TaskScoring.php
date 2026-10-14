@@ -127,6 +127,41 @@ class TaskScoring
         ];
     }
 
+    /**
+     * Operative dentistry (2026-10-14, by request): the minimum fillings of
+     * each class per stage, the rest of the total as any class, and the
+     * root fillings, whose case sheet opens with its Endodontics section on.
+     */
+    private static function operative(): array
+    {
+        $count = fn ($title, $n, $stage) => self::row($title, $n, 'count', null, null, sheet: 'operative', stage: $stage);
+        $endo = fn ($title, $n, $stage) => self::row($title, $n, 'count', null, null, sheet: 'operative', stage: $stage, endo: true);
+
+        return [
+            'pass_percent' => 100,
+            'rows' => [
+                $count('Cl I (amalgam) — الرابع', 2, 4),
+                $count('Cl I (composite) — الرابع', 1, 4),
+                $count('Cl II (amalgam) — الرابع', 1, 4),
+                $count('Cl II (composite) — الرابع', 1, 4),
+                $count('Cl III — الرابع', 1, 4),
+                $count('Cl IV — الرابع', 1, 4),
+                $count('Cl V — الرابع', 1, 4),
+                $count('حشوات أي صنف لإكمال المجموع 10 — الرابع', 2, 4),
+                $endo('Endo Lab (حشوة جذر) — الرابع', 3, 4),
+                $count('Cl II (amalgam) — الخامس', 3, 5),
+                $count('Cl II (composite) — الخامس', 3, 5),
+                $count('Cl III — الخامس', 1, 5),
+                $count('Cl IV — الخامس', 1, 5),
+                $count('Cl V — الخامس', 1, 5),
+                $count('Compound filling — الخامس', 1, 5),
+                $count('حشوات أي صنف لإكمال المجموع 13 — الخامس', 3, 5),
+                $count('Fixed prosthesis (crown) — الخامس', 1, 5),
+                $endo('Endo (حشوة جذر، أمامي أو ضاحك) — الخامس', 1, 5),
+            ],
+        ];
+    }
+
     private static function steps(array $stages, bool $withDiagnosis): array
     {
         $steps = $withDiagnosis ? [['key' => 'diagnosis', 'label' => 'Diagnosis', 'max' => 10, 'enabled' => true]] : [];
@@ -178,6 +213,7 @@ class TaskScoring
             'periodontal' => self::periodontics(),
             'advanced_periodontal' => self::periodontics(),
             'orthodontics' => self::orthodontics(),
+            'operative' => self::operative(),
             'partial_denture' => self::prosthodontics(),
             'complete_denture' => self::prosthodontics(),
         ];
@@ -207,9 +243,10 @@ class TaskScoring
      * $stage: 4 or 5 when the row belongs to one stage only (the form
      * switches off the other stage's rows). $graded: options are items the
      * supervisor grades up to their points. $checklist: parts that must all
-     * be ticked to complete a case.
+     * be ticked to complete a case. $endo: a root filling, whose case sheet
+     * opens with its Endodontics section on.
      */
-    private static function row(string $title, int $count, string $measure, ?float $minPoints, ?float $weight, array $options = [], array $modifiers = [], ?string $sheet = null, ?int $stage = null, bool $graded = false, array $checklist = []): array
+    private static function row(string $title, int $count, string $measure, ?float $minPoints, ?float $weight, array $options = [], array $modifiers = [], ?string $sheet = null, ?int $stage = null, bool $graded = false, array $checklist = [], bool $endo = false): array
     {
         return [
             'enabled' => true,
@@ -225,6 +262,7 @@ class TaskScoring
                 'modifiers' => $modifiers,
                 'graded' => $graded,
                 'checklist' => array_map(fn ($label) => ['label' => $label], $checklist),
+                'endo' => $endo,
             ],
         ];
     }
@@ -251,6 +289,7 @@ class TaskScoring
             "$prefix.graded" => ['boolean'],
             "$prefix.checklist" => ['nullable', 'array', 'max:20'],
             "$prefix.checklist.*.label" => ['required', 'string', 'max:150'],
+            "$prefix.endo" => ['boolean'],
         ];
     }
 
@@ -287,6 +326,7 @@ class TaskScoring
                 ->map(fn ($c) => ['label' => trim((string) $c['label'])])
                 ->filter(fn ($c) => $c['label'] !== '')
                 ->values()->all(),
+            'endo' => (bool) ($scoring['endo'] ?? false),
         ];
     }
 
@@ -543,6 +583,12 @@ class TaskScoring
         }
 
         return [$items, round($total, 2)];
+    }
+
+    /** Whether a task is a root filling (its case sheet opens with Endodontics on). */
+    public static function isRootFilling(?Task $task): bool
+    {
+        return (bool) ($task?->scoring['endo'] ?? false);
     }
 
     public static function setPassPercent(int $departmentId, $passPercent): void
