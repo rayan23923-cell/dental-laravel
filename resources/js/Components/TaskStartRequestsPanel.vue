@@ -7,7 +7,7 @@
  * See App\Http\Controllers\TaskStartRequestController.
  */
 import axios from 'axios';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Icon from '@/Components/Icon.vue';
 import Modal from '@/Components/Modal.vue';
@@ -28,7 +28,6 @@ const review = ref(null); // { request, action: 'approve' | 'reject' }
 const note = ref('');
 
 const load = async () => {
-    loading.value = true;
     try {
         const res = await axios.get(route('task-progress.requests.index'));
         data.value = res.data;
@@ -37,7 +36,22 @@ const load = async () => {
         loading.value = false;
     }
 };
-onMounted(load);
+
+// New requests show up without reloading the page: refresh every 15
+// seconds while the tab is visible, and right away when it comes back.
+const refresh = () => {
+    if (document.visibilityState === 'visible') load().catch(() => {});
+};
+let timer = null;
+onMounted(() => {
+    load();
+    timer = setInterval(refresh, 15000);
+    document.addEventListener('visibilitychange', refresh);
+});
+onBeforeUnmount(() => {
+    clearInterval(timer);
+    document.removeEventListener('visibilitychange', refresh);
+});
 
 const tabs = computed(() => [
     { key: 'pending', label: t('taskRequests.pendingTab'), count: data.value.pending.length },
