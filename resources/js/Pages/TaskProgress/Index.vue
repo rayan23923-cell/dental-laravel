@@ -10,7 +10,7 @@ import PhoneScannerLink from '@/Components/PhoneScannerLink.vue';
 import PaperPhotos from '@/Components/PaperPhotos.vue';
 import { onRemoteScan } from '@/remoteScanner';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
-import { computed, nextTick, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import axios from 'axios';
 import Icon from '@/Components/Icon.vue';
@@ -33,6 +33,26 @@ const props = defineProps({
 // reload stays on the same tab.
 const mainTab = ref(new URLSearchParams(window.location.search).get('tab') === 'requests' ? 'requests' : 'progress');
 const requestCount = ref(props.pendingRequests);
+
+// Keep the requests badge current while on the progress tab (the
+// requests panel refreshes itself, and the count with it).
+const refreshRequestCount = async () => {
+    if (mainTab.value === 'requests' || document.visibilityState !== 'visible') return;
+    try {
+        requestCount.value = (await axios.get(route('task-progress.requests.index'))).data.pending_count;
+    } catch {
+        // Keep the last count.
+    }
+};
+let requestCountTimer = null;
+onMounted(() => {
+    requestCountTimer = setInterval(refreshRequestCount, 30000);
+    document.addEventListener('visibilitychange', refreshRequestCount);
+});
+onBeforeUnmount(() => {
+    clearInterval(requestCountTimer);
+    document.removeEventListener('visibilitychange', refreshRequestCount);
+});
 const switchTab = (key) => {
     mainTab.value = key;
     const url = new URL(window.location.href);

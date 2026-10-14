@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -66,8 +67,21 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
   /// requests (2026-10-14), same as the web's "الطلبات" tab.
   String _mainTab = 'progress';
 
+  /// Refreshes the start requests (list and badge) so new ones show up
+  /// without leaving the screen.
+  Timer? _requestsTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _requestsTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) ref.invalidate(taskStartRequestBoardProvider);
+    });
+  }
+
   @override
   void dispose() {
+    _requestsTimer?.cancel();
     _searchController.dispose();
     _tabController?.dispose();
     super.dispose();
