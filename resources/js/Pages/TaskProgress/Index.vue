@@ -15,6 +15,7 @@ import { useI18n } from 'vue-i18n';
 import axios from 'axios';
 import Icon from '@/Components/Icon.vue';
 import StructureTabs from '@/Components/StructureTabs.vue';
+import TaskStartRequestsPanel from '@/Components/TaskStartRequestsPanel.vue';
 
 const { t } = useI18n();
 const props = defineProps({
@@ -24,7 +25,21 @@ const props = defineProps({
     groups: Array,
     filters: Object,
     currentSession: Object,
+    // Doctors' requests waiting for a start (2026-10-14) — the tab's badge.
+    pendingRequests: { type: Number, default: 0 },
 });
+
+// "تقدم المهام" | "الطلبات" (2026-10-14, by request); kept in the URL so a
+// reload stays on the same tab.
+const mainTab = ref(new URLSearchParams(window.location.search).get('tab') === 'requests' ? 'requests' : 'progress');
+const requestCount = ref(props.pendingRequests);
+const switchTab = (key) => {
+    mainTab.value = key;
+    const url = new URL(window.location.href);
+    if (key === 'requests') url.searchParams.set('tab', 'requests');
+    else url.searchParams.delete('tab');
+    window.history.replaceState(window.history.state, '', url);
+};
 
 const page = usePage();
 // Groups turned off in clinic settings: no day/group step, the chosen
@@ -308,6 +323,28 @@ const startFromScan = () => {
             <div class="mx-auto max-w-7xl space-y-4 sm:px-6 lg:px-8">
                 <StructureTabs />
 
+                <!-- Progress | doctors' start requests (2026-10-14) -->
+                <div class="flex gap-1 rounded-full bg-white p-1 shadow-sm ring-1 ring-gray-100">
+                    <button
+                        v-for="item in [{ key: 'progress', icon: 'monitoring', label: t('taskRequests.progressTab') }, { key: 'requests', icon: 'inbox', label: t('taskRequests.requestsTab') }]"
+                        :key="item.key"
+                        type="button"
+                        class="relative flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition"
+                        :class="mainTab === item.key ? 'bg-indigo-600 text-white shadow' : 'text-gray-600 hover:bg-gray-50'"
+                        @click="switchTab(item.key)"
+                    >
+                        <Icon :name="item.icon" size="text-[18px]" />{{ item.label }}
+                        <span
+                            v-if="item.key === 'requests' && requestCount > 0"
+                            class="min-w-[1.25rem] rounded-full bg-red-500 px-1.5 text-center text-xs font-semibold leading-5 text-white"
+                        >{{ requestCount > 99 ? '99+' : requestCount }}</span>
+                    </button>
+                </div>
+
+                <TaskStartRequestsPanel v-if="mainTab === 'requests'" @count="requestCount = $event" />
+
+                <template v-else>
+
                 <!-- New — this screen previously had no active-year banner
                      at all, unlike Doctors/Groups/Tasks. -->
                 <div v-if="currentSession" class="flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900">
@@ -582,6 +619,7 @@ const startFromScan = () => {
                         </template>
                     </template>
                 </div>
+                </template>
             </div>
         </div>
 

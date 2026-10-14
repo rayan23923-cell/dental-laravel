@@ -25,6 +25,8 @@ import '../../printing/presentation/printer_settings_providers.dart';
 import '../../printing/presentation/task_instance_ticket_widget.dart';
 import '../../printing/presentation/ticket_print_animation.dart';
 import '../../printing/presentation/ticket_renderer.dart';
+import '../../task_start_requests/presentation/task_start_request_providers.dart';
+import '../../task_start_requests/presentation/task_start_requests_view.dart';
 import '../data/task_progress_repository.dart';
 import '../domain/task_progress_group.dart';
 import 'task_progress_pdf.dart';
@@ -59,6 +61,10 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
   final _searchController = TextEditingController();
   bool _scanningNfc = false;
   int? _expandedDoctorId;
+
+  /// 'progress' (the matrix below) or 'requests' — doctors' start
+  /// requests (2026-10-14), same as the web's "الطلبات" tab.
+  String _mainTab = 'progress';
 
   @override
   void dispose() {
@@ -555,6 +561,10 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
       body: Column(
         children: [
           const AcademicYearBanner(),
+          _MainTabs(current: _mainTab, onChanged: (v) => setState(() => _mainTab = v)),
+          if (_mainTab == 'requests')
+            const Expanded(child: TaskStartRequestsView())
+          else ...[
           // Hidden once inside a group's detail — its own back arrow
           // already returns here, and keeping three dropdowns permanently
           // on screen competed for space with the doctor list badly enough
@@ -644,6 +654,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
                   )
                 : _buildGroupDetail(detailKey),
           ),
+          ],
         ],
       ),
     );
@@ -763,6 +774,45 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
           ],
         );
       },
+    );
+  }
+}
+
+/// "تقدم المهام" | "الطلبات" pills; the requests pill carries a red badge
+/// with the number waiting for approval.
+class _MainTabs extends ConsumerWidget {
+  const _MainTabs({required this.current, required this.onChanged});
+  final String current;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider);
+    final pending = ref.watch(taskStartRequestBoardProvider).valueOrNull?.pending.length ?? 0;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: Row(
+        children: [
+          ChoiceChip(
+            avatar: const Icon(Icons.monitor_heart_outlined, size: 18),
+            label: Text(t['taskRequests.progressTab']!),
+            selected: current == 'progress',
+            onSelected: (_) => onChanged('progress'),
+          ),
+          const SizedBox(width: 8),
+          ChoiceChip(
+            avatar: const Icon(Icons.inbox_outlined, size: 18),
+            label: Badge(
+              isLabelVisible: pending > 0,
+              label: Text(pending > 99 ? '99+' : '$pending'),
+              offset: const Offset(14, -8),
+              child: Text(t['taskRequests.requestsTab']!),
+            ),
+            selected: current == 'requests',
+            onSelected: (_) => onChanged('requests'),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -9,6 +9,10 @@ import '../../../core/widgets/qr_dialog.dart';
 import '../../case_sheet_forms/data/case_sheet_record_repository.dart';
 import '../../paper_photos/presentation/paper_photos_sheet.dart';
 import '../../task_progress_admin/domain/task_progress_group.dart';
+import '../../task_start_requests/data/task_start_request_repository.dart';
+import '../../task_start_requests/domain/task_start_request.dart';
+import '../../task_start_requests/presentation/request_start_sheet.dart';
+import '../../task_start_requests/presentation/task_start_request_providers.dart';
 import '../data/task_instance_repository.dart';
 import '../domain/my_task_department.dart';
 import 'task_instances_providers.dart';
@@ -38,6 +42,11 @@ class _MyTasksScreenState extends ConsumerState<MyTasksScreen> with SingleTicker
   TabController? _tabController;
   int _departmentCount = -1;
 
+  /// 'all' (the department view below), 'waiting' (start requests not yet
+  /// approved) or 'notStarted' (tasks with slots still to start) —
+  /// 2026-10-14, same as the web's "مهامي".
+  String _view = 'all';
+
   @override
   void dispose() {
     _tabController?.dispose();
@@ -58,10 +67,7 @@ class _MyTasksScreenState extends ConsumerState<MyTasksScreen> with SingleTicker
 
     return departmentsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stackTrace) => _ErrorView(
-        error: error,
-        onRetry: () => ref.invalidate(myTaskProgressProvider),
-      ),
+      error: (error, stackTrace) => _ErrorView(error: error, onRetry: () => ref.invalidate(myTaskProgressProvider)),
       data: (departments) {
         _ensureTabController(departments.length);
 
@@ -69,19 +75,51 @@ class _MyTasksScreenState extends ConsumerState<MyTasksScreen> with SingleTicker
           return Center(child: Text(t['myTasks.noDepartments']!));
         }
 
+        final requests = ref.watch(myTaskStartRequestsProvider).valueOrNull ?? const <TaskStartRequest>[];
+        final waiting = requests.where((r) => r.status != 'approved').toList();
+        final pendingCount = requests.where((r) => r.status == 'pending').length;
+
+        Widget pill(String key, String label, {int badge = 0}) => Padding(
+          padding: const EdgeInsetsDirectional.only(end: 8),
+          child: ChoiceChip(
+            label: Badge(isLabelVisible: badge > 0, label: Text('$badge'), offset: const Offset(14, -8), child: Text(label)),
+            selected: _view == key,
+            onSelected: (_) => setState(() => _view = key),
+          ),
+        );
+
         return Column(
           children: [
-            TabBar(
-              controller: _tabController,
-              isScrollable: true,
-              tabs: [for (final d in departments) Tab(text: d.name)],
-            ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [for (final d in departments) _DepartmentTaskList(department: d)],
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Row(
+                children: [
+                  pill('all', t['taskRequests.allTasksTab']!),
+                  pill('waiting', t['taskRequests.waitingTab']!, badge: pendingCount),
+                  pill('notStarted', t['taskRequests.notStartedTab']!),
+                ],
               ),
             ),
+            if (_view == 'waiting')
+              Expanded(child: _WaitingList(requests: waiting))
+            else if (_view == 'notStarted')
+              Expanded(
+                child: _NotStartedList(departments: departments, requests: requests),
+              )
+            else ...[
+              TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                tabs: [for (final d in departments) Tab(text: d.name)],
+              ),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [for (final d in departments) _DepartmentTaskList(department: d)],
+                ),
+              ),
+            ],
           ],
         );
       },
@@ -111,9 +149,7 @@ class _DepartmentTaskList extends ConsumerWidget {
 
     return ListView(
       padding: const EdgeInsets.all(12),
-      children: [
-        for (final entry in byTask.entries) _TaskGroupTile(slots: entry.value),
-      ],
+      children: [for (final entry in byTask.entries) _TaskGroupTile(slots: entry.value)],
     );
   }
 }
@@ -166,9 +202,7 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
       if (!mounted) return;
       final query = '?task_instances_id=$instanceId';
       context.push(
-        result.recordId != null
-            ? '/case-sheets/${result.resource}/${result.recordId}$query'
-            : '/case-sheets/${result.resource}/new$query',
+        result.recordId != null ? '/case-sheets/${result.resource}/${result.recordId}$query' : '/case-sheets/${result.resource}/new$query',
       );
     } catch (e) {
       if (mounted) {
@@ -194,9 +228,7 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
       if (!mounted) return;
       final query = '?task_id=${slot.taskId}';
       context.push(
-        result.recordId != null
-            ? '/case-sheets/${result.resource}/${result.recordId}$query'
-            : '/case-sheets/${result.resource}/new$query',
+        result.recordId != null ? '/case-sheets/${result.resource}/${result.recordId}$query' : '/case-sheets/${result.resource}/new$query',
       );
     } catch (e) {
       if (mounted) {
@@ -254,11 +286,11 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
   }
 
   String _statusLabel(Map<String, String> t) => switch (slot.status) {
-        'completed' => t['slotStatus.completed']!,
-        'assigned' => t['slotStatus.inProgress']!,
-        'pending' => t['slotStatus.pending']!,
-        _ => t['slotStatus.notStarted']!,
-      };
+    'completed' => t['slotStatus.completed']!,
+    'assigned' => t['slotStatus.inProgress']!,
+    'pending' => t['slotStatus.pending']!,
+    _ => t['slotStatus.notStarted']!,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -276,10 +308,7 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: _statusColor(context).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(999),
-                ),
+                decoration: BoxDecoration(color: _statusColor(context).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(999)),
                 child: Text(
                   _statusLabel(t),
                   style: TextStyle(color: _statusColor(context), fontWeight: FontWeight.w600, fontSize: 12),
@@ -293,6 +322,8 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
           ),
           if (parsedDate != null) Text(dateFormat.format(parsedDate)),
           if (slot.notes != null && slot.notes!.isNotEmpty) Text(slot.notes!),
+          // Ask staff to start it (2026-10-14) — or show it's waiting.
+          if (slot.instanceId == null) _RequestStartButton(taskId: slot.taskId, taskTitle: slot.taskTitle),
           // "تأكيد أنه ورقي" — only meaningful once the case has a real
           // instance (an unstarted slot's optional draft isn't a
           // documented case yet).
@@ -341,9 +372,7 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
             tooltip: t['labels.qrCode']!,
             onPressed: () => showQrDialog(
               context,
-              imagePath: slot.instanceId != null
-                  ? '/task-instances/${slot.instanceId}/qr'
-                  : '/pending-tasks/${slot.taskId}/qr',
+              imagePath: slot.instanceId != null ? '/task-instances/${slot.instanceId}/qr' : '/pending-tasks/${slot.taskId}/qr',
               title: slot.instanceId != null ? t['myTasks.qrCaseTitle']! : t['myTasks.qrStartTitle']!,
               caption: slot.instanceId != null ? t['myTasks.qrCaseCaption']! : t['myTasks.qrStartCaption']!,
             ),
@@ -362,6 +391,193 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
         ],
       ),
       onTap: slot.instanceId != null ? () => context.push('/tasks/${slot.instanceId}') : null,
+    );
+  }
+}
+
+/// Opens the doctor's pre-instance draft of [taskId]'s case sheet — the
+/// "electronic form" a start request points staff at.
+Future<void> _openTaskDraft(BuildContext context, WidgetRef ref, int taskId) async {
+  try {
+    final result = await ref.read(caseSheetRecordRepositoryProvider).openForTask(taskId);
+    if (!context.mounted) return;
+    final query = '?task_id=$taskId';
+    context.push(
+      result.recordId != null ? '/case-sheets/${result.resource}/${result.recordId}$query' : '/case-sheets/${result.resource}/new$query',
+    );
+  } catch (e) {
+    if (context.mounted) {
+      final t = ref.read(translationsProvider);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e is ApiException ? e.userMessage : t['myTasks.openFormFailed']!)));
+    }
+  }
+}
+
+/// "طلب بدء" for a task with slots still to start, or a "بانتظار الموافقة"
+/// chip once a request is waiting.
+class _RequestStartButton extends ConsumerWidget {
+  const _RequestStartButton({required this.taskId, required this.taskTitle});
+  final int taskId;
+  final String taskTitle;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider);
+    final requests = ref.watch(myTaskStartRequestsProvider).valueOrNull ?? const <TaskStartRequest>[];
+    if (requests.any((r) => r.taskId == taskId && r.status == 'pending')) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.hourglass_top, size: 14, color: Colors.orange.shade700),
+            const SizedBox(width: 4),
+            Text(t['taskRequests.waitingApproval']!, style: TextStyle(fontSize: 12, color: Colors.orange.shade700)),
+          ],
+        ),
+      );
+    }
+    return TextButton.icon(
+      style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0), visualDensity: VisualDensity.compact),
+      icon: const Icon(Icons.send_outlined, size: 16),
+      label: Text(t['taskRequests.requestStart']!, style: const TextStyle(fontSize: 12)),
+      onPressed: () async {
+        final sent = await showRequestStartSheet(
+          context,
+          taskId: taskId,
+          taskTitle: taskTitle,
+          onOpenForm: () => _openTaskDraft(context, ref, taskId),
+        );
+        if (sent) {
+          ref.invalidate(myTaskStartRequestsProvider);
+          ref.invalidate(myTaskProgressProvider);
+        }
+      },
+    );
+  }
+}
+
+/// Requests still waiting for staff, plus turned-down ones with the reason.
+class _WaitingList extends ConsumerWidget {
+  const _WaitingList({required this.requests});
+  final List<TaskStartRequest> requests;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider);
+    return RefreshIndicator(
+      onRefresh: () => ref.refresh(myTaskStartRequestsProvider.future),
+      child: requests.isEmpty
+          ? ListView(
+              children: [
+                const SizedBox(height: 80),
+                Text(
+                  t['taskRequests.noWaiting']!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.grey),
+                ),
+              ],
+            )
+          : ListView(
+              padding: const EdgeInsets.all(12),
+              children: [
+                for (final r in requests)
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: ListTile(
+                      leading: Icon(
+                        r.status == 'pending' ? Icons.hourglass_top : Icons.cancel_outlined,
+                        color: r.status == 'pending' ? Colors.orange.shade700 : Colors.red.shade700,
+                      ),
+                      title: Text(r.taskTitle),
+                      subtitle: Text(
+                        [
+                          if (r.department != null) r.department!,
+                          r.isPaper ? t['taskRequests.paperForm']! : t['taskRequests.electronicForm']!,
+                          r.status == 'pending' ? t['taskRequests.waitingApproval']! : t['taskRequests.rejectedShort']!,
+                          if (r.status == 'rejected' && r.reviewNote != null && r.reviewNote!.isNotEmpty) r.reviewNote!,
+                        ].join(' · '),
+                      ),
+                      trailing: r.status == 'pending'
+                          ? IconButton(
+                              icon: const Icon(Icons.undo),
+                              tooltip: t['taskRequests.cancel'],
+                              onPressed: () async {
+                                final ok = await showDialog<bool>(
+                                  context: context,
+                                  builder: (c) => AlertDialog(
+                                    content: Text(t['taskRequests.cancelConfirm']!),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(c, false), child: Text(t['nav.cancel']!)),
+                                      FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(t['taskRequests.cancel']!)),
+                                    ],
+                                  ),
+                                );
+                                if (ok != true) return;
+                                try {
+                                  await ref.read(taskStartRequestRepositoryProvider).cancel(r.id);
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(e is ApiException ? e.userMessage : t['taskRequests.actionFailed']!)),
+                                    );
+                                  }
+                                }
+                                ref.invalidate(myTaskStartRequestsProvider);
+                              },
+                            )
+                          : null,
+                    ),
+                  ),
+              ],
+            ),
+    );
+  }
+}
+
+/// Tasks that still have slots to start, each with its request button.
+class _NotStartedList extends ConsumerWidget {
+  const _NotStartedList({required this.departments, required this.requests});
+  final List<MyTaskDepartment> departments;
+  final List<TaskStartRequest> requests;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider);
+    final rows = <({String department, TaskSlotCard slot, int open})>[];
+    for (final d in departments) {
+      final byTask = <int, List<TaskSlotCard>>{};
+      for (final card in d.doctor.tasks) {
+        byTask.putIfAbsent(card.taskId, () => []).add(card);
+      }
+      for (final slots in byTask.values) {
+        final open = slots.where((s) => s.instanceId == null).length;
+        if (open > 0) rows.add((department: d.name, slot: slots.first, open: open));
+      }
+    }
+    if (rows.isEmpty) {
+      return Center(
+        child: Text(t['taskRequests.noNotStarted']!, style: const TextStyle(color: Colors.grey)),
+      );
+    }
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: [
+        for (final row in rows)
+          Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            child: ListTile(
+              title: Text(row.slot.taskTitle),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(row.department),
+                  _RequestStartButton(taskId: row.slot.taskId, taskTitle: row.slot.taskTitle),
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
