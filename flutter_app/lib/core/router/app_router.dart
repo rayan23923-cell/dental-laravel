@@ -213,10 +213,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             const QrScanScreen(mode: QrScanMode.paymentPatientLink),
       ),
       GoRoute(
-        path: '/records/payments/new',
-        builder: (context, state) => const PaymentFormScreen(),
-      ),
-      GoRoute(
         path: '/records/payments/:id',
         builder: (context, state) => PaymentFormScreen(
           paymentId: int.parse(state.pathParameters['id']!),

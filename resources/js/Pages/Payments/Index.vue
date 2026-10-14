@@ -5,7 +5,6 @@ import ChatListRow from '@/Components/ChatList/ChatListRow.vue';
 import ChatChip from '@/Components/ChatList/ChatChip.vue';
 import ChatAction from '@/Components/ChatList/ChatAction.vue';
 import ChatSearch from '@/Components/ChatList/ChatSearch.vue';
-import ChatAddButton from '@/Components/ChatList/ChatAddButton.vue';
 import ChatPager from '@/Components/ChatList/ChatPager.vue';
 import BarChart from '@/Components/BarChart.vue';
 import Icon from '@/Components/Icon.vue';
@@ -111,7 +110,6 @@ const destroy = (payment) => {
                     >
                         <Icon name="print" :label="t('payments.printReport')" />
                     </a>
-                    <ChatAddButton :label="t('payments.recordPayment')" :href="route('payments.create')" />
                 </div>
             </div>
         </template>
@@ -159,7 +157,6 @@ const destroy = (payment) => {
                         class="rounded-full border-gray-200 bg-white py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     >
                         <option value="">{{ t('payments.sourceLabel') }}: {{ t('payments.all') }}</option>
-                        <option value="appointment">{{ t('payments.appointmentSource') }}</option>
                         <option value="registration">{{ t('payments.registrationSource') }}</option>
                         <option value="lab">{{ t('payments.labFee') }}</option>
                     </select>

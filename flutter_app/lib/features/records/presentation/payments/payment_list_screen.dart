@@ -26,7 +26,7 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
   // why no doctor or paid/unpaid filter exists.
   DateTime? _from;
   DateTime? _to;
-  String? _source; // null (all) | 'appointment' | 'registration'
+  String? _source; // null (all) | 'registration' | 'lab'
 
   bool get _hasActiveFilters => _from != null || _to != null || _source != null;
 
@@ -73,10 +73,6 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
             onPressed: _openFilters,
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push('/records/payments/new'),
-        child: const Icon(Icons.add_card),
       ),
       body: Column(
         children: [
@@ -190,8 +186,9 @@ class _PaymentFilterSheetState extends ConsumerState<_PaymentFilterSheet> {
             decoration: InputDecoration(labelText: t['recordsHub.sourceLabel'], border: const OutlineInputBorder(), isDense: true),
             items: [
               DropdownMenuItem(value: null, child: Text(t['recordsHub.sourceAll']!)),
-              DropdownMenuItem(value: 'appointment', child: Text(t['recordsHub.sourceAppointment']!)),
+              // Appointments dropped from payments (2026-10-14, by request).
               DropdownMenuItem(value: 'registration', child: Text(t['recordsHub.sourceRegistration']!)),
+              DropdownMenuItem(value: 'lab', child: Text(t['payments.labFee']!)),
             ],
             onChanged: (v) => setState(() => _source = v),
           ),

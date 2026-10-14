@@ -100,7 +100,8 @@ class PaymentStats
             ->get()
             ->keyBy('source');
 
-        return collect(['registration', 'lab', 'appointment'])
+        // Appointments dropped from payments (2026-10-14, by request).
+        return collect(['registration', 'lab'])
             ->map(fn ($s) => ['source' => $s, 'total' => (float) ($rows[$s]->total ?? 0), 'count' => (int) ($rows[$s]->count ?? 0)])
             ->all();
     }
