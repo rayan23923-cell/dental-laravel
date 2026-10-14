@@ -7,6 +7,10 @@ use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Support\RolePresets;
 use App\Services\CredentialMailer;
+use App\Services\PermissionManager;
+use App\Services\ScopeHelper;
+use App\Support\PermissionMatrix;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -29,6 +33,20 @@ use Illuminate\Validation\Rule;
  */
 class UserController extends Controller
 {
+    /**
+     * What the add-user form needs to show the permissions editor before
+     * the account exists (2026-10-14, by request): the matrix, the scope
+     * options, and each role's pre-ticked grants.
+     */
+    public function formOptions(): JsonResponse
+    {
+        return response()->json([
+            'modules' => PermissionMatrix::forUi(),
+            'scope_options' => ScopeHelper::options(),
+            'role_defaults' => (object) RolePresets::defaults(),
+        ]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -38,14 +56,28 @@ class UserController extends Controller
             'phone' => ['nullable', 'string', 'max:50'],
             'password' => ['nullable', 'string', 'min:6'],
             'role' => ['required', Rule::in(array_diff(User::ROLES, ['super_admin']))],
+            // The permissions and access scope picked on the same form
+            // (2026-10-14, by request). Without `grants` the role's preset
+            // applies, as before.
+            'grants' => ['sometimes', 'array'],
+            'grants.*' => ['string', 'in:'.implode(',', PermissionMatrix::pairs())],
+            ...ScopeHelper::rules(),
         ]);
+        $grants = $validated['grants'] ?? null;
+        $scope = $validated['scope'] ?? [];
+        unset($validated['grants'], $validated['scope']);
         // Left blank: generate one. Either way it goes to the new user by email.
         $plainPassword = $validated['password'] ?? null ?: CredentialMailer::generatePassword();
         $validated['password'] = Hash::make($plainPassword);
         $validated['status'] = 'active';
 
-        $user = User::create($validated);
-        RolePresets::apply($user);
+        $user = DB::transaction(function () use ($validated, $grants, $scope) {
+            $user = User::create($validated);
+            $grants === null ? RolePresets::apply($user) : PermissionManager::syncGrants($user, $grants);
+            ScopeHelper::saveScope($user, $scope);
+
+            return $user;
+        });
         CredentialMailer::queueWelcome('user', $user->email, $user->full_name, $user->username, $plainPassword);
 
         return (new UserResource($user))->response()->setStatusCode(201);

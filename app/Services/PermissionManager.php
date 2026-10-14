@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Models\UserPermission;
+use App\Support\PermissionMatrix;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -80,5 +81,24 @@ class PermissionManager
     public static function forget(int $userId, string $module, string $permission): void
     {
         Cache::forget("user-permission:{$userId}:{$module}:{$permission}");
+    }
+
+    /**
+     * Writes one row per matrix action for $user: granted when its
+     * "module.permission" pair is in $grants, revoked otherwise. Shared by
+     * the permissions screen and the add-user form (2026-10-14).
+     */
+    public static function syncGrants(User $user, array $grants): void
+    {
+        foreach (PermissionMatrix::modules() as $module => $definition) {
+            foreach (array_keys($definition['permissions']) as $permission) {
+                UserPermission::updateOrCreate(
+                    ['user_id' => $user->id, 'module' => $module, 'permission' => $permission],
+                    ['granted' => in_array("{$module}.{$permission}", $grants, true)]
+                );
+
+                self::forget($user->id, $module, $permission);
+            }
+        }
     }
 }

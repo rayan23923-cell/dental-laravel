@@ -73,31 +73,13 @@ class UserPermissionController extends Controller
             // "restrict to nothing" (send `[]`, which ScopeHelper also
             // treats as unrestricted per its own "zero rows" rule) don't
             // need to be told apart at this layer.
-            'scope' => ['nullable', 'array'],
-            'scope.departments' => ['nullable', 'array'],
-            'scope.departments.*' => ['integer', 'exists:departments,id'],
-            'scope.stages' => ['nullable', 'array'],
-            'scope.stages.*' => ['integer', 'exists:stages,id'],
-            'scope.education_types' => ['nullable', 'array'],
-            'scope.education_types.*' => ['integer', 'exists:education_types,id'],
-            'scope.academic_sessions' => ['nullable', 'array'],
-            'scope.academic_sessions.*' => ['integer', 'exists:academic_sessions,id'],
+            ...ScopeHelper::rules(),
         ]);
         $grants = $validated['grants'] ?? [];
         $scope = $validated['scope'] ?? [];
 
         DB::transaction(function () use ($user, $grants, $scope) {
-            foreach (PermissionMatrix::modules() as $module => $definition) {
-                foreach (array_keys($definition['permissions']) as $permission) {
-                    UserPermission::updateOrCreate(
-                        ['user_id' => $user->id, 'module' => $module, 'permission' => $permission],
-                        ['granted' => in_array("{$module}.{$permission}", $grants, true)]
-                    );
-
-                    PermissionManager::forget($user->id, $module, $permission);
-                }
-            }
-
+            PermissionManager::syncGrants($user, $grants);
             ScopeHelper::saveScope($user, $scope);
         });
 

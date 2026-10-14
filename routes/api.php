@@ -417,6 +417,7 @@ Route::name('api.')->prefix('v1')->group(function () {
         // PermissionMatrix since it was built, unused by any route (the
         // same class of gap as 'departments', see its own comment above).
         // This is the first route that actually checks it.
+        Route::get('/users/form-options', [UserController::class, 'formOptions'])->middleware('permission:users,create');
         Route::post('/users', [UserController::class, 'store'])->middleware('permission:users,create');
 
         // Clinical specialty records — each mirrors the pattern above
