@@ -48,8 +48,6 @@ class AdminHubScreen extends ConsumerWidget {
         // Hidden while groups are turned off in clinic settings.
         if (ref.watch(groupsEnabledProvider)) _AdminItem(t['adminHub.groups']!, Icons.groups_outlined, '/admin/groups'),
         _AdminItem(t['labels.taskProgress']!, Icons.fact_check_outlined, '/admin/task-progress'),
-        // The clinic chair map is hidden (2026-10-12, by request); its
-        // route stays registered.
         _AdminItem(t['adminHub.caseSheetTypes']!, Icons.description_outlined, '/admin/case-sheet-types'),
       ]),
       _AdminGroup(t['nav.settings']!, [

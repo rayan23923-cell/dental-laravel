@@ -30,8 +30,6 @@ export function useStructureLinks() {
                 ? [{ key: 'groups', label: t('nav.groups'), icon: 'groups', href: route('groups.index'), active: route().current('groups.*') }]
                 : []),
             { key: 'task-progress', label: t('nav.taskProgress'), icon: 'monitoring', href: route('task-progress.index'), active: route().current('task-progress.*') },
-            // The clinic chair map is hidden from the menus (2026-10-12, by
-            // request); its page stays reachable at /clinic-chairs.
             { key: 'case-sheet-types', label: t('nav.caseSheetTypes'), icon: 'description', href: route('case-sheet-types.index'), active: route().current('case-sheet-types.*') },
         ];
     });

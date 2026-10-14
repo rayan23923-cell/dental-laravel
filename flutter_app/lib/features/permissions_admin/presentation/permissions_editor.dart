@@ -267,7 +267,6 @@ const _moduleStyles = <String, (IconData, Color)>{
   'patients': (Icons.personal_injury_outlined, Colors.pink),
   'tasks': (Icons.assignment_outlined, Colors.orange),
   'groups': (Icons.groups_outlined, Colors.cyan),
-  'clinic_chairs': (Icons.chair_outlined, Colors.lightGreen),
   'stages': (Icons.stairs_outlined, Colors.deepPurple),
   'education_types': (Icons.school_outlined, Colors.amber),
   'departments': (Icons.domain_outlined, Colors.lightBlue),

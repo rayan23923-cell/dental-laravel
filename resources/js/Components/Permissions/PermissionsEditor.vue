@@ -122,7 +122,6 @@ const moduleIcons = {
     patients: ['personal_injury', 'bg-rose-500'],
     tasks: ['assignment', 'bg-orange-500'],
     groups: ['groups', 'bg-cyan-600'],
-    clinic_chairs: ['chair', 'bg-lime-600'],
     stages: ['stairs', 'bg-violet-500'],
     education_types: ['school', 'bg-amber-500'],
     departments: ['domain', 'bg-sky-500'],

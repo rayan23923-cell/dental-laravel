@@ -9,7 +9,6 @@ use App\Http\Controllers\CaseSheetController;
 use App\Http\Controllers\CaseSheetPrintController;
 use App\Http\Controllers\CaseSheetTypeController;
 use App\Http\Controllers\AdminBroadcastController;
-use App\Http\Controllers\ClinicChairController;
 use App\Http\Controllers\ClinicSettingController;
 use App\Http\Controllers\WaitingScreenPairingController;
 use App\Http\Controllers\WaitingScreenSettingController;
@@ -441,16 +440,6 @@ Route::middleware('auth')->group(function () {
             ->middleware('permission:groups,edit')->name('groups.doctors.add');
         Route::delete('/groups/{group}/doctors', [GroupController::class, 'removeDoctors'])
             ->middleware('permission:groups,edit')->name('groups.doctors.remove');
-
-        Route::resource('clinic-chairs', ClinicChairController::class)->except(['show', 'create', 'edit'])
-            ->middlewareFor('index', 'permission:clinic_chairs,view')
-            ->middlewareFor('store', 'permission:clinic_chairs,create')
-            ->middlewareFor('update', 'permission:clinic_chairs,edit')
-            ->middlewareFor('destroy', 'permission:clinic_chairs,delete');
-        Route::put('/clinic-chairs/{clinic_chair}/move', [ClinicChairController::class, 'move'])
-            ->middleware('permission:clinic_chairs,edit')->name('clinic-chairs.move');
-        Route::post('/clinic-chairs/assign-group', [ClinicChairController::class, 'assignGroup'])
-            ->middleware('permission:clinic_chairs,edit')->name('clinic-chairs.assign-group');
 
         // Matches admin/doctor_task_progress.php's own access check
         // (in_array($_SESSION['role'], ['admin', 'super_admin'])) — this one
