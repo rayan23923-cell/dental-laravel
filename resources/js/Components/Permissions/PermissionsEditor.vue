@@ -125,6 +125,7 @@ const moduleIcons = {
     stages: ['stairs', 'bg-violet-500'],
     education_types: ['school', 'bg-amber-500'],
     departments: ['domain', 'bg-sky-500'],
+    case_sheet_types: ['description', 'bg-slate-600'],
     task_progress: ['trending_up', 'bg-green-600'],
     patient_screening: ['fact_check', 'bg-pink-500'],
     reports: ['bar_chart', 'bg-fuchsia-500'],

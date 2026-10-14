@@ -257,7 +257,11 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::apiResource('academic-sessions', AcademicSessionController::class);
         Route::put('/academic-sessions/{academic_session}/set-current', [AcademicSessionController::class, 'setCurrent']);
 
-        Route::apiResource('case-sheet-types', CaseSheetTypeController::class)->except(['show']);
+        // The list stays open (forms read it); changes need the module.
+        Route::apiResource('case-sheet-types', CaseSheetTypeController::class)->except(['show'])
+            ->middlewareFor('store', 'permission:case_sheet_types,create')
+            ->middlewareFor('update', 'permission:case_sheet_types,edit')
+            ->middlewareFor('destroy', 'permission:case_sheet_types,delete');
 
         // Printable case sheets, as a document model the Flutter client can
         // lay out itself (see Api\CaseSheetPrintController). The Sanctum

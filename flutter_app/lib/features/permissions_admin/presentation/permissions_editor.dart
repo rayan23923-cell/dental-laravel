@@ -270,6 +270,7 @@ const _moduleStyles = <String, (IconData, Color)>{
   'stages': (Icons.stairs_outlined, Colors.deepPurple),
   'education_types': (Icons.school_outlined, Colors.amber),
   'departments': (Icons.domain_outlined, Colors.lightBlue),
+  'case_sheet_types': (Icons.description_outlined, Colors.blueGrey),
   'task_progress': (Icons.trending_up, Colors.green),
   'patient_screening': (Icons.fact_check_outlined, Colors.pinkAccent),
   'reports': (Icons.bar_chart, Colors.purple),
