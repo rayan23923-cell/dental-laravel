@@ -12,6 +12,8 @@ class AppNotification {
     required this.taskInstanceId,
     required this.taskTitle,
     required this.department,
+    this.type,
+    this.kind,
   });
 
   factory AppNotification.fromJson(Map<String, dynamic> json) => AppNotification(
@@ -23,6 +25,8 @@ class AppNotification {
         taskInstanceId: json['task_instance_id'] as int?,
         taskTitle: json['task_title'] as String?,
         department: json['department'] as String?,
+        type: json['type'] as String?,
+        kind: json['kind'] as String?,
       );
 
   final String id;
@@ -33,6 +37,10 @@ class AppNotification {
   final int? taskInstanceId;
   final String? taskTitle;
   final String? department;
+
+  /// e.g. `task_assigned`, `photo_note`, `task_start_request` (2026-10-15).
+  final String? type;
+  final String? kind;
 
   bool get isUnread => readAt == null;
 }

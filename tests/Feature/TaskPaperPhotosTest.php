@@ -139,6 +139,12 @@ class TaskPaperPhotosTest extends TestCase
             ->getJson("/doctor/task-instances/{$instance->id}/attachments")
             ->assertJsonPath('data.0.note', 'الحشوة غير مكتملة من الحافة');
 
+        // Tapping it opens the case (the bell routes on type + task_instance_id) and marks it read.
+        $feed = $this->getJson('/doctor/notifications')->assertJsonPath('data.0.type', 'photo_note')
+            ->assertJsonPath('data.0.task_instance_id', $instance->id)->assertJsonPath('unread', 1);
+        $this->postJson("/doctor/notifications/{$feed->json('data.0.id')}/read")->assertOk();
+        $this->getJson('/doctor/notifications')->assertJsonPath('unread', 0);
+
         // The app's API, and clearing the note.
         Sanctum::actingAs($admin);
         $this->putJson("/api/v1/task-progress/attachments/{$id}/note", ['note' => ''])

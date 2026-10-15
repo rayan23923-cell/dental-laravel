@@ -30,6 +30,7 @@ class PhotoNoteAdded extends Notification
 
         return [
             'title' => 'ملاحظة على صورة',
+            'type' => 'photo_note',
             'message' => "المشرف كتب ملاحظة على صورة مهمة \"{$task?->title}\": {$this->note}",
             'task_instance_id' => $this->instance->id,
             'task_title' => $task?->title,

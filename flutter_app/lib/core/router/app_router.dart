@@ -385,7 +385,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/admin/task-progress',
-            builder: (context, state) => const TaskProgressScreen(),
+            builder: (context, state) => TaskProgressScreen(initialTab: state.uri.queryParameters['tab'] ?? 'progress'),
           ),
           GoRoute(
             path: '/admin/printer-settings',

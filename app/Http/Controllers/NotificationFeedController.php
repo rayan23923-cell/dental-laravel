@@ -30,6 +30,14 @@ class NotificationFeedController extends Controller
         return response()->json(['message' => 'ok']);
     }
 
+    /** One notification, when it is tapped (2026-10-15). */
+    public function markRead(string $id): JsonResponse
+    {
+        $this->principal()->notifications()->whereKey($id)->update(['read_at' => now()]);
+
+        return response()->json(['message' => 'ok']);
+    }
+
     private function principal()
     {
         return Auth::guard('doctor')->user() ?? request()->user() ?? abort(401);
