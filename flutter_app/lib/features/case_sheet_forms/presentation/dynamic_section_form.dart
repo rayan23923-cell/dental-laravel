@@ -792,7 +792,7 @@ class _StageDateFieldState extends State<_StageDateField> {
             ),
             // LTR so a yyyy-MM-dd date never reorders inside the RTL page.
             child: Text(
-              value.isEmpty ? '—' : value,
+              value.isEmpty ? 'dd/mm/yyyy' : _display(value),
               textDirection: ui.TextDirection.ltr,
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 13),
@@ -815,6 +815,12 @@ class _StageDateFieldState extends State<_StageDateField> {
           ),
       ],
     );
+  }
+
+  /// Shown as 15/10/2026; the stored value stays yyyy-MM-dd.
+  static String _display(String value) {
+    final date = DateTime.tryParse(value);
+    return date == null ? value : DateFormat('dd/MM/yyyy', 'en').format(date);
   }
 
   Future<void> _pick(String current) async {
@@ -1245,7 +1251,7 @@ class _DateFieldState extends State<_DateField> {
           onTap: widget.state.fieldDisabled(widget.field) ? null : () => _pick(context, value),
           child: InputDecorator(
             decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true, suffixIcon: Icon(Icons.calendar_today, size: 18)),
-            child: Text(value.isEmpty ? widget.state.t['caseSheetForm.selectDatePlaceholder']! : value),
+            child: Text(value.isEmpty ? widget.state.t['caseSheetForm.selectDatePlaceholder']! : _StageDateFieldState._display(value), textDirection: ui.TextDirection.ltr),
           ),
         ),
       ],
