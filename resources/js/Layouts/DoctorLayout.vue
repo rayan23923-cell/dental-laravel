@@ -44,7 +44,6 @@ const selectedSession = computed(() => page.props.selectedAcademicSessionId ?? '
 const NAV = computed(() => [
     { route: 'doctor.dashboard', label: t('nav.home'), icon: 'home' },
     { route: 'doctor.required-tasks', label: t('doctorLayout.requiredTasks'), icon: 'assignment' },
-    { route: 'doctor.pending-qr', label: t('doctorLayout.pendingTasksQr'), icon: 'qr_code_2' },
     { route: 'doctor.progress', label: t('doctorLayout.progress'), icon: 'trending_up' },
 ]);
 
