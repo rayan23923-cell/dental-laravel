@@ -342,17 +342,6 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
               onPressed: _confirmPaper,
               child: Text(t['myTasks.confirmPaperButton']!, style: const TextStyle(fontSize: 12)),
             ),
-          // Photos of the paper case sheet (2026-10-13), as on the web.
-          if (slot.instanceId != null)
-            TextButton.icon(
-              style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0), visualDensity: VisualDensity.compact),
-              onPressed: () async {
-                await showPaperPhotosSheet(context, instanceId: slot.instanceId!, title: slot.taskTitle, doctor: true);
-                ref.invalidate(myTaskProgressProvider);
-              },
-              icon: const Icon(Icons.photo_library_outlined, size: 16),
-              label: Text(trf(t['paperPhotos.button']!, {'n': slot.attachmentsCount}), style: const TextStyle(fontSize: 12)),
-            ),
         ],
       ),
       // QR always shown — even an unstarted slot has one, since scanning
@@ -375,6 +364,23 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
               imagePath: slot.instanceId != null ? '/task-instances/${slot.instanceId}/qr' : '/pending-tasks/${slot.taskId}/qr',
               title: slot.instanceId != null ? t['myTasks.qrCaseTitle']! : t['myTasks.qrStartTitle']!,
               caption: slot.instanceId != null ? t['myTasks.qrCaseCaption']! : t['myTasks.qrStartCaption']!,
+            ),
+          ),
+          // Photos next to the form (2026-10-15, as on the web): the doctor
+          // uploads, the supervisor previews them and writes notes.
+          IconButton(
+            tooltip: slot.instanceId != null ? t['paperPhotos.uploadShort']! : t['paperPhotos.needsStart']!,
+            onPressed: slot.instanceId == null
+                ? null
+                : () async {
+                    await showPaperPhotosSheet(context, instanceId: slot.instanceId!, title: slot.taskTitle, doctor: true);
+                    ref.invalidate(myTaskProgressProvider);
+                  },
+            icon: Badge(
+              isLabelVisible: slot.attachmentsCount > 0 || slot.notedAttachmentsCount > 0,
+              backgroundColor: slot.notedAttachmentsCount > 0 ? Colors.amber.shade700 : Colors.green,
+              label: Text('${slot.notedAttachmentsCount > 0 ? slot.notedAttachmentsCount : slot.attachmentsCount}'),
+              child: const Icon(Icons.add_a_photo_outlined),
             ),
           ),
           _openingCaseSheet

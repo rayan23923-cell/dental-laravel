@@ -36,7 +36,7 @@ class RequiredTasksController extends Controller
 
         $instances = TaskInstance::where('doctor_id', $doctor->id)
             ->whereIn('task_id', $tasks->pluck('id'))
-            ->withCount('attachments')
+            ->withCount(['attachments', 'attachments as noted_attachments_count' => fn ($q) => $q->whereNotNull('note')])
             ->orderBy('id')
             ->get();
 
@@ -71,6 +71,8 @@ class RequiredTasksController extends Controller
                             'paper_case_sheet_confirmed_at' => $instance?->paper_case_sheet_confirmed_at,
                             // Photos of the paper case sheet (2026-10-13).
                             'attachments_count' => $instance?->attachments_count ?? 0,
+                            // Photos the supervisor wrote a note on (2026-10-15).
+                            'noted_attachments_count' => $instance?->noted_attachments_count ?? 0,
                         ];
                     }
 

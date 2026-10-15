@@ -1142,7 +1142,17 @@
         "failed": "That did not work. Try again.",
         "confirmDelete": "Delete this photo?",
         "defaultLabel": "Paper form photo",
-        "attachFromScan": "Attach paper photo"
+        "attachFromScan": "Attach paper photo",
+        "hasNote": "Note",
+        "note": "Supervisor's note",
+        "notePlaceholder": "Write your note on this photo...",
+        "noNote": "No note yet.",
+        "noteBy": "{name} - {at}",
+        "saveNote": "Save note",
+        "saving": "Saving...",
+        "uploadShort": "Photos",
+        "needsStart": "Start the task first to upload photos",
+        "notesCount": "{count} notes"
     },
     "chatList": {
         "addEducationType": "Add education type",

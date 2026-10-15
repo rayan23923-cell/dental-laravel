@@ -6,6 +6,7 @@
  * itself, page after page, until "Done". See TaskInstanceAttachmentController.
  */
 import Icon from '@/Components/Icon.vue';
+import Modal from '@/Components/Modal.vue';
 import PhoneScannerLink from '@/Components/PhoneScannerLink.vue';
 import { onRemotePhoto, remoteScanner, requestPhonePhoto } from '@/remoteScanner';
 import { shrinkImage } from '@/shrinkImage';
@@ -33,14 +34,19 @@ const fileInput = ref(null);
 const staff = computed(() => props.mode === 'staff');
 const routes = computed(() =>
     staff.value
-        ? { index: 'task-progress.attachments.index', store: 'task-progress.attachments.store', destroy: 'task-progress.attachments.destroy' }
+        ? {
+              index: 'task-progress.attachments.index',
+              store: 'task-progress.attachments.store',
+              destroy: 'task-progress.attachments.destroy',
+              note: 'task-progress.attachments.note',
+          }
         : { index: 'doctor.task-instances.attachments.index', store: 'doctor.task-instances.attachments.store', destroy: 'doctor.task-instances.attachments.destroy' },
 );
 const phoneReady = computed(() => !!remoteScanner.pairing?.phone_joined);
 
 const setPhotos = (list) => {
     photos.value = list;
-    emit('changed', list.length);
+    emit('changed', list.length, list);
 };
 
 const failed = (e) => {
@@ -91,6 +97,34 @@ const remove = async (photo) => {
         failed(e);
     }
 };
+
+// Large preview; staff write a note on it, the doctor reads it (2026-10-15).
+const viewing = ref(null);
+const noteDraft = ref('');
+const savingNote = ref(false);
+const noteError = ref('');
+
+const view = (photo) => {
+    viewing.value = photo;
+    noteDraft.value = photo.note ?? '';
+    noteError.value = '';
+};
+
+const saveNote = async () => {
+    savingNote.value = true;
+    noteError.value = '';
+    try {
+        const { data } = await axios.put(route(routes.value.note, viewing.value.id), { note: noteDraft.value });
+        setPhotos(data.data);
+        viewing.value = data.data.find((p) => p.id === viewing.value.id) ?? null;
+    } catch (e) {
+        noteError.value = e?.response?.data?.message || t('paperPhotos.failed');
+    } finally {
+        savingNote.value = false;
+    }
+};
+
+const fmt = (iso) => (iso ? new Date(iso).toLocaleString('ar-IQ', { dateStyle: 'medium', timeStyle: 'short' }) : '');
 
 const askPhone = async () => {
     error.value = '';
@@ -165,9 +199,15 @@ onBeforeUnmount(() => {
             <p v-else-if="!photos.length && !busy" class="rounded-lg bg-gray-50 p-4 text-center text-sm text-gray-500">{{ t('paperPhotos.none') }}</p>
             <div v-else class="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <div v-for="photo in photos" :key="photo.id" class="group relative overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
-                    <a :href="photo.url" target="_blank" rel="noopener">
+                    <button type="button" class="block w-full" @click="view(photo)">
                         <img :src="photo.url" :alt="t('paperPhotos.title')" class="h-36 w-full object-cover" loading="lazy" />
-                    </a>
+                    </button>
+                    <span
+                        v-if="photo.note"
+                        class="absolute bottom-1 right-1 inline-flex items-center rounded-full bg-amber-500 px-2 py-0.5 text-[11px] font-medium text-white shadow"
+                    >
+                        <Icon name="sticky_note_2" class="ml-1" />{{ t('paperPhotos.hasNote') }}
+                    </span>
                     <button
                         type="button"
                         class="absolute left-1 top-1 rounded-full bg-white/90 p-1 text-red-600 shadow hover:bg-white"
@@ -182,5 +222,47 @@ onBeforeUnmount(() => {
                 </div>
             </div>
         </div>
+
+        <Modal :show="viewing !== null" max-width="2xl" @close="viewing = null">
+            <div v-if="viewing" class="p-4 sm:p-6">
+                <a :href="viewing.url" target="_blank" rel="noopener" class="block">
+                    <img :src="viewing.url" :alt="t('paperPhotos.title')" class="mx-auto max-h-[65vh] w-auto rounded-lg object-contain" />
+                </a>
+
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700"><Icon name="sticky_note_2" class="ml-1" />{{ t('paperPhotos.note') }}</label>
+                    <template v-if="staff">
+                        <textarea
+                            v-model="noteDraft"
+                            rows="3"
+                            maxlength="2000"
+                            :placeholder="t('paperPhotos.notePlaceholder')"
+                            class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        ></textarea>
+                        <p v-if="noteError" class="mt-1 text-sm text-red-600">{{ noteError }}</p>
+                    </template>
+                    <p v-else-if="viewing.note" class="mt-1 whitespace-pre-line rounded-md bg-amber-50 p-3 text-sm text-amber-900">{{ viewing.note }}</p>
+                    <p v-else class="mt-1 text-sm text-gray-500">{{ t('paperPhotos.noNote') }}</p>
+                    <p v-if="viewing.note_at" class="mt-1 text-xs text-gray-500">
+                        {{ t('paperPhotos.noteBy', { name: viewing.note_by || '-', at: fmt(viewing.note_at) }) }}
+                    </p>
+                </div>
+
+                <div class="mt-4 flex justify-end gap-2">
+                    <button
+                        v-if="staff"
+                        type="button"
+                        :disabled="savingNote || noteDraft === (viewing.note ?? '')"
+                        class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                        @click="saveNote"
+                    >
+                        {{ savingNote ? t('paperPhotos.saving') : t('paperPhotos.saveNote') }}
+                    </button>
+                    <button type="button" class="rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50" @click="viewing = null">
+                        {{ t('common.close') }}
+                    </button>
+                </div>
+            </div>
+        </Modal>
     </div>
 </template>

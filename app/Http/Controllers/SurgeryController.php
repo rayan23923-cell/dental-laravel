@@ -7,6 +7,7 @@ use App\Models\Patient;
 use App\Models\Surgery;
 use App\Models\TaskInstance;
 use App\Services\CaseSheetAccess;
+use App\Support\CaseSheetDoctor;
 use App\Support\CaseSheetPatientFieldMap;
 use App\Support\CaseSheetReturn;
 use App\Support\CaseSheetSignatures;
@@ -106,6 +107,7 @@ class SurgeryController extends Controller
             'supervisorEditableFields' => CaseSheetAccess::isViewOnly() ? CaseSheetSupervisorFields::fieldsFor('surgeries') : [],
             'supervisorFields' => CaseSheetSupervisorFields::fieldsFor('surgeries'),
             'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
+            'linkedDoctor' => CaseSheetDoctor::linked($record?->doctor_id, $record?->task_instances_id ?? $taskInstanceId),
             'taskId' => $record?->task_id ?? $taskId,
         ]);
     }

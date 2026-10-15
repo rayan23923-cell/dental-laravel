@@ -7,7 +7,10 @@ use App\Models\ScannerScan;
 use App\Models\TaskInstance;
 use App\Models\TaskInstanceAttachment;
 use App\Models\User;
+use App\Notifications\PhotoNoteAdded;
+use App\Services\Notifier;
 use App\Services\PermissionManager;
+use App\Services\PushNotifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -69,6 +72,31 @@ class TaskInstanceAttachmentController extends Controller
         ]);
 
         return $this->list($taskInstance, 201);
+    }
+
+    /**
+     * The supervisor's note on a photo (2026-10-15, by request); the
+     * doctor sees it on their case and is notified.
+     */
+    public function note(Request $request, TaskInstanceAttachment $attachment): JsonResponse
+    {
+        $principal = $this->authorizeInstance($attachment->taskInstance);
+        abort_unless($principal instanceof User, 403);
+        $validated = $request->validate(['note' => ['nullable', 'string', 'max:2000']]);
+
+        $note = trim((string) ($validated['note'] ?? '')) ?: null;
+        $attachment->update(['note' => $note, 'note_by_user_id' => $note ? $principal->id : null, 'note_at' => $note ? now() : null]);
+
+        $doctor = $attachment->taskInstance->doctor;
+        if ($note && $doctor) {
+            $title = $attachment->taskInstance->task?->title ?? '';
+            Notifier::send($doctor, new PhotoNoteAdded($attachment->taskInstance, $note));
+            PushNotifier::send($doctor, 'ملاحظة على صورة', "المشرف كتب ملاحظة على صورة مهمة \"{$title}\".", [
+                'task_instance_id' => (string) $attachment->task_instance_id,
+            ]);
+        }
+
+        return $this->list($attachment->taskInstance);
     }
 
     public function destroy(TaskInstanceAttachment $attachment): JsonResponse

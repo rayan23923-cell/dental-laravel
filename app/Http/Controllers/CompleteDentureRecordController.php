@@ -6,6 +6,7 @@ use App\Models\CompleteDentureRecord;
 use App\Models\Doctor;
 use App\Models\TaskInstance;
 use App\Services\CaseSheetAccess;
+use App\Support\CaseSheetDoctor;
 use App\Support\CaseSheetPatientFieldMap;
 use App\Support\CaseSheetReturn;
 use App\Support\CaseSheetSignatures;
@@ -100,6 +101,7 @@ class CompleteDentureRecordController extends Controller
             'supervisorEditableFields' => CaseSheetAccess::isViewOnly() ? CaseSheetSupervisorFields::fieldsFor('complete-denture-records') : [],
             'supervisorFields' => CaseSheetSupervisorFields::fieldsFor('complete-denture-records'),
             'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
+            'linkedDoctor' => CaseSheetDoctor::linked($record?->doctor_id, $record?->task_instances_id ?? $taskInstanceId),
             'taskId' => $record?->task_id ?? $taskId,
         ]);
     }

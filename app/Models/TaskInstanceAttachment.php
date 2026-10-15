@@ -16,7 +16,9 @@ class TaskInstanceAttachment extends Model
 {
     public const UPDATED_AT = null;
 
-    protected $fillable = ['task_instance_id', 'path', 'size', 'uploaded_by_user_id', 'uploaded_by_doctor_id'];
+    protected $fillable = ['task_instance_id', 'path', 'size', 'uploaded_by_user_id', 'uploaded_by_doctor_id', 'note', 'note_by_user_id', 'note_at'];
+
+    protected $casts = ['note_at' => 'datetime'];
 
     protected static function booted(): void
     {
@@ -34,6 +36,11 @@ class TaskInstanceAttachment extends Model
             'id' => $this->id,
             'url' => Storage::disk('public')->url($this->path),
             'created_at' => $this->created_at?->toIso8601String(),
+            // The supervisor's note on it (2026-10-15).
+            'note' => $this->note,
+            'note_at' => $this->note_at?->toIso8601String(),
+            'note_by' => $this->note_by_user_id ? User::whereKey($this->note_by_user_id)->value('full_name') : null,
+            'by_doctor' => $this->uploaded_by_doctor_id !== null,
         ];
     }
 }

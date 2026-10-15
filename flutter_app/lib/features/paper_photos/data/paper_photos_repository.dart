@@ -9,13 +9,23 @@ final paperPhotosRepositoryProvider = Provider<PaperPhotosRepository>((ref) {
 });
 
 class PaperPhoto {
-  const PaperPhoto({required this.id, required this.url});
+  const PaperPhoto({required this.id, required this.url, this.note, this.noteBy, this.noteAt});
 
-  factory PaperPhoto.fromJson(Map<String, dynamic> json) =>
-      PaperPhoto(id: json['id'] as int, url: json['url'] as String? ?? '');
+  factory PaperPhoto.fromJson(Map<String, dynamic> json) => PaperPhoto(
+        id: json['id'] as int,
+        url: json['url'] as String? ?? '',
+        note: json['note'] as String?,
+        noteBy: json['note_by'] as String?,
+        noteAt: json['note_at'] as String?,
+      );
 
   final int id;
   final String url;
+
+  /// The supervisor's note on this photo (2026-10-15).
+  final String? note;
+  final String? noteBy;
+  final String? noteAt;
 }
 
 /// Photos of a task's paper case sheet (2026-10-13) — the same
@@ -41,6 +51,11 @@ class PaperPhotosRepository {
       'photo': MultipartFile.fromBytes(await photo.readAsBytes(), filename: photo.name),
     });
     return _parse(await _client.postFile(_base(doctor, instanceId), formData: formData));
+  }
+
+  /// Staff only: write (or clear, with an empty [note]) the note on a photo.
+  Future<List<PaperPhoto>> saveNote({required int photoId, required String note}) async {
+    return _parse(await _client.putJson('/task-progress/attachments/$photoId/note', body: {'note': note}));
   }
 
   Future<void> delete({required bool doctor, required int photoId}) {
