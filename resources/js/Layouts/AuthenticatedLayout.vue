@@ -8,12 +8,9 @@
  * variables (App\Support\ThemePalette), so the bar follows whichever theme
  * is selected in settings.
  *
- * **The content region deliberately keeps its neutral light background.**
- * Around fifty page components style their own cards, tables and text with
- * fixed Tailwind greys (`bg-white`, `text-gray-800`); repainting the region
- * behind them from a dark theme token would leave dark-on-dark text on any
- * page that writes directly onto the page background. Theming the chrome is
- * safe today, theming every page body is a separate pass.
+ * Page bodies follow the theme too (2026-10-15): the `themed` class on the
+ * root repaints the fixed Tailwind greys pages use (`bg-white`,
+ * `text-gray-800`, ...) from the theme tokens — see the end of app.css.
  */
 import { computed, ref } from 'vue';
 import BrandMark from '@/Components/BrandMark.vue';
@@ -154,7 +151,7 @@ const tileClass = (active) => [
 </script>
 
 <template>
-    <div class="min-h-screen bg-gray-100">
+    <div class="themed min-h-screen bg-gray-100">
         <div class="bg-app px-3 pb-3 pt-3 sm:px-6 lg:px-8">
             <nav class="mx-auto max-w-[110rem] rounded-card border border-hairline/70 bg-surface shadow-panel">
                 <div class="flex items-center gap-3 px-3 py-2.5 sm:px-4">
