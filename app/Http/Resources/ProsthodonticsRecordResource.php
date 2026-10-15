@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources;
 
+use App\Support\CaseSheetGrades;
+use App\Support\ProsthodonticsForm;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -12,6 +14,8 @@ class ProsthodonticsRecordResource extends JsonResource
         return [
             'id' => $this->id,
             'task_instances_id' => $this->task_instances_id,
+            // Each grade's max — the linked task's step max, else 10 (2026-10-15).
+            'stage_maxes' => CaseSheetGrades::maxes(ProsthodonticsForm::stages(), true, $this->task_instances_id),
             'task_id' => $this->task_id,
             'doctor_id' => $this->doctor_id,
             'student_name' => $this->student_name,

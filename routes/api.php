@@ -437,6 +437,11 @@ Route::name('api.')->prefix('v1')->group(function () {
             ] as $uri => $controller) {
                 Route::apiResource($uri, $controller)->parameters([$uri => 'record']);
             }
+
+            // One stage date/grade saved as soon as it changes (2026-10-15).
+            foreach (['prosthodontics-records' => ProsthodonticsRecordController::class, 'complete-denture-records' => CompleteDentureRecordController::class] as $uri => $controller) {
+                Route::patch("$uri/{record}/stage-field", [$controller, 'stageField'])->name("$uri.stage-field");
+            }
         });
     });
 });

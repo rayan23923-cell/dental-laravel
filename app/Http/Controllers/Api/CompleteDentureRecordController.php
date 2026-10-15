@@ -7,6 +7,8 @@ use App\Http\Resources\CompleteDentureRecordResource;
 use App\Models\CompleteDentureRecord;
 use App\Support\CaseSheetGrades;
 use App\Support\CaseSheetSignatures;
+use App\Support\CaseSheetStageField;
+use App\Support\CompleteDentureForm;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -41,7 +43,7 @@ class CompleteDentureRecordController extends Controller
 
     public function update(Request $request, CompleteDentureRecord $record): JsonResponse
     {
-        $data = CaseSheetSignatures::applyPending('complete-denture-records', $this->validateRecord($request, true), $record, CaseSheetSignatures::signerName($request));
+        $data = CaseSheetSignatures::applyPending('complete-denture-records', $this->validateRecord($request, true, $record), $record, CaseSheetSignatures::signerName($request));
         $record->update($data);
 
         return (new CompleteDentureRecordResource($record))->response();
@@ -54,7 +56,13 @@ class CompleteDentureRecordController extends Controller
         return response()->json(null, 204);
     }
 
-    private function validateRecord(Request $request, bool $partial = false): array
+    /** Saves one stage date or grade as soon as it changes. */
+    public function stageField(Request $request, CompleteDentureRecord $record): JsonResponse
+    {
+        return response()->json(CaseSheetStageField::save($request, $record, CompleteDentureForm::stages(), false));
+    }
+
+    private function validateRecord(Request $request, bool $partial = false, ?CompleteDentureRecord $record = null): array
     {
         $rules = [
             'doctor_id' => ['required', 'integer'],
@@ -137,10 +145,12 @@ class CompleteDentureRecordController extends Controller
 
         // Grades are numbers only (TaskScoring reads them with is_numeric);
         // Arabic digits and "9/10" are normalized before validating.
+        // Each grade is capped at its step's max (the linked task's, else 10).
         $gradeKeys = array_values(array_filter(array_keys($rules), fn ($k) => str_ends_with($k, '_grade')));
-        CaseSheetGrades::normalize($request, $gradeKeys);
+        $maxes = CaseSheetGrades::maxes(CompleteDentureForm::stages(), false, $request->integer('task_instances_id') ?: $record?->task_instances_id);
+        CaseSheetGrades::normalize($request, $gradeKeys, $maxes);
         foreach ($gradeKeys as $key) {
-            $rules[$key] = CaseSheetGrades::RULES;
+            $rules[$key] = CaseSheetGrades::rules($maxes)[$key] ?? CaseSheetGrades::RULES;
         }
 
         if ($partial) {

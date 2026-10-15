@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\CompleteDentureRecord;
 use App\Models\Doctor;
 use App\Models\ProsthodonticsRecord;
+use App\Models\Task;
+use App\Models\TaskInstance;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -60,5 +62,39 @@ class CaseSheetGradesTest extends TestCase
 
         $this->putJson("/api/v1/complete-denture-records/{$record->id}", ['stage_trial_grade' => 'جيد'])
             ->assertJsonValidationErrors('stage_trial_grade');
+    }
+
+    public function test_a_stage_field_saves_on_its_own_and_stays_within_its_step_max(): void
+    {
+        $doctor = $this->doctor();
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        $task = Task::create([
+            'department_id' => 1, 'case_sheet_type_id' => 1, 'stage_id' => 1,
+            'title' => 'طقم جزئي', 'required_per_doctor' => 1, 'required_count' => 1,
+            'scoring' => ['measure' => 'both', 'steps' => [['key' => 'trial', 'label' => 'Trial denture', 'max' => 5, 'enabled' => true]]],
+        ]);
+        DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        $instance = TaskInstance::create(['task_id' => $task->id, 'doctor_id' => $doctor->id, 'status' => 'assigned']);
+        $record = ProsthodonticsRecord::create(['doctor_id' => $doctor->id, 'patient_name' => 'مريض', 'task_instances_id' => $instance->id]);
+        $admin = User::factory()->create(['role' => 'super_admin']);
+
+        // The page shows each step's max: the task's 5 for "trial", 10 elsewhere.
+        $this->actingAs($admin)->get("/prosthodontics-records/{$record->id}/edit")
+            ->assertInertia(fn ($page) => $page->where('stageMaxes.stage_trial_grade', 5)->where('stageMaxes.stage_final_grade', 10));
+
+        $this->patchJson("/prosthodontics-records/{$record->id}/stage-field", ['stage_trial_grade' => '٧'])
+            ->assertOk()->assertJsonPath('value', '5');
+        $this->patchJson("/prosthodontics-records/{$record->id}/stage-field", ['stage_trial_date' => '2026-10-15'])->assertOk();
+        $record->refresh();
+        $this->assertSame('5', (string) $record->stage_trial_grade);
+        $this->assertStringStartsWith('2026-10-15', (string) $record->stage_trial_date);
+
+        // Only one stage column per call, and never a doctor's own field.
+        $this->patchJson("/prosthodontics-records/{$record->id}/stage-field", ['patient_name' => 'آخر'])->assertStatus(403);
+        $this->patchJson("/prosthodontics-records/{$record->id}/stage-field", ['stage_final_grade' => '1', 'stage_final_date' => '2026-10-15'])->assertJsonValidationErrors('field');
+
+        // A doctor can't grade their own sheet.
+        $this->actingAs($doctor, 'doctor')
+            ->patchJson("/prosthodontics-records/{$record->id}/stage-field", ['stage_final_grade' => '9'])->assertStatus(403);
     }
 }

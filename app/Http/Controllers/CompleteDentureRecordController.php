@@ -11,8 +11,10 @@ use App\Support\CaseSheetGrades;
 use App\Support\CaseSheetPatientFieldMap;
 use App\Support\CaseSheetReturn;
 use App\Support\CaseSheetSignatures;
+use App\Support\CaseSheetStageField;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\CompleteDentureForm;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -71,7 +73,7 @@ class CompleteDentureRecordController extends Controller
 
     public function update(Request $request, CompleteDentureRecord $record): RedirectResponse
     {
-        $data = CaseSheetSignatures::applyPending('complete-denture-records', $this->validateRecord($request), $record, CaseSheetSignatures::signerName($request));
+        $data = CaseSheetSignatures::applyPending('complete-denture-records', $this->validateRecord($request, $record), $record, CaseSheetSignatures::signerName($request));
         $record->update($data);
 
         return CaseSheetReturn::redirect()->with('success', 'Complete denture record updated.');
@@ -82,6 +84,12 @@ class CompleteDentureRecordController extends Controller
         $record->delete();
 
         return CaseSheetReturn::redirect()->with('success', 'Complete denture record deleted.');
+    }
+
+    /** Saves one stage date or grade as soon as it changes. */
+    public function stageField(Request $request, CompleteDentureRecord $record): JsonResponse
+    {
+        return response()->json(CaseSheetStageField::save($request, $record, CompleteDentureForm::stages(), false));
     }
 
     private function form(?CompleteDentureRecord $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null, array $prefill = []): Response
@@ -102,12 +110,13 @@ class CompleteDentureRecordController extends Controller
             'supervisorEditableFields' => CaseSheetAccess::isViewOnly() ? CaseSheetSupervisorFields::fieldsFor('complete-denture-records') : [],
             'supervisorFields' => CaseSheetSupervisorFields::fieldsFor('complete-denture-records'),
             'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
+            'stageMaxes' => CaseSheetGrades::maxes(CompleteDentureForm::stages(), false, $record?->task_instances_id ?? $taskInstanceId),
             'linkedDoctor' => CaseSheetDoctor::linked($record?->doctor_id, $record?->task_instances_id ?? $taskInstanceId),
             'taskId' => $record?->task_id ?? $taskId,
         ]);
     }
 
-    private function validateRecord(Request $request): array
+    private function validateRecord(Request $request, ?CompleteDentureRecord $record = null): array
     {
         $rules = [
             'doctor_id' => ['required', 'exists:doctors,id'],
@@ -136,13 +145,12 @@ class CompleteDentureRecordController extends Controller
         foreach (CompleteDentureForm::stages() as $stage) {
             $rules["stage_{$stage['key']}_signature"] = ['nullable', 'string'];
             $rules["stage_{$stage['key']}_date"] = ['nullable', 'date'];
-            $rules["stage_{$stage['key']}_grade"] = CaseSheetGrades::RULES;
         }
 
-        CaseSheetGrades::normalize($request, [...collect(CompleteDentureForm::stages())->map(fn ($s) => "stage_{$s['key']}_grade")->all()]);
-        if (isset($rules['diagnosis_grade'])) {
-            $rules['diagnosis_grade'] = CaseSheetGrades::RULES;
-        }
+        // Grades are numbers up to each step's max (the linked task's, else 10).
+        $maxes = CaseSheetGrades::maxes(CompleteDentureForm::stages(), false, $request->integer('task_instances_id') ?: $record?->task_instances_id);
+        CaseSheetGrades::normalize($request, array_keys($maxes), $maxes);
+        $rules = [...$rules, ...CaseSheetGrades::rules($maxes)];
 
         return $request->validate($rules);
     }
