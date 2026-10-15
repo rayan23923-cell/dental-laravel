@@ -11,6 +11,8 @@ const { t } = useI18n();
 const scoring = defineModel({ type: Object, required: true });
 
 const input = 'rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500';
+// Labels wrap onto as many lines as they need (2026-10-15), so they read whole on a phone.
+const rowsFor = (text) => Math.max(1, Math.ceil((text?.length ?? 0) / 28));
 const addOption = () => scoring.value.options.push({ label: '', points: 0 });
 const addModifier = () => scoring.value.modifiers.push({ label: '', factor: 1 });
 const addCheck = () => (scoring.value.checklist ??= []).push({ label: '' });
@@ -18,7 +20,7 @@ const addCheck = () => (scoring.value.checklist ??= []).push({ label: '' });
 
 <template>
     <div class="space-y-3">
-        <div class="grid grid-cols-3 gap-2">
+        <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <label class="text-xs text-gray-600">
                 {{ t('taskScoring.measure') }}
                 <select v-model="scoring.measure" :class="input" class="mt-1 block w-full">
@@ -54,8 +56,8 @@ const addCheck = () => (scoring.value.checklist ??= []).push({ label: '' });
                     <Icon name="add" size="text-[16px]" /> {{ t('taskScoring.addOption') }}
                 </button>
             </div>
-            <div v-for="(o, i) in scoring.options" :key="i" class="mb-1 flex items-center gap-2">
-                <input v-model="o.label" type="text" :placeholder="t('taskScoring.optionLabel')" class="min-w-0 flex-1" :class="input" required />
+            <div v-for="(o, i) in scoring.options" :key="i" class="mb-1 flex items-start gap-2">
+                <textarea v-model="o.label" :rows="rowsFor(o.label)" :placeholder="t('taskScoring.optionLabel')" class="min-w-0 flex-1 resize-y leading-6" :class="input" required @keydown.enter.prevent></textarea>
                 <input v-model.number="o.points" type="number" min="0" step="0.5" class="w-24 shrink-0" :class="input" required />
                 <button type="button" class="shrink-0 text-gray-400 hover:text-red-600" :title="t('common.delete')" @click="scoring.options.splice(i, 1)">
                     <Icon name="close" size="text-[18px]" />
@@ -81,7 +83,7 @@ const addCheck = () => (scoring.value.checklist ??= []).push({ label: '' });
                 </button>
             </div>
             <div v-for="(c, i) in scoring.checklist ?? []" :key="i" class="mb-1 flex items-center gap-2">
-                <input v-model="c.label" type="text" :placeholder="t('taskScoring.checkLabel')" class="min-w-0 flex-1" :class="input" required />
+                <textarea v-model="c.label" :rows="rowsFor(c.label)" :placeholder="t('taskScoring.checkLabel')" class="min-w-0 flex-1 resize-y leading-6" :class="input" required @keydown.enter.prevent></textarea>
                 <button type="button" class="shrink-0 text-gray-400 hover:text-red-600" :title="t('common.delete')" @click="scoring.checklist.splice(i, 1)">
                     <Icon name="close" size="text-[18px]" />
                 </button>
@@ -97,7 +99,7 @@ const addCheck = () => (scoring.value.checklist ??= []).push({ label: '' });
                 </button>
             </div>
             <div v-for="(m, i) in scoring.modifiers" :key="i" class="mb-1 flex items-center gap-2">
-                <input v-model="m.label" type="text" :placeholder="t('taskScoring.modifierLabel')" class="min-w-0 flex-1" :class="input" required />
+                <textarea v-model="m.label" :rows="rowsFor(m.label)" :placeholder="t('taskScoring.modifierLabel')" class="min-w-0 flex-1 resize-y leading-6" :class="input" required @keydown.enter.prevent></textarea>
                 <span class="text-xs text-gray-500">×</span>
                 <input v-model.number="m.factor" type="number" min="0" max="10" step="0.0001" class="w-24 shrink-0" :class="input" required />
                 <button type="button" class="shrink-0 text-gray-400 hover:text-red-600" :title="t('common.delete')" @click="scoring.modifiers.splice(i, 1)">
