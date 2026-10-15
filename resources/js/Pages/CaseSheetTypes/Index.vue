@@ -12,7 +12,7 @@ import Modal from '@/Components/Modal.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
-import { Head, router, useForm, usePage } from '@inertiajs/vue3';
+import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import StructureTabs from '@/Components/StructureTabs.vue';
@@ -56,11 +56,6 @@ const submitEdit = () => {
     });
 };
 
-const destroy = (type) => {
-    if (confirm(t('caseSheetTypesAdmin.deleteConfirm', { name: type.name_en }))) {
-        router.delete(route('case-sheet-types.destroy', type.id));
-    }
-};
 </script>
 
 <template>
@@ -102,7 +97,6 @@ const destroy = (type) => {
                         </template>
                         <template #actions>
                             <ChatAction icon="edit" :label="t('common.edit')" @click="openEdit(type)" />
-                            <ChatAction icon="delete" :label="t('common.delete')" danger @click="destroy(type)" />
                         </template>
                     </ChatListRow>
                 </ChatListCard>

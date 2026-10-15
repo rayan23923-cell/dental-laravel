@@ -258,10 +258,10 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::put('/academic-sessions/{academic_session}/set-current', [AcademicSessionController::class, 'setCurrent']);
 
         // The list stays open (forms read it); changes need the module.
-        Route::apiResource('case-sheet-types', CaseSheetTypeController::class)->except(['show'])
+        // Never deleted (2026-10-15) — switch one off instead.
+        Route::apiResource('case-sheet-types', CaseSheetTypeController::class)->except(['show', 'destroy'])
             ->middlewareFor('store', 'permission:case_sheet_types,create')
-            ->middlewareFor('update', 'permission:case_sheet_types,edit')
-            ->middlewareFor('destroy', 'permission:case_sheet_types,delete');
+            ->middlewareFor('update', 'permission:case_sheet_types,edit');
 
         // Printable case sheets, as a document model the Flutter client can
         // lay out itself (see Api\CaseSheetPrintController). The Sanctum
@@ -387,7 +387,7 @@ Route::name('api.')->prefix('v1')->group(function () {
         // checked the web session's `doctor` guard), so this middleware
         // behaves identically here to its web counterpart.
         Route::middleware('case-sheet')->group(function () {
-            Route::apiResource('dental-charts', DentalChartController::class);
+            Route::apiResource('dental-charts', DentalChartController::class)->except('destroy');
         });
 
         // A canal's working-length X-ray on the Operative sheet's
@@ -435,7 +435,9 @@ Route::name('api.')->prefix('v1')->group(function () {
                 'treatment-plans' => TreatmentPlanController::class,
                 'treatment-materials' => TreatmentMaterialController::class,
             ] as $uri => $controller) {
-                Route::apiResource($uri, $controller)->parameters([$uri => 'record']);
+                // The case sheets themselves are never deleted (2026-10-15).
+                Route::apiResource($uri, $controller)->parameters([$uri => 'record'])
+                    ->except(in_array($uri, \App\Support\CaseSheetsKept::RESOURCES, true) ? ['destroy'] : []);
             }
 
             // One stage date/grade saved as soon as it changes (2026-10-15).

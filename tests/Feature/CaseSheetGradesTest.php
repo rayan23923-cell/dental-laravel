@@ -97,4 +97,16 @@ class CaseSheetGradesTest extends TestCase
         $this->actingAs($doctor, 'doctor')
             ->patchJson("/prosthodontics-records/{$record->id}/stage-field", ['stage_final_grade' => '9'])->assertStatus(403);
     }
+
+    public function test_case_sheets_and_their_types_cannot_be_deleted(): void
+    {
+        $doctor = $this->doctor();
+        $record = ProsthodonticsRecord::create(['doctor_id' => $doctor->id, 'patient_name' => 'مريض']);
+        $this->actingAs($doctor, 'doctor')->delete("/prosthodontics-records/{$record->id}")->assertStatus(405);
+        $this->assertNotNull($record->fresh());
+
+        Sanctum::actingAs(User::factory()->create(['role' => 'super_admin']));
+        $this->deleteJson('/api/v1/case-sheet-types/1')->assertStatus(405);
+        $this->deleteJson("/api/v1/prosthodontics-records/{$record->id}")->assertStatus(405);
+    }
 }

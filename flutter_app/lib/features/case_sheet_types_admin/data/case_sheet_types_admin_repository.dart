@@ -31,5 +31,4 @@ class CaseSheetTypesAdminRepository {
     return CaseSheetTypeAdmin.fromJson(data);
   }
 
-  Future<void> delete(int id) => _client.deleteJson('/case-sheet-types/$id');
 }

@@ -432,11 +432,11 @@ Route::middleware('auth')->group(function () {
         Route::put('/academic-sessions/{academic_session}/set-current', [AcademicSessionController::class, 'setCurrent'])->name('academic-sessions.set-current');
         Route::post('/academic-sessions/select', [AcademicSessionController::class, 'select'])->name('academic-sessions.select');
 
-        Route::resource('case-sheet-types', CaseSheetTypeController::class)->except(['show', 'create', 'edit'])
+        // Never deleted (2026-10-15, "لتجنب فقدانها") — switch one off instead.
+        Route::resource('case-sheet-types', CaseSheetTypeController::class)->except(['show', 'create', 'edit', 'destroy'])
             ->middlewareFor('index', 'permission:case_sheet_types,view')
             ->middlewareFor('store', 'permission:case_sheet_types,create')
-            ->middlewareFor('update', 'permission:case_sheet_types,edit')
-            ->middlewareFor('destroy', 'permission:case_sheet_types,delete');
+            ->middlewareFor('update', 'permission:case_sheet_types,edit');
 
         Route::get('/admin-broadcast', [AdminBroadcastController::class, 'create'])->name('admin-broadcast.create');
         Route::post('/admin-broadcast', [AdminBroadcastController::class, 'store'])->name('admin-broadcast.store');
@@ -681,7 +681,9 @@ Route::middleware(['auth:web,doctor', 'case-sheet'])->group(function () {
         'treatment-plans' => TreatmentPlanController::class,
         'treatment-materials' => TreatmentMaterialController::class,
     ] as $uri => $controller) {
-        Route::resource($uri, $controller)->parameters([$uri => 'record']);
+        // The case sheets themselves are never deleted (2026-10-15, "لتجنب فقدانها").
+        Route::resource($uri, $controller)->parameters([$uri => 'record'])
+            ->except(in_array($uri, \App\Support\CaseSheetsKept::RESOURCES, true) ? ['destroy'] : []);
     }
 
     // One stage date/grade saved as soon as it changes (2026-10-15).
@@ -692,9 +694,8 @@ Route::middleware(['auth:web,doctor', 'case-sheet'])->group(function () {
     // The operative sheet — same rules, and the sheet CaseSheetController
     // falls back to for an unknown case-sheet type. Keeps its own
     // {dentalChart} parameter name, which its controller signatures use.
+    // Never deleted, like the other case sheets (2026-10-15).
     Route::resource('dental-charts', DentalChartController::class)->except('destroy');
-    Route::delete('/dental-charts/{dentalChart}', [DentalChartController::class, 'destroy'])
-        ->name('dental-charts.destroy');
 
     // A canal's working-length X-ray on the Operative sheet's Endodontics
     // section (2026-09-03) — same access rule (any logged-in doctor or

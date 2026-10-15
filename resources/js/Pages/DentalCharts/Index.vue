@@ -19,11 +19,6 @@ watch(search, (value) => {
     router.get(route('dental-charts.index'), { search: value }, { preserveState: true, replace: true });
 });
 
-const destroy = (chart) => {
-    if (confirm(t('dentalCharts.deleteConfirm', { name: chart.patient_id }))) {
-        router.delete(route('dental-charts.destroy', chart.id));
-    }
-};
 </script>
 
 <template>
@@ -73,7 +68,6 @@ const destroy = (chart) => {
                                 <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ new Date(chart.visit_date).toLocaleDateString() }}</td>
                                 <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
                                     <Link :href="route('dental-charts.edit', chart.id)" class="text-indigo-600 hover:text-indigo-900">{{ t('dentalCharts.editAction') }}</Link>
-                                    <button @click="destroy(chart)" class="ml-4 text-red-600 hover:text-red-900">{{ t('dentalCharts.deleteAction') }}</button>
                                 </td>
                             </tr>
                             <tr v-if="charts.data.length === 0">

@@ -21,32 +21,6 @@ class CaseSheetTypeListScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _delete(BuildContext context, WidgetRef ref, CaseSheetTypeAdmin item) async {
-    final t = ref.read(translationsProvider);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(t['caseSheetTypesAdmin.deleteTitle']!),
-        content: Text(trf(t['caseSheetTypesAdmin.deleteConfirmBody']!, {'name': item.nameAr})),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(t['caseSheetTypesAdmin.cancel']!)),
-          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(t['caseSheetTypesAdmin.delete']!)),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-
-    try {
-      await ref.read(caseSheetTypesAdminRepositoryProvider).delete(item.id);
-      ref.invalidate(caseSheetTypeListProvider);
-    } catch (e) {
-      if (context.mounted) {
-        final message = e is ApiException ? e.userMessage : t['caseSheetTypesAdmin.deleteFailed']!;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final itemsAsync = ref.watch(caseSheetTypeListProvider);
@@ -101,12 +75,6 @@ class CaseSheetTypeListScreen extends ConsumerWidget {
                       icon: Icons.edit_outlined,
                       tooltip: t['caseSheetTypesAdmin.editTitle']!,
                       onPressed: () => _openForm(context, ref, item: item),
-                    ),
-                    ChatAction(
-                      icon: Icons.delete_outline,
-                      tooltip: t['caseSheetTypesAdmin.delete']!,
-                      danger: true,
-                      onPressed: () => _delete(context, ref, item),
                     ),
                   ],
                 );
