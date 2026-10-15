@@ -244,6 +244,11 @@ Route::middleware('auth:web,doctor')->group(function () {
     Route::get('/case-sheets/instances/{taskInstance}/qr', [TaskInstanceController::class, 'qr'])
         ->middleware('case-sheet')
         ->name('case-sheets.instance-qr');
+    // The task's points shown on its case sheet (2026-10-15); see TaskWorkController.
+    Route::get('/case-sheets/instances/{taskInstance}/work', [\App\Http\Controllers\TaskWorkController::class, 'show'])
+        ->name('case-sheets.instance-work');
+    Route::put('/case-sheets/instances/{taskInstance}/work', [\App\Http\Controllers\TaskWorkController::class, 'update'])
+        ->name('case-sheets.instance-work.update');
 
     // "Active sessions" panel embedded in both Profile pages — see
     // AccountSessionController's own docblock.
