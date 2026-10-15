@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\RendersSatelliteForm;
 use App\Models\{SurgeryFollowUp};
+use App\Support\CaseSheetReturn;
 use App\Support\SurgerySatelliteForms;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -53,20 +54,20 @@ class SurgeryFollowUpController extends Controller
     {
         SurgeryFollowUp::create($this->satelliteValidate($request, $this->sections(), ['surgery_id' => ['required', 'exists:surgeries,id']]));
 
-        return redirect()->route('surgery-follow-ups.index')->with('success', 'Surgery follow-up created.');
+        return CaseSheetReturn::redirect()->with('success', 'Surgery follow-up created.');
     }
 
     public function update(Request $request, SurgeryFollowUp $record): RedirectResponse
     {
         $record->update($this->satelliteValidate($request, $this->sections(), ['surgery_id' => ['required', 'exists:surgeries,id']]));
 
-        return redirect()->route('surgery-follow-ups.index')->with('success', 'Surgery follow-up updated.');
+        return CaseSheetReturn::redirect()->with('success', 'Surgery follow-up updated.');
     }
 
     public function destroy(SurgeryFollowUp $record): RedirectResponse
     {
         $record->delete();
 
-        return redirect()->route('surgery-follow-ups.index')->with('success', 'Surgery follow-up deleted.');
+        return CaseSheetReturn::redirect()->with('success', 'Surgery follow-up deleted.');
     }
 }

@@ -11,6 +11,12 @@
  * Both paths feed the same callback, so behaviour doesn't change with the
  * browser.
  *
+ * Camera switch flips between the rear and front camera by `facingMode`
+ * (2026-10-14). It used to step through the device list, but phones list
+ * several rear lenses (wide, ultra-wide, telephoto) ahead of the front one,
+ * so "switch" only ever moved to another rear lens. The choice is
+ * remembered on this device.
+ *
  * Torch is only exposable where the platform allows it: it needs an active
  * video track whose capabilities advertise `torch`. Android Chrome does;
  * **iOS Safari does not expose torch to web pages at all**, so the button
@@ -18,13 +24,19 @@
  * secure context — https, or localhost — which is why a plain-http LAN IP
  * gets an explicit warning instead of a silent failure.
  */
-import { onBeforeUnmount, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 import jsQR from 'jsqr';
 import { useI18n } from 'vue-i18n';
 import Icon from '@/Components/Icon.vue';
+import PhoneScannerLink from '@/Components/PhoneScannerLink.vue';
 
 const { t } = useI18n();
 const emit = defineEmits(['decoded', 'close']);
+const props = defineProps({
+    // Keep scanning after each code (the phone-scanner page, 2026-10-12):
+    // the same code is ignored for a moment so one QR isn't sent twice.
+    continuous: { type: Boolean, default: false },
+});
 
 const video = ref(null);
 const canvas = ref(null);
@@ -33,7 +45,15 @@ const error = ref('');
 const torchOn = ref(false);
 const torchSupported = ref(false);
 const cameras = ref([]);
-const cameraIndex = ref(0);
+const FACING_KEY = 'qrScanner.facing';
+const readFacing = () => {
+    try {
+        return localStorage.getItem(FACING_KEY) === 'user' ? 'user' : 'environment';
+    } catch {
+        return 'environment';
+    }
+};
+const facing = ref(readFacing());
 
 let stream = null;
 let track = null;
@@ -63,13 +83,20 @@ const start = async () => {
 
     try {
         stopped = false;
-        const deviceId = cameras.value[cameraIndex.value]?.deviceId;
-        stream = await navigator.mediaDevices.getUserMedia({
-            video: deviceId
-                ? { deviceId: { exact: deviceId } }
-                : { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
-            audio: false,
-        });
+        const size = { width: { ideal: 1280 }, height: { ideal: 720 } };
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { exact: facing.value }, ...size },
+                audio: false,
+            });
+        } catch (e) {
+            // A computer with one webcam has no "rear"; take what there is.
+            if (e?.name !== 'OverconstrainedError' && e?.name !== 'NotFoundError') throw e;
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { ideal: facing.value }, ...size },
+                audio: false,
+            });
+        }
 
         // Labels are only populated after permission is granted, so the
         // camera list is (re)read here rather than on mount.
@@ -80,6 +107,8 @@ const start = async () => {
 
         track = stream.getVideoTracks()[0];
         torchSupported.value = !!track?.getCapabilities?.().torch;
+        // Mirror the front camera so it moves like a mirror.
+        video.value.style.transform = track?.getSettings?.().facingMode === 'user' ? 'scaleX(-1)' : '';
         torchOn.value = false;
 
         if ('BarcodeDetector' in window) {
@@ -100,12 +129,32 @@ const start = async () => {
     }
 };
 
+let lastText = '';
+let lastAt = 0;
 const handle = (text) => {
     if (!text || stopped) return;
+    if (props.continuous) {
+        const now = Date.now();
+        if (text === lastText && now - lastAt < 3000) return;
+        lastText = text;
+        lastAt = now;
+        emit('decoded', text);
+        return;
+    }
     stopped = true;
     emit('decoded', text);
     stop();
 };
+
+// A code read by a paired phone (2026-10-12, see remoteScanner.js) counts
+// as read by this camera while it is running.
+const onRemoteScan = (event) => {
+    if (!scanning.value || props.continuous || event.detail.handled) return;
+    event.detail.handled = true;
+    handle(event.detail.payload);
+};
+onMounted(() => window.addEventListener('remote-scan', onRemoteScan));
+onBeforeUnmount(() => window.removeEventListener('remote-scan', onRemoteScan));
 
 const tick = async () => {
     if (stopped || !video.value || video.value.readyState !== video.value.HAVE_ENOUGH_DATA) {
@@ -116,7 +165,8 @@ const tick = async () => {
     try {
         if (detector) {
             const codes = await detector.detect(video.value);
-            if (codes.length) return handle(codes[0].rawValue);
+            if (codes.length) handle(codes[0].rawValue);
+            if (codes.length && !props.continuous) return;
         } else {
             const c = canvas.value;
             const w = video.value.videoWidth;
@@ -128,7 +178,8 @@ const tick = async () => {
                 ctx.drawImage(video.value, 0, 0, w, h);
                 const img = ctx.getImageData(0, 0, w, h);
                 const code = jsQR(img.data, w, h, { inversionAttempts: 'dontInvert' });
-                if (code?.data) return handle(code.data);
+                if (code?.data) handle(code.data);
+                if (code?.data && !props.continuous) return;
             }
         }
     } catch {
@@ -150,8 +201,12 @@ const toggleTorch = async () => {
 };
 
 const switchCamera = async () => {
-    if (cameras.value.length < 2) return;
-    cameraIndex.value = (cameraIndex.value + 1) % cameras.value.length;
+    facing.value = facing.value === 'user' ? 'environment' : 'user';
+    try {
+        localStorage.setItem(FACING_KEY, facing.value);
+    } catch {
+        // Private mode: the choice just isn't remembered.
+    }
     stop();
     await start();
 };
@@ -175,7 +230,7 @@ const stop = () => {
 
 onBeforeUnmount(stop);
 
-defineExpose({ start, stop });
+defineExpose({ start, stop, scanning });
 </script>
 
 <template>
@@ -223,6 +278,12 @@ defineExpose({ start, stop });
             >
                 <Icon name="autorenew" class="ml-1" />{{ t('qr.switchCamera') }}
             </button>
+        </div>
+
+        <!-- The phone-as-scanner status (2026-10-12): opens the pairing
+             window to link or unlink; a linked phone's scans land here too. -->
+        <div v-if="!continuous" class="mt-2">
+            <PhoneScannerLink variant="scanner" />
         </div>
 
         <p v-if="scanning && !torchSupported" class="mt-2 text-center text-xs text-gray-400">

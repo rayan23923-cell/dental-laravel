@@ -21,7 +21,9 @@ const form = useForm({
     // are told apart server-side.
     login: '',
     password: '',
-    remember: false,
+    // Checked by default (2026-10-14, by request): staying signed in is the
+    // norm on clinic devices; untick it on a shared computer.
+    remember: true,
 });
 
 // The panel has no hidden state; a password field that can't be revealed is

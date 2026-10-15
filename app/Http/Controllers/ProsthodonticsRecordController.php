@@ -6,10 +6,15 @@ use App\Models\Doctor;
 use App\Models\ProsthodonticsRecord;
 use App\Models\TaskInstance;
 use App\Services\CaseSheetAccess;
+use App\Support\CaseSheetDoctor;
+use App\Support\CaseSheetGrades;
 use App\Support\CaseSheetPatientFieldMap;
+use App\Support\CaseSheetReturn;
 use App\Support\CaseSheetSignatures;
+use App\Support\CaseSheetStageField;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\ProsthodonticsForm;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -63,21 +68,27 @@ class ProsthodonticsRecordController extends Controller
     {
         ProsthodonticsRecord::create($this->prepare($request));
 
-        return redirect()->route('prosthodontics-records.index')->with('success', 'Prosthodontics record created.');
+        return CaseSheetReturn::redirect()->with('success', 'Prosthodontics record created.');
     }
 
     public function update(Request $request, ProsthodonticsRecord $record): RedirectResponse
     {
         $record->update($this->prepare($request, $record));
 
-        return redirect()->route('prosthodontics-records.index')->with('success', 'Prosthodontics record updated.');
+        return CaseSheetReturn::redirect()->with('success', 'Prosthodontics record updated.');
     }
 
     public function destroy(ProsthodonticsRecord $record): RedirectResponse
     {
         $record->delete();
 
-        return redirect()->route('prosthodontics-records.index')->with('success', 'Prosthodontics record deleted.');
+        return CaseSheetReturn::redirect()->with('success', 'Prosthodontics record deleted.');
+    }
+
+    /** Saves one stage date or grade as soon as it changes. */
+    public function stageField(Request $request, ProsthodonticsRecord $record): JsonResponse
+    {
+        return response()->json(CaseSheetStageField::save($request, $record, ProsthodonticsForm::stages(), true));
     }
 
     private function form(?ProsthodonticsRecord $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null, array $prefill = []): Response
@@ -101,6 +112,8 @@ class ProsthodonticsRecordController extends Controller
             'supervisorEditableFields' => CaseSheetAccess::isViewOnly() ? CaseSheetSupervisorFields::fieldsFor('prosthodontics-records') : [],
             'supervisorFields' => CaseSheetSupervisorFields::fieldsFor('prosthodontics-records'),
             'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
+            'stageMaxes' => CaseSheetGrades::maxes(ProsthodonticsForm::stages(), true, $record?->task_instances_id ?? $taskInstanceId),
+            'linkedDoctor' => CaseSheetDoctor::linked($record?->doctor_id, $record?->task_instances_id ?? $taskInstanceId),
             'taskId' => $record?->task_id ?? $taskId,
         ]);
     }
@@ -115,7 +128,7 @@ class ProsthodonticsRecordController extends Controller
      */
     private function prepare(Request $request, ?ProsthodonticsRecord $existing = null): array
     {
-        $data = $this->validateRecord($request);
+        $data = $this->validateRecord($request, $existing);
         $data = CaseSheetSignatures::applyPending('prosthodontics-records', $data, $existing, CaseSheetSignatures::signerName($request));
 
         $data['tooth_chart_data'] = json_encode([
@@ -128,7 +141,7 @@ class ProsthodonticsRecordController extends Controller
         return $data;
     }
 
-    private function validateRecord(Request $request): array
+    private function validateRecord(Request $request, ?ProsthodonticsRecord $record = null): array
     {
         $rules = [
             'doctor_id' => ['required', 'exists:doctors,id'],
@@ -158,8 +171,12 @@ class ProsthodonticsRecordController extends Controller
         foreach (ProsthodonticsForm::stages() as $stage) {
             $rules["stage_{$stage['key']}_signature"] = ['nullable', 'string'];
             $rules["stage_{$stage['key']}_date"] = ['nullable', 'date'];
-            $rules["stage_{$stage['key']}_grade"] = ['nullable', 'string', 'max:50'];
         }
+
+        // Grades are numbers up to each step's max (the linked task's, else 10).
+        $maxes = CaseSheetGrades::maxes(ProsthodonticsForm::stages(), true, $request->integer('task_instances_id') ?: $record?->task_instances_id);
+        CaseSheetGrades::normalize($request, array_keys($maxes), $maxes);
+        $rules = [...$rules, ...CaseSheetGrades::rules($maxes)];
 
         return $request->validate($rules);
     }

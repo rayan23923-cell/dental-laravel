@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/numeric_input.dart';
 
 /// "History of the Complaint" — port of `Components/HistoryOfComplaintSection.vue`
 /// + `Components/SymptomsChecklist.vue` (oral_medicine.php's 28-item
@@ -184,6 +185,7 @@ class _HistoryOfComplaintFieldState extends State<HistoryOfComplaintField> {
             controller: _controllerFor('pain_scale', widget.value['pain_scale']?.toString() ?? ''),
             enabled: !widget.readOnly,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: decimalOnly,
             decoration: const InputDecoration(isDense: true, border: OutlineInputBorder()),
             onChanged: (v) => _set('pain_scale', v),
           ),

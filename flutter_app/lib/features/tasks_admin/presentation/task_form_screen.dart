@@ -7,6 +7,7 @@ import '../../../core/network/api_exception.dart';
 import '../data/tasks_admin_repository.dart';
 import '../domain/task_admin.dart';
 import 'tasks_admin_providers.dart';
+import '../../../core/widgets/numeric_input.dart';
 
 class TaskFormScreen extends ConsumerStatefulWidget {
   const TaskFormScreen({super.key, this.taskId, this.initialEducationTypeId, this.initialStageId});
@@ -27,7 +28,6 @@ class TaskFormScreen extends ConsumerStatefulWidget {
 class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
-  final _requiredPerDoctorController = TextEditingController(text: '1');
   final _requiredCountController = TextEditingController(text: '1');
   final _notesController = TextEditingController();
   final _gradeController = TextEditingController();
@@ -56,7 +56,6 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
   @override
   void dispose() {
     _titleController.dispose();
-    _requiredPerDoctorController.dispose();
     _requiredCountController.dispose();
     _notesController.dispose();
     _gradeController.dispose();
@@ -67,7 +66,6 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
     if (_seeded) return;
     _seeded = true;
     _titleController.text = task.title;
-    _requiredPerDoctorController.text = (task.requiredPerDoctor ?? 1).toString();
     _requiredCountController.text = (task.requiredCount ?? 1).toString();
     _notesController.text = task.notes ?? '';
     _gradeController.text = task.grade?.toString() ?? '';
@@ -106,7 +104,6 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
       'department_id': _departmentId,
       'stage_id': _stageId,
       'case_sheet_type_id': _caseSheetTypeId,
-      'required_per_doctor': int.tryParse(_requiredPerDoctorController.text.trim()) ?? 1,
       'required_count': int.tryParse(_requiredCountController.text.trim()) ?? 1,
       'notes': _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
       'grade': _gradeController.text.trim().isEmpty ? null : double.tryParse(_gradeController.text.trim()),
@@ -210,17 +207,6 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
               validator: (v) => (v == null || v.trim().isEmpty) ? t['tasksAdmin.requiredField'] : null,
             ),
             const SizedBox(height: 16),
-            departmentsAsync.when(
-              loading: () => const LinearProgressIndicator(),
-              error: (_, __) => Text(t['tasksAdmin.loadDepartmentsFailed']!),
-              data: (items) => DropdownButtonFormField<int>(
-                initialValue: items.any((d) => d.id == _departmentId) ? _departmentId : null,
-                decoration: InputDecoration(labelText: t['tasksAdmin.departmentLabel'], border: const OutlineInputBorder()),
-                items: [for (final d in items) DropdownMenuItem(value: d.id, child: Text(d.name))],
-                onChanged: (v) => setState(() => _departmentId = v),
-              ),
-            ),
-            const SizedBox(height: 16),
             educationTypesAsync.when(
               loading: () => const LinearProgressIndicator(),
               error: (_, __) => Text(t['tasksAdmin.loadEducationTypesFailed']!),
@@ -252,7 +238,29 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
                   initialValue: filtered.any((s) => s.id == _stageId) ? _stageId : null,
                   decoration: InputDecoration(labelText: t['tasksAdmin.stageLabel'], border: const OutlineInputBorder()),
                   items: [for (final s in filtered) DropdownMenuItem(value: s.id, child: Text(s.name))],
-                  onChanged: _educationTypeId == null ? null : (v) => setState(() => _stageId = v),
+                  onChanged: _educationTypeId == null
+                      ? null
+                      : (v) => setState(() {
+                            if (v != _stageId) _departmentId = null;
+                            _stageId = v;
+                          }),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            // Only the chosen stage's departments (2026-10-13, by request),
+            // so the stage is picked first.
+            departmentsAsync.when(
+              loading: () => const LinearProgressIndicator(),
+              error: (_, __) => Text(t['tasksAdmin.loadDepartmentsFailed']!),
+              data: (items) {
+                final filtered = items.where((d) => _stageId != null && d.stageId == _stageId).toList();
+                return DropdownButtonFormField<int>(
+                  key: ValueKey('department-$_stageId'),
+                  initialValue: filtered.any((d) => d.id == _departmentId) ? _departmentId : null,
+                  decoration: InputDecoration(labelText: t['tasksAdmin.departmentLabel'], border: const OutlineInputBorder()),
+                  items: [for (final d in filtered) DropdownMenuItem(value: d.id, child: Text(d.name))],
+                  onChanged: _stageId == null ? null : (v) => setState(() => _departmentId = v),
                 );
               },
             ),
@@ -282,36 +290,33 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _requiredPerDoctorController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(labelText: t['tasksAdmin.requiredPerDoctorLabel'], border: const OutlineInputBorder()),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _requiredCountController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(labelText: t['tasksAdmin.requiredCountLabel'], border: const OutlineInputBorder()),
-                  ),
-                ),
-              ],
+            // One cap per doctor (2026-10-13, by request), as on the web.
+            TextFormField(
+              controller: _requiredCountController,
+              keyboardType: TextInputType.number,
+              inputFormatters: digitsOnly,
+              decoration: InputDecoration(labelText: t['tasksAdmin.requiredCountLabel'], border: const OutlineInputBorder()),
+              validator: (v) => (int.tryParse(v?.trim() ?? '') ?? 0) < 1 ? t['tasksAdmin.requiredField'] : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _gradeController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: decimalOnly,
               decoration: InputDecoration(labelText: t['tasksAdmin.gradeLabel'], border: const OutlineInputBorder()),
+              // Grade and notes are required (2026-10-13, by request), as on the web.
+              validator: (v) {
+                final grade = double.tryParse(v?.trim() ?? '');
+                if (grade == null) return t['tasksAdmin.requiredField'];
+                return grade < 0 || grade > 100 ? '0 - 100' : null;
+              },
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _notesController,
               maxLines: 3,
               decoration: InputDecoration(labelText: t['tasksAdmin.notesLabel'], border: const OutlineInputBorder()),
+              validator: (v) => (v == null || v.trim().isEmpty) ? t['tasksAdmin.requiredField'] : null,
             ),
             const SizedBox(height: 24),
             FilledButton(

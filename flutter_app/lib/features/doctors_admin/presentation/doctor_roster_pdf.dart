@@ -27,6 +27,8 @@ Future<Uint8List> buildDoctorRosterPdf({
   }
 
   final grouped = doctors.where((d) => d.groupNames.isNotEmpty).length;
+  // No group column or counts while groups are turned off (2026-10-13).
+  final showGroups = settings?.groupsEnabled ?? true;
 
   doc.addPage(
     pw.MultiPage(
@@ -46,18 +48,18 @@ Future<Uint8List> buildDoctorRosterPdf({
           ),
           pw.Table(
             border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
-            columnWidths: const {
-              0: pw.FlexColumnWidth(0.6),
-              1: pw.FlexColumnWidth(2.2),
-              2: pw.FlexColumnWidth(2.4),
-              3: pw.FlexColumnWidth(1.6),
-              4: pw.FlexColumnWidth(1.8),
+            columnWidths: {
+              0: const pw.FlexColumnWidth(0.6),
+              1: const pw.FlexColumnWidth(2.2),
+              2: const pw.FlexColumnWidth(2.4),
+              3: const pw.FlexColumnWidth(1.6),
+              if (showGroups) 4: const pw.FlexColumnWidth(1.8),
             },
             children: [
               pw.TableRow(
                 decoration: const pw.BoxDecoration(color: PdfColors.grey200),
                 children: [
-                  for (final h in ['#', 'الاسم', 'البريد الإلكتروني', 'نوع التعليم', 'المجموعة'])
+                  for (final h in ['#', 'الاسم', 'البريد الإلكتروني', 'نوع التعليم', if (showGroups) 'المجموعة'])
                     pw.Padding(
                       padding: const pw.EdgeInsets.all(4),
                       child: pw.Text(h, style: pw.TextStyle(font: letterhead.bold, fontSize: 10)),
@@ -72,7 +74,7 @@ Future<Uint8List> buildDoctorRosterPdf({
                       entry.value[i].name,
                       entry.value[i].email,
                       entry.value[i].educationTypeName ?? '',
-                      entry.value[i].groupNames.join('، '),
+                      if (showGroups) entry.value[i].groupNames.join('، '),
                     ])
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(4),
@@ -91,11 +93,13 @@ Future<Uint8List> buildDoctorRosterPdf({
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Text('الإجمالي الكلي: ${doctors.length}', style: pw.TextStyle(font: letterhead.bold, fontSize: 11)),
-              pw.Text('عدد الأطباء المجمعين: $grouped', style: pw.TextStyle(font: letterhead.regular, fontSize: 10)),
-              pw.Text(
-                'عدد الأطباء غير المجمعين: ${doctors.length - grouped}',
-                style: pw.TextStyle(font: letterhead.regular, fontSize: 10),
-              ),
+              if (showGroups) ...[
+                pw.Text('عدد الأطباء المجمعين: $grouped', style: pw.TextStyle(font: letterhead.regular, fontSize: 10)),
+                pw.Text(
+                  'عدد الأطباء غير المجمعين: ${doctors.length - grouped}',
+                  style: pw.TextStyle(font: letterhead.regular, fontSize: 10),
+                ),
+              ],
               if (byStage.length > 1)
                 for (final entry in byStage.entries)
                   pw.Text(

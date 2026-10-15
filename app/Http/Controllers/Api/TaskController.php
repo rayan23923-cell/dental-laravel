@@ -2,13 +2,18 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Support\LinkedRecords;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TaskResource;
+use App\Models\Department;
 use App\Models\Task;
 use App\Services\AcademicSessionHelper;
 use App\Services\ScopeHelper;
+use App\Support\TaskScoring;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class TaskController extends Controller
 {
@@ -49,25 +54,47 @@ class TaskController extends Controller
         return (new TaskResource($task))->response();
     }
 
+    /**
+     * Requirement tables pre-filled by a case-sheet type in the add-task
+     * form (2026-10-14), keyed by case_sheet_types.id.
+     */
+    public function scoringTemplates(): JsonResponse
+    {
+        return response()->json(['data' => (object) TaskScoring::templatesByTypeId()]);
+    }
+
     public function store(Request $request): JsonResponse
     {
+        // Adding from a case-sheet type's table sends `rows` instead of a
+        // single title/count (2026-10-14, by request).
+        $table = $request->has('rows');
+
         $validated = $request->validate([
-            'department_id' => ['required', 'exists:departments,id'],
+            // Must be one of the chosen stage's own departments (2026-10-13, by request).
+            'department_id' => ['required', Rule::exists('departments', 'id')->where('stage_id', $request->integer('stage_id'))],
             'case_sheet_type_id' => ['required', 'exists:case_sheet_types,id'],
             'stage_id' => ['required', 'exists:stages,id'],
-            'title' => ['required', 'string', 'max:255'],
-            'required_per_doctor' => ['required', 'integer', 'min:0'],
-            'required_count' => ['required', 'integer', 'min:1'],
-            'notes' => ['nullable', 'string'],
-            'grade' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'title' => $table ? ['exclude'] : ['required', 'string', 'max:255'],
+            // Ignored if an older app still sends it: required_count is the
+            // only cap now (2026-10-13, by request).
+            'required_per_doctor' => ['exclude'],
+            'required_count' => $table ? ['exclude'] : ['required', 'integer', 'min:1'],
+            // Every field is required (2026-10-13, by request).
+            'notes' => ['required', 'string'],
+            'grade' => ['required', 'numeric', 'min:0', 'max:100'],
             'academic_session_id' => ['nullable', 'exists:academic_sessions,id'],
             'is_required' => ['sometimes', 'boolean'],
+            ...($table ? TaskScoring::tableRules() : [
+                ...TaskScoring::rules('scoring'),
+                'pass_percent' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:100'],
+            ]),
         ]);
 
         // Defaults to the active session, as add_task.php does.
         $validated['academic_session_id'] ??= AcademicSessionHelper::resolveId();
 
-        $task = Task::create($validated);
+        $created = TaskScoring::createTasks($validated);
+        $task = $created->first();
 
         // A real bug, found live: when `is_required` is omitted (its rule
         // is 'sometimes'), the DB column default (true) applies on INSERT,
@@ -79,31 +106,54 @@ class TaskController extends Controller
         // inserted, closing that gap for every column with a DB-level default.
         $task->refresh();
 
-        return (new TaskResource($task))->response()->setStatusCode(201);
+        return (new TaskResource($task))->additional(['created_count' => $created->count()])->response()->setStatusCode(201);
     }
 
     public function update(Request $request, Task $task): JsonResponse
     {
         $validated = $request->validate([
-            'department_id' => ['sometimes', 'exists:departments,id'],
+            // Checked against the task's (new or current) stage below.
+            'department_id' => ['sometimes', Rule::exists('departments', 'id')->where('stage_id', $request->integer('stage_id') ?: $task->stage_id)],
             'case_sheet_type_id' => ['sometimes', 'exists:case_sheet_types,id'],
             'stage_id' => ['sometimes', 'exists:stages,id'],
             'title' => ['sometimes', 'string', 'max:255'],
-            'required_per_doctor' => ['sometimes', 'integer', 'min:0'],
+            'required_per_doctor' => ['exclude'],
             'required_count' => ['sometimes', 'integer', 'min:1'],
-            'notes' => ['nullable', 'string'],
-            'grade' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'notes' => ['sometimes', 'required', 'string'],
+            'grade' => ['sometimes', 'required', 'numeric', 'min:0', 'max:100'],
             'academic_session_id' => ['nullable', 'exists:academic_sessions,id'],
             'is_required' => ['sometimes', 'boolean'],
+            ...TaskScoring::rules('scoring'),
+            'pass_percent' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:100'],
         ]);
 
+        // Moving the task to another stage without a new department would
+        // leave it under the old stage's department.
+        if (isset($validated['stage_id']) && ! isset($validated['department_id'])
+            && ! Department::whereKey($task->department_id)->where('stage_id', $validated['stage_id'])->exists()) {
+            throw ValidationException::withMessages(['department_id' => __('validation.exists', ['attribute' => 'department id'])]);
+        }
+
+        if (array_key_exists('scoring', $validated)) {
+            $validated['scoring'] = TaskScoring::normalize($validated['scoring']);
+        }
+        if (array_key_exists('pass_percent', $validated)) {
+            TaskScoring::setPassPercent((int) ($validated['department_id'] ?? $task->department_id), $validated['pass_percent']);
+            unset($validated['pass_percent']);
+        }
+
         $task->update($validated);
+        $task->load('department');
 
         return (new TaskResource($task))->response();
     }
 
     public function destroy(Task $task): JsonResponse
     {
+        if ($linked = LinkedRecords::message($task)) {
+            return response()->json(['message' => $linked, 'linked' => LinkedRecords::for($task)], 422);
+        }
+
         $task->delete();
 
         return response()->json(null, 204);

@@ -3,6 +3,11 @@
    not be reachable, and an icon font that silently fails to load would
    leave every button unlabelled. Vite bundles the woff2 alongside the CSS. */
 @import 'material-symbols/outlined.css';
+/* Figtree (the body font) is self-hosted the same way, so pages render
+   fully with no internet. Latin subset only; Arabic uses the system font. */
+@import '@fontsource/figtree/latin-400.css';
+@import '@fontsource/figtree/latin-500.css';
+@import '@fontsource/figtree/latin-600.css';
 
 @tailwind base;
 @tailwind components;

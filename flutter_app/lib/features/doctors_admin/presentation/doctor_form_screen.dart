@@ -7,6 +7,7 @@ import '../../../core/nfc/nfc_uid_reader.dart';
 import '../data/doctors_admin_repository.dart';
 import '../domain/doctor_admin.dart';
 import 'doctors_admin_providers.dart';
+import '../../../core/widgets/numeric_input.dart';
 
 /// `doctorId == null` means create. `password` is required on create,
 /// optional on edit (blank = unchanged) — matches
@@ -198,6 +199,7 @@ class _DoctorFormScreenState extends ConsumerState<DoctorFormScreen> {
             TextFormField(
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
+              inputFormatters: digitsOnly,
               decoration: InputDecoration(labelText: t['doctorsAdmin.emailLabel'], border: const OutlineInputBorder()),
               validator: (v) => (v == null || v.trim().isEmpty) ? t['doctorsAdmin.requiredField'] : null,
             ),
@@ -205,6 +207,7 @@ class _DoctorFormScreenState extends ConsumerState<DoctorFormScreen> {
             TextFormField(
               controller: _phoneController,
               keyboardType: TextInputType.phone,
+              inputFormatters: phoneOnly,
               decoration: InputDecoration(labelText: t['doctorsAdmin.phoneLabel'], border: const OutlineInputBorder()),
             ),
             const SizedBox(height: 16),

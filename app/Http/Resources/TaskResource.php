@@ -15,7 +15,8 @@ class TaskResource extends JsonResource
             'department_id' => $this->department_id,
             'case_sheet_type_id' => $this->case_sheet_type_id,
             'stage_id' => $this->stage_id,
-            'required_per_doctor' => $this->required_per_doctor,
+            // Kept for older apps; always mirrors the one real cap.
+            'required_per_doctor' => $this->required_count,
             'required_count' => $this->required_count,
             'done' => $this->done,
             'notes' => $this->notes,
@@ -23,9 +24,12 @@ class TaskResource extends JsonResource
             'is_required' => (bool) $this->is_required,
             // The academic year this task belongs to; null = visible in all.
             'academic_session_id' => $this->academic_session_id,
+            // Points-based requirements (2026-10-14); see App\Support\TaskScoring.
+            'scoring' => $this->scoring,
             'department' => $this->whenLoaded('department', fn () => [
                 'id' => $this->department->id,
                 'name' => $this->department->name,
+                'pass_percent' => $this->department->pass_percent,
             ]),
             'case_sheet_type' => $this->whenLoaded('caseSheetType', fn () => [
                 'id' => $this->caseSheetType->id,

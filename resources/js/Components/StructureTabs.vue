@@ -1,58 +1,29 @@
 <script setup>
 import { Link } from '@inertiajs/vue3';
-import { useI18n } from 'vue-i18n';
+import { useStructureLinks } from '@/Composables/useStructureLinks';
 
-const { t } = useI18n();
+// The same items, in the same order, as the "البيانات الأساسية" menu group.
+// `active` is kept for the pages that still pass it; the current route
+// decides which tab is highlighted.
 defineProps({
     active: String,
 });
+
+const links = useStructureLinks();
 </script>
 
 <template>
     <!-- Scrolls sideways on narrow (phone) screens instead of wrapping or
          pushing the page wider than the viewport. -->
-    <div class="-mx-4 flex gap-1 overflow-x-auto overscroll-x-contain border-b border-gray-200 px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
+    <div v-if="links.length" class="-mx-4 flex gap-1 overflow-x-auto overscroll-x-contain border-b border-gray-200 px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
         <Link
-            :href="route('education-types.index')"
+            v-for="link in links"
+            :key="link.key"
+            :href="link.href"
             class="shrink-0 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium"
-            :class="active === 'education-types' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+            :class="link.active ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
         >
-            {{ t('structureTabs.educationTypes') }}
-        </Link>
-        <Link
-            :href="route('stages.index')"
-            class="shrink-0 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium"
-            :class="active === 'stages' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
-        >
-            {{ t('structureTabs.stages') }}
-        </Link>
-        <Link
-            :href="route('departments.index')"
-            class="shrink-0 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium"
-            :class="active === 'departments' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
-        >
-            {{ t('structureTabs.departments') }}
-        </Link>
-        <Link
-            :href="route('academic-sessions.index')"
-            class="shrink-0 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium"
-            :class="active === 'academic-sessions' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
-        >
-            {{ t('structureTabs.academicSessions') }}
-        </Link>
-        <Link
-            :href="route('groups.index')"
-            class="shrink-0 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium"
-            :class="active === 'groups' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
-        >
-            {{ t('structureTabs.groups') }}
-        </Link>
-        <Link
-            :href="route('clinic-chairs.index')"
-            class="shrink-0 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium"
-            :class="active === 'clinic-chairs' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
-        >
-            {{ t('structureTabs.chairMap') }}
+            {{ link.label }}
         </Link>
     </div>
 </template>

@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\TaskScoring;
+use App\Models\ClinicSetting;
 use App\Models\Doctor;
 use App\Models\Group;
+use App\Models\Stage;
 use App\Models\PatientRegistration;
 use App\Models\Task;
 use App\Models\TaskInstance;
@@ -12,12 +15,15 @@ use App\Services\PatientScreeningException;
 use App\Services\TaskGradeException;
 use App\Services\TaskInstanceGrader;
 use App\Services\TaskProgressFilters;
+use App\Services\ScopeHelper;
 use App\Services\TaskProgressGroupSummary;
 use App\Services\TaskStartException;
 use App\Services\TaskStarter;
+use App\Services\TaskStartRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\View\View;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -52,6 +58,8 @@ class TaskProgressController extends Controller
             // Matches Doctors/Groups/Tasks — this screen previously had no
             // active-year banner at all.
             'currentSession' => $session?->only('id', 'name'),
+            // Badge on the "الطلبات" tab (2026-10-14).
+            'pendingRequests' => TaskStartRequests::visibleTo($request->user())->where('status', 'pending')->count(),
         ]);
     }
 
@@ -64,6 +72,63 @@ class TaskProgressController extends Controller
     public function group(Request $request, Group $group): JsonResponse
     {
         return response()->json(TaskProgressGroupSummary::build($group, $request->user(), AcademicSessionHelper::resolveId()));
+    }
+
+    /**
+     * Every doctor of one stage — what task progress shows while groups are
+     * turned off in clinic settings. Limited to the stages the user may see.
+     */
+    public function stage(Request $request, int $stage): JsonResponse
+    {
+        $stage = ScopeHelper::scopeStages(Stage::whereKey($stage), $request->user())->firstOrFail();
+
+        return response()->json(TaskProgressGroupSummary::buildForStage($stage, $request->user(), AcademicSessionHelper::resolveId()));
+    }
+
+    /**
+     * Printable task progress (2026-10-13, by request) — the web side of the
+     * app's PDF (task_progress_pdf.dart) and the original's
+     * task_progress_print.php: a whole group (or a whole stage while groups
+     * are off), optionally narrowed to one department or one doctor.
+     */
+    public function print(Request $request): View
+    {
+        $user = $request->user();
+        $sessionId = AcademicSessionHelper::resolveId();
+
+        if ($groupId = $request->integer('group')) {
+            $data = TaskProgressGroupSummary::build(Group::findOrFail($groupId), $user, $sessionId);
+        } else {
+            $stage = ScopeHelper::scopeStages(Stage::whereKey($request->integer('stage')), $user)->firstOrFail();
+            $data = TaskProgressGroupSummary::buildForStage($stage, $user, $sessionId);
+        }
+
+        $departmentId = $request->integer('department') ?: null;
+        $doctorId = $request->integer('doctor') ?: null;
+
+        $departments = collect($data['departments'])
+            ->when($departmentId, fn ($c) => $c->where('id', $departmentId))
+            ->map(function ($department) use ($doctorId) {
+                $department['doctors'] = collect($department['doctors'])
+                    ->when($doctorId, fn ($c) => $c->where('id', $doctorId))
+                    ->values()
+                    ->all();
+
+                return $department;
+            })
+            ->filter(fn ($department) => count($department['doctors']) > 0)
+            ->values();
+
+        return view('print.task-progress', [
+            'settings' => ClinicSetting::current(),
+            'group' => $data['group'],
+            'departments' => $departments,
+            'scopeLine' => implode(' — ', array_filter([
+                $departmentId && $departments->isNotEmpty() ? 'القسم: '.$departments->first()['name'] : null,
+                $doctorId && $departments->isNotEmpty() ? 'الطبيب: '.$departments->first()['doctors'][0]['name'] : null,
+            ])),
+            'autoprint' => $request->boolean('autoprint'),
+        ]);
     }
 
     /**
@@ -128,12 +193,27 @@ class TaskProgressController extends Controller
             ]);
         }
 
+        // The doctor's own QR, printed on their ID card (2026-10-14).
+        if (($decoded['type'] ?? null) === 'doctor' && ! empty($decoded['id'])) {
+            $doctor = Doctor::with(['stage:id,name'])->find($decoded['id']);
+
+            if (! $doctor) {
+                return response()->json(['message' => 'الطبيب غير موجود.'], 404);
+            }
+
+            return response()->json([
+                'kind' => 'doctor',
+                'doctor' => ['id' => $doctor->id, 'name' => $doctor->name, 'stage' => $doctor->stage?->name],
+                'progress_url' => route('doctors.progress', $doctor->id),
+            ]);
+        }
+
         return response()->json(['message' => 'رمز غير معروف — ليس رمز مهمة صالحاً.'], 422);
     }
 
     /**
      * Ports admin/ajax/assign_task_ajax.php, including its real guards:
-     * required_per_doctor falls back to required_count when unset; refuses
+     * required_count is the per-doctor cap; refuses
      * once the doctor has already completed their required number; and
      * lazily creates a single `pending` instance when the global pool is
      * empty rather than pre-creating them all.
@@ -143,14 +223,18 @@ class TaskProgressController extends Controller
         $validated = $request->validate([
             'doctor_id' => ['required', 'exists:doctors,id'],
             'task_id' => ['required', 'exists:tasks,id'],
-            // Required (2026-08-26) — see the API twin's docblock.
-            'patient_registration_id' => ['required', 'exists:patients_simple,id'],
+            // Optional (2026-10-12): a task starts from the case QR or the
+            // doctor search alone; when a patient is given the screening
+            // gate still applies (see TaskStarter).
+            'patient_registration_id' => ['nullable', 'exists:patients_simple,id'],
             'notes' => ['nullable', 'string'],
         ]);
 
         $task = Task::findOrFail($validated['task_id']);
         $doctor = Doctor::findOrFail($validated['doctor_id']);
-        $patientRegistration = PatientRegistration::findOrFail($validated['patient_registration_id']);
+        $patientRegistration = isset($validated['patient_registration_id'])
+            ? PatientRegistration::findOrFail($validated['patient_registration_id'])
+            : null;
 
         try {
             TaskStarter::start($task, $doctor, $patientRegistration, $validated['notes'] ?? null, auth()->id());
@@ -171,10 +255,11 @@ class TaskProgressController extends Controller
         $validated = $request->validate([
             'grade' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string'],
+            ...TaskScoring::workItemRules(),
         ]);
 
         try {
-            TaskInstanceGrader::complete($taskInstance, $validated['grade'] ?? null, $validated['notes'] ?? null);
+            TaskInstanceGrader::complete($taskInstance, $validated['grade'] ?? null, $validated['notes'] ?? null, $validated['work_items'] ?? null);
         } catch (TaskGradeException $e) {
             return back()->with('error', $e->getMessage());
         }
@@ -188,10 +273,11 @@ class TaskProgressController extends Controller
         $validated = $request->validate([
             'grade' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string'],
+            ...TaskScoring::workItemRules(),
         ]);
 
         try {
-            TaskInstanceGrader::updateNotesGrade($taskInstance, $validated['grade'] ?? null, $validated['notes'] ?? null);
+            TaskInstanceGrader::updateNotesGrade($taskInstance, $validated['grade'] ?? null, $validated['notes'] ?? null, $validated['work_items'] ?? null);
         } catch (TaskGradeException $e) {
             return back()->with('error', $e->getMessage());
         }

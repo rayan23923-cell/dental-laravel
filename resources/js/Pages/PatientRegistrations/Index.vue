@@ -1,46 +1,61 @@
 <script setup>
+/**
+ * Chat-list style (2026-10-13, by request): the registrations table became
+ * chat-list rows (checkbox, initial avatar, name + phone, chips for
+ * service/day/date/screening) with icon actions; filters are pills.
+ */
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Modal from '@/Components/Modal.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import Icon from '@/Components/Icon.vue';
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import ChatListCard from '@/Components/ChatList/ChatListCard.vue';
+import ChatListRow from '@/Components/ChatList/ChatListRow.vue';
+import ChatChip from '@/Components/ChatList/ChatChip.vue';
+import ChatAction from '@/Components/ChatList/ChatAction.vue';
+import ChatSearch from '@/Components/ChatList/ChatSearch.vue';
+import ChatAddButton from '@/Components/ChatList/ChatAddButton.vue';
+import ChatPager from '@/Components/ChatList/ChatPager.vue';
+import { toneFor } from '@/Components/ChatList/tones';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import axios from 'axios';
 
 const { t } = useI18n();
 const props = defineProps({
+    can: { type: Object, default: () => ({ archive: true, settings: true, screening: true }) },
     registrations: Object,
-    days: { type: Array, default: () => [] },
+    services: { type: Array, default: () => [] },
     filters: Object,
 });
 
 const page = usePage();
 const search = ref(props.filters.search || '');
-const registerDayId = ref(props.filters.register_day_id ?? '');
+const from = ref(props.filters.from ?? '');
+const to = ref(props.filters.to ?? '');
 const serviceId = ref(props.filters.service_id ?? '');
-
-// Day narrows the service dropdown's *options* only — a soft convenience
-// cascade, not a hard requirement, since this is a filter (picking a
-// service without a day first should still work), unlike the create
-// form's picker where day-then-service is actual data entry.
-const servicesForSelectedDay = computed(() => {
-    if (!registerDayId.value) return props.days.flatMap((d) => d.services ?? []).filter((s, i, arr) => arr.findIndex((x) => x.id === s.id) === i);
-    const day = props.days.find((d) => d.id === Number(registerDayId.value));
-    return day ? day.services : [];
-});
+// Archive tab (2026-10-12): deleting archives a registration instead of
+// removing it, so its payments stay; archived ones are listed here and
+// can be restored.
+const archived = computed(() => ['1', 1, true, 'true'].includes(props.filters.archived));
 
 const applyFilters = () => {
     router.get(
         route('patient-registrations.index'),
         {
             ...(search.value ? { search: search.value } : {}),
-            ...(registerDayId.value ? { register_day_id: registerDayId.value } : {}),
+            ...(from.value ? { from: from.value } : {}),
+            ...(to.value ? { to: to.value } : {}),
             ...(serviceId.value ? { service_id: serviceId.value } : {}),
+            ...(archived.value ? { archived: 1 } : {}),
         },
         { preserveState: true, replace: true }
     );
+};
+
+const showArchive = (value) => {
+    selected.value = [];
+    router.get(route('patient-registrations.index'), value ? { archived: 1 } : {});
 };
 
 let searchTimer;
@@ -49,20 +64,14 @@ const runSearch = () => {
     searchTimer = setTimeout(applyFilters, 300);
 };
 
-const onDayChange = () => {
-    if (!servicesForSelectedDay.value.some((s) => s.id === Number(serviceId.value))) {
-        serviceId.value = '';
-    }
-    applyFilters();
-};
-
-const hasFilters = computed(() => !!(search.value || registerDayId.value || serviceId.value));
+const hasFilters = computed(() => !!(search.value || from.value || to.value || serviceId.value));
 
 const clearFilters = () => {
     search.value = '';
-    registerDayId.value = '';
+    from.value = '';
+    to.value = '';
     serviceId.value = '';
-    router.get(route('patient-registrations.index'));
+    router.get(route('patient-registrations.index'), archived.value ? { archived: 1 } : {});
 };
 
 // --- Selection + bulk delete (2026-10-11), same as the doctors table ---
@@ -75,7 +84,8 @@ const toggleAll = () => {
 };
 const currentFilters = () => ({
     ...(search.value ? { search: search.value } : {}),
-    ...(registerDayId.value ? { register_day_id: registerDayId.value } : {}),
+    ...(from.value ? { from: from.value } : {}),
+    ...(to.value ? { to: to.value } : {}),
     ...(serviceId.value ? { service_id: serviceId.value } : {}),
 });
 const destroySelected = () => {
@@ -87,6 +97,13 @@ const destroySelected = () => {
             onSuccess: () => (selected.value = []),
         });
     }
+};
+const restoreSelected = () => {
+    if (!selected.value.length) return;
+    router.post(route('patient-registrations.restore-many'), { ids: selected.value }, {
+        preserveScroll: true,
+        onSuccess: () => (selected.value = []),
+    });
 };
 const destroyAll = () => {
     const n = props.registrations.total;
@@ -121,6 +138,9 @@ const screeningBadgeClass = (status) =>
         clear: 'bg-green-100 text-green-800',
         flagged: 'bg-red-100 text-red-800',
     }[status] ?? 'bg-amber-100 text-amber-800');
+// Chip tone + icon carrying the screening status on each row.
+const screeningTone = (status) => ({ clear: 'emerald', flagged: 'rose' }[status] ?? 'amber');
+const screeningIcon = (status) => ({ clear: 'verified_user', flagged: 'gpp_bad' }[status] ?? 'hourglass_top');
 
 const confirmScreening = async (status) => {
     screeningSubmitting.value = true;
@@ -136,6 +156,9 @@ const confirmScreening = async (status) => {
         screeningSubmitting.value = false;
     }
 };
+
+// Readable date instead of the raw ISO timestamp, as on the lab page.
+const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
 </script>
 
 <template>
@@ -143,123 +166,104 @@ const confirmScreening = async (status) => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-3">
                 <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('patientReg.registryTitle') }}</h2>
-                <div class="flex items-center gap-4">
-                    <Link :href="route('patient-registrations.create')">
-                        <PrimaryButton>+ {{ t('patientReg.newRegistration') }}</PrimaryButton>
-                    </Link>
-                    <Link :href="route('patient-registrations.settings')" class="text-sm text-indigo-600 hover:underline">{{ t('patientReg.settingsLink') }}</Link>
+                <div class="flex items-center gap-2">
+                    <ChatAddButton v-if="can.settings" :label="t('patientReg.settingsLink')" icon="settings" secondary :href="route('patient-registrations.settings')" />
+                    <ChatAddButton :label="t('patientReg.newRegistration')" icon="person_add" :href="route('patient-registrations.create')" />
                 </div>
             </div>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-5xl space-y-4 sm:px-6 lg:px-8">
-                <div v-if="page.props.flash?.success" class="rounded-md bg-green-50 p-4 text-sm text-green-700">
+        <div class="py-6 sm:py-10">
+            <div class="mx-auto max-w-2xl space-y-4 px-4 sm:px-6 lg:px-8">
+                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
                     {{ page.props.flash.success }}
                 </div>
 
-                <div class="grid grid-cols-1 gap-3 rounded-lg bg-white p-4 shadow-sm sm:grid-cols-4">
-                    <input
-                        v-model="search"
-                        @input="runSearch"
-                        @keyup.enter="applyFilters"
-                        type="text"
-                        :placeholder="t('patientReg.searchPlaceholder')"
-                        class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                    />
-
-                    <select v-model="registerDayId" @change="onDayChange" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                        <option value="">{{ t('patientReg.dayLabel') }}</option>
-                        <option v-for="day in days" :key="day.id" :value="day.id">{{ day.name }}</option>
-                    </select>
-
-                    <select v-model="serviceId" @change="applyFilters" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                        <option value="">{{ t('patientReg.serviceLabel') }}</option>
-                        <option v-for="service in servicesForSelectedDay" :key="service.id" :value="service.id">{{ service.name }}</option>
-                    </select>
-
-                    <SecondaryButton v-if="hasFilters" @click="clearFilters">{{ t('patientReg.clearFilters') }}</SecondaryButton>
+                <!-- Current / archive tabs + total -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <button
+                        type="button"
+                        @click="showArchive(false)"
+                        class="inline-flex items-center gap-1 rounded-full px-4 py-1.5 text-sm font-medium"
+                        :class="!archived ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50'"
+                    >
+                        <Icon name="how_to_reg" size="text-[18px]" />{{ t('patientReg.currentTab') }}
+                    </button>
+                    <button
+                        type="button"
+                        @click="showArchive(true)"
+                        class="inline-flex items-center gap-1 rounded-full px-4 py-1.5 text-sm font-medium"
+                        :class="archived ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50'"
+                    >
+                        <Icon name="inventory_2" size="text-[18px]" />{{ t('patientReg.archiveTab') }}
+                    </button>
+                    <span class="ms-auto text-xs font-medium text-gray-500">{{ t('patientReg.totalCount', { n: registrations.total }) }}</span>
                 </div>
 
-                <!-- Bulk bar -->
-                <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3" :class="selected.length ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-white'">
-                    <span class="text-sm text-gray-700">
-                        <template v-if="selected.length"><Icon name="warning" class="ml-1" />{{ t('doctorsAdmin.selectedCount', { n: selected.length }) }}</template>
-                        <template v-else>{{ t('patientReg.totalCount', { n: registrations.total }) }}</template>
-                    </span>
-                    <div class="flex flex-wrap gap-2">
-                        <button v-if="selected.length" type="button" @click="destroySelected" class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">
-                            <Icon name="delete" class="ml-1" />{{ t('doctorsAdmin.deleteSelected') }}
-                        </button>
-                        <button v-if="registrations.total" type="button" @click="destroyAll" class="rounded-md border border-red-600 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50">
-                            <Icon name="delete_sweep" class="ml-1" />{{ hasFilters ? t('patientReg.deleteAllFiltered') : t('patientReg.deleteAll') }}
-                        </button>
+                <ChatSearch v-model="search" :placeholder="t('patientReg.searchPlaceholder')" @update:model-value="runSearch" @submit="applyFilters" />
+
+                <!-- Filters (date range, service) + archive all -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <label class="flex items-center gap-1 rounded-full bg-white py-0.5 ps-3 text-xs text-gray-500 shadow-sm ring-1 ring-gray-200">
+                        {{ t('payments.fromDate') }}
+                        <input v-model="from" type="date" @change="applyFilters" class="rounded-full border-0 bg-transparent py-1 text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500" />
+                    </label>
+                    <label class="flex items-center gap-1 rounded-full bg-white py-0.5 ps-3 text-xs text-gray-500 shadow-sm ring-1 ring-gray-200">
+                        {{ t('payments.toDate') }}
+                        <input v-model="to" type="date" @change="applyFilters" class="rounded-full border-0 bg-transparent py-1 text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500" />
+                    </label>
+                    <select v-model="serviceId" @change="applyFilters" class="rounded-full border-gray-200 bg-white py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">{{ t('patientReg.serviceLabel') }}</option>
+                        <option v-for="service in services" :key="service.id" :value="service.id">{{ service.name }}</option>
+                    </select>
+                    <ChatAction v-if="hasFilters" icon="filter_alt_off" :label="t('patientReg.clearFilters')" @click="clearFilters" />
+                    <div v-if="!archived && can.archive && registrations.total" class="ms-auto flex items-center">
+                        <ChatAction icon="inventory_2" :label="hasFilters ? t('patientReg.deleteAllFiltered') : t('patientReg.deleteAll')" danger @click="destroyAll" />
                     </div>
                 </div>
 
-                <div class="overflow-x-auto bg-white shadow-sm sm:rounded-lg">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-4 py-3">
-                                    <input type="checkbox" :checked="allOnPageSelected" @change="toggleAll" :title="t('patientReg.selectAll')" class="rounded border-gray-300" />
-                                </th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('profile.name') }}</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patients.phoneCol') }}</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patientReg.serviceLabel') }}</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patientReg.dayLabel') }}</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('appointments.dateCol') }}</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patientReg.paymentCodeCol') }}</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patientReg.ticketCol') }}</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patientReg.screeningCol') }}</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200 bg-white">
-                            <tr v-for="r in registrations.data" :key="r.id" :class="selected.includes(r.id) ? 'bg-indigo-50' : ''">
-                                <td class="px-4 py-4">
-                                    <input type="checkbox" :value="r.id" v-model="selected" class="rounded border-gray-300" />
-                                </td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">{{ r.name }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500" dir="ltr">{{ r.phone }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ r.service?.name ?? '—' }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ r.register_day?.name ?? '—' }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ r.created_at }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm">
-                                    <button type="button" class="text-indigo-600 hover:underline" @click="qrRegistration = r">
-                                        {{ t('common.view') }}
-                                    </button>
-                                </td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm">
-                                    <a :href="route('patient-registrations.print', r.id)" target="_blank" class="text-indigo-600 hover:underline">
-                                        {{ t('common.print') }}
-                                    </a>
-                                </td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm">
-                                    <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="screeningBadgeClass(r.screening_status)">
-                                        {{ screeningLabel(r.screening_status) }}
-                                    </span>
-                                    <button type="button" class="mr-2 text-indigo-600 hover:underline" @click="screeningRegistration = r">{{ t('patientReg.setScreening') }}</button>
-                                </td>
-                            </tr>
-                            <tr v-if="registrations.data.length === 0">
-                                <td colspan="9" class="px-6 py-8 text-center text-sm text-gray-500">{{ t('patientReg.emptyLog') }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <!-- Bulk bar -->
+                <div v-if="selected.length" class="flex items-center justify-between gap-2 rounded-2xl bg-amber-50 px-4 py-2 ring-1 ring-amber-200">
+                    <span class="text-sm font-medium text-amber-900">{{ t('doctorsAdmin.selectedCount', { n: selected.length }) }}</span>
+                    <div v-if="can.archive" class="flex items-center">
+                        <ChatAction v-if="archived" icon="unarchive" :label="t('patientReg.restoreSelected')" @click="restoreSelected" />
+                        <ChatAction v-else icon="inventory_2" :label="t('patientReg.archiveSelected')" danger @click="destroySelected" />
+                    </div>
                 </div>
 
-                <div v-if="registrations.links?.length > 3" class="flex flex-wrap gap-1">
-                    <Link
-                        v-for="(link, i) in registrations.links"
-                        :key="i"
-                        :href="link.url || '#'"
-                        v-html="link.label"
-                        class="rounded px-3 py-1 text-sm"
-                        :class="link.active ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
-                    />
-                </div>
+                <ChatListCard :empty="registrations.data.length === 0" :empty-text="t('patientReg.emptyLog')" empty-icon="how_to_reg">
+                    <label v-if="registrations.data.length" class="flex cursor-pointer items-center gap-3 border-b border-gray-100 px-4 py-2 text-xs font-medium text-gray-500">
+                        <input type="checkbox" :checked="allOnPageSelected" @change="toggleAll" class="rounded border-gray-300 text-indigo-600" />
+                        {{ t('patientReg.selectAll') }}
+                    </label>
+                    <ChatListRow
+                        v-for="r in registrations.data"
+                        :key="r.id"
+                        :title="r.name"
+                        :tone="toneFor(r.id)"
+                        :selected="selected.includes(r.id)"
+                    >
+                        <template #leading>
+                            <input type="checkbox" :value="r.id" v-model="selected" class="rounded border-gray-300 text-indigo-600" />
+                        </template>
+                        <template #meta>
+                            <ChatChip v-if="r.phone" icon="call"><span dir="ltr">{{ r.phone }}</span></ChatChip>
+                            <ChatChip v-if="r.service" icon="medical_services" tone="sky">{{ r.service.name }}</ChatChip>
+                            <ChatChip icon="schedule">{{ fmtDate(r.created_at) }}</ChatChip>
+                            <ChatChip :icon="screeningIcon(r.screening_status)" :tone="screeningTone(r.screening_status)">{{ screeningLabel(r.screening_status) }}</ChatChip>
+                        </template>
+                        <template #actions>
+                            <ChatAction icon="qr_code_2" :label="t('patientReg.paymentCodeCol')" @click="qrRegistration = r" />
+                            <ChatAction icon="print" :label="t('patientReg.ticketCol')" :href="route('patient-registrations.print', r.id)" external />
+                            <ChatAction v-if="can.screening" icon="health_and_safety" :label="t('patientReg.setScreening')" @click="screeningRegistration = r" />
+                        </template>
+                    </ChatListRow>
+                    <template #footer>
+                        <ChatPager :links="registrations.links" />
+                    </template>
+                </ChatListCard>
             </div>
         </div>
 
@@ -269,7 +273,7 @@ const confirmScreening = async (status) => {
                 <img
                     :src="route('patient-registrations.qr', qrRegistration.id)"
                     :alt="t('patientReg.paymentCodeAlt', { name: qrRegistration.name })"
-                    class="h-56 w-56"
+                    class="h-56 w-56 rounded-xl"
                 />
                 <p class="text-sm text-gray-500">{{ t('patientReg.scanAtPayment') }}</p>
                 <SecondaryButton @click="qrRegistration = null">{{ t('common.close') }}</SecondaryButton>
@@ -291,7 +295,7 @@ const confirmScreening = async (status) => {
                         type="button"
                         :disabled="screeningSubmitting"
                         @click="confirmScreening('clear')"
-                        class="flex-1 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                        class="flex-1 rounded-xl bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
                     >
                         {{ t('patientReg.screeningClear') }}
                     </button>
@@ -299,7 +303,7 @@ const confirmScreening = async (status) => {
                         type="button"
                         :disabled="screeningSubmitting"
                         @click="confirmScreening('flagged')"
-                        class="flex-1 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                        class="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
                     >
                         {{ t('patientReg.screeningFlagged') }}
                     </button>

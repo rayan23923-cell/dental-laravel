@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Support\LinkedRecords;
 use App\Http\Controllers\Controller;
 use App\Models\Department;
 use App\Models\EducationType;
@@ -61,6 +62,10 @@ class LookupController extends Controller
 
     public function destroyEducationType(EducationType $educationType): JsonResponse
     {
+        if ($linked = LinkedRecords::message($educationType)) {
+            return response()->json(['message' => $linked, 'linked' => LinkedRecords::for($educationType)], 422);
+        }
+
         $educationType->delete();
 
         return response()->json(null, 204);
@@ -77,7 +82,8 @@ class LookupController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
-            'education_type_id' => ['nullable', 'exists:education_types,id'],
+            // Required (2026-10-13, by request): every field must be filled.
+            'education_type_id' => ['required', 'exists:education_types,id'],
         ]);
 
         return response()->json(Stage::create($validated))->setStatusCode(201);
@@ -87,7 +93,8 @@ class LookupController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
-            'education_type_id' => ['nullable', 'exists:education_types,id'],
+            // Required (2026-10-13, by request): every field must be filled.
+            'education_type_id' => ['required', 'exists:education_types,id'],
         ]);
 
         $stage->update($validated);
@@ -97,6 +104,10 @@ class LookupController extends Controller
 
     public function destroyStage(Stage $stage): JsonResponse
     {
+        if ($linked = LinkedRecords::message($stage)) {
+            return response()->json(['message' => $linked, 'linked' => LinkedRecords::for($stage)], 422);
+        }
+
         $stage->delete();
 
         return response()->json(null, 204);
@@ -116,8 +127,10 @@ class LookupController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
-            'stage_id' => ['nullable', 'exists:stages,id'],
-            'education_type_id' => ['nullable', 'exists:education_types,id'],
+            // Every field is required (2026-10-13, by request), and the
+            // stage must belong to the chosen education type.
+            'education_type_id' => ['required', 'exists:education_types,id'],
+            'stage_id' => ['required', Rule::exists('stages', 'id')->where('education_type_id', $request->integer('education_type_id'))],
         ]);
 
         return response()->json(Department::create($validated))->setStatusCode(201);
@@ -127,8 +140,10 @@ class LookupController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
-            'stage_id' => ['nullable', 'exists:stages,id'],
-            'education_type_id' => ['nullable', 'exists:education_types,id'],
+            // Every field is required (2026-10-13, by request), and the
+            // stage must belong to the chosen education type.
+            'education_type_id' => ['required', 'exists:education_types,id'],
+            'stage_id' => ['required', Rule::exists('stages', 'id')->where('education_type_id', $request->integer('education_type_id'))],
         ]);
 
         $department->update($validated);
@@ -138,6 +153,10 @@ class LookupController extends Controller
 
     public function destroyDepartment(Department $department): JsonResponse
     {
+        if ($linked = LinkedRecords::message($department)) {
+            return response()->json(['message' => $linked, 'linked' => LinkedRecords::for($department)], 422);
+        }
+
         $department->delete();
 
         return response()->json(null, 204);

@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/data/lookup_repository.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/settings_list.dart';
 import '../data/permissions_admin_repository.dart';
 import '../domain/permission_admin.dart';
 import 'permissions_admin_providers.dart';
+import 'permissions_editor.dart';
 
-/// One `ExpansionTile` per module with a checkbox per action — a vertical,
-/// scrollable layout rather than the web app's 11×N grid, which doesn't
-/// fit a phone screen. Each module's header also shows an N/total grant
-/// count so the state is visible without expanding every tile.
+/// One account's permissions as a settings list (2026-10-14, by request),
+/// the app's copy of the web `Permissions/Edit` page: an account card,
+/// then the shared [PermissionsEditor], and a save bar at the bottom.
 class PermissionEditScreen extends ConsumerStatefulWidget {
   const PermissionEditScreen({super.key, required this.userId});
   final int userId;
@@ -32,36 +32,6 @@ class _PermissionEditScreenState extends ConsumerState<PermissionEditScreen> {
     _seeded = true;
     _grants = Set.of(detail.granted);
     _scope = PermissionScopeSelection.fromScope(detail.scope);
-  }
-
-  void _toggle(String pair, bool value) {
-    setState(() {
-      if (value) {
-        _grants.add(pair);
-      } else {
-        _grants.remove(pair);
-      }
-      _dirty = true;
-    });
-  }
-
-  void _toggleScope(String dimension, int id, bool value) {
-    setState(() {
-      final list = _scope.listFor(dimension);
-      if (value) {
-        if (!list.contains(id)) list.add(id);
-      } else {
-        list.remove(id);
-      }
-      _dirty = true;
-    });
-  }
-
-  void _clearScope(String dimension) {
-    setState(() {
-      _scope.listFor(dimension).clear();
-      _dirty = true;
-    });
   }
 
   Future<void> _save() async {
@@ -90,17 +60,16 @@ class _PermissionEditScreenState extends ConsumerState<PermissionEditScreen> {
     final detailAsync = ref.watch(permissionsDetailProvider(widget.userId));
     final usersAsync = ref.watch(permissionUserListProvider);
     final t = ref.watch(translationsProvider);
-    final cachedUsers = usersAsync.valueOrNull ?? const <PermissionUser>[];
-    String? userName;
-    for (final u in cachedUsers) {
+    PermissionUser? user;
+    for (final u in usersAsync.valueOrNull ?? const <PermissionUser>[]) {
       if (u.id == widget.userId) {
-        userName = u.fullName;
+        user = u;
         break;
       }
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(userName ?? t['permissionsAdmin.title']!)),
+      appBar: AppBar(title: Text(t['permissionsAdmin.title']!)),
       body: detailAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stackTrace) => Center(
@@ -108,146 +77,105 @@ class _PermissionEditScreenState extends ConsumerState<PermissionEditScreen> {
         ),
         data: (detail) {
           _seed(detail);
+          final allPairs = [
+            for (final m in detail.modules)
+              for (final p in m.permissions) '${m.key}.${p.key}',
+          ];
           return ListView(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
             children: [
-              _ScopeDimensionTile(
-                dimension: 'departments',
-                label: t['permissionsAdmin.departmentsLabel']!,
-                options: detail.scopeOptions.departments,
-                selected: _scope.departmentIds,
-                onToggle: _toggleScope,
-                onClear: _clearScope,
+              _AccountCard(user: user, granted: _grants.length, total: allPairs.length, grantedLabel: t['permissionsAdmin.grantedShort']!),
+              const SizedBox(height: 20),
+              PermissionsEditor(
+                modules: detail.modules,
+                scopeOptions: detail.scopeOptions,
+                grants: _grants,
+                scope: _scope,
+                onChanged: () => setState(() => _dirty = true),
               ),
-              _ScopeDimensionTile(
-                dimension: 'stages',
-                label: t['permissionsAdmin.stagesLabel']!,
-                options: detail.scopeOptions.stages,
-                selected: _scope.stageIds,
-                onToggle: _toggleScope,
-                onClear: _clearScope,
-              ),
-              _ScopeDimensionTile(
-                dimension: 'education_types',
-                label: t['permissionsAdmin.educationTypesLabel']!,
-                options: detail.scopeOptions.educationTypes,
-                selected: _scope.educationTypeIds,
-                onToggle: _toggleScope,
-                onClear: _clearScope,
-              ),
-              _ScopeDimensionTile(
-                dimension: 'academic_sessions',
-                label: t['permissionsAdmin.academicSessionsLabel']!,
-                options: detail.scopeOptions.academicSessions,
-                selected: _scope.academicSessionIds,
-                onToggle: _toggleScope,
-                onClear: _clearScope,
-              ),
-              const Divider(height: 24),
-              for (final module in detail.modules) _ModuleTile(module: module, grants: _grants, onToggle: _toggle),
-              const SizedBox(height: 88),
             ],
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: (_submitting || !_dirty) ? null : _save,
-        icon: _submitting
-            ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
-            : const Icon(Icons.save_outlined),
-        label: Text(t['permissionsAdmin.save']!),
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            border: Border(top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _dirty ? t['permissionsAdmin.unsavedChanges']! : t['permissionsAdmin.allSaved']!,
+                  style: TextStyle(fontSize: 12, color: _dirty ? Colors.orange.shade800 : Colors.grey),
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: (_submitting || !_dirty) ? null : _save,
+                icon: _submitting
+                    ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.save_outlined),
+                label: Text(t['permissionsAdmin.save']!),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
-class _ModuleTile extends StatelessWidget {
-  const _ModuleTile({required this.module, required this.grants, required this.onToggle});
-  final PermissionModule module;
-  final Set<String> grants;
-  final void Function(String pair, bool value) onToggle;
+class _AccountCard extends StatelessWidget {
+  const _AccountCard({required this.user, required this.granted, required this.total, required this.grantedLabel});
+  final PermissionUser? user;
+  final int granted;
+  final int total;
+  final String grantedLabel;
 
   @override
   Widget build(BuildContext context) {
-    final grantedCount = module.permissions.where((p) => grants.contains('${module.key}.${p.key}')).length;
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: ExpansionTile(
-        title: Text(module.name),
-        // Forced LTR: inside an RTL (Arabic) ancestor, the Unicode bidi
-        // algorithm reorders a plain "$granted / $total" string so the
-        // total renders first — silently swapping which number means
-        // what. Confirmed live: "1 / 2" rendered as "2 / 1".
-        subtitle: Directionality(
-          textDirection: TextDirection.ltr,
-          child: Text('$grantedCount / ${module.permissions.length}'),
+    final scheme = Theme.of(context).colorScheme;
+    final name = user?.fullName ?? '';
+    return SettingsGroupCard(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: scheme.primaryContainer,
+                child: Text(name.trim().isEmpty ? '?' : name.trim()[0], style: const TextStyle(fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    if (user != null) Text(user!.username, style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              Column(
+                children: [
+                  // Forced LTR so "granted/total" isn't reordered in Arabic.
+                  Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: Text(
+                      '$granted/$total',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: scheme.primary),
+                    ),
+                  ),
+                  Text(grantedLabel, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
+                ],
+              ),
+            ],
+          ),
         ),
-        children: [
-          for (final permission in module.permissions)
-            CheckboxListTile(
-              value: grants.contains('${module.key}.${permission.key}'),
-              title: Text(permission.label),
-              controlAffinity: ListTileControlAffinity.leading,
-              onChanged: (v) => onToggle('${module.key}.${permission.key}', v ?? false),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// One access-scope dimension (departments/stages/education types/academic
-/// sessions — `App\Services\ScopeHelper`). Mirrors the web `Permissions/Edit`
-/// page's per-dimension card: empty selection reads as "بلا قيد" (no
-/// restriction, sees everything within this dimension), matching
-/// `ScopeHelper`'s own "zero rows = unrestricted" rule.
-class _ScopeDimensionTile extends ConsumerWidget {
-  const _ScopeDimensionTile({
-    required this.dimension,
-    required this.label,
-    required this.options,
-    required this.selected,
-    required this.onToggle,
-    required this.onClear,
-  });
-
-  final String dimension;
-  final String label;
-  final List<LookupItem> options;
-  final List<int> selected;
-  final void Function(String dimension, int id, bool value) onToggle;
-  final void Function(String dimension) onClear;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = ref.watch(translationsProvider);
-    final restricted = selected.isNotEmpty;
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: ExpansionTile(
-        title: Text(label),
-        subtitle: Text(restricted ? trf(t['permissionsAdmin.restrictedWithCount']!, {'n': selected.length}) : t['permissionsAdmin.unrestricted']!),
-        trailing: restricted
-            ? TextButton(
-                onPressed: () => onClear(dimension),
-                child: Text(t['permissionsAdmin.removeRestriction']!),
-              )
-            : const Icon(Icons.expand_more),
-        children: [
-          if (options.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(t['permissionsAdmin.noOptionsAvailable']!, style: const TextStyle(color: Colors.grey)),
-            ),
-          for (final option in options)
-            CheckboxListTile(
-              value: selected.contains(option.id),
-              title: Text(option.name),
-              controlAffinity: ListTileControlAffinity.leading,
-              onChanged: (v) => onToggle(dimension, option.id, v ?? false),
-            ),
-        ],
-      ),
+      ],
     );
   }
 }

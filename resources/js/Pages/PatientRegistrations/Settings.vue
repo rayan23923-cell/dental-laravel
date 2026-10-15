@@ -8,8 +8,9 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
-import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
+import ChatAction from '@/Components/ChatList/ChatAction.vue';
+import ChatAddButton from '@/Components/ChatList/ChatAddButton.vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -64,33 +65,38 @@ const submitLab = () => {
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('patientReg.settingsTitle') }}</h2>
+            <!-- Chat-list style (2026-10-13, by request): round header button, rounded cards/inputs, icon actions. -->
+            <div class="flex items-center justify-between gap-3">
+                <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('patientReg.settingsTitle') }}</h2>
+                <ChatAddButton :label="t('patientReg.registryLink')" icon="list_alt" secondary :href="route('patient-registrations.index')" />
+            </div>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-4xl space-y-6 sm:px-6 lg:px-8">
-                <div v-if="page.props.flash?.success" class="rounded-md bg-green-50 p-4 text-sm text-green-700">
+        <div class="py-6 sm:py-10">
+            <div class="mx-auto max-w-4xl space-y-6 px-4 sm:px-6 lg:px-8">
+                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
                     {{ page.props.flash.success }}
                 </div>
 
                 <!-- Services and prices -->
-                <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
+                <div class="overflow-hidden rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
                     <h3 class="mb-4 font-semibold text-gray-800">{{ t('patientReg.servicesPricesHeading') }}</h3>
                     <form @submit.prevent="submitService" class="mb-6 grid grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_12rem_auto]">
                         <div>
                             <InputLabel for="service_name" :value="t('patientReg.serviceNameLabel')" />
-                            <TextInput id="service_name" v-model="serviceForm.name" type="text" class="mt-1 block w-full" required />
+                            <TextInput id="service_name" v-model="serviceForm.name" type="text" class="mt-1 block w-full rounded-xl" required />
                             <InputError class="mt-2" :message="serviceForm.errors.name" />
                         </div>
                         <div>
                             <InputLabel for="service_price" :value="t('patientReg.priceLabel')" />
-                            <TextInput id="service_price" v-model="serviceForm.price" type="number" min="0" step="any" dir="ltr" class="mt-1 block w-full" />
+                            <TextInput id="service_price" v-model="serviceForm.price" type="number" min="0" step="any" dir="ltr" class="mt-1 block w-full rounded-xl" />
                             <InputError class="mt-2" :message="serviceForm.errors.price" />
                         </div>
-                        <PrimaryButton :disabled="serviceForm.processing">{{ t('patientReg.addService') }}</PrimaryButton>
+                        <PrimaryButton class="rounded-full" :disabled="serviceForm.processing">{{ t('patientReg.addService') }}</PrimaryButton>
                     </form>
 
-                    <table class="min-w-full divide-y divide-gray-200">
+                    <div class="overflow-x-auto rounded-xl ring-1 ring-gray-100">
+                    <table class="min-w-full divide-y divide-gray-100">
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-4 py-2 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patientReg.serviceLabel') }}</th>
@@ -98,21 +104,21 @@ const submitLab = () => {
                                 <th class="px-4 py-2 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patients.actionsCol') }}</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-200 bg-white">
+                        <tbody class="divide-y divide-gray-100 bg-white">
                             <tr v-for="service in services" :key="service.id">
                                 <template v-if="editing[service.id]">
-                                    <td class="px-4 py-2"><TextInput v-model="editing[service.id].name" type="text" class="block w-full" /></td>
-                                    <td class="px-4 py-2"><TextInput v-model="editing[service.id].price" type="number" min="0" step="any" dir="ltr" class="block w-full" /></td>
+                                    <td class="px-4 py-2"><TextInput v-model="editing[service.id].name" type="text" class="block w-full rounded-xl" /></td>
+                                    <td class="px-4 py-2"><TextInput v-model="editing[service.id].price" type="number" min="0" step="any" dir="ltr" class="block w-full rounded-xl" /></td>
                                     <td class="whitespace-nowrap px-4 py-2 text-sm">
-                                        <PrimaryButton type="button" @click="saveEdit(service)">{{ t('patientReg.savePrice') }}</PrimaryButton>
+                                        <PrimaryButton class="rounded-full" type="button" @click="saveEdit(service)">{{ t('patientReg.savePrice') }}</PrimaryButton>
                                     </td>
                                 </template>
                                 <template v-else>
                                     <td class="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">{{ service.name }}</td>
                                     <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-700" dir="ltr" style="text-align: right">{{ formatPrice(service.price) }}</td>
-                                    <td class="flex gap-2 whitespace-nowrap px-4 py-3 text-sm">
-                                        <SecondaryButton @click="startEdit(service)">{{ t('common.edit') }}</SecondaryButton>
-                                        <SecondaryButton @click="deleteService(service)">{{ t('common.delete') }}</SecondaryButton>
+                                    <td class="flex whitespace-nowrap px-4 py-1.5 text-sm">
+                                        <ChatAction icon="edit" :label="t('common.edit')" @click="startEdit(service)" />
+                                        <ChatAction icon="delete" :label="t('common.delete')" danger @click="deleteService(service)" />
                                     </td>
                                 </template>
                             </tr>
@@ -121,24 +127,25 @@ const submitLab = () => {
                             </tr>
                         </tbody>
                     </table>
+                    </div>
                 </div>
 
                 <!-- Lab -->
-                <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
+                <div class="overflow-hidden rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
                     <h3 class="mb-1 font-semibold text-gray-800">{{ t('patientReg.labSettingsHeading') }}</h3>
                     <p class="mb-4 text-sm text-gray-500">{{ t('patientReg.labSettingsDesc') }}</p>
                     <form @submit.prevent="submitLab" class="grid grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_1fr_auto]">
                         <div>
                             <InputLabel for="lab_fee" :value="t('clinicSettingsAdmin.labFeeLabel')" />
-                            <TextInput id="lab_fee" v-model="labForm.lab_fee" type="number" min="0" step="any" dir="ltr" class="mt-1 block w-full" />
+                            <TextInput id="lab_fee" v-model="labForm.lab_fee" type="number" min="0" step="any" dir="ltr" class="mt-1 block w-full rounded-xl" />
                             <InputError class="mt-2" :message="labForm.errors.lab_fee" />
                         </div>
                         <div>
                             <InputLabel for="lab_validity_days" :value="t('clinicSettingsAdmin.labValidityLabel')" />
-                            <TextInput id="lab_validity_days" v-model="labForm.lab_validity_days" type="number" min="0" dir="ltr" class="mt-1 block w-full" />
+                            <TextInput id="lab_validity_days" v-model="labForm.lab_validity_days" type="number" min="0" dir="ltr" class="mt-1 block w-full rounded-xl" />
                             <InputError class="mt-2" :message="labForm.errors.lab_validity_days" />
                         </div>
-                        <PrimaryButton :disabled="labForm.processing">{{ t('profile.save') }}</PrimaryButton>
+                        <PrimaryButton class="rounded-full" :disabled="labForm.processing">{{ t('profile.save') }}</PrimaryButton>
                     </form>
                 </div>
             </div>

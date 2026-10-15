@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\LinkedRecords;
 use App\Models\AcademicSession;
 use App\Models\CaseSheetType;
 use App\Models\Department;
@@ -11,8 +12,10 @@ use App\Models\Stage;
 use App\Models\Task;
 use App\Services\AcademicSessionHelper;
 use App\Services\ScopeHelper;
+use App\Support\TaskScoring;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -40,6 +43,9 @@ class TaskController extends Controller
                 ->withCount('instances')
                 ->where('stage_id', $stageId)
                 ->where('department_id', $departmentId);
+            // Only within the account's access scope, like the app's list.
+            ScopeHelper::scopeStages($query, $request->user(), 'stage_id');
+            ScopeHelper::scopeDepartments($query, $request->user(), 'department_id');
 
             // Same rule as the original's tasks_ajax/get_tasks.php:
             // `academic_session_id = active OR IS NULL`. Tasks belong to
@@ -98,9 +104,10 @@ class TaskController extends Controller
         // onto every new task.
         $validated['academic_session_id'] ??= AcademicSessionHelper::resolveId();
 
-        Task::create($validated);
+        // One task, or one per enabled row of the case-sheet type's table.
+        $created = TaskScoring::createTasks($validated);
 
-        return redirect()->route('tasks.index')->with('success', 'Task created.');
+        return redirect()->route('tasks.index')->with('success', $created->count() > 1 ? 'تمت إضافة '.$created->count().' مهام.' : 'Task created.');
     }
 
     public function show(Task $task): Response
@@ -125,6 +132,8 @@ class TaskController extends Controller
 
     public function edit(Task $task): Response
     {
+        $task->load('department:id,pass_percent');
+
         return Inertia::render('Tasks/Edit', [
             'task' => $task,
             ...$this->formOptions(),
@@ -133,16 +142,27 @@ class TaskController extends Controller
 
     public function update(Request $request, Task $task): RedirectResponse
     {
-        $task->update($this->validateTask($request));
+        $validated = $this->validateTask($request, $task);
+        if (array_key_exists('scoring', $validated)) {
+            $validated['scoring'] = TaskScoring::normalize($validated['scoring']);
+        }
+        if (array_key_exists('pass_percent', $validated)) {
+            TaskScoring::setPassPercent((int) $validated['department_id'], $validated['pass_percent']);
+        }
+        $task->update(collect($validated)->except('pass_percent')->all());
 
         return redirect()->route('tasks.index')->with('success', 'Task updated.');
     }
 
     public function destroy(Task $task): RedirectResponse
     {
+        if ($linked = LinkedRecords::message($task)) {
+            return back()->with('error', $linked);
+        }
+
         $task->delete();
 
-        return redirect()->route('tasks.index')->with('success', 'Task deleted.');
+        return redirect()->route('tasks.index')->with('success', 'تمت أرشفة المهمة.');
     }
 
     private function formOptions(): array
@@ -158,24 +178,38 @@ class TaskController extends Controller
             // Editable so a task can be moved between academic years and
             // legacy session-less tasks can be assigned one.
             'academicSessions' => AcademicSession::orderByDesc('start_date')->get(['id', 'name']),
+            // Requirement tables pre-filled by the chosen case-sheet type (2026-10-14).
+            'scoringTemplates' => (object) TaskScoring::templatesByTypeId(),
         ];
     }
 
-    private function validateTask(Request $request): array
+    private function validateTask(Request $request, ?Task $task = null): array
     {
+        // Adding from a case-sheet type's table sends `rows` instead of a
+        // single title/count (2026-10-14, by request).
+        $table = ! $task && $request->has('rows');
+
         return $request->validate([
-            'department_id' => ['required', 'exists:departments,id'],
+            // Must be one of the chosen stage's own departments (2026-10-13, by request).
+            'department_id' => ['required', Rule::exists('departments', 'id')->where('stage_id', $request->integer('stage_id'))],
             'case_sheet_type_id' => ['required', 'exists:case_sheet_types,id'],
             'stage_id' => ['required', 'exists:stages,id'],
-            'title' => ['required', 'string', 'max:255'],
-            'required_per_doctor' => ['required', 'integer', 'min:0'],
-            'required_count' => ['required', 'integer', 'min:1'],
-            'notes' => ['nullable', 'string'],
+            'title' => $table ? ['exclude'] : ['required', 'string', 'max:255'],
+            // Ignored if an older app still sends it: required_count is the
+            // only cap now (2026-10-13, by request).
+            'required_per_doctor' => ['exclude'],
+            'required_count' => $table ? ['exclude'] : ['required', 'integer', 'min:1'],
+            // Every field is required (2026-10-13, by request).
+            'notes' => ['required', 'string'],
             // "الدرجة / العلامة" — present in the original's add/edit task
             // forms (0.00–100.00) but missing from the first port.
-            'grade' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'grade' => ['required', 'numeric', 'min:0', 'max:100'],
             'academic_session_id' => ['nullable', 'exists:academic_sessions,id'],
             'is_required' => ['sometimes', 'boolean'],
+            ...($table ? TaskScoring::tableRules() : [
+                ...TaskScoring::rules('scoring'),
+                'pass_percent' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:100'],
+            ]),
         ]);
     }
 }

@@ -6,6 +6,9 @@ use App\Models\ClinicSetting;
 use App\Models\Doctor;
 use App\Services\AcademicSessionHelper;
 use App\Services\ScopeHelper;
+use App\Support\QrCodeFactory;
+use Endroid\QrCode\QrCode;
+use Endroid\QrCode\Writer\PngWriter;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 
@@ -68,6 +71,8 @@ class DoctorPrintController extends Controller
             // "مراحل متعددة" when the selection spans more than one stage,
             // matching the original's header logic.
             'stageLabel' => $byStage->count() === 1 ? $byStage->keys()->first() : 'مراحل متعددة',
+            // No group column while groups are turned off in clinic settings.
+            'groupsEnabled' => ClinicSetting::groupsEnabled(),
         ]);
     }
 
@@ -78,6 +83,14 @@ class DoctorPrintController extends Controller
         return view('print.doctor-card', [
             'settings' => ClinicSetting::current(),
             'doctor' => $doctor,
+            'groupsEnabled' => ClinicSetting::groupsEnabled(),
+            // The doctor's QR (2026-10-14, by request): `{"type":"doctor"}`,
+            // which the task-progress scanner opens as this doctor's progress.
+            'qr' => (new PngWriter())->write(new QrCode(
+                data: QrCodeFactory::payload('doctor', $doctor->id),
+                size: 220,
+                margin: 6,
+            ))->getDataUri(),
         ]);
     }
 }

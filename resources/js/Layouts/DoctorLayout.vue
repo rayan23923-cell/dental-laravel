@@ -20,6 +20,7 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import BrandMark from '@/Components/BrandMark.vue';
 import Icon from '@/Components/Icon.vue';
+import NotificationBell from '@/Components/NotificationBell.vue';
 
 const { t } = useI18n();
 const page = usePage();
@@ -43,7 +44,6 @@ const selectedSession = computed(() => page.props.selectedAcademicSessionId ?? '
 const NAV = computed(() => [
     { route: 'doctor.dashboard', label: t('nav.home'), icon: 'home' },
     { route: 'doctor.required-tasks', label: t('doctorLayout.requiredTasks'), icon: 'assignment' },
-    { route: 'doctor.pending-qr', label: t('doctorLayout.pendingTasksQr'), icon: 'qr_code_2' },
     { route: 'doctor.progress', label: t('doctorLayout.progress'), icon: 'trending_up' },
 ]);
 
@@ -91,6 +91,7 @@ const tileClass = (active) => [
                     </div>
 
                     <div class="ms-auto flex items-center gap-2">
+                        <NotificationBell doctor />
                         <!-- Academic session switcher -->
                         <select
                             v-if="sessions.length"

@@ -104,7 +104,7 @@ class ProsthodonticsForm
                     // `type` this DSL controls — no change needed there.
                     ['key' => 'diagnosis_instructor_signature', 'label' => 'Signature of instructor', 'type' => 'signature', 'width' => 'half'],
                     ['key' => 'diagnosis_date', 'label' => 'Date', 'type' => 'date'],
-                    ['key' => 'diagnosis_grade', 'label' => 'Grade/Mark', 'type' => 'text'],
+                    ['key' => 'diagnosis_grade', 'label' => 'Grade/Mark', 'type' => 'decimal'],
                 ],
             ],
         ];

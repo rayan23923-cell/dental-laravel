@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Support\TaskScoring;
 use App\Http\Controllers\Controller;
 use App\Models\Doctor;
 use App\Models\Group;
+use App\Models\Stage;
 use App\Models\PatientRegistration;
 use App\Models\Task;
 use App\Models\TaskInstance;
@@ -14,6 +16,7 @@ use App\Services\PatientScreeningException;
 use App\Services\TaskGradeException;
 use App\Services\TaskInstanceGrader;
 use App\Services\TaskProgressFilters;
+use App\Services\ScopeHelper;
 use App\Services\TaskProgressGroupSummary;
 use App\Services\TaskStartException;
 use App\Services\TaskStarter;
@@ -85,17 +88,18 @@ class TaskProgressController extends Controller
         $validated = $request->validate([
             'doctor_id' => ['required', 'exists:doctors,id'],
             'task_id' => ['required', 'exists:tasks,id'],
-            // Required (2026-08-26) — identifies which patient this
-            // instance is for, so `PatientScreeningGate` can be enforced.
-            // See `PatientRegistration`'s docblock for why the table is
-            // `patients_simple`.
-            'patient_registration_id' => ['required', 'exists:patients_simple,id'],
+            // Optional (2026-10-12): a task starts from the case QR or the
+            // doctor search alone; when a patient is given the screening
+            // gate still applies (see TaskStarter).
+            'patient_registration_id' => ['nullable', 'exists:patients_simple,id'],
             'notes' => ['nullable', 'string'],
         ]);
 
         $task = Task::findOrFail($validated['task_id']);
         $doctor = Doctor::findOrFail($validated['doctor_id']);
-        $patientRegistration = PatientRegistration::findOrFail($validated['patient_registration_id']);
+        $patientRegistration = isset($validated['patient_registration_id'])
+            ? PatientRegistration::findOrFail($validated['patient_registration_id'])
+            : null;
 
         try {
             $instance = TaskStarter::start(
@@ -149,6 +153,17 @@ class TaskProgressController extends Controller
     }
 
     /**
+     * Every doctor of one stage — what task progress shows while groups are
+     * turned off in clinic settings. Limited to the stages the user may see.
+     */
+    public function stage(Request $request, int $stage): JsonResponse
+    {
+        $stage = ScopeHelper::scopeStages(Stage::whereKey($stage), $request->user())->firstOrFail();
+
+        return response()->json(TaskProgressGroupSummary::buildForStage($stage, $request->user(), AcademicSessionHelper::resolveId()));
+    }
+
+    /**
      * A doctor's own department-grouped task summary (their "مهامي" screen)
      * — see `DoctorTaskSummary`. Doctor-only, same ownership-check pattern
      * as `TaskInstanceController::mine()`.
@@ -166,10 +181,11 @@ class TaskProgressController extends Controller
         $validated = $request->validate([
             'grade' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string'],
+            ...TaskScoring::workItemRules(),
         ]);
 
         try {
-            TaskInstanceGrader::complete($taskInstance, $validated['grade'] ?? null, $validated['notes'] ?? null);
+            TaskInstanceGrader::complete($taskInstance, $validated['grade'] ?? null, $validated['notes'] ?? null, $validated['work_items'] ?? null);
         } catch (TaskGradeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
@@ -187,10 +203,11 @@ class TaskProgressController extends Controller
         $validated = $request->validate([
             'grade' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string'],
+            ...TaskScoring::workItemRules(),
         ]);
 
         try {
-            TaskInstanceGrader::updateNotesGrade($taskInstance, $validated['grade'] ?? null, $validated['notes'] ?? null);
+            TaskInstanceGrader::updateNotesGrade($taskInstance, $validated['grade'] ?? null, $validated['notes'] ?? null, $validated['work_items'] ?? null);
         } catch (TaskGradeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }

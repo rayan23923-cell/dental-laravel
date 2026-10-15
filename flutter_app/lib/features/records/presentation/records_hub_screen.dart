@@ -21,7 +21,7 @@ class RecordsHubScreen extends ConsumerWidget {
     // new `Patient` row (see AppointmentController.php's formOptions()).
     final items = [
       (t['labels.registerPatients']!, Icons.how_to_reg_outlined, '/records/patient-registrations'),
-      (t['labels.appointments']!, Icons.event_outlined, '/records/appointments'),
+      // Appointments hidden for now (2026-10-13, by request), as on the web.
       (t['labels.payments']!, Icons.payments_outlined, '/records/payments'),
     ];
 

@@ -41,6 +41,9 @@ class PatientRegistrationController extends Controller
                 });
             })
             ->when($request->integer('register_day_id'), fn ($q, $id) => $q->where('register_day_id', $id))
+            // Date range (2026-10-14), replacing the day filter in the apps.
+            ->when($request->date('from'), fn ($q, $from) => $q->whereDate('created_at', '>=', $from))
+            ->when($request->date('to'), fn ($q, $to) => $q->whereDate('created_at', '<=', $to))
             ->when($request->integer('service_id'), fn ($q, $id) => $q->where('service_id', $id))
             ->orderByDesc('created_at')
             ->paginate(15);
@@ -61,10 +64,19 @@ class PatientRegistrationController extends Controller
             'register_day_id' => ['nullable', 'integer', 'exists:register_days,id'],
             'service_id' => ['required', 'integer', 'exists:register_services,id'],
             'task_id' => ['nullable', 'integer', 'exists:tasks,id'],
-            'amount_paid' => ['nullable', 'numeric', 'min:0'],
         ]);
-        $amountPaid = (float) ($validated['amount_paid'] ?? 0);
-        unset($validated['amount_paid']);
+
+        // Payment is mandatory and fixed by the service's price (2026-10-12,
+        // by request): the desk no longer types an amount, and an
+        // `amount_paid` an older app build still sends is ignored. A
+        // service without a price cannot be registered until one is set.
+        $price = Service::whereKey($validated['service_id'])->value('price');
+        if ($price === null) {
+            throw ValidationException::withMessages([
+                'service_id' => 'هذه الخدمة بلا سعر — حدّد سعرها في إعدادات التسجيل أولاً.',
+            ]);
+        }
+        $amountPaid = (float) $price;
 
         // The original enforces this server-side too
         // (`patient_register.php:76-89`, checking the selected service
@@ -76,9 +88,9 @@ class PatientRegistrationController extends Controller
 
         $registration = PatientRegistration::create($validated);
 
-        // "المبلغ المدفوع" (2026-10-11, by request): the ticket desk takes
-        // the payment at registration, before any lab screening, so it is
-        // recorded here directly rather than through PatientScreeningGate.
+        // The ticket desk takes the service's price at registration, before
+        // any lab screening, so it is recorded here directly rather than
+        // through PatientScreeningGate.
         if ($amountPaid > 0) {
             Payment::create([
                 'patient_registration_id' => $registration->id,

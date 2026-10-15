@@ -50,18 +50,13 @@ class UserPermissionController extends Controller
                 ->get(['module', 'permission'])
                 ->map(fn ($p) => "{$p->module}.{$p->permission}")
                 ->values(),
-            'scope_options' => [
-                'departments' => Department::orderBy('name')->get(['id', 'name']),
-                'stages' => Stage::orderBy('name')->get(['id', 'name']),
-                'education_types' => EducationType::orderBy('name')->get(['id', 'name']),
-                'academic_sessions' => AcademicSession::orderByDesc('start_date')->get(['id', 'name']),
-            ],
-            // null on any dimension means "unrestricted" — ScopeHelper's
-            // own convention (zero rows = sees everything), not "nothing
-            // selected".
+            // Each option carries its parent so the screen can cascade:
+            // education type → stages → departments (2026-10-14).
+            'scope_options' => ScopeHelper::options(),
+            // null on any dimension means "unrestricted" (nothing picked).
             'scope' => [
-                'departments' => ScopeHelper::allowedDepartmentIds($user),
-                'stages' => ScopeHelper::allowedStageIds($user),
+                'departments' => ScopeHelper::chosenDepartmentIds($user),
+                'stages' => ScopeHelper::chosenStageIds($user),
                 'education_types' => ScopeHelper::allowedEducationTypeIds($user),
                 'academic_sessions' => ScopeHelper::allowedAcademicSessionIds($user),
             ],
@@ -78,35 +73,14 @@ class UserPermissionController extends Controller
             // "restrict to nothing" (send `[]`, which ScopeHelper also
             // treats as unrestricted per its own "zero rows" rule) don't
             // need to be told apart at this layer.
-            'scope' => ['nullable', 'array'],
-            'scope.departments' => ['nullable', 'array'],
-            'scope.departments.*' => ['integer', 'exists:departments,id'],
-            'scope.stages' => ['nullable', 'array'],
-            'scope.stages.*' => ['integer', 'exists:stages,id'],
-            'scope.education_types' => ['nullable', 'array'],
-            'scope.education_types.*' => ['integer', 'exists:education_types,id'],
-            'scope.academic_sessions' => ['nullable', 'array'],
-            'scope.academic_sessions.*' => ['integer', 'exists:academic_sessions,id'],
+            ...ScopeHelper::rules(),
         ]);
         $grants = $validated['grants'] ?? [];
         $scope = $validated['scope'] ?? [];
 
         DB::transaction(function () use ($user, $grants, $scope) {
-            foreach (PermissionMatrix::modules() as $module => $definition) {
-                foreach (array_keys($definition['permissions']) as $permission) {
-                    UserPermission::updateOrCreate(
-                        ['user_id' => $user->id, 'module' => $module, 'permission' => $permission],
-                        ['granted' => in_array("{$module}.{$permission}", $grants, true)]
-                    );
-
-                    PermissionManager::forget($user->id, $module, $permission);
-                }
-            }
-
-            ScopeHelper::setAllowedDepartments($user, $scope['departments'] ?? []);
-            ScopeHelper::setAllowedStages($user, $scope['stages'] ?? []);
-            ScopeHelper::setAllowedEducationTypes($user, $scope['education_types'] ?? []);
-            ScopeHelper::setAllowedAcademicSessions($user, $scope['academic_sessions'] ?? []);
+            PermissionManager::syncGrants($user, $grants);
+            ScopeHelper::saveScope($user, $scope);
         });
 
         return response()->json(['message' => 'Permissions updated.']);

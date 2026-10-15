@@ -132,6 +132,9 @@ class LabController extends Controller
             $registration->setAttribute('previous_screening', $match ? [
                 'id' => $match->id,
                 'checked_at' => $match->screening_checked_at,
+                'name' => $match->name,
+                'phone' => $match->phone,
+                'matched_by' => $match->matched_by,
             ] : null);
         }
     }
@@ -147,7 +150,8 @@ class LabController extends Controller
         $this->authorizeLab($request);
 
         $patientRegistration->load(['service', 'registerDay', 'screeningCheckedBy:id,full_name', 'screeningReusedFrom:id,screening_checked_at'])
-            ->loadExists(['payments as lab_paid' => fn ($q) => $q->where('type', Payment::TYPE_LAB)]);
+            ->loadExists(['payments as lab_paid' => fn ($q) => $q->where('type', Payment::TYPE_LAB)])
+            ->loadSum(['payments as lab_fee_paid' => fn ($q) => $q->where('type', Payment::TYPE_LAB)], 'amount');
 
         $qr = (new PngWriter())->write(new QrCode(
             data: QrCodeFactory::payload('patient_registration', $patientRegistration->id),

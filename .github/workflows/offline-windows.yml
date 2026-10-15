@@ -30,7 +30,29 @@ env:
   COREDNS_VERSION: '1.11.3'
 
 jobs:
+  panel:
+    # The control panel (DentalClinic.exe), compiled with the .NET Framework
+    # compiler that ships with Windows.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile DentalClinic.exe
+        shell: pwsh
+        working-directory: offline/windows/panel
+        run: |
+          & "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /target:winexe /codepage:65001 /optimize+ `
+            /out:DentalClinic.exe /win32icon:icon.ico /win32manifest:app.manifest `
+            /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Management.dll /r:System.Core.dll `
+            /r:System.Web.Extensions.dll /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll DentalClinic.cs
+          if ($LASTEXITCODE -ne 0) { throw 'Compile failed.' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: panel
+          path: offline/windows/panel/DentalClinic.exe
+          retention-days: 3
+
   package:
+    needs: panel
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,7 +62,10 @@ jobs:
           php-version: ${{ env.PHP_MINOR }}
           extensions: gd, intl, zip, mbstring, pdo_mysql, sodium, fileinfo
           tools: composer
-      - run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+      # --prefer-install=auto overrides composer.json's preferred-install=dist,
+      # which stops Composer from falling back to a git clone when GitHub's zip
+      # download fails (2026-10-15: codeload keeps 404ing the ziggy zip).
+      - run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-install=auto
 
       - uses: actions/setup-node@v4
         with:
@@ -58,10 +83,17 @@ jobs:
             --exclude tests --exclude offline --exclude 'public/downloads' --exclude 'public/hot' \
             --exclude '.env' --exclude 'storage/logs/*.log' --exclude codemagic.yaml --exclude docs
           cp offline/windows/env.offline $OUT/app/.env.offline
-          cp offline/windows/*.bat offline/windows/*.ps1 offline/windows/config.txt $OUT/
+          cp offline/windows/prepare.ps1 offline/windows/config.txt $OUT/
           cp -r offline/windows/setup $OUT/setup
           cp offline/README.md $OUT/README.md
-          sed -i 's/\r*$/\r/' $OUT/*.bat $OUT/*.ps1 $OUT/config.txt
+          # The panel compares this with the newest release to offer updates.
+          echo ${{ github.run_number }} > $OUT/version.txt
+          sed -i 's/\r*$/\r/' $OUT/*.ps1 $OUT/config.txt
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: panel
+          path: dist/DentalClinicOffline
 
       - name: Windows PHP
         run: |
@@ -107,27 +139,27 @@ jobs:
           retention-days: 3
 
   smoke-test:
-    # Unzip on a real Windows machine, run Start.bat and wait for the
+    # Unzip on a real Windows machine, start it through the panel and wait for the
     # login page, so a broken package never gets published.
     needs: package
     runs-on: windows-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: offline
-      - name: Run Start.bat and wait for the login page
+      - name: Start through DentalClinic.exe and wait for the login page
         shell: pwsh
         run: |
           Expand-Archive DentalClinicOffline-windows.zip -DestinationPath C:\
           # Port 80 is reserved on the runner; exercise the port settings instead.
           (Get-Content C:\DentalClinicOffline\config.txt) -replace '^HTTP_PORT=80$', 'HTTP_PORT=8080' -replace '^HTTPS_PORT=443$', 'HTTPS_PORT=8443' |
             Set-Content C:\DentalClinicOffline\config.txt
-          Start-Process -FilePath cmd.exe -ArgumentList '/c', 'C:\DentalClinicOffline\Start.bat > C:\start.log 2>&1' -WorkingDirectory C:\DentalClinicOffline
+          Start-Process -FilePath C:\DentalClinicOffline\DentalClinic.exe -ArgumentList '--headless' -WorkingDirectory C:\DentalClinicOffline
           Start-Sleep -Seconds 60
           Write-Host '== early check'
           Get-Process php-cgi,caddy -ErrorAction SilentlyContinue | Format-Table Name,Id | Out-String | Write-Host
-          Get-Content C:\DentalClinicOffline\app\storage\logs\workers.log -TotalCount 5 -ErrorAction SilentlyContinue
+          Get-Content C:\DentalClinicOffline\app\storage\logs\panel.log -Encoding UTF8 -ErrorAction SilentlyContinue
           $ok = $false
           for ($i = 0; $i -lt 20; $i++) {
             Start-Sleep -Seconds 5
@@ -139,13 +171,12 @@ jobs:
           Get-ChildItem C:\DentalClinicOffline\app\storage\logs -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "== $($_.Name)"; Get-Content $_.FullName -Tail 40 }
           Get-ChildItem C:\DentalClinicOffline\data\*.err -ErrorAction SilentlyContinue | ForEach-Object { Get-Content $_.FullName -Tail 20 }
           if (-not $ok) {
-            Write-Host '== start.log'; Get-Content C:\start.log -ErrorAction SilentlyContinue
+            Write-Host '== panel.log'; Get-Content C:\DentalClinicOffline\app\storage\logs\panel.log -Encoding UTF8 -ErrorAction SilentlyContinue
             Write-Host '== processes'; Get-Process php*,caddy,coredns,mariadbd -ErrorAction SilentlyContinue | Format-Table Name,Id,Path | Out-String | Write-Host
             Write-Host '== Caddyfile'; Get-Content C:\DentalClinicOffline\Caddyfile -ErrorAction SilentlyContinue
             Write-Host '== caddy validate'; & C:\DentalClinicOffline\caddy\caddy.exe validate --config C:\DentalClinicOffline\Caddyfile --adapter caddyfile 2>&1 | Select-Object -Last 10
             Write-Host '== php-cgi'; & C:\DentalClinicOffline\php\php-cgi.exe -v 2>&1
-            Write-Host '== workers.log'; Get-Content C:\DentalClinicOffline\app\storage\logs\workers.log -TotalCount 20 -ErrorAction SilentlyContinue
-            Write-Host '== php-cgi.log'; Get-Content C:\DentalClinicOffline\app\storage\logs\php-cgi-9100.log -TotalCount 20 -ErrorAction SilentlyContinue
+            Write-Host '== php-cgi.log'; Get-Content C:\DentalClinicOffline\app\storage\logs\php-cgi.log -TotalCount 20 -ErrorAction SilentlyContinue
             Write-Host '== listening'; Get-NetTCPConnection -State Listen | Where-Object { $_.LocalPort -in 53,80,443,3307,8080,8443,9100,9101 } | Format-Table LocalAddress,LocalPort,OwningProcess | Out-String | Write-Host
             throw 'The offline package did not serve the login page.'
           }
@@ -168,6 +199,18 @@ jobs:
           $setup = Invoke-WebRequest -Uri "http://${ip}:8080/setup" -UseBasicParsing -TimeoutSec 30
           if ($setup.Content -notmatch 'ca.crt') { throw 'Setup page failed.' }
 
+          Write-Host 'Auto-open on joining the Wi-Fi (captive check):'
+          $cdns = Resolve-DnsName -Name connectivitycheck.gstatic.com -Server 127.0.0.1 -DnsOnly -Type A
+          if ($cdns.IPAddress -notcontains $ip) { throw 'The connectivity check address does not point at this computer.' }
+          $first = curl.exe -s -o NUL -w '%{http_code} %{redirect_url}' --max-time 30 -H 'Host: connectivitycheck.gstatic.com' "http://${ip}:8080/generate_204"
+          Write-Host "first check: $first"
+          if ($first -notmatch '^302 .*/portal$') { throw "A new device should be sent to the portal, got $first" }
+          $portal = curl.exe -s -o NUL -w '%{http_code} %{redirect_url}' --max-time 30 -H 'Host: clinic.lan' "http://${ip}:8080/portal"
+          Write-Host "portal: $portal"
+          if ($portal -notmatch '^302 .*/setup$') { throw "The portal should open the setup page, got $portal" }
+          $again = curl.exe -s -o NUL -w '%{http_code}' --max-time 30 -H 'Host: connectivitycheck.gstatic.com' "http://${ip}:8080/generate_204"
+          if ($again -ne '204') { throw "After the portal the device should see the Wi-Fi as connected, got $again" }
+
           Write-Host 'Load: 200 HTTPS requests, 50 at a time'
           $sw = [Diagnostics.Stopwatch]::StartNew()
           $codes = 1..200 | ForEach-Object -Parallel {
@@ -178,8 +221,128 @@ jobs:
           Write-Host "200 OK: $okCount / 200 in $([int]$sw.Elapsed.TotalSeconds)s"
           if ($okCount -lt 195) { throw 'Too many failed requests under load.' }
 
+          Write-Host 'Self-healing: kill the web server, the panel must restart it'
+          Stop-Process -Name caddy -Force
+          Start-Sleep -Seconds 10
+          $back = curl.exe -s -o NUL -w '%{http_code}' --max-time 30 http://127.0.0.1:8080/login
+          if ($back -ne '200') { throw "The panel did not restart the web server, got $back" }
+
+          Write-Host 'Backups: settings copy, backup now, restore'
+          $backups = 'C:\DentalClinicBackups'
+          if (-not (Test-Path "$backups\settings\.env")) { throw 'The settings were not copied to the backups folder.' }
+          $env:PATH = "C:\DentalClinicOffline\php;C:\DentalClinicOffline\mariadb\bin;$env:PATH"
+          $db = @('--user=root', '--host=127.0.0.1', '--port=3307', '-N')
+          Push-Location C:\DentalClinicOffline\app
+          php artisan backup:run --force
+          if ($LASTEXITCODE -ne 0) { throw 'backup:run failed.' }
+          $zip = Get-ChildItem "$backups\*.zip" | Sort-Object LastWriteTime | Select-Object -Last 1
+          if (-not $zip) { throw 'No backup zip was written.' }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $z = [IO.Compression.ZipFile]::OpenRead($zip.FullName)
+          $reader = New-Object IO.StreamReader($z.GetEntry('database.sql').Open())
+          $sql = $reader.ReadToEnd(); $reader.Close(); $z.Dispose()
+          if ($sql -notmatch "'admin'") { throw 'The backup does not hold the users.' }
+          Write-Host "backup: $($zip.Name) ($($zip.Length) bytes)"
+          mariadb @db -e "update dental.users set email='changed@example.com' where username='admin'"
+          php artisan backup:restore $zip.FullName --force
+          if ($LASTEXITCODE -ne 0) { throw 'backup:restore failed.' }
+          $email = mariadb @db -e "select email from dental.users where username='admin'"
+          if ($email -eq 'changed@example.com') { throw 'The restore did not bring the data back.' }
+          if (-not (Get-ChildItem "$backups\*_before-restore.zip")) { throw 'The data was not saved before restoring.' }
+          Pop-Location
+
+          Write-Host 'Stop: everything must exit and the database shut down cleanly'
+          Start-Process -FilePath C:\DentalClinicOffline\DentalClinic.exe -ArgumentList '--stop' -Wait
+          $left = Get-Process php-cgi,php,caddy,coredns,mariadbd,DentalClinic -ErrorAction SilentlyContinue
+          if ($left) { $left | Format-Table Name,Id | Out-String | Write-Host; throw 'Processes were left running after --stop.' }
+
+          Write-Host 'Update: a new version with a migration is backed up before it runs'
+          Set-Content C:\DentalClinicOffline\app\database\migrations\2099_01_01_000000_smoke_update.php '<?php return new class extends Illuminate\Database\Migrations\Migration { public function up(): void {} };'
+          Start-Process -FilePath C:\DentalClinicOffline\DentalClinic.exe -ArgumentList '--headless' -WorkingDirectory C:\DentalClinicOffline
+          $ok = $false
+          for ($i = 0; $i -lt 40 -and -not $ok; $i++) {
+            Start-Sleep -Seconds 5
+            $ok = (curl.exe -s -o NUL -w '%{http_code}' --max-time 10 http://127.0.0.1:8080/login) -eq '200'
+          }
+          Get-Content C:\DentalClinicOffline\app\storage\logs\panel.log -Encoding UTF8 -Tail 15
+          if (-not $ok) { throw 'The system did not start again after the update.' }
+          if (-not (Get-ChildItem "$backups\*_before-update.zip")) { throw 'No backup was made before the update.' }
+          Start-Process -FilePath C:\DentalClinicOffline\DentalClinic.exe -ArgumentList '--stop' -Wait
+
+      - name: In-app update keeps the data, and a broken update rolls back
+        shell: pwsh
+        run: |
+          $root = 'C:\DentalClinicOffline'
+          $env:PATH = "$root\mariadb\bin;$env:PATH"
+          $db = @('--user=root', '--host=127.0.0.1', '--port=3307', '-N')
+          function Wait-Login {
+            for ($i = 0; $i -lt 60; $i++) {
+              Start-Sleep -Seconds 5
+              if ((curl.exe -s -o NUL -w '%{http_code}' --max-time 10 http://127.0.0.1:8080/login) -eq '200') { return $true }
+            }
+            return $false
+          }
+          function New-Package($build, [scriptblock]$change) {
+            $dir = "C:\pkg-$build"
+            Expand-Archive DentalClinicOffline-windows.zip -DestinationPath $dir
+            Set-Content "$dir\DentalClinicOffline\version.txt" $build
+            if ($change) { & $change "$dir\DentalClinicOffline" }
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            [IO.Compression.ZipFile]::CreateFromDirectory("$dir\DentalClinicOffline", "C:\update-$build.zip", 'Fastest', $true)
+            Remove-Item $dir -Recurse -Force
+            return "C:\update-$build.zip"
+          }
+          function Show-Log { Get-Content "$root\app\storage\logs\panel.log" -Encoding UTF8 -Tail 30 }
+
+          Start-Process -FilePath "$root\DentalClinic.exe" -ArgumentList '--headless' -WorkingDirectory $root
+          if (-not (Wait-Login)) { Show-Log; throw 'The system did not start.' }
+          mariadb @db -e "create table if not exists dental.smoke_keep (v int); insert into dental.smoke_keep values (42)"
+          Set-Content "$root\app\storage\app\smoke-keep.txt" 'kept'
+          $key = (Select-String -Path "$root\app\.env" -Pattern '^APP_KEY=').Line
+          $before = (Get-ChildItem 'C:\DentalClinicBackups\*.zip').Count
+
+          Write-Host 'Update to build 99999 while the system runs'
+          $zip = New-Package 99999 $null
+          # -Wait would also wait for the new panel it starts, which keeps running.
+          $p = Start-Process -FilePath "$root\DentalClinic.exe" -ArgumentList '--apply-update', $zip -PassThru
+          $p.WaitForExit()
+          if ($p.ExitCode -ne 0) { Show-Log; throw 'Applying the update failed.' }
+          if (-not (Wait-Login)) { Show-Log; throw 'The updated system did not start.' }
+          for ($i = 0; $i -lt 30 -and (Test-Path "$root\updates\rollback"); $i++) { Start-Sleep -Seconds 2 }
+          Show-Log
+          if ((Get-Content "$root\version.txt").Trim() -ne '99999') { throw 'The new version was not put in place.' }
+          if (Test-Path "$root\updates\rollback") { throw 'The previous version was not cleaned up after a good update.' }
+          if ((mariadb @db -e 'select v from dental.smoke_keep') -ne '42') { throw 'The data was lost in the update.' }
+          if ((Get-Content "$root\app\storage\app\smoke-keep.txt") -ne 'kept') { throw 'Uploaded files were lost in the update.' }
+          if ((Select-String -Path "$root\app\.env" -Pattern '^APP_KEY=').Line -ne $key) { throw 'The settings (.env) changed in the update.' }
+          if ((Get-ChildItem 'C:\DentalClinicBackups\*.zip').Count -le $before) { throw 'No backup was made before applying the update.' }
+
+          Write-Host 'A broken update (build 100000) must roll back to 99999 with its data'
+          $bad = New-Package 100000 { param($d) Set-Content "$d\app\bootstrap\app.php" '<?php throw new Exception("broken on purpose");' }
+          mariadb @db -e "update dental.smoke_keep set v = 43"
+          # -Wait would also wait for the new panel it starts, which keeps running.
+          $p = Start-Process -FilePath "$root\DentalClinic.exe" -ArgumentList '--apply-update', $bad -PassThru
+          $p.WaitForExit()
+          if ($p.ExitCode -ne 0) { Show-Log; throw 'Applying the broken update did not get as far as starting it.' }
+          $ok = $false
+          for ($i = 0; $i -lt 60 -and -not $ok; $i++) {
+            Start-Sleep -Seconds 5
+            $ok = (Test-Path "$root\updates\failed-build.txt") -and -not (Test-Path "$root\updates\rollback") -and
+              ((curl.exe -s -o NUL -w '%{http_code}' --max-time 10 http://127.0.0.1:8080/login) -eq '200')
+          }
+          Show-Log
+          if (-not $ok) { throw 'The broken update did not roll back.' }
+          if ((Get-Content "$root\version.txt").Trim() -ne '99999') { throw 'The previous version did not come back.' }
+          if ((Get-Content "$root\updates\failed-build.txt").Trim() -ne '100000') { throw 'The failed build was not recorded.' }
+          if ((mariadb @db -e 'select v from dental.smoke_keep') -ne '43') { throw 'The data changed in the rollback.' }
+          if ((Get-Content "$root\app\storage\app\smoke-keep.txt") -ne 'kept') { throw 'Uploaded files were lost in the rollback.' }
+          Start-Process -FilePath "$root\DentalClinic.exe" -ArgumentList '--stop' -Wait
+
   release:
     needs: [package, smoke-test]
+    # Installed clinics update themselves to the newest release, so only
+    # main publishes one; other branches just build and test.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -192,6 +355,6 @@ jobs:
           target_commitish: ${{ github.sha }}
           body: |
             The whole system running offline on one Windows PC (PHP + MariaDB bundled).
-            Unzip to C:\DentalClinicOffline, run Setup-Firewall.bat once, then Start.bat; open https://clinic.lan (install the certificate from http://clinic.lan/setup on each device) and log in as admin / password.
+            Unzip to C:\DentalClinicOffline and run DentalClinic.exe: one control panel starts everything with no console windows, sits next to the clock and starts with Windows. Press "السماح لأجهزة الشبكة" once, then open https://clinic.lan (install the certificate from http://clinic.lan/setup on each device) and log in as admin / password.
             Built from ${{ github.ref_name }} @ ${{ github.sha }}.
           files: DentalClinicOffline-windows.zip

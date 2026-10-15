@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -24,7 +25,9 @@ class DepartmentRoleAssignmentController extends Controller
         return Inertia::render('DepartmentRoles/Index', [
             'assignments' => $assignments,
             'users' => User::where('role', '!=', 'super_admin')->orderBy('full_name')->get(['id', 'full_name']),
-            'departments' => Department::orderBy('name')->get(['id', 'name']),
+            // Each department belongs to one stage; the form lists only the
+            // chosen stage's departments (2026-10-13, by request).
+            'departments' => Department::orderBy('name')->get(['id', 'name', 'stage_id']),
             'stages' => Stage::orderBy('name')->get(['id', 'name']),
         ]);
     }
@@ -33,8 +36,8 @@ class DepartmentRoleAssignmentController extends Controller
     {
         $validated = $request->validate([
             'user_id' => ['required', 'exists:users,id'],
-            'department_id' => ['required', 'exists:departments,id'],
             'stage_id' => ['required', 'exists:stages,id'],
+            'department_id' => ['required', Rule::exists('departments', 'id')->where('stage_id', $request->integer('stage_id'))],
             'role_type' => ['required', 'in:senior,hr'],
             'notes' => ['nullable', 'string'],
         ]);

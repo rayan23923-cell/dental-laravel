@@ -1,7 +1,7 @@
 # Writes php.ini, Caddyfile and Corefile for the current folder and network,
 # keeps APP_URL in app\.env in step with config.txt, and prints the
 # computer's LAN address (the only stdout line).
-param([string]$Root, [string]$ServerName, [int]$Workers, [string]$ServerIp, [int]$HttpPort = 80, [int]$HttpsPort = 443)
+param([string]$Root, [string]$ServerName, [int]$Workers, [string]$ServerIp, [int]$HttpPort = 80, [int]$HttpsPort = 443, [int]$AutoOpen = 1)
 $ErrorActionPreference = 'Stop'
 $Root = (Resolve-Path $Root).Path.TrimEnd('\')
 $fwd = $Root -replace '\\', '/'
@@ -9,14 +9,55 @@ $fwd = $Root -replace '\\', '/'
 (Get-Content -LiteralPath "$Root\php\php.ini.template") -replace '__EXT_DIR__', "$Root\php\ext" |
     Set-Content -LiteralPath "$Root\php\php.ini" -Encoding ASCII
 
+# Address detection is best effort: Get-NetIPConfiguration throws on some
+# adapter setups (several virtual adapters), and under 'Stop' that would
+# abort the script before the Caddyfile is written, so the server never
+# starts. Fall through to the next method instead.
 if (-not $ServerIp) {
-    $cfg = Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -and $_.NetAdapter.Status -eq 'Up' } | Select-Object -First 1
-    if ($cfg) { $ServerIp = $cfg.IPv4Address[0].IPAddress }
+    try {
+        $cfgs = @(Get-NetIPConfiguration -ErrorAction Stop | Where-Object { $_.IPv4DefaultGateway -and $_.NetAdapter.Status -eq 'Up' })
+        # Prefer a network whose router answers: a cable with a static
+        # address but no live router (2026-10-13) was picked first and the
+        # phones on the Wi-Fi could not reach the system.
+        $cfg = $cfgs | Where-Object {
+            try { Test-Connection -ComputerName $_.IPv4DefaultGateway[0].NextHop -Count 1 -Quiet -ErrorAction Stop } catch { $false }
+        } | Select-Object -First 1
+        if (-not $cfg) { $cfg = $cfgs | Select-Object -First 1 }
+        if ($cfg) { $ServerIp = $cfg.IPv4Address[0].IPAddress }
+    } catch { $ServerIp = $null }
 }
 if (-not $ServerIp) {
-    $ServerIp = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' } | Select-Object -First 1).IPAddress
+    try {
+        $ServerIp = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop | Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' } | Select-Object -First 1).IPAddress
+    } catch { $ServerIp = $null }
 }
 if (-not $ServerIp) { $ServerIp = '127.0.0.1' }
+
+# "Is there internet?" addresses devices check on joining a Wi-Fi. With
+# AUTO_OPEN the DNS points them here and the app answers (see
+# App\Http\Controllers\CaptivePortalController, same host list): the first check opens
+# the setup page, later ones say "connected". Devices only probe port 80.
+$captiveHosts = @(
+    'connectivitycheck.gstatic.com', 'connectivitycheck.android.com', 'clients1.google.com', 'clients3.google.com',
+    'connectivitycheck.samsung.com', 'connect.rom.miui.com', 'conn1.oppomobile.com', 'conn2.oppomobile.com',
+    'connectivitycheck.platform.hicloud.com', 'cp.cloudflare.com',
+    'captive.apple.com', 'www.appleiphonecell.com', 'www.itools.info', 'www.ibook.info', 'www.airport.us', 'www.thinkdifferent.us',
+    'www.msftconnecttest.com', 'msftconnecttest.com', 'www.msftncsi.com', 'detectportal.firefox.com',
+    'nmcheck.gnome.org', 'connectivity-check.ubuntu.com'
+)
+$captiveOn = $AutoOpen -eq 1
+$captiveCaddy = if ($captiveOn) {
+    @"
+	@captive host $($captiveHosts -join ' ')
+	handle @captive {
+		import app
+	}
+	handle /portal {
+		import app
+	}
+"@
+} else { '' }
+$captiveDns = if ($captiveOn) { ($captiveHosts | ForEach-Object { "`t`t$ServerIp $_" }) -join "`n" } else { '' }
 
 $upstreams = (0..($Workers - 1) | ForEach-Object { "127.0.0.1:$(9100 + $_)" }) -join ' '
 $ca = "$fwd/caddy-data/caddy/pki/authorities/local"
@@ -68,6 +109,7 @@ http://127.0.0.1:$HttpPort, http://localhost:$HttpPort {
 # Plain http on the network: the certificate and setup page, everything
 # else goes to https.
 http://:$HttpPort {
+$captiveCaddy
 	handle /ca.crt {
 		root * "$ca"
 		rewrite * /root.crt
@@ -90,6 +132,7 @@ http://:$HttpPort {
 . {
 	hosts {
 		$ServerIp $ServerName
+$captiveDns
 		ttl 60
 		fallthrough
 	}

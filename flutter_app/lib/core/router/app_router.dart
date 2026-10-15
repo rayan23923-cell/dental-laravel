@@ -34,7 +34,6 @@ import '../../features/printing/presentation/printer_settings_screen.dart';
 import '../../features/task_progress_admin/presentation/task_progress_screen.dart';
 import '../../features/groups_admin/presentation/group_detail_screen.dart';
 import '../../features/groups_admin/presentation/group_form_screen.dart';
-import '../../features/clinic_chairs_admin/presentation/clinic_chairs_screen.dart';
 import '../../features/groups_admin/presentation/group_list_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/notifications/presentation/notification_inbox_screen.dart';
@@ -45,7 +44,6 @@ import '../../features/records/presentation/patients/patient_list_screen.dart';
 import '../../features/records/presentation/payments/payment_form_screen.dart';
 import '../../features/records/presentation/payments/payment_list_screen.dart';
 import '../../features/records/presentation/records_hub_screen.dart';
-import '../../features/task_instances/presentation/pending_tasks_qr_screen.dart';
 import '../../features/task_instances/presentation/qr_scan_screen.dart';
 import '../../features/task_instances/presentation/task_instance_detail_screen.dart';
 import '../../features/tasks_admin/presentation/task_form_screen.dart';
@@ -53,6 +51,7 @@ import '../../features/tasks_admin/presentation/task_list_screen.dart';
 import '../../features/taxonomy_admin/domain/taxonomy_item.dart';
 import '../../features/taxonomy_admin/presentation/taxonomy_list_screen.dart';
 import '../widgets/app_shell.dart';
+import '../../features/notifications/presentation/notification_alerts.dart';
 
 /// Bridges Riverpod's `authControllerProvider` to go_router's
 /// `refreshListenable` — the mechanism that re-evaluates `redirect()`
@@ -213,10 +212,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             const QrScanScreen(mode: QrScanMode.paymentPatientLink),
       ),
       GoRoute(
-        path: '/records/payments/new',
-        builder: (context, state) => const PaymentFormScreen(),
-      ),
-      GoRoute(
         path: '/records/payments/:id',
         builder: (context, state) => PaymentFormScreen(
           paymentId: int.parse(state.pathParameters['id']!),
@@ -296,7 +291,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Scaffold, so none of these screens' own Scaffold/AppBar needed to
       // change for this wrap.
       ShellRoute(
-        builder: (context, state, child) => AppShell(child: child),
+        builder: (context, state, child) => AppShell(child: NotificationAlerts(child: child)),
         routes: [
           GoRoute(
             path: '/home',
@@ -306,13 +301,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/notifications',
             builder: (context, state) => const NotificationInboxScreen(),
           ),
-          // "رموز المهام المعلقة" — doctor-only, see PendingTasksQrScreen's
-          // own doc comment. `PendingTaskQrController::index()` scopes the
-          // list to the requesting doctor's own stage server-side, so no
-          // extra guard is needed here beyond normal auth.
+          // "رموز المهام المعلقة" was removed (2026-10-15, by request): each
+          // slot's QR is on "مهامي", so the old path lands there.
           GoRoute(
             path: '/pending-tasks-qr',
-            builder: (context, state) => const PendingTasksQrScreen(),
+            redirect: (context, state) => '/home',
           ),
           GoRoute(
             path: '/case-sheets',
@@ -357,10 +350,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const GroupListScreen(),
           ),
           GoRoute(
-            path: '/admin/clinic-chairs',
-            builder: (context, state) => const ClinicChairsScreen(),
-          ),
-          GoRoute(
             path: '/admin/tasks',
             builder: (context, state) => const TaskListScreen(),
           ),
@@ -393,7 +382,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/admin/task-progress',
-            builder: (context, state) => const TaskProgressScreen(),
+            builder: (context, state) => TaskProgressScreen(initialTab: state.uri.queryParameters['tab'] ?? 'progress'),
           ),
           GoRoute(
             path: '/admin/printer-settings',

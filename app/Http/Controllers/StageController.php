@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\LinkedRecords;
 use App\Models\EducationType;
 use App\Models\Stage;
 use App\Services\ScopeHelper;
@@ -44,7 +45,8 @@ class StageController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
-            'education_type_id' => ['nullable', 'exists:education_types,id'],
+            // Required (2026-10-13, by request): every field must be filled.
+            'education_type_id' => ['required', 'exists:education_types,id'],
         ]);
 
         Stage::create($validated);
@@ -56,7 +58,8 @@ class StageController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
-            'education_type_id' => ['nullable', 'exists:education_types,id'],
+            // Required (2026-10-13, by request): every field must be filled.
+            'education_type_id' => ['required', 'exists:education_types,id'],
         ]);
 
         $stage->update($validated);
@@ -66,8 +69,12 @@ class StageController extends Controller
 
     public function destroy(Stage $stage): RedirectResponse
     {
+        if ($linked = LinkedRecords::message($stage)) {
+            return back()->with('error', $linked);
+        }
+
         $stage->delete();
 
-        return back()->with('success', 'Stage deleted.');
+        return back()->with('success', 'تمت أرشفة المرحلة.');
     }
 }

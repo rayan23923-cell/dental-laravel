@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/i18n/locale_controller.dart';
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/widgets/chat_list_tile.dart';
 import '../../domain/payment.dart';
 import '../records_providers.dart';
 
@@ -25,7 +26,7 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
   // why no doctor or paid/unpaid filter exists.
   DateTime? _from;
   DateTime? _to;
-  String? _source; // null (all) | 'appointment' | 'registration'
+  String? _source; // null (all) | 'registration' | 'lab'
 
   bool get _hasActiveFilters => _from != null || _to != null || _source != null;
 
@@ -73,22 +74,14 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push('/records/payments/new'),
-        child: const Icon(Icons.add),
-      ),
       body: Column(
         children: [
+          // Chat-list style (2026-10-13, by request): search pill.
           Padding(
-            padding: const EdgeInsets.all(12),
-            child: TextField(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+            child: ChatSearchField(
               controller: _searchController,
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search),
-                hintText: t['recordsHub.searchPersonHint'],
-                border: const OutlineInputBorder(),
-                isDense: true,
-              ),
+              hintText: t['recordsHub.searchPersonHint']!,
               onSubmitted: (v) => setState(() => _search = v.trim().isEmpty ? null : v.trim()),
             ),
           ),
@@ -105,9 +98,9 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
                 return RefreshIndicator(
                   onRefresh: () async => ref.invalidate(paymentListProvider(_filters)),
                   child: ListView.separated(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.only(top: 4, bottom: 88),
                     itemCount: page.items.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    separatorBuilder: (_, __) => chatDivider,
                     itemBuilder: (context, i) => _PaymentTile(payment: page.items[i]),
                   ),
                 );
@@ -193,8 +186,9 @@ class _PaymentFilterSheetState extends ConsumerState<_PaymentFilterSheet> {
             decoration: InputDecoration(labelText: t['recordsHub.sourceLabel'], border: const OutlineInputBorder(), isDense: true),
             items: [
               DropdownMenuItem(value: null, child: Text(t['recordsHub.sourceAll']!)),
-              DropdownMenuItem(value: 'appointment', child: Text(t['recordsHub.sourceAppointment']!)),
+              // Appointments dropped from payments (2026-10-14, by request).
               DropdownMenuItem(value: 'registration', child: Text(t['recordsHub.sourceRegistration']!)),
+              DropdownMenuItem(value: 'lab', child: Text(t['payments.labFee']!)),
             ],
             onChanged: (v) => setState(() => _source = v),
           ),
@@ -222,6 +216,8 @@ class _PaymentFilterSheetState extends ConsumerState<_PaymentFilterSheet> {
   }
 }
 
+/// Chat-list row (2026-10-13, by request): payer name, the amount as the
+/// subtitle, and source / paid-by / date chips.
 class _PaymentTile extends ConsumerWidget {
   const _PaymentTile({required this.payment});
   final Payment payment;
@@ -229,18 +225,23 @@ class _PaymentTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider);
-    return Card(
-      child: ListTile(
-        title: Text(payment.personName),
-        subtitle: Text([
-          payment.patientRegistrationName != null ? t['recordsHub.sourceRegistration']! : t['recordsHub.sourceAppointment']!,
-          payment.amount.toStringAsFixed(2),
-          if (payment.paidBy != null && payment.paidBy!.isNotEmpty) payment.paidBy!,
-          if (payment.paidAt != null) payment.paidAt!.split('T').first,
-        ].join(' · ')),
-        trailing: const Icon(Icons.chevron_left),
-        onTap: () => context.push('/records/payments/${payment.id}'),
-      ),
+    final fromRegistration = payment.patientRegistrationName != null;
+    return ChatListTile(
+      title: payment.personName,
+      color: Colors.green,
+      icon: Icons.payments_outlined,
+      // LTR isolate so the number keeps its order inside RTL text.
+      subtitle: '\u2066${payment.amount.toStringAsFixed(2)}\u2069',
+      chips: [
+        fromRegistration
+            ? ChatChip(label: t['recordsHub.sourceRegistration']!, icon: Icons.how_to_reg_outlined, color: Colors.teal)
+            : ChatChip(label: t['recordsHub.sourceAppointment']!, icon: Icons.event_outlined, color: Colors.indigo),
+        if (payment.paidBy != null && payment.paidBy!.isNotEmpty)
+          ChatChip(label: payment.paidBy!, icon: Icons.person_outline, color: Colors.blueGrey),
+        if (payment.paidAt != null)
+          ChatChip(label: payment.paidAt!.split('T').first, icon: Icons.calendar_today_outlined, color: Colors.blueGrey),
+      ],
+      onTap: () => context.push('/records/payments/${payment.id}'),
     );
   }
 }

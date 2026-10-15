@@ -1,7 +1,6 @@
-import 'dart:io' show Platform;
+import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -10,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:printing/printing.dart';
 
+import '../../../core/platform/platform_support.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
@@ -19,17 +19,20 @@ import '../../../core/widgets/academic_year_banner.dart';
 import '../../case_sheet_forms/data/case_sheet_record_repository.dart';
 import '../../clinic_settings/domain/clinic_settings.dart';
 import '../../clinic_settings/presentation/clinic_settings_providers.dart';
-import '../../patient_registration/domain/registration_payment_state.dart';
+import '../../paper_photos/presentation/paper_photos_sheet.dart';
 import '../../printing/data/pos_printer_service.dart';
 import '../../printing/presentation/printer_error_snackbar.dart';
 import '../../printing/presentation/printer_settings_providers.dart';
 import '../../printing/presentation/task_instance_ticket_widget.dart';
 import '../../printing/presentation/ticket_print_animation.dart';
 import '../../printing/presentation/ticket_renderer.dart';
+import '../../task_start_requests/presentation/task_start_request_providers.dart';
+import '../../task_start_requests/presentation/task_start_requests_view.dart';
 import '../data/task_progress_repository.dart';
 import '../domain/task_progress_group.dart';
 import 'task_progress_pdf.dart';
 import 'task_progress_providers.dart';
+import '../../../core/widgets/numeric_input.dart';
 
 /// "تقدم المهام" — the full day → education type/stage → group →
 /// department (tabs) → doctor (expandable) → per-slot task-card matrix,
@@ -41,7 +44,10 @@ import 'task_progress_providers.dart';
 /// typing a name), the same supporting role the web's QR-scan modal plays
 /// inside this same page, not a separate screen.
 class TaskProgressScreen extends ConsumerStatefulWidget {
-  const TaskProgressScreen({super.key});
+  const TaskProgressScreen({super.key, this.initialTab = 'progress'});
+
+  /// 'requests' when opened from a start-request notification (2026-10-15).
+  final String initialTab;
 
   @override
   ConsumerState<TaskProgressScreen> createState() => _TaskProgressScreenState();
@@ -61,8 +67,25 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
   bool _scanningNfc = false;
   int? _expandedDoctorId;
 
+  /// 'progress' (the matrix below) or 'requests' — doctors' start
+  /// requests (2026-10-14), same as the web's "الطلبات" tab.
+  late String _mainTab = widget.initialTab;
+
+  /// Refreshes the start requests (list and badge) so new ones show up
+  /// without leaving the screen.
+  Timer? _requestsTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _requestsTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) ref.invalidate(taskStartRequestBoardProvider);
+    });
+  }
+
   @override
   void dispose() {
+    _requestsTimer?.cancel();
     _searchController.dispose();
     _tabController?.dispose();
     super.dispose();
@@ -178,25 +201,15 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
     int taskId,
     TaskProgressGroupOption groupOption,
   ) async {
-    final patientState =
-        await context.push<RegistrationPaymentState>('/records/patient-registrations/scan-for-task');
-    if (patientState == null || !mounted) return;
-
+    // No patient QR (2026-10-12, by request): the doctor and task picked
+    // here (or the case QR) are enough to start it.
     final t = ref.read(translationsProvider);
-    if (!patientState.registration.isScreeningClear) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(t['taskProgressAdmin.screeningRequiredMsg']!),
-      ));
-      return;
-    }
-
     final notes = await _promptNotes(title: t['taskProgressAdmin.startTask']!);
     if (notes == null) return;
     try {
       final result = await ref.read(taskProgressRepositoryProvider).start(
             doctorId: doctorId,
             taskId: taskId,
-            patientRegistrationId: patientState.registration.id,
             notes: notes,
           );
       _reloadGroup();
@@ -253,7 +266,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
     TaskStartResult result,
     TaskProgressGroupOption groupOption,
   ) async {
-    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return;
+    if (!canPrintTickets) return;
     try {
       Uint8List? qrBytes;
       try {
@@ -297,7 +310,8 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
           departmentName: result.departmentName,
           educationTypeName: groupOption.educationTypeName,
           stageName: groupOption.stageName,
-          groupName: groupOption.name,
+          // A stage's doctors (groups off) carry the stage's name, not a group's.
+          groupName: groupOption.id == null ? null : groupOption.name,
           notes: result.notes,
           startedAt: startedAt,
           startedByName: result.startedByName,
@@ -421,8 +435,19 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
     }
   }
 
+  /// Which matrix is open: the tapped group, or — while groups are turned
+  /// off in clinic settings — the chosen stage's doctors, with no day or
+  /// group step (2026-10-13, same as the web).
+  TaskProgressDetailKey? get _detailKey {
+    if (ref.read(groupsEnabledProvider)) {
+      return _groupId == null ? null : (groupId: _groupId, stageId: null);
+    }
+    return _stageId == null ? null : (groupId: null, stageId: _stageId);
+  }
+
   void _reloadGroup() {
-    if (_groupId != null) ref.invalidate(taskProgressGroupProvider(_groupId!));
+    final key = _detailKey;
+    if (key != null) ref.invalidate(taskProgressGroupProvider(key));
   }
 
   /// Real bug found and fixed: this used to return only the dialog's
@@ -481,6 +506,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
+              inputFormatters: decimalOnly,
               decoration: InputDecoration(
                 labelText: t['taskProgressAdmin.gradeOptionalLabel'],
                 border: const OutlineInputBorder(),
@@ -528,6 +554,8 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
       )),
     );
     final t = ref.watch(translationsProvider);
+    final groupsEnabled = ref.watch(groupsEnabledProvider);
+    final detailKey = _detailKey;
 
     return Scaffold(
       appBar: AppBar(
@@ -552,11 +580,15 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
       body: Column(
         children: [
           const AcademicYearBanner(),
+          _MainTabs(current: _mainTab, onChanged: (v) => setState(() => _mainTab = v)),
+          if (_mainTab == 'requests')
+            const Expanded(child: TaskStartRequestsView())
+          else ...[
           // Hidden once inside a group's detail — its own back arrow
           // already returns here, and keeping three dropdowns permanently
           // on screen competed for space with the doctor list badly enough
           // to overflow when the search box's keyboard opened (found live).
-          if (_groupId == null)
+          if (detailKey == null)
             Padding(
               padding: const EdgeInsets.all(12),
               child: filtersAsync.when(
@@ -564,6 +596,8 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
                 error: (_, __) => Text(t['taskProgressAdmin.loadFiltersFailed']!),
                 data: (filters) => _FilterRow(
                   filters: filters,
+                  // The day filter was removed (2026-10-13, by request).
+                  showDay: false,
                   day: _day,
                   educationTypeId: _educationTypeId,
                   stageId: _stageId,
@@ -584,16 +618,26 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
               ),
             ),
           Expanded(
-            child: _groupId == null
+            child: detailKey == null
                 ? filtersAsync.when(
                     loading: () => const SizedBox.shrink(),
                     error: (_, __) => const SizedBox.shrink(),
-                    data: (filters) => _day == null
+                    data: (filters) => !groupsEnabled
                         ? Center(
                             child: Padding(
                               padding: const EdgeInsets.all(24),
                               child: Text(
-                                t['taskProgressAdmin.chooseDayToViewGroups']!,
+                                t['taskProgressAdmin.chooseStageHint']!,
+                                style: const TextStyle(color: Colors.grey),
+                              ),
+                            ),
+                          )
+                        : _stageId == null
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Text(
+                                t['taskProgressAdmin.chooseStageHint']!,
                                 style: const TextStyle(color: Colors.grey),
                               ),
                             ),
@@ -627,15 +671,16 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
                             },
                           ),
                   )
-                : _buildGroupDetail(_groupId!),
+                : _buildGroupDetail(detailKey),
           ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildGroupDetail(int groupId) {
-    final groupAsync = ref.watch(taskProgressGroupProvider(groupId));
+  Widget _buildGroupDetail(TaskProgressDetailKey key) {
+    final groupAsync = ref.watch(taskProgressGroupProvider(key));
     final t = ref.watch(translationsProvider);
 
     return groupAsync.when(
@@ -657,7 +702,10 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
                   IconButton(
                     icon: const Icon(Icons.arrow_forward),
                     tooltip: t['taskProgressAdmin.backToGroupsList'],
-                    onPressed: () => setState(() => _groupId = null),
+                    onPressed: () => setState(() {
+                      _groupId = null;
+                      if (key.stageId != null) _stageId = null;
+                    }),
                   ),
                   Expanded(
                     child: Text(
@@ -749,9 +797,49 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
   }
 }
 
+/// "تقدم المهام" | "الطلبات" pills; the requests pill carries a red badge
+/// with the number waiting for approval.
+class _MainTabs extends ConsumerWidget {
+  const _MainTabs({required this.current, required this.onChanged});
+  final String current;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider);
+    final pending = ref.watch(taskStartRequestBoardProvider).valueOrNull?.pending.length ?? 0;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: Row(
+        children: [
+          ChoiceChip(
+            avatar: const Icon(Icons.monitor_heart_outlined, size: 18),
+            label: Text(t['taskRequests.progressTab']!),
+            selected: current == 'progress',
+            onSelected: (_) => onChanged('progress'),
+          ),
+          const SizedBox(width: 8),
+          ChoiceChip(
+            avatar: const Icon(Icons.inbox_outlined, size: 18),
+            label: Badge(
+              isLabelVisible: pending > 0,
+              label: Text(pending > 99 ? '99+' : '$pending'),
+              offset: const Offset(14, -8),
+              child: Text(t['taskRequests.requestsTab']!),
+            ),
+            selected: current == 'requests',
+            onSelected: (_) => onChanged('requests'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _FilterRow extends ConsumerWidget {
   const _FilterRow({
     required this.filters,
+    this.showDay = true,
     required this.day,
     required this.educationTypeId,
     required this.stageId,
@@ -761,6 +849,9 @@ class _FilterRow extends ConsumerWidget {
   });
 
   final TaskProgressFilters filters;
+
+  /// False while groups are turned off: the day only picks groups.
+  final bool showDay;
   final String? day;
   final int? educationTypeId;
   final int? stageId;
@@ -773,6 +864,7 @@ class _FilterRow extends ConsumerWidget {
     final t = ref.watch(translationsProvider);
     return Column(
       children: [
+        if (showDay) ...[
         DropdownButtonFormField<String>(
           initialValue: filters.days.contains(day) ? day : null,
           decoration: InputDecoration(
@@ -786,6 +878,7 @@ class _FilterRow extends ConsumerWidget {
           onChanged: onDayChanged,
         ),
         const SizedBox(height: 8),
+        ],
         DropdownButtonFormField<int>(
           initialValue:
               filters.educationTypes.any((et) => et.id == educationTypeId)
@@ -1015,6 +1108,20 @@ class _TaskSlotTile extends ConsumerWidget {
                 TextButton(
                   onPressed: () => screen._editInstance(card),
                   child: Text(t['taskProgressAdmin.editLabel']!),
+                ),
+              // Photos of the paper case sheet (2026-10-13), as on the web.
+              if (card.instanceId != null)
+                TextButton.icon(
+                  onPressed: () async {
+                    await showPaperPhotosSheet(
+                      context,
+                      instanceId: card.instanceId!,
+                      title: '${card.taskTitle} - ${doctor.name}',
+                    );
+                    screen._reloadGroup();
+                  },
+                  icon: const Icon(Icons.photo_library_outlined, size: 18),
+                  label: Text(trf(t['paperPhotos.button']!, {'n': card.attachmentsCount})),
                 ),
               // "معاينة الكيس شيت" — staff/admin's view of the doctor's
               // own case sheet (readonly, except the resource's supervisor

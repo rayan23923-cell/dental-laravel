@@ -6,8 +6,20 @@
  * with repeatable day/time slot rows, and the same group card — slots list,
  * per-group doctor search, "تحديد الكل", bulk "حذف المحدد (N)", per-doctor
  * remove, doctor total, and the "إضافة أطباء للمجموعة" modal.
+ *
+ * Chat-list style (2026-10-13, by request): each group is a chat row that
+ * expands to its doctors (themselves chat rows with a checkbox), the add
+ * form moved into a dialog opened by the header "+", and the filters are
+ * a compact row of pills. Every action above is kept.
  */
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import ChatListCard from '@/Components/ChatList/ChatListCard.vue';
+import ChatListRow from '@/Components/ChatList/ChatListRow.vue';
+import ChatChip from '@/Components/ChatList/ChatChip.vue';
+import ChatAction from '@/Components/ChatList/ChatAction.vue';
+import ChatSearch from '@/Components/ChatList/ChatSearch.vue';
+import ChatAddButton from '@/Components/ChatList/ChatAddButton.vue';
+import { toneFor } from '@/Components/ChatList/tones';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import Modal from '@/Components/Modal.vue';
@@ -15,7 +27,7 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import StructureTabs from '@/Components/StructureTabs.vue';
 import TextInput from '@/Components/TextInput.vue';
-import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
+import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import axios from 'axios';
@@ -58,7 +70,12 @@ const loadGroups = () => {
     );
 };
 
-// --- Add group (inline form, as in the original) ---
+// --- Add group (now in a dialog opened by the header "+") ---
+const creating = ref(false);
+const openCreate = () => {
+    addForm.clearErrors();
+    creating.value = true;
+};
 // UI-only — `Group` has no `education_type_id` column, never sent in the
 // payload. Only narrows the stage <select> below, same reasoning as the
 // Flutter group form's own new education-type field.
@@ -77,6 +94,7 @@ const submitAdd = () => {
             addForm.reset();
             addForm.slots = [emptySlot()];
             addEducationType.value = '';
+            creating.value = false;
         },
     });
 };
@@ -115,6 +133,12 @@ const destroyGroup = (group) => {
     if (confirm(t('groupsAdmin.deleteConfirm', { name: group.name }))) {
         router.delete(route('groups.destroy', group.id), { preserveScroll: true });
     }
+};
+
+// --- Expanded groups (a group row opens to show its doctors) ---
+const expanded = ref({});
+const toggleExpanded = (groupId) => {
+    expanded.value = { ...expanded.value, [groupId]: !expanded.value[groupId] };
 };
 
 // --- Per-group doctor selection & search (the original's card controls) ---
@@ -212,181 +236,201 @@ const submitAddDoctors = () => {
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800"><Icon name="groups" class="ml-1" />{{ t('groupsAdmin.title') }}</h2>
+            <div class="flex items-center justify-between gap-3">
+                <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('groupsAdmin.title') }}</h2>
+                <ChatAddButton :label="t('groupsAdmin.addGroupHeading')" @click="openCreate" />
+            </div>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-6xl space-y-4 sm:px-6 lg:px-8">
+        <div class="py-6 sm:py-10">
+            <div class="mx-auto max-w-2xl space-y-4 px-4 sm:px-6 lg:px-8">
                 <StructureTabs active="groups" />
 
                 <!-- Groups belong to an academic year; new groups are created
                      in the session shown here (switch it from the navbar). -->
-                <div v-if="currentSession" class="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900">
-                    <Icon name="calendar_month" class="ml-1" />
-                    {{ t('groupsAdmin.sessionBannerPrefix') }} <strong>{{ currentSession.name }}</strong>
+                <div v-if="currentSession" class="flex">
+                    <ChatChip icon="calendar_month" tone="indigo">{{ t('groupsAdmin.sessionBannerPrefix') }} <strong>{{ currentSession.name }}</strong></ChatChip>
                 </div>
 
-                <div v-if="page.props.flash?.success" class="rounded-md bg-green-50 p-4 text-sm text-green-700">
+                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
                     {{ page.props.flash.success }}
                 </div>
-                <div v-if="page.props.flash?.error" class="rounded-md bg-red-50 p-4 text-sm text-red-700">
+                <div v-if="page.props.flash?.error" class="rounded-xl bg-red-50 p-4 text-sm text-red-700 whitespace-pre-line">
                     {{ page.props.flash.error }}
                 </div>
 
                 <!-- فلاتر -->
-                <div class="grid grid-cols-1 gap-3 rounded-lg bg-white p-4 shadow-sm md:grid-cols-3">
-                    <div>
-                        <InputLabel :value="t('groupsAdmin.educationTypeLabel')" />
-                        <select v-model="educationType" @change="stage = ''" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                            <option value="">{{ t('groupsAdmin.chooseEducationType') }}</option>
-                            <option v-for="et in educationTypes" :key="et.id" :value="et.id">{{ et.name }}</option>
-                        </select>
-                    </div>
-                    <div>
-                        <InputLabel :value="t('groupsAdmin.stageLabel')" />
-                        <select v-model="stage" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                            <option value="">{{ t('groupsAdmin.showAllGroups') }}</option>
-                            <option v-for="s in filteredStages" :key="s.id" :value="s.id">{{ s.name }}</option>
-                        </select>
-                    </div>
-                    <div class="flex items-end">
-                        <PrimaryButton class="w-full justify-center" @click="loadGroups">{{ t('groupsAdmin.showGroups') }}</PrimaryButton>
-                    </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <select
+                        v-model="educationType"
+                        @change="stage = ''"
+                        :title="t('groupsAdmin.educationTypeLabel')"
+                        class="min-w-0 flex-1 rounded-full border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    >
+                        <option value="">{{ t('groupsAdmin.chooseEducationType') }}</option>
+                        <option v-for="et in educationTypes" :key="et.id" :value="et.id">{{ et.name }}</option>
+                    </select>
+                    <select
+                        v-model="stage"
+                        :title="t('groupsAdmin.stageLabel')"
+                        class="min-w-0 flex-1 rounded-full border-gray-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    >
+                        <option value="">{{ t('groupsAdmin.showAllGroups') }}</option>
+                        <option v-for="s in filteredStages" :key="s.id" :value="s.id">{{ s.name }}</option>
+                    </select>
+                    <ChatAddButton icon="filter_list" :label="t('groupsAdmin.showGroups')" @click="loadGroups" />
                 </div>
-
-                <!-- نموذج إضافة مجموعة -->
-                <form @submit.prevent="submitAdd" class="space-y-3 rounded-lg bg-white p-4 shadow-sm">
-                    <h3 class="text-sm font-semibold text-gray-700">{{ t('groupsAdmin.addGroupHeading') }}</h3>
-                    <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
-                        <div>
-                            <TextInput v-model="addForm.name" type="text" :placeholder="t('groupsAdmin.groupNamePlaceholder')" class="block w-full" required />
-                            <InputError class="mt-1" :message="addForm.errors.name" />
-                        </div>
-                        <div>
-                            <select v-model="addEducationType" @change="addForm.stage_id = ''" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                <option value="">{{ t('groupsAdmin.chooseEducationTypeFirst') }}</option>
-                                <option v-for="et in educationTypes" :key="et.id" :value="et.id">{{ et.name }}</option>
-                            </select>
-                        </div>
-                        <div>
-                            <select v-model="addForm.stage_id" :disabled="!addEducationType" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100" required>
-                                <option value="">{{ t('groupsAdmin.chooseStage') }}</option>
-                                <option v-for="s in filteredAddStages" :key="s.id" :value="s.id">{{ s.name }}</option>
-                            </select>
-                            <InputError class="mt-1" :message="addForm.errors.stage_id" />
-                        </div>
-                    </div>
-
-                    <div>
-                        <InputLabel :value="t('groupsAdmin.slotsLabel')" />
-                        <div v-for="(slot, i) in addForm.slots" :key="i" class="mt-2 flex flex-wrap items-center gap-2">
-                            <select v-model="slot.day" class="w-32 rounded-md border-gray-300 text-sm shadow-sm">
-                                <option v-for="d in DAYS" :key="d" :value="d">{{ d }}</option>
-                            </select>
-                            <input v-model="slot.start_time" type="time" class="rounded-md border-gray-300 text-sm shadow-sm" required />
-                            <input v-model="slot.end_time" type="time" class="rounded-md border-gray-300 text-sm shadow-sm" required />
-                            <button type="button" @click="addForm.slots.splice(i, 1)" class="rounded bg-red-500 px-2 py-1 text-white hover:bg-red-600">×</button>
-                        </div>
-                        <button type="button" @click="addForm.slots.push(emptySlot())" class="mt-2 rounded bg-gray-500 px-3 py-1 text-xs text-white hover:bg-gray-600">
-                            {{ t('groupsAdmin.addSlot') }}
-                        </button>
-                    </div>
-
-                    <button type="submit" :disabled="addForm.processing" class="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
-                        {{ t('groupsAdmin.addGroupButton') }}
-                    </button>
-                </form>
 
                 <!-- Groups -->
-                <div v-if="!loaded" class="rounded-lg bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
-                    {{ t('groupsAdmin.chooseFiltersPrompt') }}
-                </div>
-                <div v-else-if="groups.length === 0" class="rounded-lg bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
-                    {{ t('groupsAdmin.noMatchingGroups') }}
-                </div>
+                <ChatListCard
+                    :empty="!loaded || groups.length === 0"
+                    :empty-text="loaded ? t('groupsAdmin.noMatchingGroups') : t('groupsAdmin.chooseFiltersPrompt')"
+                    :empty-icon="loaded ? 'groups' : 'filter_list'"
+                >
+                    <div v-for="group in groups" :key="group.id" class="border-b border-gray-100 last:border-b-0">
+                        <ChatListRow
+                            :title="group.name"
+                            icon="groups"
+                            :tone="toneFor(group.id)"
+                            :selected="!!expanded[group.id]"
+                            class="cursor-pointer"
+                            @click="toggleExpanded(group.id)"
+                        >
+                            <template #meta>
+                                <ChatChip icon="stairs" tone="indigo" :title="t('groupsAdmin.stageLabel')">{{ group.stage?.name ?? '—' }}</ChatChip>
+                                <ChatChip icon="person" tone="emerald" :title="t('groupsAdmin.totalDoctors', { n: group.doctors.length })">{{ group.doctors.length }}</ChatChip>
+                                <!-- Only the day count here; the days themselves show when the group is opened. -->
+                                <ChatChip icon="schedule" :tone="group.slots.length ? 'amber' : 'gray'" :title="t('groupsAdmin.slotsLabel')">{{ group.slots.length }}</ChatChip>
+                            </template>
+                            <template #actions>
+                                <div class="flex items-center" @click.stop>
+                                    <ChatAction icon="person_add" :label="t('groupsAdmin.addDoctorsToGroup')" @click="openAddDoctors(group)" />
+                                    <ChatAction icon="edit" :label="t('common.edit')" @click="openEdit(group)" />
+                                    <ChatAction icon="delete" :label="t('common.delete')" danger @click="destroyGroup(group)" />
+                                    <ChatAction
+                                        :icon="expanded[group.id] ? 'expand_less' : 'expand_more'"
+                                        :label="t('groupsAdmin.doctorsHeading')"
+                                        @click="toggleExpanded(group.id)"
+                                    />
+                                </div>
+                            </template>
+                        </ChatListRow>
 
-                <div v-for="group in groups" :key="group.id" class="overflow-hidden rounded-lg bg-white shadow-sm">
-                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3">
-                        <strong class="text-gray-900">{{ group.name }} ({{ group.stage?.name ?? '—' }})</strong>
-                        <div class="flex gap-2">
-                            <button @click="openEdit(group)" class="rounded bg-indigo-600 px-3 py-1 text-xs text-white hover:bg-indigo-700">{{ t('common.edit') }}</button>
-                            <button @click="destroyGroup(group)" class="rounded bg-red-600 px-3 py-1 text-xs text-white hover:bg-red-700">{{ t('common.delete') }}</button>
-                        </div>
-                    </div>
-
-                    <div class="p-4">
-                        <h4 class="text-sm font-semibold text-gray-700">{{ t('groupsAdmin.daysAndTimesHeading') }}</h4>
-                        <ul class="mt-1 list-inside list-disc text-sm text-gray-600">
-                            <li v-for="slot in group.slots" :key="slot.id">
-                                {{ t('groupsAdmin.slotLine', { day: slot.day, start: slot.start_time.slice(0, 5), end: slot.end_time.slice(0, 5) }) }}
-                            </li>
-                            <li v-if="group.slots.length === 0" class="list-none text-gray-400">{{ t('groupsAdmin.noSlots') }}</li>
-                        </ul>
-
-                        <h4 class="mt-4 text-sm font-semibold text-gray-700">{{ t('groupsAdmin.doctorsHeading') }}</h4>
-
-                        <template v-if="group.doctors.length">
-                            <div class="mt-2 flex flex-wrap gap-2">
-                                <TextInput
+                        <!-- The group's doctors -->
+                        <div v-if="expanded[group.id]" class="space-y-2 bg-gray-50/70 px-3 pb-3 pt-1 sm:px-4">
+                            <div class="flex flex-wrap gap-1.5 pt-2">
+                                <ChatChip v-for="slot in group.slots" :key="slot.id" icon="schedule" tone="amber">
+                                    {{ slot.day }} <span dir="ltr">{{ slot.start_time.slice(0, 5) }}–{{ slot.end_time.slice(0, 5) }}</span>
+                                </ChatChip>
+                                <ChatChip v-if="group.slots.length === 0" icon="schedule" tone="gray">{{ t('groupsAdmin.noSlots') }}</ChatChip>
+                            </div>
+                            <template v-if="group.doctors.length">
+                                <ChatSearch
                                     :model-value="doctorSearch[group.id] ?? ''"
                                     @update:model-value="doctorSearch = { ...doctorSearch, [group.id]: $event }"
-                                    type="text"
                                     :placeholder="t('groupsAdmin.searchDoctorInGroupPlaceholder')"
-                                    class="min-w-0 flex-grow text-sm"
                                 />
-                                <button
-                                    type="button"
-                                    :disabled="selectionOf(group.id).length === 0"
-                                    @click="removeSelectedDoctors(group)"
-                                    class="whitespace-nowrap rounded bg-red-600 px-3 py-1.5 text-xs text-white hover:bg-red-700 disabled:opacity-40"
-                                >
-                                    <Icon name="delete" class="ml-1" />{{ t('groupsAdmin.deleteSelectedWithCount', { n: selectionOf(group.id).length }) }}
-                                </button>
-                            </div>
 
-                            <label class="mt-2 flex items-center gap-2 rounded border border-gray-200 bg-gray-50 p-2 text-sm font-bold text-gray-700">
-                                <input type="checkbox" :checked="allDoctorsSelected(group)" @change="toggleAllDoctors(group)" class="rounded border-gray-300" />
-                                {{ t('groupsAdmin.selectAll') }}
-                            </label>
-
-                            <ul class="mt-2 max-h-72 divide-y divide-gray-200 overflow-y-auto rounded border border-gray-200">
-                                <li v-for="doctor in visibleDoctors(group)" :key="doctor.id" class="flex items-center justify-between gap-3 p-2">
-                                    <label class="flex flex-grow items-center gap-3">
-                                        <input
-                                            type="checkbox"
-                                            :checked="selectionOf(group.id).includes(doctor.id)"
-                                            @change="toggleDoctor(group.id, doctor.id)"
-                                            class="rounded border-gray-300"
-                                        />
-                                        <span>
-                                            <span class="block text-sm font-bold text-gray-900">{{ doctor.name }}</span>
-                                            <span class="block text-xs text-gray-500">{{ doctor.email }}</span>
-                                        </span>
+                                <div class="flex items-center justify-between gap-2 px-1">
+                                    <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                        <input type="checkbox" :checked="allDoctorsSelected(group)" @change="toggleAllDoctors(group)" class="rounded border-gray-300 text-indigo-600" />
+                                        {{ t('groupsAdmin.selectAll') }}
                                     </label>
-                                    <span class="flex shrink-0 gap-2 text-xs">
-                                        <Link :href="route('doctors.progress', doctor.id)" class="text-gray-500 hover:text-gray-800">{{ t('groupsAdmin.progressLink') }}</Link>
-                                        <button @click="removeDoctor(group, doctor)" class="text-red-600 hover:text-red-800">{{ t('groupsAdmin.removeDoctor') }}</button>
-                                    </span>
-                                </li>
-                                <li v-if="visibleDoctors(group).length === 0" class="p-3 text-center text-sm text-gray-500">
-                                    {{ t('groupsAdmin.noMatchingDoctorsSearch') }}
-                                </li>
-                            </ul>
+                                    <button
+                                        v-if="selectionOf(group.id).length > 0"
+                                        type="button"
+                                        @click="removeSelectedDoctors(group)"
+                                        class="inline-flex items-center gap-1 rounded-full bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
+                                    >
+                                        <Icon name="delete" size="text-[16px]" />{{ t('groupsAdmin.deleteSelectedWithCount', { n: selectionOf(group.id).length }) }}
+                                    </button>
+                                </div>
 
-                            <p class="mt-1 text-xs text-gray-500">{{ t('groupsAdmin.totalDoctors', { n: group.doctors.length }) }}</p>
-                        </template>
+                                <ChatListCard
+                                    :empty="visibleDoctors(group).length === 0"
+                                    :empty-text="t('groupsAdmin.noMatchingDoctorsSearch')"
+                                    empty-icon="person_search"
+                                >
+                                    <div class="max-h-96 overflow-y-auto">
+                                    <ChatListRow
+                                        v-for="doctor in visibleDoctors(group)"
+                                        :key="doctor.id"
+                                        :title="doctor.name"
+                                        :subtitle="doctor.email"
+                                        :tone="toneFor(doctor.id)"
+                                        :selected="selectionOf(group.id).includes(doctor.id)"
+                                    >
+                                        <template #leading>
+                                            <input
+                                                type="checkbox"
+                                                :checked="selectionOf(group.id).includes(doctor.id)"
+                                                @change="toggleDoctor(group.id, doctor.id)"
+                                                class="rounded border-gray-300 text-indigo-600"
+                                            />
+                                        </template>
+                                        <template #actions>
+                                            <ChatAction icon="insights" :label="t('groupsAdmin.progressLink')" :href="route('doctors.progress', doctor.id)" />
+                                            <ChatAction icon="person_remove" :label="t('groupsAdmin.removeDoctor')" danger @click="removeDoctor(group, doctor)" />
+                                        </template>
+                                    </ChatListRow>
+                                    </div>
+                                </ChatListCard>
+                            </template>
 
-                        <div v-else class="mt-2 rounded-md bg-blue-50 p-3 text-sm text-blue-700">
-                            {{ t('groupsAdmin.noDoctorsInGroup') }}
+                            <div v-else class="flex flex-col items-center gap-2 py-6 text-center text-sm text-gray-500">
+                                <Icon name="person_off" size="text-3xl" class="text-gray-300" />
+                                {{ t('groupsAdmin.noDoctorsInGroup') }}
+                            </div>
                         </div>
-
-                        <button type="button" @click="openAddDoctors(group)" class="mt-3 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
-                            <Icon name="person" class="ml-1" /><Icon name="add" class="ml-1" />{{ t('groupsAdmin.addDoctorsToGroup') }}
-                        </button>
                     </div>
-                </div>
+                </ChatListCard>
             </div>
         </div>
+
+        <!-- إضافة مجموعة -->
+        <Modal :show="creating" @close="creating = false" max-width="2xl">
+            <form @submit.prevent="submitAdd" class="p-6">
+                <h2 class="text-lg font-medium text-gray-900">{{ t('groupsAdmin.addGroupHeading') }}</h2>
+                <div class="mt-4">
+                    <InputLabel for="create-group-name" :value="t('groupsAdmin.groupNameLabel')" />
+                    <TextInput id="create-group-name" v-model="addForm.name" type="text" :placeholder="t('groupsAdmin.groupNamePlaceholder')" class="mt-1 block w-full" required />
+                    <InputError class="mt-1" :message="addForm.errors.name" />
+                </div>
+                <div class="mt-4">
+                    <InputLabel :value="t('groupsAdmin.educationTypeLabel')" />
+                    <select v-model="addEducationType" @change="addForm.stage_id = ''" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">{{ t('groupsAdmin.chooseEducationTypeFirst') }}</option>
+                        <option v-for="et in educationTypes" :key="et.id" :value="et.id">{{ et.name }}</option>
+                    </select>
+                </div>
+                <div class="mt-4">
+                    <InputLabel :value="t('groupsAdmin.stageLabel')" />
+                    <select v-model="addForm.stage_id" :disabled="!addEducationType" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100" required>
+                        <option value="">{{ t('groupsAdmin.chooseStage') }}</option>
+                        <option v-for="s in filteredAddStages" :key="s.id" :value="s.id">{{ s.name }}</option>
+                    </select>
+                    <InputError class="mt-1" :message="addForm.errors.stage_id" />
+                </div>
+                <div class="mt-4">
+                    <InputLabel :value="t('groupsAdmin.slotsLabel')" />
+                    <div v-for="(slot, i) in addForm.slots" :key="i" class="mt-2 flex flex-wrap items-center gap-2">
+                        <select v-model="slot.day" class="w-32 rounded-md border-gray-300 text-sm shadow-sm">
+                            <option v-for="d in DAYS" :key="d" :value="d">{{ d }}</option>
+                        </select>
+                        <input v-model="slot.start_time" type="time" class="rounded-md border-gray-300 text-sm shadow-sm" required />
+                        <input v-model="slot.end_time" type="time" class="rounded-md border-gray-300 text-sm shadow-sm" required />
+                        <ChatAction icon="close" :label="t('common.delete')" danger @click="addForm.slots.splice(i, 1)" />
+                    </div>
+                    <button type="button" @click="addForm.slots.push(emptySlot())" class="mt-2 inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200">
+                        <Icon name="more_time" size="text-[16px]" />{{ t('groupsAdmin.addSlot') }}
+                    </button>
+                </div>
+                <div class="mt-6 flex justify-end gap-3">
+                    <SecondaryButton @click="creating = false">{{ t('common.cancel') }}</SecondaryButton>
+                    <PrimaryButton :disabled="addForm.processing">{{ t('groupsAdmin.addGroupButton') }}</PrimaryButton>
+                </div>
+            </form>
+        </Modal>
 
         <!-- تعديل المجموعة -->
         <Modal :show="editing !== null" @close="editing = null" max-width="2xl">
@@ -418,10 +462,10 @@ const submitAddDoctors = () => {
                         </select>
                         <input v-model="slot.start_time" type="time" class="rounded-md border-gray-300 text-sm shadow-sm" required />
                         <input v-model="slot.end_time" type="time" class="rounded-md border-gray-300 text-sm shadow-sm" required />
-                        <button type="button" @click="editForm.slots.splice(i, 1)" class="rounded bg-red-500 px-2 py-1 text-white hover:bg-red-600">×</button>
+                        <ChatAction icon="close" :label="t('common.delete')" danger @click="editForm.slots.splice(i, 1)" />
                     </div>
-                    <button type="button" @click="editForm.slots.push(emptySlot())" class="mt-2 rounded bg-gray-500 px-3 py-1 text-xs text-white hover:bg-gray-600">
-                        {{ t('groupsAdmin.addSlot') }}
+                    <button type="button" @click="editForm.slots.push(emptySlot())" class="mt-2 inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200">
+                        <Icon name="more_time" size="text-[16px]" />{{ t('groupsAdmin.addSlot') }}
                     </button>
                 </div>
                 <div class="mt-6 flex justify-end gap-3">
@@ -439,15 +483,19 @@ const submitAddDoctors = () => {
                     {{ t('groupsAdmin.addDoctorsModalDesc') }}
                 </p>
 
-                <TextInput v-model="availableSearch" type="text" :placeholder="t('groupsAdmin.searchPlaceholder')" class="mt-3 block w-full text-sm" />
+                <ChatSearch v-model="availableSearch" :placeholder="t('groupsAdmin.searchPlaceholder')" class="mt-3" />
 
-                <div class="mt-3 max-h-72 space-y-1 overflow-y-auto">
-                    <div v-if="loadingAvailable" class="text-sm text-gray-500">{{ t('common.loading') }}</div>
-                    <label v-for="doctor in visibleAvailable" :key="doctor.id" class="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-gray-50">
-                        <input type="checkbox" :value="doctor.id" v-model="toAdd" class="rounded border-gray-300" />
-                        {{ doctor.name }}
+                <div class="mt-3 max-h-80 overflow-y-auto rounded-2xl ring-1 ring-gray-100">
+                    <div v-if="loadingAvailable" class="p-4 text-center text-sm text-gray-500">{{ t('common.loading') }}</div>
+                    <label v-for="doctor in visibleAvailable" :key="doctor.id" class="block cursor-pointer">
+                        <ChatListRow :title="doctor.name" :tone="toneFor(doctor.id)" :selected="toAdd.includes(doctor.id)">
+                            <template #leading>
+                                <input type="checkbox" :value="doctor.id" v-model="toAdd" class="rounded border-gray-300 text-indigo-600" />
+                            </template>
+                        </ChatListRow>
                     </label>
-                    <div v-if="!loadingAvailable && visibleAvailable.length === 0" class="text-sm text-gray-400">
+                    <div v-if="!loadingAvailable && visibleAvailable.length === 0" class="flex flex-col items-center gap-2 p-6 text-center text-sm text-gray-400">
+                        <Icon name="person_search" size="text-3xl" class="text-gray-300" />
                         {{ t('groupsAdmin.noAvailableDoctors') }}
                     </div>
                 </div>

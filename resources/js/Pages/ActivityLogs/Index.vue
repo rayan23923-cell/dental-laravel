@@ -1,7 +1,11 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import TextInput from '@/Components/TextInput.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import ChatListCard from '@/Components/ChatList/ChatListCard.vue';
+import ChatListRow from '@/Components/ChatList/ChatListRow.vue';
+import ChatChip from '@/Components/ChatList/ChatChip.vue';
+import ChatSearch from '@/Components/ChatList/ChatSearch.vue';
+import ChatPager from '@/Components/ChatList/ChatPager.vue';
+import { Head, router } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -28,11 +32,14 @@ watch(search, applyFilters);
 watch(module, applyFilters);
 watch(action, applyFilters);
 
-const actionColor = (a) => ({
-    create: 'bg-green-100 text-green-800',
-    update: 'bg-amber-100 text-amber-800',
-    delete: 'bg-red-100 text-red-800',
-}[a] ?? 'bg-gray-100 text-gray-700');
+// Chat-list style (2026-10-13, by request): the action carries the row's
+// colour and avatar icon.
+const ACTION_STYLE = {
+    create: { tone: 'emerald', icon: 'add_circle', label: 'activityLogsAdmin.actionCreate' },
+    update: { tone: 'amber', icon: 'edit', label: 'activityLogsAdmin.actionUpdate' },
+    delete: { tone: 'rose', icon: 'delete', label: 'activityLogsAdmin.actionDelete' },
+};
+const actionStyle = (a) => ACTION_STYLE[a] ?? { tone: 'gray', icon: 'history', label: null };
 </script>
 
 <template>
@@ -43,64 +50,45 @@ const actionColor = (a) => ({
             <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('activityLogsAdmin.title') }}</h2>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-6xl space-y-4 sm:px-6 lg:px-8">
-                <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-                    <div class="flex flex-wrap gap-3 border-b border-gray-200 p-4">
-                        <TextInput v-model="search" type="text" :placeholder="t('activityLogsAdmin.searchPlaceholder')" class="w-full max-w-xs" />
-                        <select v-model="module" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                            <option value="">{{ t('activityLogsAdmin.allModules') }}</option>
-                            <option v-for="m in modules" :key="m" :value="m">{{ m }}</option>
-                        </select>
-                        <select v-model="action" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                            <option value="">{{ t('activityLogsAdmin.allActions') }}</option>
-                            <option value="create">{{ t('activityLogsAdmin.actionCreate') }}</option>
-                            <option value="update">{{ t('activityLogsAdmin.actionUpdate') }}</option>
-                            <option value="delete">{{ t('activityLogsAdmin.actionDelete') }}</option>
-                        </select>
-                    </div>
+        <div class="py-6 sm:py-10">
+            <div class="mx-auto max-w-2xl space-y-4 px-4 sm:px-6 lg:px-8">
+                <ChatSearch v-model="search" :placeholder="t('activityLogsAdmin.searchPlaceholder')" />
 
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('activityLogsAdmin.whenCol') }}</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('activityLogsAdmin.userCol') }}</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('activityLogsAdmin.actionCol') }}</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('activityLogsAdmin.moduleCol') }}</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('activityLogsAdmin.descriptionCol') }}</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200 bg-white">
-                            <tr v-for="log in logs.data" :key="log.id">
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ new Date(log.created_at).toLocaleString() }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-900">{{ log.username }} <span class="text-xs text-gray-400">({{ log.user_role }})</span></td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm">
-                                    <span class="rounded-full px-2 py-1 text-xs font-medium" :class="actionColor(log.action)">{{ log.action }}</span>
-                                </td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ log.module }}</td>
-                                <td class="px-6 py-4 text-sm text-gray-700">{{ log.description }}</td>
-                            </tr>
-                            <tr v-if="logs.data.length === 0">
-                                <td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500">{{ t('activityLogsAdmin.emptyList') }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <div class="flex justify-between border-t border-gray-200 p-4">
-                        <Link
-                            v-for="link in logs.links"
-                            :key="link.label"
-                            :href="link.url ?? ''"
-                            v-html="link.label"
-                            class="mx-1 rounded px-3 py-1 text-sm"
-                            :class="{
-                                'bg-indigo-600 text-white': link.active,
-                                'text-gray-400 pointer-events-none': !link.url,
-                                'text-gray-700 hover:bg-gray-100': link.url && !link.active,
-                            }"
-                        />
-                    </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <select v-model="module" class="rounded-full border-gray-200 bg-white py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">{{ t('activityLogsAdmin.allModules') }}</option>
+                        <option v-for="m in modules" :key="m" :value="m">{{ m }}</option>
+                    </select>
+                    <select v-model="action" class="rounded-full border-gray-200 bg-white py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">{{ t('activityLogsAdmin.allActions') }}</option>
+                        <option value="create">{{ t('activityLogsAdmin.actionCreate') }}</option>
+                        <option value="update">{{ t('activityLogsAdmin.actionUpdate') }}</option>
+                        <option value="delete">{{ t('activityLogsAdmin.actionDelete') }}</option>
+                    </select>
                 </div>
+
+                <ChatListCard :empty="logs.data.length === 0" :empty-text="t('activityLogsAdmin.emptyList')" empty-icon="history">
+                    <ChatListRow
+                        v-for="log in logs.data"
+                        :key="log.id"
+                        :title="log.username || '—'"
+                        :icon="actionStyle(log.action).icon"
+                        :tone="actionStyle(log.action).tone"
+                    >
+                        <template #meta>
+                            <p v-if="log.description" class="w-full break-words text-sm text-gray-600">{{ log.description }}</p>
+                            <ChatChip :tone="actionStyle(log.action).tone">
+                                {{ actionStyle(log.action).label ? t(actionStyle(log.action).label) : log.action }}
+                            </ChatChip>
+                            <ChatChip v-if="log.module" icon="folder">{{ log.module }}</ChatChip>
+                            <ChatChip v-if="log.user_role" icon="badge">{{ log.user_role }}</ChatChip>
+                            <ChatChip icon="schedule">{{ new Date(log.created_at).toLocaleString() }}</ChatChip>
+                        </template>
+                    </ChatListRow>
+                    <template #footer>
+                        <ChatPager :links="logs.links" />
+                    </template>
+                </ChatListCard>
             </div>
         </div>
     </AuthenticatedLayout>

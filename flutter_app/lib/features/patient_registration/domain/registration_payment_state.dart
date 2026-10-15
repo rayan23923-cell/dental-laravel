@@ -27,16 +27,27 @@ class PaymentEntry {
 /// A still-valid earlier clear result of the same patient (same phone) —
 /// `data.previous_screening` (2026-10-12, see `LabFeeGate::previousScreening`).
 class PreviousScreening {
-  const PreviousScreening({required this.id, this.checkedAt});
+  const PreviousScreening({required this.id, this.checkedAt, this.name, this.phone, this.matchedBy});
 
   factory PreviousScreening.fromJson(Map<String, dynamic> json) => PreviousScreening(
         id: json['id'] as int,
         checkedAt: json['checked_at'] as String?,
+        name: json['name'] as String?,
+        phone: json['phone'] as String?,
+        matchedBy: json['matched_by'] as String?,
       );
 
   /// The earlier registration whose result is reused.
   final int id;
   final String? checkedAt;
+
+  /// The earlier registration's name and phone, and whether it was found
+  /// by 'phone' or only by 'name' (2026-10-12).
+  final String? name;
+  final String? phone;
+  final String? matchedBy;
+
+  bool get matchedByPhone => matchedBy == 'phone';
 }
 
 /// Mirrors `Api\PatientRegistrationQrController::stateResponse()` — the
@@ -52,6 +63,7 @@ class RegistrationPaymentState {
     required this.isPaid,
     this.labFee,
     this.labPaid = false,
+    this.labPaidAmount = 0,
     this.labValidityDays = 0,
     this.previousScreening,
   });
@@ -67,6 +79,7 @@ class RegistrationPaymentState {
       isPaid: data['is_paid'] as bool,
       labFee: data['lab_fee'] == null ? null : double.parse(data['lab_fee'].toString()),
       labPaid: data['lab_paid'] as bool? ?? false,
+      labPaidAmount: double.tryParse('${data['lab_paid_amount'] ?? 0}') ?? 0,
       labValidityDays: (data['lab_validity_days'] as num?)?.toInt() ?? 0,
       previousScreening: data['previous_screening'] == null
           ? null
@@ -84,6 +97,9 @@ class RegistrationPaymentState {
   /// which count service payments only.
   final double? labFee;
   final bool labPaid;
+
+  /// What was actually paid for the lab, printed on the lab slip.
+  final double labPaidAmount;
 
   /// Days a clear result stays valid (0 = reuse off), and — only while
   /// this registration is still pending — the earlier clear result it can

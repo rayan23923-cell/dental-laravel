@@ -20,13 +20,19 @@
                         <tr><th>رقم الهاتف</th><td>{{ $doctor->phone ?: '-' }}</td></tr>
                         <tr><th>نوع الدراسة</th><td>{{ $doctor->educationType?->name ?? '-' }}</td></tr>
                         <tr><th>المرحلة</th><td>{{ $doctor->stage?->name ?? '-' }}</td></tr>
-                        <tr><th>المجموعة</th><td>{{ $doctor->groups->pluck('name')->implode('، ') ?: '-' }}</td></tr>
+                        @if ($groupsEnabled)
+                            <tr><th>المجموعة</th><td>{{ $doctor->groups->pluck('name')->implode('، ') ?: '-' }}</td></tr>
+                        @endif
                     </tbody>
                 </table>
             </div>
         </div>
 
-        <div class="signatures" style="margin-top:32px">
+        <div style="text-align:center; margin-top:20px;">
+            <img src="{{ $qr }}" alt="QR" style="width:140px; height:140px;">
+        </div>
+
+        <div class="signatures" style="margin-top:24px">
             <div class="signature">توقيع الطبيب</div>
             <div class="signature">ختم الكلية</div>
         </div>

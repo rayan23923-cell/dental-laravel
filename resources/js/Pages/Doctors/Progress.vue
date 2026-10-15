@@ -1,5 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import ScoreSummary from '@/Components/Tasks/ScoreSummary.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 
@@ -8,6 +9,7 @@ const props = defineProps({
     doctor: Object,
     stats: Object,
     tasks: Array,
+    scores: { type: Array, default: () => [] },
 });
 
 const page = usePage();
@@ -66,7 +68,7 @@ const completionPct = (completed, total) => (total > 0 ? Math.round((completed /
                             <dt class="text-gray-500">{{ t('doctorsAdmin.educationTypeCol') }}</dt>
                             <dd class="font-medium text-gray-900">{{ doctor.education_type ?? '—' }}</dd>
                         </div>
-                        <div>
+                        <div v-if="$page.props.groupsEnabled !== false">
                             <dt class="text-gray-500">{{ t('doctorsAdmin.groupCol') }}</dt>
                             <dd class="font-medium text-gray-900">{{ doctor.group ?? '—' }}</dd>
                         </div>
@@ -103,6 +105,11 @@ const completionPct = (completed, total) => (total > 0 ? Math.round((completed /
                             :style="{ width: completionPct(stats.completed, stats.total) + '%' }"
                         ></div>
                     </div>
+                </div>
+
+                <div v-for="s in scores" :key="s.department_id">
+                    <div class="mb-1 text-sm font-semibold text-gray-700">{{ s.department }}</div>
+                    <ScoreSummary :score="s.score" />
                 </div>
 
                 <div v-if="tasks.length === 0" class="rounded-lg bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
@@ -146,9 +153,14 @@ const completionPct = (completed, total) => (total > 0 ? Math.round((completed /
                                 </td>
                                 <td class="whitespace-nowrap px-6 py-3 text-sm text-gray-500">{{ instance.assigned_date ? new Date(instance.assigned_date).toLocaleString() : '—' }}</td>
                                 <td class="whitespace-nowrap px-6 py-3 text-sm text-gray-500">{{ instance.completion_date ? new Date(instance.completion_date).toLocaleString() : '—' }}</td>
-                                <td class="px-6 py-3 text-sm text-gray-500">{{ instance.notes ?? '—' }}</td>
+                                <td class="px-6 py-3 text-sm text-gray-500">
+                                    {{ instance.notes ?? '—' }}
+                                    <span v-if="instance.points !== null" class="ms-1 rounded-full bg-indigo-600 px-2 py-0.5 text-xs text-white">{{ t('taskScoring.pointsValue', { n: instance.points }) }}</span>
+                                </td>
                                 <td class="whitespace-nowrap px-6 py-3 text-right text-sm">
-                                    <button v-if="instance.status === 'assigned'" @click="toggle(instance)" class="text-green-600 hover:text-green-900">
+                                    <!-- A task with kinds of work is completed from task progress, where the work is recorded (2026-10-14). -->
+                                    <span v-if="instance.status === 'assigned' && task.has_options" class="text-xs text-gray-500">{{ t('taskScoring.needsWork') }}</span>
+                                    <button v-else-if="instance.status === 'assigned'" @click="toggle(instance)" class="text-green-600 hover:text-green-900">
                                         {{ t('doctorsAdmin.markComplete') }}
                                     </button>
                                     <button v-else-if="instance.status === 'completed'" @click="toggle(instance)" class="text-gray-500 hover:text-gray-800">

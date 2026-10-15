@@ -4,13 +4,15 @@ namespace App\Models;
 
 use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Task extends Model
 {
-    use LogsActivity;
+    // Archived instead of deleted (2026-10-14, by request); see App\Support\LinkedRecords.
+    use LogsActivity, SoftDeletes;
 
     public $timestamps = false;
 
@@ -26,7 +28,21 @@ class Task extends Model
         'grade',
         'academic_session_id',
         'is_required',
+        // Points-based requirements (2026-10-14); see App\Support\TaskScoring.
+        'scoring',
     ];
+
+    /**
+     * `required_count` is the one per-doctor cap (2026-10-13, by request:
+     * "المطلوب لكل طبيب" was dropped). The NOT NULL legacy column is kept
+     * in step with it so nothing reading it disagrees.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (Task $task) {
+            $task->required_per_doctor = (int) $task->required_count;
+        });
+    }
 
     protected function casts(): array
     {
@@ -34,6 +50,7 @@ class Task extends Model
             'done' => 'boolean',
             'grade' => 'decimal:2',
             'is_required' => 'boolean',
+            'scoring' => 'array',
         ];
     }
 

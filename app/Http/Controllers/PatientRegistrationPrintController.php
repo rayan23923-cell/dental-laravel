@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ClinicSetting;
 use App\Models\PatientRegistration;
+use App\Models\Payment;
 use Illuminate\Contracts\View\View;
 
 /**
@@ -21,7 +22,8 @@ class PatientRegistrationPrintController extends Controller
 {
     public function ticket(PatientRegistration $patientRegistration): View
     {
-        $patientRegistration->load(['service', 'registerDay']);
+        $patientRegistration->load(['service', 'registerDay'])
+            ->loadSum(['payments as service_paid' => fn ($q) => $q->where('type', Payment::TYPE_SERVICE)], 'amount');
 
         return view('print.patient-registration-ticket', [
             'settings' => ClinicSetting::current(),

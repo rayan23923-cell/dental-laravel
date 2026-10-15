@@ -159,6 +159,9 @@ class CaseSheetFormScreen extends ConsumerWidget {
               readonly: readonly,
               supervisorEditableFields: supervisorEditableFields,
               t: t,
+              onStageField: isCreate
+                  ? null
+                  : (key, value) => ref.read(caseSheetRecordRepositoryProvider).saveStageField(resource, recordId!, key, value),
               onSubmit: (payload) => isCreate
                   ? _create(context, ref, schema)(payload)
                   : _update(context, ref, recordId!)(payload),

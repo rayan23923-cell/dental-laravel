@@ -35,6 +35,8 @@ class BackupController extends Controller
 
         return Inertia::render('Backup/Index', [
             'enabled' => (bool) $settings->enable_daily_backup,
+            'alwaysDaily' => (bool) config('backup.daily'),
+            'folder' => $backups->dir(),
             'lastBackupAt' => $settings->last_backup_at?->toDateTimeString(),
             'files' => $backups->list(),
         ]);

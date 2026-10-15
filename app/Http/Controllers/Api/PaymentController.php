@@ -42,7 +42,8 @@ class PaymentController extends Controller
             ->when($request->date('to'), fn ($q, $to) => $q->whereDate('paid_at', '<=', $to))
             ->when($request->string('source')->toString(), fn ($q, $source) => match ($source) {
                 'appointment' => $q->whereNotNull('appointment_id'),
-                'registration' => $q->whereNotNull('patient_registration_id'),
+                'registration' => $q->whereNotNull('patient_registration_id')->where('type', '!=', Payment::TYPE_LAB),
+                'lab' => $q->where('type', Payment::TYPE_LAB),
                 default => $q,
             })
             ->latest('paid_at')

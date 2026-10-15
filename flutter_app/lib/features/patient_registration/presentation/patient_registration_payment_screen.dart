@@ -1,11 +1,10 @@
-import 'dart:io' show Platform;
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
+import '../../../core/platform/platform_support.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
@@ -20,6 +19,7 @@ import '../../printing/presentation/ticket_renderer.dart';
 import '../../records/data/records_repository.dart';
 import '../data/patient_registration_repository.dart';
 import '../domain/registration_payment_state.dart';
+import '../../../core/widgets/numeric_input.dart';
 
 /// The payment-desk screen reached after scanning a registration's ticket
 /// QR (or its on-screen equivalent) — shows whether it's paid, and if
@@ -107,7 +107,7 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
   /// as the operation having failed (same convention as the registration
   /// ticket in `patient_registration_form_screen.dart`).
   Future<void> _printReceipt(RegistrationPaymentState updated, double amount, {bool labFee = false}) async {
-    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS) || !mounted) return;
+    if (!canPrintTickets || !mounted) return;
     final t = ref.read(translationsProvider);
     try {
       Uint8List? logoBytes;
@@ -242,6 +242,7 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
             TextField(
               controller: _amountController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: decimalOnly,
               textDirection: TextDirection.ltr,
               textAlign: TextAlign.left,
               decoration: InputDecoration(labelText: t['payments.amountLabel']!, border: const OutlineInputBorder()),

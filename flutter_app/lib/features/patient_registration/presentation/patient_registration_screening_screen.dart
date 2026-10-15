@@ -1,24 +1,20 @@
-import 'dart:io' show Platform;
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
+import '../../../core/platform/platform_support.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
-import '../../clinic_settings/domain/clinic_settings.dart';
 import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../../printing/data/pos_printer_service.dart';
 import '../../printing/presentation/printer_error_snackbar.dart';
 import '../../printing/presentation/printer_settings_providers.dart';
-import '../../printing/presentation/receipt_widget.dart';
 import '../../printing/presentation/ticket_print_animation.dart';
 import '../../printing/presentation/ticket_renderer.dart';
 import '../../printing/presentation/ticket_widget.dart';
-import '../../records/data/records_repository.dart';
 import '../data/patient_registration_repository.dart';
 import '../domain/registration_payment_state.dart';
 
@@ -41,19 +37,28 @@ class PatientRegistrationScreeningScreen extends ConsumerStatefulWidget {
 class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegistrationScreeningScreen> {
   late RegistrationPaymentState _state;
   bool _submitting = false;
-  bool _paying = false;
   bool _reusing = false;
 
-  /// With a lab fee set, the result waits until it is paid (the server
-  /// refuses it too, see `LabFeeGate`) — unless an earlier clear result
-  /// is still valid, which needs no new test and no fee (2026-10-12).
-  bool get _mustPayFirst =>
+  /// The lab fee is taken with the result (2026-10-12, by request): picking
+  /// "سليم" or "غير سليم" records it and prints one paid slip (see the
+  /// server's `LabFeeGate::chargeIfDue`). Nothing is due when an earlier
+  /// clear result is still valid.
+  bool get _feeDue =>
       (_state.labFee ?? 0) > 0 && !_state.labPaid && _state.previousScreening == null;
 
   @override
   void initState() {
     super.initState();
     _state = widget.initial;
+    // A valid earlier test found by phone (2026-10-12, by request): no new
+    // test, the clear slip prints straight away. A name-only match waits
+    // for staff to confirm it is the same patient.
+    final previous = _state.previousScreening;
+    if (previous != null && previous.matchedByPhone && _state.registration.screeningStatus == 'pending') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _reusePrevious();
+      });
+    }
   }
 
   Future<void> _confirm(String status) async {
@@ -70,7 +75,7 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
       // Saving a result prints the lab slip (2026-10-11, by request) —
       // same POS-printer path and mobile-only gate as the registration
       // ticket. A print failure never undoes the saved result.
-      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      if (canPrintTickets) {
         await _printSlip(updated);
       }
     } catch (e) {
@@ -97,7 +102,7 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
       if (!mounted) return;
       setState(() => _state = updated);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['screening.reused']!)));
-      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      if (canPrintTickets) {
         await _printSlip(updated, reusedFrom: previous);
       }
     } catch (e) {
@@ -114,77 +119,6 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
   static String _formatDate(String? raw) {
     final parsed = raw == null ? null : DateTime.tryParse(raw);
     return parsed == null ? (raw ?? '—') : DateFormat('yyyy-MM-dd').format(parsed.toLocal());
-  }
-
-  /// Pays the lab fee from the lab screen itself (2026-10-11, by request)
-  /// and prints its receipt, so the result can be recorded right after.
-  Future<void> _payLabFee() async {
-    final fee = _state.labFee;
-    if (fee == null) return;
-    setState(() => _paying = true);
-    final t = ref.read(translationsProvider);
-    try {
-      await ref.read(recordsRepositoryProvider).createPayment({
-        'patient_registration_id': _state.registration.id,
-        'amount': fee,
-        'type': 'lab',
-      });
-      final updated = await ref.read(patientRegistrationRepositoryProvider).status(_state.registration.id);
-      if (!mounted) return;
-      setState(() => _state = updated);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['payments.labFeePaid']!)));
-      await _printLabReceipt(updated, fee);
-    } catch (e) {
-      if (mounted) {
-        final message = e is ApiException ? e.userMessage : t['payments.recordPaymentFailed']!;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-      }
-    } finally {
-      if (mounted) setState(() => _paying = false);
-    }
-  }
-
-  /// "وصل دفع أجور المختبر" on the POS printer (mobile only), as on the
-  /// payment screen. A print failure never undoes the payment.
-  Future<void> _printLabReceipt(RegistrationPaymentState updated, double amount) async {
-    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS) || !mounted) return;
-    final t = ref.read(translationsProvider);
-    try {
-      Uint8List? logoBytes;
-      ClinicSettings? settings;
-      try {
-        settings = await ref.read(clinicSettingsProvider.future);
-        final logoUrl = settings?.ticketLogoUrl;
-        if (logoUrl != null) {
-          logoBytes = Uint8List.fromList(await ref.read(apiClientProvider).getBytes(logoUrl));
-        }
-      } catch (_) {
-        logoBytes = null;
-      }
-      if (!mounted) return;
-      await precacheTicketImages(context, [logoBytes]);
-      if (!mounted) return;
-      final printerSettings = await ref.read(printerSettingsProvider.future);
-      if (!mounted) return;
-      final pngBytes = await renderWidgetToPng(
-        context,
-        ReceiptWidget(
-          registration: updated.registration,
-          amountPaid: amount,
-          totalPaid: updated.totalPaid,
-          title: t['payments.labFeeReceiptTitle']!,
-          amountLabel: t['payments.labFee']!,
-          showTotal: false,
-          logoBytes: logoBytes,
-          headerTitle: settings?.universityName ?? settings?.clinicName,
-          headerSubtitle: settings?.collegeName,
-          widthDots: printerSettings.dotsPerLine,
-        ),
-      );
-      await ref.read(posPrinterServiceProvider).printTicket(pngBytes);
-    } catch (e) {
-      if (mounted) showPrinterErrorSnackBar(context, t['payments.paidPrintFailed']!, error: e);
-    }
   }
 
   /// Lab slip: the registration ticket layout with the result banner,
@@ -238,8 +172,10 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
             if (reusedFrom != null) ...[
               (t['screening.paymentStatus']!, t['screening.exemptPrevious']!),
               (t['screening.previousCheckedAt']!, _formatDate(reusedFrom.checkedAt)),
-            ] else
-              (t['screening.paymentStatus']!, state.labPaid ? t['screening.paid']! : t['screening.unpaid']!),
+            ] else if (state.labPaid) ...[
+              (t['screening.paymentStatus']!, NumberFormat('#,##0.##').format(state.labPaidAmount)),
+              (t['screening.statusLabel']!, t['screening.paid']!),
+            ],
             (t['screening.checkedAt']!, DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())),
           ],
           qrCaption: t['screening.patientCode']!,
@@ -300,16 +236,11 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '${t['screening.paymentStatus']!}: ${_state.labPaid ? t['screening.paid']! : t['screening.unpaid']!}'
+                    '${t['screening.paymentStatus']!}: ${_state.labPaid ? t['screening.paid']! : _feeDue ? t['screening.feeWithResult']! : t['screening.unpaid']!}'
                     '${(_state.labFee ?? 0) > 0 ? ' (${NumberFormat('#,##0.##').format(_state.labFee)})' : ''}',
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
-                if (_mustPayFirst)
-                  FilledButton(
-                    onPressed: _paying ? null : _payLabFee,
-                    child: Text(t['payments.payLabFee']!),
-                  ),
               ],
             ),
           ),
@@ -332,12 +263,36 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
                   Icon(Icons.verified_outlined, color: Colors.green.shade700),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      trf(t['screening.previousValid']!, {
-                        'date': _formatDate(_state.previousScreening!.checkedAt),
-                        'days': _state.labValidityDays,
-                      }),
-                      style: TextStyle(color: Colors.green.shade900, fontWeight: FontWeight.w600),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          trf(t['screening.previousValid']!, {
+                            'date': _formatDate(_state.previousScreening!.checkedAt),
+                            'days': _state.labValidityDays,
+                          }),
+                          style: TextStyle(color: Colors.green.shade900, fontWeight: FontWeight.w600),
+                        ),
+                        if (_state.previousScreening!.name != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            trf(
+                              t[_state.previousScreening!.matchedByPhone
+                                  ? 'screening.matchedByPhone'
+                                  : 'screening.matchedByName']!,
+                              {
+                                'name': _state.previousScreening!.name!,
+                                'phone': _state.previousScreening!.phone ?? '',
+                              },
+                            ),
+                            style: TextStyle(
+                              color: _state.previousScreening!.matchedByPhone
+                                  ? Colors.green.shade900
+                                  : Colors.amber.shade900,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],
@@ -353,15 +308,15 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
           const SizedBox(height: 24),
           Text(t['screening.labResultHeading']!, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
-          if (_mustPayFirst) ...[
-            Text(t['screening.payFirst']!, style: TextStyle(color: Colors.amber.shade900)),
+          if (_feeDue) ...[
+            Text(t['screening.payAndPrintHint']!, style: TextStyle(color: Colors.amber.shade900)),
             const SizedBox(height: 12),
           ],
           Row(
             children: [
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: _submitting || _reusing || _mustPayFirst ? null : () => _confirm('clear'),
+                  onPressed: _submitting || _reusing ? null : () => _confirm('clear'),
                   style: FilledButton.styleFrom(backgroundColor: Colors.green.shade700),
                   icon: const Icon(Icons.check_circle_outline),
                   label: Text(t['patientRegFlutter.screeningClear']!),
@@ -370,7 +325,7 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: _submitting || _reusing || _mustPayFirst ? null : () => _confirm('flagged'),
+                  onPressed: _submitting || _reusing ? null : () => _confirm('flagged'),
                   style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
                   icon: const Icon(Icons.cancel_outlined),
                   label: Text(t['patientRegFlutter.screeningFlagged']!),

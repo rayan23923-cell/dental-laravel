@@ -3,6 +3,8 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  audioplayers_windows
+  camera_windows
   connectivity_plus
   file_selector_windows
   firebase_core

@@ -18,7 +18,6 @@ use App\Http\Controllers\Api\DoctorController;
 use App\Http\Controllers\Api\DoctorImportExportController;
 use App\Http\Controllers\Api\DoctorTaskProgressController;
 use App\Http\Controllers\Api\EndodonticsXrayController;
-use App\Http\Controllers\Api\ClinicChairController;
 use App\Http\Controllers\Api\GroupController;
 use App\Http\Controllers\Api\LookupController;
 use App\Http\Controllers\Api\NotificationController;
@@ -44,6 +43,7 @@ use App\Http\Controllers\Api\SurgeryMedicationController;
 use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\TaskInstanceController;
 use App\Http\Controllers\Api\TaskProgressController;
+use App\Http\Controllers\TaskInstanceAttachmentController;
 use App\Http\Controllers\Api\TaskInstanceQrController;
 use App\Http\Controllers\Api\CaseSheetController;
 use App\Http\Controllers\Api\PendingTaskQrController;
@@ -126,6 +126,14 @@ Route::name('api.')->prefix('v1')->group(function () {
         // AuthController::me() does — see ProfileController docblock.
         Route::put('/me', [ProfileController::class, 'update']);
         Route::put('/me/password', [ProfileController::class, 'updatePassword']);
+
+        // Phone as a QR scanner for the Windows app (2026-10-12); same
+        // controller as the web app's, see ScannerPairingController.
+        Route::post('/scanner-pairings', [\App\Http\Controllers\ScannerPairingController::class, 'store']);
+        Route::get('/scanner-pairings/{scannerPairing}', [\App\Http\Controllers\ScannerPairingController::class, 'show']);
+        Route::get('/scanner-pairings/{scannerPairing}/scans', [\App\Http\Controllers\ScannerPairingController::class, 'scans']);
+        Route::delete('/scanner-pairings/{scannerPairing}', [\App\Http\Controllers\ScannerPairingController::class, 'destroy']);
+        Route::put('/scanner-pairings/{scannerPairing}/photo-request', [\App\Http\Controllers\ScannerPairingController::class, 'photoRequest']);
 
         // The current principal's own notifications (Doctor or User) — see
         // NotificationController docblock. No permission/role middleware,
@@ -249,7 +257,11 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::apiResource('academic-sessions', AcademicSessionController::class);
         Route::put('/academic-sessions/{academic_session}/set-current', [AcademicSessionController::class, 'setCurrent']);
 
-        Route::apiResource('case-sheet-types', CaseSheetTypeController::class)->except(['show']);
+        // The list stays open (forms read it); changes need the module.
+        // Never deleted (2026-10-15) — switch one off instead.
+        Route::apiResource('case-sheet-types', CaseSheetTypeController::class)->except(['show', 'destroy'])
+            ->middlewareFor('store', 'permission:case_sheet_types,create')
+            ->middlewareFor('update', 'permission:case_sheet_types,edit');
 
         // Printable case sheets, as a document model the Flutter client can
         // lay out itself (see Api\CaseSheetPrintController). The Sanctum
@@ -276,19 +288,8 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::post('/groups/{group}/doctors', [GroupController::class, 'addDoctors']);
         Route::delete('/groups/{group}/doctors', [GroupController::class, 'removeDoctors']);
 
-        // Clinic chair map (2026-09-04, by request — "اضفها الى فلتر"),
-        // mirroring the web's routes/web.php clinic-chairs block exactly,
-        // including the same role+permission gating.
-        Route::apiResource('clinic-chairs', ClinicChairController::class)->except(['show', 'create', 'edit'])
-            ->middlewareFor('index', ['role:super_admin,admin', 'permission:clinic_chairs,view'])
-            ->middlewareFor('store', ['role:super_admin,admin', 'permission:clinic_chairs,create'])
-            ->middlewareFor('update', ['role:super_admin,admin', 'permission:clinic_chairs,edit'])
-            ->middlewareFor('destroy', ['role:super_admin,admin', 'permission:clinic_chairs,delete']);
-        Route::put('/clinic-chairs/{clinic_chair}/move', [ClinicChairController::class, 'move'])
-            ->middleware(['role:super_admin,admin', 'permission:clinic_chairs,edit']);
-        Route::post('/clinic-chairs/assign-group', [ClinicChairController::class, 'assignGroup'])
-            ->middleware(['role:super_admin,admin', 'permission:clinic_chairs,edit']);
-
+        Route::get('/tasks/scoring-templates', [TaskController::class, 'scoringTemplates'])
+            ->middleware('permission:tasks,create');
         Route::apiResource('tasks', TaskController::class)
             ->middlewareFor(['index', 'show'], 'permission:tasks,view')
             ->middlewareFor('store', 'permission:tasks,create')
@@ -298,6 +299,17 @@ Route::name('api.')->prefix('v1')->group(function () {
         // The doctor's own department-grouped task summary — see
         // Api\TaskProgressController::mine()/DoctorTaskSummary.
         Route::get('/my-task-progress', [TaskProgressController::class, 'mine']);
+        // "طلبات بدء المهام" (2026-10-14) — a doctor's own requests.
+        Route::get('/my-task-start-requests', [\App\Http\Controllers\TaskStartRequestController::class, 'mine']);
+        Route::post('/my-task-start-requests', [\App\Http\Controllers\TaskStartRequestController::class, 'store']);
+        Route::delete('/my-task-start-requests/{taskStartRequest}', [\App\Http\Controllers\TaskStartRequestController::class, 'destroy']);
+        // A doctor's photos of their own paper case sheets (2026-10-13).
+        Route::get('/my-task-instances/{taskInstance}/attachments', [TaskInstanceAttachmentController::class, 'index'])
+            ->name('my-attachments.index');
+        Route::post('/my-task-instances/{taskInstance}/attachments', [TaskInstanceAttachmentController::class, 'store'])
+            ->name('my-attachments.store');
+        Route::delete('/my-task-instances/attachments/{attachment}', [TaskInstanceAttachmentController::class, 'destroy'])
+            ->name('my-attachments.destroy');
         Route::get('/task-instances/{taskInstance}', [TaskInstanceController::class, 'show']);
         Route::post('/task-instances', [TaskInstanceController::class, 'store']);
         Route::put('/task-instances/{taskInstance}', [TaskInstanceController::class, 'update']);
@@ -335,12 +347,30 @@ Route::name('api.')->prefix('v1')->group(function () {
             ->middleware('permission:task_progress,view');
         Route::post('/task-progress/start', [TaskProgressController::class, 'start'])
             ->middleware('permission:task_progress,start');
+        // Doctors' requests to start a task (2026-10-14).
+        Route::get('/task-progress/requests', [\App\Http\Controllers\TaskStartRequestController::class, 'index'])
+            ->middleware('permission:task_progress,view');
+        Route::post('/task-progress/requests/{taskStartRequest}/approve', [\App\Http\Controllers\TaskStartRequestController::class, 'approve'])
+            ->middleware('permission:task_progress,start');
+        Route::post('/task-progress/requests/{taskStartRequest}/reject', [\App\Http\Controllers\TaskStartRequestController::class, 'reject'])
+            ->middleware('permission:task_progress,start');
         // The full matrix screen — see Api\TaskProgressController's
         // docblock. Same permission gates as their web counterparts.
         Route::get('/task-progress/filters', [TaskProgressController::class, 'filters'])
             ->middleware('permission:task_progress,view');
         Route::get('/task-progress/groups/{group}', [TaskProgressController::class, 'group'])
             ->middleware('permission:task_progress,view');
+        Route::get('/task-progress/stages/{stage}', [TaskProgressController::class, 'stage'])
+            ->middleware('permission:task_progress,view');
+        // Paper case-sheet photos (2026-10-13) — see TaskInstanceAttachmentController.
+        Route::get('/task-progress/instances/{taskInstance}/attachments', [TaskInstanceAttachmentController::class, 'index'])
+            ->middleware('permission:task_progress,view')->name('task-attachments.index');
+        Route::post('/task-progress/instances/{taskInstance}/attachments', [TaskInstanceAttachmentController::class, 'store'])
+            ->middleware('permission:task_progress,view')->name('task-attachments.store');
+        Route::put('/task-progress/attachments/{attachment}/note', [TaskInstanceAttachmentController::class, 'note'])
+            ->middleware('permission:task_progress,view')->name('task-attachments.note');
+        Route::delete('/task-progress/attachments/{attachment}', [TaskInstanceAttachmentController::class, 'destroy'])
+            ->middleware('permission:task_progress,view')->name('task-attachments.destroy');
         Route::put('/task-progress/instances/{taskInstance}/complete', [TaskProgressController::class, 'complete'])
             ->middleware('permission:task_progress,finish');
         Route::put('/task-progress/instances/{taskInstance}', [TaskProgressController::class, 'updateInstance'])
@@ -357,7 +387,7 @@ Route::name('api.')->prefix('v1')->group(function () {
         // checked the web session's `doctor` guard), so this middleware
         // behaves identically here to its web counterpart.
         Route::middleware('case-sheet')->group(function () {
-            Route::apiResource('dental-charts', DentalChartController::class);
+            Route::apiResource('dental-charts', DentalChartController::class)->except('destroy');
         });
 
         // A canal's working-length X-ray on the Operative sheet's
@@ -381,6 +411,7 @@ Route::name('api.')->prefix('v1')->group(function () {
         // PermissionMatrix since it was built, unused by any route (the
         // same class of gap as 'departments', see its own comment above).
         // This is the first route that actually checks it.
+        Route::get('/users/form-options', [UserController::class, 'formOptions'])->middleware('permission:users,create');
         Route::post('/users', [UserController::class, 'store'])->middleware('permission:users,create');
 
         // Clinical specialty records — each mirrors the pattern above
@@ -404,7 +435,14 @@ Route::name('api.')->prefix('v1')->group(function () {
                 'treatment-plans' => TreatmentPlanController::class,
                 'treatment-materials' => TreatmentMaterialController::class,
             ] as $uri => $controller) {
-                Route::apiResource($uri, $controller)->parameters([$uri => 'record']);
+                // The case sheets themselves are never deleted (2026-10-15).
+                Route::apiResource($uri, $controller)->parameters([$uri => 'record'])
+                    ->except(in_array($uri, \App\Support\CaseSheetsKept::RESOURCES, true) ? ['destroy'] : []);
+            }
+
+            // One stage date/grade saved as soon as it changes (2026-10-15).
+            foreach (['prosthodontics-records' => ProsthodonticsRecordController::class, 'complete-denture-records' => CompleteDentureRecordController::class] as $uri => $controller) {
+                Route::patch("$uri/{record}/stage-field", [$controller, 'stageField'])->name("$uri.stage-field");
             }
         });
     });

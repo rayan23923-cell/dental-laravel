@@ -8,6 +8,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/nfc/nfc_uid_reader.dart';
 import '../../../core/widgets/academic_year_banner.dart';
 import '../../../core/widgets/cascading_dropdown.dart';
+import '../../../core/widgets/chat_list_tile.dart';
 import '../domain/group_admin.dart';
 import 'groups_admin_providers.dart';
 
@@ -76,37 +77,43 @@ class _GroupListScreenState extends ConsumerState<GroupListScreen> {
       appBar: AppBar(title: Text(t['groupsAdmin.title']!)),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push('/admin/groups/new'),
-        child: const Icon(Icons.add),
+        tooltip: t['groupsAdmin.newTitle'],
+        child: const Icon(Icons.group_add_outlined),
       ),
       body: Column(
         children: [
           const AcademicYearBanner(),
+          // Chat-list style (2026-10-13, by request): search pill + compact
+          // rounded filter row instead of stacked outlined fields.
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
             child: Column(
               children: [
-                TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.search),
-                    hintText: t['groupsAdmin.searchHint'],
-                    border: const OutlineInputBorder(),
-                    isDense: true,
-                    suffixIcon: _scanningNfc
+                Row(
+                  children: [
+                    Expanded(
+                      child: ChatSearchField(
+                        controller: _searchController,
+                        hintText: t['groupsAdmin.searchHint']!,
+                        onSubmitted: (v) => setState(() => _search = v.trim().isEmpty ? null : v.trim()),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    _scanningNfc
                         ? const Padding(
                             padding: EdgeInsets.all(12),
                             child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
                           )
                         : IconButton(icon: const Icon(Icons.nfc), tooltip: t['groupsAdmin.scanNfcTooltip'], onPressed: _scanNfc),
-                  ),
-                  onSubmitted: (v) => setState(() => _search = v.trim().isEmpty ? null : v.trim()),
+                  ],
                 ),
                 if (_doctorName != null) ...[
                   const SizedBox(height: 8),
                   Align(
                     alignment: AlignmentDirectional.centerStart,
-                    child: Chip(
+                    child: InputChip(
                       avatar: const Icon(Icons.nfc, size: 18),
+                      shape: const StadiumBorder(),
                       label: Text(trf(t['groupsAdmin.doctorGroupsChip']!, {'name': _doctorName!})),
                       onDeleted: () => setState(() {
                         _doctorId = null;
@@ -116,27 +123,38 @@ class _GroupListScreenState extends ConsumerState<GroupListScreen> {
                   ),
                 ],
                 const SizedBox(height: 8),
-                CascadingDropdown(
-                  label: t['groupsAdmin.educationTypeLabel']!,
-                  itemsAsync: educationTypesAsync,
-                  value: _educationTypeId,
-                  onChanged: (v) => setState(() {
-                    _educationTypeId = v;
-                    _stageId = null;
-                  }),
-                ),
-                const SizedBox(height: 8),
-                CascadingDropdown(
-                  key: ValueKey('stage-$_educationTypeId'),
-                  label: t['groupsAdmin.stageLabel']!,
-                  itemsAsync: stagesAsync.whenData(
-                    (items) => _educationTypeId == null
-                        ? items
-                        : items.where((s) => s.educationTypeId == _educationTypeId).toList(),
+                Theme(
+                  data: _pillFilterTheme(context),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: CascadingDropdown(
+                          label: t['groupsAdmin.educationTypeLabel']!,
+                          itemsAsync: educationTypesAsync,
+                          value: _educationTypeId,
+                          onChanged: (v) => setState(() {
+                            _educationTypeId = v;
+                            _stageId = null;
+                          }),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: CascadingDropdown(
+                          key: ValueKey('stage-$_educationTypeId'),
+                          label: t['groupsAdmin.stageLabel']!,
+                          itemsAsync: stagesAsync.whenData(
+                            (items) => _educationTypeId == null
+                                ? items
+                                : items.where((s) => s.educationTypeId == _educationTypeId).toList(),
+                          ),
+                          value: _stageId,
+                          enabled: _educationTypeId != null,
+                          onChanged: (v) => setState(() => _stageId = v),
+                        ),
+                      ),
+                    ],
                   ),
-                  value: _stageId,
-                  enabled: _educationTypeId != null,
-                  onChanged: (v) => setState(() => _stageId = v),
                 ),
               ],
             ),
@@ -154,9 +172,9 @@ class _GroupListScreenState extends ConsumerState<GroupListScreen> {
                 return RefreshIndicator(
                   onRefresh: () async => ref.invalidate(groupListProvider(_filter)),
                   child: ListView.separated(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.only(top: 4, bottom: 88),
                     itemCount: groups.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    separatorBuilder: (_, __) => chatDivider,
                     itemBuilder: (context, i) => _GroupTile(group: groups[i]),
                   ),
                 );
@@ -169,6 +187,8 @@ class _GroupListScreenState extends ConsumerState<GroupListScreen> {
   }
 }
 
+/// Chat-list row (2026-10-13, by request): group icon, name, and chips for
+/// the stage, doctor count and weekly slot count.
 class _GroupTile extends ConsumerWidget {
   const _GroupTile({required this.group});
   final GroupAdmin group;
@@ -176,17 +196,49 @@ class _GroupTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider);
-    return Card(
-      child: ListTile(
-        title: Text(group.name),
-        subtitle: Text([
-          if (group.stageName != null) group.stageName!,
-          '${group.doctorsCount} ${t['groupsAdmin.doctorsCountSuffix']}',
-          '${group.slots.length} ${t['groupsAdmin.weeklySlotsCountSuffix']}',
-        ].join(' · ')),
-        trailing: const Icon(Icons.chevron_left),
-        onTap: () => context.push('/admin/groups/${group.id}'),
-      ),
+    final color = chatToneFor(group.id);
+    return ChatListTile(
+      title: group.name,
+      color: color,
+      icon: Icons.groups_outlined,
+      chips: [
+        if (group.stageName != null) ChatChip(label: group.stageName!, icon: Icons.stairs_outlined, color: color),
+        ChatChip(
+          label: '${group.doctorsCount} ${t['groupsAdmin.doctorsCountSuffix']}',
+          icon: Icons.person_outline,
+          color: Colors.blueGrey,
+        ),
+        ChatChip(
+          label: '${group.slots.length} ${t['groupsAdmin.weeklySlotsCountSuffix']}',
+          icon: Icons.schedule,
+          color: Colors.blueGrey,
+        ),
+      ],
+      onTap: () => context.push('/admin/groups/${group.id}'),
     );
   }
+}
+
+/// Rounded, dense "pill" look for the filter dropdowns above a chat list.
+ThemeData _pillFilterTheme(BuildContext context) {
+  final theme = Theme.of(context);
+  final border = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(30),
+    borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08)),
+  );
+  return theme.copyWith(
+    dropdownMenuTheme: DropdownMenuThemeData(
+      inputDecorationTheme: InputDecorationTheme(
+        isDense: true,
+        filled: true,
+        fillColor: theme.colorScheme.surface,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        border: border,
+        enabledBorder: border,
+        constraints: const BoxConstraints(maxHeight: 44),
+        labelStyle: const TextStyle(fontSize: 13),
+      ),
+      textStyle: const TextStyle(fontSize: 13),
+    ),
+  );
 }

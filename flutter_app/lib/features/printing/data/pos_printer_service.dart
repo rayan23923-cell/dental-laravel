@@ -1,7 +1,9 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/platform/platform_support.dart';
 import '../domain/printer_settings.dart';
+import 'desktop_ticket_printer.dart';
 import 'printer_settings_repository.dart';
 
 final posPrinterServiceProvider = Provider<PosPrinterService>((ref) {
@@ -54,6 +56,12 @@ class PosPrinterService {
   /// "طباعة" again once Bluetooth is actually on.
   Future<void> printTicket(Uint8List pngBytes) async {
     final settings = await _settingsRepository.read();
+    // Windows has no POS plugin: the ticket goes to a Windows printer
+    // instead (2026-10-12), see DesktopTicketPrinter.
+    if (isWindowsDesktop) {
+      await DesktopTicketPrinter.printTicket(pngBytes, paperWidthMm: settings.paperWidthMm);
+      return;
+    }
     if (settings.connectionType == PrinterConnectionType.bluetooth && !await isBluetoothEnabled()) {
       await requestEnableBluetooth();
       throw const BluetoothDisabledException();

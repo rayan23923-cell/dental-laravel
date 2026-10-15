@@ -6,11 +6,17 @@ use App\Models\Department;
 use App\Models\Doctor;
 use App\Models\EducationType;
 use App\Models\Patient;
+use App\Models\PatientRegistration;
+use App\Models\Payment;
+use App\Models\ClinicSetting;
+use App\Support\PaymentStats;
 use App\Models\Task;
 use App\Models\TaskInstance;
 use App\Services\AcademicSessionHelper;
 use App\Services\PermissionManager;
 use Illuminate\Http\JsonResponse;
+use App\Support\RolePresets;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -35,10 +41,19 @@ use Inertia\Response;
  */
 class DashboardController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request): Response|RedirectResponse
     {
         $user = $request->user();
+
+        // Desk roles (2026-10-12) land on their own page: the dashboard's
+        // figures and links are outside what they can open.
+        if (RolePresets::isDeskRole($user->role)) {
+            return redirect()->route(RolePresets::HOME_ROUTES[$user->role]);
+        }
         $permissions = new PermissionManager($user);
+        // Payments routes are role-gated (super_admin/admin/editor), not
+        // permission-gated; mirror that so the dashboard never links past it.
+        $canPayments = in_array($user->role, ['super_admin', 'admin', 'editor'], true);
         $session = AcademicSessionHelper::resolve();
         $sessionId = $session?->id;
 
@@ -51,6 +66,8 @@ class DashboardController extends Controller
             'stats' => [
                 'doctors' => Doctor::count(),
                 'patients' => Patient::count(),
+                'registrations' => PatientRegistration::count(),
+                'registrations_today' => PatientRegistration::where('created_at', '>=', now()->startOfDay())->count(),
                 'tasks' => (clone $tasks)->count(),
                 // `tasks.done` is the original's own per-task flag.
                 'tasks_done' => (clone $tasks)->where('done', true)->count(),
@@ -68,8 +85,35 @@ class DashboardController extends Controller
                     'education_type' => $d->educationType?->name,
                     'created_at' => $d->created_at,
                 ]),
-            'latestPatients' => Patient::latest('id')->limit(5)
-                ->get(['id', 'name', 'phone', 'created_at']),
+            // "أحدث المراجعين" comes from the patient registry (2026-10-13,
+            // by request) so each one opens in سجل المرضى, rather than from
+            // the separate `patients` table nothing on the dashboard links to.
+            'latestPatients' => PatientRegistration::with('service:id,name')
+                ->latest('id')->limit(5)
+                ->get(['id', 'name', 'phone', 'service_id', 'screening_status', 'created_at'])
+                ->map(fn ($r) => [
+                    'id' => $r->id,
+                    'name' => $r->name,
+                    'phone' => $r->phone,
+                    'service' => $r->service?->name,
+                    'screening_status' => $r->screening_status,
+                    'created_at' => $r->created_at,
+                ]),
+            // Payments on the dashboard (2026-10-13, by request).
+            'latestPayments' => $canPayments
+                ? Payment::with(['appointment:id,full_name', 'patientRegistration:id,name'])
+                    ->latest('paid_at')->limit(5)
+                    ->get()
+                    ->map(fn ($p) => [
+                        'id' => $p->id,
+                        'name' => $p->patientRegistration?->name ?? $p->appointment?->full_name,
+                        'amount' => (float) $p->amount,
+                        'source' => $p->type === Payment::TYPE_LAB ? 'lab' : ($p->appointment_id ? 'appointment' : 'registration'),
+                        'paid_at' => $p->paid_at,
+                    ])
+                : [],
+            'income' => $canPayments ? (new PaymentStats())->periods() : null,
+            'currency' => ClinicSetting::current()->clinic_currency,
             'educationTypes' => EducationType::orderBy('name')->get(['id', 'name']),
             // New — the dashboard previously showed no active-year
             // indicator anywhere, unlike Doctors/Groups/Tasks.
@@ -85,6 +129,7 @@ class DashboardController extends Controller
                 // had no dashboard entry point at all — added (2026-08-26)
                 // alongside the Flutter dashboard's matching shortcut.
                 'patient_screening' => $permissions->can('patient_screening', 'confirm'),
+                'payments' => $canPayments,
             ],
         ]);
     }

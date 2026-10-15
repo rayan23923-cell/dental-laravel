@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Doctor;
 use App\Http\Controllers\Controller;
 use App\Models\Task;
 use App\Models\TaskInstance;
+use App\Models\TaskStartRequest;
 use App\Services\AcademicSessionHelper;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -35,13 +36,18 @@ class RequiredTasksController extends Controller
 
         $instances = TaskInstance::where('doctor_id', $doctor->id)
             ->whereIn('task_id', $tasks->pluck('id'))
+            ->withCount(['attachments', 'attachments as noted_attachments_count' => fn ($q) => $q->whereNotNull('note')])
             ->orderBy('id')
             ->get();
 
+        // "طلبات بدء المهام" (2026-10-14): the doctor's own requests.
+        $requests = TaskStartRequest::where('doctor_id', $doctor->id)->latest()->limit(200)->get();
+        $pendingTaskIds = $requests->where('status', 'pending')->pluck('task_id')->map(fn ($id) => (int) $id)->all();
+
         $departments = $tasks
             ->groupBy(fn ($t) => $t->department?->name ?? 'Unassigned')
-            ->map(function ($deptTasks, $name) use ($instances) {
-                $rows = $deptTasks->map(function ($task) use ($instances) {
+            ->map(function ($deptTasks, $name) use ($instances, $pendingTaskIds) {
+                $rows = $deptTasks->map(function ($task) use ($instances, $pendingTaskIds) {
                     $own = $instances->where('task_id', $task->id)->values();
                     $required = (int) $task->required_count;
 
@@ -63,6 +69,10 @@ class RequiredTasksController extends Controller
                             // only; never gates the electronic form link
                             // above it.
                             'paper_case_sheet_confirmed_at' => $instance?->paper_case_sheet_confirmed_at,
+                            // Photos of the paper case sheet (2026-10-13).
+                            'attachments_count' => $instance?->attachments_count ?? 0,
+                            // Photos the supervisor wrote a note on (2026-10-15).
+                            'noted_attachments_count' => $instance?->noted_attachments_count ?? 0,
                         ];
                     }
 
@@ -76,6 +86,8 @@ class RequiredTasksController extends Controller
                         'completed' => $own->where('status', 'completed')->count(),
                         'remaining' => max(0, $required - $own->where('status', 'completed')->count()),
                         'slots' => $slots,
+                        'department' => $task->department?->name,
+                        'request_pending' => in_array((int) $task->id, $pendingTaskIds, true),
                     ];
                 })->values();
 
@@ -90,6 +102,7 @@ class RequiredTasksController extends Controller
         return Inertia::render('Doctor/RequiredTasks', [
             'stage' => $doctor->stage?->name,
             'departments' => $departments,
+            'requests' => $requests->map->toView()->values(),
         ]);
     }
 }

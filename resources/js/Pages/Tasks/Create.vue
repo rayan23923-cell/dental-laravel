@@ -4,6 +4,7 @@ import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
+import ScoringEditor from '@/Components/Tasks/ScoringEditor.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -20,6 +21,7 @@ const props = defineProps({
     // empty and are picked manually, same as before this existed.
     initialStageId: { type: Number, default: null },
     initialEducationTypeId: { type: Number, default: null },
+    scoringTemplates: { type: Object, default: () => ({}) },
 });
 
 const form = useForm({
@@ -27,7 +29,6 @@ const form = useForm({
     department_id: '',
     case_sheet_type_id: '',
     stage_id: props.initialStageId ?? '',
-    required_per_doctor: 1,
     required_count: 1,
     notes: '',
     grade: '',
@@ -63,10 +64,13 @@ watch(educationType, () => {
 // wired in admin/manage_tasks.php): once a stage is picked, only departments belonging to that
 // stage are selectable. departments.stage_id is nullable, so departments with no stage stay
 // available regardless of the selected stage (matches the schema, not a restriction to invent).
+// Only the chosen stage's own departments (2026-10-13, by request): a task
+// must belong to a department of its stage, which TaskController enforces.
+const stageDepartments = (stageId) => props.departments.filter((d) => Number(d.stage_id) === stageId);
 const filteredDepartments = computed(() =>
     form.stage_id
-        ? props.departments.filter((d) => d.stage_id === form.stage_id || d.stage_id === null)
-        : props.departments
+        ? stageDepartments(Number(form.stage_id))
+        : []
 );
 
 let initialized = false;
@@ -83,8 +87,56 @@ watch(
     }
 );
 
+// Requirements table (2026-10-14, by request): a case-sheet type with a
+// table (pediatric, prevention) pre-fills it here; every enabled row is
+// saved as its own task with its points setup.
+const rows = ref(null);
+const passPercent = ref(null);
+// Rows of one stage only (row.stage 4/5) follow the chosen stage: the other
+// stage's rows start switched off.
+const stageNumber = () => {
+    const name = props.stages.find((s) => s.id === Number(form.stage_id))?.name ?? '';
+    if (/fourth|رابع|\b4\b/i.test(name)) return 4;
+    if (/fifth|خامس|\b5\b/i.test(name)) return 5;
+    return null;
+};
+const applyStage = () => {
+    const n = stageNumber();
+    rows.value?.forEach((row) => {
+        if (row.stage) row.enabled = !n || row.stage === n;
+    });
+};
+watch(
+    () => form.case_sheet_type_id,
+    (id) => {
+        const template = props.scoringTemplates?.[id];
+        rows.value = template ? JSON.parse(JSON.stringify(template.rows)) : null;
+        passPercent.value = template?.pass_percent ?? null;
+        applyStage();
+    },
+);
+watch(() => form.stage_id, applyStage);
+
+// Switching a row's points off keeps what was entered (2026-10-15, by
+// request): the setup is set aside on the row and comes back when points
+// are switched on again, instead of restarting blank.
+const toggleScoring = (row, on) => {
+    if (on) {
+        row.scoring = row.savedScoring ?? { measure: 'count', min_points: null, weight: null, options: [], modifiers: [] };
+        delete row.savedScoring;
+    } else {
+        row.savedScoring = row.scoring;
+        row.scoring = null;
+    }
+};
+
 const submit = () => {
-    form.post(route('tasks.store'));
+    form.transform((data) => {
+        if (!rows.value) return data;
+        const { title, required_count, ...rest } = data;
+        const sent = rows.value.map(({ savedScoring, ...row }) => row);
+        return { ...rest, rows: sent, pass_percent: passPercent.value };
+    }).post(route('tasks.store'));
 };
 </script>
 
@@ -100,7 +152,7 @@ const submit = () => {
             <div class="mx-auto max-w-2xl sm:px-6 lg:px-8">
                 <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
                     <form @submit.prevent="submit" class="space-y-6">
-                        <div>
+                        <div v-if="!rows">
                             <InputLabel for="title" :value="t('tasksAdmin.titleLabel')" />
                             <TextInput id="title" v-model="form.title" type="text" class="mt-1 block w-full" required autofocus />
                             <InputError class="mt-2" :message="form.errors.title" />
@@ -141,23 +193,78 @@ const submit = () => {
                             <InputError class="mt-2" :message="form.errors.case_sheet_type_id" />
                         </div>
 
-                        <div class="grid grid-cols-2 gap-4">
+                        <div v-if="rows" class="space-y-3 rounded-lg border border-indigo-100 bg-indigo-50/40 p-3">
                             <div>
-                                <InputLabel for="required_per_doctor" :value="t('tasksAdmin.requiredPerDoctorLabel')" />
-                                <TextInput id="required_per_doctor" v-model="form.required_per_doctor" type="number" min="0" class="mt-1 block w-full" required />
-                                <InputError class="mt-2" :message="form.errors.required_per_doctor" />
+                                <div class="text-sm font-semibold text-gray-800">{{ t('taskScoring.table') }}</div>
+                                <p class="mt-1 text-xs text-gray-500">{{ t('taskScoring.tableHint') }}</p>
                             </div>
-                            <div>
-                                <InputLabel for="required_count" :value="t('tasksAdmin.requiredCountLabel')" />
-                                <TextInput id="required_count" v-model="form.required_count" type="number" min="1" class="mt-1 block w-full" required />
-                                <InputError class="mt-2" :message="form.errors.required_count" />
+                            <div
+                                v-for="(row, i) in rows"
+                                :key="i"
+                                class="rounded-md bg-white p-3 shadow-sm transition"
+                                :class="row.enabled ? '' : 'opacity-50'"
+                            >
+                                <!-- The case name takes its own full line and wraps, so it reads whole on a phone. -->
+                                <div class="flex items-start gap-2">
+                                    <input v-model="row.enabled" type="checkbox" class="mt-2.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                    <textarea
+                                        v-model="row.title"
+                                        :rows="Math.max(1, Math.ceil((row.title?.length ?? 0) / 32))"
+                                        class="min-w-0 flex-1 resize-y rounded-md border-gray-300 text-sm font-medium leading-6 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        :disabled="!row.enabled"
+                                        required
+                                        @keydown.enter.prevent
+                                    ></textarea>
+                                </div>
+                                <label class="mt-2 flex items-center gap-2 text-xs text-gray-600">
+                                    {{ t('taskScoring.cases') }}
+                                    <input v-model.number="row.required_count" type="number" min="1" class="w-20 rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" :disabled="!row.enabled" required />
+                                </label>
+                                <label v-if="row.enabled" class="mt-2 flex items-center gap-2 text-xs text-gray-600">
+                                    {{ t('taskScoring.rowSheet') }}
+                                    <select v-model="row.case_sheet_type_id" class="min-w-0 flex-1 rounded-md border-gray-300 py-1 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                        <option v-for="c in caseSheetTypes" :key="c.id" :value="c.id">{{ c.name_ar || c.name_en }}</option>
+                                    </select>
+                                </label>
+                                <div v-if="row.scoring" class="mt-1 flex flex-wrap gap-1 text-xs text-gray-500">
+                                    <span v-if="row.scoring.min_points" class="rounded-full bg-indigo-100 px-2 py-0.5 text-indigo-700">{{ t('taskScoring.pointsValue', { n: row.scoring.min_points }) }}</span>
+                                    <span v-if="row.scoring.weight" class="rounded-full bg-amber-100 px-2 py-0.5 text-amber-700">{{ row.scoring.weight }}%</span>
+                                    <span v-if="row.scoring.steps?.length" class="rounded-full bg-gray-100 px-2 py-0.5">{{ t('taskScoring.stepsCount', { n: row.scoring.steps.filter((x) => x.enabled).length }) }}</span>
+                                    <span v-for="(o, oi) in row.scoring.options" :key="oi" class="rounded-full bg-gray-100 px-2 py-0.5">{{ o.label }} {{ o.points }}</span>
+                                    <span v-if="row.scoring.endo" class="rounded-full bg-indigo-600 px-2 py-0.5 text-white">{{ t('taskScoring.rootFilling') }}</span>
+                                    <span v-for="(c, ci) in row.scoring.checklist ?? []" :key="'c' + ci" class="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">✓ {{ c.label }}</span>
+                                </div>
+                                <details v-if="row.enabled" class="mt-2">
+                                    <summary class="cursor-pointer text-xs text-indigo-600">{{ t('taskScoring.pointsSetup') }}</summary>
+                                    <label class="mt-2 flex items-center gap-2 text-xs text-gray-700">
+                                        <input
+                                            type="checkbox"
+                                            :checked="!!row.scoring"
+                                            class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                            @change="toggleScoring(row, $event.target.checked)"
+                                        />
+                                        {{ t('taskScoring.enablePoints') }}
+                                    </label>
+                                    <ScoringEditor v-if="row.scoring" v-model="row.scoring" class="mt-2" />
+                                </details>
                             </div>
+                            <label class="flex items-center gap-2 text-sm text-gray-700">
+                                {{ t('taskScoring.passPercent') }}
+                                <input v-model.number="passPercent" type="number" min="0" max="100" step="0.5" class="w-24 rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                            </label>
+                            <InputError :message="form.errors.rows" />
+                        </div>
+
+                        <div v-if="!rows">
+                            <InputLabel for="required_count" :value="t('tasksAdmin.requiredCountLabel')" />
+                            <TextInput id="required_count" v-model="form.required_count" type="number" min="1" class="mt-1 block w-full" required />
+                            <InputError class="mt-2" :message="form.errors.required_count" />
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <InputLabel for="grade" :value="t('tasksAdmin.gradeLabel')" />
-                                <TextInput id="grade" v-model="form.grade" type="number" step="0.01" min="0" max="100" placeholder="0.00 - 100.00" class="mt-1 block w-full" />
+                                <TextInput id="grade" v-model="form.grade" type="number" step="0.01" min="0" max="100" placeholder="0.00 - 100.00" class="mt-1 block w-full" required />
                                 <InputError class="mt-2" :message="form.errors.grade" />
                             </div>
                             <div v-if="academicSessions.length">
@@ -187,7 +294,7 @@ const submit = () => {
 
                         <div>
                             <InputLabel for="notes" :value="t('tasksAdmin.notesLabel')" />
-                            <textarea id="notes" v-model="form.notes" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+                            <textarea id="notes" v-model="form.notes" rows="3" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
                             <InputError class="mt-2" :message="form.errors.notes" />
                         </div>
 

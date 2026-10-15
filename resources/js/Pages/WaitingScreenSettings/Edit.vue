@@ -4,6 +4,7 @@ import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
+import Icon from '@/Components/Icon.vue';
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 
@@ -30,32 +31,48 @@ const submit = () => {
     <Head :title="t('waitingScreenSettings.title')" />
 
     <AuthenticatedLayout>
+        <!-- Chat-list style (2026-10-13, by request): rounded card, rounded inputs,
+             and "open the screen" as a round header button. -->
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('waitingScreenSettings.heading') }}</h2>
+            <div class="flex items-center justify-between gap-3">
+                <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('waitingScreenSettings.heading') }}</h2>
+                <a
+                    :href="route('waiting-screen')"
+                    target="_blank"
+                    rel="noopener"
+                    :title="t('waitingScreenSettings.openScreen')"
+                    class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200"
+                >
+                    <Icon name="open_in_new" :label="t('waitingScreenSettings.openScreen')" />
+                </a>
+            </div>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-2xl sm:px-6 lg:px-8">
+        <div class="py-6 sm:py-10">
+            <div class="mx-auto max-w-2xl px-4 sm:px-6 lg:px-8">
                 <div
                     v-if="page.props.flash?.success"
-                    class="mb-4 rounded-md bg-green-50 p-4 text-sm text-green-700"
+                    class="mb-4 rounded-xl bg-green-50 p-4 text-sm text-green-700"
                 >
                     {{ page.props.flash.success }}
                 </div>
 
-                <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                    <p class="mb-6 text-sm text-gray-500">{{ t('waitingScreenSettings.description') }}</p>
-                    <p class="mb-6 rounded-md bg-indigo-50 p-3 text-sm text-indigo-700">
+                <div class="overflow-hidden rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-6">
+                    <div class="mb-6 flex items-start gap-3">
+                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-cyan-500 text-white"><Icon name="tv" size="text-[22px]" /></span>
+                        <p class="pt-2 text-sm text-gray-500">{{ t('waitingScreenSettings.description') }}</p>
+                    </div>
+                    <p class="mb-6 rounded-xl bg-indigo-50 p-3 text-sm text-indigo-700">
                         {{ t('waitingScreenSettings.stageMovedNote') }}
                     </p>
 
                     <form @submit.prevent="submit" class="space-y-6">
-                        <div>
+                        <div v-if="$page.props.groupsEnabled !== false">
                             <InputLabel for="group_id" :value="t('waitingScreenSettings.groupLabel')" />
                             <select
                                 id="group_id"
                                 v-model="form.group_id"
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                class="mt-1 block w-full rounded-xl border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                             >
                                 <option value="">{{ t('waitingScreenSettings.allGroups') }}</option>
                                 <option v-for="g in groups" :key="g.id" :value="g.id">
@@ -73,7 +90,7 @@ const submit = () => {
                                 type="number"
                                 min="1"
                                 max="50"
-                                class="mt-1 block w-full max-w-[10rem]"
+                                class="mt-1 block w-full rounded-xl max-w-[10rem]"
                                 required
                             />
                             <InputError class="mt-2" :message="form.errors.patients_per_page" />
@@ -87,22 +104,14 @@ const submit = () => {
                                 type="number"
                                 min="3"
                                 max="300"
-                                class="mt-1 block w-full max-w-[10rem]"
+                                class="mt-1 block w-full rounded-xl max-w-[10rem]"
                                 required
                             />
                             <InputError class="mt-2" :message="form.errors.rotation_seconds" />
                         </div>
 
-                        <div class="flex items-center justify-between border-t border-gray-200 pt-6">
-                            <a
-                                :href="route('waiting-screen')"
-                                target="_blank"
-                                rel="noopener"
-                                class="text-sm font-medium text-indigo-600 hover:text-indigo-900"
-                            >
-                                {{ t('waitingScreenSettings.openScreen') }} ↗
-                            </a>
-                            <PrimaryButton :disabled="form.processing">{{ t('waitingScreenSettings.save') }}</PrimaryButton>
+                        <div class="flex items-center justify-end border-t border-gray-100 pt-6">
+                            <PrimaryButton class="gap-1 rounded-full" :disabled="form.processing"><Icon name="save" size="text-[18px]" />{{ t('waitingScreenSettings.save') }}</PrimaryButton>
                         </div>
                     </form>
                 </div>

@@ -42,6 +42,9 @@ class RegistrationPaymentState
             'previous_screening' => $previous ? [
                 'id' => $previous->id,
                 'checked_at' => $previous->screening_checked_at,
+                'name' => $previous->name,
+                'phone' => $previous->phone,
+                'matched_by' => $previous->matched_by,
             ] : null,
         ];
     }

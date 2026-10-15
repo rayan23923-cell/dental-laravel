@@ -24,7 +24,7 @@ defineProps({
                     <p class="font-semibold text-green-700"><Icon name="school" class="ml-1" />{{ t('doctorDashboard.educationType') }}: {{ doctorInfo.education_type ?? '—' }}</p>
                     <p class="mt-1 font-medium text-indigo-700"><Icon name="layers" class="ml-1" />{{ t('doctorDashboard.stage') }}: {{ doctorInfo.stage ?? '—' }}</p>
                 </div>
-                <div>
+                <div v-if="$page.props.groupsEnabled !== false">
                     <template v-if="doctorInfo.group">
                         <p class="font-medium text-sky-700"><Icon name="groups" class="ml-1" />{{ t('doctorDashboard.group') }}: {{ doctorInfo.group }}</p>
                         <div class="mt-2 flex flex-wrap gap-1">

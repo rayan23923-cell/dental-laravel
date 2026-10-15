@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TaskInstance extends Model
 {
@@ -32,6 +33,9 @@ class TaskInstance extends Model
         // actually written.
         'paper_case_sheet_confirmed_by',
         'paper_case_sheet_confirmed_at',
+        // The work done and its points (2026-10-14); see App\Support\TaskScoring.
+        'points',
+        'work_items',
     ];
 
     protected function casts(): array
@@ -42,6 +46,8 @@ class TaskInstance extends Model
             'created_at' => 'datetime',
             'grade' => 'decimal:2',
             'paper_case_sheet_confirmed_at' => 'datetime',
+            'points' => 'float',
+            'work_items' => 'array',
         ];
     }
 
@@ -67,6 +73,13 @@ class TaskInstance extends Model
      */
     public function patientRegistration(): BelongsTo
     {
-        return $this->belongsTo(PatientRegistration::class);
+        // Archived registrations still name their records (2026-10-12).
+        return $this->belongsTo(PatientRegistration::class)->withTrashed();
+    }
+
+    /** Photos of the paper case sheet (2026-10-13). */
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(TaskInstanceAttachment::class)->orderBy('id');
     }
 }

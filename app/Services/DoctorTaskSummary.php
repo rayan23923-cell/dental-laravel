@@ -30,7 +30,7 @@ class DoctorTaskSummary
     {
         $departments = Department::where('stage_id', $doctor->stage_id)
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'pass_percent']);
 
         $tasks = Task::where('stage_id', $doctor->stage_id)
             ->whereIn('department_id', $departments->pluck('id'))
@@ -44,6 +44,7 @@ class DoctorTaskSummary
         $instances = TaskInstance::where('doctor_id', $doctor->id)
             ->whereIn('task_id', $tasks->pluck('id'))
             ->with('assignedBy:id,full_name')
+            ->withCount('attachments')
             ->get();
 
         return [
@@ -53,7 +54,7 @@ class DoctorTaskSummary
                 return [
                     'id' => $department->id,
                     'name' => $department->name,
-                    'doctor' => TaskProgressGroupSummary::buildDoctorRow($doctor, $deptTasks, $instances),
+                    'doctor' => TaskProgressGroupSummary::buildDoctorRow($doctor, $deptTasks, $instances, $department->pass_percent),
                 ];
             })->values(),
         ];

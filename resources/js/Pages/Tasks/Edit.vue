@@ -4,6 +4,7 @@ import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
+import ScoringEditor from '@/Components/Tasks/ScoringEditor.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -23,13 +24,18 @@ const form = useForm({
     department_id: props.task.department_id,
     case_sheet_type_id: props.task.case_sheet_type_id,
     stage_id: props.task.stage_id,
-    required_per_doctor: props.task.required_per_doctor,
     required_count: props.task.required_count,
     notes: props.task.notes ?? '',
     grade: props.task.grade ?? '',
     academic_session_id: props.task.academic_session_id ?? '',
     is_required: props.task.is_required,
 });
+
+// Points setup (2026-10-14, by request); see App\Support\TaskScoring.
+const blankScoring = () => ({ measure: 'points', min_points: null, weight: null, options: [], modifiers: [] });
+const usePoints = ref(!!props.task.scoring);
+const scoring = ref(props.task.scoring ? JSON.parse(JSON.stringify(props.task.scoring)) : blankScoring());
+const passPercent = ref(props.task.department?.pass_percent ?? null);
 
 // A task doesn't store its education type (see Tasks/Create.vue) — derive
 // the one implied by its current stage, the same trick Tasks/Index.vue uses
@@ -55,10 +61,13 @@ watch(educationType, () => {
 
 // See Tasks/Create.vue for why this filters (mirrors the original app's
 // stage -> department cascade).
+// Only the chosen stage's own departments (2026-10-13, by request): a task
+// must belong to a department of its stage, which TaskController enforces.
+const stageDepartments = (stageId) => props.departments.filter((d) => Number(d.stage_id) === stageId);
 const filteredDepartments = computed(() =>
     form.stage_id
-        ? props.departments.filter((d) => d.stage_id === form.stage_id || d.stage_id === null)
-        : props.departments
+        ? stageDepartments(Number(form.stage_id))
+        : []
 );
 
 let initialized = false;
@@ -76,7 +85,12 @@ watch(
 );
 
 const submit = () => {
-    form.put(route('tasks.update', props.task.id));
+    form.transform((data) => ({
+        ...data,
+        scoring: usePoints.value ? scoring.value : null,
+        // Only sent for the department this task was loaded with.
+        ...(Number(data.department_id) === props.task.department_id ? { pass_percent: passPercent.value } : {}),
+    })).put(route('tasks.update', props.task.id));
 };
 </script>
 
@@ -130,23 +144,28 @@ const submit = () => {
                             <InputError class="mt-2" :message="form.errors.case_sheet_type_id" />
                         </div>
 
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <InputLabel for="required_per_doctor" :value="t('tasksAdmin.requiredPerDoctorLabel')" />
-                                <TextInput id="required_per_doctor" v-model="form.required_per_doctor" type="number" min="0" class="mt-1 block w-full" required />
-                                <InputError class="mt-2" :message="form.errors.required_per_doctor" />
-                            </div>
-                            <div>
-                                <InputLabel for="required_count" :value="t('tasksAdmin.requiredCountLabel')" />
-                                <TextInput id="required_count" v-model="form.required_count" type="number" min="1" class="mt-1 block w-full" required />
-                                <InputError class="mt-2" :message="form.errors.required_count" />
-                            </div>
+                        <div>
+                            <InputLabel for="required_count" :value="t('tasksAdmin.requiredCountLabel')" />
+                            <TextInput id="required_count" v-model="form.required_count" type="number" min="1" class="mt-1 block w-full" required />
+                            <InputError class="mt-2" :message="form.errors.required_count" />
+                        </div>
+
+                        <div class="space-y-3 rounded-lg border border-indigo-100 bg-indigo-50/40 p-3">
+                            <label class="flex items-center gap-2 text-sm font-medium text-gray-800">
+                                <input v-model="usePoints" type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                {{ t('taskScoring.enablePoints') }}
+                            </label>
+                            <ScoringEditor v-if="usePoints" v-model="scoring" />
+                            <label class="flex items-center gap-2 text-sm text-gray-700">
+                                {{ t('taskScoring.passPercent') }}
+                                <input v-model.number="passPercent" type="number" min="0" max="100" step="0.5" class="w-24 rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                            </label>
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <InputLabel for="grade" :value="t('tasksAdmin.gradeLabel')" />
-                                <TextInput id="grade" v-model="form.grade" type="number" step="0.01" min="0" max="100" placeholder="0.00 - 100.00" class="mt-1 block w-full" />
+                                <TextInput id="grade" v-model="form.grade" type="number" step="0.01" min="0" max="100" placeholder="0.00 - 100.00" class="mt-1 block w-full" required />
                                 <InputError class="mt-2" :message="form.errors.grade" />
                             </div>
                             <div v-if="academicSessions.length">
@@ -176,7 +195,7 @@ const submit = () => {
 
                         <div>
                             <InputLabel for="notes" :value="t('tasksAdmin.notesLabel')" />
-                            <textarea id="notes" v-model="form.notes" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+                            <textarea id="notes" v-model="form.notes" rows="3" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
                             <InputError class="mt-2" :message="form.errors.notes" />
                         </div>
 

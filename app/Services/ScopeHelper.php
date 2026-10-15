@@ -2,7 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\AcademicSession;
+use App\Models\Department;
 use App\Models\DepartmentRoleAssignment;
+use App\Models\EducationType;
+use App\Models\Stage;
 use App\Models\User;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\DB;
@@ -43,20 +47,28 @@ use Illuminate\Support\Facades\DB;
  */
 class ScopeHelper
 {
+    /**
+     * The scope cascades (2026-10-14, by request): education type → its
+     * stages → their departments. When a lower level has no explicit
+     * choice, it follows the level above, so an account limited to one
+     * education type also only sees that type's stages, departments, and
+     * the doctors, groups, tasks and task progress under them, without
+     * ticking each stage and department as well.
+     */
     public static function allowedDepartmentIds(User $user): ?array
     {
         if ($user->role === 'super_admin') {
             return null; // null = unrestricted
         }
 
-        $ids = DB::table('user_allowed_departments')->where('user_id', $user->id)->pluck('department_id')->all();
-        if ($ids !== []) {
+        $ids = static::chosenDepartmentIds($user);
+        if ($ids !== null) {
             return $ids;
         }
 
-        $roleIds = static::departmentRoleIds($user, 'department_id');
+        $stages = static::allowedStageIds($user);
 
-        return $roleIds === [] ? null : $roleIds;
+        return $stages === null ? null : Department::whereIn('stage_id', $stages)->pluck('id')->all();
     }
 
     public static function allowedStageIds(User $user): ?array
@@ -65,14 +77,111 @@ class ScopeHelper
             return null;
         }
 
-        $ids = DB::table('user_allowed_stages')->where('user_id', $user->id)->pluck('stage_id')->all();
-        if ($ids !== []) {
+        $ids = static::chosenStageIds($user);
+        if ($ids !== null) {
             return $ids;
         }
 
-        $roleIds = static::departmentRoleIds($user, 'stage_id');
+        $types = static::allowedEducationTypeIds($user);
 
-        return $roleIds === [] ? null : $roleIds;
+        return $types === null ? null : Stage::whereIn('education_type_id', $types)->pluck('id')->all();
+    }
+
+    /**
+     * What was picked for the account itself (the "نطاق الوصول" rows, or
+     * failing those a senior/HR department role), before any cascading;
+     * null when nothing is. This is what the permissions screen shows.
+     */
+    public static function chosenDepartmentIds(User $user): ?array
+    {
+        $ids = DB::table('user_allowed_departments')->where('user_id', $user->id)->pluck('department_id')->all();
+        if ($ids === []) {
+            $ids = static::departmentRoleIds($user, 'department_id');
+        }
+
+        return $ids === [] ? null : $ids;
+    }
+
+    public static function chosenStageIds(User $user): ?array
+    {
+        $ids = DB::table('user_allowed_stages')->where('user_id', $user->id)->pluck('stage_id')->all();
+        if ($ids === []) {
+            $ids = static::departmentRoleIds($user, 'stage_id');
+        }
+
+        return $ids === [] ? null : $ids;
+    }
+
+    /**
+     * The choices for the permissions screen (web and app): education
+     * types, their stages, and the stages' departments, each carrying its
+     * parent so the screen can offer only what belongs to the level above.
+     */
+    public static function options(): array
+    {
+        return [
+            'departments' => Department::with('stage:id,name')->orderBy('name')->get(['id', 'name', 'stage_id', 'education_type_id'])
+                ->map(fn (Department $d) => [
+                    'id' => $d->id,
+                    'name' => $d->name,
+                    // Not 'stage': older app versions read that key as an object.
+                    'stage_name' => $d->stage?->name,
+                    'stage_id' => $d->stage_id,
+                    'education_type_id' => $d->education_type_id,
+                ])
+                ->values()->all(),
+            'stages' => Stage::orderBy('name')->get(['id', 'name', 'education_type_id'])->all(),
+            'education_types' => EducationType::orderBy('name')->get(['id', 'name'])->all(),
+            'academic_sessions' => AcademicSession::orderByDesc('start_date')->get(['id', 'name'])->all(),
+        ];
+    }
+
+    /**
+     * Saves the "نطاق الوصول" choices, dropping any that no longer belong
+     * to the level above (a stage of an education type that was unticked,
+     * a department of such a stage), so the saved scope always hangs
+     * together whatever the client sent.
+     */
+    /**
+     * Validation for a `scope` payload (the four dimensions, each a list of
+     * ids; empty or missing = unrestricted). Shared by every form that
+     * saves one.
+     */
+    public static function rules(): array
+    {
+        return [
+            'scope' => ['nullable', 'array'],
+            'scope.departments' => ['nullable', 'array'],
+            'scope.departments.*' => ['integer', 'exists:departments,id'],
+            'scope.stages' => ['nullable', 'array'],
+            'scope.stages.*' => ['integer', 'exists:stages,id'],
+            'scope.education_types' => ['nullable', 'array'],
+            'scope.education_types.*' => ['integer', 'exists:education_types,id'],
+            'scope.academic_sessions' => ['nullable', 'array'],
+            'scope.academic_sessions.*' => ['integer', 'exists:academic_sessions,id'],
+        ];
+    }
+
+    public static function saveScope(User $user, array $scope): void
+    {
+        $types = array_values(array_unique(array_map('intval', $scope['education_types'] ?? [])));
+        $stages = array_values(array_unique(array_map('intval', $scope['stages'] ?? [])));
+        $departments = array_values(array_unique(array_map('intval', $scope['departments'] ?? [])));
+
+        if ($types !== [] && $stages !== []) {
+            $stages = Stage::whereIn('id', $stages)->whereIn('education_type_id', $types)->pluck('id')->all();
+        }
+        $parentStages = $stages !== []
+            ? $stages
+            : ($types !== [] ? Stage::whereIn('education_type_id', $types)->pluck('id')->all() : null);
+        if ($parentStages !== null && $departments !== []) {
+            $departments = Department::whereIn('id', $departments)->whereIn('stage_id', $parentStages)->pluck('id')->all();
+        }
+
+        static::setAllowedEducationTypes($user, $types);
+        static::setAllowedStages($user, $stages);
+        static::setAllowedDepartments($user, $departments);
+        static::setAllowedAcademicSessions($user, array_values(array_unique(array_map('intval', $scope['academic_sessions'] ?? []))));
     }
 
     /** Shared by both fallbacks above — see the class docblock. */

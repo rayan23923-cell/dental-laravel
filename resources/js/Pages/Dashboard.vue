@@ -1,12 +1,16 @@
 <script setup>
 /**
- * Admin dashboard — port of dental_clinics2/admin/dashboard.php: headline
- * counters, done-vs-not-done task breakdown, quick-access cards, the two
- * "latest" lists, and the per-education-type department/stage task section
- * that loads on demand.
+ * Admin dashboard, in the chat-list style of the other pages (2026-10-13,
+ * by request): small counter tiles, the quick-access links as rows (with
+ * payments), "أحدث المراجعين" from the patient registry with each row
+ * opening it in سجل المرضى, the latest payments, the latest doctors and
+ * the per-education-type department/stage task section, loaded on demand.
  */
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import InputLabel from '@/Components/InputLabel.vue';
+import ChatListCard from '@/Components/ChatList/ChatListCard.vue';
+import ChatListRow from '@/Components/ChatList/ChatListRow.vue';
+import ChatChip from '@/Components/ChatList/ChatChip.vue';
+import { toneFor } from '@/Components/ChatList/tones';
 import { Head, Link } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -18,6 +22,9 @@ const props = defineProps({
     stats: Object,
     latestDoctors: Array,
     latestPatients: Array,
+    latestPayments: { type: Array, default: () => [] },
+    income: { type: Object, default: null },
+    currency: { type: String, default: '' },
     educationTypes: Array,
     can: Object,
     currentSession: Object,
@@ -32,26 +39,68 @@ const instanceTotal = computed(
     () => props.stats.instances_completed + props.stats.instances_assigned + props.stats.instances_pending
 );
 
+const plain = (v) => Number(v ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
+const fmtDate = (v) => (v ? new Date(v).toLocaleString('ar-IQ', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
+
+const tiles = computed(() => [
+    { label: t('dashboard.doctorsCount'), value: plain(props.stats.doctors), icon: 'stethoscope', gradient: 'from-indigo-500 to-purple-500', href: props.can.doctors ? route('doctors.index') : null },
+    {
+        label: t('dashboard.patientsCount'),
+        value: plain(props.stats.registrations),
+        hint: t('dashboard.todayCount', { n: plain(props.stats.registrations_today) }),
+        icon: 'how_to_reg',
+        gradient: 'from-sky-500 to-cyan-500',
+        href: props.can.patients ? route('patient-registrations.index') : null,
+    },
+    { label: t('dashboard.tasksCount'), value: plain(props.stats.tasks), hint: `${donePct.value}% ${t('dashboard.done')}`, icon: 'assignment', gradient: 'from-emerald-500 to-teal-500', href: props.can.task_progress ? route('task-progress.index') : null },
+    ...(props.can.payments && props.income
+        ? [{
+            label: t('dashboard.todayIncome'),
+            value: `${plain(props.income.today.total)} ${props.currency ?? ''}`.trim(),
+            hint: t('dashboard.monthIncome', { amount: `${plain(props.income.month.total)} ${props.currency ?? ''}`.trim() }),
+            icon: 'payments',
+            gradient: 'from-amber-500 to-orange-500',
+            href: route('payments.index'),
+        }]
+        : []),
+]);
+
+const shortcuts = computed(() => [
+    props.can.patients && { title: t('nav.patientRegistrations'), subtitle: t('dashboard.registerPatientDesc'), icon: 'how_to_reg', tone: 'indigo', href: route('patient-registrations.index') },
+    props.can.payments && { title: t('nav.payments'), subtitle: t('dashboard.paymentsDesc'), icon: 'payments', tone: 'amber', href: route('payments.index') },
+    props.can.patient_screening && { title: t('dashboard.lab'), subtitle: t('dashboard.labDesc'), icon: 'coronavirus', tone: 'rose', href: route('lab.index') },
+    props.can.task_progress && { title: t('dashboard.taskProgressMgmt'), subtitle: t('dashboard.taskProgressMgmtDesc'), icon: 'fact_check', tone: 'sky', href: route('task-progress.index') },
+    props.can.doctors && { title: t('dashboard.doctorsProgress'), subtitle: t('dashboard.doctorsProgressDesc'), icon: 'stethoscope', tone: 'emerald', href: route('doctors.index') },
+    props.can.settings && { title: t('nav.settingsGroup'), subtitle: t('dashboard.settingsDesc'), icon: 'settings', tone: 'gray', href: route('clinic-settings.edit') },
+].filter(Boolean));
+
+// Each latest registration opens سجل المرضى searched to that patient.
+const registrationHref = (p) => (props.can.patients ? route('patient-registrations.index', { search: p.name }) : null);
+const screeningTone = (s) => ({ clear: 'emerald', flagged: 'rose' }[s] ?? 'amber');
+const screeningIcon = (s) => ({ clear: 'verified_user', flagged: 'gpp_bad' }[s] ?? 'hourglass_top');
+const screeningLabel = (s) => ({ clear: t('patientReg.screeningClear'), flagged: t('patientReg.screeningFlagged') }[s] ?? t('patientReg.screeningPending'));
+
+const sourceIcon = (s) => ({ lab: 'science', appointment: 'event', registration: 'how_to_reg' })[s];
+const sourceTone = (s) => ({ lab: 'sky', appointment: 'indigo', registration: 'teal' })[s];
+const sourceLabel = (s) => ({ registration: t('payments.registrationSource'), lab: t('payments.labFee'), appointment: t('payments.appointmentSource') })[s];
+
 // --- المهام المطلوبة لكل قسم ومرحلة حسب نوع الدراسة ---
 const selectedEduType = ref('');
 const loadingDepts = ref(false);
 const departments = ref(null);
+const openDept = ref(null);
 
-const loadTasksByDept = async () => {
-    if (!selectedEduType.value) {
-        departments.value = null;
-        return;
-    }
+const loadTasksByDept = async (id) => {
+    selectedEduType.value = id;
+    openDept.value = null;
     loadingDepts.value = true;
     try {
-        const { data } = await axios.get(route('dashboard.tasks-by-education-type', selectedEduType.value));
+        const { data } = await axios.get(route('dashboard.tasks-by-education-type', id));
         departments.value = data.departments;
     } finally {
         loadingDepts.value = false;
     }
 };
-
-const fmt = (v) => (v ? new Date(v).toLocaleDateString() : '—');
 </script>
 
 <template>
@@ -59,190 +108,198 @@ const fmt = (v) => (v ? new Date(v).toLocaleDateString() : '—');
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('dashboard.title') }}</h2>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('dashboard.title') }}</h2>
+                <ChatChip v-if="currentSession" icon="calendar_month" tone="indigo">{{ currentSession.name }}</ChatChip>
+            </div>
         </template>
 
-        <div class="py-8">
-            <div class="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                <div v-if="currentSession" class="flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900">
-                    <Icon name="calendar_month" class="ml-1" />
-                    {{ t('common.academicYearActive') }} <strong>{{ currentSession.name }}</strong>
-                </div>
-
-                <!-- Headline counters -->
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <div class="rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 p-6 text-center text-white shadow">
-                        <div class="text-3xl"><Icon name="stethoscope" class="ml-1" /></div>
-                        <div class="mt-2 text-3xl font-bold">{{ stats.doctors }}</div>
-                        <p class="text-sm opacity-90">{{ t('dashboard.doctorsCount') }}</p>
-                    </div>
-                    <div class="rounded-lg bg-gradient-to-br from-sky-500 to-cyan-600 p-6 text-center text-white shadow">
-                        <div class="text-3xl"><Icon name="diversity_3" class="ml-1" /></div>
-                        <div class="mt-2 text-3xl font-bold">{{ stats.patients }}</div>
-                        <p class="text-sm opacity-90">{{ t('dashboard.patientsCount') }}</p>
-                    </div>
-                    <div class="rounded-lg bg-gradient-to-br from-emerald-500 to-green-600 p-6 text-center text-white shadow">
-                        <div class="text-3xl"><Icon name="assignment" class="ml-1" /></div>
-                        <div class="mt-2 text-3xl font-bold">{{ stats.tasks }}</div>
-                        <p class="text-sm opacity-90">{{ t('dashboard.tasksCount') }}</p>
-                    </div>
-                </div>
-
-                <!-- المهام المنجزة مقابل غير المنجزة -->
-                <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    <div class="rounded-lg bg-white p-6 shadow-sm">
-                        <h3 class="text-sm font-semibold text-gray-800">{{ t('dashboard.doneVsNotDone') }}</h3>
-                        <div class="mt-3 h-5 overflow-hidden rounded-full bg-gray-100">
-                            <div class="flex h-full items-center justify-center bg-green-500 text-xs font-medium text-white" :style="{ width: donePct + '%' }">
-                                {{ donePct }}%
-                            </div>
+        <div class="py-6">
+            <div class="mx-auto max-w-5xl space-y-5 px-4 sm:px-6 lg:px-8">
+                <!-- Counters -->
+                <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    <component
+                        :is="tile.href ? Link : 'div'"
+                        v-for="tile in tiles"
+                        :key="tile.label"
+                        :href="tile.href ?? undefined"
+                        class="flex items-center gap-3 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-gray-100 transition"
+                        :class="tile.href ? 'hover:bg-gray-50' : ''"
+                    >
+                        <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-white" :class="tile.gradient">
+                            <Icon :name="tile.icon" size="text-[22px]" />
                         </div>
-                        <div class="mt-3 flex justify-between text-sm">
-                            <span class="text-green-700">{{ t('dashboard.done') }}: <strong>{{ stats.tasks_done }}</strong></span>
-                            <span class="text-gray-600">{{ t('dashboard.notDone') }}: <strong>{{ stats.tasks_not_done }}</strong></span>
+                        <div class="min-w-0">
+                            <div class="text-base font-bold leading-tight text-gray-900 sm:text-lg">{{ tile.value }}</div>
+                            <div class="truncate text-xs text-gray-500">{{ tile.label }}</div>
+                            <div v-if="tile.hint" class="truncate text-[11px] text-gray-400">{{ tile.hint }}</div>
                         </div>
-                    </div>
-
-                    <div class="rounded-lg bg-white p-6 shadow-sm">
-                        <h3 class="text-sm font-semibold text-gray-800">{{ t('dashboard.taskStatuses') }}</h3>
-                        <div class="mt-3 grid grid-cols-3 gap-2 text-center">
-                            <div class="rounded-md bg-green-50 p-3">
-                                <div class="text-xl font-bold text-green-700">{{ stats.instances_completed }}</div>
-                                <div class="text-xs text-gray-500">{{ t('dashboard.completed') }}</div>
-                            </div>
-                            <div class="rounded-md bg-amber-50 p-3">
-                                <div class="text-xl font-bold text-amber-700">{{ stats.instances_assigned }}</div>
-                                <div class="text-xs text-gray-500">{{ t('dashboard.inProgress') }}</div>
-                            </div>
-                            <div class="rounded-md bg-gray-100 p-3">
-                                <div class="text-xl font-bold text-gray-700">{{ stats.instances_pending }}</div>
-                                <div class="text-xs text-gray-500">{{ t('dashboard.pending') }}</div>
-                            </div>
-                        </div>
-                        <p class="mt-2 text-xs text-gray-400">{{ t('dashboard.totalCases', { n: instanceTotal }) }}</p>
-                    </div>
+                    </component>
                 </div>
 
                 <!-- Quick access -->
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <Link v-if="can.task_progress" :href="route('task-progress.index')" class="block rounded-lg bg-sky-600 p-5 text-center text-white shadow transition hover:bg-sky-700">
-                        <div class="text-2xl"><Icon name="assignment" class="ml-1" /></div>
-                        <h3 class="mt-2 font-semibold">{{ t('dashboard.taskProgressMgmt') }}</h3>
-                        <p class="mt-1 text-xs opacity-90">{{ t('dashboard.taskProgressMgmtDesc') }}</p>
-                    </Link>
-                    <Link v-if="can.doctors" :href="route('doctors.index')" class="block rounded-lg bg-emerald-600 p-5 text-center text-white shadow transition hover:bg-emerald-700">
-                        <div class="text-2xl"><Icon name="stethoscope" class="ml-1" /></div>
-                        <h3 class="mt-2 font-semibold">{{ t('dashboard.doctorsProgress') }}</h3>
-                        <p class="mt-1 text-xs opacity-90">{{ t('dashboard.doctorsProgressDesc') }}</p>
-                    </Link>
-                    <Link v-if="can.patients" :href="route('patient-registrations.create')" class="block rounded-lg bg-indigo-600 p-5 text-center text-white shadow transition hover:bg-indigo-700">
-                        <div class="text-2xl"><Icon name="add" class="ml-1" /></div>
-                        <h3 class="mt-2 font-semibold">{{ t('nav.registerPatient') }}</h3>
-                        <p class="mt-1 text-xs opacity-90">{{ t('dashboard.registerPatientDesc') }}</p>
-                    </Link>
-                    <Link v-if="can.settings" :href="route('clinic-settings.edit')" class="block rounded-lg bg-slate-700 p-5 text-center text-white shadow transition hover:bg-slate-800">
-                        <div class="text-2xl"><Icon name="settings" class="ml-1" /></div>
-                        <h3 class="mt-2 font-semibold">{{ t('nav.settingsGroup') }}</h3>
-                        <p class="mt-1 text-xs opacity-90">{{ t('dashboard.settingsDesc') }}</p>
-                    </Link>
-                    <!-- Infectious-disease screening gate (2026-08-25) had no
-                         dashboard entry point at all — added (2026-08-26). -->
-                    <Link v-if="can.patient_screening" :href="route('lab.index')" class="block rounded-lg bg-rose-600 p-5 text-center text-white shadow transition hover:bg-rose-700">
-                        <div class="text-2xl"><Icon name="coronavirus" class="ml-1" /></div>
-                        <h3 class="mt-2 font-semibold">{{ t('dashboard.lab') }}</h3>
-                        <p class="mt-1 text-xs opacity-90">{{ t('dashboard.labDesc') }}</p>
-                    </Link>
-                </div>
+                <ChatListCard v-if="shortcuts.length">
+                    <ChatListRow
+                        v-for="s in shortcuts"
+                        :key="s.href"
+                        :title="s.title"
+                        :subtitle="s.subtitle"
+                        :icon="s.icon"
+                        :tone="s.tone"
+                        :href="s.href"
+                    />
+                </ChatListCard>
 
-                <!-- Latest lists -->
-                <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    <div class="overflow-hidden rounded-lg bg-white shadow-sm">
-                        <h3 class="border-b border-gray-100 px-5 py-3 text-sm font-semibold text-gray-800">{{ t('dashboard.latestDoctors') }}</h3>
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <tbody class="divide-y divide-gray-100">
-                                <tr v-for="d in latestDoctors" :key="d.id">
-                                    <td class="px-5 py-2 text-sm font-medium text-gray-900">{{ d.name }}</td>
-                                    <td class="px-5 py-2 text-sm text-gray-500">{{ d.education_type ?? '—' }}</td>
-                                    <td class="px-5 py-2 text-left text-xs text-gray-400">{{ fmt(d.created_at) }}</td>
-                                </tr>
-                                <tr v-if="latestDoctors.length === 0">
-                                    <td colspan="3" class="px-5 py-6 text-center text-sm text-gray-500">{{ t('dashboard.noDoctorsYet') }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                    <!-- أحدث المراجعين -->
+                    <section>
+                        <div class="mb-2 flex items-center justify-between px-1">
+                            <h3 class="text-sm font-semibold text-gray-700">{{ t('dashboard.latestPatients') }}</h3>
+                            <Link v-if="can.patients" :href="route('patient-registrations.index')" class="text-xs font-medium text-indigo-600 hover:underline">{{ t('dashboard.viewAll') }}</Link>
+                        </div>
+                        <ChatListCard :empty="latestPatients.length === 0" :empty-text="t('dashboard.noPatientsYet')" empty-icon="person_off">
+                            <ChatListRow
+                                v-for="p in latestPatients"
+                                :key="p.id"
+                                :title="p.name"
+                                :tone="toneFor(p.id)"
+                                :href="registrationHref(p)"
+                            >
+                                <template #meta>
+                                    <ChatChip v-if="p.phone" icon="call">{{ p.phone }}</ChatChip>
+                                    <ChatChip v-if="p.service" icon="medical_services" tone="sky">{{ p.service }}</ChatChip>
+                                    <ChatChip :icon="screeningIcon(p.screening_status)" :tone="screeningTone(p.screening_status)">{{ screeningLabel(p.screening_status) }}</ChatChip>
+                                    <ChatChip icon="schedule">{{ fmtDate(p.created_at) }}</ChatChip>
+                                </template>
+                            </ChatListRow>
+                        </ChatListCard>
+                    </section>
 
-                    <div class="overflow-hidden rounded-lg bg-white shadow-sm">
-                        <h3 class="border-b border-gray-100 px-5 py-3 text-sm font-semibold text-gray-800">{{ t('dashboard.latestPatients') }}</h3>
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <tbody class="divide-y divide-gray-100">
-                                <tr v-for="p in latestPatients" :key="p.id">
-                                    <td class="px-5 py-2 text-sm font-medium text-gray-900">{{ p.name }}</td>
-                                    <td class="px-5 py-2 text-sm text-gray-500">{{ p.phone ?? '—' }}</td>
-                                    <td class="px-5 py-2 text-left text-xs text-gray-400">{{ fmt(p.created_at) }}</td>
-                                </tr>
-                                <tr v-if="latestPatients.length === 0">
-                                    <td colspan="3" class="px-5 py-6 text-center text-sm text-gray-500">{{ t('dashboard.noPatientsYet') }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                    <!-- أحدث المدفوعات -->
+                    <section v-if="can.payments">
+                        <div class="mb-2 flex items-center justify-between px-1">
+                            <h3 class="text-sm font-semibold text-gray-700">{{ t('dashboard.latestPayments') }}</h3>
+                            <Link :href="route('payments.index')" class="text-xs font-medium text-indigo-600 hover:underline">{{ t('dashboard.viewAll') }}</Link>
+                        </div>
+                        <ChatListCard :empty="latestPayments.length === 0" :empty-text="t('dashboard.noPaymentsYet')" empty-icon="payments">
+                            <ChatListRow
+                                v-for="pay in latestPayments"
+                                :key="pay.id"
+                                :title="pay.name ?? '—'"
+                                :icon="sourceIcon(pay.source)"
+                                :tone="sourceTone(pay.source)"
+                                :href="route('payments.index', { search: pay.name ?? undefined })"
+                            >
+                                <template #meta>
+                                    <ChatChip icon="payments" tone="emerald" class="font-bold">{{ plain(pay.amount) }} {{ currency }}</ChatChip>
+                                    <ChatChip :icon="sourceIcon(pay.source)" :tone="sourceTone(pay.source)">{{ sourceLabel(pay.source) }}</ChatChip>
+                                    <ChatChip icon="schedule">{{ fmtDate(pay.paid_at) }}</ChatChip>
+                                </template>
+                            </ChatListRow>
+                        </ChatListCard>
+                    </section>
+
+                    <!-- أحدث الأطباء -->
+                    <section>
+                        <div class="mb-2 flex items-center justify-between px-1">
+                            <h3 class="text-sm font-semibold text-gray-700">{{ t('dashboard.latestDoctors') }}</h3>
+                            <Link v-if="can.doctors" :href="route('doctors.index')" class="text-xs font-medium text-indigo-600 hover:underline">{{ t('dashboard.viewAll') }}</Link>
+                        </div>
+                        <ChatListCard :empty="latestDoctors.length === 0" :empty-text="t('dashboard.noDoctorsYet')" empty-icon="stethoscope">
+                            <ChatListRow
+                                v-for="d in latestDoctors"
+                                :key="d.id"
+                                :title="d.name"
+                                :tone="toneFor(d.id)"
+                                :href="can.doctors ? route('doctors.index', { search: d.name }) : null"
+                            >
+                                <template #meta>
+                                    <ChatChip v-if="d.education_type" icon="school" tone="violet">{{ d.education_type }}</ChatChip>
+                                    <ChatChip icon="schedule">{{ fmtDate(d.created_at) }}</ChatChip>
+                                </template>
+                            </ChatListRow>
+                        </ChatListCard>
+                    </section>
+
+                    <!-- حالات المهام -->
+                    <section>
+                        <div class="mb-2 px-1">
+                            <h3 class="text-sm font-semibold text-gray-700">{{ t('dashboard.taskStatuses') }}</h3>
+                        </div>
+                        <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+                            <div class="flex items-center justify-between text-xs text-gray-500">
+                                <span>{{ t('dashboard.doneVsNotDone') }}</span>
+                                <span class="font-semibold text-emerald-700">{{ donePct }}%</span>
+                            </div>
+                            <div class="mt-2 h-2 overflow-hidden rounded-full bg-gray-100">
+                                <div class="h-full rounded-full bg-gradient-to-l from-emerald-500 to-teal-500" :style="{ width: donePct + '%' }" />
+                            </div>
+                            <div class="mt-2 flex flex-wrap gap-1.5">
+                                <ChatChip icon="task_alt" tone="emerald">{{ t('dashboard.done') }}: {{ stats.tasks_done }}</ChatChip>
+                                <ChatChip icon="radio_button_unchecked">{{ t('dashboard.notDone') }}: {{ stats.tasks_not_done }}</ChatChip>
+                            </div>
+                            <div class="mt-4 flex flex-wrap gap-1.5 border-t border-gray-100 pt-3">
+                                <ChatChip icon="check_circle" tone="emerald">{{ t('dashboard.completed') }}: {{ stats.instances_completed }}</ChatChip>
+                                <ChatChip icon="pending" tone="amber">{{ t('dashboard.inProgress') }}: {{ stats.instances_assigned }}</ChatChip>
+                                <ChatChip icon="hourglass_empty">{{ t('dashboard.pending') }}: {{ stats.instances_pending }}</ChatChip>
+                                <span class="text-[11px] text-gray-400">{{ t('dashboard.totalCases', { n: instanceTotal }) }}</span>
+                            </div>
+                        </div>
+                    </section>
                 </div>
 
                 <!-- المهام المطلوبة لكل قسم ومرحلة حسب نوع الدراسة -->
-                <div class="overflow-hidden rounded-lg bg-white shadow-sm">
-                    <h3 class="border-b border-gray-100 bg-sky-600 px-5 py-3 text-sm font-semibold text-white">
-                        {{ t('dashboard.tasksByEduType') }}
-                    </h3>
-                    <div class="p-5">
-                        <div class="max-w-xs">
-                            <InputLabel :value="t('dashboard.chooseEduType')" />
-                            <select v-model="selectedEduType" @change="loadTasksByDept" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                <option value="">{{ t('dashboard.selectPlaceholder') }}</option>
-                                <option v-for="eduType in educationTypes" :key="eduType.id" :value="eduType.id">{{ eduType.name }}</option>
-                            </select>
-                        </div>
-
-                        <div v-if="loadingDepts" class="py-6 text-center text-sm text-gray-500">{{ t('common.loading') }}</div>
-
-                        <div v-else-if="departments && departments.length === 0" class="py-6 text-center text-sm text-gray-500">
-                            {{ t('dashboard.noTasksForEduType') }}
-                        </div>
-
-                        <div v-else-if="departments" class="mt-4 space-y-3">
-                            <div v-for="dept in departments" :key="dept.department + dept.stage" class="rounded-lg border border-gray-200">
-                                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 bg-gray-50 px-4 py-2">
-                                    <span class="font-medium text-gray-900">
-                                        <Icon name="folder" class="ml-1" />{{ dept.department }}
-                                        <span class="mr-1 text-xs text-gray-500">({{ dept.stage ?? '—' }})</span>
-                                    </span>
-                                    <span class="flex gap-1 text-xs">
-                                        <span class="rounded-full bg-indigo-100 px-2 py-0.5 text-indigo-800">{{ t('dashboard.requiredLabel') }}: {{ dept.required }}</span>
-                                        <span class="rounded-full bg-green-100 px-2 py-0.5 text-green-800">{{ t('dashboard.completed') }}: {{ dept.completed }}</span>
-                                    </span>
-                                </div>
-                                <table class="min-w-full divide-y divide-gray-200">
-                                    <thead class="bg-gray-50">
-                                        <tr>
-                                            <th class="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">{{ t('dashboard.taskCol') }}</th>
-                                            <th class="px-4 py-2 text-center text-xs font-medium uppercase text-gray-500">{{ t('dashboard.requiredLabel') }}</th>
-                                            <th class="px-4 py-2 text-center text-xs font-medium uppercase text-gray-500">{{ t('dashboard.completed') }}</th>
-                                            <th class="px-4 py-2 text-center text-xs font-medium uppercase text-gray-500">{{ t('dashboard.remainingCol') }}</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-gray-100">
-                                        <tr v-for="task in dept.tasks" :key="task.id">
-                                            <td class="px-4 py-2 text-sm text-gray-900">{{ task.title }}</td>
-                                            <td class="px-4 py-2 text-center text-sm text-gray-500">{{ task.required }}</td>
-                                            <td class="px-4 py-2 text-center text-sm text-green-700">{{ task.completed }}</td>
-                                            <td class="px-4 py-2 text-center text-sm text-amber-700">{{ task.remaining }}</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                <section>
+                    <div class="mb-2 px-1">
+                        <h3 class="text-sm font-semibold text-gray-700">{{ t('dashboard.tasksByEduType') }}</h3>
                     </div>
-                </div>
+                    <div class="mb-3 flex flex-wrap gap-2">
+                        <button
+                            v-for="eduType in educationTypes"
+                            :key="eduType.id"
+                            type="button"
+                            class="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-medium transition"
+                            :class="selectedEduType === eduType.id ? 'bg-indigo-600 text-white shadow' : 'bg-white text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50'"
+                            @click="loadTasksByDept(eduType.id)"
+                        >
+                            <Icon name="school" size="text-[16px]" />
+                            {{ eduType.name }}
+                        </button>
+                    </div>
+
+                    <ChatListCard
+                        v-if="loadingDepts || departments"
+                        :empty="!loadingDepts && departments?.length === 0"
+                        :empty-text="t('dashboard.noTasksForEduType')"
+                        empty-icon="assignment"
+                    >
+                        <div v-if="loadingDepts" class="py-8 text-center text-sm text-gray-500">{{ t('common.loading') }}</div>
+                        <template v-else>
+                            <template v-for="(dept, i) in departments" :key="dept.department + dept.stage">
+                                <!-- The whole row toggles its tasks (a row action would fold behind ⋮ on phones). -->
+                                <div class="cursor-pointer" @click="openDept = openDept === i ? null : i">
+                                    <ChatListRow :title="dept.department" :subtitle="dept.stage ?? '—'" icon="folder" :tone="toneFor(i)">
+                                        <template #meta>
+                                            <ChatChip icon="flag" tone="indigo">{{ t('dashboard.requiredLabel') }}: {{ dept.required }}</ChatChip>
+                                            <ChatChip icon="check_circle" tone="emerald">{{ t('dashboard.completed') }}: {{ dept.completed }}</ChatChip>
+                                            <ChatChip :icon="openDept === i ? 'expand_less' : 'expand_more'">{{ dept.tasks.length }}</ChatChip>
+                                        </template>
+                                    </ChatListRow>
+                                </div>
+                                <div v-if="openDept === i" class="border-b border-gray-100 bg-gray-50/60 px-4 py-2">
+                                    <div v-for="task in dept.tasks" :key="task.id" class="flex flex-wrap items-center justify-between gap-2 py-1.5 text-sm">
+                                        <span class="text-gray-800">{{ task.title }}</span>
+                                        <span class="flex gap-1">
+                                            <ChatChip tone="indigo">{{ task.required }}</ChatChip>
+                                            <ChatChip tone="emerald">{{ task.completed }}</ChatChip>
+                                            <ChatChip tone="amber">{{ t('dashboard.remainingCol') }}: {{ task.remaining }}</ChatChip>
+                                        </span>
+                                    </div>
+                                </div>
+                            </template>
+                        </template>
+                    </ChatListCard>
+                </section>
             </div>
         </div>
     </AuthenticatedLayout>

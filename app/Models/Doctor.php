@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Services\DefaultGroups;
 use App\Traits\LogsActivity;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -12,6 +14,9 @@ use Laravel\Sanctum\HasApiTokens;
 
 class Doctor extends Authenticatable
 {
+    // Archived instead of deleted (2026-10-14, by request); see App\Support\LinkedRecords.
+    use SoftDeletes;
+
     // Notifiable brings routeNotificationFor()/notify(), needed both for
     // password-reset links and the mail notifications added alongside them.
     // Illuminate\Foundation\Auth\User already supplies CanResetPassword.
@@ -44,6 +49,21 @@ class Doctor extends Authenticatable
             'password' => 'hashed',
             'created_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Every doctor lands in their stage's group A (2026-10-13, by request)
+     * — when created, and again when moved to another stage. See
+     * App\Services\DefaultGroups.
+     */
+    protected static function booted(): void
+    {
+        static::created(fn (Doctor $doctor) => DefaultGroups::assign($doctor));
+        static::updated(function (Doctor $doctor) {
+            if ($doctor->wasChanged('stage_id')) {
+                DefaultGroups::assign($doctor, stageChanged: true);
+            }
+        });
     }
 
     public function educationType(): BelongsTo

@@ -1,15 +1,16 @@
 import 'dart:async';
-import 'dart:io' show Platform;
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/platform/platform_support.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/chat_list_tile.dart';
 import '../../../core/widgets/qr_image.dart';
 import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../../printing/data/pos_printer_service.dart';
@@ -45,7 +46,7 @@ class PatientRegistrationListScreen extends ConsumerStatefulWidget {
 class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrationListScreen> {
   final _searchController = TextEditingController();
   String _search = '';
-  int? _registerDayId;
+  DateTimeRange? _range;
   int? _serviceId;
   Timer? _debounce;
 
@@ -61,17 +62,34 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
     _debounce = Timer(const Duration(milliseconds: 350), () => setState(() => _search = value));
   }
 
-  PatientRegistrationFilter get _filter =>
-      (search: _search.isEmpty ? null : _search, registerDayId: _registerDayId, serviceId: _serviceId);
+  static final _ymd = DateFormat('yyyy-MM-dd');
 
-  bool get _hasFilters => _search.isNotEmpty || _registerDayId != null || _serviceId != null;
+  PatientRegistrationFilter get _filter => (
+        search: _search.isEmpty ? null : _search,
+        from: _range == null ? null : _ymd.format(_range!.start),
+        to: _range == null ? null : _ymd.format(_range!.end),
+        serviceId: _serviceId,
+      );
+
+  bool get _hasFilters => _search.isNotEmpty || _range != null || _serviceId != null;
+
+  Future<void> _pickRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      initialDateRange: _range,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(now.year + 1),
+    );
+    if (picked != null) setState(() => _range = picked);
+  }
 
   void _clearFilters() {
     _searchController.clear();
     _debounce?.cancel();
     setState(() {
       _search = '';
-      _registerDayId = null;
+      _range = null;
       _serviceId = null;
     });
   }
@@ -79,15 +97,8 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
   @override
   Widget build(BuildContext context) {
     final registrationsAsync = ref.watch(patientRegistrationListProvider(_filter));
-    final daysAsync = ref.watch(registerDaysProvider);
     final servicesAsync = ref.watch(servicesProvider);
-
-    // Day narrows the service dropdown's *options* only (a filter, not
-    // data entry — matches Index.vue's soft cascade), falling back to the
-    // full flat service list when no day is picked yet.
-    final days = daysAsync.valueOrNull ?? const [];
-    final selectedDay = days.where((d) => d.id == _registerDayId).firstOrNull;
-    final servicesForFilter = selectedDay?.services ?? servicesAsync.valueOrNull ?? const [];
+    final servicesForFilter = servicesAsync.valueOrNull ?? const [];
     final t = ref.watch(translationsProvider);
 
     return Scaffold(
@@ -120,68 +131,73 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
       ),
       floatingActionButton: widget.pickMode
           ? null
-          : FloatingActionButton.extended(
+          : FloatingActionButton(
               onPressed: () async {
                 await context.push('/records/patient-registrations/new');
                 ref.invalidate(patientRegistrationListProvider);
               },
-              icon: const Icon(Icons.add),
-              label: Text(t['patientRegFlutter.newRegistration']!),
+              tooltip: t['patientRegFlutter.newRegistration']!,
+              child: const Icon(Icons.person_add_alt_1),
             ),
       body: Column(
         children: [
+          // Chat-list style (2026-10-13, by request): search pill + compact
+          // rounded filter row.
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
             child: Column(
               children: [
-                TextField(
-                  controller: _searchController,
-                  onChanged: _onSearchChanged,
-                  decoration: InputDecoration(
-                    labelText: t['patientRegFlutter.searchLabel']!,
-                    prefixIcon: const Icon(Icons.search),
-                    border: const OutlineInputBorder(),
-                    suffixIcon: _hasFilters
-                        ? IconButton(icon: const Icon(Icons.clear), tooltip: t['patientRegFlutter.clearFilters']!, onPressed: _clearFilters)
-                        : null,
-                  ),
-                ),
-                const SizedBox(height: 8),
                 Row(
                   children: [
                     Expanded(
-                      child: DropdownMenu<int>(
-                        key: ValueKey('filter-day-$_registerDayId'),
-                        enableFilter: true,
-                        requestFocusOnTap: true,
-                        expandedInsets: EdgeInsets.zero,
-                        label: Text(t['patientRegFlutter.dayLabel']!),
-                        initialSelection: days.any((d) => d.id == _registerDayId) ? _registerDayId : null,
-                        dropdownMenuEntries: [
-                          for (final d in days) DropdownMenuEntry(value: d.id, label: d.name),
-                        ],
-                        onSelected: (v) => setState(() {
-                          _registerDayId = v;
-                          if (!servicesForFilter.any((s) => s.id == _serviceId)) _serviceId = null;
-                        }),
+                      child: ChatSearchField(
+                        controller: _searchController,
+                        hintText: t['patientRegFlutter.searchLabel']!,
+                        onChanged: _onSearchChanged,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: DropdownMenu<int>(
-                        key: ValueKey('filter-service-$_registerDayId'),
-                        enableFilter: true,
-                        requestFocusOnTap: true,
-                        expandedInsets: EdgeInsets.zero,
-                        label: Text(t['patientRegFlutter.serviceLabel']!),
-                        initialSelection: servicesForFilter.any((s) => s.id == _serviceId) ? _serviceId : null,
-                        dropdownMenuEntries: [
-                          for (final s in servicesForFilter) DropdownMenuEntry(value: s.id, label: s.name),
-                        ],
-                        onSelected: (v) => setState(() => _serviceId = v),
-                      ),
-                    ),
+                    if (_hasFilters)
+                      IconButton(icon: const Icon(Icons.filter_alt_off_outlined), tooltip: t['patientRegFlutter.clearFilters']!, onPressed: _clearFilters),
                   ],
+                ),
+                const SizedBox(height: 8),
+                Theme(
+                  data: _pillFilterTheme(context),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _pickRange,
+                          icon: const Icon(Icons.date_range_outlined, size: 18),
+                          style: OutlinedButton.styleFrom(
+                            shape: const StadiumBorder(),
+                            minimumSize: const Size.fromHeight(48),
+                          ),
+                          label: Text(
+                            _range == null
+                                ? t['patientRegFlutter.dateRange']!
+                                : '${_ymd.format(_range!.start)} ← ${_ymd.format(_range!.end)}',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: DropdownMenu<int>(
+                          key: const ValueKey('filter-service'),
+                          enableFilter: true,
+                          requestFocusOnTap: true,
+                          expandedInsets: EdgeInsets.zero,
+                          label: Text(t['patientRegFlutter.serviceLabel']!),
+                          initialSelection: servicesForFilter.any((s) => s.id == _serviceId) ? _serviceId : null,
+                          dropdownMenuEntries: [
+                            for (final s in servicesForFilter) DropdownMenuEntry(value: s.id, label: s.name),
+                          ],
+                          onSelected: (v) => setState(() => _serviceId = v),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -197,50 +213,42 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                 return RefreshIndicator(
                   onRefresh: () async => ref.invalidate(patientRegistrationListProvider),
                   child: ListView.separated(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.only(top: 4, bottom: 88),
                     itemCount: registrations.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    separatorBuilder: (_, __) => chatDivider,
                     itemBuilder: (context, i) {
                       final r = registrations[i];
-                      return Card(
-                        child: ListTile(
-                          title: Text(r.name),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Forced LTR: a lone phone number has no strong-
-                              // direction anchor inside RTL text — same bidi
-                              // class already fixed elsewhere in this app
-                              // (academic_session_list_screen.dart). The
-                              // service/day line below stays ambient RTL since
-                              // it's genuine Arabic text, not a value to isolate.
-                              Directionality(textDirection: TextDirection.ltr, child: Text(r.phone)),
-                              Text('${r.serviceName ?? '—'} · ${r.registerDayName ?? '—'}'),
-                              const SizedBox(height: 4),
-                              _ScreeningBadge(status: r.screeningStatus),
-                            ],
-                          ),
-                          isThreeLine: true,
-                          onTap: widget.pickMode ? () => Navigator.of(context).pop(r) : () => _openPayment(context, r),
-                          trailing: widget.pickMode
-                              ? const Icon(Icons.chevron_left)
-                              : Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
-                                      IconButton(
-                                        icon: const Icon(Icons.print_outlined),
-                                        tooltip: t['patientRegFlutter.reprintTicket']!,
-                                        onPressed: () => _reprintTicket(context, r),
-                                      ),
-                                    IconButton(
-                                      icon: const Icon(Icons.qr_code_2),
-                                      tooltip: t['patientRegFlutter.paymentCodeTooltip']!,
-                                      onPressed: () => _showQrDialog(context, r),
-                                    ),
-                                  ],
+                      // Chat-list row (2026-10-13, by request): name, phone,
+                      // service/day chips and the screening status chip.
+                      return ChatListTile(
+                        title: r.name,
+                        color: chatToneFor(r.id),
+                        icon: Icons.person_outline,
+                        // LTR isolate: a lone phone number has no strong-
+                        // direction anchor inside RTL text (same bidi class
+                        // fixed in academic_session_list_screen.dart).
+                        subtitle: '\u2066${r.phone}\u2069',
+                        chips: [
+                          _ScreeningBadge(status: r.screeningStatus),
+                          if (r.serviceName != null)
+                            ChatChip(label: r.serviceName!, icon: Icons.medical_services_outlined, color: Colors.indigo),
+                        ],
+                        onTap: widget.pickMode ? () => Navigator.of(context).pop(r) : () => _openPayment(context, r),
+                        actions: widget.pickMode
+                            ? const []
+                            : [
+                                if (canPrintTickets)
+                                  ChatAction(
+                                    icon: Icons.print_outlined,
+                                    tooltip: t['patientRegFlutter.reprintTicket']!,
+                                    onPressed: () => _reprintTicket(context, r),
+                                  ),
+                                ChatAction(
+                                  icon: Icons.qr_code_2,
+                                  tooltip: t['patientRegFlutter.paymentCodeTooltip']!,
+                                  onPressed: () => _showQrDialog(context, r),
                                 ),
-                        ),
+                              ],
                       );
                     },
                   ),
@@ -330,6 +338,7 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
         context,
         TicketWidget(
           registration: registration,
+          showPaid: true,
           qrBytes: qrBytes,
           logoBytes: logoBytes,
           widthDots: printerSettings.dotsPerLine,
@@ -363,15 +372,37 @@ class _ScreeningBadge extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider);
-    final (color, label) = switch (status) {
-      'clear' => (Colors.green, t['patientRegFlutter.screeningClear']!),
-      'flagged' => (Colors.red, t['patientRegFlutter.screeningFlagged']!),
-      _ => (Colors.orange, t['patientRegFlutter.screeningPending']!),
+    // Status carried by the chip tone (2026-10-13, chat-list style).
+    final (color, icon, label) = switch (status) {
+      'clear' => (Colors.green, Icons.verified_outlined, t['patientRegFlutter.screeningClear']!),
+      'flagged' => (Colors.red, Icons.coronavirus_outlined, t['patientRegFlutter.screeningFlagged']!),
+      _ => (Colors.orange, Icons.hourglass_empty, t['patientRegFlutter.screeningPending']!),
     };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(color: color.shade50, borderRadius: BorderRadius.circular(12)),
-      child: Text(label, style: TextStyle(color: color.shade900, fontSize: 12, fontWeight: FontWeight.w600)),
-    );
+    return ChatChip(label: label, icon: icon, color: color.shade700);
   }
+}
+
+/// Rounded, dense "pill" look for the filter dropdowns above a chat list
+/// (same as doctor_list_screen.dart's).
+ThemeData _pillFilterTheme(BuildContext context) {
+  final theme = Theme.of(context);
+  final border = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(30),
+    borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08)),
+  );
+  return theme.copyWith(
+    dropdownMenuTheme: DropdownMenuThemeData(
+      inputDecorationTheme: InputDecorationTheme(
+        isDense: true,
+        filled: true,
+        fillColor: theme.colorScheme.surface,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        border: border,
+        enabledBorder: border,
+        constraints: const BoxConstraints(maxHeight: 44),
+        labelStyle: const TextStyle(fontSize: 13),
+      ),
+      textStyle: const TextStyle(fontSize: 13),
+    ),
+  );
 }

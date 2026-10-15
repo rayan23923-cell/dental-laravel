@@ -26,6 +26,9 @@ import QrScanner from '@/Components/QrScanner.vue';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, reactive, ref } from 'vue';
 import Icon from '@/Components/Icon.vue';
+import { toGrade } from '@/numericGrade';
+import DateInput from '@/Components/DateInput.vue';
+import TaskWorkPanel from '@/Components/Tasks/TaskWorkPanel.vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
 
@@ -58,6 +61,8 @@ const props = defineProps({
     advancedPerioChart: Boolean,
     // Only sheets with a per-stage signature/date/grade table pass this.
     stages: { type: Array, default: () => [] },
+    // Each grade column's max (stage_{key}_grade → points), from the linked task or 10.
+    stageMaxes: { type: Object, default: () => ({}) },
     doctors: Array,
     record: Object,
     chartData: Object,
@@ -69,6 +74,11 @@ const props = defineProps({
     // CaseSheetController) — carried through so the saved sheet stays tied
     // to that task, as in the original.
     taskInstanceId: { type: [Number, String], default: null },
+    // The sheet's doctor, or the task case's doctor it was opened from
+    // (2026-10-15): shown as a name instead of the picker.
+    linkedDoctor: { type: Object, default: null },
+    // Operative only: the task is a root filling, so Endodontics starts on.
+    rootFilling: Boolean,
     // The optional pre-instance draft's linkage (2026-08-28) — mutually
     // exclusive with taskInstanceId: set instead when opened from a
     // not-yet-started slot via CaseSheetController::openForTask(). No
@@ -262,7 +272,7 @@ const parseGroup = (raw) => {
 
 // --- Scalar fields ---
 const initial = {
-    doctor_id: props.record?.doctor_id ?? '',
+    doctor_id: props.record?.doctor_id ?? props.linkedDoctor?.id ?? '',
     task_instances_id: props.record?.task_instances_id ?? props.taskInstanceId ?? null,
     task_id: props.record?.task_id ?? props.taskId ?? null,
 };
@@ -353,7 +363,7 @@ props.stages.forEach((stage) => {
     ['signature', 'date', 'grade'].forEach((part) => {
         const key = `stage_${stage.key}_${part}`;
         const value = props.record?.[key] ?? '';
-        initial[key] = part === 'date' ? toDateInput(value) : value;
+        initial[key] = part === 'date' ? toDateInput(value) : part === 'grade' ? toGrade(value) : value;
     });
 });
 
@@ -534,6 +544,49 @@ const stageFieldDisabled = (stageKey, part) => {
 // The Update/Save button was unconditionally hidden under `readonly` —
 // correct while staff were fully locked out, but a supervisor with actual
 // editable fields (notes/signature/stage sign-off) needs it to save those.
+// Stage dates and grades save the moment they change (2026-10-15), so a
+// supervisor grading a step needs no Save button; a grade can't exceed its
+// step's max. A brand-new sheet has no record yet, so it saves on first Save.
+const stageSave = reactive({});
+const stageMaxHit = reactive({});
+const stageTimers = {};
+const stageMax = (stageKey) => props.stageMaxes[`stage_${stageKey}_grade`] ?? null;
+
+const saveStageField = (key) => {
+    if (!isEdit.value) return;
+    clearTimeout(stageTimers[key]);
+    stageSave[key] = 'saving';
+    axios
+        .patch(route(`${props.resource}.stage-field`, props.record.id), { [key]: form[key] || null })
+        .then(() => {
+            stageSave[key] = 'saved';
+            form.defaults(key, form[key]);
+        })
+        .catch(() => (stageSave[key] = 'error'));
+};
+
+const onStageGrade = (e, stageKey) => {
+    const key = `stage_${stageKey}_grade`;
+    let value = toGrade(e.target.value);
+    const max = stageMax(stageKey);
+    stageMaxHit[key] = max !== null && value !== '' && Number(value) > max;
+    if (stageMaxHit[key]) value = String(max);
+    form[key] = e.target.value = value;
+    clearTimeout(stageTimers[key]);
+    stageTimers[key] = setTimeout(() => saveStageField(key), 600);
+};
+
+const setStageDate = (stageKey, value) => {
+    const key = `stage_${stageKey}_date`;
+    form[key] = value;
+    saveStageField(key);
+};
+
+const todayInput = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 const canSubmit = computed(() => !props.readonly || props.supervisorEditableFields.length > 0);
 </script>
 
@@ -582,7 +635,7 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                     >
                         <Icon name="qr_code_scanner" class="ml-1" />{{ t('specialtyForms.scanPatientAction') }}
                     </button>
-                    <Link :href="route(`${resource}.index`)" class="text-sm text-indigo-600 hover:underline">{{ t('specialtyForms.backToList') }}</Link>
+                    <Link :href="page.props.caseSheetBackUrl ?? route(`${resource}.index`)" class="text-sm text-indigo-600 hover:underline">{{ t('specialtyForms.backAction') }}</Link>
                 </div>
             </div>
         </template>
@@ -604,9 +657,8 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                     </div>
                 </div>
 
-                <div v-if="form.task_instances_id" class="rounded-md bg-sky-50 p-3 text-sm text-sky-800">
-                    <Icon name="assignment" class="ml-1" />{{ t('specialtyForms.linkedTaskPrefix') }} <strong>{{ form.task_instances_id }}</strong> {{ t('specialtyForms.linkedTaskSuffix') }}
-                </div>
+                <!-- The linked task's points, the same ones task progress records (2026-10-15). -->
+                <TaskWorkPanel v-if="taskInstanceId" :task-instance-id="taskInstanceId" />
 
                 <!-- Optional pre-instance draft (2026-08-28) — see
                      CaseSheetController::openForTask()'s doc comment: not
@@ -623,7 +675,12 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                          a picker would only suggest otherwise. -->
                     <div v-if="!hideDoctor && !isDoctor" class="rounded-lg bg-white p-6 shadow-sm">
                         <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">{{ t('specialtyForms.doctorLabel') }}</h3>
-                        <div>
+                        <!-- Opened from a task case, or an existing sheet: its doctor is
+                             fixed, so show the name; only a new unlinked sheet picks one. -->
+                        <div v-if="linkedDoctor && (record?.id || taskInstanceId)" class="flex items-center gap-2 text-base font-medium text-gray-900">
+                            <Icon name="person" class="text-indigo-600" />{{ linkedDoctor.name }}
+                        </div>
+                        <div v-else>
                             <InputLabel for="doctor_id" :value="`${t('specialtyForms.doctorLabel')} *`" />
                             <select id="doctor_id" v-model="form.doctor_id" :disabled="readonly" class="mt-1 block w-full max-w-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
                                 <option value="" disabled>{{ t('specialtyForms.selectDoctorPlaceholder') }}</option>
@@ -732,6 +789,7 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                                             v-else-if="field.type === 'endodontics'"
                                             v-model="form[formKey(field)]"
                                             :disabled="fieldDisabled(field)"
+                                            :root-filling="rootFilling"
                                             class="mt-1"
                                         />
 
@@ -834,6 +892,15 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                                             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         ></textarea>
 
+                                        <DateInput
+                                            v-else-if="field.type === 'date'"
+                                            :id="formKey(field)"
+                                            v-model="form[formKey(field)]"
+                                            :disabled="fieldDisabled(field)"
+                                            :required="field.required"
+                                            class="mt-1"
+                                        />
+
                                         <TextInput
                                             v-else
                                             :id="formKey(field)"
@@ -861,61 +928,102 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                         <ProsthodonticsDentalArch :missing-fdi="missingFdi" :carious-fdi="cariousFdi" />
                     </div>
 
-                    <!-- Stages and evaluation -->
+                    <!-- Stages and evaluation — a table on wide screens, one card
+                         per stage on a phone (2026-10-15 redesign). -->
                     <div v-if="stages.length" class="overflow-hidden rounded-lg bg-white shadow-sm">
                         <h3 class="border-b border-gray-200 px-6 py-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
                             {{ t('specialtyForms.stagesEvaluationHeading') }}
                         </h3>
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">{{ t('specialtyForms.stageCol') }}</th>
-                                        <th class="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">{{ t('specialtyForms.signatureOfInstructorCol') }}</th>
-                                        <th class="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">{{ t('specialtyForms.dateCol') }}</th>
-                                        <th class="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">{{ t('specialtyForms.gradeCol') }}</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-200 bg-white">
-                                    <tr v-for="stage in stages" :key="stage.key">
-                                        <td class="px-4 py-2 text-sm text-gray-900">
-                                            {{ stage.label }}
-                                            <div v-if="stage.note" class="text-xs text-gray-400">{{ stage.note }}</div>
-                                        </td>
-                                        <td class="px-4 py-2">
-                                            <!-- Same auto-captured signature as the scalar
-                                                 'signature' field type above, just keyed
-                                                 by the stage table's own naming. -->
-                                            <p v-if="form[`stage_${stage.key}_signature`] && form[`stage_${stage.key}_signature`] !== '__SIGN__'" class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs text-emerald-800">
-                                                {{ form[`stage_${stage.key}_signature`] }}
-                                            </p>
-                                            <div v-else-if="form[`stage_${stage.key}_signature`] === '__SIGN__'" class="flex items-center justify-between gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs text-indigo-800">
-                                                {{ t('specialtyForms.stageSignPendingNote') }}
-                                                <button type="button" @click="form[`stage_${stage.key}_signature`] = ''" class="text-indigo-600 underline">{{ t('specialtyForms.cancelAction') }}</button>
-                                            </div>
-                                            <button
-                                                v-else
-                                                type="button"
-                                                :disabled="stageFieldDisabled(stage.key, 'signature') || !stageReadyToSign(stage.key)"
-                                                :title="!stageReadyToSign(stage.key) ? t('specialtyForms.completeGradeDateFirst') : ''"
-                                                @click="form[`stage_${stage.key}_signature`] = '__SIGN__'"
-                                                class="w-full rounded-md bg-indigo-600 px-2 py-1 text-xs text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                            >
-                                                {{ t('specialtyForms.signButton') }}
-                                            </button>
-                                            <p v-if="!stageFieldDisabled(stage.key, 'signature') && !stageReadyToSign(stage.key)" class="mt-1 text-xs text-gray-400">
-                                                {{ t('specialtyForms.completeGradeDateFirst') }}
-                                            </p>
-                                        </td>
-                                        <td class="px-4 py-2">
-                                            <TextInput v-model="form[`stage_${stage.key}_date`]" type="date" :disabled="stageFieldDisabled(stage.key, 'date')" class="block w-full text-sm" />
-                                        </td>
-                                        <td class="px-4 py-2">
-                                            <TextInput v-model="form[`stage_${stage.key}_grade`]" type="text" :disabled="stageFieldDisabled(stage.key, 'grade')" placeholder="e.g. 9/10" class="block w-full text-sm" />
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                        <p v-if="!isEdit && !readonly" class="border-b border-gray-100 bg-gray-50 px-6 py-2 text-xs text-gray-500">{{ t('specialtyForms.stageAutoSaveAfterCreate') }}</p>
+                        <div class="hidden grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,0.9fr)] gap-4 bg-gray-50 px-4 py-2 text-xs font-medium uppercase text-gray-500 sm:grid">
+                            <div>{{ t('specialtyForms.stageCol') }}</div>
+                            <div>{{ t('specialtyForms.signatureOfInstructorCol') }}</div>
+                            <div>{{ t('specialtyForms.dateCol') }}</div>
+                            <div>{{ t('specialtyForms.gradeCol') }}</div>
+                        </div>
+                        <div class="divide-y divide-gray-200">
+                            <div
+                                v-for="stage in stages"
+                                :key="stage.key"
+                                class="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-3 px-4 py-3 sm:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,0.9fr)] sm:items-start sm:gap-4"
+                            >
+                                <div class="col-span-2 text-sm font-medium text-gray-900 sm:col-span-1 sm:font-normal">
+                                    {{ stage.label }}
+                                    <div v-if="stage.note" class="text-xs font-normal text-gray-400">{{ stage.note }}</div>
+                                </div>
+                                <!-- Last on a phone: signing needs the date and grade first. -->
+                                <div class="order-last col-span-2 sm:order-none sm:col-span-1">
+                                    <!-- Same auto-captured signature as the scalar
+                                         'signature' field type above, just keyed
+                                         by the stage table's own naming. -->
+                                    <p v-if="form[`stage_${stage.key}_signature`] && form[`stage_${stage.key}_signature`] !== '__SIGN__'" class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs text-emerald-800">
+                                        {{ form[`stage_${stage.key}_signature`] }}
+                                    </p>
+                                    <div v-else-if="form[`stage_${stage.key}_signature`] === '__SIGN__'" class="flex items-center justify-between gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs text-indigo-800">
+                                        {{ t('specialtyForms.stageSignPendingNote') }}
+                                        <button type="button" @click="form[`stage_${stage.key}_signature`] = ''" class="text-indigo-600 underline">{{ t('specialtyForms.cancelAction') }}</button>
+                                    </div>
+                                    <button
+                                        v-else
+                                        type="button"
+                                        :disabled="stageFieldDisabled(stage.key, 'signature') || !stageReadyToSign(stage.key)"
+                                        :title="!stageReadyToSign(stage.key) ? t('specialtyForms.completeGradeDateFirst') : ''"
+                                        @click="form[`stage_${stage.key}_signature`] = '__SIGN__'"
+                                        class="w-full rounded-md bg-indigo-600 px-2 py-1 text-xs text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        {{ t('specialtyForms.signButton') }}
+                                    </button>
+                                    <p v-if="!stageFieldDisabled(stage.key, 'signature') && !stageReadyToSign(stage.key)" class="mt-1 text-xs text-gray-400">
+                                        {{ t('specialtyForms.completeGradeDateFirst') }}
+                                    </p>
+                                </div>
+                                <div>
+                                    <div class="mb-1 text-xs text-gray-500 sm:hidden">{{ t('specialtyForms.dateCol') }}</div>
+                                    <div class="flex items-center gap-1">
+                                        <DateInput
+                                            :model-value="form[`stage_${stage.key}_date`]"
+                                            :disabled="stageFieldDisabled(stage.key, 'date')"
+                                            class="!py-1.5"
+                                            @change="(value) => setStageDate(stage.key, value)"
+                                        />
+                                        <button
+                                            v-if="!stageFieldDisabled(stage.key, 'date') && !form[`stage_${stage.key}_date`]"
+                                            type="button"
+                                            class="shrink-0 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                                            @click="setStageDate(stage.key, todayInput())"
+                                        >
+                                            {{ t('specialtyForms.stageToday') }}
+                                        </button>
+                                    </div>
+                                    <p v-if="stageSave[`stage_${stage.key}_date`]" class="mt-1 text-xs" :class="stageSave[`stage_${stage.key}_date`] === 'error' ? 'text-red-600' : 'text-gray-400'">
+                                        {{ stageSave[`stage_${stage.key}_date`] === 'saving' ? t('specialtyForms.stageSaving') : stageSave[`stage_${stage.key}_date`] === 'saved' ? '✓ ' + t('specialtyForms.stageSaved') : t('specialtyForms.stageSaveFailed') }}
+                                    </p>
+                                </div>
+                                <div>
+                                    <div class="mb-1 text-xs text-gray-500 sm:hidden">{{ t('specialtyForms.gradeCol') }}</div>
+                                    <!-- Numbers only (2026-10-15): the input's own value is rewritten
+                                         too, so a typed letter never shows. -->
+                                    <div class="flex items-center gap-1" dir="ltr">
+                                        <input
+                                            :value="form[`stage_${stage.key}_grade`]"
+                                            type="text"
+                                            inputmode="decimal"
+                                            :disabled="stageFieldDisabled(stage.key, 'grade')"
+                                            placeholder="0"
+                                            class="block w-16 rounded-md border-gray-300 px-2 py-1.5 text-center text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
+                                            @input="(e) => onStageGrade(e, stage.key)"
+                                        />
+                                        <span v-if="stageMax(stage.key) !== null" class="whitespace-nowrap text-sm text-gray-400">/ {{ stageMax(stage.key) }}</span>
+                                    </div>
+                                    <p v-if="stageMaxHit[`stage_${stage.key}_grade`]" class="mt-1 text-xs text-amber-600">
+                                        {{ t('specialtyForms.stageGradeMax', { max: stageMax(stage.key) }) }}
+                                    </p>
+                                    <p v-else-if="stageSave[`stage_${stage.key}_grade`]" class="mt-1 text-xs" :class="stageSave[`stage_${stage.key}_grade`] === 'error' ? 'text-red-600' : 'text-gray-400'">
+                                        {{ stageSave[`stage_${stage.key}_grade`] === 'saving' ? t('specialtyForms.stageSaving') : stageSave[`stage_${stage.key}_grade`] === 'saved' ? '✓ ' + t('specialtyForms.stageSaved') : t('specialtyForms.stageSaveFailed') }}
+                                    </p>
+                                    <InputError class="mt-1" :message="form.errors[`stage_${stage.key}_grade`]" />
+                                </div>
+                            </div>
                         </div>
                     </div>
 

@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\PatientRegistration;
 use App\Models\Payment;
-use App\Models\RegisterDay;
 use App\Models\Service;
 use App\Models\Task;
 use App\Services\PatientScreeningException;
@@ -15,6 +14,8 @@ use App\Support\RegistrationPaymentState;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use App\Services\PermissionManager;
 use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -33,16 +34,26 @@ class PatientRegistrationController extends Controller
 {
     public function index(Request $request): Response
     {
+        $permissions = new PermissionManager($request->user());
         $registrations = $this->filteredQuery($request)
-            ->with(['service', 'registerDay'])
+            ->with(['service'])
             ->orderByDesc('created_at')
             ->paginate(15)
             ->withQueryString();
 
         return Inertia::render('PatientRegistrations/Index', [
             'registrations' => $registrations,
-            'days' => RegisterDay::with('services')->orderBy('sort_order')->orderBy('name')->get(),
-            'filters' => $request->only('search', 'register_day_id', 'service_id'),
+            // A from/to date range replaces the old register-day filter
+            // (2026-10-14, by request): the days came from settings that
+            // were removed. Same as the payments page.
+            'services' => Service::orderBy('name')->get(['id', 'name']),
+            'filters' => $request->only('search', 'from', 'to', 'service_id', 'archived'),
+            // Hides what the desk roles (2026-10-12) can't do here.
+            'can' => [
+                'archive' => $permissions->can('patients', 'delete'),
+                'settings' => $permissions->can('settings', 'edit'),
+                'screening' => $permissions->can('patient_screening', 'confirm'),
+            ],
         ]);
     }
 
@@ -53,22 +64,25 @@ class PatientRegistrationController extends Controller
     private function filteredQuery(Request $request)
     {
         return PatientRegistration::query()
+            // The archive tab (2026-10-12) lists deleted (archived) patients.
+            ->when($request->boolean('archived'), fn ($q) => $q->onlyTrashed())
             ->when($request->string('search')->toString(), function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
                         ->orWhere('phone', 'like', "%{$search}%");
                 });
             })
-            ->when($request->integer('register_day_id'), fn ($q, $id) => $q->where('register_day_id', $id))
+            ->when($request->date('from'), fn ($q, $from) => $q->whereDate('created_at', '>=', $from))
+            ->when($request->date('to'), fn ($q, $to) => $q->whereDate('created_at', '<=', $to))
             ->when($request->integer('service_id'), fn ($q, $id) => $q->where('service_id', $id));
     }
 
     /**
      * Bulk delete (2026-10-11), same as the doctors table: either the
      * ticked `ids`, or `all` — every registration matching the current
-     * filters across all pages. Payments/appointments/task instances keep
-     * their stored registration id (there are no foreign keys), so money
-     * records are never lost with the registration.
+     * filters across all pages. Deleting archives (2026-10-12, soft
+     * delete): payments, appointments and task instances keep pointing at
+     * the archived row, so money records and their totals are never lost.
      */
     public function destroyMany(Request $request): RedirectResponse
     {
@@ -84,7 +98,20 @@ class PatientRegistrationController extends Controller
 
         $count = $query->delete();
 
-        return back()->with('success', "تم حذف {$count} تسجيل.");
+        return back()->with('success', "تمت أرشفة {$count} تسجيل.");
+    }
+
+    /** Brings archived registrations back into the registry (2026-10-12). */
+    public function restoreMany(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $count = PatientRegistration::onlyTrashed()->whereIn('id', $validated['ids'])->restore();
+
+        return back()->with('success', "تمت استعادة {$count} تسجيل.");
     }
 
     /**
@@ -143,19 +170,28 @@ class PatientRegistrationController extends Controller
             'register_day_id' => ['nullable', 'integer', 'exists:register_days,id'],
             'service_id' => ['required', 'integer', 'exists:register_services,id'],
             'task_id' => ['nullable', 'integer', 'exists:tasks,id'],
-            'amount_paid' => ['nullable', 'numeric', 'min:0'],
         ]);
-        $amountPaid = (float) ($validated['amount_paid'] ?? 0);
-        unset($validated['amount_paid']);
+
+        // Payment is mandatory and fixed by the service's price (2026-10-12,
+        // by request): the desk no longer types an amount, and an
+        // `amount_paid` an older app build still sends is ignored. A
+        // service without a price cannot be registered until one is set.
+        $price = Service::whereKey($validated['service_id'])->value('price');
+        if ($price === null) {
+            throw ValidationException::withMessages([
+                'service_id' => 'هذه الخدمة بلا سعر — حدّد سعرها في إعدادات التسجيل أولاً.',
+            ]);
+        }
+        $amountPaid = (float) $price;
 
         // Registration is by service only now (2026-10-12): no day check.
         // A day an older app build still sends is stored as before.
 
         $registration = PatientRegistration::create($validated);
 
-        // "المبلغ المدفوع" (2026-10-11, by request): the ticket desk takes
-        // the payment at registration, before any lab screening, so it is
-        // recorded here directly rather than through PatientScreeningGate.
+        // The ticket desk takes the service's price at registration, before
+        // any lab screening, so it is recorded here directly rather than
+        // through PatientScreeningGate.
         if ($amountPaid > 0) {
             Payment::create([
                 'patient_registration_id' => $registration->id,
@@ -257,15 +293,17 @@ class PatientRegistrationController extends Controller
             'screening_status' => ['required', Rule::in(['clear', 'flagged'])],
         ]);
 
-        if ($message = LabFeeGate::unpaidMessage($patientRegistration)) {
-            return response()->json(['message' => $message], 422);
-        }
+        // The lab fee is taken with the result (2026-10-12), so the lab
+        // prints one paid slip; see LabFeeGate::chargeIfDue().
+        DB::transaction(function () use ($patientRegistration, $validated, $request) {
+            LabFeeGate::chargeIfDue($patientRegistration);
 
-        $patientRegistration->update([
-            'screening_status' => $validated['screening_status'],
-            'screening_checked_by' => $request->user()->id,
-            'screening_checked_at' => now(),
-        ]);
+            $patientRegistration->update([
+                'screening_status' => $validated['screening_status'],
+                'screening_checked_by' => $request->user()->id,
+                'screening_checked_at' => now(),
+            ]);
+        });
 
         return $this->stateResponse($patientRegistration->fresh(['service', 'registerDay']));
     }

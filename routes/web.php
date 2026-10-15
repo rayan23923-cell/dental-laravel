@@ -9,7 +9,6 @@ use App\Http\Controllers\CaseSheetController;
 use App\Http\Controllers\CaseSheetPrintController;
 use App\Http\Controllers\CaseSheetTypeController;
 use App\Http\Controllers\AdminBroadcastController;
-use App\Http\Controllers\ClinicChairController;
 use App\Http\Controllers\ClinicSettingController;
 use App\Http\Controllers\WaitingScreenPairingController;
 use App\Http\Controllers\WaitingScreenSettingController;
@@ -55,7 +54,10 @@ use App\Http\Controllers\SurgeryImageController;
 use App\Http\Controllers\SurgeryMedicationController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TaskInstanceController;
+use App\Http\Controllers\TaskInstanceAttachmentController;
 use App\Http\Controllers\TaskProgressController;
+use App\Http\Controllers\TaskStartRequestController;
+use App\Http\Controllers\NotificationFeedController;
 use App\Http\Controllers\TreatmentMaterialController;
 use App\Http\Controllers\TreatmentPlanController;
 use App\Http\Controllers\UserController;
@@ -63,6 +65,9 @@ use App\Http\Controllers\UserPermissionController;
 use App\Models\ClinicSetting;
 use App\Models\Department;
 use App\Models\Doctor;
+use App\Http\Controllers\CaptivePortalController;
+use App\Http\Controllers\PhoneScannerController;
+use App\Http\Controllers\ScannerPairingController;
 use App\Models\EducationType;
 use App\Models\Patient;
 use App\Models\Stage;
@@ -180,15 +185,28 @@ Route::middleware('auth:doctor')->group(function () {
     Route::get('/doctor/profile', [DoctorProfileController::class, 'edit'])->name('doctor.profile.edit');
     Route::post('/doctor/profile', [DoctorProfileController::class, 'update'])->name('doctor.profile.update');
     Route::put('/doctor/profile/password', [DoctorProfileController::class, 'updatePassword'])->name('doctor.profile.password');
+    // "طلبات بدء المهام" (2026-10-14) — see TaskStartRequestController.
+    // Notification bell (2026-10-14).
+    Route::get('/doctor/notifications', [NotificationFeedController::class, 'index'])->name('doctor.notifications.index');
+    Route::post('/doctor/notifications/read-all', [NotificationFeedController::class, 'markAllRead'])->name('doctor.notifications.read-all');
+    Route::post('/doctor/notifications/{id}/read', [NotificationFeedController::class, 'markRead'])->name('doctor.notifications.read');
+    Route::get('/doctor/task-start-requests', [TaskStartRequestController::class, 'mine'])->name('doctor.task-start-requests.index');
+    Route::post('/doctor/task-start-requests', [TaskStartRequestController::class, 'store'])->name('doctor.task-start-requests.store');
+    Route::delete('/doctor/task-start-requests/{taskStartRequest}', [TaskStartRequestController::class, 'destroy'])->name('doctor.task-start-requests.destroy');
     Route::put('/doctor/task-instances/{taskInstance}', [DoctorTaskInstanceController::class, 'update'])->name('doctor.task-instances.update');
     Route::post('/doctor/task-instances/{taskInstance}/confirm-paper', [DoctorTaskInstanceController::class, 'confirmPaper'])->name('doctor.task-instances.confirm-paper');
     Route::get('/doctor/task-instances/{taskInstance}/qr', [DoctorTaskInstanceController::class, 'qr'])->name('doctor.task-instances.qr');
+    Route::get('/doctor/task-instances/{taskInstance}/attachments', [TaskInstanceAttachmentController::class, 'index'])->name('doctor.task-instances.attachments.index');
+    Route::post('/doctor/task-instances/{taskInstance}/attachments', [TaskInstanceAttachmentController::class, 'store'])->name('doctor.task-instances.attachments.store');
+    Route::delete('/doctor/task-instance-attachments/{attachment}', [TaskInstanceAttachmentController::class, 'destroy'])->name('doctor.task-instances.attachments.destroy');
 
     // The remaining three items of the original's doctor navbar
     // (doctor_navbar.php), plus its academic-session switcher.
     Route::get('/doctor/required-tasks', [DoctorRequiredTasksController::class, 'index'])->name('doctor.required-tasks');
     Route::get('/doctor/progress', [DoctorProgressController::class, 'index'])->name('doctor.progress');
-    Route::get('/doctor/pending-qr', [DoctorPendingTasksQrController::class, 'index'])->name('doctor.pending-qr');
+    // The pending-task QR page was removed (2026-10-15, by request): every
+    // slot's QR is on the required tasks page, so old links land there.
+    Route::redirect('/doctor/pending-qr', '/doctor/required-tasks')->name('doctor.pending-qr');
     Route::get('/doctor/pending-qr/{task}', [DoctorPendingTasksQrController::class, 'qr'])->name('doctor.pending-qr.image');
     // فتح النموذج — routes a task instance to its case sheet by type code.
     Route::get('/doctor/case-sheet/{taskInstance}', [CaseSheetController::class, 'open'])->name('doctor.case-sheet');
@@ -229,6 +247,11 @@ Route::middleware('auth:web,doctor')->group(function () {
     Route::get('/case-sheets/instances/{taskInstance}/qr', [TaskInstanceController::class, 'qr'])
         ->middleware('case-sheet')
         ->name('case-sheets.instance-qr');
+    // The task's points shown on its case sheet (2026-10-15); see TaskWorkController.
+    Route::get('/case-sheets/instances/{taskInstance}/work', [\App\Http\Controllers\TaskWorkController::class, 'show'])
+        ->name('case-sheets.instance-work');
+    Route::put('/case-sheets/instances/{taskInstance}/work', [\App\Http\Controllers\TaskWorkController::class, 'update'])
+        ->name('case-sheets.instance-work.update');
 
     // "Active sessions" panel embedded in both Profile pages — see
     // AccountSessionController's own docblock.
@@ -245,8 +268,36 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('dashboard.tasks-by-education-type');
 });
 
+// The phone as a QR scanner for a computer (2026-10-12): the phone's pages
+// need no login, the pairing token is the secret. See PhoneScannerController.
+// Opening the system when a device joins the clinic Wi-Fi (offline
+// package; the checks themselves are answered by AnswerConnectivityChecks).
+Route::get('/portal', [CaptivePortalController::class, 'portal'])->name('captive.portal');
+
+Route::get('/scan', [PhoneScannerController::class, 'enter'])->name('phone-scanner.enter');
+Route::post('/scan', [PhoneScannerController::class, 'resolve'])
+    ->middleware('throttle:20,1')->name('phone-scanner.resolve');
+Route::get('/scan/{token}', [PhoneScannerController::class, 'show'])->name('phone-scanner.show');
+Route::post('/scan/{token}/scans', [PhoneScannerController::class, 'store'])
+    ->middleware('throttle:120,1')->name('phone-scanner.store');
+Route::get('/scan/{token}/status', [PhoneScannerController::class, 'status'])
+    ->middleware('throttle:120,1')->name('phone-scanner.status');
+Route::post('/scan/{token}/photos', [PhoneScannerController::class, 'photo'])
+    ->middleware('throttle:30,1')->name('phone-scanner.photo');
+
 Route::middleware('auth')->group(function () {
+    // Notification bell (2026-10-14).
+    Route::get('/notifications', [NotificationFeedController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/read-all', [NotificationFeedController::class, 'markAllRead'])->name('notifications.read-all');
+    Route::post('/notifications/{id}/read', [NotificationFeedController::class, 'markRead'])->name('notifications.read');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+
+    // The computer's side of the phone scanner (2026-10-12).
+    Route::post('/scanner-pairings', [ScannerPairingController::class, 'store'])->name('scanner-pairings.store');
+    Route::get('/scanner-pairings/{scannerPairing}', [ScannerPairingController::class, 'show'])->name('scanner-pairings.show');
+    Route::get('/scanner-pairings/{scannerPairing}/scans', [ScannerPairingController::class, 'scans'])->name('scanner-pairings.scans');
+    Route::delete('/scanner-pairings/{scannerPairing}', [ScannerPairingController::class, 'destroy'])->name('scanner-pairings.destroy');
+    Route::put('/scanner-pairings/{scannerPairing}/photo-request', [ScannerPairingController::class, 'photoRequest'])->name('scanner-pairings.photo-request');
     Route::post('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
 
@@ -258,6 +309,54 @@ Route::middleware('auth')->group(function () {
         ->name('waiting-screen-pairing.create');
     Route::post('/waiting-screen/pair', [WaitingScreenPairingController::class, 'store'])
         ->name('waiting-screen-pairing.store');
+
+    // Ticket desk and lab (2026-10-12): also open to the `reception`
+    // (موظف التذاكر) and `lab` (مختبري) roles, which reach nothing else.
+    // Every route keeps its own permission gate; see App\Support\RolePresets
+    // for what each role is granted when it is created.
+    Route::middleware('role:super_admin,admin,editor,reception,lab')->group(function () {
+        // Reception-desk patient registration (services + days) — separate
+        // from `patients` above, see App\Models\PatientRegistration's
+        // docblock. Gates reuse the `patients` module exactly like
+        // admin/patient_register.php does in the original (no new
+        // permission module invented).
+        Route::get('/patient-registrations', [PatientRegistrationController::class, 'index'])
+            ->middleware('permission:patients,view')->name('patient-registrations.index');
+        Route::get('/patient-registrations/create', [PatientRegistrationController::class, 'create'])
+            ->middleware('permission:patients,create')->name('patient-registrations.create');
+        // Autocomplete for Payments/Create.vue's "ابحث عن مريض" field
+        // (2026-08-26).
+        Route::get('/patient-registrations/search', [PatientRegistrationController::class, 'search'])
+            ->middleware('permission:patients,view')->name('patient-registrations.search');
+        Route::post('/patient-registrations', [PatientRegistrationController::class, 'store'])
+            ->middleware('permission:patients,create')->name('patient-registrations.store');
+        Route::delete('/patient-registrations-bulk', [PatientRegistrationController::class, 'destroyMany'])
+            ->middleware('permission:patients,delete')->name('patient-registrations.destroy-many');
+        Route::post('/patient-registrations-restore', [PatientRegistrationController::class, 'restoreMany'])
+            ->middleware('permission:patients,delete')->name('patient-registrations.restore-many');
+        Route::get('/patient-registrations/{patientRegistration}/qr', [PatientRegistrationController::class, 'qr'])
+            ->middleware('permission:patients,view')->name('patient-registrations.qr');
+        // Reprint an already-registered patient's ticket — same gate as
+        // `.qr` (a read/display action, not a create).
+        Route::get('/patient-registrations/{patientRegistration}/print', [PatientRegistrationPrintController::class, 'ticket'])
+            ->middleware('permission:patients,view')->name('patient-registrations.print');
+        // Payment-desk scanner — see Api\PatientRegistrationQrController's
+        // docblock for the payload convention and Step 5 of Phase 5's plan.
+        Route::post('/patient-registrations/scan', [PatientRegistrationController::class, 'scan'])
+            ->middleware('permission:patients,view')->name('patient-registrations.scan');
+
+        // Infectious-disease screening gate (2026-08-26) — see
+        // PatientScreeningGate/PatientRegistrationController::confirmScreening().
+        Route::post('/patient-registrations/{patientRegistration}/screening', [PatientRegistrationController::class, 'confirmScreening'])
+            ->middleware('permission:patient_screening,confirm')->name('patient-registrations.screening');
+
+        // "المختبر" — web twin of the Flutter lab screen (2026-10-11); see
+        // LabController for its own patient_screening permission check.
+        Route::get('/lab', [LabController::class, 'index'])->name('lab.index');
+        Route::post('/lab/scan', [LabController::class, 'scan'])->name('lab.scan');
+        Route::get('/lab/{patientRegistration}/print', [LabController::class, 'print'])->name('lab.print');
+        Route::post('/lab/{patientRegistration}/reuse', [LabController::class, 'reuse'])->name('lab.reuse');
+    });
 
     Route::middleware('role:super_admin,admin,editor')->group(function () {
         // Doctor deletion also requires the granular 'doctors.delete' grant
@@ -283,46 +382,6 @@ Route::middleware('auth')->group(function () {
         Route::delete('/patients/{patient}', [PatientController::class, 'destroy'])
             ->middleware('permission:patients,delete')
             ->name('patients.destroy');
-
-        // Reception-desk patient registration (services + days) — separate
-        // from `patients` above, see App\Models\PatientRegistration's
-        // docblock. Gates reuse the `patients` module exactly like
-        // admin/patient_register.php does in the original (no new
-        // permission module invented).
-        Route::get('/patient-registrations', [PatientRegistrationController::class, 'index'])
-            ->middleware('permission:patients,view')->name('patient-registrations.index');
-        Route::get('/patient-registrations/create', [PatientRegistrationController::class, 'create'])
-            ->middleware('permission:patients,create')->name('patient-registrations.create');
-        // Autocomplete for Payments/Create.vue's "ابحث عن مريض" field
-        // (2026-08-26).
-        Route::get('/patient-registrations/search', [PatientRegistrationController::class, 'search'])
-            ->middleware('permission:patients,view')->name('patient-registrations.search');
-        Route::post('/patient-registrations', [PatientRegistrationController::class, 'store'])
-            ->middleware('permission:patients,create')->name('patient-registrations.store');
-        Route::delete('/patient-registrations-bulk', [PatientRegistrationController::class, 'destroyMany'])
-            ->middleware('permission:patients,delete')->name('patient-registrations.destroy-many');
-        Route::get('/patient-registrations/{patientRegistration}/qr', [PatientRegistrationController::class, 'qr'])
-            ->middleware('permission:patients,view')->name('patient-registrations.qr');
-        // Reprint an already-registered patient's ticket — same gate as
-        // `.qr` (a read/display action, not a create).
-        Route::get('/patient-registrations/{patientRegistration}/print', [PatientRegistrationPrintController::class, 'ticket'])
-            ->middleware('permission:patients,view')->name('patient-registrations.print');
-        // Payment-desk scanner — see Api\PatientRegistrationQrController's
-        // docblock for the payload convention and Step 5 of Phase 5's plan.
-        Route::post('/patient-registrations/scan', [PatientRegistrationController::class, 'scan'])
-            ->middleware('permission:patients,view')->name('patient-registrations.scan');
-
-        // Infectious-disease screening gate (2026-08-26) — see
-        // PatientScreeningGate/PatientRegistrationController::confirmScreening().
-        Route::post('/patient-registrations/{patientRegistration}/screening', [PatientRegistrationController::class, 'confirmScreening'])
-            ->middleware('permission:patient_screening,confirm')->name('patient-registrations.screening');
-
-        // "المختبر" — web twin of the Flutter lab screen (2026-10-11); see
-        // LabController for its own patient_screening permission check.
-        Route::get('/lab', [LabController::class, 'index'])->name('lab.index');
-        Route::post('/lab/scan', [LabController::class, 'scan'])->name('lab.scan');
-        Route::get('/lab/{patientRegistration}/print', [LabController::class, 'print'])->name('lab.print');
-        Route::post('/lab/{patientRegistration}/reuse', [LabController::class, 'reuse'])->name('lab.reuse');
 
         Route::get('/doctors-import', [DoctorImportExportController::class, 'showImport'])
             ->middleware('permission:doctors,create')
@@ -373,7 +432,11 @@ Route::middleware('auth')->group(function () {
         Route::put('/academic-sessions/{academic_session}/set-current', [AcademicSessionController::class, 'setCurrent'])->name('academic-sessions.set-current');
         Route::post('/academic-sessions/select', [AcademicSessionController::class, 'select'])->name('academic-sessions.select');
 
-        Route::resource('case-sheet-types', CaseSheetTypeController::class)->except(['show', 'create', 'edit']);
+        // Never deleted (2026-10-15, "لتجنب فقدانها") — switch one off instead.
+        Route::resource('case-sheet-types', CaseSheetTypeController::class)->except(['show', 'create', 'edit', 'destroy'])
+            ->middlewareFor('index', 'permission:case_sheet_types,view')
+            ->middlewareFor('store', 'permission:case_sheet_types,create')
+            ->middlewareFor('update', 'permission:case_sheet_types,edit');
 
         Route::get('/admin-broadcast', [AdminBroadcastController::class, 'create'])->name('admin-broadcast.create');
         Route::post('/admin-broadcast', [AdminBroadcastController::class, 'store'])->name('admin-broadcast.store');
@@ -390,16 +453,6 @@ Route::middleware('auth')->group(function () {
             ->middleware('permission:groups,edit')->name('groups.doctors.add');
         Route::delete('/groups/{group}/doctors', [GroupController::class, 'removeDoctors'])
             ->middleware('permission:groups,edit')->name('groups.doctors.remove');
-
-        Route::resource('clinic-chairs', ClinicChairController::class)->except(['show', 'create', 'edit'])
-            ->middlewareFor('index', 'permission:clinic_chairs,view')
-            ->middlewareFor('store', 'permission:clinic_chairs,create')
-            ->middlewareFor('update', 'permission:clinic_chairs,edit')
-            ->middlewareFor('destroy', 'permission:clinic_chairs,delete');
-        Route::put('/clinic-chairs/{clinic_chair}/move', [ClinicChairController::class, 'move'])
-            ->middleware('permission:clinic_chairs,edit')->name('clinic-chairs.move');
-        Route::post('/clinic-chairs/assign-group', [ClinicChairController::class, 'assignGroup'])
-            ->middleware('permission:clinic_chairs,edit')->name('clinic-chairs.assign-group');
 
         // Matches admin/doctor_task_progress.php's own access check
         // (in_array($_SESSION['role'], ['admin', 'super_admin'])) — this one
@@ -418,16 +471,27 @@ Route::middleware('auth')->group(function () {
             ->middleware('permission:task_progress,view')->name('task-progress.index');
         Route::get('/task-progress/groups/{group}', [TaskProgressController::class, 'group'])
             ->middleware('permission:task_progress,view')->name('task-progress.group');
+        Route::get('/task-progress/stages/{stage}', [TaskProgressController::class, 'stage'])
+            ->middleware('permission:task_progress,view')->name('task-progress.stage');
         // Staff-side "فتح النموذج" — the original gates this with
         // task_progress.open_case_sheet, checked inside the controller too.
         Route::get('/case-sheet/{taskInstance}', [CaseSheetController::class, 'open'])
             ->middleware('permission:task_progress,open_case_sheet')->name('case-sheet.open');
         // Resolves a scanned QR code — the page's scanner modal, ported
         // from the original's task_progress_view.php.
+        Route::get('/task-progress/print', [TaskProgressController::class, 'print'])
+            ->middleware('permission:task_progress,view')->name('task-progress.print');
         Route::post('/task-progress/scan', [TaskProgressController::class, 'scan'])
             ->middleware('permission:task_progress,view')->name('task-progress.scan');
         Route::post('/task-progress/start', [TaskProgressController::class, 'start'])
             ->middleware('permission:task_progress,start')->name('task-progress.start');
+        // Doctors' requests to start a task (2026-10-14) — see TaskStartRequestController.
+        Route::get('/task-progress/requests', [TaskStartRequestController::class, 'index'])
+            ->middleware('permission:task_progress,view')->name('task-progress.requests.index');
+        Route::post('/task-progress/requests/{taskStartRequest}/approve', [TaskStartRequestController::class, 'approve'])
+            ->middleware('permission:task_progress,start')->name('task-progress.requests.approve');
+        Route::post('/task-progress/requests/{taskStartRequest}/reject', [TaskStartRequestController::class, 'reject'])
+            ->middleware('permission:task_progress,start')->name('task-progress.requests.reject');
         Route::put('/task-progress/instances/{taskInstance}/complete', [TaskProgressController::class, 'complete'])
             ->middleware('permission:task_progress,finish')->name('task-progress.complete');
         // The original guards this with `finish || edit` — but
@@ -438,6 +502,16 @@ Route::middleware('auth')->group(function () {
         // reproduced here.) Gated on `finish`, matching effective behaviour.
         Route::put('/task-progress/instances/{taskInstance}', [TaskProgressController::class, 'updateInstance'])
             ->middleware('permission:task_progress,finish')->name('task-progress.update-instance');
+        // Photos of the paper case sheet (2026-10-13); deleting checks
+        // task_progress,finish in the controller.
+        Route::get('/task-progress/instances/{taskInstance}/attachments', [TaskInstanceAttachmentController::class, 'index'])
+            ->middleware('permission:task_progress,view')->name('task-progress.attachments.index');
+        Route::post('/task-progress/instances/{taskInstance}/attachments', [TaskInstanceAttachmentController::class, 'store'])
+            ->middleware('permission:task_progress,view')->name('task-progress.attachments.store');
+        Route::put('/task-progress/attachments/{attachment}/note', [TaskInstanceAttachmentController::class, 'note'])
+            ->middleware('permission:task_progress,view')->name('task-progress.attachments.note');
+        Route::delete('/task-progress/attachments/{attachment}', [TaskInstanceAttachmentController::class, 'destroy'])
+            ->middleware('permission:task_progress,view')->name('task-progress.attachments.destroy');
 
         Route::get('/activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
 
@@ -536,8 +610,12 @@ Route::middleware('auth')->group(function () {
 
         // Lab screening fee + printable receipt (2026-10-11).
         Route::post('/payments/lab', [PaymentController::class, 'storeLab'])->name('payments.store-lab');
+        Route::get('/payments/report', [PaymentController::class, 'report'])->name('payments.report');
         Route::get('/payments/{payment}/receipt', [PaymentController::class, 'receipt'])->name('payments.receipt');
-        Route::resource('payments', PaymentController::class)->only(['index', 'create', 'store']);
+        // No "تسجيل دفعة" page any more (2026-10-14, by request): payments
+        // are taken from patient registration and the lab. `store` stays for
+        // those flows' own posts.
+        Route::resource('payments', PaymentController::class)->only(['index', 'store']);
         Route::delete('/payments/{payment}', [PaymentController::class, 'destroy'])
             ->name('payments.destroy');
 
@@ -603,15 +681,21 @@ Route::middleware(['auth:web,doctor', 'case-sheet'])->group(function () {
         'treatment-plans' => TreatmentPlanController::class,
         'treatment-materials' => TreatmentMaterialController::class,
     ] as $uri => $controller) {
-        Route::resource($uri, $controller)->parameters([$uri => 'record']);
+        // The case sheets themselves are never deleted (2026-10-15, "لتجنب فقدانها").
+        Route::resource($uri, $controller)->parameters([$uri => 'record'])
+            ->except(in_array($uri, \App\Support\CaseSheetsKept::RESOURCES, true) ? ['destroy'] : []);
+    }
+
+    // One stage date/grade saved as soon as it changes (2026-10-15).
+    foreach (['prosthodontics-records' => ProsthodonticsRecordController::class, 'complete-denture-records' => CompleteDentureRecordController::class] as $uri => $controller) {
+        Route::patch("$uri/{record}/stage-field", [$controller, 'stageField'])->name("$uri.stage-field");
     }
 
     // The operative sheet — same rules, and the sheet CaseSheetController
     // falls back to for an unknown case-sheet type. Keeps its own
     // {dentalChart} parameter name, which its controller signatures use.
+    // Never deleted, like the other case sheets (2026-10-15).
     Route::resource('dental-charts', DentalChartController::class)->except('destroy');
-    Route::delete('/dental-charts/{dentalChart}', [DentalChartController::class, 'destroy'])
-        ->name('dental-charts.destroy');
 
     // A canal's working-length X-ray on the Operative sheet's Endodontics
     // section (2026-09-03) — same access rule (any logged-in doctor or

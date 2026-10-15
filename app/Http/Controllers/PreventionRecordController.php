@@ -6,7 +6,9 @@ use App\Models\Doctor;
 use App\Models\PreventionRecord;
 use App\Models\TaskInstance;
 use App\Services\CaseSheetAccess;
+use App\Support\CaseSheetDoctor;
 use App\Support\CaseSheetPatientFieldMap;
+use App\Support\CaseSheetReturn;
 use App\Support\CaseSheetSignatures;
 use App\Support\CaseSheetSupervisorFields;
 use App\Support\PreventionForm;
@@ -67,21 +69,21 @@ class PreventionRecordController extends Controller
     {
         PreventionRecord::create($this->prepare($request, isCreate: true));
 
-        return redirect()->route('prevention-records.index')->with('success', 'Prevention record created.');
+        return CaseSheetReturn::redirect()->with('success', 'Prevention record created.');
     }
 
     public function update(Request $request, PreventionRecord $record): RedirectResponse
     {
         $record->update($this->prepare($request, existing: $record));
 
-        return redirect()->route('prevention-records.index')->with('success', 'Prevention record updated.');
+        return CaseSheetReturn::redirect()->with('success', 'Prevention record updated.');
     }
 
     public function destroy(PreventionRecord $record): RedirectResponse
     {
         $record->delete();
 
-        return redirect()->route('prevention-records.index')->with('success', 'Prevention record deleted.');
+        return CaseSheetReturn::redirect()->with('success', 'Prevention record deleted.');
     }
 
     private function form(?PreventionRecord $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null, array $prefill = []): Response
@@ -115,6 +117,7 @@ class PreventionRecordController extends Controller
             'supervisorEditableFields' => CaseSheetAccess::isViewOnly() ? CaseSheetSupervisorFields::fieldsFor('prevention-records') : [],
             'supervisorFields' => CaseSheetSupervisorFields::fieldsFor('prevention-records'),
             'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
+            'linkedDoctor' => CaseSheetDoctor::linked($record?->doctor_id, $record?->task_instances_id ?? $taskInstanceId),
             'taskId' => $record?->task_id ?? $taskId,
         ]);
     }

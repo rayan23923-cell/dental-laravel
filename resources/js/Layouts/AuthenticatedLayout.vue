@@ -19,15 +19,21 @@ import { computed, ref } from 'vue';
 import BrandMark from '@/Components/BrandMark.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
+import PhoneScannerLink from '@/Components/PhoneScannerLink.vue';
+import NotificationBell from '@/Components/NotificationBell.vue';
 import Icon from '@/Components/Icon.vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
+import { useStructureLinks } from '@/Composables/useStructureLinks';
 
 const showingNavigationDropdown = ref(false);
 const page = usePage();
 const { t } = useI18n();
 
 const isAdmin = computed(() => ['super_admin', 'admin'].includes(page.props.auth.user.role));
+// Desk roles (2026-10-12): `reception` (موظف التذاكر) and `lab` (مختبري)
+// only reach the ticket desk or the lab, so they see only those links.
+const deskRole = computed(() => (['reception', 'lab'].includes(page.props.auth.user.role) ? page.props.auth.user.role : null));
 
 /**
  * Grouping mirrors the original app's navbar.php dropdowns (إدارة البيانات
@@ -41,22 +47,12 @@ const isAdmin = computed(() => ['super_admin', 'admin'].includes(page.props.auth
  * Two tiers, matching the two role gates actually used:
  *  - "editor,admin,super_admin" routes stay flat or in an always-visible
  *    dropdown (doctors, patients/patient-registrations, tasks, dental
- *    charts, clinical records, appointments, payments).
+ *    charts, appointments, payments).
  *  - "admin,super_admin"-only routes (education-types, stages,
  *    departments, academic-sessions, case-sheet-types, groups,
  *    task-progress, activity-logs, permissions, clinic-settings,
  *    register-settings, department-roles, backup) stay behind `isAdmin`.
  */
-const clinicalRoutes = [
-    'advanced-periodontal-charts', 'complete-denture-records', 'oral-medicine-charts', 'orthodontics-records',
-    'periodontal-charts', 'prevention-records', 'prosthodontics-records',
-    'surgeries', 'surgery-follow-ups', 'surgery-images', 'surgery-medications',
-    'treatment-plans', 'treatment-materials',
-];
-const isClinicalRecordsActive = computed(
-    () => route().current('clinical-records.*') || clinicalRoutes.some((r) => route().current(`${r}.*`))
-);
-
 const isPatientsGroupActive = computed(
     () => route().current('patients.*')
         || route().current('patient-registrations.index')
@@ -66,6 +62,7 @@ const isPatientsGroupActive = computed(
 
 const structureRoutes = [
     'departments', 'stages', 'education-types',
+    'doctors', 'tasks', 'task-progress',
     'academic-sessions', 'groups', 'case-sheet-types',
 ];
 const isStructureActive = computed(() => structureRoutes.some((r) => route().current(`${r}.*`)));
@@ -88,15 +85,14 @@ const isSettingsGroupActive = computed(
  * longer be added to one and forgotten in the other — which is exactly how
  * the mobile menu ended up missing half the app.
  */
-const primaryLinks = computed(() => [
+const primaryLinks = computed(() => deskRole.value ? [] : [
     { label: t('nav.home'), icon: 'dashboard', href: route('dashboard'), active: route().current('dashboard') },
-    { label: t('nav.doctors'), icon: 'stethoscope', href: route('doctors.index'), active: route().current('doctors.*') },
-    { label: t('nav.tasks'), icon: 'assignment', href: route('tasks.index'), active: route().current('tasks.*') },
-    ...(isAdmin.value
-        ? [{ label: t('nav.taskProgress'), icon: 'monitoring', href: route('task-progress.index'), active: route().current('task-progress.*') }]
-        : []),
-    { label: t('nav.clinicalRecords'), icon: 'clinical_notes', href: route('clinical-records.index'), active: isClinicalRecordsActive.value },
-    { label: t('nav.appointments'), icon: 'event', href: route('appointments.index'), active: route().current('appointments.*') },
+    // Doctors, tasks and task progress moved under "البيانات الأساسية"
+    // (2026-10-13, by request) — see structureLinks.
+    // Clinical records hidden from the menu (2026-10-13, by request); case
+    // sheets are opened from the task they belong to.
+    // Appointments hidden from the menu for now (2026-10-13, by request);
+    // the page stays reachable at /appointments.
     { label: t('nav.payments'), icon: 'payments', href: route('payments.index'), active: route().current('payments.*') },
 ]);
 
@@ -105,39 +101,41 @@ const primaryLinks = computed(() => [
 // that already existed in the backend but had no navbar entry at all:
 // `patients.index` (the plain patient-record list) and
 // `patient-registrations.create` (its own page, separate from the index).
-const patientsLinks = computed(() => [
-    { label: t('nav.registerPatient'), icon: 'person_add', href: route('patient-registrations.create'), active: route().current('patient-registrations.create') },
-    { label: t('nav.patientRegistrations'), icon: 'how_to_reg', href: route('patient-registrations.index'), active: route().current('patient-registrations.index') },
-    { label: t('nav.patientsList'), icon: 'list_alt', href: route('patients.index'), active: route().current('patients.*') },
-    { label: t('nav.lab'), icon: 'coronavirus', href: route('lab.index'), active: route().current('lab.*') },
-]);
+const patientsLinks = computed(() => {
+    // The separate "تسجيل مريض" entry was dropped (2026-10-13, by request):
+    // the registrations page already registers patients, and two entries
+    // confused users. Its create page counts as part of the registry.
+    const registry = { label: t('nav.patientRegistrations'), icon: 'how_to_reg', href: route('patient-registrations.index'), active: route().current('patient-registrations.index') || route().current('patient-registrations.create') };
+    const lab = { label: t('nav.lab'), icon: 'coronavirus', href: route('lab.index'), active: route().current('lab.*') };
+    if (deskRole.value === 'reception') return [registry];
+    if (deskRole.value === 'lab') return [lab];
+    // "قائمة المرضى" dropped too (2026-10-13, by request): the registry
+    // covers it. The page stays reachable at /patients.
+    return [registry, lab];
+});
 
 // "البيانات الأساسية" — admin-only (matches the original's dropdown of the
 // same name); "المجموعات" lives here rather than paired with "الأطباء"
 // above because — unlike the original — this app's `groups` routes are
 // admin-only while `doctors` is editor-accessible.
-const structureLinks = computed(() => [
-    { label: t('nav.educationTypes'), icon: 'school', href: route('education-types.index'), active: route().current('education-types.*') },
-    { label: t('nav.stages'), icon: 'stairs', href: route('stages.index'), active: route().current('stages.*') },
-    { label: t('nav.departments'), icon: 'apartment', href: route('departments.index'), active: route().current('departments.*') },
-    { label: t('nav.academicSessions'), icon: 'calendar_month', href: route('academic-sessions.index'), active: route().current('academic-sessions.*') },
-    { label: t('nav.groups'), icon: 'groups', href: route('groups.index'), active: route().current('groups.*') },
-    { label: t('nav.clinicChairs'), icon: 'chair', href: route('clinic-chairs.index'), active: route().current('clinic-chairs.*') },
-    { label: t('nav.caseSheetTypes'), icon: 'description', href: route('case-sheet-types.index'), active: route().current('case-sheet-types.*') },
-]);
+// Doctors, tasks and task progress live here too (2026-10-13, by request),
+// ordered tasks → academic year → doctors → groups → task progress. Doctors and tasks are
+// editor-accessible, so editors see a short version of this group with
+// just those two; everything else stays admin-only.
+const structureLinks = useStructureLinks();
 
 // "الإعدادات" — admin-only, new grouped dropdown replacing the flat
 // `adminLinks` strip. Folds in three routes that existed in the backend
 // with no navbar link at all: `clinic-settings.edit` (previously reachable
-// only from the account menu), `patient-registrations.settings`, and
-// `department-roles.index`.
+// only from the account menu) and `patient-registrations.settings`.
+// `department-roles.index` has no tile of its own (2026-10-14, by request):
+// it is reached from the permissions page header, under "الصلاحيات".
 const settingsLinks = computed(() => [
     { label: t('nav.clinicSettings'), icon: 'settings', href: route('clinic-settings.edit'), active: route().current('clinic-settings.*') },
     { label: t('nav.waitingScreenSettings'), icon: 'tv', href: route('waiting-screen-settings.edit'), active: route().current('waiting-screen-settings.*') },
     { label: t('nav.pairWaitingScreen'), icon: 'qr_code_scanner', href: route('waiting-screen-pairing.create'), active: route().current('waiting-screen-pairing.*') },
     { label: t('nav.registrationSettings'), icon: 'tune', href: route('patient-registrations.settings'), active: route().current('patient-registrations.settings') || route().current('register-days.*') || route().current('register-services.*') },
-    { label: t('nav.departmentRoles'), icon: 'badge', href: route('department-roles.index'), active: route().current('department-roles.*') },
-    { label: t('nav.permissions'), icon: 'admin_panel_settings', href: route('permissions.index'), active: route().current('permissions.*') },
+    { label: t('nav.permissions'), icon: 'admin_panel_settings', href: route('permissions.index'), active: route().current('permissions.*') || route().current('department-roles.*') },
     { label: t('nav.sendBroadcast'), icon: 'campaign', href: route('admin-broadcast.create'), active: route().current('admin-broadcast.*') },
     { label: t('nav.activityLog'), icon: 'history', href: route('activity-logs.index'), active: route().current('activity-logs.*') },
     { label: t('nav.backup'), icon: 'database', href: route('backup.index'), active: route().current('backup.*') },
@@ -212,7 +210,7 @@ const tileClass = (active) => [
                             </template>
                         </Dropdown>
 
-                        <template v-if="isAdmin">
+                        <template v-if="structureLinks.length">
                             <div class="h-6 w-px shrink-0 bg-hairline"></div>
 
                             <Dropdown align="left" width="56">
@@ -229,7 +227,9 @@ const tileClass = (active) => [
                                     </DropdownLink>
                                 </template>
                             </Dropdown>
+                        </template>
 
+                        <template v-if="isAdmin">
                             <Dropdown align="left" width="56">
                                 <template #trigger>
                                     <button type="button" :class="tileClass(isSettingsGroupActive)">
@@ -247,8 +247,11 @@ const tileClass = (active) => [
                         </template>
                     </div>
 
+                    <NotificationBell class="ms-auto shrink-0" />
+
                     <!-- Account -->
-                    <div class="ms-auto hidden shrink-0 items-center sm:flex">
+                    <div class="hidden shrink-0 items-center gap-2 sm:flex">
+                        <PhoneScannerLink />
                         <Dropdown align="right" width="48">
                             <template #trigger>
                                 <button
@@ -273,7 +276,7 @@ const tileClass = (active) => [
                     <button
                         type="button"
                         @click="showingNavigationDropdown = !showingNavigationDropdown"
-                        class="ms-auto inline-flex items-center justify-center rounded-xl bg-surface-2 p-2 text-muted transition hover:text-content sm:hidden"
+                        class="inline-flex items-center justify-center rounded-xl bg-surface-2 p-2 text-muted transition hover:text-content sm:hidden"
                         :aria-label="showingNavigationDropdown ? t('nav.closeMenu') : t('nav.openMenu')"
                     >
                         <Icon :name="showingNavigationDropdown ? 'close' : 'menu'" size="text-[22px]" />
@@ -300,7 +303,7 @@ const tileClass = (active) => [
                         </Link>
                     </div>
 
-                    <template v-if="isAdmin">
+                    <template v-if="structureLinks.length">
                         <div class="mt-3 px-1 text-xs font-semibold uppercase tracking-wider text-muted">
                             {{ t('nav.structureGroup') }}
                         </div>
@@ -310,7 +313,9 @@ const tileClass = (active) => [
                                 <span class="truncate">{{ link.label }}</span>
                             </Link>
                         </div>
+                    </template>
 
+                    <template v-if="isAdmin">
                         <div class="mt-3 px-1 text-xs font-semibold uppercase tracking-wider text-muted">
                             {{ t('nav.settingsGroup') }}
                         </div>
@@ -330,6 +335,7 @@ const tileClass = (active) => [
                              that component is fixed `text-gray-600`, which
                              all but disappears on this dark panel. -->
                         <div class="mt-3 space-y-1">
+                            <PhoneScannerLink variant="wide" />
                             <Link :href="route('profile.edit')" :class="tileClass(route().current('profile.*'))">
                                 <Icon name="account_circle" size="text-[18px]" />{{ t('nav.profile') }}
                             </Link>

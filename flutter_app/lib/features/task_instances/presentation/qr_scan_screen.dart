@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +9,8 @@ import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../patient_registration/data/patient_registration_repository.dart';
 import '../data/task_instance_repository.dart';
+import '../../../core/platform/platform_support.dart';
+import 'desktop_qr_scanner.dart';
 import 'task_instances_providers.dart';
 
 /// Which QR flow this screen is resolving a scan for — see `_onDetect`.
@@ -62,18 +66,42 @@ class QrScanScreen extends ConsumerStatefulWidget {
 class _QrScanScreenState extends ConsumerState<QrScanScreen> {
   bool _handled = false;
   String? _error;
-  final MobileScannerController _controller = MobileScannerController();
+  // Windows has no mobile_scanner camera (2026-10-12): DesktopQrScanner
+  // is used there instead, so this controller is only made elsewhere.
+  final MobileScannerController? _controller =
+      isWindowsDesktop ? null : MobileScannerController(facing: _lastFacing);
+
+  // The camera last switched to (2026-10-14), so the next scan opens on it.
+  static CameraFacing _lastFacing = CameraFacing.back;
+
+  Future<void> _switchCamera() async {
+    await _controller?.switchCamera();
+    _lastFacing = _lastFacing == CameraFacing.back ? CameraFacing.front : CameraFacing.back;
+  }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
   Future<void> _onDetect(BarcodeCapture capture) async {
-    if (_handled) return;
     final raw = capture.barcodes.firstOrNull?.rawValue;
     if (raw == null) return;
+    await _handle(raw);
+  }
+
+  /// `{"type":"doctor","id":N}`, printed on the doctor's ID card.
+  int? _doctorIdOf(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map && decoded['type'] == 'doctor' && decoded['id'] is int) return decoded['id'] as int;
+    } catch (_) {}
+    return null;
+  }
+
+  Future<void> _handle(String raw) async {
+    if (_handled) return;
 
     setState(() {
       _handled = true;
@@ -83,6 +111,12 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
     try {
       switch (widget.mode) {
         case QrScanMode.taskInstance:
+          // A doctor's ID card QR (2026-10-14) opens that doctor.
+          final doctorId = _doctorIdOf(raw);
+          if (doctorId != null) {
+            if (mounted) context.pushReplacement('/admin/doctors/$doctorId');
+            return;
+          }
           final instance = await ref.read(taskInstanceRepositoryProvider).scan(raw);
           invalidateTaskInstance(ref, instance.id);
           if (mounted) context.pushReplacement('/tasks/${instance.id}');
@@ -127,6 +161,7 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
       appBar: AppBar(
         title: Text(_title(t)),
         actions: [
+          if (_controller != null)
           // Torch toggle — mirrors the web QrScanner.vue's existing
           // "تشغيل/إطفاء الفلاش" control (same feature, previously missing
           // here). ValueListenableBuilder keeps the icon in sync whether
@@ -145,17 +180,28 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
               );
             },
           ),
+          // Rear ↔ front camera, like the web scanner's switch button.
+          if (_controller != null)
+            IconButton(
+              onPressed: _switchCamera,
+              icon: const Icon(Icons.cameraswitch_outlined),
+              tooltip: t['qrScan.switchCamera']!,
+            ),
         ],
       ),
       body: Stack(
         fit: StackFit.expand,
         children: [
+          if (_controller == null)
+            DesktopQrScanner(onCode: _handle, paused: _handled)
+          else ...[
           MobileScanner(controller: _controller, onDetect: _onDetect),
           // Square aiming frame with corner brackets — purely visual (the
           // scanner itself reads the whole camera frame regardless), so a
           // user pointing at a QR code gets the same "aim here" cue this
           // app already gives on web (QrScanner.vue's green frame overlay).
           const IgnorePointer(child: CustomPaint(painter: _ScannerFramePainter())),
+          ],
           if (_error != null)
             Positioned(
               left: 16,

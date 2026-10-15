@@ -23,21 +23,19 @@ class TaskProgressRepository {
     return NfcLookupResult.fromJson(data);
   }
 
-  /// `patientRegistrationId` is required (2026-08-26) — identifies which
-  /// patient this instance is for, so the server's `PatientScreeningGate`
-  /// can refuse until that patient's screening is confirmed `clear`. See
-  /// `task_progress_screen.dart::_startTask()` for the QR-scan step that
-  /// obtains it.
+  /// `patientRegistrationId` is optional (2026-10-12): a task starts from
+  /// the doctor and task alone. When given, the server's
+  /// `PatientScreeningGate` still requires that patient to be `clear`.
   Future<TaskStartResult> start({
     required int doctorId,
     required int taskId,
-    required int patientRegistrationId,
+    int? patientRegistrationId,
     String? notes,
   }) async {
     final response = await _client.postJson('/task-progress/start', body: {
       'doctor_id': doctorId,
       'task_id': taskId,
-      'patient_registration_id': patientRegistrationId,
+      if (patientRegistrationId != null) 'patient_registration_id': patientRegistrationId,
       if (notes != null && notes.isNotEmpty) 'notes': notes,
     }) as Map<String, dynamic>;
     return TaskStartResult.fromJson(response['data'] as Map<String, dynamic>);
@@ -54,6 +52,13 @@ class TaskProgressRepository {
 
   Future<TaskProgressGroupDetail> fetchGroup(int groupId) async {
     final data = await _client.getJson('/task-progress/groups/$groupId') as Map<String, dynamic>;
+    return TaskProgressGroupDetail.fromJson(data);
+  }
+
+  /// Every doctor of a stage — used while groups are turned off in clinic
+  /// settings (2026-10-13), same matrix as [fetchGroup].
+  Future<TaskProgressGroupDetail> fetchStage(int stageId) async {
+    final data = await _client.getJson('/task-progress/stages/$stageId') as Map<String, dynamic>;
     return TaskProgressGroupDetail.fromJson(data);
   }
 

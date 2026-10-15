@@ -47,6 +47,7 @@ class TaskAssigned extends Notification
 
         return [
             'title' => 'مهمة جديدة',
+            'type' => 'task_assigned',
             'message' => "تم بدء مهمة \"{$task->title}\" لك.",
             'task_instance_id' => $this->instance->id,
             'task_title' => $task->title,

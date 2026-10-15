@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\LinkedRecords;
 use App\Models\AcademicSession;
 use App\Models\Doctor;
 use App\Models\Group;
@@ -128,16 +129,13 @@ class AcademicSessionController extends Controller
             return back()->with('error', 'لا يمكن حذف العام الدراسي النشط. عيّن عاماً آخر كنشط أولاً.');
         }
 
-        $groupsCount = $academicSession->groups()->count();
-        $tasksCount = $academicSession->tasks()->count();
-
-        if ($groupsCount > 0 || $tasksCount > 0) {
-            return back()->with('error', "مرتبط بـ {$groupsCount} مجموعة و {$tasksCount} مهمة — قم بإلغاء تفعيله بدلاً من حذفه.");
+        if ($linked = LinkedRecords::message($academicSession)) {
+            return back()->with('error', $linked);
         }
 
         $academicSession->delete();
 
-        return back()->with('success', 'تم حذف العام الدراسي.');
+        return back()->with('success', 'تمت أرشفة العام الدراسي.');
     }
 
     private function validateSession(Request $request): array

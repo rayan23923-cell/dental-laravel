@@ -8,7 +8,9 @@ use App\Models\Patient;
 use App\Models\TaskInstance;
 use App\Services\CaseSheetAccess;
 use App\Support\AdvancedPeriodontalChartForm;
+use App\Support\CaseSheetDoctor;
 use App\Support\CaseSheetPatientFieldMap;
+use App\Support\CaseSheetReturn;
 use App\Support\CaseSheetSignatures;
 use App\Support\CaseSheetSupervisorFields;
 use Illuminate\Http\RedirectResponse;
@@ -71,7 +73,7 @@ class AdvancedPeriodontalChartController extends Controller
 
         AdvancedPeriodontalChart::create($data);
 
-        return redirect()->route('advanced-periodontal-charts.index')->with('success', 'Advanced periodontal chart created.');
+        return CaseSheetReturn::redirect()->with('success', 'Advanced periodontal chart created.');
     }
 
     public function update(Request $request, AdvancedPeriodontalChart $record): RedirectResponse
@@ -82,14 +84,14 @@ class AdvancedPeriodontalChartController extends Controller
 
         $record->update($data);
 
-        return redirect()->route('advanced-periodontal-charts.index')->with('success', 'Advanced periodontal chart updated.');
+        return CaseSheetReturn::redirect()->with('success', 'Advanced periodontal chart updated.');
     }
 
     public function destroy(AdvancedPeriodontalChart $record): RedirectResponse
     {
         $record->delete();
 
-        return redirect()->route('advanced-periodontal-charts.index')->with('success', 'Advanced periodontal chart deleted.');
+        return CaseSheetReturn::redirect()->with('success', 'Advanced periodontal chart deleted.');
     }
 
     private function form(?AdvancedPeriodontalChart $record, bool $readonly = false, ?int $taskInstanceId = null, ?int $taskId = null, array $prefill = []): Response
@@ -113,6 +115,7 @@ class AdvancedPeriodontalChartController extends Controller
             'supervisorEditableFields' => CaseSheetAccess::isViewOnly() ? CaseSheetSupervisorFields::fieldsFor('advanced-periodontal-charts') : [],
             'supervisorFields' => CaseSheetSupervisorFields::fieldsFor('advanced-periodontal-charts'),
             'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
+            'linkedDoctor' => CaseSheetDoctor::linked($record?->doctor_id, $record?->task_instances_id ?? $taskInstanceId),
             'taskId' => $record?->task_id ?? $taskId,
         ]);
     }

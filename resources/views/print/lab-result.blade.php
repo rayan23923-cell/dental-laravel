@@ -19,11 +19,30 @@
         .lab-slip table { font-size: 19px; }
         .lab-slip th, .lab-slip td { padding: 10px 12px; }
         .lab-slip .muted { font-size: 16px; }
+
+        /* Printed on the desk's 80mm thermal printer: the page is the roll
+           width, the logo heads the slip in black and white, and the faint
+           watermark and coloured fills are dropped since a thermal head
+           turns them into grey noise over the text. */
+        @media print {
+            @page { size: 80mm auto; margin: 2mm; }
+            .watermark { display: none !important; }
+            .letterhead { border-bottom-width: 1px; margin-bottom: 8px; padding-bottom: 6px; }
+            .letterhead img { max-width: 60%; filter: grayscale(100%) contrast(1.2); }
+            .letterhead h1 { font-size: 18px; }
+            .letterhead h2 { font-size: 15px; }
+            .letterhead p, .muted { color: #000 !important; }
+            .lab-slip { max-width: none !important; margin: 0 !important; border: 0 !important; padding: 0 !important; color: #000; }
+            .lab-slip .result { background: #fff !important; color: #000 !important; border: 3px solid #000 !important; }
+            .lab-slip table { font-size: 15px; }
+            .lab-slip th, .lab-slip td { padding: 5px 6px; border-color: #000; background: #fff !important; }
+            .lab-slip .qr { width: 200px !important; height: 200px !important; }
+        }
     </style>
     <div class="lab-slip" style="max-width:420px; margin:24px auto; border:1px solid #9ca3af; border-radius:8px; padding:20px;">
         <h3 style="text-align:center; margin:0 0 12px; font-size:22px;">نتيجة فحص المختبر</h3>
 
-        <div style="text-align:center; font-size:28px; font-weight:700; padding:14px; border-radius:8px; margin-bottom:16px; color:{{ $result['color'] }}; background:{{ $result['bg'] }}; border:2px solid {{ $result['color'] }};">
+        <div class="result" style="text-align:center; font-size:28px; font-weight:700; padding:14px; border-radius:8px; margin-bottom:16px; color:{{ $result['color'] }}; background:{{ $result['bg'] }}; border:2px solid {{ $result['color'] }};">
             {{ $result['label'] }}
         </div>
 
@@ -39,7 +58,12 @@
                     <tr><th>أجور المختبر</th><td>معفى — فحص سابق صالح</td></tr>
                     <tr><th>تاريخ الفحص السابق</th><td dir="ltr" style="text-align:left">{{ \Illuminate\Support\Carbon::parse($registration->screeningReusedFrom->screening_checked_at)->format('Y-m-d') }}</td></tr>
                 @else
-                    <tr><th>أجور المختبر</th><td>{{ $registration->lab_paid ? 'مدفوعة' : 'غير مدفوعة' }}</td></tr>
+                    {{-- The fee is taken when the result is recorded, so this
+                         one slip is also the payment receipt (2026-10-12). --}}
+                    @if ($registration->lab_paid)
+                        <tr><th>أجور المختبر</th><td>{{ number_format((float) $registration->lab_fee_paid) }} {{ $settings->clinic_currency }}</td></tr>
+                        <tr><th>الحالة</th><td><strong>مدفوع</strong></td></tr>
+                    @endif
                 @endif
                 <tr><th>تاريخ الفحص</th><td dir="ltr" style="text-align:left">{{ $registration->screening_checked_at ? \Illuminate\Support\Carbon::parse($registration->screening_checked_at)->format('Y-m-d H:i') : '—' }}</td></tr>
                 <tr><th>الفاحص</th><td>{{ $registration->screeningCheckedBy?->full_name ?? '—' }}</td></tr>
@@ -47,7 +71,7 @@
         </table>
 
         <div style="text-align:center;">
-            <img src="{{ $qrDataUri }}" alt="رمز المريض" style="width:240px; height:240px;">
+            <img src="{{ $qrDataUri }}" alt="رمز المريض" class="qr" style="width:240px; height:240px;">
             <p class="muted" style="margin-top:4px">رمز المريض</p>
         </div>
     </div>

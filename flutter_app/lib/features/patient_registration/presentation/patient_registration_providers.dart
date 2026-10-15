@@ -17,16 +17,19 @@ final servicesProvider = FutureProvider.autoDispose<List<Service>>((ref) {
 /// (search-only) once the list screen needed day/service narrowing too.
 /// A record (not a class) is enough: it gets `==`/`hashCode` for free,
 /// which is what makes this usable as a Riverpod family key.
-typedef PatientRegistrationFilter = ({String? search, int? registerDayId, int? serviceId});
+/// `from`/`to` (yyyy-MM-dd) replaced the register-day filter (2026-10-14,
+/// by request): a date range like the payments list.
+typedef PatientRegistrationFilter = ({String? search, String? from, String? to, int? serviceId});
 
-const _noFilter = (search: null, registerDayId: null, serviceId: null);
+const _noFilter = (search: null, from: null, to: null, serviceId: null);
 
 final patientRegistrationListProvider =
     FutureProvider.autoDispose.family<List<PatientRegistration>, PatientRegistrationFilter?>((ref, filter) async {
   final f = filter ?? _noFilter;
   final page = await ref.watch(patientRegistrationRepositoryProvider).list(
         search: f.search,
-        registerDayId: f.registerDayId,
+        from: f.from,
+        to: f.to,
         serviceId: f.serviceId,
       );
   return page.items;

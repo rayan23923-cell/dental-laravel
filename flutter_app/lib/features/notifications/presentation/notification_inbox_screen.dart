@@ -123,8 +123,13 @@ class _NotificationTile extends ConsumerWidget {
             await ref.read(notificationRepositoryProvider).markRead(notification.id);
             ref.invalidate(notificationsListProvider);
           }
-          if (notification.taskInstanceId != null && context.mounted) {
+          if (!context.mounted) return;
+          // Opens what it is about (2026-10-15, as on the web): the case, or
+          // the start requests (staff) / my tasks (doctor).
+          if (notification.taskInstanceId != null) {
             context.push('/tasks/${notification.taskInstanceId}');
+          } else if (notification.type == 'task_start_request') {
+            context.go(notification.kind == 'new' ? '/admin/task-progress?tab=requests' : '/home');
           }
         },
       ),

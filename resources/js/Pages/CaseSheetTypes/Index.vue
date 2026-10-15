@@ -1,21 +1,34 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import ChatListCard from '@/Components/ChatList/ChatListCard.vue';
+import ChatListRow from '@/Components/ChatList/ChatListRow.vue';
+import ChatChip from '@/Components/ChatList/ChatChip.vue';
+import ChatAction from '@/Components/ChatList/ChatAction.vue';
+import ChatAddButton from '@/Components/ChatList/ChatAddButton.vue';
+import { toneFor } from '@/Components/ChatList/tones';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import Modal from '@/Components/Modal.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
-import { Head, router, useForm, usePage } from '@inertiajs/vue3';
+import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import StructureTabs from '@/Components/StructureTabs.vue';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 defineProps({
     caseSheetTypes: Array,
 });
 
 const page = usePage();
+
+// Chat-list style (2026-10-13, by request): the name in the viewer's
+// language is the row title, the other language sits under it.
+const isAr = () => String(locale.value).startsWith('ar');
+const titleOf = (type) => (isAr() ? type.name_ar : type.name_en) || type.name_ar || type.name_en || type.type_code;
+const subtitleOf = (type) => (isAr() ? type.name_en : type.name_ar) || '';
 
 const showCreate = ref(false);
 const createForm = useForm({ type_code: '', name_ar: '', name_en: '', description: '', is_active: true });
@@ -43,11 +56,6 @@ const submitEdit = () => {
     });
 };
 
-const destroy = (type) => {
-    if (confirm(t('caseSheetTypesAdmin.deleteConfirm', { name: type.name_en }))) {
-        router.delete(route('case-sheet-types.destroy', type.id));
-    }
-};
 </script>
 
 <template>
@@ -55,55 +63,43 @@ const destroy = (type) => {
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('caseSheetTypesAdmin.title') }}</h2>
+            <div class="flex items-center justify-between gap-3">
+                <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('caseSheetTypesAdmin.title') }}</h2>
+                <ChatAddButton :label="t('caseSheetTypesAdmin.addTitle')" @click="showCreate = true" />
+            </div>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-4xl space-y-4 sm:px-6 lg:px-8">
-                <div v-if="page.props.flash?.success" class="rounded-md bg-green-50 p-4 text-sm text-green-700">
+        <div class="py-6 sm:py-10">
+            <div class="mx-auto max-w-2xl space-y-4 px-4 sm:px-6 lg:px-8">
+                <StructureTabs />
+
+                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
                     {{ page.props.flash.success }}
                 </div>
-                <div v-if="page.props.flash?.error" class="rounded-md bg-red-50 p-4 text-sm text-red-700">
+                <div v-if="page.props.flash?.error" class="rounded-xl bg-red-50 p-4 text-sm text-red-700">
                     {{ page.props.flash.error }}
                 </div>
 
-                <div class="flex justify-end">
-                    <PrimaryButton @click="showCreate = true">{{ t('caseSheetTypesAdmin.addType') }}</PrimaryButton>
-                </div>
-
-                <div class="overflow-x-auto bg-white shadow-sm sm:rounded-lg">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('caseSheetTypesAdmin.codeCol') }}</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('caseSheetTypesAdmin.nameArCol') }}</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('caseSheetTypesAdmin.nameEnCol') }}</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('caseSheetTypesAdmin.tasksCol') }}</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.statusCol') }}</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.actionsCol') }}</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200 bg-white">
-                            <tr v-for="type in caseSheetTypes" :key="type.id">
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ type.type_code }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">{{ type.name_ar }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ type.name_en }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ type.tasks_count }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm">
-                                    <span v-if="type.is_active" class="rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">{{ t('caseSheetTypesAdmin.active') }}</span>
-                                    <span v-else class="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">{{ t('caseSheetTypesAdmin.inactive') }}</span>
-                                </td>
-                                <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
-                                    <button @click="openEdit(type)" class="text-indigo-600 hover:text-indigo-900">{{ t('common.edit') }}</button>
-                                    <button @click="destroy(type)" class="ml-4 text-red-600 hover:text-red-900">{{ t('common.delete') }}</button>
-                                </td>
-                            </tr>
-                            <tr v-if="caseSheetTypes.length === 0">
-                                <td colspan="6" class="px-6 py-8 text-center text-sm text-gray-500">{{ t('caseSheetTypesAdmin.emptyList') }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                <ChatListCard :empty="caseSheetTypes.length === 0" :empty-text="t('caseSheetTypesAdmin.emptyList')" empty-icon="description">
+                    <ChatListRow
+                        v-for="type in caseSheetTypes"
+                        :key="type.id"
+                        :title="titleOf(type)"
+                        :subtitle="subtitleOf(type)"
+                        icon="description"
+                        :tone="type.is_active ? toneFor(type.id) : 'gray'"
+                    >
+                        <template #meta>
+                            <ChatChip icon="tag" tone="gray"><span dir="ltr">{{ type.type_code }}</span></ChatChip>
+                            <ChatChip icon="assignment" tone="indigo">{{ type.tasks_count ?? 0 }} {{ t('caseSheetTypesAdmin.tasksCol') }}</ChatChip>
+                            <ChatChip v-if="type.is_active" icon="check_circle" tone="emerald">{{ t('caseSheetTypesAdmin.active') }}</ChatChip>
+                            <ChatChip v-else icon="block" tone="gray">{{ t('caseSheetTypesAdmin.inactive') }}</ChatChip>
+                        </template>
+                        <template #actions>
+                            <ChatAction icon="edit" :label="t('common.edit')" @click="openEdit(type)" />
+                        </template>
+                    </ChatListRow>
+                </ChatListCard>
             </div>
         </div>
 
