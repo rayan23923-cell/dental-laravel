@@ -62,9 +62,10 @@ jobs:
           php-version: ${{ env.PHP_MINOR }}
           extensions: gd, intl, zip, mbstring, pdo_mysql, sodium, fileinfo
           tools: composer
-      # No --prefer-dist: with it Composer won't fall back to a git clone when
-      # GitHub's zip download fails (2026-10-15: codeload 404s on ziggy).
-      - run: composer install --no-dev --optimize-autoloader --no-interaction
+      # --prefer-install=auto overrides composer.json's preferred-install=dist,
+      # which stops Composer from falling back to a git clone when GitHub's zip
+      # download fails (2026-10-15: codeload keeps 404ing the ziggy zip).
+      - run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-install=auto
 
       - uses: actions/setup-node@v4
         with:
