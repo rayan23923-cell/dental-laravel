@@ -94,6 +94,10 @@ const confirmPaper = (slot) => {
 
 // Photos of the paper case sheet (2026-10-13), e.g. taken with this phone.
 const photosSlot = ref(null);
+const photosChanged = (slot, count, list) => {
+    slot.attachments_count = count;
+    if (list) slot.noted_attachments_count = list.filter((p) => p.note).length;
+};
 
 // "رمز QR" (2026-08-30) — mirrors the Flutter app's "مهامي" screen: every
 // slot shows a code, even an unstarted one, since scanning it is how a
@@ -268,13 +272,32 @@ const openQr = (task, slot) => {
                                      comment for why this never starts the task
                                      itself (still requires the normal QR-scan/
                                      screening-gated flow). -->
-                                <div class="mt-2 grid grid-cols-2 gap-1">
+                                <div class="mt-2 grid grid-cols-3 gap-1">
                                     <Link
                                         :href="slot.instance_id ? route('doctor.case-sheet', slot.instance_id) : route('doctor.case-sheet.for-task', task.id)"
                                         class="block rounded bg-indigo-600 px-2 py-1 text-center text-xs font-medium text-white hover:bg-indigo-700"
                                     >
                                         <Icon name="description" class="ml-1" />{{ t('tasks.openForm') }}
                                     </Link>
+                                    <!-- Photos next to the form (2026-10-15, by request);
+                                         the supervisor previews them and writes notes. -->
+                                    <button
+                                        type="button"
+                                        :disabled="!slot.instance_id"
+                                        :title="slot.instance_id ? '' : t('paperPhotos.needsStart')"
+                                        @click="photosSlot = { task, slot }"
+                                        class="relative block rounded px-2 py-1 text-center text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50"
+                                        :class="slot.attachments_count ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-sky-600 text-white hover:bg-sky-700'"
+                                    >
+                                        <Icon name="add_a_photo" class="ml-1" />{{ t('paperPhotos.uploadShort') }}<template v-if="slot.attachments_count"> ({{ slot.attachments_count }})</template>
+                                        <span
+                                            v-if="slot.noted_attachments_count"
+                                            class="absolute -left-1 -top-2 rounded-full bg-amber-500 px-1.5 text-[10px] leading-4 text-white shadow"
+                                            :title="t('paperPhotos.notesCount', { count: slot.noted_attachments_count })"
+                                        >
+                                            <Icon name="sticky_note_2" size="text-[11px]" />{{ slot.noted_attachments_count }}
+                                        </span>
+                                    </button>
                                     <button
                                         type="button"
                                         @click="openQr(task, slot)"
@@ -314,15 +337,6 @@ const openQr = (task, slot) => {
                                 >
                                     <Icon name="edit_note" class="ml-1" />{{ t('tasks.confirmPaper') }}
                                 </button>
-                                <button
-                                    v-if="slot.instance_id"
-                                    type="button"
-                                    @click="photosSlot = { task, slot }"
-                                    class="mt-1 block w-full rounded px-2 py-1 text-center text-xs font-medium"
-                                    :class="slot.attachments_count ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
-                                >
-                                    <Icon name="photo_library" class="ml-1" />{{ t('paperPhotos.button', { count: slot.attachments_count ?? 0 }) }}
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -336,7 +350,7 @@ const openQr = (task, slot) => {
             <div v-if="photosSlot" class="p-6">
                 <h3 class="text-lg font-medium text-gray-900"><Icon name="photo_library" class="ml-1" />{{ t('paperPhotos.title') }}</h3>
                 <p class="mt-1 text-sm text-gray-500">{{ photosSlot.task.title }}</p>
-                <PaperPhotos class="mt-4" mode="doctor" :instance-id="photosSlot.slot.instance_id" @changed="(n) => (photosSlot.slot.attachments_count = n)" />
+                <PaperPhotos class="mt-4" mode="doctor" :instance-id="photosSlot.slot.instance_id" @changed="(n, list) => photosChanged(photosSlot.slot, n, list)" />
                 <div class="mt-6 flex justify-end">
                     <SecondaryButton @click="photosSlot = null">{{ t('common.close') }}</SecondaryButton>
                 </div>

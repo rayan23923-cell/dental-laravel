@@ -8,6 +8,7 @@ use App\Models\Patient;
 use App\Models\TaskInstance;
 use App\Services\CaseSheetAccess;
 use App\Support\AdvancedPeriodontalChartForm;
+use App\Support\CaseSheetDoctor;
 use App\Support\CaseSheetPatientFieldMap;
 use App\Support\CaseSheetReturn;
 use App\Support\CaseSheetSignatures;
@@ -114,6 +115,7 @@ class AdvancedPeriodontalChartController extends Controller
             'supervisorEditableFields' => CaseSheetAccess::isViewOnly() ? CaseSheetSupervisorFields::fieldsFor('advanced-periodontal-charts') : [],
             'supervisorFields' => CaseSheetSupervisorFields::fieldsFor('advanced-periodontal-charts'),
             'taskInstanceId' => $record?->task_instances_id ?? $taskInstanceId,
+            'linkedDoctor' => CaseSheetDoctor::linked($record?->doctor_id, $record?->task_instances_id ?? $taskInstanceId),
             'taskId' => $record?->task_id ?? $taskId,
         ]);
     }

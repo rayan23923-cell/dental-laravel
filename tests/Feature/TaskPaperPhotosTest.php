@@ -116,4 +116,49 @@ class TaskPaperPhotosTest extends TestCase
         $this->getJson("/api/v1/task-progress/instances/{$instance->id}/attachments")->assertForbidden();
         $this->getJson('/api/v1/my-task-progress')->assertOk();
     }
+
+    public function test_the_supervisor_notes_a_doctors_photo_and_the_doctor_sees_it(): void
+    {
+        Storage::fake('public');
+        $instance = $this->startedCase();
+        $doctor = $instance->doctor;
+        $admin = User::factory()->create(['role' => 'super_admin', 'full_name' => 'د. المشرف']);
+
+        $id = $this->actingAs($doctor, 'doctor')
+            ->postJson("/doctor/task-instances/{$instance->id}/attachments", ['photo' => UploadedFile::fake()->image('x.jpg')])
+            ->assertCreated()->assertJsonPath('data.0.by_doctor', true)->json('data.0.id');
+
+        $this->actingAs($admin, 'web')
+            ->putJson("/task-progress/attachments/{$id}/note", ['note' => '  الحشوة غير مكتملة من الحافة  '])
+            ->assertOk()
+            ->assertJsonPath('data.0.note', 'الحشوة غير مكتملة من الحافة')
+            ->assertJsonPath('data.0.note_by', 'د. المشرف');
+        $this->assertDatabaseHas('notifications', ['notifiable_id' => $doctor->id, 'type' => \App\Notifications\PhotoNoteAdded::class]);
+
+        $this->actingAs($doctor, 'doctor')
+            ->getJson("/doctor/task-instances/{$instance->id}/attachments")
+            ->assertJsonPath('data.0.note', 'الحشوة غير مكتملة من الحافة');
+
+        // The app's API, and clearing the note.
+        Sanctum::actingAs($admin);
+        $this->putJson("/api/v1/task-progress/attachments/{$id}/note", ['note' => ''])
+            ->assertOk()->assertJsonPath('data.0.note', null)->assertJsonPath('data.0.note_at', null);
+
+        // The doctor can't write notes.
+        Sanctum::actingAs($doctor);
+        $this->putJson("/api/v1/task-progress/attachments/{$id}/note", ['note' => 'x'])->assertForbidden();
+    }
+
+    public function test_a_sheet_opened_from_a_task_case_shows_that_cases_doctor(): void
+    {
+        $instance = $this->startedCase();
+        $admin = User::factory()->create(['role' => 'super_admin']);
+
+        $this->actingAs($admin)
+            ->get("/prosthodontics-records/create?task_instances_id={$instance->id}")
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('linkedDoctor.id', $instance->doctor_id)
+                ->where('linkedDoctor.name', 'د. علي'));
+    }
 }

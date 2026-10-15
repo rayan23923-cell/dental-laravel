@@ -104,7 +104,7 @@ class TaskProgressGroupSummary
         $instances = TaskInstance::whereIn('doctor_id', $doctors->pluck('id'))
             ->whereIn('task_id', $tasks->pluck('id'))
             ->with('assignedBy:id,full_name')
-            ->withCount('attachments')
+            ->withCount(['attachments', 'attachments as noted_attachments_count' => fn ($q) => $q->whereNotNull('note')])
             ->orderByDesc('status')
             ->orderByDesc('assigned_date')
             ->get();
@@ -217,6 +217,8 @@ class TaskProgressGroupSummary
                     'paper_case_sheet_confirmed_at' => $instance?->paper_case_sheet_confirmed_at,
                     // Photos of the paper case sheet (2026-10-13).
                     'attachments_count' => $instance?->attachments_count ?? 0,
+                    // Photos the supervisor wrote a note on (2026-10-15).
+                    'noted_attachments_count' => $instance?->noted_attachments_count ?? 0,
                     // Surfaces a "ready to mark complete" hint next to the
                     // existing complete button (2026-08-30, by request) —
                     // never completes anything itself, see

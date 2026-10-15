@@ -70,6 +70,9 @@ const props = defineProps({
     // CaseSheetController) — carried through so the saved sheet stays tied
     // to that task, as in the original.
     taskInstanceId: { type: [Number, String], default: null },
+    // The sheet's doctor, or the task case's doctor it was opened from
+    // (2026-10-15): shown as a name instead of the picker.
+    linkedDoctor: { type: Object, default: null },
     // Operative only: the task is a root filling, so Endodontics starts on.
     rootFilling: Boolean,
     // The optional pre-instance draft's linkage (2026-08-28) — mutually
@@ -265,7 +268,7 @@ const parseGroup = (raw) => {
 
 // --- Scalar fields ---
 const initial = {
-    doctor_id: props.record?.doctor_id ?? '',
+    doctor_id: props.record?.doctor_id ?? props.linkedDoctor?.id ?? '',
     task_instances_id: props.record?.task_instances_id ?? props.taskInstanceId ?? null,
     task_id: props.record?.task_id ?? props.taskId ?? null,
 };
@@ -629,7 +632,12 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                          a picker would only suggest otherwise. -->
                     <div v-if="!hideDoctor && !isDoctor" class="rounded-lg bg-white p-6 shadow-sm">
                         <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">{{ t('specialtyForms.doctorLabel') }}</h3>
-                        <div>
+                        <!-- Opened from a task case, or an existing sheet: its doctor is
+                             fixed, so show the name; only a new unlinked sheet picks one. -->
+                        <div v-if="linkedDoctor && (record?.id || taskInstanceId)" class="flex items-center gap-2 text-base font-medium text-gray-900">
+                            <Icon name="person" class="text-indigo-600" />{{ linkedDoctor.name }}
+                        </div>
+                        <div v-else>
                             <InputLabel for="doctor_id" :value="`${t('specialtyForms.doctorLabel')} *`" />
                             <select id="doctor_id" v-model="form.doctor_id" :disabled="readonly" class="mt-1 block w-full max-w-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
                                 <option value="" disabled>{{ t('specialtyForms.selectDoctorPlaceholder') }}</option>

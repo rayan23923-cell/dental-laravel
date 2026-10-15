@@ -367,6 +367,8 @@ Route::name('api.')->prefix('v1')->group(function () {
             ->middleware('permission:task_progress,view')->name('task-attachments.index');
         Route::post('/task-progress/instances/{taskInstance}/attachments', [TaskInstanceAttachmentController::class, 'store'])
             ->middleware('permission:task_progress,view')->name('task-attachments.store');
+        Route::put('/task-progress/attachments/{attachment}/note', [TaskInstanceAttachmentController::class, 'note'])
+            ->middleware('permission:task_progress,view')->name('task-attachments.note');
         Route::delete('/task-progress/attachments/{attachment}', [TaskInstanceAttachmentController::class, 'destroy'])
             ->middleware('permission:task_progress,view')->name('task-attachments.destroy');
         Route::put('/task-progress/instances/{taskInstance}/complete', [TaskProgressController::class, 'complete'])

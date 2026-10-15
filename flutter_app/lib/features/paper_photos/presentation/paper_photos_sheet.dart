@@ -84,6 +84,16 @@ class _PaperPhotosSheetState extends ConsumerState<_PaperPhotosSheet> {
     }
   }
 
+  /// Large preview with the supervisor's note: staff edit it, the doctor
+  /// reads it (2026-10-15, as on the web).
+  Future<void> _view(PaperPhoto photo) async {
+    final updated = await showDialog<List<PaperPhoto>>(
+      context: context,
+      builder: (_) => _PhotoDialog(photo: photo, canEdit: !widget.doctor, repository: _repository),
+    );
+    if (updated != null && mounted) setState(() => _photos = updated);
+  }
+
   Future<void> _delete(PaperPhoto photo) async {
     final t = ref.read(translationsProvider);
     final ok = await showDialog<bool>(
@@ -169,15 +179,29 @@ class _PaperPhotosSheetState extends ConsumerState<_PaperPhotosSheet> {
                           fit: StackFit.expand,
                           children: [
                             GestureDetector(
-                              onTap: () => showDialog<void>(
-                                context: context,
-                                builder: (_) => Dialog(child: InteractiveViewer(child: Image.network(photo.url))),
-                              ),
+                              onTap: () => _view(photo),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(8),
                                 child: Image.network(photo.url, fit: BoxFit.cover),
                               ),
                             ),
+                            if (photo.note != null)
+                              Positioned(
+                                bottom: 4,
+                                right: 4,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(color: Colors.amber.shade700, borderRadius: BorderRadius.circular(999)),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.sticky_note_2_outlined, size: 12, color: Colors.white),
+                                      const SizedBox(width: 2),
+                                      Text(t['paperPhotos.hasNote']!, style: const TextStyle(fontSize: 11, color: Colors.white)),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             Positioned(
                               top: 2,
                               left: 2,
@@ -197,6 +221,112 @@ class _PaperPhotosSheetState extends ConsumerState<_PaperPhotosSheet> {
                 ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PhotoDialog extends ConsumerStatefulWidget {
+  const _PhotoDialog({required this.photo, required this.canEdit, required this.repository});
+
+  final PaperPhoto photo;
+  final bool canEdit;
+  final PaperPhotosRepository repository;
+
+  @override
+  ConsumerState<_PhotoDialog> createState() => _PhotoDialogState();
+}
+
+class _PhotoDialogState extends ConsumerState<_PhotoDialog> {
+  late final TextEditingController _note = TextEditingController(text: widget.photo.note ?? '');
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _note.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final t = ref.read(translationsProvider);
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final photos = await widget.repository.saveNote(photoId: widget.photo.id, note: _note.text);
+      if (mounted) Navigator.pop(context, photos);
+    } catch (e) {
+      if (mounted) setState(() => _error = e is ApiException ? e.userMessage : t['paperPhotos.failed']!);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ref.watch(translationsProvider);
+    final photo = widget.photo;
+    final noteAt = DateTime.tryParse(photo.noteAt ?? '')?.toLocal();
+
+    return Dialog(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.55),
+              child: InteractiveViewer(child: Image.network(photo.url, fit: BoxFit.contain)),
+            ),
+            const SizedBox(height: 12),
+            Text(t['paperPhotos.note']!, style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 4),
+            if (widget.canEdit)
+              TextField(
+                controller: _note,
+                minLines: 2,
+                maxLines: 5,
+                maxLength: 2000,
+                decoration: InputDecoration(border: const OutlineInputBorder(), hintText: t['paperPhotos.notePlaceholder']),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+                child: Text(photo.note ?? t['paperPhotos.noNote']!),
+              ),
+            if (noteAt != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  '${photo.noteBy ?? '-'} - ${noteAt.year}/${noteAt.month}/${noteAt.day} ${noteAt.hour}:${noteAt.minute.toString().padLeft(2, '0')}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(onPressed: () => Navigator.pop(context), child: Text(t['paperPhotos.close']!)),
+                if (widget.canEdit) ...[
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: _saving ? null : _save,
+                    child: Text(_saving ? t['paperPhotos.saving']! : t['paperPhotos.saveNote']!),
+                  ),
+                ],
+              ],
+            ),
+          ],
         ),
       ),
     );

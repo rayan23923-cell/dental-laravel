@@ -1142,7 +1142,17 @@
         "failed": "تعذّرت العملية. حاول مرة أخرى.",
         "confirmDelete": "حذف هذه الصورة؟",
         "defaultLabel": "صورة النموذج الورقي",
-        "attachFromScan": "إرفاق صورة الورقي"
+        "attachFromScan": "إرفاق صورة الورقي",
+        "hasNote": "ملاحظة",
+        "note": "ملاحظة المشرف",
+        "notePlaceholder": "اكتب ملاحظتك على هذه الصورة...",
+        "noNote": "لا توجد ملاحظة بعد.",
+        "noteBy": "{name} - {at}",
+        "saveNote": "حفظ الملاحظة",
+        "saving": "جارٍ الحفظ...",
+        "uploadShort": "رفع صور",
+        "needsStart": "ابدأ المهمة أولاً حتى ترفع صوراً",
+        "notesCount": "{count} ملاحظة"
     },
     "chatList": {
         "addEducationType": "إضافة نوع تعليم",

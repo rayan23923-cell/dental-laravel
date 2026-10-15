@@ -77,6 +77,7 @@ class TaskSlotCard {
     this.paperCaseSheetConfirmedAt,
     this.allSigned = false,
     this.attachmentsCount = 0,
+    this.notedAttachmentsCount = 0,
   });
 
   factory TaskSlotCard.fromJson(Map<String, dynamic> json) => TaskSlotCard(
@@ -98,6 +99,7 @@ class TaskSlotCard {
         paperCaseSheetConfirmedAt: json['paper_case_sheet_confirmed_at'] as String?,
         allSigned: json['all_signed'] as bool? ?? false,
         attachmentsCount: json['attachments_count'] as int? ?? 0,
+        notedAttachmentsCount: json['noted_attachments_count'] as int? ?? 0,
       );
 
   final int slot;
@@ -133,6 +135,9 @@ class TaskSlotCard {
 
   /// Photos of the paper case sheet (2026-10-13) — see `showPaperPhotosSheet`.
   final int attachmentsCount;
+
+  /// Photos the supervisor wrote a note on (2026-10-15).
+  final int notedAttachmentsCount;
 }
 
 class TaskProgressDoctorRow {
