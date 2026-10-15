@@ -117,11 +117,25 @@ watch(
 );
 watch(() => form.stage_id, applyStage);
 
+// Switching a row's points off keeps what was entered (2026-10-15, by
+// request): the setup is set aside on the row and comes back when points
+// are switched on again, instead of restarting blank.
+const toggleScoring = (row, on) => {
+    if (on) {
+        row.scoring = row.savedScoring ?? { measure: 'count', min_points: null, weight: null, options: [], modifiers: [] };
+        delete row.savedScoring;
+    } else {
+        row.savedScoring = row.scoring;
+        row.scoring = null;
+    }
+};
+
 const submit = () => {
     form.transform((data) => {
         if (!rows.value) return data;
         const { title, required_count, ...rest } = data;
-        return { ...rest, rows: rows.value, pass_percent: passPercent.value };
+        const sent = rows.value.map(({ savedScoring, ...row }) => row);
+        return { ...rest, rows: sent, pass_percent: passPercent.value };
     }).post(route('tasks.store'));
 };
 </script>
@@ -227,7 +241,7 @@ const submit = () => {
                                             type="checkbox"
                                             :checked="!!row.scoring"
                                             class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                            @change="row.scoring = $event.target.checked ? { measure: 'count', min_points: null, weight: null, options: [], modifiers: [] } : null"
+                                            @change="toggleScoring(row, $event.target.checked)"
                                         />
                                         {{ t('taskScoring.enablePoints') }}
                                     </label>
