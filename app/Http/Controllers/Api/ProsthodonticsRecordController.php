@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ProsthodonticsRecordResource;
 use App\Models\ProsthodonticsRecord;
+use App\Support\CaseSheetGrades;
 use App\Support\CaseSheetSignatures;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -116,6 +117,14 @@ class ProsthodonticsRecordController extends Controller
             'stage_finaleval_grade' => ['nullable', 'string', 'max:255'],
             'tooth_chart_data' => ['nullable', 'string'],
         ];
+
+        // Grades are numbers only (TaskScoring reads them with is_numeric);
+        // Arabic digits and "9/10" are normalized before validating.
+        $gradeKeys = array_values(array_filter(array_keys($rules), fn ($k) => str_ends_with($k, '_grade')));
+        CaseSheetGrades::normalize($request, $gradeKeys);
+        foreach ($gradeKeys as $key) {
+            $rules[$key] = CaseSheetGrades::RULES;
+        }
 
         if ($partial) {
             // Preserve `nullable` instead of overwriting it — see the full

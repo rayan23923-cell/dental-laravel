@@ -26,6 +26,7 @@ import QrScanner from '@/Components/QrScanner.vue';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, reactive, ref } from 'vue';
 import Icon from '@/Components/Icon.vue';
+import { toGrade } from '@/numericGrade';
 import TaskWorkPanel from '@/Components/Tasks/TaskWorkPanel.vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
@@ -359,7 +360,7 @@ props.stages.forEach((stage) => {
     ['signature', 'date', 'grade'].forEach((part) => {
         const key = `stage_${stage.key}_${part}`;
         const value = props.record?.[key] ?? '';
-        initial[key] = part === 'date' ? toDateInput(value) : value;
+        initial[key] = part === 'date' ? toDateInput(value) : part === 'grade' ? toGrade(value) : value;
     });
 });
 
@@ -926,7 +927,19 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                                             <TextInput v-model="form[`stage_${stage.key}_date`]" type="date" :disabled="stageFieldDisabled(stage.key, 'date')" class="block w-full text-sm" />
                                         </td>
                                         <td class="px-4 py-2">
-                                            <TextInput v-model="form[`stage_${stage.key}_grade`]" type="text" :disabled="stageFieldDisabled(stage.key, 'grade')" placeholder="e.g. 9/10" class="block w-full text-sm" />
+                                            <!-- Numbers only (2026-10-15): the input's own value is rewritten
+                                                 too, so a typed letter never shows. -->
+                                            <input
+                                                :value="form[`stage_${stage.key}_grade`]"
+                                                type="text"
+                                                inputmode="decimal"
+                                                dir="ltr"
+                                                :disabled="stageFieldDisabled(stage.key, 'grade')"
+                                                placeholder="9"
+                                                class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                @input="(e) => (form[`stage_${stage.key}_grade`] = e.target.value = toGrade(e.target.value))"
+                                            />
+                                            <InputError class="mt-1" :message="form.errors[`stage_${stage.key}_grade`]" />
                                         </td>
                                     </tr>
                                 </tbody>

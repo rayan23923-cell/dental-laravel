@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 
@@ -595,7 +596,9 @@ class _StageRowState extends State<_StageRow> {
                   controller: widget.state._controllers['stage_${key}_grade'],
                   enabled: !widget.state.stageFieldDisabled(key, 'grade'),
                   style: const TextStyle(fontSize: 13),
-                  decoration: InputDecoration(labelText: widget.state.t['caseSheetForm.gradeLabel'], hintText: '9/10', isDense: true, border: const OutlineInputBorder()),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: const [NumericGradeFormatter()],
+                  decoration: InputDecoration(labelText: widget.state.t['caseSheetForm.gradeLabel'], hintText: '9', isDense: true, border: const OutlineInputBorder()),
                   onChanged: (v) => setState(() => widget.state._values['stage_${key}_grade'] = v),
                 ),
               ),
@@ -956,6 +959,7 @@ class _TextField extends StatelessWidget {
               : field.type == 'decimal'
                   ? const TextInputType.numberWithOptions(decimal: true)
                   : TextInputType.text,
+          inputFormatters: field.type == 'number' || field.type == 'decimal' ? [NumericGradeFormatter(decimal: field.type == 'decimal')] : null,
           decoration: InputDecoration(
             border: const OutlineInputBorder(),
             isDense: true,
@@ -1528,5 +1532,39 @@ class _UnsupportedField extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+/// Grades (and number/decimal fields) take digits only: Arabic-Indic and
+/// Persian digits become Western ones, `٫`/`,` become `.`, and anything
+/// else is dropped — mirrors resources/js/numericGrade.js on the web.
+class NumericGradeFormatter extends TextInputFormatter {
+  const NumericGradeFormatter({this.decimal = true});
+
+  final bool decimal;
+
+  static String clean(String input, {bool decimal = true}) {
+    final buf = StringBuffer();
+    var seenDot = false;
+    for (final r in input.runes) {
+      if (r >= 0x0660 && r <= 0x0669) {
+        buf.writeCharCode(0x30 + r - 0x0660);
+      } else if (r >= 0x06F0 && r <= 0x06F9) {
+        buf.writeCharCode(0x30 + r - 0x06F0);
+      } else if (r >= 0x30 && r <= 0x39) {
+        buf.writeCharCode(r);
+      } else if (decimal && !seenDot && (r == 0x2E || r == 0x066B || r == 0x2C)) {
+        buf.write('.');
+        seenDot = true;
+      }
+    }
+    return buf.toString();
+  }
+
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    final text = clean(newValue.text, decimal: decimal);
+    if (text == newValue.text) return newValue;
+    return TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length));
   }
 }

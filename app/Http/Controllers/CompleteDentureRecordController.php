@@ -7,6 +7,7 @@ use App\Models\Doctor;
 use App\Models\TaskInstance;
 use App\Services\CaseSheetAccess;
 use App\Support\CaseSheetDoctor;
+use App\Support\CaseSheetGrades;
 use App\Support\CaseSheetPatientFieldMap;
 use App\Support\CaseSheetReturn;
 use App\Support\CaseSheetSignatures;
@@ -135,7 +136,12 @@ class CompleteDentureRecordController extends Controller
         foreach (CompleteDentureForm::stages() as $stage) {
             $rules["stage_{$stage['key']}_signature"] = ['nullable', 'string'];
             $rules["stage_{$stage['key']}_date"] = ['nullable', 'date'];
-            $rules["stage_{$stage['key']}_grade"] = ['nullable', 'string', 'max:50'];
+            $rules["stage_{$stage['key']}_grade"] = CaseSheetGrades::RULES;
+        }
+
+        CaseSheetGrades::normalize($request, [...collect(CompleteDentureForm::stages())->map(fn ($s) => "stage_{$s['key']}_grade")->all()]);
+        if (isset($rules['diagnosis_grade'])) {
+            $rules['diagnosis_grade'] = CaseSheetGrades::RULES;
         }
 
         return $request->validate($rules);

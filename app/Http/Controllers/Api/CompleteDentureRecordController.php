@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CompleteDentureRecordResource;
 use App\Models\CompleteDentureRecord;
+use App\Support\CaseSheetGrades;
 use App\Support\CaseSheetSignatures;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -133,6 +134,14 @@ class CompleteDentureRecordController extends Controller
             'stage_finaleval_date' => ['nullable', 'date'],
             'stage_finaleval_grade' => ['nullable', 'string', 'max:255'],
         ];
+
+        // Grades are numbers only (TaskScoring reads them with is_numeric);
+        // Arabic digits and "9/10" are normalized before validating.
+        $gradeKeys = array_values(array_filter(array_keys($rules), fn ($k) => str_ends_with($k, '_grade')));
+        CaseSheetGrades::normalize($request, $gradeKeys);
+        foreach ($gradeKeys as $key) {
+            $rules[$key] = CaseSheetGrades::RULES;
+        }
 
         if ($partial) {
             // Real bug (found via a live Flutter PUT that failed validation
