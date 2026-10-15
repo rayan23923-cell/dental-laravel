@@ -21,6 +21,10 @@ const page = usePage();
 const isDoctor = computed(() => !!page.props.auth?.doctor);
 const Layout = computed(() => (isDoctor.value ? DoctorLayout : AuthenticatedLayout));
 
+// The case sheets themselves have no delete route any more (2026-10-15);
+// satellite records like surgery images still do.
+const canDelete = computed(() => route().has(`${props.resource}.destroy`));
+
 const destroy = (record) => {
     if (confirm(t('specialtyForms.deleteConfirmTemplate', { title: props.title.toLowerCase() }))) {
         router.delete(route(`${props.resource}.destroy`, record.id));
@@ -73,7 +77,7 @@ const recordLabel = (record) => record[props.titleField] || `#${record.id}`;
                                     <Link :href="route(`${resource}.edit`, record.id)" class="text-indigo-600 hover:text-indigo-900">
                                         {{ isDoctor ? t('specialtyForms.editAction') : t('specialtyForms.viewAction') }}
                                     </Link>
-                                    <button v-if="isDoctor" @click="destroy(record)" class="ml-4 text-red-600 hover:text-red-900">{{ t('specialtyForms.deleteAction') }}</button>
+                                    <button v-if="isDoctor && canDelete" @click="destroy(record)" class="ml-4 text-red-600 hover:text-red-900">{{ t('specialtyForms.deleteAction') }}</button>
                                 </td>
                             </tr>
                             <tr v-if="records.data.length === 0">
