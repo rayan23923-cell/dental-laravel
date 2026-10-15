@@ -352,7 +352,7 @@ class TaskScoring
      *
      * @return array{0: array, 1: float}|null [items, total], null when nothing was sent
      */
-    public static function resolveWorkItems(Task $task, ?array $items): ?array
+    public static function resolveWorkItems(Task $task, ?array $items, bool $requireChecklist = true): ?array
     {
         $checklist = $task->scoring['checklist'] ?? [];
         if ($items === null && ! $checklist) {
@@ -366,11 +366,11 @@ class TaskScoring
         // Every checklist part must be ticked to complete the case.
         $ticked = collect($items)->pluck('check')->filter(fn ($c) => $c !== null)->map(fn ($c) => (int) $c)->unique();
         $missing = collect($checklist)->keys()->diff($ticked);
-        if ($missing->isNotEmpty()) {
+        if ($requireChecklist && $missing->isNotEmpty()) {
             throw ValidationException::withMessages(['work_items' => 'أكمل كل البنود قبل الإنجاز: '.collect($checklist)->only($missing->all())->pluck('label')->implode('، ')]);
         }
 
-        $resolved = collect($checklist)->map(fn ($c) => ['option' => $c['label'], 'qty' => 1, 'modifiers' => [], 'points' => 0, 'check' => true])->values()->all();
+        $resolved = collect($checklist)->only($ticked->all())->map(fn ($c) => ['option' => $c['label'], 'qty' => 1, 'modifiers' => [], 'points' => 0, 'check' => true])->values()->all();
         $total = 0.0;
         foreach (array_values($items) as $i => $item) {
             if (($item['check'] ?? null) !== null) {

@@ -1240,6 +1240,11 @@
         "checklistDone": "Completed parts",
         "gradeItems": "Item grades",
         "rootFilling": "Root filling",
-        "endoHint": "Root filling: the operative case sheet opens with Endodontics on"
+        "endoHint": "Root filling: the operative case sheet opens with Endodontics on",
+        "sheetPanel": "Task points",
+        "savePoints": "Save points",
+        "saved": "Saved — the task shows the same points.",
+        "saveFailed": "Couldn't save the points.",
+        "supervisorOnly": "The supervisor enters the points."
     }
 }

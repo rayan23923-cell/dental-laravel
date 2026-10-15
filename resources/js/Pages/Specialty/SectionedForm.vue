@@ -26,6 +26,7 @@ import QrScanner from '@/Components/QrScanner.vue';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, reactive, ref } from 'vue';
 import Icon from '@/Components/Icon.vue';
+import TaskWorkPanel from '@/Components/Tasks/TaskWorkPanel.vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
 
@@ -609,6 +610,9 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                 <div v-if="form.task_instances_id" class="rounded-md bg-sky-50 p-3 text-sm text-sky-800">
                     <Icon name="assignment" class="ml-1" />{{ t('specialtyForms.linkedTaskPrefix') }} <strong>{{ form.task_instances_id }}</strong> {{ t('specialtyForms.linkedTaskSuffix') }}
                 </div>
+
+                <!-- The linked task's points, the same ones task progress records (2026-10-15). -->
+                <TaskWorkPanel v-if="taskInstanceId" :task-instance-id="taskInstanceId" />
 
                 <!-- Optional pre-instance draft (2026-08-28) — see
                      CaseSheetController::openForTask()'s doc comment: not

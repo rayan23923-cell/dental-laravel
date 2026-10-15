@@ -1,0 +1,33 @@
+/**
+ * Stored work items keep labels; maps them back to a task's option,
+ * multiplier and checklist indexes for WorkItemsInput (2026-10-14). A
+ * graded task lists every item once; a plain one starts with one row.
+ * Shared by the task-progress dialogs and the case sheets' points panel.
+ */
+export function workItemsToForm(scoring, workItems) {
+    const s = scoring ?? {};
+    const items = (workItems ?? [])
+        .map((w) =>
+            w.check
+                ? { check: (s.checklist ?? []).findIndex((c) => c.label === w.option) }
+                : {
+                      option: (s.options ?? []).findIndex((o) => o.label === w.option),
+                      qty: w.qty ?? 1,
+                      grade: w.grade ?? null,
+                      modifiers: (w.modifiers ?? []).map((m) => (s.modifiers ?? []).findIndex((x) => x.label === m)).filter((i) => i >= 0),
+                  },
+        )
+        .filter((w) => (w.check ?? w.option) >= 0);
+    if (s.graded) {
+        (s.options ?? []).forEach((o, i) => {
+            if (!items.some((w) => w.option === i)) items.push({ option: i, qty: 1, grade: null, modifiers: [] });
+        });
+        items.sort((a, b) => (a.option ?? -1) - (b.option ?? -1));
+    } else if (s.options?.length && !items.some((w) => w.check === undefined)) {
+        items.push({ option: 0, qty: 1, modifiers: [] });
+    }
+    return items;
+}
+
+/** Whether a task has work to record on a case (kinds of work or a checklist). */
+export const hasWork = (scoring) => !!scoring?.options?.length || !!scoring?.checklist?.length;

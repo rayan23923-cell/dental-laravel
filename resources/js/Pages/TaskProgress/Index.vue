@@ -17,6 +17,7 @@ import axios from 'axios';
 import Icon from '@/Components/Icon.vue';
 import ScoreSummary from '@/Components/Tasks/ScoreSummary.vue';
 import WorkItemsInput from '@/Components/Tasks/WorkItemsInput.vue';
+import { workItemsToForm } from '@/Components/Tasks/workItems.js';
 import StructureTabs from '@/Components/StructureTabs.vue';
 import TaskStartRequestsPanel from '@/Components/TaskStartRequestsPanel.vue';
 
@@ -224,32 +225,8 @@ const completeForm = useForm({ grade: '', notes: '', work_items: [] });
 const completeTarget = ref(null);
 // Kinds of work with points, graded items and checklists (2026-10-14); see App\Support\TaskScoring.
 const hasOptions = (card) => !!card?.task_scoring?.options?.length || !!card?.task_scoring?.checklist?.length;
-// Stored items keep labels; map them back to the task's option/multiplier/checklist indexes.
-const itemsFor = (card) => {
-    const s = card.task_scoring;
-    const items = (card.work_items ?? [])
-        .map((w) =>
-            w.check
-                ? { check: (s.checklist ?? []).findIndex((c) => c.label === w.option) }
-                : {
-                      option: (s.options ?? []).findIndex((o) => o.label === w.option),
-                      qty: w.qty ?? 1,
-                      grade: w.grade ?? null,
-                      modifiers: (w.modifiers ?? []).map((m) => s.modifiers.findIndex((x) => x.label === m)).filter((i) => i >= 0),
-                  },
-        )
-        .filter((w) => (w.check ?? w.option) >= 0);
-    // A graded task lists every item once, a plain one starts with one row.
-    if (s.graded) {
-        (s.options ?? []).forEach((o, i) => {
-            if (!items.some((w) => w.option === i)) items.push({ option: i, qty: 1, grade: null, modifiers: [] });
-        });
-        items.sort((a, b) => (a.option ?? -1) - (b.option ?? -1));
-    } else if (s.options?.length && !items.some((w) => w.check === undefined)) {
-        items.push({ option: 0, qty: 1, modifiers: [] });
-    }
-    return items;
-};
+// Stored items keep labels; map them back to the task's indexes (shared with the case sheets).
+const itemsFor = (card) => workItemsToForm(card.task_scoring, card.work_items);
 const openComplete = (card) => {
     completeTarget.value = card;
     completeForm.work_items = hasOptions(card) ? itemsFor(card) : [];
