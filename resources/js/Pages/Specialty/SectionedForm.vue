@@ -27,6 +27,7 @@ import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, reactive, ref } from 'vue';
 import Icon from '@/Components/Icon.vue';
 import { toGrade } from '@/numericGrade';
+import DateInput from '@/Components/DateInput.vue';
 import TaskWorkPanel from '@/Components/Tasks/TaskWorkPanel.vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
@@ -656,10 +657,6 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                     </div>
                 </div>
 
-                <div v-if="form.task_instances_id" class="rounded-md bg-sky-50 p-3 text-sm text-sky-800">
-                    <Icon name="assignment" class="ml-1" />{{ t('specialtyForms.linkedTaskPrefix') }} <strong>{{ form.task_instances_id }}</strong> {{ t('specialtyForms.linkedTaskSuffix') }}
-                </div>
-
                 <!-- The linked task's points, the same ones task progress records (2026-10-15). -->
                 <TaskWorkPanel v-if="taskInstanceId" :task-instance-id="taskInstanceId" />
 
@@ -895,6 +892,15 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                                             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         ></textarea>
 
+                                        <DateInput
+                                            v-else-if="field.type === 'date'"
+                                            :id="formKey(field)"
+                                            v-model="form[formKey(field)]"
+                                            :disabled="fieldDisabled(field)"
+                                            :required="field.required"
+                                            class="mt-1"
+                                        />
+
                                         <TextInput
                                             v-else
                                             :id="formKey(field)"
@@ -974,13 +980,11 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                                 <div>
                                     <div class="mb-1 text-xs text-gray-500 sm:hidden">{{ t('specialtyForms.dateCol') }}</div>
                                     <div class="flex items-center gap-1">
-                                        <input
-                                            :value="form[`stage_${stage.key}_date`]"
-                                            type="date"
-                                            dir="ltr"
+                                        <DateInput
+                                            :model-value="form[`stage_${stage.key}_date`]"
                                             :disabled="stageFieldDisabled(stage.key, 'date')"
-                                            class="block w-full min-w-0 rounded-md border-gray-300 px-2 py-1.5 text-center text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
-                                            @change="(e) => setStageDate(stage.key, e.target.value)"
+                                            class="!py-1.5"
+                                            @change="(value) => setStageDate(stage.key, value)"
                                         />
                                         <button
                                             v-if="!stageFieldDisabled(stage.key, 'date') && !form[`stage_${stage.key}_date`]"
