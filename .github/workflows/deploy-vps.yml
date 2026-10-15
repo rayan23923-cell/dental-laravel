@@ -1,0 +1,85 @@
+name: Deploy to VPS
+
+# Ships the web app to the Oracle VPS (https://dental.azoclinic.duckdns.org)
+# and rebuilds its Docker containers with deploy/vps/deploy.sh, which also
+# runs the migrations. The deploy branch already carries the code that used
+# to exist only on the server (vps-live), so copying the tracked files over
+# the server tree is safe. Nothing on the server is deleted: .env, storage,
+# uploads and the download page files are never touched.
+#
+# Runs when vps-live changes (merge a pull request into it to deploy) or by
+# hand from the Actions tab.
+#
+# Needs the repository secret VPS_SSH_KEY: a private key whose public half is
+# in ~ubuntu/.ssh/authorized_keys on the VPS.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [vps-live]
+    paths-ignore:
+      - 'flutter_app/**'
+      - 'offline/**'
+      - 'docs/**'
+      - '.github/workflows/flutter-apps.yml'
+      - '.github/workflows/offline-windows.yml'
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+env:
+  VPS_HOST: 193.123.83.82
+  VPS_USER: ubuntu
+  APP_DIR: /home/ubuntu/dental-laravel
+  SITE: https://dental.azoclinic.duckdns.org
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SSH key
+        env:
+          KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::error::The VPS_SSH_KEY secret is missing (Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/vps && chmod 600 ~/.ssh/vps
+          ssh-keyscan -T 20 "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh -i ~/.ssh/vps -o BatchMode=yes "$VPS_USER@$VPS_HOST" 'echo connected'
+
+      - name: Back up the server code
+        run: |
+          ssh -i ~/.ssh/vps "$VPS_USER@$VPS_HOST" "set -e
+            stamp=\$(date +%Y%m%d-%H%M%S)
+            cd '$APP_DIR'
+            tar czf \"\$HOME/dental-code-backup-\$stamp.tgz\" \
+              --exclude=./vendor --exclude=./node_modules --exclude=./storage \
+              --exclude=./public/downloads --exclude=./public/build --exclude=./.env .
+            ls -1t \$HOME/dental-code-backup-*.tgz | tail -n +11 | xargs -r rm -f
+            echo \"backup: ~/dental-code-backup-\$stamp.tgz\""
+
+      - name: Copy the code
+        run: |
+          git archive --format=tar HEAD \
+            ':(exclude)flutter_app' ':(exclude)offline' ':(exclude)public/downloads' \
+          | ssh -i ~/.ssh/vps "$VPS_USER@$VPS_HOST" "tar -x -C '$APP_DIR'"
+
+      - name: Rebuild and restart (runs migrations)
+        run: ssh -i ~/.ssh/vps "$VPS_USER@$VPS_HOST" "cd '$APP_DIR' && sh deploy/vps/deploy.sh"
+
+      - name: Check the site
+        run: |
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$SITE/login" || true)
+            echo "login: $code"
+            [ "$code" = 200 ] && exit 0
+            sleep 6
+          done
+          exit 1

@@ -18,3 +18,61 @@
         user-select: none;
     }
 }
+
+/* Page bodies follow the selected theme (2026-10-15).
+   Pages style their cards, tables and text with fixed Tailwind greys
+   (`bg-white`, `text-gray-800`, `border-gray-300`, ...). Inside the staff
+   shell (`.themed`, AuthenticatedLayout.vue) those greys are repainted from
+   the theme tokens (App\Support\ThemePalette), so every page switches with
+   the theme without editing each one. Coloured status chips (green, red,
+   amber, ...) keep their own colours. Print views and the public pages are
+   outside the shell and are not affected. */
+@layer utilities {
+    .themed { color: rgb(var(--c-text)); }
+
+    .themed.bg-gray-100,
+    .themed .bg-gray-100 { background-color: rgb(var(--c-bg)); }
+    .themed .bg-white,
+    .themed .hover\:bg-white:hover { background-color: rgb(var(--c-surface)); }
+    .themed .bg-gray-50,
+    .themed .bg-gray-200,
+    .themed .hover\:bg-gray-50:hover,
+    .themed .hover\:bg-gray-100:hover,
+    .themed .hover\:bg-gray-200:hover,
+    .themed .focus\:bg-gray-50:focus,
+    .themed .focus\:bg-gray-100:focus { background-color: rgb(var(--c-surface-2)); }
+
+    .themed .text-gray-900,
+    .themed .text-gray-800,
+    .themed .text-gray-700,
+    .themed .hover\:text-gray-900:hover,
+    .themed .hover\:text-gray-800:hover,
+    .themed .hover\:text-gray-700:hover,
+    .themed .focus\:text-gray-800:focus,
+    .themed .focus\:text-gray-700:focus { color: rgb(var(--c-text)); }
+    .themed .text-gray-600,
+    .themed .text-gray-500,
+    .themed .text-gray-400,
+    .themed .hover\:text-gray-600:hover { color: rgb(var(--c-muted)); }
+
+    .themed .border-gray-100,
+    .themed .border-gray-200,
+    .themed .border-gray-300,
+    .themed .hover\:border-gray-300:hover,
+    .themed .focus\:border-gray-300:focus { border-color: rgb(var(--c-border)); }
+    .themed .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+    .themed .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: rgb(var(--c-border)); }
+    .themed .ring-gray-100 { --tw-ring-color: rgb(var(--c-border)); }
+
+    /* Form fields carry their background from the forms plugin, not a class. */
+    .themed input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+    .themed select,
+    .themed textarea {
+        background-color: rgb(var(--c-surface-2));
+        color: rgb(var(--c-text));
+        border-color: rgb(var(--c-border));
+    }
+    .themed input::placeholder,
+    .themed textarea::placeholder { color: rgb(var(--c-muted)); }
+    .themed select option { background-color: rgb(var(--c-surface)); color: rgb(var(--c-text)); }
+}
