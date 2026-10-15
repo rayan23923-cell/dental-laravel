@@ -4,12 +4,9 @@ namespace App\Http\Controllers\Doctor;
 
 use App\Http\Controllers\Controller;
 use App\Models\Task;
-use App\Support\PendingTaskFinder;
 use App\Support\QrCodeFactory;
 use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\Auth;
-use Inertia\Inertia;
-use Inertia\Response;
 
 /**
  * "رموز المهام المعلقة" — port of
@@ -23,25 +20,6 @@ use Inertia\Response;
  */
 class PendingTasksQrController extends Controller
 {
-    public function index(): Response
-    {
-        $doctor = Auth::guard('doctor')->user();
-
-        $tasks = PendingTaskFinder::forDoctor($doctor)
-            ->map(fn ($t) => [
-                'id' => $t->id,
-                'title' => $t->title,
-                'department' => $t->department?->name,
-                'required_count' => $t->required_count,
-                'notes' => $t->notes,
-                'grade' => $t->grade,
-            ]);
-
-        return Inertia::render('Doctor/PendingTasksQr', [
-            'tasks' => $tasks,
-        ]);
-    }
-
     /**
      * PNG for one pending task. Payload identifies the doctor+task pair
      * (there is no instance yet to point at), so a scan can create and

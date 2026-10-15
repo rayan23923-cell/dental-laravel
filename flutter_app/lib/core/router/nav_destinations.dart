@@ -56,14 +56,6 @@ List<NavDestination> navDestinationsFor(
         icon: Icons.qr_code_scanner,
         route: '/scan',
       ),
-      // "رموز المهام المعلقة" (by request, 2026-09-01) — matches the web
-      // doctor layout's own nav (`DoctorLayout.vue`), which links this as
-      // a top-level item alongside the equivalents of the ones above.
-      NavDestination(
-        label: t['nav.pendingTasksQr']!,
-        icon: Icons.qr_code_2,
-        route: '/pending-tasks-qr',
-      ),
       notifications,
     ];
   }

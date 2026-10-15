@@ -204,7 +204,9 @@ Route::middleware('auth:doctor')->group(function () {
     // (doctor_navbar.php), plus its academic-session switcher.
     Route::get('/doctor/required-tasks', [DoctorRequiredTasksController::class, 'index'])->name('doctor.required-tasks');
     Route::get('/doctor/progress', [DoctorProgressController::class, 'index'])->name('doctor.progress');
-    Route::get('/doctor/pending-qr', [DoctorPendingTasksQrController::class, 'index'])->name('doctor.pending-qr');
+    // The pending-task QR page was removed (2026-10-15, by request): every
+    // slot's QR is on the required tasks page, so old links land there.
+    Route::redirect('/doctor/pending-qr', '/doctor/required-tasks')->name('doctor.pending-qr');
     Route::get('/doctor/pending-qr/{task}', [DoctorPendingTasksQrController::class, 'qr'])->name('doctor.pending-qr.image');
     // فتح النموذج — routes a task instance to its case sheet by type code.
     Route::get('/doctor/case-sheet/{taskInstance}', [CaseSheetController::class, 'open'])->name('doctor.case-sheet');
