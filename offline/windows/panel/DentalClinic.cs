@@ -769,7 +769,16 @@ namespace DentalClinicPanel
                     Thread.Sleep(1000);
                 }
             }
-            foreach (var f in FindOwn()) Kill(f.Item1, false);
+            // Sweep until nothing is left: the scheduler can spawn its
+            // minute's `schedule:run` (cmd + php) just as it is being
+            // stopped, and that child would otherwise outlive the panel.
+            for (int i = 0; i < 10; i++)
+            {
+                var left = FindOwn();
+                if (left.Count == 0) break;
+                foreach (var f in left) Kill(f.Item1, true);
+                Thread.Sleep(500);
+            }
         }
 
         List<Tuple<int, string>> FindOwn()
