@@ -58,6 +58,12 @@ class CaseSheetRecordRepository {
   /// retrying, surface the error) from "still offline" (leave it queued) —
   /// a distinction [update]'s own catch-and-queue behavior deliberately
   /// erases for its own (screen-facing) callers.
+  /// Saves one stage date or grade the moment it changes (2026-10-15) —
+  /// `PATCH /{resource}/{id}/stage-field` with exactly that one column.
+  Future<void> saveStageField(String resource, int id, String key, String? value) async {
+    await _client.patchJson('/$resource/$id/stage-field', body: {key: value});
+  }
+
   Future<Map<String, dynamic>> updateRemote(String resource, int id, Map<String, dynamic> payload) async {
     final data = await _client.putJson('/$resource/$id', body: payload) as Map<String, dynamic>;
     return data['data'] as Map<String, dynamic>;

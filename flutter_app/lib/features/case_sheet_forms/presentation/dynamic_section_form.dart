@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -87,7 +89,12 @@ class DynamicSectionForm extends StatefulWidget {
     required this.onSubmit,
     required this.t,
     this.supervisorEditableFields = const [],
+    this.onStageField,
   });
+
+  /// Saves one stage date/grade as soon as it changes (2026-10-15). Null on
+  /// a brand-new sheet, which has no record to save to until its first save.
+  final Future<void> Function(String key, String? value)? onStageField;
 
   /// Translations for this form's own static chrome (buttons, "Sign",
   /// "Cancel", required-field errors, …) — never applied to `field.label`/
@@ -271,6 +278,14 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
 
   @override
   void dispose() {
+    // A grade typed just before leaving still gets saved.
+    _stageTimers.forEach((key, timer) {
+      if (timer.isActive) {
+        timer.cancel();
+        final raw = (_values[key] as String? ?? '').trim();
+        widget.onStageField?.call(key, raw.isEmpty ? null : raw).catchError((Object _) {});
+      }
+    });
     for (final c in _controllers.values) {
       c.dispose();
     }
@@ -384,6 +399,41 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
   /// stageFields()` puts in both `supervisorFields` and
   /// `supervisorEditableFields`. Mirrors `SectionedForm.vue`'s
   /// identically-named `stageFieldDisabled()`.
+  /// Per stage column: 'saving' | 'saved' | 'error' (autosave state).
+  final Map<String, String> stageSave = {};
+  final Map<String, Timer> _stageTimers = {};
+
+  /// A step's max grade: the linked task's (record `stage_maxes`), else 10.
+  num stageMax(String stageKey) {
+    final maxes = widget.record['stage_maxes'];
+    final value = maxes is Map ? maxes['stage_${stageKey}_grade'] : null;
+    return value is num ? value : (num.tryParse('$value') ?? 10);
+  }
+
+  void saveStageField(String key, {bool debounce = false}) {
+    final save = widget.onStageField;
+    if (save == null) return;
+    _stageTimers[key]?.cancel();
+    if (debounce) {
+      _stageTimers[key] = Timer(const Duration(milliseconds: 600), () => saveStageField(key));
+      return;
+    }
+    final raw = (_values[key] as String? ?? '').trim();
+    setState(() => stageSave[key] = 'saving');
+    save(key, raw.isEmpty ? null : raw).then((_) {
+      if (mounted) setState(() => stageSave[key] = 'saved');
+    }).catchError((Object _) {
+      if (mounted) setState(() => stageSave[key] = 'error');
+    });
+  }
+
+  String? stageSaveText(String key) => switch (stageSave[key]) {
+        'saving' => t['caseSheetForm.stageSaving'],
+        'saved' => t['caseSheetForm.stageSaved'],
+        'error' => t['caseSheetForm.stageSaveFailed'],
+        _ => null,
+      };
+
   bool stageFieldDisabled(String stageKey, String part) {
     final key = 'stage_${stageKey}_$part';
     return widget.schema.supervisorFields.contains(key)
@@ -563,9 +613,15 @@ class _StageRow extends StatefulWidget {
 }
 
 class _StageRowState extends State<_StageRow> {
+  bool _maxHit = false;
+
+  static String _fmt(num n) => n == n.roundToDouble() ? n.toInt().toString() : n.toString();
+
   @override
   Widget build(BuildContext context) {
     final key = widget.stage['key'] as String;
+    final gradeKey = 'stage_${key}_grade';
+    final max = widget.state.stageMax(key);
     final label = widget.stage['label'] as String? ?? key;
     final note = widget.stage['note'] as String?;
 
@@ -596,10 +652,30 @@ class _StageRowState extends State<_StageRow> {
                   controller: widget.state._controllers['stage_${key}_grade'],
                   enabled: !widget.state.stageFieldDisabled(key, 'grade'),
                   style: const TextStyle(fontSize: 13),
+                  textAlign: TextAlign.center,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: const [NumericGradeFormatter()],
-                  decoration: InputDecoration(labelText: widget.state.t['caseSheetForm.gradeLabel'], hintText: '9', isDense: true, border: const OutlineInputBorder()),
-                  onChanged: (v) => setState(() => widget.state._values['stage_${key}_grade'] = v),
+                  // Numbers only, never above the step's max (2026-10-15).
+                  inputFormatters: [
+                    NumericGradeFormatter(max: max, onMaxHit: () => setState(() => _maxHit = true)),
+                  ],
+                  decoration: InputDecoration(
+                    labelText: widget.state.t['caseSheetForm.gradeLabel'],
+                    hintText: '0',
+                    suffixText: '/ ${_fmt(max)}',
+                    helperText: _maxHit
+                        ? widget.state.t['caseSheetForm.stageGradeMax']!.replaceAll('{max}', _fmt(max))
+                        : widget.state.stageSaveText(gradeKey),
+                    helperStyle: TextStyle(color: _maxHit ? Colors.orange.shade800 : (widget.state.stageSave[gradeKey] == 'error' ? Colors.red : null)),
+                    isDense: true,
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: (v) {
+                    setState(() {
+                      widget.state._values[gradeKey] = v;
+                      if (num.tryParse(v) != max) _maxHit = false;
+                    });
+                    widget.state.saveStageField(gradeKey, debounce: true);
+                  },
                 ),
               ),
             ],
@@ -701,27 +777,56 @@ class _StageDateFieldState extends State<_StageDateField> {
   Widget build(BuildContext context) {
     final value = widget.state._values[_formKey] as String? ?? '';
     final disabled = widget.state.stageFieldDisabled(widget.stageKey, 'date');
-    return InkWell(
-      onTap: disabled ? null : () => _pick(value),
-      child: InputDecorator(
-        decoration: InputDecoration(
-          labelText: widget.state.t['caseSheetForm.dateLabel'],
-          isDense: true,
-          border: const OutlineInputBorder(),
-          suffixIcon: const Icon(Icons.calendar_today, size: 16),
+    final status = widget.state.stageSaveText(_formKey);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InkWell(
+          onTap: disabled ? null : () => _pick(value),
+          child: InputDecorator(
+            decoration: InputDecoration(
+              labelText: widget.state.t['caseSheetForm.dateLabel'],
+              isDense: true,
+              border: const OutlineInputBorder(),
+              suffixIcon: const Icon(Icons.calendar_today, size: 16),
+            ),
+            // LTR so a yyyy-MM-dd date never reorders inside the RTL page.
+            child: Text(
+              value.isEmpty ? '—' : value,
+              textDirection: ui.TextDirection.ltr,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
         ),
-        child: Text(value.isEmpty ? '—' : value, style: const TextStyle(fontSize: 13)),
-      ),
+        if (!disabled && value.isEmpty)
+          TextButton(
+            onPressed: () => _set(DateTime.now()),
+            style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+            child: Text(widget.state.t['caseSheetForm.stageToday']!),
+          ),
+        if (status != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              status,
+              style: TextStyle(fontSize: 11, color: widget.state.stageSave[_formKey] == 'error' ? Colors.red : Colors.grey),
+            ),
+          ),
+      ],
     );
   }
 
   Future<void> _pick(String current) async {
     final initial = DateTime.tryParse(current) ?? DateTime.now();
     final picked = await showDatePicker(context: context, initialDate: initial, firstDate: DateTime(1950), lastDate: DateTime(2100));
-    if (picked != null) {
-      setState(() => widget.state._values[_formKey] = DateFormat('yyyy-MM-dd').format(picked));
-      widget.onChanged?.call();
-    }
+    if (picked != null) _set(picked);
+  }
+
+  void _set(DateTime date) {
+    setState(() => widget.state._values[_formKey] = DateFormat('yyyy-MM-dd').format(date));
+    widget.onChanged?.call();
+    widget.state.saveStageField(_formKey);
   }
 }
 
@@ -1539,9 +1644,13 @@ class _UnsupportedField extends StatelessWidget {
 /// Persian digits become Western ones, `٫`/`,` become `.`, and anything
 /// else is dropped — mirrors resources/js/numericGrade.js on the web.
 class NumericGradeFormatter extends TextInputFormatter {
-  const NumericGradeFormatter({this.decimal = true});
+  const NumericGradeFormatter({this.decimal = true, this.max, this.onMaxHit});
 
   final bool decimal;
+
+  /// When set, a number above it is lowered to it as it's typed.
+  final num? max;
+  final VoidCallback? onMaxHit;
 
   static String clean(String input, {bool decimal = true}) {
     final buf = StringBuffer();
@@ -1563,7 +1672,12 @@ class NumericGradeFormatter extends TextInputFormatter {
 
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    final text = clean(newValue.text, decimal: decimal);
+    var text = clean(newValue.text, decimal: decimal);
+    final number = num.tryParse(text);
+    if (max != null && number != null && number > max!) {
+      text = max == max!.roundToDouble() ? max!.toInt().toString() : max.toString();
+      onMaxHit?.call();
+    }
     if (text == newValue.text) return newValue;
     return TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length));
   }

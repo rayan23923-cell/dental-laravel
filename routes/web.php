@@ -684,6 +684,11 @@ Route::middleware(['auth:web,doctor', 'case-sheet'])->group(function () {
         Route::resource($uri, $controller)->parameters([$uri => 'record']);
     }
 
+    // One stage date/grade saved as soon as it changes (2026-10-15).
+    foreach (['prosthodontics-records' => ProsthodonticsRecordController::class, 'complete-denture-records' => CompleteDentureRecordController::class] as $uri => $controller) {
+        Route::patch("$uri/{record}/stage-field", [$controller, 'stageField'])->name("$uri.stage-field");
+    }
+
     // The operative sheet — same rules, and the sheet CaseSheetController
     // falls back to for an unknown case-sheet type. Keeps its own
     // {dentalChart} parameter name, which its controller signatures use.

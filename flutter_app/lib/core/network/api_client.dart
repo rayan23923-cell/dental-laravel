@@ -103,6 +103,15 @@ class ApiClient {
     }
   }
 
+  Future<dynamic> patchJson(String path, {Object? body}) async {
+    try {
+      final response = await _dio.patch(path, data: body);
+      return response.data;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
   Future<dynamic> putJson(String path, {Object? body}) async {
     try {
       final response = await _dio.put(path, data: body);

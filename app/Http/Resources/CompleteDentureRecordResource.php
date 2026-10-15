@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources;
 
+use App\Support\CaseSheetGrades;
+use App\Support\CompleteDentureForm;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -13,6 +15,8 @@ class CompleteDentureRecordResource extends JsonResource
             'id' => $this->id,
             'doctor_id' => $this->doctor_id,
             'task_instances_id' => $this->task_instances_id,
+            // Each grade's max — the linked task's step max, else 10 (2026-10-15).
+            'stage_maxes' => CaseSheetGrades::maxes(CompleteDentureForm::stages(), false, $this->task_instances_id),
             'task_id' => $this->task_id,
             'student_name' => $this->student_name,
             'patient_name' => $this->patient_name,
