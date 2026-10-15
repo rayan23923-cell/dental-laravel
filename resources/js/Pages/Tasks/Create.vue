@@ -190,14 +190,22 @@ const submit = () => {
                                 class="rounded-md bg-white p-3 shadow-sm transition"
                                 :class="row.enabled ? '' : 'opacity-50'"
                             >
-                                <div class="flex items-center gap-2">
-                                    <input v-model="row.enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                    <input v-model="row.title" type="text" class="min-w-0 flex-1 rounded-md border-gray-300 text-sm font-medium shadow-sm focus:border-indigo-500 focus:ring-indigo-500" :disabled="!row.enabled" required />
-                                    <label class="flex shrink-0 items-center gap-1 text-xs text-gray-600">
-                                        {{ t('taskScoring.cases') }}
-                                        <input v-model.number="row.required_count" type="number" min="1" class="w-16 rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" :disabled="!row.enabled" required />
-                                    </label>
+                                <!-- The case name takes its own full line and wraps, so it reads whole on a phone. -->
+                                <div class="flex items-start gap-2">
+                                    <input v-model="row.enabled" type="checkbox" class="mt-2.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                    <textarea
+                                        v-model="row.title"
+                                        :rows="Math.max(1, Math.ceil((row.title?.length ?? 0) / 32))"
+                                        class="min-w-0 flex-1 resize-y rounded-md border-gray-300 text-sm font-medium leading-6 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        :disabled="!row.enabled"
+                                        required
+                                        @keydown.enter.prevent
+                                    ></textarea>
                                 </div>
+                                <label class="mt-2 flex items-center gap-2 text-xs text-gray-600">
+                                    {{ t('taskScoring.cases') }}
+                                    <input v-model.number="row.required_count" type="number" min="1" class="w-20 rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" :disabled="!row.enabled" required />
+                                </label>
                                 <label v-if="row.enabled" class="mt-2 flex items-center gap-2 text-xs text-gray-600">
                                     {{ t('taskScoring.rowSheet') }}
                                     <select v-model="row.case_sheet_type_id" class="min-w-0 flex-1 rounded-md border-gray-300 py-1 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
