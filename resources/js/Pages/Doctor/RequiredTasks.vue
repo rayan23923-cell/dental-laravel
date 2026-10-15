@@ -4,7 +4,7 @@ import Modal from '@/Components/Modal.vue';
 import PaperPhotos from '@/Components/PaperPhotos.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
 import Icon from '@/Components/Icon.vue';
@@ -70,6 +70,31 @@ const toggle = (name) => {
     next.has(name) ? next.delete(name) : next.add(name);
     openDepartments.value = next;
 };
+
+// Opened from a notification (2026-10-15): `?instance=` opens that case's
+// department, scrolls to it and highlights it (`&photos=1` also opens its
+// photos); `?tab=waiting` opens the requests tab.
+const focusedInstance = ref(null);
+onMounted(async () => {
+    const params = new URLSearchParams(window.location.search);
+    if (['all', 'waiting', 'notStarted'].includes(params.get('tab'))) tab.value = params.get('tab');
+    const id = Number(params.get('instance'));
+    if (!id) return;
+    for (const dept of props.departments) {
+        for (const task of dept.tasks) {
+            const slot = task.slots.find((s) => s.instance_id === id);
+            if (!slot) continue;
+            tab.value = 'all';
+            openDepartments.value = new Set([...openDepartments.value, dept.name]);
+            focusedInstance.value = id;
+            await nextTick();
+            document.getElementById(`case-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (params.get('photos')) photosSlot.value = { task, slot };
+            setTimeout(() => (focusedInstance.value = null), 4000);
+            return;
+        }
+    }
+});
 
 const statusLabel = (s) =>
     ({ completed: t('dashboard.completed'), assigned: t('dashboard.inProgress'), pending: t('dashboard.pending'), unassigned: t('tasks.notStarted') }[s] ?? s);
@@ -245,9 +270,10 @@ const openQr = (task, slot) => {
                         <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                             <div
                                 v-for="slot in task.slots"
+                                :id="slot.instance_id ? `case-${slot.instance_id}` : null"
                                 :key="slot.slot"
-                                class="rounded-lg border-r-4 bg-white p-3 shadow-sm"
-                                :class="statusClass(slot.status)"
+                                class="rounded-lg border-r-4 bg-white p-3 shadow-sm transition"
+                                :class="[statusClass(slot.status), focusedInstance && slot.instance_id === focusedInstance ? 'ring-4 ring-amber-400' : '']"
                             >
                                 <div class="flex items-center justify-between">
                                     <span class="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">

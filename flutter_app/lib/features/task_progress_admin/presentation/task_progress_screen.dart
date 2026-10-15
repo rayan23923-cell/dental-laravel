@@ -44,7 +44,10 @@ import '../../../core/widgets/numeric_input.dart';
 /// typing a name), the same supporting role the web's QR-scan modal plays
 /// inside this same page, not a separate screen.
 class TaskProgressScreen extends ConsumerStatefulWidget {
-  const TaskProgressScreen({super.key});
+  const TaskProgressScreen({super.key, this.initialTab = 'progress'});
+
+  /// 'requests' when opened from a start-request notification (2026-10-15).
+  final String initialTab;
 
   @override
   ConsumerState<TaskProgressScreen> createState() => _TaskProgressScreenState();
@@ -66,7 +69,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
 
   /// 'progress' (the matrix below) or 'requests' — doctors' start
   /// requests (2026-10-14), same as the web's "الطلبات" tab.
-  String _mainTab = 'progress';
+  late String _mainTab = widget.initialTab;
 
   /// Refreshes the start requests (list and badge) so new ones show up
   /// without leaving the screen.

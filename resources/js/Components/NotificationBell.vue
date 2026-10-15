@@ -6,6 +6,7 @@
  * shows it as a toast. Opening the list marks everything read. The app's
  * inbox gets the same notifications, with the same sound.
  */
+import { router } from '@inertiajs/vue3';
 import axios from 'axios';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -77,6 +78,29 @@ const toggle = async () => {
     }
 };
 
+// Where tapping a notification goes (2026-10-15, by request): the case it
+// is about, or the start requests. Null when it has nowhere to go.
+const target = (n) => {
+    if (props.doctor) {
+        if (n.task_instance_id) {
+            return route('doctor.required-tasks', { instance: n.task_instance_id, ...(n.type === 'photo_note' ? { photos: 1 } : {}) });
+        }
+        if (n.type === 'task_start_request') return route('doctor.required-tasks', n.kind === 'rejected' ? { tab: 'waiting' } : {});
+        return null;
+    }
+    if (n.type === 'task_start_request') return route('task-progress.index', { tab: 'requests' });
+    return null;
+};
+
+const go = (n) => {
+    const url = target(n);
+    if (!url) return;
+    if (!n.read_at) axios.post(route(props.doctor ? 'doctor.notifications.read' : 'notifications.read', n.id)).catch(() => {});
+    open.value = false;
+    toast.value = null;
+    router.visit(url);
+};
+
 const fmt = (v) => (v ? new Date(v).toLocaleString(t('sessions.dateLocale'), { dateStyle: 'short', timeStyle: 'short' }) : '');
 
 onMounted(() => {
@@ -118,9 +142,13 @@ onBeforeUnmount(() => {
                     v-for="n in items"
                     :key="n.id"
                     class="border-b border-hairline/50 px-4 py-2.5 last:border-b-0"
-                    :class="n.read_at ? '' : 'bg-accent/5'"
+                    :class="[n.read_at ? '' : 'bg-accent/5', target(n) ? 'cursor-pointer hover:bg-accent/10' : '']"
+                    @click="go(n)"
                 >
-                    <div class="text-sm font-medium text-content">{{ n.title }}</div>
+                    <div class="flex items-center justify-between gap-2 text-sm font-medium text-content">
+                        <span>{{ n.title }}</span>
+                        <Icon v-if="target(n)" name="chevron_left" size="text-[18px]" class="text-muted" />
+                    </div>
                     <div class="text-xs text-muted">{{ n.message }}</div>
                     <div class="mt-0.5 text-[11px] text-muted/80">{{ fmt(n.created_at) }}</div>
                 </div>
@@ -137,7 +165,7 @@ onBeforeUnmount(() => {
             <div
                 v-if="toast"
                 class="fixed bottom-4 left-1/2 z-[60] flex w-[min(24rem,calc(100vw-2rem))] -translate-x-1/2 cursor-pointer items-start gap-3 rounded-2xl bg-gray-900 px-4 py-3 text-white shadow-xl"
-                @click="toast = null; toggle()"
+                @click="target(toast) ? go(toast) : ((toast = null), toggle())"
             >
                 <Icon name="notifications_active" size="text-[22px]" class="text-amber-300" />
                 <div class="min-w-0">

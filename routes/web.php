@@ -189,6 +189,7 @@ Route::middleware('auth:doctor')->group(function () {
     // Notification bell (2026-10-14).
     Route::get('/doctor/notifications', [NotificationFeedController::class, 'index'])->name('doctor.notifications.index');
     Route::post('/doctor/notifications/read-all', [NotificationFeedController::class, 'markAllRead'])->name('doctor.notifications.read-all');
+    Route::post('/doctor/notifications/{id}/read', [NotificationFeedController::class, 'markRead'])->name('doctor.notifications.read');
     Route::get('/doctor/task-start-requests', [TaskStartRequestController::class, 'mine'])->name('doctor.task-start-requests.index');
     Route::post('/doctor/task-start-requests', [TaskStartRequestController::class, 'store'])->name('doctor.task-start-requests.store');
     Route::delete('/doctor/task-start-requests/{taskStartRequest}', [TaskStartRequestController::class, 'destroy'])->name('doctor.task-start-requests.destroy');
@@ -286,6 +287,7 @@ Route::middleware('auth')->group(function () {
     // Notification bell (2026-10-14).
     Route::get('/notifications', [NotificationFeedController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/read-all', [NotificationFeedController::class, 'markAllRead'])->name('notifications.read-all');
+    Route::post('/notifications/{id}/read', [NotificationFeedController::class, 'markRead'])->name('notifications.read');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
 
     // The computer's side of the phone scanner (2026-10-12).
