@@ -620,6 +620,9 @@
         "noTasksInSession": "No tasks linked to this academic session yet."
     },
     "tasksAdmin": {
+        "duplicateRow": "This task already exists in this department.",
+        "duplicateBanner": "{n} of these tasks already exist in this department and were unticked to avoid duplicates.",
+        "duplicateConfirm": "These tasks already exist in this department: {titles}\n\nAdd them again anyway?",
         "title": "Tasks",
         "addTask": "Add Task",
         "viewingAllSessionsPrefix": "Showing tasks from",

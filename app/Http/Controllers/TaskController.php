@@ -16,6 +16,7 @@ use App\Support\TaskScoring;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -93,6 +94,9 @@ class TaskController extends Controller
             'initialStageId' => $request->integer('stage_id') ?: null,
             'initialEducationTypeId' => $request->integer('education_type_id') ?: null,
             ...$this->formOptions(),
+            // For the add form's "already exists" warning (2026-10-16).
+            'existingTasks' => Task::get(['id', 'title', 'stage_id', 'department_id', 'academic_session_id']),
+            'currentSessionId' => AcademicSessionHelper::resolveId(),
         ]);
     }
 
@@ -103,6 +107,14 @@ class TaskController extends Controller
         // Matches add_task.php, which stamps SessionHelper::getActiveSessionId()
         // onto every new task.
         $validated['academic_session_id'] ??= AcademicSessionHelper::resolveId();
+
+        // Warn before adding a task that already exists (2026-10-16, by
+        // request): the form asks first and sends allow_duplicates to go ahead.
+        if (! $request->boolean('allow_duplicates') && ($existing = $this->duplicateTitles($validated)) !== []) {
+            throw ValidationException::withMessages([
+                isset($validated['rows']) ? 'rows' : 'title' => 'موجودة مسبقًا في هذا القسم: '.implode('، ', $existing),
+            ]);
+        }
 
         // One task, or one per enabled row of the case-sheet type's table.
         $created = TaskScoring::createTasks($validated);
@@ -194,6 +206,32 @@ class TaskController extends Controller
             // Requirement tables pre-filled by the chosen case-sheet type (2026-10-14).
             'scoringTemplates' => (object) TaskScoring::templatesByTypeId(),
         ];
+    }
+
+    /** Same title, stage and department in the same academic year (or a year-less task). */
+    private function sameTasks(int $stageId, int $departmentId, ?int $sessionId)
+    {
+        return Task::where('stage_id', $stageId)
+            ->where('department_id', $departmentId)
+            ->where(fn ($q) => $q->whereNull('academic_session_id')
+                ->when($sessionId, fn ($q2) => $q2->orWhere('academic_session_id', $sessionId)));
+    }
+
+    public static function titleKey(?string $title): string
+    {
+        return mb_strtolower(preg_replace('/\s+/u', ' ', trim((string) $title)));
+    }
+
+    /** Titles about to be added that the department already has. */
+    private function duplicateTitles(array $validated): array
+    {
+        $titles = isset($validated['rows'])
+            ? collect($validated['rows'])->filter(fn ($r) => $r['enabled'] ?? true)->pluck('title')
+            : collect([$validated['title'] ?? '']);
+        $existing = $this->sameTasks((int) $validated['stage_id'], (int) $validated['department_id'], $validated['academic_session_id'] ?? null)
+            ->pluck('title')->map(fn ($t) => self::titleKey($t))->flip();
+
+        return $titles->filter(fn ($t) => $existing->has(self::titleKey($t)))->values()->all();
     }
 
     private function validateTask(Request $request, ?Task $task = null): array

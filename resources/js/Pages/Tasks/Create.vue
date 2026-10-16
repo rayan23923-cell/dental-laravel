@@ -22,6 +22,8 @@ const props = defineProps({
     initialStageId: { type: Number, default: null },
     initialEducationTypeId: { type: Number, default: null },
     scoringTemplates: { type: Object, default: () => ({}) },
+    existingTasks: { type: Array, default: () => [] },
+    currentSessionId: { type: Number, default: null },
 });
 
 const form = useForm({
@@ -100,10 +102,26 @@ const stageNumber = () => {
     if (/fifth|خامس|\b5\b/i.test(name)) return 5;
     return null;
 };
+// Tasks already in the chosen department (2026-10-16, by request): their
+// rows are flagged and start switched off so they are not added twice.
+const titleKey = (title) => (title ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+const existingTitles = computed(() => {
+    const session = Number(form.academic_session_id) || props.currentSessionId;
+    return new Set(
+        props.existingTasks
+            .filter((task) => task.stage_id === Number(form.stage_id) && task.department_id === Number(form.department_id))
+            .filter((task) => !task.academic_session_id || task.academic_session_id === session)
+            .map((task) => titleKey(task.title)),
+    );
+});
+const isDuplicate = (title) => existingTitles.value.has(titleKey(title));
+const duplicateRows = computed(() => (rows.value ?? []).filter((row) => isDuplicate(row.title)));
 const applyStage = () => {
     const n = stageNumber();
     rows.value?.forEach((row) => {
-        if (row.stage) row.enabled = !row.off && (!n || row.stage === n);
+        row.baseEnabled ??= row.enabled;
+        row.enabled = row.stage ? !row.off && (!n || row.stage === n) : row.baseEnabled;
+        if (isDuplicate(row.title)) row.enabled = false;
     });
 };
 watch(
@@ -115,7 +133,7 @@ watch(
         applyStage();
     },
 );
-watch(() => form.stage_id, applyStage);
+watch(() => [form.stage_id, form.department_id, form.academic_session_id], applyStage);
 
 // Switching a row's points off only hides the points and totals
 // (2026-10-16, by request): its kinds of work, checklist and steps stay.
@@ -127,11 +145,14 @@ const toggleScoring = (row, on) => {
 };
 
 const submit = () => {
+    const repeated = rows.value ? rows.value.filter((row) => row.enabled && isDuplicate(row.title)).map((row) => row.title) : isDuplicate(form.title) ? [form.title] : [];
+    if (repeated.length && !window.confirm(t('tasksAdmin.duplicateConfirm', { titles: repeated.join('، ') }))) return;
     form.transform((data) => {
-        if (!rows.value) return data;
+        const extra = repeated.length ? { allow_duplicates: true } : {};
+        if (!rows.value) return { ...data, ...extra };
         const { title, required_count, ...rest } = data;
-        const sent = rows.value.map(({ savedScoring, ...row }) => row);
-        return { ...rest, rows: sent, pass_percent: passPercent.value };
+        const sent = rows.value.map(({ savedScoring, baseEnabled, ...row }) => row);
+        return { ...rest, ...extra, rows: sent, pass_percent: passPercent.value };
     }).post(route('tasks.store'));
 };
 </script>
@@ -151,6 +172,7 @@ const submit = () => {
                         <div v-if="!rows">
                             <InputLabel for="title" :value="t('tasksAdmin.titleLabel')" />
                             <TextInput id="title" v-model="form.title" type="text" class="mt-1 block w-full" required autofocus />
+                            <p v-if="isDuplicate(form.title)" class="mt-1 text-xs font-medium text-amber-700">⚠ {{ t('tasksAdmin.duplicateRow') }}</p>
                             <InputError class="mt-2" :message="form.errors.title" />
                         </div>
 
@@ -194,6 +216,9 @@ const submit = () => {
                                 <div class="text-sm font-semibold text-gray-800">{{ t('taskScoring.table') }}</div>
                                 <p class="mt-1 text-xs text-gray-500">{{ t('taskScoring.tableHint') }}</p>
                             </div>
+                            <p v-if="duplicateRows.length" class="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                                ⚠ {{ t('tasksAdmin.duplicateBanner', { n: duplicateRows.length }) }}
+                            </p>
                             <div
                                 v-for="(row, i) in rows"
                                 :key="i"
@@ -212,6 +237,7 @@ const submit = () => {
                                         @keydown.enter.prevent
                                     ></textarea>
                                 </div>
+                                <p v-if="isDuplicate(row.title)" class="mt-1 text-xs font-medium text-amber-700">⚠ {{ t('tasksAdmin.duplicateRow') }}</p>
                                 <label class="mt-2 flex items-center gap-2 text-xs text-gray-600">
                                     {{ t('taskScoring.cases') }}
                                     <input v-model.number="row.required_count" type="number" min="1" class="w-20 rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" :disabled="!row.enabled" required />
