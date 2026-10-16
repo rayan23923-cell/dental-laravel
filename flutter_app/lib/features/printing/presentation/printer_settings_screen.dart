@@ -13,7 +13,9 @@ import '../../../core/platform/platform_support.dart';
 import '../data/desktop_ticket_printer.dart';
 import '../data/pos_printer_service.dart';
 import '../domain/printer_settings.dart';
+import 'printer_error_snackbar.dart';
 import 'printer_settings_providers.dart';
+import 'ticket_renderer.dart';
 
 /// "إعدادات الطابعة" — lets staff pick between the original built-in POS
 /// printer (unchanged default behavior), an external Bluetooth printer
@@ -44,6 +46,10 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
   /// Windows (2026-10-12): the system printer tickets go to, see
   /// `DesktopTicketPrinter`.
   String? _desktopPrinterName;
+  DesktopPrintMode _desktopMode = DesktopPrintMode.driver;
+  final _hostController = TextEditingController();
+  final _portController = TextEditingController(text: '${DesktopTicketPrinter.defaultNetworkPort}');
+  bool _testing = false;
 
   @override
   void initState() {
@@ -52,6 +58,45 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
       DesktopTicketPrinter.savedPrinterName().then((name) {
         if (mounted) setState(() => _desktopPrinterName = name);
       });
+      DesktopTicketPrinter.savedMode().then((mode) {
+        if (mounted) setState(() => _desktopMode = mode);
+      });
+      DesktopTicketPrinter.savedNetworkPrinter().then((printer) {
+        if (!mounted) return;
+        _hostController.text = printer.host ?? '';
+        _portController.text = '${printer.port}';
+      });
+    }
+  }
+
+  Future<void> _setDesktopMode(DesktopPrintMode mode) async {
+    setState(() => _desktopMode = mode);
+    await DesktopTicketPrinter.saveMode(mode);
+  }
+
+  Future<void> _saveNetworkPrinter() => DesktopTicketPrinter.saveNetworkPrinter(
+        _hostController.text,
+        int.tryParse(_portController.text.trim()) ?? DesktopTicketPrinter.defaultNetworkPort,
+      );
+
+  /// Prints a short Arabic slip through the chosen mode and paper width,
+  /// so the desk can check the printer before a real patient's ticket.
+  Future<void> _testPrint(PrinterSettings draft) async {
+    final t = ref.read(translationsProvider);
+    setState(() => _testing = true);
+    try {
+      await _saveNetworkPrinter();
+      final widthDots = draft.dotsPerLine.round();
+      if (!mounted) return;
+      final png = await renderWidgetToPng(context, _TestSlip(widthDots: widthDots, title: t['printerSettingsAdmin.testPrintSlip']!));
+      await DesktopTicketPrinter.printTicket(png, paperWidthMm: draft.paperWidthMm, widthDots: widthDots);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['printerSettingsAdmin.testPrintSent']!)));
+      }
+    } catch (e) {
+      if (mounted) showPrinterErrorSnackBar(context, t['printerSettingsAdmin.testPrintFailed']!, error: e);
+    } finally {
+      if (mounted) setState(() => _testing = false);
     }
   }
 
@@ -76,6 +121,8 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
   @override
   void dispose() {
     _scanSubscription?.cancel();
+    _hostController.dispose();
+    _portController.dispose();
     super.dispose();
   }
 
@@ -259,6 +306,7 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
     if (draft == null) return;
     setState(() => _saving = true);
     try {
+      if (isWindowsDesktop) await _saveNetworkPrinter();
       await ref.read(printerSettingsProvider.notifier).save(draft);
       if (mounted) {
         final t = ref.read(translationsProvider);
@@ -291,21 +339,69 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
               if (isWindowsDesktop) ...[
                 Text(t['printerSettingsAdmin.windowsPrinterHeading']!, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
-                Card(
-                  color: _desktopPrinterName != null ? Theme.of(context).colorScheme.primaryContainer : null,
-                  child: ListTile(
-                    leading: const Icon(Icons.print_outlined),
-                    title: Text(_desktopPrinterName ?? t['printerSettingsAdmin.windowsPrinterNone']!),
-                    trailing: OutlinedButton(
-                      style: OutlinedButton.styleFrom(minimumSize: const Size(64, 36)),
-                      onPressed: _pickDesktopPrinter,
-                      child: Text(t['printerSettingsAdmin.selectButton']!),
+                SegmentedButton<DesktopPrintMode>(
+                  segments: [
+                    ButtonSegment(value: DesktopPrintMode.driver, label: Text(t['printerSettingsAdmin.windowsModeDriver']!)),
+                    ButtonSegment(value: DesktopPrintMode.usbRaw, label: Text(t['printerSettingsAdmin.windowsModeUsb']!)),
+                    ButtonSegment(value: DesktopPrintMode.network, label: Text(t['printerSettingsAdmin.windowsModeNetwork']!)),
+                  ],
+                  selected: {_desktopMode},
+                  onSelectionChanged: (selection) => _setDesktopMode(selection.first),
+                ),
+                const SizedBox(height: 8),
+                if (_desktopMode == DesktopPrintMode.network) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: TextField(
+                          controller: _hostController,
+                          textDirection: TextDirection.ltr,
+                          keyboardType: TextInputType.url,
+                          decoration: InputDecoration(labelText: t['printerSettingsAdmin.networkHost']!, hintText: '192.168.1.100'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _portController,
+                          textDirection: TextDirection.ltr,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(labelText: t['printerSettingsAdmin.networkPort']!),
+                        ),
+                      ),
+                    ],
+                  ),
+                ] else
+                  Card(
+                    color: _desktopPrinterName != null ? Theme.of(context).colorScheme.primaryContainer : null,
+                    child: ListTile(
+                      leading: const Icon(Icons.print_outlined),
+                      title: Text(_desktopPrinterName ?? t['printerSettingsAdmin.windowsPrinterNone']!),
+                      trailing: OutlinedButton(
+                        style: OutlinedButton.styleFrom(minimumSize: const Size(64, 36)),
+                        onPressed: _pickDesktopPrinter,
+                        child: Text(t['printerSettingsAdmin.selectButton']!),
+                      ),
                     ),
                   ),
-                ),
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(t['printerSettingsAdmin.windowsPrinterHint']!, style: Theme.of(context).textTheme.bodySmall),
+                  child: Text(
+                    t[switch (_desktopMode) {
+                      DesktopPrintMode.driver => 'printerSettingsAdmin.windowsPrinterHint',
+                      DesktopPrintMode.usbRaw => 'printerSettingsAdmin.windowsModeUsbHint',
+                      DesktopPrintMode.network => 'printerSettingsAdmin.windowsModeNetworkHint',
+                    }]!,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _testing ? null : () => _testPrint(draft),
+                  icon: _testing
+                      ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.receipt_long_outlined),
+                  label: Text(t['printerSettingsAdmin.testPrint']!),
                 ),
               ] else ...[
               Text(t['printerSettingsAdmin.connectionTypeHeading']!, style: Theme.of(context).textTheme.titleMedium),
@@ -475,6 +571,41 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// The slip "طباعة تجريبية" prints: Arabic text, a solid bar and a box
+/// edge to edge, so width, darkness and Arabic shaping are all visible.
+class _TestSlip extends StatelessWidget {
+  const _TestSlip({required this.widthDots, required this.title});
+
+  final int widthDots;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    const style = TextStyle(color: Colors.black, fontSize: 22);
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Container(
+        width: widthDots.toDouble(),
+        color: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(title, style: style.copyWith(fontSize: 28, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            Text(DateTime.now().toString().substring(0, 16), style: style, textDirection: TextDirection.ltr),
+            Text('$widthDots dots', style: style, textDirection: TextDirection.ltr),
+            const SizedBox(height: 8),
+            Container(height: 16, color: Colors.black),
+            const SizedBox(height: 8),
+            Container(height: 40, decoration: BoxDecoration(border: Border.all(color: Colors.black, width: 3))),
+          ],
+        ),
       ),
     );
   }

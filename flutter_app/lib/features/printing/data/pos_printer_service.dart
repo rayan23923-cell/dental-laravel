@@ -59,7 +59,11 @@ class PosPrinterService {
     // Windows has no POS plugin: the ticket goes to a Windows printer
     // instead (2026-10-12), see DesktopTicketPrinter.
     if (isWindowsDesktop) {
-      await DesktopTicketPrinter.printTicket(pngBytes, paperWidthMm: settings.paperWidthMm);
+      await DesktopTicketPrinter.printTicket(
+        pngBytes,
+        paperWidthMm: settings.paperWidthMm,
+        widthDots: settings.dotsPerLine.round(),
+      );
       return;
     }
     if (settings.connectionType == PrinterConnectionType.bluetooth && !await isBluetoothEnabled()) {
