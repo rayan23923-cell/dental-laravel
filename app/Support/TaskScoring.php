@@ -304,6 +304,7 @@ class TaskScoring
             "$prefix.checklist.*.scored" => ['boolean'],
             "$prefix.checklist.*.max" => ['nullable', 'numeric', 'min:0'],
             "$prefix.endo" => ['boolean'],
+            "$prefix.points_off" => ['boolean'],
         ];
     }
 
@@ -313,7 +314,10 @@ class TaskScoring
         if (! $scoring) {
             return null;
         }
-        $measure = in_array($scoring['measure'] ?? null, self::MEASURES, true) ? $scoring['measure'] : 'count';
+        // Points switched off (2026-10-16, by request): the kinds of work,
+        // checklist and steps stay, counted as cases with no points.
+        $off = (bool) ($scoring['points_off'] ?? false);
+        $measure = ! $off && in_array($scoring['measure'] ?? null, self::MEASURES, true) ? $scoring['measure'] : 'count';
         $num = fn ($v) => $v === null || $v === '' ? null : (float) $v;
 
         return [
@@ -348,7 +352,14 @@ class TaskScoring
                 ->filter(fn ($c) => $c['label'] !== '')
                 ->values()->all(),
             'endo' => (bool) ($scoring['endo'] ?? false),
+            'points_off' => $off,
         ];
+    }
+
+    /** Whether a task's points are switched off (its setup is kept, unscored). */
+    public static function pointsOff(?array $scoring): bool
+    {
+        return (bool) ($scoring['points_off'] ?? false);
     }
 
     /** Rules for the work done on a completed case. */
@@ -382,7 +393,8 @@ class TaskScoring
         $items ??= [];
         $options = $task->scoring['options'] ?? [];
         $modifiers = $task->scoring['modifiers'] ?? [];
-        $graded = (bool) ($task->scoring['graded'] ?? false);
+        $off = self::pointsOff($task->scoring);
+        $graded = ! $off && (bool) ($task->scoring['graded'] ?? false);
 
         // Every checklist part must be ticked to complete the case.
         $ticked = collect($items)->pluck('check')->filter(fn ($c) => $c !== null)->map(fn ($c) => (int) $c)->unique();
@@ -397,7 +409,7 @@ class TaskScoring
         $resolved = [];
         foreach (collect($checklist)->only($ticked->all()) as $ci => $c) {
             $part = ['option' => $c['label'], 'qty' => 1, 'modifiers' => [], 'points' => 0, 'check' => true];
-            if (! empty($c['scored'])) {
+            if (! $off && ! empty($c['scored'])) {
                 $grade = is_numeric($grades[$ci] ?? null) ? max(0.0, min((float) $grades[$ci], (float) $c['max'])) : 0.0;
                 $part = ['points' => $grade, 'grade' => $grade, 'max' => (float) $c['max'], 'scored' => true] + $part;
                 $total += $grade;
@@ -424,7 +436,7 @@ class TaskScoring
                 $labels[] = $modifier['label'];
             }
             // A graded item scores the supervisor's grade, up to its points.
-            $base = $graded ? min((float) ($item['grade'] ?? 0), (float) $option['points']) : (float) $option['points'] * $qty;
+            $base = $off ? 0.0 : ($graded ? min((float) ($item['grade'] ?? 0), (float) $option['points']) : (float) $option['points'] * $qty);
             $qty = $graded ? 1 : $qty;
             $points = round($base * $factor, 2);
             $total += $points;
@@ -599,7 +611,7 @@ class TaskScoring
     public static function pointsFromCaseSheet(TaskInstance $instance, ?array $customGrades = null): ?array
     {
         $steps = collect($instance->task?->scoring['steps'] ?? [])->where('enabled', true);
-        if ($steps->isEmpty()) {
+        if ($steps->isEmpty() || self::pointsOff($instance->task?->scoring)) {
             return null;
         }
         $record = null;

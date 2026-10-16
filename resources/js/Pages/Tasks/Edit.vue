@@ -33,8 +33,11 @@ const form = useForm({
 
 // Points setup (2026-10-14, by request); see App\Support\TaskScoring.
 const blankScoring = () => ({ measure: 'points', min_points: null, weight: null, options: [], modifiers: [] });
-const usePoints = ref(!!props.task.scoring);
+// Off only hides the points and totals (2026-10-16): the lists are kept.
+const usePoints = ref(!!props.task.scoring && !props.task.scoring.points_off);
 const scoring = ref(props.task.scoring ? JSON.parse(JSON.stringify(props.task.scoring)) : blankScoring());
+const hasLists = () => !!(scoring.value.options?.length || scoring.value.checklist?.length || scoring.value.steps?.length || scoring.value.endo);
+watch(usePoints, (on) => (scoring.value.points_off = !on));
 const passPercent = ref(props.task.department?.pass_percent ?? null);
 
 // A task doesn't store its education type (see Tasks/Create.vue) — derive
@@ -87,7 +90,7 @@ watch(
 const submit = () => {
     form.transform((data) => ({
         ...data,
-        scoring: usePoints.value ? scoring.value : null,
+        scoring: usePoints.value || hasLists() ? { ...scoring.value, points_off: !usePoints.value } : null,
         // Only sent for the department this task was loaded with.
         ...(Number(data.department_id) === props.task.department_id ? { pass_percent: passPercent.value } : {}),
     })).put(route('tasks.update', props.task.id));
@@ -155,7 +158,7 @@ const submit = () => {
                                 <input v-model="usePoints" type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
                                 {{ t('taskScoring.enablePoints') }}
                             </label>
-                            <ScoringEditor v-if="usePoints" v-model="scoring" />
+                            <ScoringEditor v-model="scoring" />
                             <label class="flex items-center gap-2 text-sm text-gray-700">
                                 {{ t('taskScoring.passPercent') }}
                                 <input v-model.number="passPercent" type="number" min="0" max="100" step="0.5" class="w-24 rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
