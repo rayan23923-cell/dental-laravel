@@ -1216,6 +1216,8 @@
         "empty": "لا توجد إشعارات."
     },
     "taskScoring": {
+        "moveUp": "تحريك للأعلى",
+        "moveDown": "تحريك للأسفل",
         "measure": "القياس",
         "measureCount": "بالحالات",
         "measurePoints": "بالنقاط",

@@ -23,6 +23,13 @@ const optionsTotal = computed(() => Math.round(scoring.value.options.filter(isOn
 const addModifier = () => scoring.value.modifiers.push({ label: '', factor: 1 });
 const addCheck = () => (scoring.value.checklist ??= []).push({ label: '' });
 // Steps added by hand (2026-10-16, by request) sit beside the sheet's own and are graded on the task.
+// Steps can be reordered (2026-10-16, by request); grades follow each step's key, not its place.
+const moveStep = (i, by) => {
+    const steps = scoring.value.steps;
+    const j = i + by;
+    if (j < 0 || j >= steps.length) return;
+    [steps[i], steps[j]] = [steps[j], steps[i]];
+};
 const addStep = () => scoring.value.steps.push({ key: `custom_${Date.now()}`, label: '', max: 10, enabled: true, custom: true });
 // Checklist parts may carry a grade (2026-10-16, by request), totalled below the list.
 const checklistTotal = computed(() =>
@@ -62,6 +69,14 @@ const stepsTotal = computed(() =>
             <div class="mb-1 text-xs font-medium text-gray-700">{{ t('taskScoring.steps') }}</div>
             <p class="mb-1 text-xs text-gray-500">{{ t('taskScoring.stepsHint') }}</p>
             <div v-for="(st, i) in scoring.steps" :key="st.key" class="mb-1 flex items-center gap-2" :class="st.enabled ? '' : 'opacity-50'">
+                <div class="flex shrink-0 flex-col">
+                    <button type="button" class="leading-none text-gray-400 hover:text-indigo-600 disabled:opacity-30" :disabled="i === 0" :title="t('taskScoring.moveUp')" @click="moveStep(i, -1)">
+                        <Icon name="keyboard_arrow_up" size="text-[20px]" />
+                    </button>
+                    <button type="button" class="leading-none text-gray-400 hover:text-indigo-600 disabled:opacity-30" :disabled="i === scoring.steps.length - 1" :title="t('taskScoring.moveDown')" @click="moveStep(i, 1)">
+                        <Icon name="keyboard_arrow_down" size="text-[20px]" />
+                    </button>
+                </div>
                 <input v-model="st.enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
                 <textarea v-if="st.custom" v-model="st.label" :rows="rowsFor(st.label)" :placeholder="t('taskScoring.stepLabel')" class="min-w-0 flex-1 resize-y leading-6" :class="input" required maxlength="100" @keydown.enter.prevent></textarea>
                 <span v-else class="min-w-0 flex-1 text-sm text-gray-700">{{ st.label }}</span>

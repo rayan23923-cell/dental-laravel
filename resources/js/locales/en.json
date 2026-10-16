@@ -1216,6 +1216,8 @@
         "empty": "No notifications."
     },
     "taskScoring": {
+        "moveUp": "Move up",
+        "moveDown": "Move down",
         "measure": "Measured by",
         "measureCount": "Cases",
         "measurePoints": "Points",
