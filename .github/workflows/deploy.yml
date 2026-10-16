@@ -1,8 +1,10 @@
 name: Deploy to cPanel
 
+# Retired: hosting moved from cPanel (cdclinics.com) to the VPS, which
+# deploy-vps.yml ships to. Kept runnable by hand only, so pushes to main no
+# longer fail here.
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   deploy:
