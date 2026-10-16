@@ -17,7 +17,8 @@ const items = defineModel({ type: Array, required: true });
 const input = 'rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500';
 const graded = computed(() => !!props.scoring.graded);
 const work = computed(() => items.value.filter((item) => item.check === undefined));
-const add = () => items.value.push({ option: 0, qty: 1, modifiers: [] });
+const firstOn = () => Math.max(0, (props.scoring.options ?? []).findIndex((o) => o.enabled !== false));
+const add = () => items.value.push({ option: firstOn(), qty: 1, modifiers: [] });
 const remove = (item) => items.value.splice(items.value.indexOf(item), 1);
 const pointsOf = (item) => {
     const option = props.scoring.options?.[item.option];
@@ -32,6 +33,19 @@ const toggle = (item, m) => {
     i === -1 ? item.modifiers.push(m) : item.modifiers.splice(i, 1);
 };
 const isChecked = (ci) => items.value.some((item) => item.check === ci);
+// Graded checklist parts (2026-10-16): a ticked part takes the supervisor's grade, up to its max.
+const checkItem = (ci) => items.value.find((item) => item.check === ci);
+const checklistScored = computed(() => (props.scoring.checklist ?? []).some((c) => c.scored));
+const checklistPoints = computed(
+    () =>
+        Math.round(
+            (props.scoring.checklist ?? []).reduce((sum, c, ci) => {
+                const item = checkItem(ci);
+                return c.scored && item ? sum + Math.min(Math.max(Number(item.grade) || 0, 0), Number(c.max) || 0) : sum;
+            }, 0) * 100,
+        ) / 100,
+);
+const checklistMax = computed(() => (props.scoring.checklist ?? []).filter((c) => c.scored).reduce((sum, c) => sum + (Number(c.max) || 0), 0));
 const toggleCheck = (ci) => {
     const i = items.value.findIndex((item) => item.check === ci);
     i === -1 ? items.value.push({ check: ci }) : items.value.splice(i, 1);
@@ -42,10 +56,21 @@ const toggleCheck = (ci) => {
     <div class="space-y-3">
         <div v-if="scoring.checklist?.length" class="rounded-md border border-emerald-100 bg-emerald-50/40 p-3">
             <div class="mb-2 text-sm font-medium text-gray-800">{{ t('taskScoring.checklistDone') }}</div>
-            <label v-for="(c, ci) in scoring.checklist" :key="ci" class="mb-1 flex items-center gap-2 text-sm text-gray-700">
-                <input type="checkbox" :checked="isChecked(ci)" class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" @change="toggleCheck(ci)" />
-                {{ c.label }}
-            </label>
+            <div v-for="(c, ci) in scoring.checklist" :key="ci" class="mb-1 flex items-center gap-2 text-sm text-gray-700">
+                <label class="flex min-w-0 flex-1 items-center gap-2">
+                    <input type="checkbox" :checked="isChecked(ci)" class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" @change="toggleCheck(ci)" />
+                    {{ c.label }}
+                </label>
+                <template v-if="c.scored && isChecked(ci)">
+                    <input v-model.number="checkItem(ci).grade" type="number" min="0" :max="c.max" step="0.5" class="w-20 shrink-0" :class="input" />
+                    <span class="w-12 shrink-0 text-xs text-gray-500">/ {{ c.max }}</span>
+                </template>
+                <span v-else-if="c.scored" class="w-12 shrink-0 text-xs text-gray-400">/ {{ c.max }}</span>
+            </div>
+            <div v-if="checklistScored" class="mt-2 flex items-center justify-between border-t border-emerald-100 pt-2 text-sm font-semibold text-indigo-800">
+                <span>{{ t('taskScoring.stepsTotal') }}</span>
+                <span>{{ checklistPoints }} / {{ checklistMax }}</span>
+            </div>
         </div>
 
         <div v-if="scoring.options?.length" class="rounded-md border border-indigo-100 bg-indigo-50/40 p-3">
@@ -64,7 +89,9 @@ const toggleCheck = (ci) => {
                 <div v-for="(item, i) in work" :key="i" class="mb-2 rounded bg-white p-2 shadow-sm">
                     <div class="flex items-center gap-2">
                         <select v-model.number="item.option" class="min-w-0 flex-1" :class="input">
-                            <option v-for="(o, oi) in scoring.options" :key="oi" :value="oi">{{ o.label }} ({{ o.points }})</option>
+                            <template v-for="(o, oi) in scoring.options" :key="oi">
+                                <option v-if="o.enabled !== false || item.option === oi" :value="oi">{{ o.label }} ({{ o.points }})</option>
+                            </template>
                         </select>
                         <input v-model.number="item.qty" type="number" min="1" max="100" class="w-16 shrink-0" :class="input" :title="t('taskScoring.qty')" />
                         <span class="w-14 shrink-0 text-center text-xs text-gray-600">{{ pointsOf(item) }}</span>

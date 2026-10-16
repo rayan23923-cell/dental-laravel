@@ -43,12 +43,26 @@ class TaskWorkController extends Controller
     public function update(Request $request, TaskInstance $taskInstance): JsonResponse
     {
         abort_unless($this->canEdit(), 403);
+        $taskInstance->loadMissing('task');
+
+        // Steps added by hand to a sheet-graded task are graded here (2026-10-16).
+        if (TaskScoring::stepsMax($taskInstance->task?->scoring) !== null) {
+            $grades = $request->validate([
+                'step_grades' => ['nullable', 'array'],
+                'step_grades.*' => ['nullable', 'numeric', 'min:0'],
+            ])['step_grades'] ?? [];
+            [$items, $points] = TaskScoring::pointsFromCaseSheet($taskInstance, $grades);
+            $taskInstance->update(['work_items' => $items, 'points' => $points]);
+
+            return response()->json(['work_items' => $items, 'points' => $taskInstance->points]);
+        }
+
         $validated = $request->validate(TaskScoring::workItemRules());
 
         // Saved as progress: an unfinished checklist is fine until the case is completed.
         $resolved = TaskScoring::resolveWorkItems($taskInstance->task, $validated['work_items'] ?? [], requireChecklist: $taskInstance->status === 'completed');
         [$items, $points] = $resolved ?? [[], 0];
-        $scored = collect($items)->contains(fn ($item) => empty($item['check']));
+        $scored = collect($items)->contains(fn ($item) => empty($item['check']) || ! empty($item['scored']));
         $taskInstance->update(['work_items' => $items, 'points' => $scored ? $points : null]);
 
         return response()->json(['work_items' => $items, 'points' => $taskInstance->points]);
