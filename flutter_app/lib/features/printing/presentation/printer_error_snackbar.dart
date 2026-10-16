@@ -1,9 +1,12 @@
+import 'dart:io' show SocketException;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../data/pos_printer_service.dart';
+import '../data/windows_raw_printer.dart';
 
 /// Shown whenever a `PosPrinterService.printTicket()` call throws — every
 /// failure path in `PosPrinterPlugin.kt` funnels through the same
@@ -41,7 +44,13 @@ void showPrinterErrorSnackBar(BuildContext context, String messagePrefix, {Objec
   // to diagnose the new iOS BLE plugin's real on-device failures instead
   // of guessing — remove once that path is confirmed stable, per this
   // file's own doc comment on why the message is normally kept generic.
-  final detail = error is PlatformException ? ' [${error.code}: ${error.message}]' : '';
+  final detail = switch (error) {
+    PlatformException e => ' [${e.code}: ${e.message}]',
+    // Windows USB/network printing (2026-10-16): say which step failed.
+    WindowsRawPrinterException e => ' [${e.message}]',
+    SocketException e => ' [${e.message}${e.osError != null ? ': ${e.osError!.message}' : ''}]',
+    _ => '',
+  };
 
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
     content: Text('$messagePrefix تحقق من توصيل الطابعة.$detail'),

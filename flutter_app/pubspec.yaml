@@ -60,6 +60,7 @@ dependencies:
   firebase_messaging: ^15.1.5
   pdf: ^3.12.0
   printing: ^5.14.3
+  ffi: ^2.1.0                 # raw ESC/POS to a Windows printer queue (windows_raw_printer.dart)
   flutter_svg: ^2.3.0
   package_info_plus: ^8.1.2   # current app version, for the Windows desktop updater
   path_provider: ^2.1.5       # temp dir to download the Windows update installer into

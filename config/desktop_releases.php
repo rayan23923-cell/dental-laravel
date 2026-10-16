@@ -14,9 +14,9 @@
 // aggressively and reliably reaches the user's disk; they unzip it
 // themselves, one extra step.
 //
-// Bump 'version' and both URLs by hand each time a new build is cut and
-// uploaded to public/downloads/ — there is no admin UI for this, it is a
-// one-line deploy-time edit like a .env value.
+// These are only the fallback: every Flutter build from main is uploaded to
+// public/downloads/ with a releases.json that overrides them per platform
+// (see App\Support\AppReleases and .github/workflows/flutter-apps.yml).
 return [
     'windows' => [
         'version' => '1.0.1',

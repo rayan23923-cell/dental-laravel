@@ -119,18 +119,21 @@ Route::get('/privacy-policy', function () {
 })->name('privacy-policy');
 
 // Plain Blade, same reasoning as /privacy-policy above. Reads both
-// platforms' versions straight from config/desktop_releases.php so this
+// platforms' versions from App\Support\AppReleases (the builds the Flutter
+// workflow published, else config/desktop_releases.php) so this
 // page never drifts out of sync with what the Windows build itself checks
 // for updates (see flutter_app/lib/core/updater/desktop_update_checker.dart
 // — Android has no such self-update check; the APK here is a stand-in
 // distribution channel until Play Store publishing clears the Organization-
 // account requirement).
 Route::get('/download', function () {
+    $releases = \App\Support\AppReleases::all();
+
     return view('downloads', [
         'clinic' => ClinicSetting::current(),
-        'windows' => config('desktop_releases.windows'),
-        'android' => config('desktop_releases.android'),
-        'ios' => config('desktop_releases.ios'),
+        'windows' => $releases['windows'],
+        'android' => $releases['android'],
+        'ios' => $releases['ios'],
     ]);
 })->name('download');
 

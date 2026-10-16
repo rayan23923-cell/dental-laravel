@@ -39,6 +39,8 @@ services:
         condition: service_healthy
     volumes:
       - dental_storage:/var/www/html/storage
+      # App builds the Flutter workflow uploads; live without a rebuild.
+      - ../../public/downloads:/var/www/html/public/downloads:ro
     networks: [default]
 
   # Laravel's scheduler (the daily backup:run). Same image, no migrations: the entrypoint only prepares on php-fpm.
@@ -65,6 +67,7 @@ services:
     depends_on: [app]
     volumes:
       - dental_storage:/var/www/html/storage:ro
+      - ../../public/downloads:/var/www/html/public/downloads:ro
     networks: [default, edge]
 
 volumes:
