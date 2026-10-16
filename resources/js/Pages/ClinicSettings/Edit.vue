@@ -263,7 +263,7 @@ const summaries = computed(() => ({
                                     :key="th.value"
                                     class="flex cursor-pointer items-center gap-3 rounded-xl border-2 p-3 transition"
                                     :class="form.theme === th.value
-                                        ? 'border-indigo-500 bg-indigo-50'
+                                        ? 'border-indigo-500 bg-white ring-2 ring-indigo-500/30'
                                         : 'border-gray-200 bg-white hover:border-gray-300'"
                                 >
                                     <input v-model="form.theme" type="radio" :value="th.value" class="sr-only" />

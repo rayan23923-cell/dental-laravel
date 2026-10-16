@@ -39,6 +39,13 @@
     .themed .bg-gray-100 { background-color: rgb(var(--c-bg)); }
     .themed .bg-white,
     .themed .hover\:bg-white:hover { background-color: rgb(var(--c-surface)); }
+    /* Translucent bars and panels (sticky save bars, open sections) (2026-10-16). */
+    .themed .bg-white\/95 { background-color: rgb(var(--c-surface) / 0.95); }
+    .themed .bg-white\/90 { background-color: rgb(var(--c-surface) / 0.9); }
+    .themed .bg-gray-50\/40,
+    .themed .bg-gray-50\/60,
+    .themed .bg-gray-50\/70 { background-color: rgb(var(--c-surface-2) / 0.6); }
+    .themed .border-gray-50 { border-color: rgb(var(--c-border)); }
     .themed .bg-gray-50,
     .themed .bg-gray-200,
     .themed .hover\:bg-gray-50:hover,
