@@ -107,7 +107,8 @@ class TaskController extends Controller
         // One task, or one per enabled row of the case-sheet type's table.
         $created = TaskScoring::createTasks($validated);
 
-        return redirect()->route('tasks.index')->with('success', $created->count() > 1 ? 'تمت إضافة '.$created->count().' مهام.' : 'Task created.');
+        return redirect()->route('tasks.index', $this->listFilter($created->first() ?? $validated))
+            ->with('success', $created->count() > 1 ? 'تمت إضافة '.$created->count().' مهام.' : 'Task created.');
     }
 
     public function show(Task $task): Response
@@ -151,7 +152,7 @@ class TaskController extends Controller
         }
         $task->update(collect($validated)->except('pass_percent')->all());
 
-        return redirect()->route('tasks.index')->with('success', 'Task updated.');
+        return redirect()->route('tasks.index', $this->listFilter($task))->with('success', 'Task updated.');
     }
 
     public function destroy(Task $task): RedirectResponse
@@ -162,7 +163,19 @@ class TaskController extends Controller
 
         $task->delete();
 
-        return redirect()->route('tasks.index')->with('success', 'تمت أرشفة المهمة.');
+        return redirect()->route('tasks.index', $this->listFilter($task))->with('success', 'تمت أرشفة المهمة.');
+    }
+
+    /**
+     * Back to the list filtered on the task's stage and department
+     * (2026-10-16, by request), so the saved task shows straight away.
+     */
+    private function listFilter(Task|array $task): array
+    {
+        return array_filter([
+            'stage_id' => data_get($task, 'stage_id'),
+            'department_id' => data_get($task, 'department_id'),
+        ]);
     }
 
     private function formOptions(): array
