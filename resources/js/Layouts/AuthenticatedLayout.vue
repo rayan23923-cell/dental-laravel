@@ -8,12 +8,11 @@
  * variables (App\Support\ThemePalette), so the bar follows whichever theme
  * is selected in settings.
  *
- * **The content region deliberately keeps its neutral light background.**
- * Around fifty page components style their own cards, tables and text with
- * fixed Tailwind greys (`bg-white`, `text-gray-800`); repainting the region
- * behind them from a dark theme token would leave dark-on-dark text on any
- * page that writes directly onto the page background. Theming the chrome is
- * safe today, theming every page body is a separate pass.
+ * The content region follows the theme too. Page components still style
+ * their cards and text with fixed Tailwind greys (`bg-white`,
+ * `text-gray-800`); under a dark theme tailwind/themeDarkPages.js remaps
+ * those utilities onto the theme tokens, so every page body repaints with
+ * the navigation instead of staying light.
  */
 import { computed, ref } from 'vue';
 import BrandMark from '@/Components/BrandMark.vue';
@@ -152,7 +151,7 @@ const tileClass = (active) => [
 </script>
 
 <template>
-    <div class="min-h-screen bg-gray-100">
+    <div class="min-h-screen bg-app">
         <div class="bg-app px-3 pb-3 pt-3 sm:px-6 lg:px-8">
             <nav class="mx-auto max-w-[110rem] rounded-card border border-hairline/70 bg-surface shadow-panel">
                 <div class="flex items-center gap-3 px-3 py-2.5 sm:px-4">
@@ -349,7 +348,7 @@ const tileClass = (active) => [
         </div>
 
         <!-- Page Heading -->
-        <header v-if="$slots.header" class="border-b border-gray-200 bg-white shadow-sm">
+        <header v-if="$slots.header" class="border-b border-hairline bg-surface shadow-sm">
             <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
                 <slot name="header" />
             </div>

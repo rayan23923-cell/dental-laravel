@@ -62,7 +62,7 @@ const tileClass = (active) => [
 </script>
 
 <template>
-    <div class="min-h-screen bg-gray-100" dir="rtl">
+    <div class="min-h-screen bg-app" dir="rtl">
         <div class="bg-app px-3 pb-3 pt-3 sm:px-6 lg:px-8">
             <nav class="mx-auto max-w-7xl rounded-card border border-hairline/70 bg-surface shadow-panel">
                 <div class="flex items-center gap-3 px-3 py-2.5 sm:px-4">
@@ -193,7 +193,7 @@ const tileClass = (active) => [
             </nav>
         </div>
 
-        <header v-if="$slots.header" class="border-b border-gray-200 bg-white shadow-sm">
+        <header v-if="$slots.header" class="border-b border-hairline bg-surface shadow-sm">
             <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
                 <slot name="header" />
             </div>
