@@ -93,7 +93,7 @@ watch(
 const rows = ref(null);
 const passPercent = ref(null);
 // Rows of one stage only (row.stage 4/5) follow the chosen stage: the other
-// stage's rows start switched off.
+// stage's rows start switched off, and so do rows the template marks `off`.
 const stageNumber = () => {
     const name = props.stages.find((s) => s.id === Number(form.stage_id))?.name ?? '';
     if (/fourth|رابع|\b4\b/i.test(name)) return 4;
@@ -103,7 +103,7 @@ const stageNumber = () => {
 const applyStage = () => {
     const n = stageNumber();
     rows.value?.forEach((row) => {
-        if (row.stage) row.enabled = !n || row.stage === n;
+        if (row.stage) row.enabled = !row.off && (!n || row.stage === n);
     });
 };
 watch(

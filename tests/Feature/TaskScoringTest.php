@@ -134,7 +134,10 @@ class TaskScoringTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => 'super_admin']));
 
         $rows = TaskScoring::templatesByTypeId()[$sheet]['rows'];
-        $this->assertSame([4, 5, 5], array_column($rows, 'stage'));
+        $this->assertSame([4, 4, 4, 4, 4, 4, 5, 5, 5, 5], array_column($rows, 'stage'));
+        // The 2025-2026 requirements are on; the older point and session rows start off.
+        $this->assertSame([5, 3, 2, 3, 3, 12, 3, 1], array_column(array_values(array_filter($rows, fn ($r) => $r['enabled'])), 'required_count'));
+        $rows = array_map(fn ($r) => ['enabled' => true] + $r, $rows);
         $this->post('/tasks', [
             'department_id' => $department->id, 'case_sheet_type_id' => $sheet, 'stage_id' => 1,
             'notes' => 'متطلبات', 'grade' => 10, 'rows' => $rows,
@@ -213,7 +216,7 @@ class TaskScoringTest extends TestCase
         $this->actingAs($admin);
         $this->post('/tasks', [
             'department_id' => $department->id, 'case_sheet_type_id' => $sheet, 'stage_id' => 1,
-            'notes' => 'متطلبات', 'grade' => 10, 'rows' => TaskScoring::templatesByTypeId()[$sheet]['rows'],
+            'notes' => 'متطلبات', 'grade' => 10, 'rows' => array_map(fn ($r) => ['enabled' => true] + $r, TaskScoring::templatesByTypeId()[$sheet]['rows']),
         ])->assertSessionHasNoErrors();
 
         $doctor = Doctor::create([
