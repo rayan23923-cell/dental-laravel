@@ -1216,6 +1216,7 @@
         "empty": "No notifications."
     },
     "taskScoring": {
+        "dragStep": "Drag to reorder",
         "moveUp": "Move up",
         "moveDown": "Move down",
         "measure": "Measured by",
