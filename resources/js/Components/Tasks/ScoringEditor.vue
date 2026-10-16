@@ -1,5 +1,6 @@
 <script setup>
 import Icon from '@/Components/Icon.vue';
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 /**
@@ -16,6 +17,11 @@ const rowsFor = (text) => Math.max(1, Math.ceil((text?.length ?? 0) / 28));
 const addOption = () => scoring.value.options.push({ label: '', points: 0 });
 const addModifier = () => scoring.value.modifiers.push({ label: '', factor: 1 });
 const addCheck = () => (scoring.value.checklist ??= []).push({ label: '' });
+// Steps added by hand (2026-10-16, by request) sit beside the sheet's own and are graded on the task.
+const addStep = () => scoring.value.steps.push({ key: `custom_${Date.now()}`, label: '', max: 10, enabled: true, custom: true });
+const stepsTotal = computed(() =>
+    Math.round((scoring.value.steps ?? []).filter((st) => st.enabled).reduce((sum, st) => sum + (Number(st.max) || 0), 0) * 100) / 100,
+);
 </script>
 
 <template>
@@ -42,10 +48,21 @@ const addCheck = () => (scoring.value.checklist ??= []).push({ label: '' });
         <div v-if="scoring.steps?.length">
             <div class="mb-1 text-xs font-medium text-gray-700">{{ t('taskScoring.steps') }}</div>
             <p class="mb-1 text-xs text-gray-500">{{ t('taskScoring.stepsHint') }}</p>
-            <div v-for="(st, i) in scoring.steps" :key="i" class="mb-1 flex items-center gap-2" :class="st.enabled ? '' : 'opacity-50'">
+            <div v-for="(st, i) in scoring.steps" :key="st.key" class="mb-1 flex items-center gap-2" :class="st.enabled ? '' : 'opacity-50'">
                 <input v-model="st.enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                <span class="min-w-0 flex-1 text-sm text-gray-700">{{ st.label }}</span>
+                <textarea v-if="st.custom" v-model="st.label" :rows="rowsFor(st.label)" :placeholder="t('taskScoring.stepLabel')" class="min-w-0 flex-1 resize-y leading-6" :class="input" required maxlength="100" @keydown.enter.prevent></textarea>
+                <span v-else class="min-w-0 flex-1 text-sm text-gray-700">{{ st.label }}</span>
                 <input v-model.number="st.max" type="number" min="0" step="0.5" class="w-24 shrink-0" :class="input" :disabled="!st.enabled" :title="t('taskScoring.stepMax')" />
+                <button v-if="st.custom" type="button" class="shrink-0 text-gray-400 hover:text-red-600" :title="t('common.delete')" @click="scoring.steps.splice(i, 1)">
+                    <Icon name="close" size="text-[18px]" />
+                </button>
+            </div>
+            <button type="button" class="mt-1 inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800" @click="addStep">
+                <Icon name="add" size="text-[16px]" /> {{ t('taskScoring.addStep') }}
+            </button>
+            <div class="mt-2 flex items-center justify-between rounded-md bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-800">
+                <span>{{ t('taskScoring.stepsTotal') }}</span>
+                <span>{{ stepsTotal }}</span>
             </div>
         </div>
 

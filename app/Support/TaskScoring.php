@@ -286,6 +286,7 @@ class TaskScoring
             "$prefix.steps.*.label" => ['required', 'string', 'max:100'],
             "$prefix.steps.*.max" => ['required', 'numeric', 'min:0'],
             "$prefix.steps.*.enabled" => ['boolean'],
+            "$prefix.steps.*.custom" => ['boolean'],
             "$prefix.graded" => ['boolean'],
             "$prefix.checklist" => ['nullable', 'array', 'max:20'],
             "$prefix.checklist.*.label" => ['required', 'string', 'max:150'],
@@ -320,6 +321,8 @@ class TaskScoring
                 'label' => (string) $st['label'],
                 'max' => (float) $st['max'],
                 'enabled' => (bool) ($st['enabled'] ?? true),
+                // Added by hand (2026-10-16): not on the sheet, graded on the task.
+                'custom' => (bool) ($st['custom'] ?? false),
             ])->values()->all(),
             'graded' => (bool) ($scoring['graded'] ?? false),
             'checklist' => collect($scoring['checklist'] ?? [])
@@ -557,29 +560,49 @@ class TaskScoring
     /**
      * Points of a case graded by steps: each enabled step's grade on the
      * linked case sheet (stage_{key}_grade, diagnosis_grade), up to its
-     * max. Null when the task has no steps.
+     * max. A step added by hand has no sheet column (2026-10-16): its grade
+     * is entered on the task's points panel, kept in the instance's
+     * work_items, and replaced by `$customGrades` (key => grade) when given.
+     * Null when the task has no steps.
      *
      * @return array{0: array, 1: float}|null
      */
-    public static function pointsFromCaseSheet(TaskInstance $instance): ?array
+    public static function pointsFromCaseSheet(TaskInstance $instance, ?array $customGrades = null): ?array
     {
         $steps = collect($instance->task?->scoring['steps'] ?? [])->where('enabled', true);
         if ($steps->isEmpty()) {
             return null;
         }
-        $resource = CaseSheetResolver::resourceFor($instance);
-        $model = CaseSheetResolver::modelFor($resource);
-        $recordId = CaseSheetResolver::existingRecordId($resource, $instance->id);
-        $record = $model && $recordId ? $model::find($recordId) : null;
+        $record = null;
+        if ($steps->contains(fn ($step) => empty($step['custom']))) {
+            $resource = CaseSheetResolver::resourceFor($instance);
+            $model = CaseSheetResolver::modelFor($resource);
+            $recordId = CaseSheetResolver::existingRecordId($resource, $instance->id);
+            $record = $model && $recordId ? $model::find($recordId) : null;
+        }
+        $saved = collect($instance->work_items ?? [])->filter(fn ($item) => isset($item['step']))->pluck('points', 'step');
 
         $items = [];
         $total = 0.0;
         foreach ($steps as $step) {
-            $column = $step['key'] === 'diagnosis' ? 'diagnosis_grade' : "stage_{$step['key']}_grade";
-            $raw = $record?->getAttribute($column);
-            $grade = is_numeric($raw) ? min((float) $raw, (float) $step['max']) : 0.0;
+            $custom = (bool) ($step['custom'] ?? false);
+            if ($custom) {
+                $raw = $customGrades !== null && array_key_exists($step['key'], $customGrades) ? $customGrades[$step['key']] : $saved->get($step['key']);
+            } else {
+                $column = $step['key'] === 'diagnosis' ? 'diagnosis_grade' : "stage_{$step['key']}_grade";
+                $raw = $record?->getAttribute($column);
+            }
+            $grade = is_numeric($raw) ? max(0.0, min((float) $raw, (float) $step['max'])) : 0.0;
             $total += $grade;
-            $items[] = ['option' => $step['label'], 'qty' => 1, 'modifiers' => [], 'points' => round($grade, 2)];
+            $items[] = [
+                'option' => $step['label'],
+                'qty' => 1,
+                'modifiers' => [],
+                'points' => round($grade, 2),
+                'step' => $step['key'],
+                'max' => (float) $step['max'],
+                ...($custom ? ['custom' => true] : []),
+            ];
         }
 
         return [$items, round($total, 2)];
