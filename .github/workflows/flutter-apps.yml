@@ -3,6 +3,9 @@ name: Flutter apps (Android, iOS, Windows)
 # Builds the Flutter app in flutter_app/ for all three platforms against the
 # live server (AppConfig.productionBaseUrl) and publishes the files as a
 # GitHub release. Runs on any push that touches flutter_app/, or by hand.
+# Builds from main are also uploaded to the VPS (public/downloads/ plus
+# releases.json), so /download offers them and installed Windows apps
+# update themselves.
 on:
   push:
     paths:
@@ -15,6 +18,9 @@ permissions:
 
 env:
   API_BASE_URL: https://dental.azoclinic.duckdns.org/api/v1
+  # Every build gets its own version so installed apps see it as newer.
+  APP_VERSION: 1.1.${{ github.run_number }}
+  BUILD_FLAGS: --build-name=1.1.${{ github.run_number }} --build-number=${{ github.run_number }}
 
 defaults:
   run:
@@ -36,7 +42,7 @@ jobs:
       - name: Check the live server answers
         run: curl -sS -o /dev/null -w "%{http_code}\n" "$API_BASE_URL/clinic-settings" || true
       - run: flutter pub get
-      - run: flutter build apk --release --dart-define=API_BASE_URL=$API_BASE_URL
+      - run: flutter build apk --release $BUILD_FLAGS --dart-define=API_BASE_URL=$API_BASE_URL
       - run: cp build/app/outputs/flutter-apk/app-release.apk ../DentalClinicApp-android.apk
       - uses: actions/upload-artifact@v4
         with:
@@ -65,7 +71,7 @@ jobs:
           <dict/>
           </plist>
           PLIST
-      - run: flutter build ios --release --no-codesign --dart-define=API_BASE_URL=$API_BASE_URL
+      - run: flutter build ios --release --no-codesign $BUILD_FLAGS --dart-define=API_BASE_URL=$API_BASE_URL
       - name: Package unsigned .ipa
         run: |
           mkdir -p build/ipa/Payload
@@ -89,7 +95,7 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: flutter build windows --release --dart-define=API_BASE_URL=${{ env.API_BASE_URL }}
+      - run: flutter build windows --release ${{ env.BUILD_FLAGS }} --dart-define=API_BASE_URL=${{ env.API_BASE_URL }}
       - name: Portable zip
         shell: pwsh
         run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath ..\DentalClinicApp-windows.zip
@@ -97,8 +103,7 @@ jobs:
         shell: pwsh
         run: |
           if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
-          $version = (Select-String -Path pubspec.yaml -Pattern '^version:\s*([0-9.]+)').Matches[0].Groups[1].Value
-          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" windows\installer\setup.iss "/DMyAppVersion=$version"
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" windows\installer\setup.iss "/DMyAppVersion=$env:APP_VERSION"
           Copy-Item build\windows\installer\DentalClinicSetup-*.exe ..\DentalClinicApp-windows-setup.exe
       - uses: actions/upload-artifact@v4
         with:
@@ -130,3 +135,77 @@ jobs:
             API: ${{ env.API_BASE_URL }}
           files: dist/*
           fail_on_unmatched_files: false
+
+  # Puts the new builds on the live server: /download offers them and the
+  # Windows app's update check (api/v1/desktop/version) sees the new version.
+  # A platform whose build failed keeps its previous entry in releases.json.
+  publish:
+    needs: [android, ios, windows]
+    if: always() && !cancelled() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+      SITE: https://dental.azoclinic.duckdns.org/downloads
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Name the files and write the manifest
+        run: |
+          V=$APP_VERSION
+          mkdir -p out
+          echo '{}' > out/new.json
+          add() { jq --arg p "$1" --arg v "$V" --arg url "$SITE/$2" --arg zip "$3" \
+            '.[$p] = {version: $v, url: $url, notes: null} + (if $zip == "" then {} else {zip_url: $zip} end)' \
+            out/new.json > out/t.json && mv out/t.json out/new.json; }
+          if [ -f dist/DentalClinicApp-windows-setup.exe ]; then
+            cp dist/DentalClinicApp-windows-setup.exe out/DentalClinicSetup-$V.exe
+            (cd out && zip -q DentalClinicSetup-$V.zip DentalClinicSetup-$V.exe)
+            add windows DentalClinicSetup-$V.exe "$SITE/DentalClinicSetup-$V.zip"
+          fi
+          if [ -f dist/DentalClinicApp-android.apk ]; then
+            cp dist/DentalClinicApp-android.apk out/DentalClinicApp-$V.apk
+            (cd out && zip -q DentalClinicApp-$V.zip DentalClinicApp-$V.apk)
+            add android DentalClinicApp-$V.apk "$SITE/DentalClinicApp-$V.zip"
+          fi
+          if [ -f dist/DentalClinicApp-ios-unsigned.ipa ]; then
+            cp dist/DentalClinicApp-ios-unsigned.ipa out/DentalClinicApp-$V.ipa
+            add ios DentalClinicApp-$V.ipa ""
+          fi
+          cat out/new.json
+          [ "$(jq length out/new.json)" -gt 0 ] || { echo "No build to publish."; exit 1; }
+      - name: Upload to the VPS
+        if: env.VPS_HOST != ''
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/vps_key
+          chmod 600 ~/.ssh/vps_key
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          vps() { ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" "$@"; }
+          dir="$VPS_APP_DIR/public/downloads"
+          vps "mkdir -p '$dir' && (cat '$dir/releases.json' 2>/dev/null || echo '{}')" > out/old.json
+          jq -s '.[0] * .[1]' out/old.json out/new.json > out/releases.json
+          cat out/releases.json
+          # Files first, manifest last, so the page never links a missing file.
+          (cd out && tar czf - DentalClinic*) | vps "tar xzf - -C '$dir'"
+          vps "cat > '$dir/releases.json.tmp' && mv '$dir/releases.json.tmp' '$dir/releases.json'" < out/releases.json
+          # Remove older 1.1.x builds the manifest no longer points at.
+          keep=" $(jq -r '.[] | .url, (.zip_url // empty)' out/releases.json | xargs -n1 basename | tr '\n' ' ')"
+          vps "cd '$dir' && for f in DentalClinic*-1.1.*; do case '$keep' in *\" \$f \"*) ;; *) rm -f -- \"\$f\";; esac; done; ls -la"
+      - name: Check the server offers the new version
+        if: env.VPS_HOST != ''
+        run: |
+          jq -e .windows out/new.json >/dev/null || exit 0
+          for i in $(seq 1 12); do
+            got=$(curl -fsS https://dental.azoclinic.duckdns.org/api/v1/desktop/version | jq -r .version || true)
+            echo "Server reports Windows version: $got"
+            [ "$got" = "$APP_VERSION" ] && exit 0
+            sleep 10
+          done
+          echo "::warning::The server does not report $APP_VERSION yet; it will once deploy-vps has run with the public/downloads mount."

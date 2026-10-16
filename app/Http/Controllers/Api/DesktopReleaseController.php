@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\AppReleases;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -15,6 +16,6 @@ class DesktopReleaseController extends Controller
 {
     public function __invoke(): JsonResponse
     {
-        return response()->json(config('desktop_releases.windows'));
+        return response()->json(AppReleases::for('windows'));
     }
 }
