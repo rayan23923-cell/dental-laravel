@@ -34,7 +34,12 @@ class TaskDepartmentStageTest extends TestCase
         $this->actingAs($admin)->post('/tasks', $task($other->id))->assertSessionHasErrors('department_id');
         $this->post('/tasks', $task($loose->id))->assertSessionHasErrors('department_id');
         $this->post('/tasks', $task(null))->assertSessionHasErrors('department_id');
-        $this->post('/tasks', $task($own->id))->assertSessionHasNoErrors();
+        // Back to the list on the task's own stage and department, so it shows.
+        $this->post('/tasks', $task($own->id))->assertSessionHasNoErrors()
+            ->assertRedirect(route('tasks.index', ['stage_id' => 1, 'department_id' => $own->id]));
+        $saved = Task::latest('id')->first();
+        $this->put("/tasks/{$saved->id}", ['title' => 'حشوة معدلة'] + $task($own->id))
+            ->assertRedirect(route('tasks.index', ['stage_id' => 1, 'department_id' => $own->id]));
 
         $this->assertSame([$own->id], Task::pluck('department_id')->map(fn ($id) => (int) $id)->all());
 
