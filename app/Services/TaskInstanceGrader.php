@@ -61,8 +61,8 @@ class TaskInstanceGrader
         }
         [$items, $points] = $resolved;
 
-        // Ticked checklist parts carry no points of their own.
-        $scored = collect($items)->contains(fn ($item) => empty($item['check']));
+        // Ticked checklist parts carry no points of their own unless graded.
+        $scored = collect($items)->contains(fn ($item) => empty($item['check']) || ! empty($item['scored']));
 
         return ['work_items' => $items, 'points' => $scored ? $points : null];
     }

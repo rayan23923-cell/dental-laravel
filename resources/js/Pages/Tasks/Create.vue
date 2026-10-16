@@ -230,7 +230,7 @@ const submit = () => {
                                     <span v-if="row.scoring.min_points" class="rounded-full bg-indigo-100 px-2 py-0.5 text-indigo-700">{{ t('taskScoring.pointsValue', { n: row.scoring.min_points }) }}</span>
                                     <span v-if="row.scoring.weight" class="rounded-full bg-amber-100 px-2 py-0.5 text-amber-700">{{ row.scoring.weight }}%</span>
                                     <span v-if="row.scoring.steps?.length" class="rounded-full bg-gray-100 px-2 py-0.5">{{ t('taskScoring.stepsCount', { n: row.scoring.steps.filter((x) => x.enabled).length }) }}</span>
-                                    <span v-for="(o, oi) in row.scoring.options" :key="oi" class="rounded-full bg-gray-100 px-2 py-0.5">{{ o.label }} {{ o.points }}</span>
+                                    <span v-for="(o, oi) in row.scoring.options.filter((x) => x.enabled !== false)" :key="oi" class="rounded-full bg-gray-100 px-2 py-0.5">{{ o.label }} {{ o.points }}</span>
                                     <span v-if="row.scoring.endo" class="rounded-full bg-indigo-600 px-2 py-0.5 text-white">{{ t('taskScoring.rootFilling') }}</span>
                                     <span v-for="(c, ci) in row.scoring.checklist ?? []" :key="'c' + ci" class="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">✓ {{ c.label }}</span>
                                 </div>

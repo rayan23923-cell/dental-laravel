@@ -1254,6 +1254,7 @@
         "graded": "المشرف يقيّم كل بند (لحد نقاطه)",
         "checklist": "قائمة البنود",
         "addCheck": "إضافة بند",
+        "checkScored": "درجة",
         "checkLabel": "البند",
         "checklistHint": "لازم كل البنود تتعلّم حتى تكمل الحالة.",
         "checklistDone": "البنود المنجزة",

@@ -278,6 +278,7 @@ class TaskScoring
             "$prefix.options" => ['nullable', 'array', 'max:30'],
             "$prefix.options.*.label" => ['required', 'string', 'max:100'],
             "$prefix.options.*.points" => ['required', 'numeric', 'min:0'],
+            "$prefix.options.*.enabled" => ['boolean'],
             "$prefix.modifiers" => ['nullable', 'array', 'max:10'],
             "$prefix.modifiers.*.label" => ['required', 'string', 'max:100'],
             "$prefix.modifiers.*.factor" => ['required', 'numeric', 'min:0', 'max:10'],
@@ -290,6 +291,8 @@ class TaskScoring
             "$prefix.graded" => ['boolean'],
             "$prefix.checklist" => ['nullable', 'array', 'max:20'],
             "$prefix.checklist.*.label" => ['required', 'string', 'max:150'],
+            "$prefix.checklist.*.scored" => ['boolean'],
+            "$prefix.checklist.*.max" => ['nullable', 'numeric', 'min:0'],
             "$prefix.endo" => ['boolean'],
         ];
     }
@@ -310,6 +313,8 @@ class TaskScoring
             'options' => collect($scoring['options'] ?? [])->map(fn ($o) => [
                 'label' => (string) $o['label'],
                 'points' => (float) $o['points'],
+                // Switched off in the setup (2026-10-16, by request): kept but not offered.
+                'enabled' => (bool) ($o['enabled'] ?? true),
             ])->values()->all(),
             'modifiers' => collect($scoring['modifiers'] ?? [])->map(fn ($m) => [
                 'label' => (string) $m['label'],
@@ -326,7 +331,10 @@ class TaskScoring
             ])->values()->all(),
             'graded' => (bool) ($scoring['graded'] ?? false),
             'checklist' => collect($scoring['checklist'] ?? [])
-                ->map(fn ($c) => ['label' => trim((string) $c['label'])])
+                // A part may carry a grade up to `max` (2026-10-16, by request).
+                ->map(fn ($c) => ['label' => trim((string) $c['label'])] + (! empty($c['scored']) && is_numeric($c['max'] ?? null)
+                    ? ['scored' => true, 'max' => (float) $c['max']]
+                    : []))
                 ->filter(fn ($c) => $c['label'] !== '')
                 ->values()->all(),
             'endo' => (bool) ($scoring['endo'] ?? false),
@@ -373,14 +381,25 @@ class TaskScoring
             throw ValidationException::withMessages(['work_items' => 'أكمل كل البنود قبل الإنجاز: '.collect($checklist)->only($missing->all())->pluck('label')->implode('، ')]);
         }
 
-        $resolved = collect($checklist)->only($ticked->all())->map(fn ($c) => ['option' => $c['label'], 'qty' => 1, 'modifiers' => [], 'points' => 0, 'check' => true])->values()->all();
+        // A graded part scores the supervisor's grade, up to its max.
+        $grades = collect($items)->filter(fn ($item) => ($item['check'] ?? null) !== null)->mapWithKeys(fn ($item) => [(int) $item['check'] => $item['grade'] ?? null]);
         $total = 0.0;
+        $resolved = [];
+        foreach (collect($checklist)->only($ticked->all()) as $ci => $c) {
+            $part = ['option' => $c['label'], 'qty' => 1, 'modifiers' => [], 'points' => 0, 'check' => true];
+            if (! empty($c['scored'])) {
+                $grade = is_numeric($grades[$ci] ?? null) ? max(0.0, min((float) $grades[$ci], (float) $c['max'])) : 0.0;
+                $part = ['points' => $grade, 'grade' => $grade, 'max' => (float) $c['max'], 'scored' => true] + $part;
+                $total += $grade;
+            }
+            $resolved[] = $part;
+        }
         foreach (array_values($items) as $i => $item) {
             if (($item['check'] ?? null) !== null) {
                 continue;
             }
             $option = $options[(int) $item['option']] ?? null;
-            if (! $option) {
+            if (! $option || ! ($option['enabled'] ?? true)) {
                 throw ValidationException::withMessages(["work_items.$i.option" => 'نوع العمل غير موجود بهذه المهمة.']);
             }
             $qty = max(1, (int) ($item['qty'] ?? 1));

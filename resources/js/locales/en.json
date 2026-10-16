@@ -1254,6 +1254,7 @@
         "graded": "Supervisor grades each item (up to its points)",
         "checklist": "Checklist",
         "addCheck": "Add item",
+        "checkScored": "Graded",
         "checkLabel": "Item",
         "checklistHint": "All items must be ticked to complete a case.",
         "checklistDone": "Completed parts",

@@ -9,7 +9,7 @@ export function workItemsToForm(scoring, workItems) {
     const items = (workItems ?? [])
         .map((w) =>
             w.check
-                ? { check: (s.checklist ?? []).findIndex((c) => c.label === w.option) }
+                ? { check: (s.checklist ?? []).findIndex((c) => c.label === w.option), grade: w.grade ?? null }
                 : {
                       option: (s.options ?? []).findIndex((o) => o.label === w.option),
                       qty: w.qty ?? 1,
@@ -20,11 +20,11 @@ export function workItemsToForm(scoring, workItems) {
         .filter((w) => (w.check ?? w.option) >= 0);
     if (s.graded) {
         (s.options ?? []).forEach((o, i) => {
-            if (!items.some((w) => w.option === i)) items.push({ option: i, qty: 1, grade: null, modifiers: [] });
+            if (o.enabled !== false && !items.some((w) => w.option === i)) items.push({ option: i, qty: 1, grade: null, modifiers: [] });
         });
         items.sort((a, b) => (a.option ?? -1) - (b.option ?? -1));
     } else if (s.options?.length && !items.some((w) => w.check === undefined)) {
-        items.push({ option: 0, qty: 1, modifiers: [] });
+        items.push({ option: Math.max(0, s.options.findIndex((o) => o.enabled !== false)), qty: 1, modifiers: [] });
     }
     return items;
 }

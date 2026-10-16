@@ -50,4 +50,46 @@ class CustomTaskStepsTest extends TestCase
 
         $this->assertSame(4.0, $total);
     }
+
+    public function test_graded_checklist_parts_score_their_grade_up_to_their_max(): void
+    {
+        $task = new Task(['scoring' => TaskScoring::normalize([
+            'measure' => 'count',
+            'checklist' => [
+                ['label' => 'Case sheet filling', 'scored' => true, 'max' => 10],
+                ['label' => 'Photographs', 'scored' => false, 'max' => 10],
+                ['label' => 'Study models', 'scored' => true, 'max' => 5],
+            ],
+        ])]);
+
+        $this->assertSame(['label' => 'Photographs'], $task->scoring['checklist'][1]);
+
+        [$items, $total] = TaskScoring::resolveWorkItems($task, [
+            ['check' => 0, 'grade' => 8],
+            ['check' => 1],
+            ['check' => 2, 'grade' => 9],
+        ]);
+
+        $this->assertSame(13.0, $total);
+        $this->assertSame([8.0, 0, 5.0], array_column($items, 'points'));
+        $this->assertTrue($items[0]['scored']);
+    }
+
+    public function test_switched_off_kinds_of_work_cannot_be_recorded(): void
+    {
+        $task = new Task(['scoring' => TaskScoring::normalize([
+            'measure' => 'both',
+            'options' => [
+                ['label' => 'Class I / III', 'points' => 10],
+                ['label' => 'Class II MOD', 'points' => 20, 'enabled' => false],
+            ],
+        ])]);
+
+        $this->assertTrue($task->scoring['options'][0]['enabled']);
+        [, $total] = TaskScoring::resolveWorkItems($task, [['option' => 0, 'qty' => 2]]);
+        $this->assertSame(20.0, $total);
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        TaskScoring::resolveWorkItems($task, [['option' => 1, 'qty' => 1]]);
+    }
 }
