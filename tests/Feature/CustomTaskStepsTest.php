@@ -92,4 +92,28 @@ class CustomTaskStepsTest extends TestCase
         $this->expectException(\Illuminate\Validation\ValidationException::class);
         TaskScoring::resolveWorkItems($task, [['option' => 1, 'qty' => 1]]);
     }
+
+    public function test_points_off_keeps_the_lists_and_scores_nothing(): void
+    {
+        $task = new Task(['scoring' => TaskScoring::normalize([
+            'measure' => 'both',
+            'min_points' => 100,
+            'points_off' => true,
+            'options' => [['label' => 'Scaling', 'points' => 10]],
+            'checklist' => [['label' => 'Case sheet filling', 'scored' => true, 'max' => 10]],
+        ])]);
+
+        $this->assertTrue(TaskScoring::pointsOff($task->scoring));
+        $this->assertSame('count', $task->scoring['measure']);
+        $this->assertCount(1, $task->scoring['options']);
+        $this->assertCount(1, $task->scoring['checklist']);
+
+        [$items, $total] = TaskScoring::resolveWorkItems($task, [
+            ['option' => 0, 'qty' => 3],
+            ['check' => 0, 'grade' => 8],
+        ]);
+
+        $this->assertSame(0.0, (float) $total);
+        $this->assertCount(2, $items);
+    }
 }

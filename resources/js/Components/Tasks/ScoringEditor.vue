@@ -11,6 +11,8 @@ import { useI18n } from 'vue-i18n';
 const { t } = useI18n();
 const scoring = defineModel({ type: Object, required: true });
 
+// Points switched off (2026-10-16, by request): the lists stay, their points and totals are hidden.
+const off = computed(() => !!scoring.value.points_off);
 const input = 'rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500';
 // Labels wrap onto as many lines as they need (2026-10-15), so they read whole on a phone.
 const rowsFor = (text) => Math.max(1, Math.ceil((text?.length ?? 0) / 28));
@@ -38,7 +40,7 @@ const stepsTotal = computed(() =>
 <template>
     <div class="space-y-3">
         <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            <label class="text-xs text-gray-600">
+            <label v-if="!off" class="text-xs text-gray-600">
                 {{ t('taskScoring.measure') }}
                 <select v-model="scoring.measure" :class="input" class="mt-1 block w-full">
                     <option value="count">{{ t('taskScoring.measureCount') }}</option>
@@ -46,7 +48,7 @@ const stepsTotal = computed(() =>
                     <option value="both">{{ t('taskScoring.measureBoth') }}</option>
                 </select>
             </label>
-            <label class="text-xs text-gray-600">
+            <label v-if="!off" class="text-xs text-gray-600">
                 {{ t('taskScoring.minPoints') }}
                 <input v-model.number="scoring.min_points" type="number" min="0" step="0.5" :disabled="scoring.measure === 'count' || !!scoring.steps?.length" :class="input" class="mt-1 block w-full disabled:bg-gray-100" />
             </label>
@@ -63,7 +65,7 @@ const stepsTotal = computed(() =>
                 <input v-model="st.enabled" type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
                 <textarea v-if="st.custom" v-model="st.label" :rows="rowsFor(st.label)" :placeholder="t('taskScoring.stepLabel')" class="min-w-0 flex-1 resize-y leading-6" :class="input" required maxlength="100" @keydown.enter.prevent></textarea>
                 <span v-else class="min-w-0 flex-1 text-sm text-gray-700">{{ st.label }}</span>
-                <input v-model.number="st.max" type="number" min="0" step="0.5" class="w-24 shrink-0" :class="input" :disabled="!st.enabled" :title="t('taskScoring.stepMax')" />
+                <input v-if="!off" v-model.number="st.max" type="number" min="0" step="0.5" class="w-24 shrink-0" :class="input" :disabled="!st.enabled" :title="t('taskScoring.stepMax')" />
                 <button v-if="st.custom" type="button" class="shrink-0 text-gray-400 hover:text-red-600" :title="t('common.delete')" @click="scoring.steps.splice(i, 1)">
                     <Icon name="close" size="text-[18px]" />
                 </button>
@@ -71,7 +73,7 @@ const stepsTotal = computed(() =>
             <button type="button" class="mt-1 inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800" @click="addStep">
                 <Icon name="add" size="text-[16px]" /> {{ t('taskScoring.addStep') }}
             </button>
-            <div class="mt-2 flex items-center justify-between rounded-md bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-800">
+            <div v-if="!off" class="mt-2 flex items-center justify-between rounded-md bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-800">
                 <span>{{ t('taskScoring.stepsTotal') }}</span>
                 <span>{{ stepsTotal }}</span>
             </div>
@@ -87,17 +89,17 @@ const stepsTotal = computed(() =>
             <div v-for="(o, i) in scoring.options" :key="i" class="mb-1 flex items-start gap-2" :class="isOn(o) ? '' : 'opacity-50'">
                 <input type="checkbox" :checked="isOn(o)" class="mt-3 shrink-0 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" @change="o.enabled = !isOn(o)" />
                 <textarea v-model="o.label" :rows="rowsFor(o.label)" :placeholder="t('taskScoring.optionLabel')" class="min-w-0 flex-1 resize-y leading-6" :class="input" required @keydown.enter.prevent></textarea>
-                <input v-model.number="o.points" type="number" min="0" step="0.5" class="w-24 shrink-0" :class="input" required />
+                <input v-if="!off" v-model.number="o.points" type="number" min="0" step="0.5" class="w-24 shrink-0" :class="input" required />
                 <button type="button" class="shrink-0 text-gray-400 hover:text-red-600" :title="t('common.delete')" @click="scoring.options.splice(i, 1)">
                     <Icon name="close" size="text-[18px]" />
                 </button>
             </div>
             <p v-if="!scoring.options.length" class="text-xs text-gray-400">{{ t('taskScoring.noOptions') }}</p>
-            <div v-else class="mt-2 flex items-center justify-between rounded-md bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-800">
+            <div v-else-if="!off" class="mt-2 flex items-center justify-between rounded-md bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-800">
                 <span>{{ t('taskScoring.stepsTotal') }}</span>
                 <span>{{ optionsTotal }}</span>
             </div>
-            <label v-if="scoring.options.length" class="mt-1 flex items-center gap-2 text-xs text-gray-600">
+            <label v-if="scoring.options.length && !off" class="mt-1 flex items-center gap-2 text-xs text-gray-600">
                 <input v-model="scoring.graded" type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
                 {{ t('taskScoring.graded') }}
             </label>
@@ -122,7 +124,7 @@ const stepsTotal = computed(() =>
                         <Icon name="close" size="text-[18px]" />
                     </button>
                 </div>
-                <div class="mt-1 flex items-center gap-2 text-xs text-gray-600">
+                <div v-if="!off" class="mt-1 flex items-center gap-2 text-xs text-gray-600">
                     <label class="flex items-center gap-1">
                         <input type="checkbox" :checked="!!c.scored" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" @change="toggleScored(c)" />
                         {{ t('taskScoring.checkScored') }}
@@ -131,13 +133,13 @@ const stepsTotal = computed(() =>
                 </div>
             </div>
             <p v-if="scoring.checklist?.length" class="text-xs text-gray-500">{{ t('taskScoring.checklistHint') }}</p>
-            <div v-if="scoring.checklist?.some((c) => c.scored)" class="mt-2 flex items-center justify-between rounded-md bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-800">
+            <div v-if="!off && scoring.checklist?.some((c) => c.scored)" class="mt-2 flex items-center justify-between rounded-md bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-800">
                 <span>{{ t('taskScoring.stepsTotal') }}</span>
                 <span>{{ checklistTotal }}</span>
             </div>
         </div>
 
-        <div>
+        <div v-if="!off">
             <div class="mb-1 flex items-center justify-between text-xs font-medium text-gray-700">
                 {{ t('taskScoring.modifiers') }}
                 <button type="button" class="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800" @click="addModifier">

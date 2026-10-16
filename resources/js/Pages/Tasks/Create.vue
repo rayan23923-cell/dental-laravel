@@ -117,17 +117,13 @@ watch(
 );
 watch(() => form.stage_id, applyStage);
 
-// Switching a row's points off keeps what was entered (2026-10-15, by
-// request): the setup is set aside on the row and comes back when points
-// are switched on again, instead of restarting blank.
+// Switching a row's points off only hides the points and totals
+// (2026-10-16, by request): its kinds of work, checklist and steps stay.
+const blankScoring = () => ({ measure: 'count', min_points: null, weight: null, options: [], modifiers: [] });
+const pointsOn = (row) => !!row.scoring && !row.scoring.points_off;
 const toggleScoring = (row, on) => {
-    if (on) {
-        row.scoring = row.savedScoring ?? { measure: 'count', min_points: null, weight: null, options: [], modifiers: [] };
-        delete row.savedScoring;
-    } else {
-        row.savedScoring = row.scoring;
-        row.scoring = null;
-    }
+    row.scoring ??= blankScoring();
+    row.scoring.points_off = !on;
 };
 
 const submit = () => {
@@ -227,10 +223,10 @@ const submit = () => {
                                     </select>
                                 </label>
                                 <div v-if="row.scoring" class="mt-1 flex flex-wrap gap-1 text-xs text-gray-500">
-                                    <span v-if="row.scoring.min_points" class="rounded-full bg-indigo-100 px-2 py-0.5 text-indigo-700">{{ t('taskScoring.pointsValue', { n: row.scoring.min_points }) }}</span>
+                                    <span v-if="pointsOn(row) && row.scoring.min_points" class="rounded-full bg-indigo-100 px-2 py-0.5 text-indigo-700">{{ t('taskScoring.pointsValue', { n: row.scoring.min_points }) }}</span>
                                     <span v-if="row.scoring.weight" class="rounded-full bg-amber-100 px-2 py-0.5 text-amber-700">{{ row.scoring.weight }}%</span>
                                     <span v-if="row.scoring.steps?.length" class="rounded-full bg-gray-100 px-2 py-0.5">{{ t('taskScoring.stepsCount', { n: row.scoring.steps.filter((x) => x.enabled).length }) }}</span>
-                                    <span v-for="(o, oi) in row.scoring.options.filter((x) => x.enabled !== false)" :key="oi" class="rounded-full bg-gray-100 px-2 py-0.5">{{ o.label }} {{ o.points }}</span>
+                                    <span v-for="(o, oi) in row.scoring.options.filter((x) => x.enabled !== false)" :key="oi" class="rounded-full bg-gray-100 px-2 py-0.5">{{ o.label }}<template v-if="pointsOn(row)"> {{ o.points }}</template></span>
                                     <span v-if="row.scoring.endo" class="rounded-full bg-indigo-600 px-2 py-0.5 text-white">{{ t('taskScoring.rootFilling') }}</span>
                                     <span v-for="(c, ci) in row.scoring.checklist ?? []" :key="'c' + ci" class="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">✓ {{ c.label }}</span>
                                 </div>
@@ -239,7 +235,7 @@ const submit = () => {
                                     <label class="mt-2 flex items-center gap-2 text-xs text-gray-700">
                                         <input
                                             type="checkbox"
-                                            :checked="!!row.scoring"
+                                            :checked="pointsOn(row)"
                                             class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                             @change="toggleScoring(row, $event.target.checked)"
                                         />
