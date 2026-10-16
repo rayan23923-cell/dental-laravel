@@ -77,27 +77,37 @@ class TaskScoring
     }
 
     /**
-     * Periodontics (2026-10-14, by request). Fourth stage: 1000 points from
-     * treating patients, each case graded by the supervisor on the sheet's
-     * items up to each item's max. Fifth stage: 4 patients of two sessions
-     * each, one of them with root planing.
+     * Periodontics: the department's 2025-2026 requirements (2026-10-16, by
+     * request), one row per kind of case, each on the chosen case sheet
+     * (Periodontal or Advanced). The earlier 1000-point and two-session rows
+     * stay in the table switched off, for a department that still uses them.
      */
     private static function periodontics(): array
     {
+        $case = fn ($title, $count, $stage) => self::row($title, $count, 'count', null, null, stage: $stage);
+        $off = fn (array $row) => ['enabled' => false, 'off' => true] + $row;
+
         return [
             'pass_percent' => 100,
             'rows' => [
-                self::row('علاج مرضى اللثة (1000 نقطة) — الرابع', 20, 'points', 1000, null, [
+                $case('Scaling and polishing (simple cases) — الرابع', 5, 4),
+                $case('Scaling and polishing (moderate cases) — الرابع', 3, 4),
+                $case('Scaling and polishing (severe cases) — الرابع', 2, 4),
+                $case('Index scoring — الرابع', 3, 4),
+                $case('Motivation — الرابع', 3, 4),
+                $off(self::row('علاج مرضى اللثة (1000 نقطة) — الرابع', 20, 'points', 1000, null, [
                     ['label' => 'Case sheet', 'points' => 10],
                     ['label' => 'Motivation + instruction', 'points' => 10],
                     ['label' => 'Indices (Bleeding on probing + Calculus index)', 'points' => 20],
                     ['label' => 'Diagnosis', 'points' => 20],
                     ['label' => 'Scaling', 'points' => 40],
                     ['label' => 'Clinical case difficulty (Calculus index total score)', 'points' => 360],
-                ], sheet: 'periodontal', stage: 4, graded: true),
-                self::row('علاج مريض لثة بواقع جلستين — الخامس', 4, 'count', null, null, sheet: 'periodontal', stage: 5,
-                    checklist: ['الجلسة الأولى', 'الجلسة الثانية']),
-                self::row('Root planing — الخامس', 1, 'count', null, null, sheet: 'periodontal', stage: 5),
+                ], stage: 4, graded: true)),
+                $case('Scaling and polishing (severe cases) — الخامس', 12, 5),
+                $case('Root planing — الخامس', 3, 5),
+                $case('Periodontal surgery — الخامس', 1, 5),
+                $off(self::row('علاج مريض لثة بواقع جلستين — الخامس', 4, 'count', null, null, stage: 5,
+                    checklist: ['الجلسة الأولى', 'الجلسة الثانية'])),
             ],
         ];
     }
