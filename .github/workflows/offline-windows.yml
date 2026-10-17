@@ -221,6 +221,30 @@ jobs:
           test -f dist/DentalClinicOffline/client/DentalClinicClientSetup.exe
           jq -e '.build > 0' dist/DentalClinicOffline/client/version.json
 
+      # The Windows, Android and iPhone apps, served on the LAN at
+      # http://clinic.lan/apps/ (the apps' own update check reads
+      # apps/releases.json there in clinic-server mode). Copied from the
+      # latest builds on the hosting.
+      - name: Apps for phones and computers
+        run: |
+          OUT=dist/DentalClinicOffline/apps
+          SITE=https://dental.azoclinic.duckdns.org/downloads
+          mkdir -p $OUT
+          cp offline/windows/apps/index.html $OUT/index.html
+          curl -fsSL --retry 3 "$SITE/releases.json" -o rel.json
+          echo '{}' > $OUT/releases.json
+          for p in windows android ios; do
+            url=$(jq -r --arg p $p '.[$p].url // empty' rel.json)
+            [ -n "$url" ] || continue
+            f=$(basename "$url")
+            curl -fsSL --retry 3 -o "$OUT/$f" "$url"
+            jq --arg p $p --arg v "$(jq -r --arg p $p '.[$p].version' rel.json)" --arg u "/apps/$f" \
+              '.[$p] = {version: $v, url: $u, notes: null}' $OUT/releases.json > t.json && mv t.json $OUT/releases.json
+          done
+          cat $OUT/releases.json
+          ls -la $OUT
+          jq -e '.android.url' $OUT/releases.json
+
       - name: Windows PHP
         run: |
           OUT=dist/DentalClinicOffline
@@ -340,6 +364,14 @@ jobs:
           if ($cexe -notmatch '^200 [1-9]\d{5,}') { throw "The client installer is not served, got $cexe" }
           $cpage = curl.exe -s -o NUL -w '%{http_code}' --max-time 30 http://127.0.0.1:8080/client/
           if ($cpage -ne '200') { throw "The client page is not served on this computer, got $cpage" }
+          Write-Host 'Apps for phones and computers:'
+          $rel = (curl.exe -s --max-time 30 "http://${ip}:8080/apps/releases.json") -join '' | ConvertFrom-Json
+          if (-not $rel.android.url) { throw 'apps/releases.json has no Android app.' }
+          $apk = curl.exe -s -o NUL -w '%{http_code} %{size_download}' --max-time 120 "http://${ip}:8080$($rel.android.url)"
+          Write-Host "android $($rel.android.version): $apk"
+          if ($apk -notmatch '^200 [1-9]\d{6,}') { throw "The Android app is not served, got $apk" }
+          $apage = curl.exe -s -o NUL -w '%{http_code}' --max-time 30 "http://${ip}:8080/apps/"
+          if ($apage -ne '200') { throw "The apps page is not served, got $apage" }
 
           Write-Host 'Auto-open on joining the Wi-Fi (captive check):'
           $cdns = Resolve-DnsName -Name connectivitycheck.gstatic.com -Server 127.0.0.1 -DnsOnly -Type A
