@@ -40,7 +40,9 @@ class ActivationController extends Controller
                 'machine_id' => OfflineLicensing::machineId(),
                 'machine_name' => OfflineLicensing::machineName(),
             ]);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            report($e);
+
             return back()->withInput()->withErrors(['code' => 'تعذّر الاتصال بالخادم. التفعيل يحتاج اتصال إنترنت مرة واحدة فقط، تأكد من الاتصال وحاول مرة أخرى.']);
         }
 

@@ -105,6 +105,9 @@ jobs:
           mkdir -p $OUT/php && unzip -q php.zip -d $OUT/php
           cat $OUT/php/php.ini-production offline/windows/php.ini.overrides > $OUT/php/php.ini.template
           rm -rf $OUT/php/dev $OUT/php/extras
+          # CA list for HTTPS from PHP (activation), see php.ini.overrides.
+          curl -fsSL -o $OUT/php/cacert.pem https://curl.se/ca/cacert.pem
+          grep -q 'BEGIN CERTIFICATE' $OUT/php/cacert.pem
           curl -fsSL -o $OUT/vc_redist.x64.exe https://aka.ms/vs/17/release/vc_redist.x64.exe
 
       - name: Windows MariaDB
@@ -361,6 +364,9 @@ jobs:
           if ($api -ne '403') { throw "Before activation the API should refuse, got $api" }
           & "$root\php\php.exe" -r "exit(function_exists('sodium_crypto_sign_verify_detached') ? 0 : 1);"
           if ($LASTEXITCODE -ne 0) { throw 'sodium is missing from the bundled PHP.' }
+          # Activation calls the hosting over HTTPS; this fails without a CA list.
+          & "$root\php\php.exe" -c "$root\php\php.ini" -r "`$c = curl_init('https://www.google.com/'); curl_setopt(`$c, CURLOPT_RETURNTRANSFER, true); curl_setopt(`$c, CURLOPT_NOBODY, true); curl_exec(`$c); `$e = curl_error(`$c); echo `$e; exit(`$e === '' ? 0 : 1);"
+          if ($LASTEXITCODE -ne 0) { throw 'The bundled PHP cannot make HTTPS calls (activation would fail).' }
           Start-Process -FilePath "$root\DentalClinic.exe" -ArgumentList '--stop' -Wait
 
   release:
