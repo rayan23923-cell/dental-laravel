@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\TaskController as WebTaskController;
 use App\Http\Resources\TaskResource;
 use App\Models\Department;
+use App\Models\Doctor;
 use App\Models\Task;
 use App\Services\AcademicSessionHelper;
 use App\Services\ScopeHelper;
@@ -53,6 +54,24 @@ class TaskController extends Controller
         $task->load(['department', 'caseSheetType', 'stage', 'instances.doctor']);
 
         return (new TaskResource($task))->response();
+    }
+
+    /**
+     * The doctors a task can be assigned to, for the task detail screen's
+     * "assign to a doctor" picker (2026-10-17) — the same list the web's
+     * Tasks/Show offers: only the task's own academic year, plus
+     * session-less doctors.
+     */
+    public function assignableDoctors(Task $task): JsonResponse
+    {
+        $doctors = Doctor::query()
+            ->when($task->academic_session_id, fn ($q, $sessionId) => $q->where(fn ($q2) => $q2
+                ->where('academic_session_id', $sessionId)
+                ->orWhereNull('academic_session_id')))
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return response()->json(['data' => $doctors]);
     }
 
     /**

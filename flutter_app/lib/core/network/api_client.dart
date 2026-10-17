@@ -133,6 +133,18 @@ class ApiClient {
     }
   }
 
+  /// A `DELETE` whose response body the caller needs — e.g.
+  /// `DELETE /doctors-bulk` reports how many were archived and which were
+  /// skipped (2026-10-17).
+  Future<dynamic> deleteJsonData(String path, {Object? body}) async {
+    try {
+      final response = await _dio.delete(path, data: body);
+      return response.data;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
   /// For endpoints that *update* a record with a file upload (clinic
   /// settings' two logo fields). Always POSTs with `_method` spoofing
   /// rather than a real HTTP `PUT`/`PATCH`, matching the web app's own

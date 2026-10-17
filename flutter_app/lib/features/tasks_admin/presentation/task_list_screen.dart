@@ -169,7 +169,9 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                           separatorBuilder: (_, __) => chatDivider,
                           itemBuilder: (context, i) => _TaskTile(
                             task: page.items[i],
-                            onTap: () => _openForm('/admin/tasks/${page.items[i].id}'),
+                            // The task's instances first (2026-10-17), as the
+                            // web's Tasks/Show; editing is its app-bar pencil.
+                            onTap: () => _openForm('/admin/tasks/${page.items[i].id}/detail'),
                           ),
                         ),
                       );

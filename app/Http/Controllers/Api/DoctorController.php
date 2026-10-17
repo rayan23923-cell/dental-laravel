@@ -95,7 +95,7 @@ class DoctorController extends Controller
 
     public function show(Doctor $doctor): JsonResponse
     {
-        $doctor->load(['educationType', 'stage']);
+        $doctor->load(['educationType', 'stage', 'groups']);
 
         return (new DoctorResource($doctor))->response();
     }
@@ -152,6 +152,37 @@ class DoctorController extends Controller
         $doctor->delete();
 
         return response()->json(null, 204);
+    }
+
+    /**
+     * Archive several doctors at once — the app's twin of the web's
+     * doctors.destroy-many (2026-10-17): linked doctors are skipped and
+     * named, the rest archived.
+     */
+    public function destroyMany(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array'],
+            'ids.*' => ['integer', 'exists:doctors,id'],
+        ]);
+
+        $blocked = [];
+        $archived = 0;
+        foreach (Doctor::whereIn('id', $validated['ids'])->get() as $doctor) {
+            if ($linked = LinkedRecords::message($doctor)) {
+                $blocked[] = "{$doctor->name}: {$linked}";
+
+                continue;
+            }
+            $doctor->delete();
+            $archived++;
+        }
+
+        return response()->json([
+            'archived' => $archived,
+            'blocked' => $blocked,
+            'message' => "تمت أرشفة {$archived} طبيب.",
+        ]);
     }
 
     private function validateDoctor(Request $request, ?int $doctorId = null): array

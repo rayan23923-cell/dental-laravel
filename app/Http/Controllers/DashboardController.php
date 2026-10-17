@@ -12,6 +12,7 @@ use App\Models\ClinicSetting;
 use App\Support\PaymentStats;
 use App\Models\Task;
 use App\Models\TaskInstance;
+use App\Models\User;
 use App\Services\AcademicSessionHelper;
 use App\Services\PermissionManager;
 use Illuminate\Http\JsonResponse;
@@ -50,6 +51,16 @@ class DashboardController extends Controller
         if (RolePresets::isDeskRole($user->role)) {
             return redirect()->route(RolePresets::HOME_ROUTES[$user->role]);
         }
+
+        return Inertia::render('Dashboard', $this->dashboardData($user));
+    }
+
+    /**
+     * The dashboard's figures, shared with the app's
+     * Api\DashboardController (2026-10-17) so both show the same numbers.
+     */
+    public function dashboardData(User $user): array
+    {
         $permissions = new PermissionManager($user);
         // Payments routes are role-gated (super_admin/admin/editor), not
         // permission-gated; mirror that so the dashboard never links past it.
@@ -62,7 +73,7 @@ class DashboardController extends Controller
                 ->where('academic_session_id', $sessionId)
                 ->orWhereNull('academic_session_id')));
 
-        return Inertia::render('Dashboard', [
+        return [
             'stats' => [
                 'doctors' => Doctor::count(),
                 'patients' => Patient::count(),
@@ -131,7 +142,7 @@ class DashboardController extends Controller
                 'patient_screening' => $permissions->can('patient_screening', 'confirm'),
                 'payments' => $canPayments,
             ],
-        ]);
+        ];
     }
 
     /**

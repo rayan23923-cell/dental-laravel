@@ -14,6 +14,9 @@ import '../../auth/presentation/auth_state.dart';
 import '../../patient_registration/presentation/patient_registration_providers.dart';
 import '../../records/presentation/records_providers.dart';
 import '../../task_instances/presentation/my_tasks_screen.dart';
+import '../data/dashboard_repository.dart';
+import '../domain/dashboard_data.dart';
+import 'dashboard_widgets.dart';
 
 /// A doctor's home *is* their task list (`/my-task-progress` is
 /// doctor-only server-side — a staff token 403s it, see
@@ -65,7 +68,7 @@ class HomeScreen extends ConsumerWidget {
 /// copy of `RecordsHubScreen`'s full list, just the frequent subset), and
 /// the two module hubs ("السجلات"/"الإدارة") as proper cards instead of
 /// plain buttons.
-class _StaffDashboard extends StatelessWidget {
+class _StaffDashboard extends ConsumerWidget {
   const _StaffDashboard({
     required this.displayName,
     required this.profileImageUrl,
@@ -82,7 +85,7 @@ class _StaffDashboard extends StatelessWidget {
   final Map<String, String> t;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = Theme.of(context).colorScheme;
     // One "تسجيل المرضى" entry, the same as the web menu (2026-10-13, by
     // request): the separate "register a new patient" shortcut confused
@@ -100,6 +103,10 @@ class _StaffDashboard extends StatelessWidget {
       Colors.red,
     );
     final isDeskRole = role == 'reception' || role == 'lab';
+    // The web dashboard's figures (2026-10-17); desk roles don't get them,
+    // as on the web, so they never call the endpoint.
+    final dashboardAsync = isDeskRole ? null : ref.watch(dashboardProvider);
+    final dashboard = dashboardAsync?.valueOrNull;
     final shortcuts = role == 'reception'
         ? [registerShortcut]
         : role == 'lab'
@@ -121,6 +128,10 @@ class _StaffDashboard extends StatelessWidget {
       // (2026-08-26) so "المختبر" is a first-class shortcut like every
       // other daily action here.
       labShortcut,
+      // "عرض تقدم الأطباء", as on the web dashboard: the doctors list,
+      // where each doctor's progress opens.
+      if (dashboard?.canDoctors ?? false)
+        _Shortcut(t['home.doctorsProgress']!, Icons.medical_services_outlined, () => context.push('/admin/doctors'), Colors.green),
     ];
 
     // Chat-list layout (2026-10-13, by request), as on the web dashboard:
@@ -134,7 +145,7 @@ class _StaffDashboard extends StatelessWidget {
       ],
     ];
 
-    return ListView(
+    final list = ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Card(
@@ -150,6 +161,14 @@ class _StaffDashboard extends StatelessWidget {
         ),
         const AcademicYearBanner(margin: EdgeInsets.only(top: 8)),
         const SizedBox(height: 16),
+        if (dashboardAsync != null) ...[
+          dashboardAsync.when(
+            loading: () => const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator())),
+            error: (e, _) => _SectionCard(children: [ListTile(title: Text(t['home.dashboardLoadFailed']!))]),
+            data: (data) => DashboardCounters(data: data, t: t),
+          ),
+          const SizedBox(height: 16),
+        ],
         _SectionCard(
           children: [
             for (final r in rows)
@@ -174,7 +193,43 @@ class _StaffDashboard extends StatelessWidget {
           ),
           const _LatestPayments(),
         ],
+        if (dashboard != null) ..._dashboardSections(context, dashboard),
       ],
+    );
+
+    if (dashboardAsync == null) return list;
+    return RefreshIndicator(onRefresh: () async => ref.invalidate(dashboardProvider), child: list);
+  }
+
+  /// Latest doctors, task statuses and tasks per education type, below the
+  /// lists the dashboard already had — the web dashboard's other widgets.
+  List<Widget> _dashboardSections(BuildContext context, DashboardData data) => [
+        const SizedBox(height: 20),
+        if (data.canDoctors)
+          _SectionHeader(title: t['home.latestDoctors']!, onViewAll: () => context.push('/admin/doctors'), t: t)
+        else
+          _SectionTitle(t['home.latestDoctors']!),
+        DashboardLatestDoctors(data: data, t: t),
+        const SizedBox(height: 20),
+        _SectionTitle(t['home.taskStatuses']!),
+        DashboardTaskStatuses(data: data, t: t),
+        if (data.educationTypes.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          _SectionTitle(t['home.tasksByEduType']!),
+          DashboardTasksByEducationType(data: data),
+        ],
+      ];
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.title);
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(start: 4, bottom: 8),
+      child: Text(title, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
     );
   }
 }

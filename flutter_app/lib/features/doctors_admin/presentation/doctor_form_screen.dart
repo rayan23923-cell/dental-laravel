@@ -1,11 +1,19 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 import '../../../core/i18n/locale_controller.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/pdf/pdf_letterhead.dart';
+import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/nfc/nfc_uid_reader.dart';
 import '../data/doctors_admin_repository.dart';
 import '../domain/doctor_admin.dart';
+import 'doctor_card_pdf.dart';
 import 'doctors_admin_providers.dart';
 import '../../../core/widgets/numeric_input.dart';
 
@@ -121,6 +129,35 @@ class _DoctorFormScreenState extends ConsumerState<DoctorFormScreen> {
     }
   }
 
+  bool _printingCard = false;
+
+  /// "طباعة بطاقة الطبيب" (2026-10-17): the web's print/doctor-card as a
+  /// PDF, with the doctor's photo when it loads and their QR.
+  Future<void> _printCard(DoctorAdmin doctor) async {
+    setState(() => _printingCard = true);
+    try {
+      final settings = await ref.read(clinicSettingsProvider.future);
+      final logo = await loadLetterheadLogo(ref, settings);
+      pw.ImageProvider? photo;
+      if (doctor.profileImageUrl != null) {
+        try {
+          photo = pw.MemoryImage(Uint8List.fromList(await ref.read(apiClientProvider).getBytes(doctor.profileImageUrl!)));
+        } catch (_) {
+          // The card prints without the photo rather than not at all.
+        }
+      }
+      final bytes = await buildDoctorCardPdf(doctor: doctor, settings: settings, logo: logo, photo: photo);
+      await Printing.layoutPdf(onLayout: (_) async => bytes, name: 'بطاقة الطبيب - ${doctor.name}.pdf');
+    } catch (e) {
+      if (mounted) {
+        final t = ref.read(translationsProvider);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trf(t['doctorsAdmin.printFailed']!, {'error': e}))));
+      }
+    } finally {
+      if (mounted) setState(() => _printingCard = false);
+    }
+  }
+
   Future<void> _delete() async {
     final t = ref.read(translationsProvider);
     final confirmed = await showDialog<bool>(
@@ -176,6 +213,14 @@ class _DoctorFormScreenState extends ConsumerState<DoctorFormScreen> {
       appBar: AppBar(
         title: Text(_isCreate ? t['doctorsAdmin.newTitle']! : t['doctorsAdmin.editTitle']!),
         actions: [
+          if (doctorAsync?.valueOrNull case final doctor?)
+            IconButton(
+              icon: _printingCard
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.badge_outlined),
+              tooltip: t['doctorsAdmin.printCard'],
+              onPressed: _printingCard ? null : () => _printCard(doctor),
+            ),
           if (!_isCreate) IconButton(icon: const Icon(Icons.delete_outline), onPressed: _delete),
         ],
       ),
