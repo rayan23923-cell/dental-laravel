@@ -403,6 +403,8 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::post('/endodontics-xrays', [EndodonticsXrayController::class, 'store']);
 
         Route::apiResource('appointments', AppointmentController::class);
+        // Before the resource, or `stats` would be read as a payment id.
+        Route::get('/payments/stats', [PaymentController::class, 'stats']);
         Route::apiResource('payments', PaymentController::class);
 
         Route::get('/activity-logs', [ActivityLogController::class, 'index']);

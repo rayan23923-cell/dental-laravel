@@ -5,6 +5,7 @@ import '../../../core/network/paginated.dart';
 import '../domain/appointment.dart';
 import '../domain/patient.dart';
 import '../domain/payment.dart';
+import '../domain/payment_stats.dart';
 
 final recordsRepositoryProvider = Provider<RecordsRepository>((ref) {
   return RecordsRepository(ref.watch(apiClientProvider));
@@ -81,6 +82,17 @@ class RecordsRepository {
       if (source != null && source.isNotEmpty) 'source': source,
     }) as Map<String, dynamic>;
     return Paginated.fromJson(data, Payment.fromJson);
+  }
+
+  /// The income overview for the same filters (2026-10-17).
+  Future<PaymentStats> fetchPaymentStats({String? search, String? from, String? to, String? source}) async {
+    final data = await _client.getJson('/payments/stats', query: {
+      if (search != null && search.isNotEmpty) 'search': search,
+      if (from != null && from.isNotEmpty) 'from': from,
+      if (to != null && to.isNotEmpty) 'to': to,
+      if (source != null && source.isNotEmpty) 'source': source,
+    }) as Map<String, dynamic>;
+    return PaymentStats.fromJson(data);
   }
 
   Future<Payment> fetchPayment(int id) async {

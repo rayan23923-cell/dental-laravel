@@ -39,6 +39,12 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
   bool _submitting = false;
   bool _reusing = false;
 
+  /// A ticket that already has a result shows it (2026-10-17, by request);
+  /// recording a new one is behind "screen again".
+  bool _screenAgain = false;
+
+  bool get _alreadyScreened => _state.registration.screeningStatus != 'pending';
+
   /// The lab fee is taken with the result (2026-10-12, by request): picking
   /// "سليم" or "غير سليم" records it and prints one paid slip (see the
   /// server's `LabFeeGate::chargeIfDue`). Nothing is due when an earlier
@@ -121,6 +127,19 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
     return parsed == null ? (raw ?? '—') : DateFormat('yyyy-MM-dd').format(parsed.toLocal());
   }
 
+  /// "2026-10-01 14:05", for when a result was recorded.
+  static String _formatDateTime(String? raw) {
+    final parsed = raw == null ? null : DateTime.tryParse(raw);
+    return parsed == null ? (raw ?? '—') : DateFormat('yyyy-MM-dd HH:mm').format(parsed.toLocal());
+  }
+
+  /// Reprints the slip of a ticket that already has a result (2026-10-17),
+  /// as the web lab's "print result" does.
+  Future<void> _reprint() async {
+    final reusedAt = _state.reusedFromCheckedAt;
+    await _printSlip(_state, reusedFrom: reusedAt == null ? null : PreviousScreening(id: 0, checkedAt: reusedAt));
+  }
+
   /// Lab slip: the registration ticket layout with the result banner,
   /// payment status and the same patient QR (fetched like the reprint
   /// in `patient_registration_list_screen.dart`). With [reusedFrom] the
@@ -176,7 +195,12 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
               (t['screening.paymentStatus']!, NumberFormat('#,##0.##').format(state.labPaidAmount)),
               (t['screening.statusLabel']!, t['screening.paid']!),
             ],
-            (t['screening.checkedAt']!, DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())),
+            (
+              t['screening.checkedAt']!,
+              state.screeningCheckedAt == null
+                  ? DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())
+                  : _formatDateTime(state.screeningCheckedAt),
+            ),
           ],
           qrCaption: t['screening.patientCode']!,
           widthDots: printerSettings.dotsPerLine,
@@ -245,7 +269,27 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
             ),
           ),
           const SizedBox(height: 12),
-          _StatusBanner(status: r.screeningStatus),
+          _StatusBanner(
+            status: r.screeningStatus,
+            checkedBy: _state.screeningCheckedBy,
+            checkedAt: _alreadyScreened ? _formatDateTime(_state.screeningCheckedAt) : null,
+            reusedFrom: _state.isReused ? _formatDate(_state.reusedFromCheckedAt) : null,
+          ),
+          if (_alreadyScreened) ...[
+            const SizedBox(height: 12),
+            if (canPrintTickets)
+              FilledButton.icon(
+                onPressed: _submitting || _reusing ? null : _reprint,
+                icon: const Icon(Icons.print_outlined),
+                label: Text(t['screening.printResult']!),
+              ),
+            if (!_screenAgain)
+              TextButton.icon(
+                onPressed: () => setState(() => _screenAgain = true),
+                icon: const Icon(Icons.replay),
+                label: Text(t['screening.screenAgain']!),
+              ),
+          ],
           // A still-valid earlier clear result (same phone, 2026-10-12):
           // no new test and no lab fee — one tap reuses it and prints the
           // slip. Recording a new result below stays possible.
@@ -305,6 +349,7 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
               label: Text(t['screening.reusePrevious']!),
             ),
           ],
+          if (!_alreadyScreened || _screenAgain) ...[
           const SizedBox(height: 24),
           Text(t['screening.labResultHeading']!, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
@@ -333,6 +378,7 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
               ),
             ],
           ),
+          ],
         ],
       ),
     );
@@ -340,9 +386,15 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
 }
 
 class _StatusBanner extends ConsumerWidget {
-  const _StatusBanner({required this.status});
+  const _StatusBanner({required this.status, this.checkedBy, this.checkedAt, this.reusedFrom});
 
   final String status;
+
+  /// Who recorded the result and when; [reusedFrom] is the date of the
+  /// earlier test it reused (2026-10-17).
+  final String? checkedBy;
+  final String? checkedAt;
+  final String? reusedFrom;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -363,7 +415,28 @@ class _StatusBanner extends ConsumerWidget {
         children: [
           Icon(icon, color: color.shade700),
           const SizedBox(width: 8),
-          Expanded(child: Text(label, style: TextStyle(color: color.shade900, fontWeight: FontWeight.w600))),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: TextStyle(color: color.shade900, fontWeight: FontWeight.w600)),
+                if (checkedAt != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    [if (checkedBy != null && checkedBy!.isNotEmpty) checkedBy!, checkedAt!].join(' · '),
+                    style: TextStyle(color: color.shade900, fontSize: 12),
+                  ),
+                ],
+                if (reusedFrom != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    trf(t['screening.reusedFromDate']!, {'date': reusedFrom!}),
+                    style: TextStyle(color: color.shade900, fontSize: 12),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );

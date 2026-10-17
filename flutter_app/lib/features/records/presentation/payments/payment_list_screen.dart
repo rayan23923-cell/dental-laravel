@@ -8,6 +8,7 @@ import '../../../../core/network/api_exception.dart';
 import '../../../../core/widgets/chat_list_tile.dart';
 import '../../domain/payment.dart';
 import '../records_providers.dart';
+import 'payment_overview.dart';
 
 class PaymentListScreen extends ConsumerStatefulWidget {
   const PaymentListScreen({super.key});
@@ -61,12 +62,20 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
   @override
   Widget build(BuildContext context) {
     final paymentsAsync = ref.watch(paymentListProvider(_filters));
+    final statsAsync = ref.watch(paymentStatsProvider(_filters));
     final t = ref.watch(translationsProvider);
+    // The web page's income overview (2026-10-17); a failed load just leaves it out.
+    final overview = statsAsync.maybeWhen(data: (stats) => PaymentOverview(stats: stats), orElse: () => null);
+    Future<void> refresh() async {
+      ref.invalidate(paymentListProvider(_filters));
+      ref.invalidate(paymentStatsProvider(_filters));
+    }
 
     return Scaffold(
       appBar: AppBar(
         title: Text(t['recordsHub.paymentsTitle']!),
         actions: [
+          IconButton(icon: const Icon(Icons.refresh), tooltip: t['payments.refresh'], onPressed: refresh),
           IconButton(
             icon: Icon(_hasActiveFilters ? Icons.filter_alt : Icons.filter_alt_outlined),
             tooltip: t['recordsHub.filterTooltip'],
@@ -92,16 +101,24 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
                 child: Text(error is ApiException ? error.userMessage : t['recordsHub.loadFailed']!),
               ),
               data: (page) {
-                if (page.items.isEmpty) {
-                  return Center(child: Text(t['recordsHub.paymentsEmptyList']!));
-                }
+                final header = overview == null ? 0 : 1;
                 return RefreshIndicator(
-                  onRefresh: () async => ref.invalidate(paymentListProvider(_filters)),
+                  onRefresh: refresh,
                   child: ListView.separated(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.only(top: 4, bottom: 88),
-                    itemCount: page.items.length,
-                    separatorBuilder: (_, __) => chatDivider,
-                    itemBuilder: (context, i) => _PaymentTile(payment: page.items[i]),
+                    itemCount: header + (page.items.isEmpty ? 1 : page.items.length),
+                    separatorBuilder: (_, i) => i < header ? const SizedBox(height: 8) : chatDivider,
+                    itemBuilder: (context, i) {
+                      if (i < header) return overview!;
+                      if (page.items.isEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Center(child: Text(t['recordsHub.paymentsEmptyList']!)),
+                        );
+                      }
+                      return _PaymentTile(payment: page.items[i - header]);
+                    },
                   ),
                 );
               },
@@ -233,9 +250,12 @@ class _PaymentTile extends ConsumerWidget {
       // LTR isolate so the number keeps its order inside RTL text.
       subtitle: '\u2066${payment.amount.toStringAsFixed(2)}\u2069',
       chips: [
-        fromRegistration
-            ? ChatChip(label: t['recordsHub.sourceRegistration']!, icon: Icons.how_to_reg_outlined, color: Colors.teal)
-            : ChatChip(label: t['recordsHub.sourceAppointment']!, icon: Icons.event_outlined, color: Colors.indigo),
+        if (payment.isLabFee)
+          ChatChip(label: t['payments.labFee']!, icon: Icons.biotech_outlined, color: Colors.purple)
+        else if (fromRegistration)
+          ChatChip(label: t['recordsHub.sourceRegistration']!, icon: Icons.how_to_reg_outlined, color: Colors.teal)
+        else
+          ChatChip(label: t['recordsHub.sourceAppointment']!, icon: Icons.event_outlined, color: Colors.indigo),
         if (payment.paidBy != null && payment.paidBy!.isNotEmpty)
           ChatChip(label: payment.paidBy!, icon: Icons.person_outline, color: Colors.blueGrey),
         if (payment.paidAt != null)

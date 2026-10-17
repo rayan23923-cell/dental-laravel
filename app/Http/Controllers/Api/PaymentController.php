@@ -9,6 +9,7 @@ use App\Models\Payment;
 use App\Models\PatientRegistration;
 use App\Services\PatientScreeningException;
 use App\Services\PatientScreeningGate;
+use App\Support\PaymentStats;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -17,14 +18,44 @@ class PaymentController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $search = $request->string('search')->toString();
-
-        $payments = Payment::with(['appointment', 'patientRegistration'])
+        $payments = $this->filteredQuery($request)
             ->when($request->integer('appointment_id'), fn ($q, $id) => $q->where('appointment_id', $id))
             ->when(
                 $request->integer('patient_registration_id'),
                 fn ($q, $id) => $q->where('patient_registration_id', $id)
             )
+            ->latest('paid_at')
+            ->paginate(15);
+
+        return PaymentResource::collection($payments)->response();
+    }
+
+    /**
+     * The web payments page's income overview for the app (2026-10-17):
+     * today / week / month / year, the daily and monthly charts, and the
+     * total of the current filters by source. Same filters as `index()`.
+     */
+    public function stats(Request $request): JsonResponse
+    {
+        $query = $this->filteredQuery($request);
+        $stats = new PaymentStats();
+
+        return response()->json(['data' => [
+            'periods' => $stats->periods(),
+            'daily' => $stats->daily(),
+            'monthly' => $stats->monthly(),
+            'filtered_total' => (float) (clone $query)->sum('amount'),
+            'by_source' => PaymentStats::bySource($query),
+            'currency' => ClinicSetting::current()->clinic_currency,
+        ]]);
+    }
+
+    /** Search, date range and source, shared by `index()` and `stats()`. */
+    private function filteredQuery(Request $request)
+    {
+        $search = $request->string('search')->toString();
+
+        return Payment::with(['appointment', 'patientRegistration'])
             // Mirrors PaymentController (web)'s own search — a person's
             // payment history should be findable the same way regardless
             // of which client is asking.
@@ -45,11 +76,7 @@ class PaymentController extends Controller
                 'registration' => $q->whereNotNull('patient_registration_id')->where('type', '!=', Payment::TYPE_LAB),
                 'lab' => $q->where('type', Payment::TYPE_LAB),
                 default => $q,
-            })
-            ->latest('paid_at')
-            ->paginate(15);
-
-        return PaymentResource::collection($payments)->response();
+            });
     }
 
     public function show(Payment $payment): JsonResponse

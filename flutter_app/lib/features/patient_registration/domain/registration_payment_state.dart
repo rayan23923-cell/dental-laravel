@@ -66,6 +66,9 @@ class RegistrationPaymentState {
     this.labPaidAmount = 0,
     this.labValidityDays = 0,
     this.previousScreening,
+    this.screeningCheckedAt,
+    this.screeningCheckedBy,
+    this.reusedFromCheckedAt,
   });
 
   factory RegistrationPaymentState.fromJson(Map<String, dynamic> json) {
@@ -84,6 +87,9 @@ class RegistrationPaymentState {
       previousScreening: data['previous_screening'] == null
           ? null
           : PreviousScreening.fromJson(data['previous_screening'] as Map<String, dynamic>),
+      screeningCheckedAt: data['screening_checked_at'] as String?,
+      screeningCheckedBy: data['screening_checked_by'] as String?,
+      reusedFromCheckedAt: (data['reused_from'] as Map<String, dynamic>?)?['checked_at'] as String?,
     );
   }
 
@@ -106,4 +112,13 @@ class RegistrationPaymentState {
   /// reuse instead of a new test and lab fee (2026-10-12).
   final int labValidityDays;
   final PreviousScreening? previousScreening;
+
+  /// Once a result is recorded: when, by whom, and — when an earlier
+  /// result was reused instead of a new test — that test's date
+  /// (2026-10-17), so a re-scanned ticket shows it was already screened.
+  final String? screeningCheckedAt;
+  final String? screeningCheckedBy;
+  final String? reusedFromCheckedAt;
+
+  bool get isReused => reusedFromCheckedAt != null;
 }

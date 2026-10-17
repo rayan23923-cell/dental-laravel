@@ -23,6 +23,9 @@ class RegistrationPaymentState
         // A still-valid earlier clear result (same phone) the lab can reuse
         // instead of screening and charging again (2026-10-12).
         $previous = $registration->screening_status === 'pending' ? LabFeeGate::previousScreening($registration) : null;
+        // Who recorded the result and when, and the earlier result it reused,
+        // so a scanned ticket shows it was already screened (2026-10-17).
+        $registration->loadMissing(['screeningCheckedBy:id,full_name', 'screeningReusedFrom:id,screening_checked_at']);
 
         return [
             'registration' => $registrationData,
@@ -39,6 +42,12 @@ class RegistrationPaymentState
             'lab_paid' => $lab->isNotEmpty(),
             'lab_paid_amount' => (float) $lab->sum('amount'),
             'lab_validity_days' => LabFeeGate::validityDays(),
+            'screening_checked_at' => $registration->screening_checked_at,
+            'screening_checked_by' => $registration->screeningCheckedBy?->full_name,
+            'reused_from' => $registration->screeningReusedFrom ? [
+                'id' => $registration->screeningReusedFrom->id,
+                'checked_at' => $registration->screeningReusedFrom->screening_checked_at,
+            ] : null,
             'previous_screening' => $previous ? [
                 'id' => $previous->id,
                 'checked_at' => $previous->screening_checked_at,

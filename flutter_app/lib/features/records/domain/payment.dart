@@ -10,6 +10,7 @@ class Payment {
     required this.patientRegistrationId,
     required this.patientRegistrationName,
     required this.patientRegistrationPhone,
+    this.type = 'service',
   });
 
   factory Payment.fromJson(Map<String, dynamic> json) => Payment(
@@ -29,6 +30,7 @@ class Payment {
         patientRegistrationId: json['patient_registration_id'] as int?,
         patientRegistrationName: (json['patient_registration'] as Map<String, dynamic>?)?['name'] as String?,
         patientRegistrationPhone: (json['patient_registration'] as Map<String, dynamic>?)?['phone'] as String?,
+        type: json['type'] as String? ?? 'service',
       );
 
   final int id;
@@ -40,6 +42,11 @@ class Payment {
   final int? patientRegistrationId;
   final String? patientRegistrationName;
   final String? patientRegistrationPhone;
+
+  /// `'service'` or `'lab'` (the lab screening fee).
+  final String type;
+
+  bool get isLabFee => type == 'lab';
 
   /// The person this payment settles for, regardless of source —
   /// appointment- or registration-linked alike.

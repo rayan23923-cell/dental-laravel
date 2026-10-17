@@ -6,6 +6,7 @@ import '../data/records_repository.dart';
 import '../domain/appointment.dart';
 import '../domain/patient.dart';
 import '../domain/payment.dart';
+import '../domain/payment_stats.dart';
 
 final patientListProvider = FutureProvider.autoDispose.family<Paginated<Patient>, String?>((ref, search) {
   return ref.watch(recordsRepositoryProvider).listPatients(search: search);
@@ -33,6 +34,15 @@ typedef PaymentFilters = ({String? search, String? from, String? to, String? sou
 
 final paymentListProvider = FutureProvider.autoDispose.family<Paginated<Payment>, PaymentFilters>((ref, filters) {
   return ref.watch(recordsRepositoryProvider).listPayments(
+        search: filters.search,
+        from: filters.from,
+        to: filters.to,
+        source: filters.source,
+      );
+});
+
+final paymentStatsProvider = FutureProvider.autoDispose.family<PaymentStats, PaymentFilters>((ref, filters) {
+  return ref.watch(recordsRepositoryProvider).fetchPaymentStats(
         search: filters.search,
         from: filters.from,
         to: filters.to,
