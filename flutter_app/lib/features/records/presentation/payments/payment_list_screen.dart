@@ -1,15 +1,29 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
 
 import '../../../../core/i18n/locale_controller.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/pdf/pdf_letterhead.dart';
+import '../../../../core/platform/platform_support.dart';
 import '../../../../core/widgets/chat_list_tile.dart';
+import '../../../printing/data/pos_printer_service.dart';
+import '../../../printing/presentation/payment_receipt_widget.dart';
+import '../../../printing/presentation/printer_error_snackbar.dart';
+import '../../../printing/presentation/printer_settings_providers.dart';
+import '../../../printing/presentation/ticket_print_animation.dart';
+import '../../../printing/presentation/ticket_renderer.dart';
+import '../../data/records_repository.dart';
 import '../../domain/payment.dart';
 import '../records_providers.dart';
 import '../../../clinic_settings/presentation/clinic_settings_providers.dart';
 import 'payment_stats_overview.dart';
+import 'payments_pdf.dart';
 
 class PaymentListScreen extends ConsumerStatefulWidget {
   const PaymentListScreen({super.key});
@@ -60,6 +74,46 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
     }
   }
 
+  bool _printingReport = false;
+
+  /// The payments report as a PDF (2026-10-17), the web `payments.report`
+  /// page: every payment matching the current filters, with the overview.
+  Future<void> _printReport() async {
+    final t = ref.read(translationsProvider);
+    final f = _filters;
+    setState(() => _printingReport = true);
+    try {
+      final report = await ref.read(recordsRepositoryProvider).fetchPaymentReport(
+            search: f.search,
+            from: f.from,
+            to: f.to,
+            source: f.source,
+          );
+      final settings = await ref.read(clinicSettingsProvider.future);
+      final logo = await loadLetterheadLogo(ref, settings);
+      await Printing.layoutPdf(
+        name: '${t['payments.reportTitle']!}.pdf',
+        onLayout: (format) => buildPaymentsReportPdf(
+          report: report,
+          settings: settings,
+          search: f.search,
+          from: f.from,
+          to: f.to,
+          source: f.source,
+          format: format,
+          logo: logo,
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        final message = e is ApiException ? e.userMessage : '${t['payments.reportFailed']!} ($e)';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } finally {
+      if (mounted) setState(() => _printingReport = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final paymentsAsync = ref.watch(paymentListProvider(_filters));
@@ -69,6 +123,13 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
       appBar: AppBar(
         title: Text(t['recordsHub.paymentsTitle']!),
         actions: [
+          IconButton(
+            icon: _printingReport
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.picture_as_pdf_outlined),
+            tooltip: t['payments.printReport']!,
+            onPressed: _printingReport ? null : _printReport,
+          ),
           IconButton(
             icon: Icon(_hasActiveFilters ? Icons.filter_alt : Icons.filter_alt_outlined),
             tooltip: t['recordsHub.filterTooltip'],
@@ -260,7 +321,114 @@ class _PaymentTile extends ConsumerWidget {
         if (payment.paidAt != null)
           ChatChip(label: payment.paidAt!.split('T').first, icon: Icons.calendar_today_outlined, color: Colors.blueGrey),
       ],
+      actions: [
+        ChatAction(
+          icon: Icons.receipt_long_outlined,
+          tooltip: t['payments.printReceipt']!,
+          onPressed: () => showPaymentReceiptOptions(context, ref, payment),
+        ),
+      ],
       onTap: () => context.push('/records/payments/${payment.id}'),
     );
+  }
+}
+
+/// "طباعة الوصل" for one recorded payment (2026-10-17), the web
+/// `payments.receipt`: on the thermal printer where the app can print
+/// tickets, and as a PDF everywhere.
+Future<void> showPaymentReceiptOptions(BuildContext context, WidgetRef ref, Payment payment) async {
+  final t = ref.read(translationsProvider);
+  final choice = await showModalBottomSheet<String>(
+    context: context,
+    builder: (context) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(title: Text(t['payments.printReceipt']!, style: Theme.of(context).textTheme.titleMedium)),
+          if (canPrintTickets)
+            ListTile(
+              leading: const Icon(Icons.print_outlined),
+              title: Text(t['payments.printReceiptThermal']!),
+              onTap: () => Navigator.of(context).pop('thermal'),
+            ),
+          ListTile(
+            leading: const Icon(Icons.picture_as_pdf_outlined),
+            title: Text(t['payments.printReceiptPdf']!),
+            onTap: () => Navigator.of(context).pop('pdf'),
+          ),
+        ],
+      ),
+    ),
+  );
+  if (choice == null || !context.mounted) return;
+  if (choice == 'thermal') {
+    await printPaymentReceiptTicket(context, ref, payment);
+  } else {
+    await printPaymentReceiptPdf(context, ref, payment);
+  }
+}
+
+/// The receipt on the POS/desktop printer — same path as the
+/// registration ticket (`renderWidgetToPng` + `PosPrinterService`).
+Future<void> printPaymentReceiptTicket(BuildContext context, WidgetRef ref, Payment payment) async {
+  final t = ref.read(translationsProvider);
+  Uint8List? logoBytes;
+  String? headerTitle;
+  String? headerSubtitle;
+  String? currency;
+  try {
+    final settings = await ref.read(clinicSettingsProvider.future);
+    headerTitle = settings?.universityName ?? settings?.clinicName;
+    headerSubtitle = settings?.collegeName;
+    currency = settings?.currency;
+    final logoUrl = settings?.ticketLogoUrl;
+    if (logoUrl != null) {
+      logoBytes = Uint8List.fromList(await ref.read(apiClientProvider).getBytes(logoUrl));
+    }
+  } catch (_) {
+    logoBytes = null;
+  }
+  if (!context.mounted) return;
+  try {
+    await precacheTicketImages(context, [logoBytes]);
+    if (!context.mounted) return;
+    final printerSettings = await ref.read(printerSettingsProvider.future);
+    if (!context.mounted) return;
+    final pngBytes = await renderWidgetToPng(
+      context,
+      PaymentReceiptWidget(
+        payment: payment,
+        currency: currency,
+        logoBytes: logoBytes,
+        headerTitle: headerTitle,
+        headerSubtitle: headerSubtitle,
+        widthDots: printerSettings.dotsPerLine,
+      ),
+    );
+    if (!context.mounted) return;
+    await showTicketPrintAnimation<void>(
+      context: context,
+      ticketPngBytes: pngBytes,
+      task: () => ref.read(posPrinterServiceProvider).printTicket(pngBytes),
+    );
+  } catch (e) {
+    if (context.mounted) showPrinterErrorSnackBar(context, t['payments.receiptPrintFailed']!, error: e);
+  }
+}
+
+/// The receipt as a PDF through the system print dialog.
+Future<void> printPaymentReceiptPdf(BuildContext context, WidgetRef ref, Payment payment) async {
+  final t = ref.read(translationsProvider);
+  try {
+    final settings = await ref.read(clinicSettingsProvider.future);
+    final logo = await loadLetterheadLogo(ref, settings);
+    await Printing.layoutPdf(
+      name: '${t['payments.printReceipt']!} #${payment.id}.pdf',
+      onLayout: (format) => buildPaymentReceiptPdf(payment: payment, settings: settings, format: format, logo: logo),
+    );
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${t['payments.receiptPrintFailed']!} ($e)')));
+    }
   }
 }

@@ -9,6 +9,9 @@ use App\Models\Payment;
 use App\Models\RegisterDay;
 use App\Models\Service;
 use App\Models\Task;
+use App\Models\User;
+use App\Services\PermissionManager;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -33,7 +36,31 @@ class PatientRegistrationController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $registrations = PatientRegistration::with(['service', 'registerDay'])
+        $registrations = $this->filteredQuery($request)
+            ->with(['service', 'registerDay'])
+            ->orderByDesc('created_at')
+            ->paginate(15);
+
+        // What the app may offer here (2026-10-17), as the web page's
+        // `can.archive`: archiving and restoring need `patients,delete`.
+        $user = $request->user();
+        $canArchive = $user instanceof User && (new PermissionManager($user))->can('patients', 'delete');
+
+        return PatientRegistrationResource::collection($registrations)
+            ->additional(['can' => ['archive' => $canArchive]])
+            ->response();
+    }
+
+    /**
+     * Search / date range / service filters, plus the archive tab
+     * (2026-10-17, as the web registry's): `archived=1` lists the archived
+     * (soft-deleted) registrations instead. Shared by `index()` and
+     * `destroyMany()`'s "archive all" so it archives exactly what's listed.
+     */
+    private function filteredQuery(Request $request): Builder
+    {
+        return PatientRegistration::query()
+            ->when($request->boolean('archived'), fn ($q) => $q->onlyTrashed())
             ->when($request->string('search')->toString(), function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
@@ -44,11 +71,42 @@ class PatientRegistrationController extends Controller
             // Date range (2026-10-14), replacing the day filter in the apps.
             ->when($request->date('from'), fn ($q, $from) => $q->whereDate('created_at', '>=', $from))
             ->when($request->date('to'), fn ($q, $to) => $q->whereDate('created_at', '<=', $to))
-            ->when($request->integer('service_id'), fn ($q, $id) => $q->where('service_id', $id))
-            ->orderByDesc('created_at')
-            ->paginate(15);
+            ->when($request->integer('service_id'), fn ($q, $id) => $q->where('service_id', $id));
+    }
 
-        return PatientRegistrationResource::collection($registrations)->response();
+    /**
+     * Bulk archive (2026-10-17), the web `destroyMany()`: the ticked `ids`,
+     * or `all` — every registration matching the filters. Archiving is a
+     * soft delete, so payments and their totals are kept.
+     */
+    public function destroyMany(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'all' => ['sometimes', 'boolean'],
+            'ids' => ['required_without:all', 'array'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $query = ($validated['all'] ?? false)
+            ? $this->filteredQuery($request)
+            : PatientRegistration::whereIn('id', $validated['ids']);
+
+        $count = $query->delete();
+
+        return response()->json(['count' => $count, 'message' => "تمت أرشفة {$count} تسجيل."]);
+    }
+
+    /** Brings archived registrations back (2026-10-17), the web `restoreMany()`. */
+    public function restoreMany(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $count = PatientRegistration::onlyTrashed()->whereIn('id', $validated['ids'])->restore();
+
+        return response()->json(['count' => $count, 'message' => "تمت استعادة {$count} تسجيل."]);
     }
 
     public function store(Request $request): JsonResponse

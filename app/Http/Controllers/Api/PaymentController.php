@@ -50,7 +50,33 @@ class PaymentController extends Controller
         ]);
     }
 
-    /** The search / date range / source filters shared by `index()` and `stats()`. */
+    /**
+     * The payments report for the app's PDF (2026-10-17), the data of the
+     * web `print/payments-report` page: the same overview as `stats()`
+     * plus every payment matching the list's filters (not paginated), with
+     * each registration's service.
+     */
+    public function report(Request $request): JsonResponse
+    {
+        $query = $this->filteredQuery($request);
+        $stats = new PaymentStats();
+
+        return response()->json([
+            'data' => [
+                'payments' => PaymentResource::collection(
+                    (clone $query)->with(['appointment', 'patientRegistration.service'])->latest('paid_at')->get()
+                )->resolve(),
+                'periods' => $stats->periods(),
+                'daily' => $stats->daily(),
+                'monthly' => $stats->monthly(),
+                'filtered_total' => (float) (clone $query)->sum('amount'),
+                'by_source' => PaymentStats::bySource($query),
+                'currency' => ClinicSetting::current()->clinic_currency,
+            ],
+        ]);
+    }
+
+    /** The search / date range / source filters shared by `index()` and `stats()`/`report()`. */
     private function filteredQuery(Request $request): Builder
     {
         $search = $request->string('search')->toString();
