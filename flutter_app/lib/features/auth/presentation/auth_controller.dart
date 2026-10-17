@@ -18,7 +18,10 @@ class AuthController extends AsyncNotifier<AuthState> {
   Future<AuthState> build() async {
     // The one place the 401-anywhere -> logout-everywhere wiring happens:
     // set once per ApiClient instance, on the already-built client.
-    ref.read(apiClientProvider).onUnauthorized = () async {
+    // `watch`, so switching server (a new client) re-runs this: the hook
+    // lands on the new client and the session is restored — or not — for
+    // the new server's token.
+    ref.watch(apiClientProvider).onUnauthorized = () async {
       await ref.read(tokenStorageProvider).clear();
       state = const AsyncData(Unauthenticated());
     };

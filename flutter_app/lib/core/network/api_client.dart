@@ -3,11 +3,15 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/app_config.dart';
+import '../config/server_settings_controller.dart';
 import '../storage/academic_session_selection.dart';
 import '../storage/token_storage.dart';
 import 'api_exception.dart';
 
 final apiClientProvider = Provider<ApiClient>((ref) {
+  // A new client (new Dio, new connections, new base URL) whenever the
+  // user switches server — see `ServerSettingsController.apply`.
+  ref.watch(serverSettingsProvider);
   return ApiClient(ref.watch(tokenStorageProvider), academicSession: ref.watch(academicSessionSelectionProvider));
 });
 

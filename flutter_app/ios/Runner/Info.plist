@@ -54,6 +54,10 @@
 	     uploads — see pubspec.yaml's image_picker entry) — missing before
 	     2026-08-27, which is why picking a profile photo silently failed on
 	     iOS with no visible permission prompt at all. -->
+	<!-- The clinic's offline server on the LAN (2026-10-17): iOS asks once
+	     before the app may reach devices on the local network. -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>مطلوب للاتصال بسيرفر العيادة على الشبكة المحلية.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>مطلوب الوصول إلى الصور لاختيار صورة الملف الشخصي.</string>
 	<!-- printer_settings_screen.dart's Bluetooth device scan
