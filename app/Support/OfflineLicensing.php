@@ -13,7 +13,8 @@ use App\Models\OfflineLicense;
  * and works only while the licence is genuine and names this computer.
  *
  * The machine id is a hash of Windows' MachineGuid, which the control panel
- * (offline/windows/panel/DentalClinic.cs) passes to PHP as DENTAL_MACHINE_GUID;
+ * (offline/windows/panel/DentalClinic.cs) passes to PHP as DENTAL_MACHINE_GUID and
+ * in storage/app/machine-guid.txt;
  * it stays the same when network cards change, unlike a MAC address.
  */
 class OfflineLicensing
@@ -102,7 +103,12 @@ class OfflineLicensing
             return self::$machineId;
         }
         $guid = trim((string) getenv('DENTAL_MACHINE_GUID'));
-        if ($guid === '' && PHP_OS_FAMILY === 'Windows') {
+        // Written by the panel on every start (PHP behind FastCGI may not see its environment).
+        $file = storage_path('app/machine-guid.txt');
+        if ($guid === '' && is_file($file)) {
+            $guid = trim((string) file_get_contents($file));
+        }
+        if ($guid === '' && PHP_OS_FAMILY === 'Windows' && function_exists('shell_exec')) {
             $out = (string) @shell_exec('reg query "HKLM\SOFTWARE\Microsoft\Cryptography" /v MachineGuid /reg:64 2>NUL');
             $guid = preg_match('/MachineGuid\s+REG_SZ\s+(\S+)/i', $out, $m) ? $m[1] : '';
         }

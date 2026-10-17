@@ -456,6 +456,11 @@ namespace DentalClinicPanel
             // this computer, which it recognises by Windows' MachineGuid.
             Environment.SetEnvironmentVariable("OFFLINE_EDITION", "true");
             Environment.SetEnvironmentVariable("DENTAL_MACHINE_GUID", MachineGuid());
+            // PHP behind FastCGI does not always see this process's
+            // environment, so the id is also left where the app reads it;
+            // rewritten on every start, so a copied folder gets this computer's.
+            try { File.WriteAllText(P(@"app\storage\app\machine-guid.txt"), MachineGuid()); }
+            catch (Exception ex) { Log("تنبيه: تعذّر حفظ رقم الحاسوب: " + ex.Message); }
             try { Directory.CreateDirectory(BackupDir); }
             catch (Exception ex) { Log("تنبيه: تعذّر إنشاء مجلد النسخ الاحتياطية " + BackupDir + ": " + ex.Message); }
             string path = Environment.GetEnvironmentVariable("PATH") ?? "";
