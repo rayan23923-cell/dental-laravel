@@ -355,7 +355,7 @@ jobs:
           Write-Host "login: $code"
           if ($code -notmatch '^302 .*/activate$') { Get-Content "$root\app\storage\logs\panel.log" -Encoding UTF8 -Tail 30; throw "Before activation /login should lead to /activate, got $code" }
           try { $page = Invoke-WebRequest -Uri http://127.0.0.1:8080/activate -UseBasicParsing -TimeoutSec 30 }
-          catch { Get-ChildItem "$root\app\storage\logs\laravel*.log" | ForEach-Object { Get-Content $_.FullName -Tail 40 }; throw }
+          catch { Get-ChildItem "$root\app\storage\logs\laravel*.log" | ForEach-Object { Select-String -Path $_.FullName -Pattern '\.ERROR: ' | Select-Object -Last 3 | ForEach-Object { $_.Line.Substring(0, [Math]::Min(1500, $_.Line.Length)) } }; throw }
           if ($page.Content -notmatch '[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}') { throw 'The activation page does not show the machine id.' }
           $api = curl.exe -s -o NUL -w '%{http_code}' --max-time 10 -H 'Accept: application/json' http://127.0.0.1:8080/api/v1/branding
           if ($api -ne '403') { throw "Before activation the API should refuse, got $api" }
