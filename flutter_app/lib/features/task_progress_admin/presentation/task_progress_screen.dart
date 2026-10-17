@@ -30,8 +30,10 @@ import '../../task_start_requests/presentation/task_start_request_providers.dart
 import '../../task_start_requests/presentation/task_start_requests_view.dart';
 import '../data/task_progress_repository.dart';
 import '../domain/task_progress_group.dart';
+import '../domain/task_scoring.dart';
 import 'task_progress_pdf.dart';
 import 'task_progress_providers.dart';
+import 'work_items_input.dart';
 import '../../../core/widgets/numeric_input.dart';
 
 /// "تقدم المهام" — the full day → education type/stage → group →
@@ -342,6 +344,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
       title: t['taskProgressAdmin.markComplete']!,
       initialGrade: card.grade,
       initialNotes: card.notes,
+      card: card,
     );
     if (result == null) return;
     try {
@@ -351,6 +354,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
             card.instanceId!,
             grade: result.$1,
             notes: result.$2,
+            workItems: result.$3,
           );
       _reloadGroup();
       if (mounted) {
@@ -376,12 +380,13 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
       title: t['taskProgressAdmin.editLabel']!,
       initialGrade: card.grade,
       initialNotes: card.notes,
+      card: card,
     );
     if (result == null) return;
     try {
       await ref
           .read(taskProgressRepositoryProvider)
-          .updateInstance(card.instanceId!, grade: result.$1, notes: result.$2);
+          .updateInstance(card.instanceId!, grade: result.$1, notes: result.$2, workItems: result.$3);
       _reloadGroup();
       if (mounted) {
         ScaffoldMessenger.of(
@@ -484,44 +489,63 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
     );
   }
 
-  Future<(double?, String?)?> _promptGradeNotes({
+  /// Grade and notes, plus — for a task with kinds of work or a checklist
+  /// (2026-10-17, as on the web) — the work done on the case; null on cancel.
+  /// A task graded by its case sheet's steps takes its points from the sheet.
+  Future<(double?, String?, List<WorkItemDraft>?)?> _promptGradeNotes({
     required String title,
     double? initialGrade,
     String? initialNotes,
+    TaskSlotCard? card,
   }) {
     final gradeController = TextEditingController(
       text: initialGrade?.toString() ?? '',
     );
     final notesController = TextEditingController(text: initialNotes ?? '');
     final t = ref.read(translationsProvider);
-    return showDialog<(double?, String?)>(
+    final scoring = card?.scoring ?? const TaskScoringSetup();
+    final withWork = scoring.hasWork && !scoring.hasSteps;
+    final items = withWork ? workItemsToDrafts(scoring, card?.workItems) : <WorkItemDraft>[];
+    return showDialog<(double?, String?, List<WorkItemDraft>?)>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(title),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: gradeController,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              inputFormatters: decimalOnly,
-              decoration: InputDecoration(
-                labelText: t['taskProgressAdmin.gradeOptionalLabel'],
-                border: const OutlineInputBorder(),
+        content: StatefulBuilder(
+          builder: (ctx, setDialogState) => SizedBox(
+            width: 520,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (withWork) ...[
+                    WorkItemsInput(scoring: scoring, items: items, onChanged: () => setDialogState(() {})),
+                    const SizedBox(height: 12),
+                  ],
+                  TextField(
+                    controller: gradeController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    inputFormatters: decimalOnly,
+                    decoration: InputDecoration(
+                      labelText: t['taskProgressAdmin.gradeOptionalLabel'],
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: notesController,
+                    decoration: InputDecoration(
+                      labelText: t['taskProgressAdmin.notesOptionalLabel'],
+                      border: const OutlineInputBorder(),
+                    ),
+                    maxLines: 3,
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: notesController,
-              decoration: InputDecoration(
-                labelText: t['taskProgressAdmin.notesOptionalLabel'],
-                border: const OutlineInputBorder(),
-              ),
-              maxLines: 3,
-            ),
-          ],
+          ),
         ),
         actions: [
           TextButton(
@@ -536,6 +560,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
               notesController.text.trim().isEmpty
                   ? null
                   : notesController.text.trim(),
+              withWork ? items : null,
             )),
             child: Text(t['taskProgressAdmin.save']!),
           ),
@@ -1059,6 +1084,14 @@ class _TaskSlotTile extends ConsumerWidget {
               if (card.grade != null) ...[
                 const SizedBox(width: 8),
                 Text('${t['taskProgressAdmin.gradeColonLabel']} ${card.grade}'),
+              ],
+              // The case's points (2026-10-17), unless the task's points are off.
+              if (card.points != null && !card.scoring.pointsOff) ...[
+                const SizedBox(width: 8),
+                Text(
+                  trf(t['taskScoring.pointsValue']!, {'n': card.points! == card.points!.roundToDouble() ? card.points!.toStringAsFixed(0) : card.points!}),
+                  style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.w600),
+                ),
               ],
               // "كل التواقيع جاهزة" (2026-08-30) — mirrors the web's
               // matching badge (TaskProgress/Index.vue) — see

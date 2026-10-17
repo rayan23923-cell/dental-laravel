@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
+import '../domain/task_scoring.dart';
 import '../domain/nfc_lookup_result.dart';
 import '../domain/task_progress_group.dart';
 
@@ -62,11 +63,21 @@ class TaskProgressRepository {
     return TaskProgressGroupDetail.fromJson(data);
   }
 
-  Future<void> completeInstance(int instanceId, {double? grade, String? notes}) {
-    return _client.putJson('/task-progress/instances/$instanceId/complete', body: {'grade': grade, 'notes': notes});
+  /// [workItems] is the work done on the case (see `WorkItemDraft`), sent
+  /// only for a task that has work to record; the server computes the points.
+  Future<void> completeInstance(int instanceId, {double? grade, String? notes, List<WorkItemDraft>? workItems}) {
+    return _client.putJson('/task-progress/instances/$instanceId/complete', body: {
+      'grade': grade,
+      'notes': notes,
+      if (workItems != null) 'work_items': workItems.map((w) => w.toJson()).toList(),
+    });
   }
 
-  Future<void> updateInstance(int instanceId, {double? grade, String? notes}) {
-    return _client.putJson('/task-progress/instances/$instanceId', body: {'grade': grade, 'notes': notes});
+  Future<void> updateInstance(int instanceId, {double? grade, String? notes, List<WorkItemDraft>? workItems}) {
+    return _client.putJson('/task-progress/instances/$instanceId', body: {
+      'grade': grade,
+      'notes': notes,
+      if (workItems != null) 'work_items': workItems.map((w) => w.toJson()).toList(),
+    });
   }
 }

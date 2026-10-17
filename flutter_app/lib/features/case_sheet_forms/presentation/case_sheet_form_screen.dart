@@ -25,6 +25,7 @@ import 'case_sheet_form_providers.dart';
 import 'case_sheet_print_pdf.dart';
 import 'dynamic_section_form.dart';
 import 'sync_status_badge.dart';
+import 'task_work_panel.dart';
 
 /// Fetches a resource's layout schema and (when editing) one of its real
 /// records, then renders `DynamicSectionForm` bound to both.
@@ -151,7 +152,12 @@ class CaseSheetFormScreen extends ConsumerWidget {
           ),
         (AsyncData(value: final schema), AsyncData(value: final record)) => SingleChildScrollView(
             padding: const EdgeInsets.all(12),
-            child: DynamicSectionForm(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+            // The linked task's points (2026-10-17, as on the web's sheets).
+            if (taskInstanceId != null) TaskWorkPanel(taskInstanceId: taskInstanceId!),
+            DynamicSectionForm(
               key: _formStateKey,
               resource: resource,
               schema: schema,
@@ -165,6 +171,8 @@ class CaseSheetFormScreen extends ConsumerWidget {
               onSubmit: (payload) => isCreate
                   ? _create(context, ref, schema)(payload)
                   : _update(context, ref, recordId!)(payload),
+            ),
+              ],
             ),
           ),
         _ => const Center(child: CircularProgressIndicator()),

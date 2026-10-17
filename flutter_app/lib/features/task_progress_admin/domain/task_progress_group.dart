@@ -6,6 +6,7 @@
 library;
 
 import '../../../core/data/lookup_repository.dart';
+import 'task_scoring.dart';
 
 class TaskProgressGroupOption {
   const TaskProgressGroupOption({required this.id, required this.name, this.stageName, this.educationTypeName});
@@ -78,6 +79,9 @@ class TaskSlotCard {
     this.allSigned = false,
     this.attachmentsCount = 0,
     this.notedAttachmentsCount = 0,
+    this.scoring = const TaskScoringSetup(),
+    this.points,
+    this.workItems,
   });
 
   factory TaskSlotCard.fromJson(Map<String, dynamic> json) => TaskSlotCard(
@@ -100,6 +104,9 @@ class TaskSlotCard {
         allSigned: json['all_signed'] as bool? ?? false,
         attachmentsCount: json['attachments_count'] as int? ?? 0,
         notedAttachmentsCount: json['noted_attachments_count'] as int? ?? 0,
+        scoring: TaskScoringSetup.fromJson(json['task_scoring'] as Map<String, dynamic>?),
+        points: double.tryParse(json['points']?.toString() ?? ''),
+        workItems: json['work_items'] as List<dynamic>?,
       );
 
   final int slot;
@@ -138,6 +145,12 @@ class TaskSlotCard {
 
   /// Photos the supervisor wrote a note on (2026-10-15).
   final int notedAttachmentsCount;
+
+  /// The task's points setup, and this case's recorded work and points
+  /// (2026-10-17, as the web's complete/edit dialogs record them).
+  final TaskScoringSetup scoring;
+  final double? points;
+  final List<dynamic>? workItems;
 }
 
 class TaskProgressDoctorRow {

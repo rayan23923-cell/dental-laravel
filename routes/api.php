@@ -402,6 +402,11 @@ Route::name('api.')->prefix('v1')->group(function () {
         // See `EndodonticsXrayController`'s own doc comment.
         Route::post('/endodontics-xrays', [EndodonticsXrayController::class, 'store']);
 
+        // The task's points on its case sheet, for the app (2026-10-17) —
+        // the web's own TaskWorkController, which checks the doctor itself.
+        Route::get('/case-sheets/instances/{taskInstance}/work', [\App\Http\Controllers\TaskWorkController::class, 'show']);
+        Route::put('/case-sheets/instances/{taskInstance}/work', [\App\Http\Controllers\TaskWorkController::class, 'update']);
+
         Route::apiResource('appointments', AppointmentController::class);
         // Before the resource, or `stats` would be read as a payment id.
         Route::get('/payments/stats', [PaymentController::class, 'stats']);
