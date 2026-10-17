@@ -16,6 +16,7 @@ import '../../features/backup_admin/presentation/backup_screen.dart';
 import '../../features/case_sheet_types_admin/presentation/case_sheet_type_list_screen.dart';
 import '../../features/clinic_settings_admin/presentation/clinic_settings_edit_screen.dart';
 import '../../features/patient_registration/domain/registration_payment_state.dart';
+import '../../features/patient_registration/presentation/lab_list_screen.dart';
 import '../../features/patient_registration/presentation/patient_registration_form_screen.dart';
 import '../../features/patient_registration/presentation/patient_registration_list_screen.dart';
 import '../../features/patient_registration/presentation/patient_registration_payment_screen.dart';
@@ -191,8 +192,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       // Infectious-disease screening gate (2026-08-26) — mirrors the
       // scan/payment route pair immediately above.
+      // The lab list (2026-10-17, the web /lab page). The old scanner
+      // path, which the dashboard's lab shortcut still opens, now leads
+      // here; scanning stays one tap away on the list (/lab/scan).
       GoRoute(
         path: '/records/patient-registrations/scan-screening',
+        redirect: (context, state) => '/lab',
+      ),
+      GoRoute(
+        path: '/lab',
+        builder: (context, state) => const LabListScreen(),
+      ),
+      GoRoute(
+        path: '/lab/scan',
         builder: (context, state) =>
             const QrScanScreen(mode: QrScanMode.patientRegistrationScreening),
       ),

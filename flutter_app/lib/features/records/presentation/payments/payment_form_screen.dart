@@ -13,6 +13,7 @@ import '../../../patient_registration/presentation/patient_registration_list_scr
 import '../../data/records_repository.dart';
 import '../../domain/payment.dart';
 import '../records_providers.dart';
+import 'payment_list_screen.dart' show showPaymentReceiptOptions;
 import '../../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../../../../core/widgets/numeric_input.dart';
 
@@ -353,7 +354,14 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(t['payments.detailTitle']!),
-        actions: [IconButton(icon: const Icon(Icons.delete_outline), onPressed: _delete)],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.receipt_long_outlined),
+            tooltip: t['payments.printReceipt']!,
+            onPressed: () => showPaymentReceiptOptions(context, ref, p),
+          ),
+          IconButton(icon: const Icon(Icons.delete_outline), onPressed: _delete),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),

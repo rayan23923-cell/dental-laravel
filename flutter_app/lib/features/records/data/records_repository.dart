@@ -109,4 +109,16 @@ class RecordsRepository {
   }
 
   Future<void> deletePayment(int id) => _client.deleteJson('/payments/$id');
+
+  /// Every payment for the same filters as [listPayments], with the
+  /// overview — the payments report PDF's data (2026-10-17).
+  Future<PaymentReport> fetchPaymentReport({String? search, String? from, String? to, String? source}) async {
+    final data = await _client.getJson('/payments/report', query: {
+      if (search != null && search.isNotEmpty) 'search': search,
+      if (from != null) 'from': from,
+      if (to != null) 'to': to,
+      if (source != null) 'source': source,
+    }) as Map<String, dynamic>;
+    return PaymentReport.fromJson(data);
+  }
 }

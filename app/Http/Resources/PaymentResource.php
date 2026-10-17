@@ -31,6 +31,11 @@ class PaymentResource extends JsonResource
                 // Archived (soft-deleted) patients still own their
                 // payments; the lists mark them (2026-10-17, as on web).
                 'deleted_at' => $this->patientRegistration->deleted_at,
+                // The service, only where it was loaded (the payments
+                // report, 2026-10-17).
+                ...($this->patientRegistration->relationLoaded('service') ? [
+                    'service_name' => $this->patientRegistration->service?->name,
+                ] : []),
             ] : null),
         ];
     }

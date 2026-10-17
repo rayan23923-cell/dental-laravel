@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\DoctorImportExportController;
 use App\Http\Controllers\Api\DoctorTaskProgressController;
 use App\Http\Controllers\Api\EndodonticsXrayController;
 use App\Http\Controllers\Api\GroupController;
+use App\Http\Controllers\Api\LabController;
 use App\Http\Controllers\Api\LookupController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OralMedicineChartController;
@@ -191,6 +192,12 @@ Route::name('api.')->prefix('v1')->group(function () {
             ->middleware('permission:patients,view');
         Route::post('/patient-registrations', [PatientRegistrationController::class, 'store'])
             ->middleware('permission:patients,create');
+        // Bulk archive / restore and the archive tab (2026-10-17), as the
+        // web registry's destroy-many / restore-many.
+        Route::delete('/patient-registrations-bulk', [PatientRegistrationController::class, 'destroyMany'])
+            ->middleware('permission:patients,delete');
+        Route::post('/patient-registrations-restore', [PatientRegistrationController::class, 'restoreMany'])
+            ->middleware('permission:patients,delete');
 
         // Ticket QR: printed on the thermal ticket, scanned at the
         // payment desk. `scan`/`status` return the registration plus its
@@ -214,6 +221,14 @@ Route::name('api.')->prefix('v1')->group(function () {
             ->middleware('permission:patient_screening,confirm');
         Route::post('/patient-registrations/{patientRegistration}/screening/reuse', [PatientRegistrationQrController::class, 'reuseScreening'])
             ->middleware('permission:patient_screening,confirm');
+
+        // "المختبر" (2026-10-17) — the web /lab page for the app; gated in
+        // the controller by either patient_screening permission, as on the
+        // web. See Api\LabController.
+        Route::get('/lab', [LabController::class, 'index']);
+        Route::post('/lab/scan', [LabController::class, 'scan']);
+        Route::get('/lab/{patientRegistration}', [LabController::class, 'show']);
+        Route::get('/lab/{patientRegistration}/qr', [LabController::class, 'qr']);
 
         Route::get('/register-days', [RegisterDayController::class, 'index']);
         Route::post('/register-days', [RegisterDayController::class, 'store'])->middleware('permission:settings,edit');
@@ -415,6 +430,8 @@ Route::name('api.')->prefix('v1')->group(function () {
         // "stats" isn't bound as a {payment}. No `update`: payments are
         // not edited by hand any more (see PaymentController).
         Route::get('/payments/stats', [PaymentController::class, 'stats'])->name('payments.stats');
+        // The payments report PDF's data (2026-10-17), the web payments.report.
+        Route::get('/payments/report', [PaymentController::class, 'report'])->name('payments.report');
         Route::apiResource('payments', PaymentController::class)->except(['update']);
 
         Route::get('/activity-logs', [ActivityLogController::class, 'index']);

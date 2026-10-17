@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/network/paginated.dart';
+import '../domain/lab_registration.dart';
 import '../domain/patient_registration.dart';
 import '../domain/register_day.dart';
 import '../domain/registration_payment_state.dart';
@@ -72,15 +73,79 @@ class PatientRegistrationRepository {
   Future<void> updateTaskDays(int taskId, List<int> dayIds) =>
       _client.putJson('/tasks/$taskId/register-days', body: {'day_ids': dayIds});
 
-  Future<Paginated<PatientRegistration>> list({String? search, String? from, String? to, int? serviceId}) async {
+  Future<Paginated<PatientRegistration>> list({String? search, String? from, String? to, int? serviceId}) async =>
+      (await listPage(search: search, from: from, to: to, serviceId: serviceId)).page;
+
+  /// [list] plus the archive tab (`archived: true` lists the archived
+  /// registrations, 2026-10-17, as the web registry's) and whether this
+  /// account may archive/restore (`can.archive`, i.e. `patients,delete`).
+  Future<PatientRegistrationPage> listPage({
+    String? search,
+    String? from,
+    String? to,
+    int? serviceId,
+    bool archived = false,
+  }) async {
     final data = await _client.getJson('/patient-registrations', query: {
-      if (search != null && search.isNotEmpty) 'search': search,
-      if (from != null) 'from': from,
-      if (to != null) 'to': to,
-      if (serviceId != null) 'service_id': serviceId,
+      ..._filterQuery(search: search, from: from, to: to, serviceId: serviceId),
+      if (archived) 'archived': 1,
     }) as Map<String, dynamic>;
-    return Paginated.fromJson(data, PatientRegistration.fromJson);
+    return PatientRegistrationPage(
+      page: Paginated.fromJson(data, PatientRegistration.fromJson),
+      canArchive: (data['can'] as Map<String, dynamic>?)?['archive'] as bool? ?? false,
+    );
   }
+
+  static Map<String, dynamic> _filterQuery({String? search, String? from, String? to, int? serviceId}) => {
+        if (search != null && search.isNotEmpty) 'search': search,
+        if (from != null) 'from': from,
+        if (to != null) 'to': to,
+        if (serviceId != null) 'service_id': serviceId,
+      };
+
+  /// Bulk archive (soft delete — payments are kept), the web
+  /// `destroy-many`.
+  Future<void> archiveMany(List<int> ids) =>
+      _client.deleteJson('/patient-registrations-bulk', body: {'ids': ids});
+
+  /// Archives every registration matching the filters ("أرشفة الكل").
+  Future<void> archiveAll({String? search, String? from, String? to, int? serviceId}) =>
+      _client.deleteJson('/patient-registrations-bulk', body: {
+        'all': true,
+        ..._filterQuery(search: search, from: from, to: to, serviceId: serviceId),
+      });
+
+  /// Brings archived registrations back, the web `restore-many`.
+  Future<void> restoreMany(List<int> ids) =>
+      _client.postJson('/patient-registrations-restore', body: {'ids': ids});
+
+  /// "المختبر" list (2026-10-17, the web `/lab` page): by screening
+  /// status ('pending' | 'flagged' | 'clear' | 'all') and name/phone.
+  Future<LabPage> listLab({String status = 'pending', String? search, int page = 1}) async {
+    final data = await _client.getJson('/lab', query: {
+      'status': status,
+      if (search != null && search.isNotEmpty) 'search': search,
+      if (page > 1) 'page': page,
+    }) as Map<String, dynamic>;
+    return LabPage.fromJson(data);
+  }
+
+  /// [scan] for the lab: gated by the screening permission instead of
+  /// `patients,view`, so the `lab` role can scan tickets too.
+  Future<RegistrationPaymentState> labScan(String payload) async {
+    final data = await _client.postJson('/lab/scan', body: {'payload': payload}) as Map<String, dynamic>;
+    return RegistrationPaymentState.fromJson(data);
+  }
+
+  /// [status] for the lab, same gate as [labScan].
+  Future<RegistrationPaymentState> labStatus(int registrationId) async {
+    final data = await _client.getJson('/lab/$registrationId') as Map<String, dynamic>;
+    return RegistrationPaymentState.fromJson(data);
+  }
+
+  /// The ticket QR image path for lab slips (lab-gated twin of
+  /// `/patient-registrations/{id}/qr`).
+  static String labQrPath(int registrationId) => '/lab/$registrationId/qr';
 
   Future<PatientRegistration> create({
     required String name,
@@ -154,4 +219,12 @@ class PatientRegistrationRepository {
   // `patient_registration_id` instead of `appointment_id` — see
   // `Api\PaymentController::validatePayment()` for why exactly one of the
   // two is required. No need for a second near-identical method here.
+}
+
+/// One page of the registry plus whether this account may archive.
+class PatientRegistrationPage {
+  const PatientRegistrationPage({required this.page, required this.canArchive});
+
+  final Paginated<PatientRegistration> page;
+  final bool canArchive;
 }

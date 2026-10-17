@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/patient_registration_repository.dart';
+import '../domain/lab_registration.dart';
 import '../domain/patient_registration.dart';
 import '../domain/register_day.dart';
 import '../domain/service.dart';
@@ -33,4 +34,31 @@ final patientRegistrationListProvider =
         serviceId: f.serviceId,
       );
   return page.items;
+});
+
+/// The registry list screen's page (2026-10-17): the filters plus the
+/// archive tab, with the total and `can.archive` the bulk actions need.
+typedef PatientRegistrationPageQuery = ({PatientRegistrationFilter filter, bool archived});
+
+final patientRegistrationPageProvider =
+    FutureProvider.autoDispose.family<PatientRegistrationPage, PatientRegistrationPageQuery>((ref, query) {
+  final f = query.filter;
+  return ref.watch(patientRegistrationRepositoryProvider).listPage(
+        search: f.search,
+        from: f.from,
+        to: f.to,
+        serviceId: f.serviceId,
+        archived: query.archived,
+      );
+});
+
+/// "المختبر" list (2026-10-17): status tab, search and page.
+typedef LabListQuery = ({String status, String? search, int page});
+
+final labListProvider = FutureProvider.autoDispose.family<LabPage, LabListQuery>((ref, query) {
+  return ref.watch(patientRegistrationRepositoryProvider).listLab(
+        status: query.status,
+        search: query.search,
+        page: query.page,
+      );
 });

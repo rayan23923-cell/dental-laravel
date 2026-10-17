@@ -3,11 +3,13 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' hide TextDirection;
+import 'package:printing/printing.dart';
 
 import '../../../core/platform/platform_support.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/pdf/pdf_letterhead.dart';
 import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../../printing/data/pos_printer_service.dart';
 import '../../printing/presentation/printer_error_snackbar.dart';
@@ -17,6 +19,7 @@ import '../../printing/presentation/ticket_renderer.dart';
 import '../../printing/presentation/ticket_widget.dart';
 import '../data/patient_registration_repository.dart';
 import '../domain/registration_payment_state.dart';
+import 'lab_result_pdf.dart';
 
 /// The lab/reception infectious-disease screening confirmation screen —
 /// reached after scanning a registration's ticket QR (the exact same QR
@@ -77,6 +80,10 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
       // ticket. A print failure never undoes the saved result.
       if (canPrintTickets) {
         await _printSlip(updated);
+      } else {
+        // No thermal printer here: the full-page result, as the web
+        // lab page opens after saving (2026-10-17).
+        await _printPdf(updated);
       }
     } catch (e) {
       if (mounted) {
@@ -104,6 +111,8 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['screening.reused']!)));
       if (canPrintTickets) {
         await _printSlip(updated, reusedFrom: previous);
+      } else {
+        await _printPdf(updated);
       }
     } catch (e) {
       if (mounted) {
@@ -151,7 +160,9 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
     final r = state.registration;
     Uint8List? qrBytes;
     try {
-      qrBytes = Uint8List.fromList(await ref.read(apiClientProvider).getBytes('/patient-registrations/${r.id}/qr'));
+      // Lab-gated QR (2026-10-17): the `lab` role has no `patients,view`.
+      qrBytes = Uint8List.fromList(
+          await ref.read(apiClientProvider).getBytes(PatientRegistrationRepository.labQrPath(r.id)));
     } catch (_) {
       qrBytes = null;
     }
@@ -210,6 +221,34 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
       );
     } catch (e) {
       if (mounted) showPrinterErrorSnackBar(context, t['patientRegFlutter.printFailed']!, error: e);
+    }
+  }
+
+  /// The full-page lab result as a PDF (2026-10-17) — the web
+  /// `print/lab-result.blade.php` through the system print dialog, which
+  /// also saves it as a file. The state's registration must carry the
+  /// checker and the reused test's date (the lab/QR responses do).
+  Future<void> _printPdf([RegistrationPaymentState? state]) async {
+    final t = ref.read(translationsProvider);
+    final s = state ?? _state;
+    try {
+      final settings = await ref.read(clinicSettingsProvider.future);
+      final logo = await loadLetterheadLogo(ref, settings);
+      Uint8List? qrBytes;
+      try {
+        qrBytes = Uint8List.fromList(
+            await ref.read(apiClientProvider).getBytes(PatientRegistrationRepository.labQrPath(s.registration.id)));
+      } catch (_) {
+        qrBytes = null;
+      }
+      await Printing.layoutPdf(
+        name: '${t['screening.labResultHeading']!} - ${s.registration.name}.pdf',
+        onLayout: (format) => buildLabResultPdf(state: s, settings: settings, format: format, logo: logo, qrBytes: qrBytes),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${t['screening.printPdfFailed']!} ($e)')));
+      }
     }
   }
 
@@ -311,6 +350,12 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
                 label: Text(t['screening.printResult']!),
               ),
             ],
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _submitting || _reusing ? null : () => _printPdf(),
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              label: Text(t['screening.printResultPdf']!),
+            ),
           ],
           // A still-valid earlier clear result (same phone, 2026-10-12):
           // no new test and no lab fee — one tap reuses it and prints the
