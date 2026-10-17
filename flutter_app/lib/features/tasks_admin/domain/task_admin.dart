@@ -1,3 +1,5 @@
+import 'task_scoring.dart';
+
 /// Mirrors `App\Http\Resources\TaskResource` — the Task *catalogue* entry
 /// (a template a `TaskInstance` gets created from), distinct from
 /// `TaskInstance`/`TaskSummary` (a specific doctor's assignment,
@@ -16,6 +18,8 @@ class TaskAdmin {
     required this.caseSheetTypeNameAr,
     required this.stageName,
     required this.isRequired,
+    this.scoring,
+    this.departmentPassPercent,
   });
 
   factory TaskAdmin.fromJson(Map<String, dynamic> json) => TaskAdmin(
@@ -39,6 +43,10 @@ class TaskAdmin {
         // case an older cached response (from before this field existed)
         // is ever replayed.
         isRequired: json['is_required'] as bool? ?? true,
+        scoring: TaskScoringSetup.maybe(json['scoring']),
+        departmentPassPercent: double.tryParse(
+          (json['department'] as Map<String, dynamic>?)?['pass_percent']?.toString() ?? '',
+        ),
       );
 
   final int id;
@@ -53,4 +61,10 @@ class TaskAdmin {
   final String? caseSheetTypeNameAr;
   final String? stageName;
   final bool isRequired;
+
+  /// Points-based requirements (2026-10-17); see `task_scoring.dart`.
+  final TaskScoringSetup? scoring;
+
+  /// The task's department's pass percentage, edited beside the points.
+  final double? departmentPassPercent;
 }

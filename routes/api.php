@@ -325,6 +325,14 @@ Route::name('api.')->prefix('v1')->group(function () {
         // the web's CaseSheetController::open() redirect) — same
         // CaseSheetResolver, same access rules, JSON instead of a redirect.
         Route::get('/task-instances/{taskInstance}/case-sheet', [CaseSheetController::class, 'open']);
+        // The task's points on its case sheet (2026-10-17), the app's twin of
+        // the web's case-sheets.instance-work routes: the same controller and
+        // rules (a doctor reads only their own case; saving needs
+        // task_progress finish), so both clients read and write one record.
+        Route::get('/case-sheets/instances/{taskInstance}/work', [\App\Http\Controllers\TaskWorkController::class, 'show'])
+            ->name('case-sheets.instance-work');
+        Route::put('/case-sheets/instances/{taskInstance}/work', [\App\Http\Controllers\TaskWorkController::class, 'update'])
+            ->name('case-sheets.instance-work.update');
         // Optional pre-instance draft (2026-08-28) — see CaseSheetController::openForTask()'s doc comment.
         Route::get('/tasks/{task}/case-sheet-draft', [CaseSheetController::class, 'openForTask']);
         // The doctor's own "pending task" QR (task+doctor, no instance yet
