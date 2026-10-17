@@ -6,7 +6,7 @@ $ErrorActionPreference = 'Stop'
 $Root = (Resolve-Path $Root).Path.TrimEnd('\')
 $fwd = $Root -replace '\\', '/'
 
-(Get-Content -LiteralPath "$Root\php\php.ini.template") -replace '__EXT_DIR__', "$Root\php\ext" |
+(Get-Content -LiteralPath "$Root\php\php.ini.template") -replace '__EXT_DIR__', "$Root\php\ext" -replace '__CA_FILE__', "$Root\php\cacert.pem" |
     Set-Content -LiteralPath "$Root\php\php.ini" -Encoding ASCII
 
 # Address detection is best effort: Get-NetIPConfiguration throws on some

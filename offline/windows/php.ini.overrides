@@ -12,6 +12,9 @@ extension=mysqli
 extension=sodium
 extension=zip
 extension=exif
+; Windows PHP ships no CA list; without one every HTTPS call (activation) fails.
+curl.cainfo = "__CA_FILE__"
+openssl.cafile = "__CA_FILE__"
 memory_limit = 512M
 upload_max_filesize = 64M
 post_max_size = 64M
