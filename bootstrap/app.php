@@ -6,7 +6,9 @@ use Illuminate\Foundation\Configuration\Middleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        web: __DIR__.'/../routes/web.php',
+        // The licensing portal goes first so that, on its own domain, its
+        // /login and / win over the clinic's routes of the same path.
+        web: [__DIR__.'/../routes/licensing.php', __DIR__.'/../routes/web.php'],
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
@@ -31,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \App\Http\Middleware\EnsureUserHasRole::class,
             'permission' => \App\Http\Middleware\EnsureUserHasPermission::class,
             'case-sheet' => \App\Http\Middleware\EnforceCaseSheetAccess::class,
+            'licensing.auth' => \App\Http\Middleware\EnsureLicenseAdmin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

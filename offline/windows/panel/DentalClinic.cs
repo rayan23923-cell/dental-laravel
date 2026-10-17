@@ -966,7 +966,7 @@ namespace DentalClinicPanel
             var license = ReadLicense();
             if (license == null) return null; // not activated yet: nothing to update
             ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072; // TLS 1.2
-            var req = (HttpWebRequest)WebRequest.Create(LatestApi + "?code=" + Uri.EscapeDataString(license[0]) + "&machine=" + Uri.EscapeDataString(license[1]));
+            var req = (HttpWebRequest)WebRequest.Create(LatestApi + "?code=" + Uri.EscapeDataString(license[0]) + "&machine=" + Uri.EscapeDataString(license[1]) + "&build=" + CurrentBuild);
             req.UserAgent = "DentalClinicPanel";
             req.Accept = "application/json";
             req.Timeout = 30000;

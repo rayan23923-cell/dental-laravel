@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Doctor;
+use App\Models\LicenseAdmin;
 use App\Models\User;
 
 return [
@@ -48,6 +49,12 @@ return [
             'driver' => 'session',
             'provider' => 'doctors',
         ],
+
+        // The licensing portal's own accounts (routes/licensing.php).
+        'license' => [
+            'driver' => 'session',
+            'provider' => 'license_admins',
+        ],
     ],
 
     /*
@@ -76,6 +83,11 @@ return [
         'doctors' => [
             'driver' => 'eloquent',
             'model' => Doctor::class,
+        ],
+
+        'license_admins' => [
+            'driver' => 'eloquent',
+            'model' => LicenseAdmin::class,
         ],
 
         // 'users' => [

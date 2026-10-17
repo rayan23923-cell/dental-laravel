@@ -39,6 +39,7 @@ class ActivationController extends Controller
                 'code' => $request->input('code'),
                 'machine_id' => OfflineLicensing::machineId(),
                 'machine_name' => OfflineLicensing::machineName(),
+                'build' => OfflineLicensing::installedBuild(),
             ]);
         } catch (\Throwable $e) {
             report($e);

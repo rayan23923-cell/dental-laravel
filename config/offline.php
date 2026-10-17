@@ -12,4 +12,8 @@ return [
     // The hosted system that issues and checks activation codes and serves
     // the offline builds and their updates.
     'server' => rtrim((string) env('OFFLINE_LICENSE_SERVER', 'https://dental.azoclinic.duckdns.org'), '/'),
+
+    // The licensing portal (routes/licensing.php): served at the root of this
+    // host when set (e.g. licenses.azoclinic.duckdns.org), else under /licensing.
+    'portal_domain' => env('LICENSING_DOMAIN') ?: null,
 ];

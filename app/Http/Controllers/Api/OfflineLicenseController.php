@@ -22,9 +22,10 @@ class OfflineLicenseController extends Controller
             'code' => ['required', 'string', 'max:40'],
             'machine_id' => ['required', 'string', 'regex:/^[A-F0-9]{4}(-[A-F0-9]{4}){3}$/'],
             'machine_name' => ['nullable', 'string', 'max:100'],
+            'build' => ['nullable', 'integer', 'min:0'],
         ]);
 
-        return DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($data, $request) {
             $license = OfflineLicense::where('code', OfflineLicense::normalize($data['code']))->lockForUpdate()->first();
 
             if (! $license) {
@@ -43,20 +44,30 @@ class OfflineLicenseController extends Controller
                 'machine_name' => $data['machine_name'] ?? $license->machine_name,
                 'activated_at' => $license->activated_at ?? now(),
                 'last_seen_at' => now(),
+                'installed_build' => $data['build'] ?? $license->installed_build,
+                'last_ip' => $request->ip(),
             ])->save();
 
             return response()->json(['license' => OfflineLicensing::issue($license)]);
         });
     }
 
-    /** The newest offline build, for an activated computer's updater. */
+    /**
+     * The newest offline build, for an activated computer's updater, which
+     * also reports the build it runs (`build`) for the licensing portal.
+     */
     public function latest(Request $request): JsonResponse
     {
         $license = OfflineLicense::where('code', OfflineLicense::normalize($request->query('code')))->first();
         if (! $license || $license->revoked_at || ! $license->machine_id || $license->machine_id !== $request->query('machine')) {
             return response()->json(['message' => 'هذا الحاسوب غير مفعّل.'], 403);
         }
-        $license->forceFill(['last_seen_at' => now()])->save();
+        $build = filter_var($request->query('build'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+        $license->forceFill([
+            'last_seen_at' => now(),
+            'installed_build' => $build === false ? $license->installed_build : $build,
+            'last_ip' => $request->ip(),
+        ])->save();
 
         return response()->json(OfflineLicensing::latestBuild() ?? ['build' => 0]);
     }
