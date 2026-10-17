@@ -1152,6 +1152,16 @@ namespace DentalClinicClient
 
         static async Task PrintDocument(ClientSettings s, PrintRequest job)
         {
+            // Pages to a text-only (thermal) printer would print as symbols:
+            // print them as a roll-width image instead.
+            string target = s.DocumentPrinter.Length > 0 ? s.DocumentPrinter : RawPrinter.DefaultPrinter();
+            if (target.Length > 0 && RawPrinter.IsTextOnly(target))
+            {
+                Log.Write("document printer " + target + " has a text-only driver: printing as ESC/POS raster");
+                byte[] raster = await TicketBytes(s, job.Url, null);
+                await Task.Run(() => RawPrinter.Write(target, raster, "page"));
+                return;
+            }
             CoreWebView2PrintStatus st;
             if (job.TopLevel && job.Source != null)
             {
@@ -1183,7 +1193,17 @@ namespace DentalClinicClient
             if (s.TicketMode == PrintModes.Driver)
             {
                 if (s.TicketPrinter.Length == 0) throw new Exception("اختر الطابعة الحرارية من الإعدادات أولًا.");
-                Check(await App.Renderer.PrintAsync(url, html, s.TicketPrinter, s.PaperWidthMm, s), s.TicketPrinter);
+                if (!RawPrinter.IsTextOnly(s.TicketPrinter))
+                {
+                    Check(await App.Renderer.PrintAsync(url, html, s.TicketPrinter, s.PaperWidthMm, s), s.TicketPrinter);
+                    return;
+                }
+                // A "Generic / Text Only" driver turns the page into plain
+                // text and Arabic comes out as symbols: send the ticket as an
+                // ESC/POS image straight to the printer instead (USB direct).
+                Log.Write("ticket printer " + s.TicketPrinter + " has a text-only driver: printing as ESC/POS raster");
+                byte[] raster = await TicketBytes(s, url, html);
+                await Task.Run(() => RawPrinter.Write(s.TicketPrinter, raster, "ticket"));
                 return;
             }
             byte[] bytes = await TicketBytes(s, url, html);
@@ -1331,6 +1351,27 @@ namespace DentalClinicClient
     // reaches a USB printer exactly as written, also with "Generic / Text Only".
     static class RawPrinter
     {
+        // Whether Windows prints to [printer] through a text-only driver
+        // ("Generic / Text Only"), which can't print pages or Arabic.
+        public static bool IsTextOnly(string printer)
+        {
+            try
+            {
+                using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\Print\Printers\" + printer))
+                {
+                    var driver = key == null ? null : key.GetValue("Printer Driver") as string;
+                    return driver != null && driver.IndexOf("Text Only", StringComparison.OrdinalIgnoreCase) >= 0;
+                }
+            }
+            catch { return false; }
+        }
+
+        public static string DefaultPrinter()
+        {
+            try { return new System.Drawing.Printing.PrinterSettings().PrinterName ?? ""; }
+            catch { return ""; }
+        }
+
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
         class DOCINFOW
         {
