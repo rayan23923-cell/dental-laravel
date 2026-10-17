@@ -50,6 +50,14 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
   int? _serviceId;
   Timer? _debounce;
 
+  // Archive tab and bulk archive / restore (2026-10-17), as the web
+  // registry: archiving is a soft delete (payments are kept), archived
+  // registrations are listed on their own tab and can be restored.
+  bool _archived = false;
+  bool _selecting = false;
+  final Set<int> _selected = {};
+  bool _busy = false;
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -84,6 +92,110 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
     if (picked != null) setState(() => _range = picked);
   }
 
+  PatientRegistrationPageQuery get _pageQuery => (filter: _filter, archived: !widget.pickMode && _archived);
+
+  void _refresh() {
+    ref.invalidate(patientRegistrationPageProvider);
+    ref.invalidate(patientRegistrationListProvider);
+  }
+
+  void _showArchive(bool archived) {
+    setState(() {
+      _archived = archived;
+      _selecting = false;
+      _selected.clear();
+    });
+  }
+
+  void _toggle(int id) {
+    setState(() {
+      if (!_selected.remove(id)) _selected.add(id);
+      _selecting = true;
+    });
+  }
+
+  Future<bool> _confirm(String message) async {
+    final t = ref.read(translationsProvider);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(MaterialLocalizations.of(context).cancelButtonLabel),
+          ),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: Text(t['common.ok']!)),
+        ],
+      ),
+    );
+    return ok ?? false;
+  }
+
+  Future<void> _run(Future<void> Function() action, String doneMessage, String failedKey) async {
+    final t = ref.read(translationsProvider);
+    setState(() => _busy = true);
+    try {
+      await action();
+      if (!mounted) return;
+      setState(() {
+        _selected.clear();
+        _selecting = false;
+      });
+      _refresh();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(doneMessage)));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e is ApiException ? e.userMessage : t[failedKey]!)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _archiveSelected() async {
+    final t = ref.read(translationsProvider);
+    final ids = _selected.toList();
+    if (ids.isEmpty) return;
+    if (!await _confirm(trf(t['patientRegFlutter.archiveSelectedConfirm']!, {'n': ids.length}))) return;
+    await _run(
+      () => ref.read(patientRegistrationRepositoryProvider).archiveMany(ids),
+      trf(t['patientRegFlutter.archivedDone']!, {'n': ids.length}),
+      'patientRegFlutter.archiveFailed',
+    );
+  }
+
+  Future<void> _restoreSelected() async {
+    final t = ref.read(translationsProvider);
+    final ids = _selected.toList();
+    if (ids.isEmpty) return;
+    await _run(
+      () => ref.read(patientRegistrationRepositoryProvider).restoreMany(ids),
+      trf(t['patientRegFlutter.restoredDone']!, {'n': ids.length}),
+      'patientRegFlutter.restoreFailed',
+    );
+  }
+
+  /// "أرشفة الكل": every registration matching the filters, across pages.
+  Future<void> _archiveAll(int total) async {
+    final t = ref.read(translationsProvider);
+    if (total == 0) return;
+    if (!await _confirm(trf(t['patientRegFlutter.archiveAllConfirm']!, {'n': total}))) return;
+    final f = _filter;
+    await _run(
+      () => ref.read(patientRegistrationRepositoryProvider).archiveAll(
+            search: f.search,
+            from: f.from,
+            to: f.to,
+            serviceId: f.serviceId,
+          ),
+      trf(t['patientRegFlutter.archivedDone']!, {'n': total}),
+      'patientRegFlutter.archiveFailed',
+    );
+  }
+
   void _clearFilters() {
     _searchController.clear();
     _debounce?.cancel();
@@ -96,7 +208,10 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
 
   @override
   Widget build(BuildContext context) {
-    final registrationsAsync = ref.watch(patientRegistrationListProvider(_filter));
+    final pageAsync = ref.watch(patientRegistrationPageProvider(_pageQuery));
+    final registrationsAsync = pageAsync.whenData((p) => p.page.items);
+    final canArchive = !widget.pickMode && (pageAsync.valueOrNull?.canArchive ?? false);
+    final total = pageAsync.valueOrNull?.page.total ?? 0;
     final servicesAsync = ref.watch(servicesProvider);
     final servicesForFilter = servicesAsync.valueOrNull ?? const [];
     final t = ref.watch(translationsProvider);
@@ -120,21 +235,96 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                 IconButton(
                   icon: const Icon(Icons.coronavirus_outlined),
                   tooltip: t['patientRegFlutter.screeningTooltip']!,
-                  onPressed: () => context.push('/records/patient-registrations/scan-screening'),
+                  onPressed: () => context.push('/lab'),
                 ),
                 IconButton(
                   icon: const Icon(Icons.settings_outlined),
                   tooltip: t['patientRegFlutter.settingsTooltip']!,
                   onPressed: () => context.push('/records/patient-registrations/settings'),
                 ),
+                if (canArchive)
+                  IconButton(
+                    icon: Icon(_selecting ? Icons.checklist_rtl : Icons.checklist),
+                    tooltip: t['patientRegFlutter.select']!,
+                    onPressed: () => setState(() {
+                      _selecting = !_selecting;
+                      if (!_selecting) _selected.clear();
+                    }),
+                  ),
+                if (canArchive && !_archived && total > 0)
+                  PopupMenuButton<String>(
+                    onSelected: (_) => _archiveAll(total),
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: 'archive-all',
+                        child: Text(_hasFilters
+                            ? t['patientRegFlutter.archiveAllFiltered']!
+                            : t['patientRegFlutter.archiveAll']!),
+                      ),
+                    ],
+                  ),
               ],
       ),
-      floatingActionButton: widget.pickMode
+      bottomNavigationBar: _selecting && canArchive
+          ? SafeArea(
+              child: Material(
+                elevation: 8,
+                color: Colors.amber.shade50,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        tooltip: t['common.close']!,
+                        onPressed: () => setState(() {
+                          _selecting = false;
+                          _selected.clear();
+                        }),
+                      ),
+                      Expanded(
+                        child: Text(
+                          trf(t['patientRegFlutter.selectedCount']!, {'n': _selected.length}),
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => setState(() {
+                          final ids = (registrationsAsync.valueOrNull ?? const <PatientRegistration>[]).map((r) => r.id);
+                          if (ids.every(_selected.contains)) {
+                            _selected.removeAll(ids);
+                          } else {
+                            _selected.addAll(ids);
+                          }
+                        }),
+                        child: Text(t['patientRegFlutter.selectAllPage']!),
+                      ),
+                      const SizedBox(width: 4),
+                      if (_archived)
+                        FilledButton.icon(
+                          onPressed: _busy || _selected.isEmpty ? null : _restoreSelected,
+                          icon: const Icon(Icons.unarchive_outlined),
+                          label: Text(t['patientRegFlutter.restoreSelected']!),
+                        )
+                      else
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+                          onPressed: _busy || _selected.isEmpty ? null : _archiveSelected,
+                          icon: const Icon(Icons.inventory_2_outlined),
+                          label: Text(t['patientRegFlutter.archiveSelected']!),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          : null,
+      floatingActionButton: widget.pickMode || _archived || _selecting
           ? null
           : FloatingActionButton(
               onPressed: () async {
                 await context.push('/records/patient-registrations/new');
-                ref.invalidate(patientRegistrationListProvider);
+                _refresh();
               },
               tooltip: t['patientRegFlutter.newRegistration']!,
               child: const Icon(Icons.person_add_alt_1),
@@ -147,6 +337,28 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
             child: Column(
               children: [
+                if (!widget.pickMode) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<bool>(
+                      segments: [
+                        ButtonSegment(
+                          value: false,
+                          icon: const Icon(Icons.people_outline),
+                          label: Text(t['patientRegFlutter.currentTab']!),
+                        ),
+                        ButtonSegment(
+                          value: true,
+                          icon: const Icon(Icons.inventory_2_outlined),
+                          label: Text(t['patientRegFlutter.archiveTab']!),
+                        ),
+                      ],
+                      selected: {_archived},
+                      onSelectionChanged: (v) => _showArchive(v.first),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 Row(
                   children: [
                     Expanded(
@@ -208,10 +420,14 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
               error: (error, _) => Center(child: Text(error is ApiException ? error.userMessage : t['common.loadFailed']!)),
               data: (registrations) {
                 if (registrations.isEmpty) {
-                  return Center(child: Text(t['patientRegFlutter.emptyMatching']!));
+                  return Center(
+                    child: Text(_archived && !_hasFilters
+                        ? t['patientRegFlutter.emptyArchive']!
+                        : t['patientRegFlutter.emptyMatching']!),
+                  );
                 }
                 return RefreshIndicator(
-                  onRefresh: () async => ref.invalidate(patientRegistrationListProvider),
+                  onRefresh: () async => _refresh(),
                   child: ListView.separated(
                     padding: const EdgeInsets.only(top: 4, bottom: 88),
                     itemCount: registrations.length,
@@ -220,10 +436,15 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                       final r = registrations[i];
                       // Chat-list row (2026-10-13, by request): name, phone,
                       // service/day chips and the screening status chip.
+                      final selectable = _selecting && canArchive;
                       return ChatListTile(
                         title: r.name,
                         color: chatToneFor(r.id),
                         icon: Icons.person_outline,
+                        selected: selectable && _selected.contains(r.id),
+                        leading: selectable
+                            ? Checkbox(value: _selected.contains(r.id), onChanged: (_) => _toggle(r.id))
+                            : null,
                         // LTR isolate: a lone phone number has no strong-
                         // direction anchor inside RTL text (same bidi class
                         // fixed in academic_session_list_screen.dart).
@@ -233,8 +454,17 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                           if (r.serviceName != null)
                             ChatChip(label: r.serviceName!, icon: Icons.medical_services_outlined, color: Colors.indigo),
                         ],
-                        onTap: widget.pickMode ? () => Navigator.of(context).pop(r) : () => _openPayment(context, r),
-                        actions: widget.pickMode
+                        // Archived rows can't be opened (the payment
+                        // screen is for current registrations); a tap
+                        // selects them for restoring instead.
+                        onTap: widget.pickMode
+                            ? () => Navigator.of(context).pop(r)
+                            : selectable || (_archived && canArchive)
+                                ? () => _toggle(r.id)
+                                : _archived
+                                    ? null
+                                    : () => _openPayment(context, r),
+                        actions: widget.pickMode || _archived || selectable
                             ? const []
                             : [
                                 if (canPrintTickets)

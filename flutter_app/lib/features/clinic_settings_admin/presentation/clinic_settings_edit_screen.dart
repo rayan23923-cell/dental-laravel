@@ -32,6 +32,17 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
   final _baseUrlController = TextEditingController();
   final _universityNameController = TextEditingController();
   final _collegeNameController = TextEditingController();
+  // SMTP (2026-10-17, as on the web). The password field starts empty:
+  // blank keeps the stored one, which the server never sends back.
+  final _mailHostController = TextEditingController();
+  final _mailPortController = TextEditingController();
+  final _mailUsernameController = TextEditingController();
+  final _mailPasswordController = TextEditingController();
+  final _mailFromAddressController = TextEditingController();
+  final _mailFromNameController = TextEditingController();
+  final _testToController = TextEditingController();
+  String? _mailEncryption;
+  bool _sendingTest = false;
 
   String? _timezone;
   bool _enableNotifications = true;
@@ -61,6 +72,13 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
     _baseUrlController.dispose();
     _universityNameController.dispose();
     _collegeNameController.dispose();
+    _mailHostController.dispose();
+    _mailPortController.dispose();
+    _mailUsernameController.dispose();
+    _mailPasswordController.dispose();
+    _mailFromAddressController.dispose();
+    _mailFromNameController.dispose();
+    _testToController.dispose();
     super.dispose();
   }
 
@@ -84,6 +102,31 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
     _enableSms = settings.enableSms;
     _enableEmail = settings.enableEmail;
     _groupsEnabled = settings.groupsEnabled;
+    _mailHostController.text = settings.mailHost ?? '';
+    _mailPortController.text = settings.mailPort?.toString() ?? '';
+    _mailUsernameController.text = settings.mailUsername ?? '';
+    _mailFromAddressController.text = settings.mailFromAddress ?? '';
+    _mailFromNameController.text = settings.mailFromName ?? '';
+    _mailEncryption = settings.mailEncryption;
+  }
+
+  /// The web's "إرسال رسالة تجريبية": goes through the *saved* settings.
+  Future<void> _sendTestEmail() async {
+    final t = ref.read(translationsProvider);
+    final to = _testToController.text.trim();
+    if (to.isEmpty) return;
+    setState(() => _sendingTest = true);
+    try {
+      final message = await ref.read(clinicSettingsAdminRepositoryProvider).sendTestEmail(to);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } catch (e) {
+      if (mounted) {
+        final message = e is ApiException ? e.userMessage : t['clinicSettingsAdmin.saveFailed']!;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } finally {
+      if (mounted) setState(() => _sendingTest = false);
+    }
   }
 
   Future<void> _pickClinicLogo() async {
@@ -108,8 +151,9 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
 
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? true)) {
-      // Only the basic section has validated fields (name, email).
-      setState(() => _open = 'basic');
+      // Validated fields live in the basic/contact sections and in mail;
+      // open the basic one when the name is missing, else leave it be.
+      if (_nameController.text.trim().isEmpty) setState(() => _open = 'basic');
       return;
     }
     setState(() => _submitting = true);
@@ -131,10 +175,20 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
       'enable_sms': _enableSms,
       'enable_email': _enableEmail,
       'groups_enabled': _groupsEnabled,
+      if (_current?.mailVisible ?? false) ...{
+        'mail_host': _mailHostController.text.trim(),
+        'mail_port': _mailPortController.text.trim(),
+        'mail_username': _mailUsernameController.text.trim(),
+        // Blank keeps the stored password (see the controller above).
+        'mail_password': _mailPasswordController.text,
+        'mail_encryption': _mailEncryption ?? '',
+        'mail_from_address': _mailFromAddressController.text.trim(),
+        'mail_from_name': _mailFromNameController.text.trim(),
+      },
     };
 
     try {
-      await ref
+      final saved = await ref
           .read(clinicSettingsAdminRepositoryProvider)
           .update(fields, clinicLogo: _clinicLogoPick, universityLogo: _universityLogoPick);
       ref.invalidate(clinicSettingsAdminProvider);
@@ -148,6 +202,9 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
           _clinicLogoPreview = null;
           _universityLogoPick = null;
           _universityLogoPreview = null;
+          _mailPasswordController.clear();
+          // The saved copy: mail configured / password set, logo URLs.
+          _current = saved;
         });
       }
     } catch (e) {
@@ -372,6 +429,7 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
                 SettingsGroupHeader(t['clinicSettingsAdmin.groupMessaging']!),
                 SettingsGroupCard(
                   children: [
+                    if ((_current ?? settings).mailVisible) _mailSection(t, _current ?? settings),
                     SettingsSection(
                       icon: Icons.notifications_outlined,
                       color: const Color(0xFFF43F5E),
@@ -420,6 +478,185 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
           ),
         ),
       ),
+    );
+  }
+
+  Widget _mailSection(Map<String, String> t, ClinicSettingsAdmin settings) {
+    final configured = settings.mailConfigured;
+    final statusColor = configured ? Colors.green : Colors.amber.shade800;
+    return SettingsSection(
+      icon: Icons.mail_outline,
+      color: const Color(0xFF10B981),
+      title: t['clinicSettingsAdmin.mailSectionHeading']!,
+      summary: configured ? t['clinicSettingsAdmin.mailConfiguredShort']! : t['clinicSettingsAdmin.mailNotConfiguredShort']!,
+      open: _open == 'mail',
+      onToggle: () => setState(() => _open = _open == 'mail' ? null : 'mail'),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(configured ? Icons.check_circle : Icons.warning_amber_outlined, color: statusColor, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  configured
+                      ? t['clinicSettingsAdmin.mailConfiguredMsg']!
+                      : '${t['clinicSettingsAdmin.mailNotConfiguredPrefix']!} (\u2066${settings.mailDriver ?? 'log'}\u2069) ${t['clinicSettingsAdmin.mailNotConfiguredSuffix']!}',
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(t['clinicSettingsAdmin.mailSectionDesc']!, style: Theme.of(context).textTheme.bodySmall),
+        const SizedBox(height: 12),
+        // Hosts, ports, addresses: forced LTR (see the website field above).
+        TextFormField(
+          controller: _mailHostController,
+          textDirection: TextDirection.ltr,
+          decoration: InputDecoration(
+            labelText: t['clinicSettingsAdmin.mailHostLabel'],
+            hintText: 'smtp.gmail.com',
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _mailPortController,
+                textDirection: TextDirection.ltr,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: t['clinicSettingsAdmin.mailPortLabel'],
+                  hintText: '587',
+                  border: const OutlineInputBorder(),
+                ),
+                validator: (v) {
+                  final value = v?.trim() ?? '';
+                  if (value.isEmpty) return null;
+                  final port = int.tryParse(value);
+                  return port == null || port < 1 || port > 65535 ? t['clinicSettingsAdmin.invalidPort'] : null;
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                initialValue: _mailEncryption == 'tls' || _mailEncryption == 'ssl' ? _mailEncryption : '',
+                decoration: InputDecoration(
+                  labelText: t['clinicSettingsAdmin.mailEncryptionLabel'],
+                  border: const OutlineInputBorder(),
+                ),
+                items: [
+                  DropdownMenuItem(value: '', child: Text(t['clinicSettingsAdmin.mailEncryptionNone']!)),
+                  const DropdownMenuItem(value: 'tls', child: Text('TLS')),
+                  const DropdownMenuItem(value: 'ssl', child: Text('SSL')),
+                ],
+                onChanged: (v) => setState(() => _mailEncryption = (v == null || v.isEmpty) ? null : v),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _mailUsernameController,
+          textDirection: TextDirection.ltr,
+          decoration: InputDecoration(labelText: t['clinicSettingsAdmin.mailUsernameLabel'], border: const OutlineInputBorder()),
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _mailPasswordController,
+          obscureText: true,
+          textDirection: TextDirection.ltr,
+          decoration: InputDecoration(
+            labelText: t['clinicSettingsAdmin.mailPasswordLabel'],
+            hintText: settings.mailPasswordSet ? t['clinicSettingsAdmin.mailPasswordPlaceholder'] : null,
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _mailFromAddressController,
+          textDirection: TextDirection.ltr,
+          keyboardType: TextInputType.emailAddress,
+          decoration: InputDecoration(
+            labelText: t['clinicSettingsAdmin.mailFromAddressLabel'],
+            hintText: 'clinic@example.com',
+            border: const OutlineInputBorder(),
+          ),
+          validator: (v) {
+            if (v == null || v.trim().isEmpty) return null;
+            return v.contains('@') ? null : t['clinicSettingsAdmin.invalidEmail'];
+          },
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _mailFromNameController,
+          decoration: InputDecoration(
+            labelText: t['clinicSettingsAdmin.mailFromNameLabel'],
+            hintText: _nameController.text,
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 8),
+        ExpansionTile(
+          tilePadding: EdgeInsets.zero,
+          title: Text(t['clinicSettingsAdmin.gmailHelperSummary']!, style: const TextStyle(fontSize: 14)),
+          childrenPadding: const EdgeInsets.only(bottom: 8),
+          expandedCrossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${t['clinicSettingsAdmin.gmailWarningBold']!} ${t['clinicSettingsAdmin.gmailWarningRest']!}',
+              style: TextStyle(color: Colors.amber.shade900, fontSize: 13),
+            ),
+            const SizedBox(height: 6),
+            for (final line in [
+              '${t['clinicSettingsAdmin.gmailServerLabel']!} \u2066smtp.gmail.com\u2069',
+              '${t['clinicSettingsAdmin.gmailPortLabel']!} \u2066587\u2069 ${t['clinicSettingsAdmin.gmailWithEncryption']!} TLS (\u2066465\u2069 ${t['clinicSettingsAdmin.gmailWithConnector']!} SSL)',
+              '${t['clinicSettingsAdmin.gmailUsernameLabel']!} ${t['clinicSettingsAdmin.gmailUsernameFullEmail']!} \u2066you@gmail.com\u2069',
+              '${t['clinicSettingsAdmin.gmailPasswordLabel']!} ${t['clinicSettingsAdmin.gmailPasswordAppPassword']!}',
+              '${t['clinicSettingsAdmin.gmailFromAddressLabel']!} ${t['clinicSettingsAdmin.gmailFromAddressBold']!} ${t['clinicSettingsAdmin.gmailFromAddressRest']!}',
+              t['clinicSettingsAdmin.gmailLimitsNote']!,
+            ])
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text('• $line', style: const TextStyle(fontSize: 13)),
+              ),
+          ],
+        ),
+        const Divider(height: 24),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _testToController,
+                textDirection: TextDirection.ltr,
+                keyboardType: TextInputType.emailAddress,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  labelText: t['clinicSettingsAdmin.testEmailLabel'],
+                  hintText: 'you@example.com',
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton.tonal(
+              onPressed: _sendingTest || _testToController.text.trim().isEmpty ? null : _sendTestEmail,
+              child: Text(_sendingTest ? t['clinicSettingsAdmin.testEmailSending']! : t['clinicSettingsAdmin.testEmailSend']!),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(t['clinicSettingsAdmin.testEmailSaveFirstNote']!, style: Theme.of(context).textTheme.bodySmall),
+      ],
     );
   }
 

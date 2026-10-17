@@ -1,5 +1,7 @@
 import 'package:intl/intl.dart';
 
+import 'payment_stats.dart';
+
 /// Amounts as the web shows them (2026-10-17): grouped, no decimals, with
 /// the clinic's currency after the number when one is set. Wrapped in an
 /// LTR isolate so the number keeps its order inside Arabic text.
@@ -23,6 +25,7 @@ class Payment {
     required this.patientRegistrationPhone,
     this.type = 'service',
     this.patientRegistrationDeletedAt,
+    this.serviceName,
   });
 
   factory Payment.fromJson(Map<String, dynamic> json) => Payment(
@@ -44,6 +47,7 @@ class Payment {
         patientRegistrationPhone: (json['patient_registration'] as Map<String, dynamic>?)?['phone'] as String?,
         type: json['type'] as String? ?? 'service',
         patientRegistrationDeletedAt: (json['patient_registration'] as Map<String, dynamic>?)?['deleted_at'] as String?,
+        serviceName: (json['patient_registration'] as Map<String, dynamic>?)?['service_name'] as String?,
       );
 
   final int id;
@@ -64,6 +68,10 @@ class Payment {
   /// counts and is still listed, marked "archived" as on the web.
   final String? patientRegistrationDeletedAt;
 
+  /// The registration's service — sent only by the payments report
+  /// (`GET /payments/report`, 2026-10-17).
+  final String? serviceName;
+
   bool get isLabFee => type == 'lab';
   bool get isArchivedPatient => patientRegistrationDeletedAt != null;
 
@@ -75,4 +83,24 @@ class Payment {
   /// The person this payment settles for, regardless of source —
   /// appointment- or registration-linked alike.
   String get personName => patientRegistrationName ?? appointmentFullName ?? '—';
+}
+
+/// `GET /payments/report` (2026-10-17): every payment matching the list's
+/// filters plus the same overview as `/payments/stats` — the data of the
+/// web `print/payments-report` page.
+class PaymentReport {
+  const PaymentReport({required this.payments, required this.stats});
+
+  factory PaymentReport.fromJson(Map<String, dynamic> json) {
+    final data = json['data'] as Map<String, dynamic>;
+    return PaymentReport(
+      payments: ((data['payments'] as List<dynamic>?) ?? const [])
+          .map((e) => Payment.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      stats: PaymentStats.fromJson(json),
+    );
+  }
+
+  final List<Payment> payments;
+  final PaymentStats stats;
 }

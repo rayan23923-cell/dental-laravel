@@ -125,7 +125,8 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
           final state = await ref.read(patientRegistrationRepositoryProvider).scan(raw);
           if (mounted) context.pushReplacement('/records/patient-registrations/payment', extra: state);
         case QrScanMode.patientRegistrationScreening:
-          final state = await ref.read(patientRegistrationRepositoryProvider).scan(raw);
+          // Lab-gated scan (2026-10-17), so the `lab` role can scan too.
+          final state = await ref.read(patientRegistrationRepositoryProvider).labScan(raw);
           if (mounted) context.pushReplacement('/records/patient-registrations/screening', extra: state);
         case QrScanMode.taskPatientLink:
         case QrScanMode.paymentPatientLink:

@@ -73,6 +73,11 @@ dependencies:
   zxing2: ^0.2.4
   image: ^4.12.0
   audioplayers: ^6.8.1
+  # Doctors Excel import (pick the sheet) and saving the template/export
+  # (2026-10-17). Held on 8.x: its Android side is plain Java with no
+  # Kotlin Gradle DSL, so it builds against this project's pinned AGP and
+  # Kotlin plugin like permission_handler 13 above.
+  file_picker: ^8.3.7
 
 # permission_handler_android 14.0.0 (its own independently-versioned
 # native-Android implementation package) ships an android/build.gradle.kts

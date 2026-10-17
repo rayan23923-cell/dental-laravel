@@ -61,7 +61,8 @@ class DoctorAdmin {
   final int? academicSessionId;
   final String? academicSessionName;
   final String? nfcTagId;
-  // Only present when the list response eager-loaded `groups` (the doctors
-  // list does; `/doctors/{id}` doesn't) — used by the roster PDF.
+  // Present when the response eager-loaded `groups` (the doctors list
+  // and, since 2026-10-17, `/doctors/{id}`) — used by the roster PDF and
+  // the ID card.
   final List<String> groupNames;
 }

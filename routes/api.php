@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AcademicSessionController;
+use App\Http\Controllers\Api\AdminBroadcastController;
 use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\AuthController;
@@ -10,15 +11,18 @@ use App\Http\Controllers\Api\DesktopReleaseController;
 use App\Http\Controllers\Api\CaseSheetFormController;
 use App\Http\Controllers\Api\CaseSheetPrintController;
 use App\Http\Controllers\Api\CaseSheetTypeController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\ClinicSettingController;
 use App\Http\Controllers\Api\CompleteDentureRecordController;
 use App\Http\Controllers\Api\DentalChartController;
+use App\Http\Controllers\Api\DepartmentRoleAssignmentController;
 use App\Http\Controllers\Api\DeviceTokenController;
 use App\Http\Controllers\Api\DoctorController;
 use App\Http\Controllers\Api\DoctorImportExportController;
 use App\Http\Controllers\Api\DoctorTaskProgressController;
 use App\Http\Controllers\Api\EndodonticsXrayController;
 use App\Http\Controllers\Api\GroupController;
+use App\Http\Controllers\Api\LabController;
 use App\Http\Controllers\Api\LookupController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OralMedicineChartController;
@@ -53,6 +57,7 @@ use App\Http\Controllers\Api\TreatmentPlanController;
 use App\Http\Controllers\Api\TvBoardController;
 use App\Http\Controllers\Api\WaitingScreenController;
 use App\Http\Controllers\Api\WaitingScreenPairingController;
+use App\Http\Controllers\Api\WaitingScreenSettingController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\UserPermissionController;
 use Illuminate\Support\Facades\Route;
@@ -171,6 +176,8 @@ Route::name('api.')->prefix('v1')->group(function () {
         // TaskProgressController::nfcScan() reused instead.
         Route::get('/doctors-nfc-lookup', [DoctorController::class, 'nfcLookup'])
             ->middleware('permission:doctors,view');
+        Route::delete('/doctors-bulk', [DoctorController::class, 'destroyMany'])
+            ->middleware('permission:doctors,delete');
         Route::get('/doctors-template', [DoctorImportExportController::class, 'template']);
         Route::get('/doctors-export', [DoctorImportExportController::class, 'export'])->middleware('permission:doctors,export');
         Route::post('/doctors-import', [DoctorImportExportController::class, 'import'])->middleware('permission:doctors,create');
@@ -192,6 +199,12 @@ Route::name('api.')->prefix('v1')->group(function () {
             ->middleware('permission:patients,view');
         Route::post('/patient-registrations', [PatientRegistrationController::class, 'store'])
             ->middleware('permission:patients,create');
+        // Bulk archive / restore and the archive tab (2026-10-17), as the
+        // web registry's destroy-many / restore-many.
+        Route::delete('/patient-registrations-bulk', [PatientRegistrationController::class, 'destroyMany'])
+            ->middleware('permission:patients,delete');
+        Route::post('/patient-registrations-restore', [PatientRegistrationController::class, 'restoreMany'])
+            ->middleware('permission:patients,delete');
 
         // Ticket QR: printed on the thermal ticket, scanned at the
         // payment desk. `scan`/`status` return the registration plus its
@@ -215,6 +228,14 @@ Route::name('api.')->prefix('v1')->group(function () {
             ->middleware('permission:patient_screening,confirm');
         Route::post('/patient-registrations/{patientRegistration}/screening/reuse', [PatientRegistrationQrController::class, 'reuseScreening'])
             ->middleware('permission:patient_screening,confirm');
+
+        // "المختبر" (2026-10-17) — the web /lab page for the app; gated in
+        // the controller by either patient_screening permission, as on the
+        // web. See Api\LabController.
+        Route::get('/lab', [LabController::class, 'index']);
+        Route::post('/lab/scan', [LabController::class, 'scan']);
+        Route::get('/lab/{patientRegistration}', [LabController::class, 'show']);
+        Route::get('/lab/{patientRegistration}/qr', [LabController::class, 'qr']);
 
         Route::get('/register-days', [RegisterDayController::class, 'index']);
         Route::post('/register-days', [RegisterDayController::class, 'store'])->middleware('permission:settings,edit');
@@ -259,6 +280,10 @@ Route::name('api.')->prefix('v1')->group(function () {
         // Before the apiResource registration — otherwise its {academic_session}
         // implicit-binding "show" route would try (and fail) to resolve "current" as an id.
         Route::get('/academic-sessions/current', [AcademicSessionController::class, 'current']);
+        // Which year to view (the web's academic-sessions.select): checks
+        // the choice, the app keeps it and sends it back as the
+        // X-Academic-Session header, see AcademicSessionHelper.
+        Route::post('/academic-sessions/select', [AcademicSessionController::class, 'select']);
         Route::apiResource('academic-sessions', AcademicSessionController::class);
         Route::put('/academic-sessions/{academic_session}/set-current', [AcademicSessionController::class, 'setCurrent']);
 
@@ -281,18 +306,46 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::get('/case-sheet-forms/{resource}', [CaseSheetFormController::class, 'show'])
             ->whereIn('resource', array_keys(App\Support\CaseSheetPrint::SHEETS));
 
+        // GET stays open: every signed-in client reads the clinic's name,
+        // theme and groups switch from it (mail settings are only included
+        // for whoever may view settings, see the controller). Changes use
+        // the web routes' gates.
         Route::get('/clinic-settings', [ClinicSettingController::class, 'show']);
-        Route::put('/clinic-settings', [ClinicSettingController::class, 'update']);
+        Route::put('/clinic-settings', [ClinicSettingController::class, 'update'])
+            ->middleware(['role:super_admin,admin', 'permission:settings,edit']);
+        Route::post('/clinic-settings/test-email', [ClinicSettingController::class, 'sendTestEmail'])
+            ->middleware(['role:super_admin,admin', 'permission:settings,edit', 'throttle:6,1']);
 
-        Route::get('/backup', [BackupController::class, 'status']);
-        Route::post('/backup', [BackupController::class, 'store']);
-        Route::put('/backup/auto', [BackupController::class, 'toggleAuto']);
+        // Admin screens ported from the web (2026-10-17), with the same
+        // gates as their routes/web.php twins (role:super_admin,admin group).
+        Route::middleware('role:super_admin,admin')->group(function () {
+            Route::get('/waiting-screen-settings', [WaitingScreenSettingController::class, 'show'])
+                ->middleware('permission:settings,view');
+            Route::put('/waiting-screen-settings', [WaitingScreenSettingController::class, 'update'])
+                ->middleware('permission:settings,edit');
+
+            Route::get('/department-roles', [DepartmentRoleAssignmentController::class, 'index']);
+            Route::post('/department-roles', [DepartmentRoleAssignmentController::class, 'store']);
+            Route::put('/department-roles/{departmentRoleAssignment}/toggle', [DepartmentRoleAssignmentController::class, 'toggle']);
+            Route::delete('/department-roles/{departmentRoleAssignment}', [DepartmentRoleAssignmentController::class, 'destroy']);
+
+            Route::get('/admin-broadcast', [AdminBroadcastController::class, 'show']);
+            Route::post('/admin-broadcast', [AdminBroadcastController::class, 'store']);
+
+            Route::get('/backup', [BackupController::class, 'status']);
+            Route::post('/backup', [BackupController::class, 'store']);
+            Route::put('/backup/auto', [BackupController::class, 'toggleAuto']);
+            Route::get('/backup/{filename}/download', [BackupController::class, 'download']);
+        });
 
         Route::apiResource('groups', GroupController::class);
         Route::get('/groups-available-doctors', [GroupController::class, 'availableDoctors']);
         Route::post('/groups/{group}/doctors', [GroupController::class, 'addDoctors']);
         Route::delete('/groups/{group}/doctors', [GroupController::class, 'removeDoctors']);
 
+        // Task detail (2026-10-17): the doctors its instances can go to.
+        Route::get('/tasks/{task}/assignable-doctors', [TaskController::class, 'assignableDoctors'])
+            ->middleware(['role:super_admin,admin,editor', 'permission:tasks,view']);
         Route::get('/tasks/scoring-templates', [TaskController::class, 'scoringTemplates'])
             ->middleware('permission:tasks,create');
         Route::apiResource('tasks', TaskController::class)
@@ -300,6 +353,8 @@ Route::name('api.')->prefix('v1')->group(function () {
             ->middlewareFor('store', 'permission:tasks,create')
             ->middlewareFor('update', 'permission:tasks,edit')
             ->middlewareFor('destroy', 'permission:tasks,delete');
+        Route::get('/dashboard', [DashboardController::class, 'index']);
+        Route::get('/dashboard/tasks-by-education-type/{educationType}', [DashboardController::class, 'tasksByEducationType']);
         Route::get('/my-task-instances', [TaskInstanceController::class, 'mine']);
         // The doctor's own department-grouped task summary — see
         // Api\TaskProgressController::mine()/DoctorTaskSummary.
@@ -316,9 +371,13 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::delete('/my-task-instances/attachments/{attachment}', [TaskInstanceAttachmentController::class, 'destroy'])
             ->name('my-attachments.destroy');
         Route::get('/task-instances/{taskInstance}', [TaskInstanceController::class, 'show']);
-        Route::post('/task-instances', [TaskInstanceController::class, 'store']);
+        // Assigning and removing are staff-admin actions, gated like the
+        // web's task-instances.store/destroy (role:super_admin,admin,editor).
+        Route::post('/task-instances', [TaskInstanceController::class, 'store'])
+            ->middleware('role:super_admin,admin,editor');
         Route::put('/task-instances/{taskInstance}', [TaskInstanceController::class, 'update']);
-        Route::delete('/task-instances/{taskInstance}', [TaskInstanceController::class, 'destroy']);
+        Route::delete('/task-instances/{taskInstance}', [TaskInstanceController::class, 'destroy'])
+            ->middleware('role:super_admin,admin,editor');
         Route::post('/task-instances/{taskInstance}/confirm-paper', [TaskInstanceController::class, 'confirmPaper']);
         Route::get('/task-instances/{taskInstance}/qr', [TaskInstanceQrController::class, 'show']);
         Route::post('/task-instances/scan', [TaskInstanceQrController::class, 'scan']);
@@ -416,6 +475,8 @@ Route::name('api.')->prefix('v1')->group(function () {
         // "stats" isn't bound as a {payment}. No `update`: payments are
         // not edited by hand any more (see PaymentController).
         Route::get('/payments/stats', [PaymentController::class, 'stats'])->name('payments.stats');
+        // The payments report PDF's data (2026-10-17), the web payments.report.
+        Route::get('/payments/report', [PaymentController::class, 'report'])->name('payments.report');
         Route::apiResource('payments', PaymentController::class)->except(['update']);
 
         Route::get('/activity-logs', [ActivityLogController::class, 'index']);

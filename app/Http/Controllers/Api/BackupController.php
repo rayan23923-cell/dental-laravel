@@ -7,15 +7,14 @@ use App\Models\ClinicSetting;
 use App\Services\DatabaseBackupService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Mirrors App\Http\Controllers\BackupController for the Flutter client
  * (an admin screen there can show backup status and trigger one), same as
- * every other module in this port. No file-download endpoint here — the
- * original's own ajax script draws the same line (it returns metadata only;
- * the actual .sql links are plain `<a href>` tags to a static folder, not
- * routed through the ajax endpoint) — an admin who wants the raw dump uses
- * the web UI.
+ * every other module in this port. download() (2026-10-17) is the web's
+ * backup.download: the app saves the file and hands it to the system's
+ * share/open sheet.
  */
 class BackupController extends Controller
 {
@@ -46,5 +45,14 @@ class BackupController extends Controller
         ClinicSetting::current()->update(['enable_daily_backup' => $validated['enabled']]);
 
         return response()->json(['message' => 'Updated.']);
+    }
+
+    public function download(string $filename, DatabaseBackupService $backups): BinaryFileResponse
+    {
+        $path = $backups->fullPath($filename);
+
+        abort_if($path === null, 404);
+
+        return response()->download($path, $filename);
     }
 }

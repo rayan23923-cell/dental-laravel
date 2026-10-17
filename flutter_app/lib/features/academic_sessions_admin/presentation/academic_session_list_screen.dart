@@ -89,10 +89,31 @@ class _SessionTileState extends ConsumerState<_SessionTile> {
     }
   }
 
+  /// View this year from now on (the web's "عرض كمحدد"): every later
+  /// request carries it, so lists and banners follow it.
+  Future<void> _select() async {
+    setState(() => _submitting = true);
+    try {
+      await ref.read(academicSessionsRepositoryProvider).select(widget.session.id);
+      ref.invalidate(currentAcademicYearProvider);
+      ref.invalidate(academicSessionListProvider);
+    } catch (e) {
+      if (mounted) {
+        final t = ref.read(translationsProvider);
+        final message = e is ApiException ? e.userMessage : t['academicSessionsAdmin.selectFailed']!;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
     final t = ref.watch(translationsProvider);
+    // The year the server resolves for this app — its choice, or the current one.
+    final viewing = ref.watch(currentAcademicYearProvider).valueOrNull?.id == session.id;
 
     final groupsEnabled = ref.watch(groupsEnabledProvider);
 
@@ -102,9 +123,12 @@ class _SessionTileState extends ConsumerState<_SessionTile> {
       title: session.name,
       icon: Icons.calendar_month,
       color: session.isCurrent ? Colors.green : chatToneFor(session.id),
+      selected: viewing,
       chips: [
         if (session.isCurrent)
           ChatChip(label: t['academicSessionsAdmin.currentLabel']!, icon: Icons.check_circle, color: Colors.green),
+        if (viewing)
+          ChatChip(label: t['academicSessionsAdmin.viewingLabel']!, icon: Icons.visibility, color: Colors.indigo),
         // Forced LTR: two dates joined only by "→" have no strong-
         // direction anchor inside RTL text, so the bidi algorithm
         // reorders them — confirmed live showing end before start.
@@ -123,6 +147,12 @@ class _SessionTileState extends ConsumerState<_SessionTile> {
         ),
       ],
       actions: [
+        if (!viewing && session.isActive && !_submitting)
+          IconButton(
+            tooltip: t['academicSessionsAdmin.selectViewing']!,
+            icon: const Icon(Icons.visibility_outlined),
+            onPressed: _select,
+          ),
         Padding(
           padding: const EdgeInsetsDirectional.only(end: 8),
           child: _submitting

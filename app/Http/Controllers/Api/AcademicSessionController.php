@@ -14,9 +14,10 @@ use Illuminate\Http\Request;
 
 /**
  * Mirrors App\Http\Controllers\AcademicSessionController for the Flutter
- * client. No "selected session" concept here (Sanctum is stateless) — see
- * App\Services\AcademicSessionHelper docblock. show() always reflects the
- * requested session's own id, not any ambient "current" one.
+ * client. The "selected session" travels as the X-Academic-Session header
+ * (Sanctum is stateless) — see App\Services\AcademicSessionHelper and
+ * select(). show() always reflects the requested session's own id, not
+ * any ambient "current" one.
  */
 class AcademicSessionController extends Controller
 {
@@ -44,6 +45,25 @@ class AcademicSessionController extends Controller
         $session = AcademicSessionHelper::resolve();
 
         return response()->json($session?->only('id', 'name'));
+    }
+
+    /**
+     * The web's academic-sessions.select for the stateless API: checks the
+     * chosen year (it must exist and be active, as resolve() requires) and
+     * returns it. The app keeps the id and sends it back on every request
+     * as the X-Academic-Session header — see AcademicSessionHelper.
+     */
+    public function select(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'academic_session_id' => ['required', 'integer', 'exists:academic_sessions,id'],
+        ]);
+
+        $session = AcademicSession::findOrFail($validated['academic_session_id']);
+
+        abort_unless($session->is_active, 422, 'هذا العام الدراسي غير مفعّل.');
+
+        return response()->json($session->only('id', 'name'));
     }
 
     public function show(AcademicSession $academicSession): JsonResponse

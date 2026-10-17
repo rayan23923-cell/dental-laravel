@@ -3,11 +3,12 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/app_config.dart';
+import '../storage/academic_session_selection.dart';
 import '../storage/token_storage.dart';
 import 'api_exception.dart';
 
 final apiClientProvider = Provider<ApiClient>((ref) {
-  return ApiClient(ref.watch(tokenStorageProvider));
+  return ApiClient(ref.watch(tokenStorageProvider), academicSession: ref.watch(academicSessionSelectionProvider));
 });
 
 /// Thin wrapper around one [Dio] instance: attaches the bearer token to
@@ -21,8 +22,9 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 /// auth controller back). The 401 hook is wired at runtime instead — see
 /// `AuthController.build()`.
 class ApiClient {
-  ApiClient(this._tokenStorage)
-      : _dio = Dio(
+  ApiClient(this._tokenStorage, {AcademicSessionSelection? academicSession})
+      : _academicSession = academicSession,
+        _dio = Dio(
           BaseOptions(
             baseUrl: AppConfig.baseUrl,
             connectTimeout: AppConfig.connectTimeout,
@@ -49,6 +51,10 @@ class ApiClient {
   final Dio _dio;
   final TokenStorage _tokenStorage;
 
+  /// The academic year this app chose to view, if any — sent as a header
+  /// so the stateless API resolves the same year (2026-10-17).
+  final AcademicSessionSelection? _academicSession;
+
   /// Set once by `AuthController.build()`.
   void Function()? onUnauthorized;
 
@@ -58,6 +64,10 @@ class ApiClient {
         final token = await _tokenStorage.readToken();
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
+        }
+        final sessionId = await _academicSession?.read();
+        if (sessionId != null) {
+          options.headers[AcademicSessionSelection.header] = '$sessionId';
         }
         handler.next(options);
       },
@@ -89,6 +99,16 @@ class ApiClient {
         options: Options(responseType: ResponseType.bytes),
       );
       return response.data!;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  /// Streams a (possibly large) file straight to [savePath] — backups
+  /// (2026-10-17), which can be too big to hold in memory as bytes.
+  Future<void> downloadToFile(String path, String savePath) async {
+    try {
+      await _dio.download(path, savePath, options: Options(receiveTimeout: const Duration(minutes: 10)));
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
@@ -128,6 +148,18 @@ class ApiClient {
   Future<void> deleteJson(String path, {Object? body}) async {
     try {
       await _dio.delete(path, data: body);
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  /// A `DELETE` whose response body the caller needs — e.g.
+  /// `DELETE /doctors-bulk` reports how many were archived and which were
+  /// skipped (2026-10-17).
+  Future<dynamic> deleteJsonData(String path, {Object? body}) async {
+    try {
+      final response = await _dio.delete(path, data: body);
+      return response.data;
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
