@@ -6,6 +6,7 @@ import '../../features/academic_sessions_admin/presentation/academic_session_det
 import '../../features/academic_sessions_admin/presentation/academic_session_form_screen.dart';
 import '../../features/academic_sessions_admin/presentation/academic_session_list_screen.dart';
 import '../../features/admin/presentation/admin_hub_screen.dart';
+import '../../features/admin_broadcast/presentation/admin_broadcast_screen.dart';
 import '../../features/auth/presentation/auth_controller.dart';
 import '../../features/auth/presentation/auth_state.dart';
 import '../../features/auth/presentation/login_screen.dart';
@@ -15,6 +16,7 @@ import '../../features/activity_log/presentation/activity_log_list_screen.dart';
 import '../../features/backup_admin/presentation/backup_screen.dart';
 import '../../features/case_sheet_types_admin/presentation/case_sheet_type_list_screen.dart';
 import '../../features/clinic_settings_admin/presentation/clinic_settings_edit_screen.dart';
+import '../../features/department_roles_admin/presentation/department_roles_screen.dart';
 import '../../features/patient_registration/domain/registration_payment_state.dart';
 import '../../features/patient_registration/presentation/patient_registration_form_screen.dart';
 import '../../features/patient_registration/presentation/patient_registration_list_screen.dart';
@@ -51,6 +53,8 @@ import '../../features/tasks_admin/presentation/task_form_screen.dart';
 import '../../features/tasks_admin/presentation/task_list_screen.dart';
 import '../../features/taxonomy_admin/domain/taxonomy_item.dart';
 import '../../features/taxonomy_admin/presentation/taxonomy_list_screen.dart';
+import '../../features/waiting_screen_admin/presentation/waiting_screen_pair_screen.dart';
+import '../../features/waiting_screen_admin/presentation/waiting_screen_settings_screen.dart';
 import '../widgets/app_shell.dart';
 import '../../features/notifications/presentation/notification_alerts.dart';
 
@@ -407,6 +411,23 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/admin/backup',
             builder: (context, state) => const BackupScreen(),
+          ),
+          // Ported from the web's admin pages (2026-10-17).
+          GoRoute(
+            path: '/admin/waiting-screen-settings',
+            builder: (context, state) => const WaitingScreenSettingsScreen(),
+          ),
+          GoRoute(
+            path: '/admin/waiting-screen/pair',
+            builder: (context, state) => const WaitingScreenPairScreen(),
+          ),
+          GoRoute(
+            path: '/admin/department-roles',
+            builder: (context, state) => const DepartmentRolesScreen(),
+          ),
+          GoRoute(
+            path: '/admin/broadcast',
+            builder: (context, state) => const AdminBroadcastScreen(),
           ),
         ],
       ),

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/push/push_notification_service.dart';
+import '../../../core/storage/academic_session_selection.dart';
 import '../../../core/storage/token_storage.dart';
 import '../data/auth_repository.dart';
 import '../domain/auth_account.dart';
@@ -83,6 +84,8 @@ class AuthController extends AsyncNotifier<AuthState> {
   Future<void> logout() async {
     await ref.read(authRepositoryProvider).logout();
     await ref.read(tokenStorageProvider).clear();
+    // The viewed academic year ends with the session, as on the web.
+    await ref.read(academicSessionSelectionProvider).clear();
     state = const AsyncData(Unauthenticated());
   }
 }

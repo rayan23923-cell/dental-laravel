@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // `intl` exports its own `TextDirection` (LTR/RTL/UNKNOWN, for bidi text
 // detection) that collides with `dart:ui`'s `TextDirection` used by
@@ -151,14 +152,67 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
   }
 }
 
-class _BackupFileTile extends StatelessWidget {
+class _BackupFileTile extends ConsumerStatefulWidget {
   const _BackupFileTile({required this.file, required this.formatSize, required this.dateFormat});
   final BackupFile file;
   final String Function(int) formatSize;
   final DateFormat dateFormat;
 
   @override
+  ConsumerState<_BackupFileTile> createState() => _BackupFileTileState();
+}
+
+class _BackupFileTileState extends ConsumerState<_BackupFileTile> {
+  bool _downloading = false;
+
+  /// The web's backup.download (2026-10-17): saves the file on this
+  /// device, then shows where (and opens the folder on a computer).
+  Future<void> _download() async {
+    final t = ref.read(translationsProvider);
+    setState(() => _downloading = true);
+    try {
+      final path = await ref.read(backupAdminRepositoryProvider).download(widget.file);
+      if (!mounted) return;
+      final revealed = BackupAdminRepository.canReveal && await BackupAdminRepository.reveal(path);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(t['backupAdmin.downloadedTitle']!),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(revealed ? t['backupAdmin.downloadedOpened']! : t['backupAdmin.downloadedAt']!),
+              const SizedBox(height: 8),
+              SelectableText(path, textDirection: TextDirection.ltr, style: const TextStyle(fontSize: 12)),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Clipboard.setData(ClipboardData(text: path)),
+              child: Text(t['backupAdmin.copyPath']!),
+            ),
+            FilledButton(onPressed: () => Navigator.pop(context), child: Text(t['paperPhotos.close']!)),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        final message = e is ApiException ? e.userMessage : t['backupAdmin.downloadFailed']!;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } finally {
+      if (mounted) setState(() => _downloading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final t = ref.watch(translationsProvider);
+    final file = widget.file;
+    final formatSize = widget.formatSize;
+    final dateFormat = widget.dateFormat;
     // Chat-list row (2026-10-13, by request). The file name and the size /
     // date chips are LTR-isolated: LTR-ish values have no strong-direction
     // anchor inside RTL text (see permission_edit_screen.dart).
@@ -169,6 +223,19 @@ class _BackupFileTile extends StatelessWidget {
       chips: [
         ChatChip(label: '\u2066${formatSize(file.size)}\u2069', icon: Icons.sd_storage_outlined, color: Colors.teal),
         ChatChip(label: '\u2066${dateFormat.format(file.mtime)}\u2069', icon: Icons.schedule, color: Colors.blueGrey),
+      ],
+      actions: [
+        if (BackupAdminRepository.canDownload)
+          _downloading
+              ? const Padding(
+                  padding: EdgeInsetsDirectional.only(end: 12),
+                  child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                )
+              : IconButton(
+                  tooltip: t['backupAdmin.download']!,
+                  icon: const Icon(Icons.download_outlined),
+                  onPressed: _download,
+                ),
       ],
     );
   }

@@ -25,7 +25,17 @@ class _PermissionUserListScreenState extends ConsumerState<PermissionUserListScr
     final t = ref.watch(translationsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(t['permissionsAdmin.title']!)),
+      appBar: AppBar(
+        title: Text(t['permissionsAdmin.title']!),
+        actions: [
+          // As on the web's permissions page (2026-10-17).
+          IconButton(
+            tooltip: t['departmentRolesAdmin.shortTitle'],
+            icon: const Icon(Icons.workspace_premium_outlined),
+            onPressed: () => context.push('/admin/department-roles'),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push('/admin/users/new'),
         tooltip: t['permissionsAdmin.newUserFab'],

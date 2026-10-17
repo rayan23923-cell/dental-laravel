@@ -19,15 +19,18 @@ use Illuminate\Support\Facades\Session;
  *                    in the Laravel session, independent of `is_current`.
  *
  * The API has no browser session to persist a "selected" session in
- * (Sanctum tokens are stateless), so Api controllers call resolve() with no
- * persisted override — every request falls through to `is_current`, unless
- * the endpoint accepts an explicit `academic_session_id` query param. This
- * is a deliberate adaptation for the stateless API, not a guess: documented
- * in README.md under "Academic sessions".
+ * (Sanctum tokens are stateless). Since 2026-10-17 the app keeps its own
+ * choice (checked once by `POST /api/v1/academic-sessions/select`) and
+ * sends it on every API request as the `X-Academic-Session` header, which
+ * resolve() honours exactly like the web's stored selection. Without the
+ * header every request falls through to `is_current`, unless the endpoint
+ * accepts an explicit `academic_session_id` query param.
  */
 class AcademicSessionHelper
 {
     private const SESSION_KEY = 'academic_session_id';
+
+    public const HEADER = 'X-Academic-Session';
 
     /**
      * Returns null on a fresh install with zero academic_sessions rows —
@@ -37,7 +40,7 @@ class AcademicSessionHelper
      */
     public static function resolve(): ?AcademicSession
     {
-        $selectedId = Session::get(self::SESSION_KEY);
+        $selectedId = static::headerSelection() ?? Session::get(self::SESSION_KEY);
         if ($selectedId) {
             $selected = AcademicSession::where('id', $selectedId)->where('is_active', true)->first();
             if ($selected) {
@@ -56,6 +59,23 @@ class AcademicSessionHelper
     public static function resolveId(): ?int
     {
         return static::resolve()?->id;
+    }
+
+    /** The app's choice, from an API request's header; null when absent or not a number. */
+    private static function headerSelection(): ?int
+    {
+        if (! app()->bound('request')) {
+            return null;
+        }
+
+        $request = request();
+        if (! $request->is('api/*')) {
+            return null;
+        }
+
+        $value = $request->header(self::HEADER);
+
+        return is_string($value) && ctype_digit($value) ? (int) $value : null;
     }
 
     public static function setSelected(AcademicSession $session): void

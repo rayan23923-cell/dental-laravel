@@ -53,6 +53,12 @@ class PaperPhotosRepository {
     return _parse(await _client.postFile(_base(doctor, instanceId), formData: formData));
   }
 
+  /// Staff only (2026-10-17): attach a photo the paired phone sent, by its
+  /// scan id — the server moves it over, as the web's PaperPhotos.vue does.
+  Future<List<PaperPhoto>> attachPhoneScan({required int instanceId, required int scanId}) async {
+    return _parse(await _client.postJson(_base(false, instanceId), body: {'scan_id': scanId}));
+  }
+
   /// Staff only: write (or clear, with an empty [note]) the note on a photo.
   Future<List<PaperPhoto>> saveNote({required int photoId, required String note}) async {
     return _parse(await _client.putJson('/task-progress/attachments/$photoId/note', body: {'note': note}));

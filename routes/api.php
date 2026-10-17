@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AcademicSessionController;
+use App\Http\Controllers\Api\AdminBroadcastController;
 use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\AuthController;
@@ -13,6 +14,7 @@ use App\Http\Controllers\Api\CaseSheetTypeController;
 use App\Http\Controllers\Api\ClinicSettingController;
 use App\Http\Controllers\Api\CompleteDentureRecordController;
 use App\Http\Controllers\Api\DentalChartController;
+use App\Http\Controllers\Api\DepartmentRoleAssignmentController;
 use App\Http\Controllers\Api\DeviceTokenController;
 use App\Http\Controllers\Api\DoctorController;
 use App\Http\Controllers\Api\DoctorImportExportController;
@@ -53,6 +55,7 @@ use App\Http\Controllers\Api\TreatmentPlanController;
 use App\Http\Controllers\Api\TvBoardController;
 use App\Http\Controllers\Api\WaitingScreenController;
 use App\Http\Controllers\Api\WaitingScreenPairingController;
+use App\Http\Controllers\Api\WaitingScreenSettingController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\UserPermissionController;
 use Illuminate\Support\Facades\Route;
@@ -258,6 +261,10 @@ Route::name('api.')->prefix('v1')->group(function () {
         // Before the apiResource registration — otherwise its {academic_session}
         // implicit-binding "show" route would try (and fail) to resolve "current" as an id.
         Route::get('/academic-sessions/current', [AcademicSessionController::class, 'current']);
+        // Which year to view (the web's academic-sessions.select): checks
+        // the choice, the app keeps it and sends it back as the
+        // X-Academic-Session header, see AcademicSessionHelper.
+        Route::post('/academic-sessions/select', [AcademicSessionController::class, 'select']);
         Route::apiResource('academic-sessions', AcademicSessionController::class);
         Route::put('/academic-sessions/{academic_session}/set-current', [AcademicSessionController::class, 'setCurrent']);
 
@@ -280,12 +287,37 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::get('/case-sheet-forms/{resource}', [CaseSheetFormController::class, 'show'])
             ->whereIn('resource', array_keys(App\Support\CaseSheetPrint::SHEETS));
 
+        // GET stays open: every signed-in client reads the clinic's name,
+        // theme and groups switch from it (mail settings are only included
+        // for whoever may view settings, see the controller). Changes use
+        // the web routes' gates.
         Route::get('/clinic-settings', [ClinicSettingController::class, 'show']);
-        Route::put('/clinic-settings', [ClinicSettingController::class, 'update']);
+        Route::put('/clinic-settings', [ClinicSettingController::class, 'update'])
+            ->middleware(['role:super_admin,admin', 'permission:settings,edit']);
+        Route::post('/clinic-settings/test-email', [ClinicSettingController::class, 'sendTestEmail'])
+            ->middleware(['role:super_admin,admin', 'permission:settings,edit', 'throttle:6,1']);
 
-        Route::get('/backup', [BackupController::class, 'status']);
-        Route::post('/backup', [BackupController::class, 'store']);
-        Route::put('/backup/auto', [BackupController::class, 'toggleAuto']);
+        // Admin screens ported from the web (2026-10-17), with the same
+        // gates as their routes/web.php twins (role:super_admin,admin group).
+        Route::middleware('role:super_admin,admin')->group(function () {
+            Route::get('/waiting-screen-settings', [WaitingScreenSettingController::class, 'show'])
+                ->middleware('permission:settings,view');
+            Route::put('/waiting-screen-settings', [WaitingScreenSettingController::class, 'update'])
+                ->middleware('permission:settings,edit');
+
+            Route::get('/department-roles', [DepartmentRoleAssignmentController::class, 'index']);
+            Route::post('/department-roles', [DepartmentRoleAssignmentController::class, 'store']);
+            Route::put('/department-roles/{departmentRoleAssignment}/toggle', [DepartmentRoleAssignmentController::class, 'toggle']);
+            Route::delete('/department-roles/{departmentRoleAssignment}', [DepartmentRoleAssignmentController::class, 'destroy']);
+
+            Route::get('/admin-broadcast', [AdminBroadcastController::class, 'show']);
+            Route::post('/admin-broadcast', [AdminBroadcastController::class, 'store']);
+
+            Route::get('/backup', [BackupController::class, 'status']);
+            Route::post('/backup', [BackupController::class, 'store']);
+            Route::put('/backup/auto', [BackupController::class, 'toggleAuto']);
+            Route::get('/backup/{filename}/download', [BackupController::class, 'download']);
+        });
 
         Route::apiResource('groups', GroupController::class);
         Route::get('/groups-available-doctors', [GroupController::class, 'availableDoctors']);

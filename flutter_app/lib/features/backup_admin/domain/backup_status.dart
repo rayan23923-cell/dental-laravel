@@ -15,10 +15,8 @@ class BackupFile {
   final DateTime mtime;
 }
 
-/// `Api\BackupController::status()`'s response shape. No download endpoint
-/// here — matches the API's own scope (metadata only; the original web
-/// UI's raw `.sql` download stays web-only, per that controller's
-/// docblock).
+/// `Api\BackupController::status()`'s response shape. Each file can be
+/// downloaded (2026-10-17, `BackupAdminRepository.download`).
 class BackupStatus {
   const BackupStatus({required this.enabled, required this.lastBackupAt, required this.files});
 
