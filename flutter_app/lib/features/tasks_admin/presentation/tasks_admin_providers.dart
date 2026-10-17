@@ -4,6 +4,7 @@ import '../../../core/data/lookup_repository.dart';
 import '../../../core/network/paginated.dart';
 import '../data/tasks_admin_repository.dart';
 import '../domain/task_admin.dart';
+import '../domain/task_scoring.dart';
 
 /// Keyed on `(stageId, departmentId)` — the list screen only creates this
 /// once both are chosen (see `TasksAdminRepository.list()`'s doc comment),
@@ -31,4 +32,9 @@ final taskEducationTypesProvider = FutureProvider.autoDispose((ref) {
 
 final taskCaseSheetTypesProvider = FutureProvider.autoDispose((ref) {
   return ref.watch(lookupRepositoryProvider).caseSheetTypes();
+});
+
+/// Requirements tables by case-sheet type id (2026-10-17), for the add-task form.
+final taskScoringTemplatesProvider = FutureProvider.autoDispose<Map<int, ScoringTemplate>>((ref) {
+  return ref.watch(tasksAdminRepositoryProvider).scoringTemplates();
 });

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/paginated.dart';
 import '../domain/task_admin.dart';
+import '../domain/task_scoring.dart';
 
 final tasksAdminRepositoryProvider = Provider<TasksAdminRepository>((ref) {
   return TasksAdminRepository(ref.watch(apiClientProvider));
@@ -44,4 +45,15 @@ class TasksAdminRepository {
   }
 
   Future<void> delete(int id) => _client.deleteJson('/tasks/$id');
+
+  /// The requirements tables a case-sheet type pre-fills in the add-task
+  /// form (`Api\TaskController::scoringTemplates()`), keyed by type id.
+  Future<Map<int, ScoringTemplate>> scoringTemplates() async {
+    final data = await _client.getJson('/tasks/scoring-templates') as Map<String, dynamic>;
+    final templates = data['data'] as Map<String, dynamic>? ?? const {};
+    return {
+      for (final e in templates.entries)
+        if (int.tryParse(e.key) != null) int.parse(e.key): ScoringTemplate.fromJson(e.value as Map<String, dynamic>),
+    };
+  }
 }

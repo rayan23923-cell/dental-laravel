@@ -6,6 +6,9 @@ import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/tasks_admin_repository.dart';
 import '../domain/task_admin.dart';
+import '../domain/task_scoring.dart';
+import 'requirements_table.dart';
+import 'scoring_editor.dart';
 import 'tasks_admin_providers.dart';
 import '../../../core/widgets/numeric_input.dart';
 
@@ -42,6 +45,16 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
   bool _educationTypeDerived = false;
   bool _submitting = false;
 
+  // Requirements table (2026-10-17, as on the web): a case-sheet type with
+  // a table pre-fills it when adding; every enabled row is its own task.
+  List<ScoringTemplateRow>? _rows;
+  final _passPercentController = TextEditingController();
+  // Editing: the task's own points setup (web Tasks/Edit.vue). Off only
+  // hides the points and totals; the lists are kept.
+  TaskScoringSetup _scoring = TaskScoringSetup(measure: 'points');
+  bool _usePoints = false;
+  int? _loadedDepartmentId;
+
   bool get _isCreate => widget.taskId == null;
 
   @override
@@ -59,6 +72,7 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
     _requiredCountController.dispose();
     _notesController.dispose();
     _gradeController.dispose();
+    _passPercentController.dispose();
     super.dispose();
   }
 
@@ -73,6 +87,38 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
     _stageId = task.stageId;
     _caseSheetTypeId = task.caseSheetTypeId;
     _isRequired = task.isRequired;
+    _loadedDepartmentId = task.departmentId;
+    if (task.scoring != null) _scoring = task.scoring!;
+    _usePoints = task.scoring != null && !task.scoring!.pointsOff;
+    _scoring.pointsOff = !_usePoints;
+    _passPercentController.text = fmtPoints(task.departmentPassPercent);
+  }
+
+  /// The chosen stage's number (4 or 5) from its name, as the web reads it.
+  int? _stageNumber(List<LookupItem> stages) {
+    final name = stages.where((s) => s.id == _stageId).firstOrNull?.name ?? '';
+    if (RegExp(r'fourth|رابع|\b4\b', caseSensitive: false).hasMatch(name)) return 4;
+    if (RegExp(r'fifth|خامس|\b5\b', caseSensitive: false).hasMatch(name)) return 5;
+    return null;
+  }
+
+  /// Rows of one stage only follow the chosen stage: the other stage's
+  /// rows start switched off, and so do rows the template marks `off`.
+  void _applyStage() {
+    final rows = _rows;
+    if (rows == null) return;
+    final n = _stageNumber(ref.read(taskStagesProvider).valueOrNull ?? const []);
+    for (final row in rows) {
+      row.enabled = row.stage != null ? !row.off && (n == null || row.stage == n) : row.baseEnabled;
+    }
+  }
+
+  void _pickCaseSheetType(int? id) {
+    final template = id == null ? null : ref.read(taskScoringTemplatesProvider).valueOrNull?[id];
+    _caseSheetTypeId = id;
+    _rows = template?.freshRows();
+    _passPercentController.text = fmtPoints(template?.passPercent);
+    _applyStage();
   }
 
   // A task doesn't store its education type (same reason Tasks/Index.vue
@@ -99,7 +145,10 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
     }
     setState(() => _submitting = true);
 
-    final payload = {
+    final passText = _passPercentController.text.trim();
+    final passPercent = passText.isEmpty ? null : double.tryParse(passText);
+    final rows = _isCreate ? _rows : null;
+    final payload = <String, dynamic>{
       'title': _titleController.text.trim(),
       'department_id': _departmentId,
       'stage_id': _stageId,
@@ -109,6 +158,18 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
       'grade': _gradeController.text.trim().isEmpty ? null : double.tryParse(_gradeController.text.trim()),
       'is_required': _isRequired,
     };
+    if (rows != null) {
+      payload
+        ..remove('title')
+        ..remove('required_count')
+        ..['rows'] = [for (final r in rows) r.toJson()]
+        ..['pass_percent'] = passPercent;
+    } else if (!_isCreate) {
+      _scoring.pointsOff = !_usePoints;
+      payload['scoring'] = _usePoints || _scoring.hasLists ? _scoring.toJson() : null;
+      // Only sent for the department this task was loaded with.
+      if (_departmentId == _loadedDepartmentId) payload['pass_percent'] = passPercent;
+    }
 
     try {
       final repo = ref.read(tasksAdminRepositoryProvider);
@@ -172,6 +233,8 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
     final caseSheetTypesAsync = ref.watch(taskCaseSheetTypesProvider);
     final taskAsync = _isCreate ? null : ref.watch(taskAdminProvider(widget.taskId!));
     final t = ref.watch(translationsProvider);
+    // Loaded up front so picking a case-sheet type can pre-fill its table.
+    final templatesAsync = _isCreate ? ref.watch(taskScoringTemplatesProvider) : null;
 
     if (taskAsync != null) {
       switch (taskAsync) {
@@ -201,12 +264,14 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            TextFormField(
-              controller: _titleController,
-              decoration: InputDecoration(labelText: t['tasksAdmin.titleLabel'], border: const OutlineInputBorder()),
-              validator: (v) => (v == null || v.trim().isEmpty) ? t['tasksAdmin.requiredField'] : null,
-            ),
-            const SizedBox(height: 16),
+            if (_rows == null) ...[
+              TextFormField(
+                controller: _titleController,
+                decoration: InputDecoration(labelText: t['tasksAdmin.titleLabel'], border: const OutlineInputBorder()),
+                validator: (v) => (v == null || v.trim().isEmpty) ? t['tasksAdmin.requiredField'] : null,
+              ),
+              const SizedBox(height: 16),
+            ],
             educationTypesAsync.when(
               loading: () => const LinearProgressIndicator(),
               error: (_, __) => Text(t['tasksAdmin.loadEducationTypesFailed']!),
@@ -243,6 +308,7 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
                       : (v) => setState(() {
                             if (v != _stageId) _departmentId = null;
                             _stageId = v;
+                            _applyStage();
                           }),
                 );
               },
@@ -272,9 +338,29 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
                 initialValue: items.any((c) => c.id == _caseSheetTypeId) ? _caseSheetTypeId : null,
                 decoration: InputDecoration(labelText: t['tasksAdmin.caseSheetTypeLabel'], border: const OutlineInputBorder()),
                 items: [for (final c in items) DropdownMenuItem(value: c.id, child: Text(c.name))],
-                onChanged: (v) => setState(() => _caseSheetTypeId = v),
+                onChanged: (v) => setState(() {
+                  if (_isCreate) {
+                    _pickCaseSheetType(v);
+                  } else {
+                    _caseSheetTypeId = v;
+                  }
+                }),
               ),
             ),
+            if (templatesAsync is AsyncError) ...[
+              const SizedBox(height: 8),
+              Text(t['taskScoring.loadTemplatesFailed']!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            ],
+            if (_rows != null) ...[
+              const SizedBox(height: 16),
+              RequirementsTable(
+                key: ValueKey(_rows),
+                rows: _rows!,
+                caseSheetTypes: caseSheetTypesAsync.valueOrNull ?? const [],
+                passPercentController: _passPercentController,
+                t: t,
+              ),
+            ],
             const SizedBox(height: 16),
             Text(t['tasksAdmin.taskTypeLabel']!, style: Theme.of(context).textTheme.titleSmall),
             RadioGroup<bool>(
@@ -291,14 +377,29 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
             ),
             const SizedBox(height: 16),
             // One cap per doctor (2026-10-13, by request), as on the web.
-            TextFormField(
-              controller: _requiredCountController,
-              keyboardType: TextInputType.number,
-              inputFormatters: digitsOnly,
-              decoration: InputDecoration(labelText: t['tasksAdmin.requiredCountLabel'], border: const OutlineInputBorder()),
-              validator: (v) => (int.tryParse(v?.trim() ?? '') ?? 0) < 1 ? t['tasksAdmin.requiredField'] : null,
-            ),
-            const SizedBox(height: 16),
+            if (_rows == null) ...[
+              TextFormField(
+                controller: _requiredCountController,
+                keyboardType: TextInputType.number,
+                inputFormatters: digitsOnly,
+                decoration: InputDecoration(labelText: t['tasksAdmin.requiredCountLabel'], border: const OutlineInputBorder()),
+                validator: (v) => (int.tryParse(v?.trim() ?? '') ?? 0) < 1 ? t['tasksAdmin.requiredField'] : null,
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (!_isCreate) ...[
+              ScoringSection(
+                scoring: _scoring,
+                usePoints: _usePoints,
+                onUsePoints: (on) => setState(() {
+                  _usePoints = on;
+                  _scoring.pointsOff = !on;
+                }),
+                passPercentController: _passPercentController,
+                t: t,
+              ),
+              const SizedBox(height: 16),
+            ],
             TextFormField(
               controller: _gradeController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
