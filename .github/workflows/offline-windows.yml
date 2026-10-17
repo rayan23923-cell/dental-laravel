@@ -51,8 +51,123 @@ jobs:
           path: offline/windows/panel/DentalClinic.exe
           retention-days: 3
 
+  client:
+    # The program for the other computers (offline/windows/client): a WebView2
+    # window with silent printing, its installer, and a check that it starts
+    # and renders a ticket on a real Windows machine.
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      WEBVIEW2_SDK: '1.0.2903.40'
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: offline/windows/client
+    steps:
+      - uses: actions/checkout@v4
+      - name: WebView2 SDK and runtime bootstrapper
+        run: |
+          New-Item -ItemType Directory -Force build, build\x64, build\x86 | Out-Null
+          Invoke-WebRequest "https://api.nuget.org/v3-flatcontainer/microsoft.web.webview2/$env:WEBVIEW2_SDK/microsoft.web.webview2.$env:WEBVIEW2_SDK.nupkg" -OutFile wv2.zip
+          Expand-Archive wv2.zip -DestinationPath wv2
+          Copy-Item wv2\lib\net462\Microsoft.Web.WebView2.Core.dll, wv2\lib\net462\Microsoft.Web.WebView2.WinForms.dll build\
+          Copy-Item wv2\runtimes\win-x64\native\WebView2Loader.dll build\x64\
+          Copy-Item wv2\runtimes\win-x86\native\WebView2Loader.dll build\x86\
+          Copy-Item ..\panel\icon.ico, setup.iss build\
+          # Evergreen bootstrapper: the installer runs it only when Windows has no WebView2.
+          Invoke-WebRequest 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile build\MicrosoftEdgeWebview2Setup.exe
+          if ((Get-Item build\MicrosoftEdgeWebview2Setup.exe).Length -lt 100000) { throw 'WebView2 bootstrapper download failed.' }
+      - name: Compile DentalClinicClient.exe
+        run: |
+          # The client's version is the offline build number (auto-update compares it).
+          (Get-Content DentalClinicClient.cs -Raw -Encoding UTF8) -replace 'public const int Build = 0;', "public const int Build = ${{ github.run_number }};" |
+            Set-Content build\DentalClinicClient.cs -Encoding UTF8
+          & "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /target:winexe /codepage:65001 /optimize+ /platform:anycpu `
+            /out:build\DentalClinicClient.exe /win32icon:build\icon.ico /win32manifest:app.manifest `
+            /r:build\Microsoft.Web.WebView2.Core.dll /r:build\Microsoft.Web.WebView2.WinForms.dll `
+            /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Management.dll /r:System.Core.dll /r:System.Web.Extensions.dll `
+            build\DentalClinicClient.cs
+          if ($LASTEXITCODE -ne 0) { throw 'Compile failed.' }
+      - name: Installer (Inno Setup)
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" build\setup.iss "/DMyAppVersion=${{ github.run_number }}"
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup failed.' }
+          $setup = Get-Item build\output\DentalClinicClientSetup-${{ github.run_number }}.exe
+          New-Item -ItemType Directory -Force out | Out-Null
+          Copy-Item $setup.FullName out\DentalClinicClientSetup.exe
+          # Read by the client's update check (http://<server>/client/version.json).
+          $sha = (Get-FileHash out\DentalClinicClientSetup.exe -Algorithm SHA256).Hash.ToLower()
+          @{ build = ${{ github.run_number }}; file = 'DentalClinicClientSetup.exe'; sha256 = $sha; size = $setup.Length } |
+            ConvertTo-Json | Set-Content out\version.json -Encoding ASCII
+          Get-Content out\version.json
+      - name: Install silently and check it starts
+        timeout-minutes: 15
+        run: |
+          # Not -Wait: that also waits for the app Setup opens at the end, which keeps running.
+          $p = Start-Process out\DentalClinicClientSetup.exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/LOG=C:\client-setup.log' -PassThru
+          if (-not $p.WaitForExit(600000)) { Get-Content C:\client-setup.log -Tail 40; throw 'Setup did not finish.' }
+          if ($p.ExitCode -ne 0) { Get-Content C:\client-setup.log -Tail 40; throw "Setup exited with $($p.ExitCode)" }
+          $app = "${env:ProgramFiles}\Dental Clinic Client"
+          foreach ($f in 'DentalClinicClient.exe', 'Microsoft.Web.WebView2.Core.dll', 'Microsoft.Web.WebView2.WinForms.dll', 'x64\WebView2Loader.dll', 'x86\WebView2Loader.dll') {
+            if (-not (Test-Path "$app\$f")) { throw "$f was not installed." }
+          }
+          if (-not (Test-Path "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Dental Clinic.lnk")) { throw 'No Start menu shortcut.' }
+          # The installer opens the app at the end; it must still be running (no clinic server here, so it shows its error page).
+          Start-Sleep -Seconds 20
+          $running = Get-Process DentalClinicClient -ErrorAction SilentlyContinue
+          Get-Content "$env:LOCALAPPDATA\DentalClinicClient\client.log" -Encoding UTF8 -ErrorAction SilentlyContinue
+          if (-not $running) {
+            Start-Process "$app\DentalClinicClient.exe"
+            Start-Sleep -Seconds 20
+            $running = Get-Process DentalClinicClient -ErrorAction SilentlyContinue
+            Get-Content "$env:LOCALAPPDATA\DentalClinicClient\client.log" -Encoding UTF8 -ErrorAction SilentlyContinue
+          }
+          if (-not $running) { throw 'DentalClinicClient.exe did not stay open.' }
+          $running | Stop-Process -Force
+      - name: Self-test (WebView2, ticket raster, RAW print through Generic / Text Only)
+        # Not yet seen passing on a runner: reported, but it does not hold back the offline release.
+        continue-on-error: true
+        run: |
+          $app = "${env:ProgramFiles}\Dental Clinic Client"
+          $dir = 'C:\client-selftest'
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          if (-not (Select-String -Path "$env:LOCALAPPDATA\DentalClinicClient\client.log" -Pattern 'WebView2 ready' -Quiet)) { throw 'The app window did not get WebView2 running.' }
+          $raw = @()
+          try {
+            Add-PrinterDriver -Name 'Generic / Text Only' -ErrorAction Stop
+            Add-PrinterPort -Name "$dir\raw-out.bin" -ErrorAction Stop
+            Add-Printer -Name 'DCTest' -DriverName 'Generic / Text Only' -PortName "$dir\raw-out.bin" -ErrorAction Stop
+            $raw = @('--raw-printer', 'DCTest')
+          } catch { Write-Host "::warning::Could not add the test printer: $_" }
+          $p = Start-Process "$app\DentalClinicClient.exe" -ArgumentList (@('--selftest', $dir) + $raw) -PassThru
+          if (-not $p.WaitForExit(120000)) { $p | Stop-Process -Force; throw 'The self-test did not finish.' }
+          Get-Content "$dir\selftest.txt" -Encoding UTF8 -ErrorAction SilentlyContinue
+          if ($p.ExitCode -ne 0) { throw "Self-test failed ($($p.ExitCode))." }
+          if ($raw) {
+            for ($i = 0; $i -lt 15 -and -not (Test-Path "$dir\raw-out.bin"); $i++) { Start-Sleep -Seconds 1 }
+            Start-Sleep -Seconds 2
+            $want = [IO.File]::ReadAllBytes("$dir\ticket.bin"); $got = [IO.File]::ReadAllBytes("$dir\raw-out.bin")
+            Write-Host "RAW: sent $($want.Length) bytes, printer port got $($got.Length)"
+            if ($got.Length -ne $want.Length -or [Convert]::ToBase64String($got) -ne [Convert]::ToBase64String($want)) { throw 'The RAW print did not arrive unchanged.' }
+          }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: client-selftest
+          path: C:\client-selftest
+          retention-days: 7
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: client
+          path: |
+            offline/windows/client/out/DentalClinicClientSetup.exe
+            offline/windows/client/out/version.json
+          retention-days: 3
+
   package:
-    needs: panel
+    needs: [panel, client]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -94,6 +209,17 @@ jobs:
         with:
           name: panel
           path: dist/DentalClinicOffline
+
+      # The program for the other computers, served on the LAN at http://clinic.lan/client/.
+      - uses: actions/download-artifact@v4
+        with:
+          name: client
+          path: dist/DentalClinicOffline/client
+      - name: Client download page
+        run: |
+          cp offline/windows/client/index.html dist/DentalClinicOffline/client/index.html
+          test -f dist/DentalClinicOffline/client/DentalClinicClientSetup.exe
+          jq -e '.build > 0' dist/DentalClinicOffline/client/version.json
 
       - name: Windows PHP
         run: |
@@ -203,6 +329,17 @@ jobs:
           if ($ca.StatusCode -ne 200 -or $ca.RawContentLength -lt 300) { throw 'Certificate download failed.' }
           $setup = Invoke-WebRequest -Uri "http://${ip}:8080/setup" -UseBasicParsing -TimeoutSec 30
           if ($setup.Content -notmatch 'ca.crt') { throw 'Setup page failed.' }
+          $localSetup = curl.exe -s --max-time 30 http://127.0.0.1:8080/setup
+          if (($localSetup -join "`n") -notmatch 'ca.crt') { throw 'The setup page is not served on this computer (panel button).' }
+          Write-Host 'Client program for the other computers:'
+          $cv = (curl.exe -s --max-time 30 "http://${ip}:8080/client/version.json") -join '' | ConvertFrom-Json
+          Write-Host "client build $($cv.build)"
+          if ($cv.build -lt 1 -or $cv.file -ne 'DentalClinicClientSetup.exe') { throw 'client/version.json is wrong.' }
+          $cexe = curl.exe -s -o NUL -w '%{http_code} %{size_download}' --max-time 60 "http://${ip}:8080/client/DentalClinicClientSetup.exe"
+          Write-Host "client installer: $cexe"
+          if ($cexe -notmatch '^200 [1-9]\d{5,}') { throw "The client installer is not served, got $cexe" }
+          $cpage = curl.exe -s -o NUL -w '%{http_code}' --max-time 30 http://127.0.0.1:8080/client/
+          if ($cpage -ne '200') { throw "The client page is not served on this computer, got $cpage" }
 
           Write-Host 'Auto-open on joining the Wi-Fi (captive check):'
           $cdns = Resolve-DnsName -Name connectivitycheck.gstatic.com -Server 127.0.0.1 -DnsOnly -Type A
@@ -370,7 +507,7 @@ jobs:
           Start-Process -FilePath "$root\DentalClinic.exe" -ArgumentList '--stop' -Wait
 
   release:
-    needs: [package, smoke-test]
+    needs: [package, smoke-test, client]
     # Installed copies update themselves from the hosting (2026-10-17, by
     # request), so only main uploads a build there; other branches just
     # build and test. The zip goes to public/downloads/offline/ with
@@ -386,14 +523,24 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: offline
+      # The program for the other computers, also listed on /download.
+      - uses: actions/download-artifact@v4
+        with:
+          name: client
+          path: client
       - name: Upload to the hosting
         run: |
           N=${{ github.run_number }}
           FILE=DentalClinicOffline-$N.zip
           mv DentalClinicOffline-windows.zip $FILE
+          CLIENT=DentalClinicClientSetup-$N.exe
+          mv client/DentalClinicClientSetup.exe $CLIENT
           jq -n --argjson build $N --arg file $FILE --arg url "$SITE/$FILE" --argjson size $(stat -c %s $FILE) \
             --arg sha256 $(sha256sum $FILE | cut -d' ' -f1) --arg commit ${{ github.sha }} --arg at "$(date -u +%FT%TZ)" \
-            '{build: $build, file: $file, url: $url, size: $size, sha256: $sha256, commit: $commit, published_at: $at}' > latest.json
+            --arg client_file $CLIENT --arg client_url "$SITE/$CLIENT" --argjson client_size $(stat -c %s $CLIENT) \
+            --arg client_sha256 $(sha256sum $CLIENT | cut -d' ' -f1) \
+            '{build: $build, file: $file, url: $url, size: $size, sha256: $sha256, commit: $commit, published_at: $at,
+              client_file: $client_file, client_url: $client_url, client_size: $client_size, client_sha256: $client_sha256}' > latest.json
           cat latest.json
           mkdir -p ~/.ssh
           printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/vps_key
@@ -404,9 +551,10 @@ jobs:
           vps "mkdir -p '$dir'"
           # File first, manifest last, so nothing ever points at a missing file.
           vps "cat > '$dir/$FILE.part' && mv '$dir/$FILE.part' '$dir/$FILE'" < $FILE
+          vps "cat > '$dir/$CLIENT.part' && mv '$dir/$CLIENT.part' '$dir/$CLIENT'" < $CLIENT
           vps "cat > '$dir/latest.json.tmp' && mv '$dir/latest.json.tmp' '$dir/latest.json'" < latest.json
           # Keep this build and the one before it (for copies mid-download).
-          vps "cd '$dir' && ls -1t DentalClinicOffline-*.zip | tail -n +3 | xargs -r rm -f --; ls -la"
+          vps "cd '$dir' && ls -1t DentalClinicOffline-*.zip | tail -n +3 | xargs -r rm -f --; ls -1t DentalClinicClientSetup-*.exe | tail -n +3 | xargs -r rm -f --; ls -la"
           got=$(curl -fsS -o /dev/null -w '%{http_code}' "$SITE/$FILE" -r 0-0 || true)
           echo "download check: $got"
           [ "$got" = 206 ] || [ "$got" = 200 ] || { echo "The uploaded build is not reachable."; exit 1; }

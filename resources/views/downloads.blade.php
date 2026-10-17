@@ -191,6 +191,16 @@
                 تحميل النسخة الأوفلاين
             </a>
             <p class="meta">النسخة {{ $offline['build'] }}@if (! empty($offline['size'])) · {{ round($offline['size'] / 1048576) }} م.ب @endif</p>
+            @if (! empty($offline['client_url']))
+                {{-- The program for the clinic's other computers (2026-10-17): a
+                     window on the offline server with silent ticket printing.
+                     The server also offers it on the LAN at http://clinic.lan/client. --}}
+                <a href="{{ $offline['client_url'] }}" class="download-btn">
+                    <svg class="icon icon-sm" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                    برنامج الحواسيب الأخرى
+                </a>
+                <p class="meta">يفتح النظام من الخادم ويطبع التكت مباشرة@if (! empty($offline['client_size'])) · {{ round($offline['client_size'] / 1048576, 1) }} م.ب @endif</p>
+            @endif
         </div>
         @endif
     </div>
