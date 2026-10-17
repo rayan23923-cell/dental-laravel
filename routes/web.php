@@ -126,6 +126,10 @@ Route::get('/privacy-policy', function () {
 // — Android has no such self-update check; the APK here is a stand-in
 // distribution channel until Play Store publishing clears the Organization-
 // account requirement).
+// The offline copy's activation page (2026-10-17); see EnsureOfflineActivated.
+Route::get('/activate', [\App\Http\Controllers\Offline\ActivationController::class, 'show']);
+Route::post('/activate', [\App\Http\Controllers\Offline\ActivationController::class, 'store'])->middleware('throttle:10,1');
+
 Route::get('/download', function () {
     $releases = \App\Support\AppReleases::all();
 
@@ -134,6 +138,7 @@ Route::get('/download', function () {
         'windows' => $releases['windows'],
         'android' => $releases['android'],
         'ios' => $releases['ios'],
+        'offline' => \App\Support\OfflineLicensing::latestBuild(),
     ]);
 })->name('download');
 
@@ -540,6 +545,14 @@ Route::middleware('auth')->group(function () {
             ->middleware('permission:settings,edit')->name('clinic-settings.update');
         Route::post('/clinic-settings/test-email', [ClinicSettingController::class, 'sendTestEmail'])
             ->middleware(['permission:settings,edit', 'throttle:6,1'])->name('clinic-settings.test-email');
+
+        // Activation codes for offline copies (2026-10-17): super admins only.
+        Route::middleware('role:super_admin')->group(function () {
+            Route::get('/offline-licenses', [\App\Http\Controllers\OfflineLicenseController::class, 'index'])->name('offline-licenses.index');
+            Route::post('/offline-licenses', [\App\Http\Controllers\OfflineLicenseController::class, 'store'])->name('offline-licenses.store');
+            Route::patch('/offline-licenses/{offlineLicense}', [\App\Http\Controllers\OfflineLicenseController::class, 'update'])->name('offline-licenses.update');
+            Route::delete('/offline-licenses/{offlineLicense}', [\App\Http\Controllers\OfflineLicenseController::class, 'destroy'])->name('offline-licenses.destroy');
+        });
 
         // Admin controls for the public /waiting-screen display — same
         // 'settings' module/gate as clinic-settings above.

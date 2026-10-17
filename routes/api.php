@@ -116,6 +116,10 @@ Route::name('api.')->prefix('v1')->group(function () {
     // startup to self-update. See DesktopReleaseController docblock.
     Route::get('/desktop/version', DesktopReleaseController::class);
 
+    // Public: activation codes and updates for the offline edition (2026-10-17).
+    Route::post('/offline/activate', [\App\Http\Controllers\Api\OfflineLicenseController::class, 'activate'])->middleware('throttle:10,1');
+    Route::get('/offline/latest', [\App\Http\Controllers\Api\OfflineLicenseController::class, 'latest'])->middleware('throttle:30,1');
+
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me', [AuthController::class, 'me']);

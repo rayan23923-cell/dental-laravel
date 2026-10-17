@@ -136,6 +136,10 @@ const settingsLinks = computed(() => [
     { label: t('nav.sendBroadcast'), icon: 'campaign', href: route('admin-broadcast.create'), active: route().current('admin-broadcast.*') },
     { label: t('nav.activityLog'), icon: 'history', href: route('activity-logs.index'), active: route().current('activity-logs.*') },
     { label: t('nav.backup'), icon: 'database', href: route('backup.index'), active: route().current('backup.*') },
+    // Offline copies' activation codes (2026-10-17): super admins only.
+    ...(page.props.auth.user.role === 'super_admin'
+        ? [{ label: t('nav.offlineLicenses'), icon: 'key', href: route('offline-licenses.index'), active: route().current('offline-licenses.*') }]
+        : []),
 ]);
 
 // One class list for every nav tile — active tiles take the accent gradient,

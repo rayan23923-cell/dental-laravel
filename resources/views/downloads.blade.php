@@ -178,6 +178,21 @@
             </a>
             <p class="meta">الإصدار {{ $ios['version'] }}</p>
         </div>
+        @if ($offline)
+        {{-- The offline edition (2026-10-17): needs the university's activation code once. --}}
+        <div class="platform-card">
+            <h2>
+                <svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 3H4c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 5H5V6h14v2zm1 5H4c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2zm-1 5H5v-2h14v2z"/></svg>
+                النسخة الأوفلاين
+            </h2>
+            <p class="platform-sub">النظام كامل على حاسوب ويندوز بدون إنترنت، ويحتاج رمز تفعيل الجامعة مرة واحدة</p>
+            <a href="{{ $offline['url'] }}" class="download-btn">
+                <svg class="icon icon-sm" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                تحميل النسخة الأوفلاين
+            </a>
+            <p class="meta">النسخة {{ $offline['build'] }}@if (! empty($offline['size'])) · {{ round($offline['size'] / 1048576) }} م.ب @endif</p>
+        </div>
+        @endif
     </div>
 
     <div class="card">
