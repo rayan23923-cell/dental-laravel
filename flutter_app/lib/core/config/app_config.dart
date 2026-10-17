@@ -2,7 +2,14 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
 
+import 'server_settings.dart';
+
 /// Where the Laravel API lives, per run target.
+///
+/// Chosen at runtime since 2026-10-17: the user can switch to the offline
+/// clinic server on the LAN ([server], set from `ServerSettingsController`
+/// and at startup from `ServerBootstrap`). That choice wins; the cloud
+/// server ([cloudBaseUrl]) is resolved as before:
 ///
 /// `--dart-define=API_BASE_URL=...` always wins (the one case that can't be
 /// auto-detected: a physical device on the LAN needs the host machine's
@@ -20,7 +27,28 @@ class AppConfig {
   /// that isn't given its own `--dart-define=API_BASE_URL`.
   static const String productionBaseUrl = 'https://dental.azoclinic.duckdns.org/api/v1';
 
-  static String get baseUrl {
+  static ServerSettings _server = ServerSettings.cloud;
+
+  /// The server chosen in the app (cloud by default).
+  static ServerSettings get server => _server;
+
+  /// Called at startup and whenever the user switches server — the API
+  /// client is rebuilt right after (see `apiClientProvider`).
+  static void useServer(ServerSettings settings) => _server = settings.normalized();
+
+  /// The chosen server's identity, for per-server storage (login token,
+  /// offline caches) — see [ServerSettings.id].
+  static String get serverId => _server.id;
+
+  /// Key prefix for data that belongs to one server. Empty for the cloud,
+  /// so caches written before the server choice existed stay valid.
+  static String get storageNamespace => _server.isClinic ? 'server[${_server.id}]::' : '';
+
+  static String get baseUrl => _server.isClinic ? _server.apiBaseUrl : cloudBaseUrl;
+
+  /// The cloud API, whatever server is chosen — app updates always come
+  /// from here (`DesktopUpdateChecker`).
+  static String get cloudBaseUrl {
     if (_override.isNotEmpty) return _override;
     if (kReleaseMode) return productionBaseUrl;
     if (!kIsWeb && Platform.isAndroid) {

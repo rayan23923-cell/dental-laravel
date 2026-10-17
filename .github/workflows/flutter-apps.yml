@@ -15,6 +15,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 env:
   API_BASE_URL: https://dental.azoclinic.duckdns.org/api/v1
@@ -226,6 +227,13 @@ jobs:
           # Remove older 1.1.x builds the manifest no longer points at.
           keep=" $(jq -r '.[] | .url, (.zip_url // empty)' out/releases.json | xargs -n1 basename | tr '\n' ' ')"
           vps "cd '$dir' && for f in DentalClinic*-1.1.*; do case '$keep' in *\" \$f \"*) ;; *) rm -f -- \"\$f\";; esac; done; ls -la"
+      # The offline package carries the apps too (apps/ on the clinic
+      # server), so rebuild it with the new versions.
+      - name: Rebuild the offline package with the new apps
+        if: env.VPS_HOST != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run offline-windows.yml --repo "${{ github.repository }}" --ref main
       - name: Check the server offers the new version
         if: env.VPS_HOST != ''
         run: |

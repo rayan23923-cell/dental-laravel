@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>تطبيقات العيادة</title>
+<style>
+  :root { --bg:#f6f7fb; --card:#fff; --text:#1f2937; --muted:#6b7280; --accent:#4f46e5; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111827; --card:#1f2937; --text:#f3f4f6; --muted:#9ca3af; --accent:#818cf8; } }
+  body { margin:0; font-family: system-ui, Tahoma, sans-serif; background:var(--bg); color:var(--text); line-height:1.7; }
+  main { max-width:640px; margin:0 auto; padding:24px 16px; }
+  .card { background:var(--card); border-radius:12px; padding:16px 20px; margin-bottom:16px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+  h1 { font-size:1.4rem; } h2 { font-size:1.1rem; margin-top:0; }
+  .btn { display:inline-block; background:var(--accent); color:#fff; text-decoration:none; padding:12px 20px; border-radius:8px; font-weight:600; }
+  ol, ul { padding-inline-start:20px; } .muted { color:var(--muted); font-size:.9rem; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>تطبيقات العيادة (تعمل على الشبكة بدون إنترنت)</h1>
+  <p class="muted">بعد التثبيت، اختر في شاشة الدخول «سيرفر العيادة على الشبكة» واكتب <b>clinic.lan</b> أو عنوان IP لهذا الخادم.</p>
+
+  <div class="card" id="android">
+    <h2>أندرويد</h2>
+    <p><a class="btn" href="#">تنزيل التطبيق (APK)</a></p>
+    <p class="muted ver"></p>
+    <ol>
+      <li>افتح الملف بعد التنزيل، واسمح بـ«التثبيت من هذا المصدر» إن طُلب.</li>
+      <li>إن كان على الهاتف تطبيق قديم (قبل 1.1.110) ورُفض التثبيت، احذفه أولًا ثم ثبّت هذا.</li>
+    </ol>
+  </div>
+
+  <div class="card" id="windows">
+    <h2>ويندوز</h2>
+    <p><a class="btn" href="#">تنزيل التطبيق</a></p>
+    <p class="muted ver"></p>
+    <p class="muted">للاستخدام كمتصفح مع الطباعة الحرارية يوجد أيضًا <a href="/client/">برنامج الحواسيب الأخرى</a>.</p>
+  </div>
+
+  <div class="card" id="ios">
+    <h2>آيفون</h2>
+    <p><a class="btn" href="#">تنزيل الملف (IPA)</a></p>
+    <p class="muted ver"></p>
+    <p class="muted">آيفون لا يسمح بتثبيت التطبيقات إلا من المتجر أو بعد توقيعها. يُثبَّت هذا الملف من حاسوب
+      ببرنامج توقيع مثل Sideloadly أو AltStore باستخدام حساب Apple، أو يُستعمل النظام من متصفح Safari
+      على https://clinic.lan بعد تثبيت الشهادة من <a href="/setup">صفحة الإعداد</a>.</p>
+  </div>
+
+  <p class="muted" id="none" hidden>لا توجد تطبيقات في هذه النسخة من الخادم.</p>
+</main>
+<script>
+  fetch('releases.json', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (rel) {
+    var any = false;
+    ['android', 'windows', 'ios'].forEach(function (p) {
+      var card = document.getElementById(p), r = rel[p];
+      if (!r || !r.url) { card.classList.add('hidden'); return; }
+      any = true;
+      card.querySelector('a.btn').href = r.url;
+      card.querySelector('.ver').textContent = 'النسخة ' + r.version;
+    });
+    if (!any) document.getElementById('none').hidden = false;
+  }).catch(function () { document.getElementById('none').hidden = false; });
+</script>
+</body>
+</html>

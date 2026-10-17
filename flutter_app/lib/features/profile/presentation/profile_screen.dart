@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../../core/config/server_settings_controller.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/updater/desktop_update_checker.dart';
 import '../../../core/updater/desktop_update_gate.dart';
@@ -199,6 +201,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final t = ref.watch(translationsProvider);
 
     final scheme = Theme.of(context).colorScheme;
+    final server = ref.watch(serverSettingsProvider);
     final chips = switch (account) {
       StaffAccount(:final role) => [t['roles.$role'] ?? role],
       DoctorAccount(:final educationTypeName, :final stageName) => [?educationTypeName, ?stageName],
@@ -428,6 +431,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         label: Text(t['profile.checkUpdates']!),
                       ),
                     ],
+                  ),
+                // Cloud or the clinic's offline server (2026-10-17).
+                if (!kIsWeb)
+                  InkWell(
+                    onTap: () => context.push('/server'),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      child: Row(
+                        children: [
+                          const SettingsSectionIcon(icon: Icons.dns_outlined, color: Color(0xFF64748B)),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(t['server.title']!, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                Text(
+                                  server.isClinic ? '${t['server.clinic']!} · ${server.host}' : t['server.cloud']!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.chevron_left, color: scheme.onSurfaceVariant),
+                        ],
+                      ),
+                    ),
                   ),
                 InkWell(
                   onTap: () => context.push('/sessions'),

@@ -59,6 +59,7 @@ import '../../features/taxonomy_admin/domain/taxonomy_item.dart';
 import '../../features/taxonomy_admin/presentation/taxonomy_list_screen.dart';
 import '../../features/waiting_screen_admin/presentation/waiting_screen_pair_screen.dart';
 import '../../features/waiting_screen_admin/presentation/waiting_screen_settings_screen.dart';
+import '../config/server_settings_screen.dart';
 import '../widgets/app_shell.dart';
 import '../../features/notifications/presentation/notification_alerts.dart';
 
@@ -108,6 +109,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SplashScreen(),
       ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      // Cloud or clinic server — reachable before login (from the login
+      // screen) as well as from the profile page.
+      GoRoute(path: '/server', builder: (context, state) => const ServerSettingsScreen()),
       GoRoute(
         path: '/profile',
         builder: (context, state) => const ProfileScreen(),
@@ -471,6 +475,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final authState = ref.read(authControllerProvider);
       final loggingIn = state.matchedLocation == '/login';
       final onSplash = state.matchedLocation == '/splash';
+      final onServer = state.matchedLocation == '/server';
 
       return authState.when(
         // Covers both the initial session-restore loading (before the
@@ -481,10 +486,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         // filling in — the login screen's own spinner already reflects
         // this state). Any other location seeing `loading` (shouldn't
         // normally happen) falls back to `/splash`.
-        loading: () => (onSplash || loggingIn) ? null : '/splash',
-        error: (error, stackTrace) => loggingIn ? null : '/login',
+        loading: () => (onSplash || loggingIn || onServer) ? null : '/splash',
+        error: (error, stackTrace) => (loggingIn || onServer) ? null : '/login',
         data: (authState) => switch (authState) {
-          Unauthenticated() => loggingIn ? null : '/login',
+          Unauthenticated() => (loggingIn || onServer) ? null : '/login',
           Authenticated() => (loggingIn || onSplash) ? '/home' : null,
         },
       );

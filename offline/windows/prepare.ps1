@@ -118,6 +118,14 @@ $httpsHost = if ($HttpsPort -eq 443) { '{host}' } else { "{host}:$HttpsPort" }
 		header Cache-Control no-cache
 		file_server
 	}
+	handle /apps {
+		redir * /apps/ 302
+	}
+	handle /apps/* {
+		root * "$fwd"
+		header Cache-Control no-cache
+		file_server
+	}
 }
 
 # HTTPS for every device on the network (the browser camera needs it).

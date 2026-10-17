@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -32,6 +33,9 @@ class DesktopUpdateInfo {
 /// install confirmation — no store involved (see AppUpdatePlugin.kt).
 /// iPhone builds can't be installed from inside an app, so iOS only learns
 /// that a newer version is on the download page.
+///
+/// With the clinic's offline server chosen, the builds come from that
+/// server's /apps/releases.json instead of the cloud (2026-10-17).
 class DesktopUpdateChecker {
   const DesktopUpdateChecker._();
 
@@ -63,14 +67,26 @@ class DesktopUpdateChecker {
           receiveTimeout: const Duration(seconds: 5),
         ),
       );
-      final response = await dio.get<Map<String, dynamic>>(
-        '${AppConfig.baseUrl}/app/version',
-        queryParameters: {'platform': _platform},
-      );
-      final data = response.data;
-      if (data == null || data['version'] == null || data['url'] == null) return null;
+      final DesktopUpdateInfo? info;
+      final server = AppConfig.server;
+      if (server.isClinic) {
+        // Offline package (2026-10-17): the clinic server ships the app
+        // builds itself, at http://<server>/apps/ — no internet needed.
+        final response = await dio.get<String>(
+          server.releasesUrl,
+          options: Options(responseType: ResponseType.plain),
+        );
+        info = clinicReleaseFor(jsonDecode(response.data ?? 'null'), _platform, server.httpBase);
+      } else {
+        final response = await dio.get<Map<String, dynamic>>(
+          '${AppConfig.cloudBaseUrl}/app/version',
+          queryParameters: {'platform': _platform},
+        );
+        final data = response.data;
+        info = (data == null || data['version'] == null || data['url'] == null) ? null : DesktopUpdateInfo.fromJson(data);
+      }
+      if (info == null) return null;
 
-      final info = DesktopUpdateInfo.fromJson(data);
       final current = (await PackageInfo.fromPlatform()).version;
       return _isNewer(info.version, current) ? info : null;
     } catch (_) {
@@ -79,6 +95,26 @@ class DesktopUpdateChecker {
       if (throwOnError) rethrow;
       return null;
     }
+  }
+
+  /// This platform's entry of the clinic server's apps/releases.json
+  /// (same shape as the cloud's public/downloads/releases.json:
+  /// {"windows": {"version", "url"}, "android": {...}, "ios": {...}}),
+  /// with its relative url ("/apps/DentalClinicApp-1.1.120.apk") resolved
+  /// against the clinic server's plain-http base [httpBase].
+  static DesktopUpdateInfo? clinicReleaseFor(Object? releases, String platform, String httpBase) {
+    if (releases is! Map) return null;
+    final entry = releases[platform];
+    if (entry is! Map) return null;
+    final version = entry['version'];
+    final url = entry['url'];
+    if (version is! String || url is! String || version.isEmpty || url.isEmpty) return null;
+    final notes = entry['notes'];
+    return DesktopUpdateInfo(
+      version: version,
+      url: Uri.parse('$httpBase/').resolve(url).toString(),
+      notes: notes is String ? notes : null,
+    );
   }
 
   static bool _isNewer(String remote, String local) {
