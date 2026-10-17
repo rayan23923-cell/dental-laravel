@@ -384,6 +384,27 @@ namespace DentalClinicPanel
         {
             return IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(ep => ep.Port == port);
         }
+        // " (اسم البرنامج, PID n)" for the program listening on [port], from
+        // netstat, so the user knows what to close; empty when unknown.
+        string PortOwner(int port)
+        {
+            try
+            {
+                var r = Run(Path.Combine(Environment.SystemDirectory, "netstat.exe"), "-ano -p TCP", Root, 15000);
+                foreach (var line in r.Output.Split('\n'))
+                {
+                    var f = line.Split(new[] { ' ', '\t', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (f.Length < 5 || f[3] != "LISTENING" || !f[1].EndsWith(":" + port)) continue;
+                    int pid;
+                    if (!int.TryParse(f[4], out pid)) continue;
+                    if (pid == 4) return " (System - خادم ويب ويندوز، PID 4)";
+                    try { using (var proc = Process.GetProcessById(pid)) return " (" + proc.ProcessName + ", PID " + pid + ")"; }
+                    catch { return " (PID " + pid + ")"; }
+                }
+            }
+            catch { }
+            return "";
+        }
         static bool UdpInUse(int port)
         {
             return IPGlobalProperties.GetIPGlobalProperties().GetActiveUdpListeners().Any(ep => ep.Port == port);
@@ -469,10 +490,11 @@ namespace DentalClinicPanel
 
             var busy = new List<string>();
             foreach (int port in new[] { HttpPort, HttpsPort, DbPort })
-                if (TcpInUse(port)) busy.Add(port.ToString());
+                if (TcpInUse(port)) busy.Add(port + PortOwner(port));
             if (busy.Count > 0)
                 throw new Exception("المنفذ " + string.Join(" و ", busy) + " مستخدم من برنامج آخر (مثل XAMPP أو IIS أو Skype). " +
-                    "أغلق ذلك البرنامج، أو غيّر HTTP_PORT و HTTPS_PORT من زر الإعدادات.");
+                    "أغلق ذلك البرنامج، أو غيّر HTTP_PORT (مثلًا 8080) من زر الإعدادات." +
+                    (busy.Any(b => b.Contains("خادم ويب ويندوز")) ? " البرنامج هو خادم ويب ويندوز: شغّل في CMD كمسؤول الأمر  net stop http /y" : ""));
             DnsBusy = UdpInUse(53);
 
             LanIp = Prepare();
