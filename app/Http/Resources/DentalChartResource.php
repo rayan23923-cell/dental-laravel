@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\CaseSheetDoctor;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -18,6 +19,9 @@ class DentalChartResource extends JsonResource
             'patient_address' => $this->patient_address,
             'patient_occupation' => $this->patient_occupation,
             'doctor_id' => $this->doctor_id,
+            // The sheet's doctor, or its task case's (2026-10-15, as the web's
+            // linkedDoctor) — shown as a name on the form. Not on lists (a query per row).
+            'linked_doctor' => $this->unless($request->routeIs('*.index'), fn () => CaseSheetDoctor::linked($this->doctor_id, $this->task_instances_id)),
             'task_instances_id' => $this->task_instances_id,
             'task_id' => $this->task_id,
             'chart_type' => $this->chart_type,

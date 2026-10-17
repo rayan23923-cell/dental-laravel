@@ -23,6 +23,10 @@ class PatientRegistration {
     required this.stageName,
     required this.educationTypeName,
     required this.screeningStatus,
+    this.screeningCheckedAt,
+    this.screeningCheckedByName,
+    this.screeningReusedFrom,
+    this.screeningReusedFromCheckedAt,
   });
 
   factory PatientRegistration.fromJson(Map<String, dynamic> json) {
@@ -55,6 +59,10 @@ class PatientRegistration {
       // the backend. Defaults to 'pending' for any older cached response
       // shape that predates this field.
       screeningStatus: json['screening_status'] as String? ?? 'pending',
+      screeningCheckedAt: json['screening_checked_at'] as String?,
+      screeningCheckedByName: (json['screening_checked_by'] as Map<String, dynamic>?)?['full_name'] as String?,
+      screeningReusedFrom: json['screening_reused_from'] as int?,
+      screeningReusedFromCheckedAt: json['screening_reused_from_checked_at'] as String?,
     );
   }
 
@@ -80,5 +88,16 @@ class PatientRegistration {
   final String? educationTypeName;
   final String screeningStatus;
 
+  /// Who recorded the lab result and when (2026-10-17) — sent only by
+  /// the QR/state responses, which load the checker; null elsewhere.
+  final String? screeningCheckedAt;
+  final String? screeningCheckedByName;
+
+  /// The earlier registration whose clear result this one reused, and
+  /// that earlier test's date.
+  final int? screeningReusedFrom;
+  final String? screeningReusedFromCheckedAt;
+
   bool get isScreeningClear => screeningStatus == 'clear';
+  bool get isScreened => screeningStatus != 'pending';
 }

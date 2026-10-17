@@ -121,12 +121,32 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
     return parsed == null ? (raw ?? '—') : DateFormat('yyyy-MM-dd').format(parsed.toLocal());
   }
 
+  /// "2026-10-01 09:30", or null when [raw] is missing or unparsable.
+  static String? _formatDateTime(String? raw) {
+    final parsed = raw == null ? null : DateTime.tryParse(raw);
+    return parsed == null ? null : DateFormat('yyyy-MM-dd HH:mm').format(parsed.toLocal());
+  }
+
+  /// Prints the slip again for an already screened registration
+  /// (2026-10-17, as the web lab page's print button): the recorded
+  /// check time, and the earlier test's date when the result was reused.
+  Future<void> _reprintSlip() async {
+    final r = _state.registration;
+    await _printSlip(
+      _state,
+      reusedFrom: r.screeningReusedFrom == null
+          ? null
+          : PreviousScreening(id: r.screeningReusedFrom!, checkedAt: r.screeningReusedFromCheckedAt),
+      checkedAt: r.screeningCheckedAt,
+    );
+  }
+
   /// Lab slip: the registration ticket layout with the result banner,
   /// payment status and the same patient QR (fetched like the reprint
   /// in `patient_registration_list_screen.dart`). With [reusedFrom] the
   /// fee row reads "exempt" plus the earlier test's date, as on the web
   /// `print/lab-result.blade.php`.
-  Future<void> _printSlip(RegistrationPaymentState state, {PreviousScreening? reusedFrom}) async {
+  Future<void> _printSlip(RegistrationPaymentState state, {PreviousScreening? reusedFrom, String? checkedAt}) async {
     final t = ref.read(translationsProvider);
     final r = state.registration;
     Uint8List? qrBytes;
@@ -176,7 +196,7 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
               (t['screening.paymentStatus']!, NumberFormat('#,##0.##').format(state.labPaidAmount)),
               (t['screening.statusLabel']!, t['screening.paid']!),
             ],
-            (t['screening.checkedAt']!, DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())),
+            (t['screening.checkedAt']!, _formatDateTime(checkedAt) ?? DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())),
           ],
           qrCaption: t['screening.patientCode']!,
           widthDots: printerSettings.dotsPerLine,
@@ -246,6 +266,52 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
           ),
           const SizedBox(height: 12),
           _StatusBanner(status: r.screeningStatus),
+          // Result details for an already screened registration
+          // (2026-10-17, as on the web lab page): who recorded it and
+          // when, whether it was reused from an earlier test, and a
+          // reprint of the slip.
+          if (r.isScreened) ...[
+            const SizedBox(height: 8),
+            Card(
+              margin: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  if (r.screeningCheckedByName != null)
+                    ListTile(
+                      dense: true,
+                      leading: const Icon(Icons.person_outline),
+                      title: Text(t['screening.checkedBy']!),
+                      subtitle: Text(r.screeningCheckedByName!),
+                    ),
+                  if (r.screeningCheckedAt != null)
+                    ListTile(
+                      dense: true,
+                      leading: const Icon(Icons.schedule_outlined),
+                      title: Text(t['screening.checkedAt']!),
+                      subtitle: Text(_formatDateTime(r.screeningCheckedAt) ?? r.screeningCheckedAt!),
+                    ),
+                  if (r.screeningReusedFrom != null)
+                    ListTile(
+                      dense: true,
+                      leading: Icon(Icons.history, color: Colors.green.shade700),
+                      title: Text(
+                        r.screeningReusedFromCheckedAt == null
+                            ? t['screening.reusedBadge']!
+                            : '${t['screening.reusedBadge']!} (${_formatDate(r.screeningReusedFromCheckedAt)})',
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (canPrintTickets) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: _submitting || _reusing ? null : _reprintSlip,
+                icon: const Icon(Icons.print_outlined),
+                label: Text(t['screening.printResult']!),
+              ),
+            ],
+          ],
           // A still-valid earlier clear result (same phone, 2026-10-12):
           // no new test and no lab fee — one tap reuses it and prints the
           // slip. Recording a new result below stays possible.

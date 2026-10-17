@@ -29,6 +29,18 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
   int? _stageId;
   int? _departmentId;
 
+  /// The form pops with the saved task's filter (2026-10-16, same as the
+  /// web's redirect back to the task's stage and department).
+  Future<void> _openForm(String location, {Object? extra}) async {
+    final result = await context.push<Map<String, int?>>(location, extra: extra);
+    if (!mounted || result == null || result['stageId'] == null || result['departmentId'] == null) return;
+    setState(() {
+      _educationTypeId = result['educationTypeId'] ?? _educationTypeId;
+      _stageId = result['stageId'];
+      _departmentId = result['departmentId'];
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final educationTypesAsync = ref.watch(taskEducationTypesProvider);
@@ -47,7 +59,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
         // TaskFormScreen's constructor) — null values when nothing's
         // filtered yet, in which case the form opens empty, same as before
         // this existed.
-        onPressed: () => context.push(
+        onPressed: () => _openForm(
           '/admin/tasks/new',
           extra: {'stageId': _stageId, 'educationTypeId': _educationTypeId},
         ),
@@ -155,7 +167,10 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                           padding: const EdgeInsets.only(top: 4, bottom: 88),
                           itemCount: page.items.length,
                           separatorBuilder: (_, __) => chatDivider,
-                          itemBuilder: (context, i) => _TaskTile(task: page.items[i]),
+                          itemBuilder: (context, i) => _TaskTile(
+                            task: page.items[i],
+                            onTap: () => _openForm('/admin/tasks/${page.items[i].id}'),
+                          ),
                         ),
                       );
                     },
@@ -171,8 +186,9 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
 /// required/optional chip and the case-sheet type. Stage and department are
 /// left out — the list only shows once both are picked in the filters above.
 class _TaskTile extends ConsumerWidget {
-  const _TaskTile({required this.task});
+  const _TaskTile({required this.task, required this.onTap});
   final TaskAdmin task;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -189,7 +205,7 @@ class _TaskTile extends ConsumerWidget {
         if (task.caseSheetTypeNameAr != null)
           ChatChip(label: task.caseSheetTypeNameAr!, icon: Icons.description_outlined, color: Colors.teal),
       ],
-      onTap: () => context.push('/admin/tasks/${task.id}'),
+      onTap: onTap,
     );
   }
 }

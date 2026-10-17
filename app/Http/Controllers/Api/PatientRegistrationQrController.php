@@ -30,6 +30,12 @@ use Illuminate\Validation\Rule;
  */
 class PatientRegistrationQrController extends Controller
 {
+    /**
+     * Loaded on every state response — the checker and the reused test's
+     * date feed the app's lab screen (2026-10-17), as on the web lab page.
+     */
+    private const RELATIONS = ['service', 'registerDay', 'screeningCheckedBy:id,full_name', 'screeningReusedFrom:id,screening_checked_at'];
+
     public function show(Request $request, PatientRegistration $patientRegistration): Response
     {
         return QrCodeFactory::pngResponse(
@@ -55,7 +61,7 @@ class PatientRegistrationQrController extends Controller
             'رمز غير صالح — هذا ليس رمز تسجيل مريض.'
         );
 
-        $registration = PatientRegistration::with(['service', 'registerDay'])->findOrFail($decoded['id']);
+        $registration = PatientRegistration::with(self::RELATIONS)->findOrFail($decoded['id']);
 
         return $this->stateResponse($registration);
     }
@@ -89,7 +95,7 @@ class PatientRegistrationQrController extends Controller
             'رمز غير صالح — هذا ليس رمز تسجيل مريض.'
         );
 
-        $registration = PatientRegistration::with(['service', 'registerDay'])->findOrFail($decoded['id']);
+        $registration = PatientRegistration::with(self::RELATIONS)->findOrFail($decoded['id']);
 
         try {
             PatientScreeningGate::ensureClear($registration);
@@ -103,7 +109,7 @@ class PatientRegistrationQrController extends Controller
     /** Same shape as scan(), for polling a known registration by id. */
     public function status(PatientRegistration $patientRegistration): JsonResponse
     {
-        $patientRegistration->load(['service', 'registerDay']);
+        $patientRegistration->load(self::RELATIONS);
 
         return $this->stateResponse($patientRegistration);
     }
@@ -132,7 +138,7 @@ class PatientRegistrationQrController extends Controller
             ]);
         });
 
-        return $this->stateResponse($patientRegistration->fresh(['service', 'registerDay']));
+        return $this->stateResponse($patientRegistration->fresh(self::RELATIONS));
     }
 
     /**
@@ -153,7 +159,7 @@ class PatientRegistrationQrController extends Controller
             'screening_reused_from' => $previous->id,
         ]);
 
-        return $this->stateResponse($patientRegistration->fresh(['service', 'registerDay']));
+        return $this->stateResponse($patientRegistration->fresh(self::RELATIONS));
     }
 
     /**

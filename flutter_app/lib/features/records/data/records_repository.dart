@@ -5,6 +5,7 @@ import '../../../core/network/paginated.dart';
 import '../domain/appointment.dart';
 import '../domain/patient.dart';
 import '../domain/payment.dart';
+import '../domain/payment_stats.dart';
 
 final recordsRepositoryProvider = Provider<RecordsRepository>((ref) {
   return RecordsRepository(ref.watch(apiClientProvider));
@@ -93,9 +94,18 @@ class RecordsRepository {
     return Payment.fromJson(data['data'] as Map<String, dynamic>);
   }
 
-  Future<Payment> updatePayment(int id, Map<String, dynamic> payload) async {
-    final data = await _client.putJson('/payments/$id', body: payload) as Map<String, dynamic>;
-    return Payment.fromJson(data['data'] as Map<String, dynamic>);
+  // No `updatePayment()` (2026-10-17): payments aren't edited by hand any
+  // more, and the API no longer routes `PUT /payments/{id}`.
+
+  /// Income overview for the same filters as [listPayments] (2026-10-17).
+  Future<PaymentStats> fetchPaymentStats({String? search, String? from, String? to, String? source}) async {
+    final data = await _client.getJson('/payments/stats', query: {
+      if (search != null && search.isNotEmpty) 'search': search,
+      if (from != null && from.isNotEmpty) 'from': from,
+      if (to != null && to.isNotEmpty) 'to': to,
+      if (source != null && source.isNotEmpty) 'source': source,
+    }) as Map<String, dynamic>;
+    return PaymentStats.fromJson(data);
   }
 
   Future<void> deletePayment(int id) => _client.deleteJson('/payments/$id');

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Support\LinkedRecords;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\TaskController as WebTaskController;
 use App\Http\Resources\TaskResource;
 use App\Models\Department;
 use App\Models\Task;
@@ -92,6 +93,20 @@ class TaskController extends Controller
 
         // Defaults to the active session, as add_task.php does.
         $validated['academic_session_id'] ??= AcademicSessionHelper::resolveId();
+
+        // Warn before adding a task that already exists in the department
+        // (same rule as the web's TaskController::store): the app asks first
+        // and resends with allow_duplicates to go ahead.
+        if (! $request->boolean('allow_duplicates') && ($existing = WebTaskController::duplicateTitles($validated)) !== []) {
+            $message = 'موجودة مسبقًا في هذا القسم: '.implode('، ', $existing);
+
+            return response()->json([
+                'message' => $message,
+                'errors' => [($table ? 'rows' : 'title') => [$message]],
+                'duplicate' => true,
+                'duplicates' => $existing,
+            ], 422);
+        }
 
         $created = TaskScoring::createTasks($validated);
         $task = $created->first();

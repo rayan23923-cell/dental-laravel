@@ -9,6 +9,8 @@ use App\Models\Payment;
 use App\Models\PatientRegistration;
 use App\Services\PatientScreeningException;
 use App\Services\PatientScreeningGate;
+use App\Support\PaymentStats;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -17,9 +19,43 @@ class PaymentController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        $payments = $this->filteredQuery($request)
+            ->latest('paid_at')
+            ->paginate(15);
+
+        return PaymentResource::collection($payments)->response();
+    }
+
+    /**
+     * Income overview for the app's payments screen (2026-10-17), the same
+     * figures the web `Payments/Index` page shows (see `PaymentStats`):
+     * the four periods and the two chart series ignore the filters, the
+     * total and per-source split follow them. Amounts are in the clinic's
+     * currency, which is sent along so the app can label them.
+     */
+    public function stats(Request $request): JsonResponse
+    {
+        $query = $this->filteredQuery($request);
+        $stats = new PaymentStats();
+
+        return response()->json([
+            'data' => [
+                'periods' => $stats->periods(),
+                'daily' => $stats->daily(),
+                'monthly' => $stats->monthly(),
+                'filtered_total' => (float) (clone $query)->sum('amount'),
+                'by_source' => PaymentStats::bySource($query),
+                'currency' => ClinicSetting::current()->clinic_currency,
+            ],
+        ]);
+    }
+
+    /** The search / date range / source filters shared by `index()` and `stats()`. */
+    private function filteredQuery(Request $request): Builder
+    {
         $search = $request->string('search')->toString();
 
-        $payments = Payment::with(['appointment', 'patientRegistration'])
+        return Payment::with(['appointment', 'patientRegistration'])
             ->when($request->integer('appointment_id'), fn ($q, $id) => $q->where('appointment_id', $id))
             ->when(
                 $request->integer('patient_registration_id'),
@@ -45,11 +81,7 @@ class PaymentController extends Controller
                 'registration' => $q->whereNotNull('patient_registration_id')->where('type', '!=', Payment::TYPE_LAB),
                 'lab' => $q->where('type', Payment::TYPE_LAB),
                 default => $q,
-            })
-            ->latest('paid_at')
-            ->paginate(15);
-
-        return PaymentResource::collection($payments)->response();
+            });
     }
 
     public function show(Payment $payment): JsonResponse
@@ -89,12 +121,10 @@ class PaymentController extends Controller
         return (new PaymentResource($payment))->response()->setStatusCode(201);
     }
 
-    public function update(Request $request, Payment $payment): JsonResponse
-    {
-        $payment->update($this->validatePayment($request, true));
-
-        return (new PaymentResource($payment))->response();
-    }
+    // No `update()` (2026-10-17): payments are no longer edited by hand —
+    // the web dropped its add/edit page (2026-10-14) and the amounts are
+    // fixed (the service's price at registration, the lab fee with the
+    // result), so `PUT /payments/{id}` is not routed any more.
 
     public function destroy(Payment $payment): JsonResponse
     {
@@ -110,18 +140,12 @@ class PaymentController extends Controller
      * that pair-wise; the database can't (see the migration that added
      * `patient_registration_id`).
      */
-    private function validatePayment(Request $request, bool $partial = false): array
+    private function validatePayment(Request $request): array
     {
-        $presence = $partial ? ['sometimes'] : ['required_without:patient_registration_id'];
-
         return $request->validate([
-            'appointment_id' => [...$presence, 'nullable', 'prohibits:patient_registration_id', 'exists:appointments,id'],
-            'patient_registration_id' => [
-                $partial ? 'sometimes' : 'required_without:appointment_id',
-                'nullable',
-                'exists:patients_simple,id',
-            ],
-            'amount' => [$partial ? 'sometimes' : 'required', 'numeric', 'min:0'],
+            'appointment_id' => ['required_without:patient_registration_id', 'nullable', 'prohibits:patient_registration_id', 'exists:appointments,id'],
+            'patient_registration_id' => ['required_without:appointment_id', 'nullable', 'exists:patients_simple,id'],
+            'amount' => ['required', 'numeric', 'min:0'],
             'paid_by' => ['nullable', 'string', 'max:100'],
             'paid_at' => ['nullable', 'date'],
             'type' => ['sometimes', Rule::in([Payment::TYPE_SERVICE, Payment::TYPE_LAB])],

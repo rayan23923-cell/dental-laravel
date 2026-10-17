@@ -27,6 +27,18 @@ class PatientRegistrationResource extends JsonResource
             'task_id' => $this->task_id,
             'screening_status' => $this->screening_status,
             'screening_reused_from' => $this->screening_reused_from,
+            // Who recorded the lab result and when (2026-10-17), and the
+            // date of the earlier test a reused result came from — what
+            // the web lab page and its printed slip show.
+            'screening_checked_at' => $this->screening_checked_at,
+            'screening_checked_by' => $this->whenLoaded('screeningCheckedBy', fn () => $this->screeningCheckedBy ? [
+                'id' => $this->screeningCheckedBy->id,
+                'full_name' => $this->screeningCheckedBy->full_name,
+            ] : null),
+            'screening_reused_from_checked_at' => $this->whenLoaded(
+                'screeningReusedFrom',
+                fn () => $this->screeningReusedFrom?->screening_checked_at,
+            ),
             'service' => $this->whenLoaded('service', fn () => $this->service ? [
                 'id' => $this->service->id,
                 'name' => $this->service->name,

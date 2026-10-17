@@ -12,6 +12,7 @@ class ClinicSettings {
     this.labFee,
     this.labValidityDays = 0,
     this.groupsEnabled = true,
+    this.currency,
   });
 
   factory ClinicSettings.fromJson(Map<String, dynamic> json) => ClinicSettings(
@@ -25,6 +26,7 @@ class ClinicSettings {
         labFee: json['lab_fee'] == null ? null : double.tryParse(json['lab_fee'].toString()),
         labValidityDays: int.tryParse('${json['lab_validity_days'] ?? 0}') ?? 0,
         groupsEnabled: json['groups_enabled'] as bool? ?? true,
+        currency: json['clinic_currency'] as String?,
       );
 
   final String? theme;
@@ -49,6 +51,10 @@ class ClinicSettings {
   /// the web's: off hides groups everywhere and task progress lists a
   /// stage's doctors directly.
   final bool groupsEnabled;
+
+  /// The clinic's currency label (e.g. "دينار عراقي"), shown after amounts
+  /// the way the web's payments page does (2026-10-17). Null = none.
+  final String? currency;
 
   /// Same precedence as `print.layout.blade.php`'s letterhead: the
   /// university logo if one's uploaded, the clinic logo otherwise — used
