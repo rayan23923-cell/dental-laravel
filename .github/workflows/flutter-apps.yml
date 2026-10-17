@@ -41,6 +41,34 @@ jobs:
           cache: true
       - name: Check the live server answers
         run: curl -sS -o /dev/null -w "%{http_code}\n" "$API_BASE_URL/clinic-settings" || true
+      - name: Signing key (the same for every build, so installed apps can update)
+        # Android only installs an update signed with the same key as the
+        # installed app (2026-10-17, in-app updates). The key lives on the
+        # VPS, outside the repo; the first run creates it there.
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        if: env.VPS_HOST != ''
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/vps_key
+          chmod 600 ~/.ssh/vps_key
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          vps() { ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" "$@"; }
+          dir='~/android-signing'
+          if ! vps "test -s $dir/release.jks && test -s $dir/password"; then
+            pass=$(openssl rand -hex 16)
+            keytool -genkeypair -keystore new.jks -alias dental -keyalg RSA -keysize 2048 -validity 20000 \
+              -storepass "$pass" -keypass "$pass" -dname "CN=Dental Clinic, O=Dental Clinic"
+            # Only the first upload counts, so two parallel runs can't end up with different keys.
+            vps "mkdir -p $dir && chmod 700 $dir && test -s $dir/release.jks || { cat > $dir/release.jks.tmp && printf %s '$pass' > $dir/password && mv $dir/release.jks.tmp $dir/release.jks && chmod 600 $dir/*; }" < new.jks
+            rm -f new.jks
+          fi
+          vps "cat $dir/release.jks" > android/app/release.jks
+          pass=$(vps "cat $dir/password")
+          echo "::add-mask::$pass"
+          printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=dental\nstoreFile=release.jks\n' "$pass" "$pass" > android/key.properties
+          keytool -list -keystore android/app/release.jks -storepass "$pass" | grep -i fingerprint || true
       - run: flutter pub get
       - run: flutter build apk --release $BUILD_FLAGS --dart-define=API_BASE_URL=$API_BASE_URL
       - run: cp build/app/outputs/flutter-apk/app-release.apk ../DentalClinicApp-android.apk
