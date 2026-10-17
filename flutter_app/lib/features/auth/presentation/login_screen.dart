@@ -1,6 +1,9 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../core/config/server_settings_controller.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
@@ -287,6 +290,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final branding = ref.watch(publicBrandingProvider).valueOrNull;
     final theme = Theme.of(context);
     final t = ref.watch(translationsProvider);
+    final server = ref.watch(serverSettingsProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -390,6 +394,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ? const InstagramSpinner(size: 20, strokeWidth: 2)
                           : Text(t['auth.signIn']!),
                     ),
+                    // Cloud or the clinic's offline server (2026-10-17).
+                    if (!kIsWeb) ...[
+                      const SizedBox(height: 16),
+                      Center(
+                        child: TextButton.icon(
+                          onPressed: isLoading ? null : () => context.push('/server'),
+                          icon: const Icon(Icons.dns_outlined, size: 18),
+                          label: Text(
+                            trf(t['server.loginButton']!, {
+                              'name': server.isClinic ? server.host : t['server.cloud']!,
+                            }),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

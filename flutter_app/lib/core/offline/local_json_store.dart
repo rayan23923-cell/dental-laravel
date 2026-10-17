@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/app_config.dart';
+
 final localJsonStoreProvider = Provider<LocalJsonStore>((ref) => const LocalJsonStore());
 
 /// Generic JSON-blob-per-key persistence over `shared_preferences` — the
@@ -11,17 +13,26 @@ final localJsonStoreProvider = Provider<LocalJsonStore>((ref) => const LocalJson
 /// case-sheet offline cache/queue and the auth account cache; the data
 /// volume here (a handful of case-sheet records, never more than a few KB
 /// each) doesn't justify a real local database.
+///
+/// Keys are per server (2026-10-17): cached records and queued offline
+/// edits belong to the server they came from, so with the clinic's
+/// offline server chosen every key gets [AppConfig.storageNamespace] in
+/// front (the cloud's keys are unchanged). Callers never see the prefix.
 class LocalJsonStore {
-  const LocalJsonStore();
+  const LocalJsonStore({String Function()? namespace}) : _namespace = namespace;
+
+  final String Function()? _namespace;
+
+  String get _ns => _namespace?.call() ?? AppConfig.storageNamespace;
 
   Future<void> putJson(String key, Object? value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(key, jsonEncode(value));
+    await prefs.setString('$_ns$key', jsonEncode(value));
   }
 
   Future<Map<String, dynamic>?> getJson(String key) async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(key);
+    final raw = prefs.getString('$_ns$key');
     if (raw == null) return null;
     try {
       final decoded = jsonDecode(raw);
@@ -33,7 +44,7 @@ class LocalJsonStore {
 
   Future<void> remove(String key) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(key);
+    await prefs.remove('$_ns$key');
   }
 
   /// Client-side filter — `shared_preferences` has no native prefix query,
@@ -42,6 +53,7 @@ class LocalJsonStore {
   /// own keys with a distinct prefix before ever calling this.
   Future<List<String>> keysWithPrefix(String prefix) async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getKeys().where((k) => k.startsWith(prefix)).toList();
+    final ns = _ns;
+    return prefs.getKeys().where((k) => k.startsWith('$ns$prefix')).map((k) => k.substring(ns.length)).toList();
   }
 }

@@ -203,5 +203,5 @@ msix_config:
   identity_name: com.dentistrycollegetikrit.dentalclinicapp
   msix_version: 1.0.0.0
   logo_path: assets/branding/app_logo.png
-  capabilities: internetClient
+  capabilities: internetClient, privateNetworkClientServer  # LAN: the clinic offline server
   languages: ar-sa, en-us
