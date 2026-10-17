@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
 /**
@@ -12,7 +13,7 @@ use Illuminate\Support\Str;
  */
 class OfflineLicense extends Model
 {
-    protected $fillable = ['code', 'university', 'notes', 'machine_id', 'machine_name', 'activated_at', 'last_seen_at', 'revoked_at', 'created_by'];
+    protected $fillable = ['code', 'university', 'university_id', 'notes', 'machine_id', 'machine_name', 'activated_at', 'last_seen_at', 'installed_build', 'last_ip', 'revoked_at', 'created_by'];
 
     protected function casts(): array
     {
@@ -21,6 +22,24 @@ class OfflineLicense extends Model
             'last_seen_at' => 'datetime',
             'revoked_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Codes made on the clinic's own page name their university as text: link
+     * them to the portal's university of that name, creating it if needed.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (OfflineLicense $license) {
+            if (! $license->university_id && $license->university) {
+                $license->university_id = LicenseUniversity::firstOrCreate(['name' => $license->university])->id;
+            }
+        });
+    }
+
+    public function universityRecord(): BelongsTo
+    {
+        return $this->belongsTo(LicenseUniversity::class, 'university_id');
     }
 
     /** Four groups of four, without letters that read alike (0/O, 1/I/L). */

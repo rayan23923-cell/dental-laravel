@@ -131,6 +131,15 @@ class OfflineLicensing
         return (string) (getenv('COMPUTERNAME') ?: gethostname());
     }
 
+    /** Offline side: this package's build number (version.txt beside the app folder), if known. */
+    public static function installedBuild(): ?int
+    {
+        $file = base_path('../version.txt');
+        $build = is_file($file) ? trim((string) file_get_contents($file)) : '';
+
+        return ctype_digit($build) ? (int) $build : null;
+    }
+
     /** Hosted side: the newest offline build, from what the workflow uploaded. */
     public static function latestBuild(): ?array
     {
