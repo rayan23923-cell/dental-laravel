@@ -1,20 +1,22 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/storage/academic_session_selection.dart';
 import '../domain/academic_session_admin.dart';
 
 final academicSessionsRepositoryProvider = Provider<AcademicSessionsRepository>((ref) {
-  return AcademicSessionsRepository(ref.watch(apiClientProvider));
+  return AcademicSessionsRepository(ref.watch(apiClientProvider), ref.watch(academicSessionSelectionProvider));
 });
 
 /// CRUD for `/academic-sessions` plus `set-current` — plain (non-`{data:}`-
 /// wrapped) JSON, matching `Api\AcademicSessionController`'s own shape.
-/// `select()` (which session a *web* browser session is currently
-/// "viewing") is deliberately not ported — Sanctum is stateless, so it has
-/// no equivalent here, per the controller's own docblock.
+/// `select()` (2026-10-17) is the web's "view this year": the server
+/// checks the choice, and [AcademicSessionSelection] keeps it so every
+/// later request carries it (Sanctum is stateless).
 class AcademicSessionsRepository {
-  AcademicSessionsRepository(this._client);
+  AcademicSessionsRepository(this._client, this._selection);
   final ApiClient _client;
+  final AcademicSessionSelection _selection;
 
   Future<List<AcademicSessionAdmin>> list() async {
     final data = await _client.getJson('/academic-sessions') as List<dynamic>;
@@ -49,5 +51,12 @@ class AcademicSessionsRepository {
   Future<CurrentAcademicYear?> current() async {
     final data = await _client.getJson('/academic-sessions/current');
     return data == null ? null : CurrentAcademicYear.fromJson(data as Map<String, dynamic>);
+  }
+
+  /// View [id]'s year from now on (the web's `academic-sessions.select`).
+  Future<CurrentAcademicYear> select(int id) async {
+    final data = await _client.postJson('/academic-sessions/select', body: {'academic_session_id': id}) as Map<String, dynamic>;
+    await _selection.write(id);
+    return CurrentAcademicYear.fromJson(data);
   }
 }

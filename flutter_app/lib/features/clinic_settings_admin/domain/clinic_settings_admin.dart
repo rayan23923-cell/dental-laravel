@@ -1,10 +1,8 @@
-/// `Api\ClinicSettingController::show()`'s response shape. `theme` and the
-/// SMTP `mail_*` fields are deliberately left out of this model — the
-/// Api controller's own `update()` validation doesn't accept them either
-/// (the Flutter app uses a fixed theme, not the web app's selectable one,
-/// per `flutter_app/README.md` §7; SMTP credentials editable from a phone
-/// admin screen is a scope cut, not an oversight — see that pass's
-/// README entry).
+/// `Api\ClinicSettingController::show()`'s response shape. `theme` is
+/// deliberately left out (the Flutter app uses a fixed theme, not the web
+/// app's selectable one, per `flutter_app/README.md` §7). The SMTP
+/// `mail_*` fields (2026-10-17) are editable here as on the web; the
+/// stored password itself never comes back, only [mailPasswordSet].
 class ClinicSettingsAdmin {
   const ClinicSettingsAdmin({
     required this.clinicName,
@@ -25,6 +23,16 @@ class ClinicSettingsAdmin {
     this.groupsEnabled = true,
     required this.logoUrl,
     required this.universityLogoUrl,
+    this.mailHost,
+    this.mailPort,
+    this.mailUsername,
+    this.mailEncryption,
+    this.mailFromAddress,
+    this.mailFromName,
+    this.mailPasswordSet = false,
+    this.mailConfigured = false,
+    this.mailDriver,
+    this.mailVisible = false,
   });
 
   factory ClinicSettingsAdmin.fromJson(Map<String, dynamic> json) => ClinicSettingsAdmin(
@@ -46,6 +54,16 @@ class ClinicSettingsAdmin {
         groupsEnabled: json['groups_enabled'] as bool? ?? true,
         logoUrl: json['logo_url'] as String?,
         universityLogoUrl: json['university_logo_url'] as String?,
+        mailHost: json['mail_host'] as String?,
+        mailPort: (json['mail_port'] as num?)?.toInt(),
+        mailUsername: json['mail_username'] as String?,
+        mailEncryption: json['mail_encryption'] as String?,
+        mailFromAddress: json['mail_from_address'] as String?,
+        mailFromName: json['mail_from_name'] as String?,
+        mailPasswordSet: json['mail_password_set'] as bool? ?? false,
+        mailConfigured: json['mail_configured'] as bool? ?? false,
+        mailDriver: json['mail_driver'] as String?,
+        mailVisible: json.containsKey('mail_password_set'),
       );
 
   final String clinicName;
@@ -68,6 +86,29 @@ class ClinicSettingsAdmin {
   final bool groupsEnabled;
   final String? logoUrl;
   final String? universityLogoUrl;
+
+  final String? mailHost;
+  final int? mailPort;
+  final String? mailUsername;
+
+  /// `tls`, `ssl`, or null for none.
+  final String? mailEncryption;
+  final String? mailFromAddress;
+  final String? mailFromName;
+
+  /// Whether a password is stored — the form leaves its field blank to keep it.
+  final bool mailPasswordSet;
+
+  /// Host and sender address are saved, so mail is really sent.
+  final bool mailConfigured;
+
+  /// The server's fallback mailer (e.g. `log`) while SMTP is not set up.
+  final String? mailDriver;
+
+  /// The server only sends the mail settings to whoever may view
+  /// settings; without them the form neither shows nor sends them (so a
+  /// save can't blank settings it never saw).
+  final bool mailVisible;
 }
 
 /// The fixed timezone choices `ClinicSettings/Edit.vue` offers — ported

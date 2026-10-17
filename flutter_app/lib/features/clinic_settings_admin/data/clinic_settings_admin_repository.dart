@@ -61,4 +61,12 @@ class ClinicSettingsAdminRepository {
         as Map<String, dynamic>;
     return ClinicSettingsAdmin.fromJson(data);
   }
+
+  /// One test message through the *saved* SMTP settings; returns the
+  /// server's message (the transport's own error text on failure comes
+  /// back as an [ApiException]).
+  Future<String> sendTestEmail(String to) async {
+    final data = await _client.postJson('/clinic-settings/test-email', body: {'to': to}) as Map<String, dynamic>;
+    return data['message'] as String? ?? '';
+  }
 }

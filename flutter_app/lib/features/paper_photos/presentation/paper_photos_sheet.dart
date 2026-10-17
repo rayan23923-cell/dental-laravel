@@ -1,15 +1,22 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
+import '../../phone_scanner/phone_scanner_dialog.dart';
+import '../../phone_scanner/phone_scanner_pairing.dart';
 import '../data/paper_photos_repository.dart';
 
 /// Opens the paper case-sheet photos of one task instance (2026-10-13, the
 /// same feature as the web's PaperPhotos.vue): take a photo with the camera
-/// or pick from the gallery, see them, delete one. Resolves to the photo
-/// count once closed, so the caller can refresh its badge.
+/// or pick from the gallery, see them, delete one. Staff can also ask the
+/// paired phone (2026-10-17, the web's "من الموبايل"): its scanner page
+/// shows [title] and a camera button, and every photo it sends is attached
+/// here, page after page, until "Done". Resolves to the photo count once
+/// closed, so the caller can refresh its badge.
 Future<int?> showPaperPhotosSheet(
   BuildContext context, {
   required int instanceId,
@@ -40,12 +47,120 @@ class _PaperPhotosSheetState extends ConsumerState<_PaperPhotosSheet> {
   int _uploading = 0;
   String? _error;
 
+  // The paired phone (staff only) and the "waiting for its photos" loop.
+  PhoneScannerSession? _phone;
+  bool _waitingPhone = false;
+  bool _skipBacklog = true;
+  bool _polling = false;
+  Timer? _phoneTimer;
+
   PaperPhotosRepository get _repository => ref.read(paperPhotosRepositoryProvider);
+  // Read once: dispose() withdraws the photo request after ref is gone.
+  late final PhoneScannerPairing _pairing;
 
   @override
   void initState() {
     super.initState();
+    _pairing = ref.read(phoneScannerPairingProvider);
     _load();
+    if (!widget.doctor) _restorePhone();
+  }
+
+  @override
+  void dispose() {
+    _phoneTimer?.cancel();
+    // Withdraw the request so the phone stops asking for this task.
+    final phone = _phone;
+    if (_waitingPhone && phone != null) unawaited(_pairing.requestPhoto(phone, '').then((_) {}, onError: (_) {}));
+    super.dispose();
+  }
+
+  Future<void> _restorePhone() async {
+    try {
+      final saved = await _pairing.saved();
+      final fresh = saved == null ? null : await _pairing.refresh(saved);
+      if (mounted) setState(() => _phone = fresh);
+    } catch (_) {
+      // Offline: the button still offers to link a phone.
+    }
+  }
+
+  String get _phoneLabel {
+    final t = ref.read(translationsProvider);
+    return widget.title.isNotEmpty ? widget.title : t['paperPhotos.defaultLabel']!;
+  }
+
+  Future<void> _askPhone() async {
+    var phone = _phone;
+    if (phone == null || !phone.phoneJoined) {
+      phone = await showPhoneScannerPairDialog(context, ref);
+      if (!mounted) return;
+      setState(() => _phone = phone);
+      if (phone == null || !phone.phoneJoined) return;
+    }
+    try {
+      await _pairing.requestPhoto(phone, _phoneLabel);
+      if (!mounted) return;
+      setState(() {
+        _waitingPhone = true;
+        _error = null;
+      });
+      // Photos the phone sent before this request belong to something else.
+      _skipBacklog = true;
+      _phoneTimer ??= Timer.periodic(const Duration(seconds: 1), (_) => _pollPhone());
+      unawaited(_pollPhone());
+    } catch (e) {
+      if (mounted) _failed(e);
+    }
+  }
+
+  Future<void> _stopPhone() async {
+    _phoneTimer?.cancel();
+    _phoneTimer = null;
+    setState(() => _waitingPhone = false);
+    final phone = _phone;
+    if (phone != null) await _pairing.requestPhoto(phone, '').then((_) {}, onError: (_) {});
+  }
+
+  Future<void> _pollPhone() async {
+    final phone = _phone;
+    if (phone == null || _polling || !_waitingPhone) return;
+    _polling = true;
+    try {
+      final batch = await _pairing.poll(phone);
+      if (!mounted) return;
+      if (batch == null) {
+        // The pairing ended (expired, or replaced elsewhere).
+        _phoneTimer?.cancel();
+        _phoneTimer = null;
+        setState(() {
+          _phone = null;
+          _waitingPhone = false;
+        });
+        return;
+      }
+      final skip = _skipBacklog;
+      _skipBacklog = false;
+      if (skip || batch.photoScanIds.isEmpty) return;
+      for (final scanId in batch.photoScanIds) {
+        if (!mounted) return;
+        setState(() => _uploading++);
+        try {
+          final photos = await _repository.attachPhoneScan(instanceId: widget.instanceId, scanId: scanId);
+          if (mounted) setState(() => _photos = photos);
+        } catch (e) {
+          if (mounted) _failed(e);
+        } finally {
+          if (mounted) setState(() => _uploading--);
+        }
+      }
+      // Ask for the next page until "Done", as the web does.
+      if (mounted && _waitingPhone) await _pairing.requestPhoto(phone, _phoneLabel);
+    } catch (_) {
+      // Offline for a moment: the next tick tries again.
+    } finally {
+      _polling = false;
+    }
   }
 
   void _failed(Object e) {
@@ -151,8 +266,33 @@ class _PaperPhotosSheetState extends ConsumerState<_PaperPhotosSheet> {
                     icon: const Icon(Icons.upload_outlined),
                     label: Text(t['paperPhotos.upload']!),
                   ),
+                  if (!widget.doctor && !_waitingPhone)
+                    OutlinedButton.icon(
+                      onPressed: _askPhone,
+                      icon: const Icon(Icons.smartphone_outlined),
+                      label: Text(_phone?.phoneJoined == true ? t['paperPhotos.fromPhone']! : t['paperPhotos.linkPhone']!),
+                    ),
                 ],
               ),
+              if (_waitingPhone) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      const SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(t['paperPhotos.waitingPhone']!)),
+                      TextButton(onPressed: _stopPhone, child: Text(t['paperPhotos.done']!)),
+                    ],
+                  ),
+                ),
+              ],
               if (_error != null) ...[
                 const SizedBox(height: 8),
                 Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),

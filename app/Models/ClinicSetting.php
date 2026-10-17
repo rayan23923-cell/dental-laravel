@@ -19,6 +19,13 @@ class ClinicSetting extends Model
 {
     public $timestamps = false;
 
+    // The single row is always created with an explicit id 1 (see
+    // current()). With the default `$incrementing = true`, Eloquent then
+    // reads the key back from LAST_INSERT_ID(), which MySQL leaves at 0 for
+    // an explicit id — so the first save after the row was created updated
+    // `id = 0` and was silently lost (found by AdminSettingsApiTest).
+    public $incrementing = false;
+
     protected $fillable = [
         'id', // not auto-increment on the real table — always explicitly 1, see current()
         'clinic_name',

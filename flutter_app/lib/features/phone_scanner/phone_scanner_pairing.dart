@@ -66,12 +66,17 @@ class PhoneScannerSession {
   );
 }
 
-/// What one poll found: whether the phone has opened the link, and the
-/// codes it scanned since the last poll.
+/// What one poll found: whether the phone has opened the link, the codes
+/// it scanned since the last poll, and the photos it sent (by scan id —
+/// attached with `scan_id`, see TaskInstanceAttachmentController).
 class PhoneScanBatch {
-  const PhoneScanBatch(this.phoneJoined, this.payloads);
+  const PhoneScanBatch(this.phoneJoined, this.payloads, {this.photoScanIds = const [], this.photoRequest});
   final bool phoneJoined;
   final List<String> payloads;
+  final List<int> photoScanIds;
+
+  /// What the phone is being asked to photograph, if anything.
+  final String? photoRequest;
 }
 
 /// The Windows app's side of "the phone as a QR scanner" (2026-10-12, by
@@ -134,7 +139,12 @@ class PhoneScannerPairing {
       final body = data['data'] as Map<String, dynamic>;
       final scans = (body['scans'] as List<dynamic>).cast<Map<String, dynamic>>();
       if (scans.isNotEmpty) await prefs.setInt(_kLastId, scans.last['id'] as int);
-      return PhoneScanBatch(body['phone_joined'] == true, [for (final s in scans) s['payload'] as String]);
+      return PhoneScanBatch(
+        body['phone_joined'] == true,
+        [for (final s in scans) if (s['photo'] != true) s['payload'] as String],
+        photoScanIds: [for (final s in scans) if (s['photo'] == true) s['id'] as int],
+        photoRequest: body['photo_request'] as String?,
+      );
     } on ServerException catch (e) {
       if (e.statusCode == 404 || e.statusCode == 410) {
         await _clear();
@@ -142,6 +152,30 @@ class PhoneScannerPairing {
       }
       rethrow;
     }
+  }
+
+  /// The pairing as the server has it now (whether the phone joined),
+  /// without touching the scan cursor; null once it has ended.
+  Future<PhoneScannerSession?> refresh(PhoneScannerSession session) async {
+    try {
+      final data = await _client.getJson('/scanner-pairings/${session.id}') as Map<String, dynamic>;
+      return PhoneScannerSession.fromJson(data['data'] as Map<String, dynamic>);
+    } on ServerException catch (e) {
+      if (e.statusCode == 404 || e.statusCode == 410) {
+        await _clear();
+        return null;
+      }
+      rethrow;
+    }
+  }
+
+  /// Ask the paired phone for a photo (2026-10-13 on the web, the app's
+  /// side 2026-10-17): its page shows [label] and a camera button. An
+  /// empty label withdraws the request.
+  Future<String?> requestPhoto(PhoneScannerSession session, String label) async {
+    final data = await _client.putJson('/scanner-pairings/${session.id}/photo-request', body: {'label': label})
+        as Map<String, dynamic>;
+    return (data['data'] as Map<String, dynamic>)['photo_request'] as String?;
   }
 
   Future<void> _clear() async {
