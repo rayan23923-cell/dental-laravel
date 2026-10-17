@@ -1360,7 +1360,7 @@ namespace DentalClinicPanel
         Label stateDot, stateText, errorText, addrLocal, addrNet, addrIp, addrDns, macEth, macWifi;
         DateTime lastMacCheck = DateTime.MinValue;
         string macIp;
-        Button toggleBtn, openBtn, setupBtn, firewallBtn, backupBtn, restoreBtn;
+        Button toggleBtn, openBtn, setupBtn, clientBtn, firewallBtn, backupBtn, restoreBtn;
         bool backupBusy;
         ListView list;
         TextBox logBox;
@@ -1571,13 +1571,16 @@ namespace DentalClinicPanel
             firewallBtn.Click += (s, e) => SetupFirewall();
             setupBtn = MakeButton("صفحة تجهيز الأجهزة", Gray, 0);
             setupBtn.Click += (s, e) => OpenUrl(engine.LocalUrl.Replace("localhost", "127.0.0.1") + "/setup");
+            // The program for the other computers (2026-10-17), served from client\.
+            clientBtn = MakeButton("برنامج الحواسيب الأخرى", Gray, 0);
+            clientBtn.Click += (s, e) => OpenUrl(engine.LocalUrl.Replace("localhost", "127.0.0.1") + "/client/");
             var cfgBtn = MakeButton("الإعدادات", Gray, 0);
             cfgBtn.Click += (s, e) => OpenSettings();
             var logsBtn = MakeButton("مجلد السجلات", Gray, 0);
             logsBtn.Click += (s, e) => { try { Process.Start("explorer.exe", "\"" + engine.LogDir + "\""); } catch { } };
             var exitBtn = MakeButton("إيقاف وخروج", Gray, 0);
             exitBtn.Click += (s, e) => ExitApp();
-            foreach (var b in new[] { firewallBtn, setupBtn, cfgBtn, logsBtn, exitBtn }) tools2.Controls.Add(b);
+            foreach (var b in new[] { firewallBtn, setupBtn, clientBtn, cfgBtn, logsBtn, exitBtn }) tools2.Controls.Add(b);
             AddRow(grid, tools2, SizeType.AutoSize, 0);
 
             // Backups (2026-10-13): daily and before every update by themselves.
@@ -1918,6 +1921,7 @@ namespace DentalClinicPanel
             toggleBtn.BackColor = st == State.Running ? Red : (busy ? Gray : Green);
             openBtn.Enabled = st == State.Running;
             setupBtn.Enabled = st == State.Running;
+            clientBtn.Enabled = st == State.Running;
             openBtn.BackColor = openBtn.Enabled ? Teal : Color.FromArgb(156, 163, 175);
             backupBtn.Enabled = restoreBtn.Enabled = st == State.Running && !backupBusy;
             backupBtn.Text = backupBusy ? "انتظر..." : "نسخة احتياطية الآن";

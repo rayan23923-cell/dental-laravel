@@ -93,23 +93,11 @@ $httpsHost = if ($HttpsPort -eq 443) { '{host}' } else { "{host}:$HttpsPort" }
 	file_server
 }
 
-# HTTPS for every device on the network (the browser camera needs it).
-# The certificate comes from this folder's own local authority; devices
-# install its root once from http://$ServerName/setup.
-https://${ServerName}:$HttpsPort, https://${ServerIp}:$HttpsPort {
-	tls internal
-	import app
-}
-
-# On this computer itself plain http works (localhost counts as secure).
-http://127.0.0.1:$HttpPort, http://localhost:$HttpPort {
-	import app
-}
-
-# Plain http on the network: the certificate and setup page, everything
-# else goes to https.
-http://:$HttpPort {
-$captiveCaddy
+# Files served over plain http, on the network and on this computer: the
+# certificate, the setup page and the program for the other computers
+# (client\, see offline/windows/client). The client downloads the
+# certificate from here before it trusts https.
+(lanfiles) {
 	handle /ca.crt {
 		root * "$ca"
 		rewrite * /root.crt
@@ -122,6 +110,37 @@ $captiveCaddy
 		rewrite * /index.html
 		file_server
 	}
+	handle /client {
+		redir * /client/ 302
+	}
+	handle /client/* {
+		root * "$fwd"
+		header Cache-Control no-cache
+		file_server
+	}
+}
+
+# HTTPS for every device on the network (the browser camera needs it).
+# The certificate comes from this folder's own local authority; devices
+# install its root once from http://$ServerName/setup.
+https://${ServerName}:$HttpsPort, https://${ServerIp}:$HttpsPort {
+	tls internal
+	import app
+}
+
+# On this computer itself plain http works (localhost counts as secure).
+http://127.0.0.1:$HttpPort, http://localhost:$HttpPort {
+	import lanfiles
+	handle {
+		import app
+	}
+}
+
+# Plain http on the network: the certificate and setup page, everything
+# else goes to https.
+http://:$HttpPort {
+$captiveCaddy
+	import lanfiles
 	handle {
 		redir https://$httpsHost{uri} 302
 	}

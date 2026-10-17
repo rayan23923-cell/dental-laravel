@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>برنامج العيادة للحواسيب</title>
+<style>
+  :root { --bg:#f6f7fb; --card:#fff; --text:#1f2937; --muted:#6b7280; --accent:#4f46e5; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111827; --card:#1f2937; --text:#f3f4f6; --muted:#9ca3af; --accent:#818cf8; } }
+  body { margin:0; font-family: system-ui, Tahoma, sans-serif; background:var(--bg); color:var(--text); line-height:1.7; }
+  main { max-width:640px; margin:0 auto; padding:24px 16px; }
+  .card { background:var(--card); border-radius:12px; padding:16px 20px; margin-bottom:16px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+  h1 { font-size:1.4rem; } h2 { font-size:1.1rem; margin-top:0; }
+  .btn { display:inline-block; background:var(--accent); color:#fff; text-decoration:none; padding:12px 20px; border-radius:8px; font-weight:600; }
+  ol, ul { padding-inline-start:20px; } .muted { color:var(--muted); font-size:.9rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>برنامج العيادة لحواسيب ويندوز</h1>
+  <div class="card">
+    <p>يفتح نظام العيادة في نافذة خاصة به، ويطبع التكت والوصولات مباشرة دون نافذة الطباعة
+      (USB، شبكة، بلوتوث)، ويحفظ تسجيل الدخول، ويثبّت شهادة العيادة بنفسه.</p>
+    <p><a class="btn" href="DentalClinicClientSetup.exe">تنزيل البرنامج</a></p>
+    <p class="muted" id="ver"></p>
+  </div>
+  <div class="card">
+    <h2>التثبيت</h2>
+    <ol>
+      <li>شغّل الملف الذي نزّلته ووافق على صلاحيات المدير. إن ظهرت رسالة «Windows protected your PC» فاضغط More info ثم Run anyway.</li>
+      <li>اترك اسم الخادم <b>clinic.lan</b>، واكتب عنوان IP للخادم إن لم يعمل الاسم على هذا الحاسوب.</li>
+      <li>افتح «Dental Clinic» من سطح المكتب، وسجّل الدخول مرة واحدة.</li>
+      <li>من «الإعدادات والطباعة» اختر الطابعة الحرارية وطريقتها، ثم «طباعة تجريبية».</li>
+    </ol>
+    <p class="muted">يحتاج Microsoft Edge WebView2 (موجود في ويندوز 10 و11 عادة؛ إن لم يكن موجودًا يثبّته البرنامج ويحتاج إنترنت مرة واحدة).</p>
+  </div>
+</main>
+<script>
+  fetch('version.json', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (v) {
+    document.getElementById('ver').textContent = 'النسخة ' + v.build + (v.size ? ' · ' + Math.round(v.size / 1048576 * 10) / 10 + ' م.ب' : '');
+  }).catch(function () {});
+</script>
+</body>
+</html>
