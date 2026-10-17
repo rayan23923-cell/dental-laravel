@@ -151,6 +151,8 @@ jobs:
       - name: Start through DentalClinic.exe and wait for the login page
         shell: pwsh
         run: |
+          # The checks below run without activation; the last step checks the gate itself.
+          $env:OFFLINE_ACTIVATION = 'false'
           Expand-Archive DentalClinicOffline-windows.zip -DestinationPath C:\
           # Port 80 is reserved on the runner; exercise the port settings instead.
           (Get-Content C:\DentalClinicOffline\config.txt) -replace '^HTTP_PORT=80$', 'HTTP_PORT=8080' -replace '^HTTPS_PORT=443$', 'HTTPS_PORT=8443' |
@@ -272,6 +274,7 @@ jobs:
       - name: In-app update keeps the data, and a broken update rolls back
         shell: pwsh
         run: |
+          $env:OFFLINE_ACTIVATION = 'false'
           $root = 'C:\DentalClinicOffline'
           $env:PATH = "$root\mariadb\bin;$env:PATH"
           $db = @('--user=root', '--host=127.0.0.1', '--port=3307', '-N')
@@ -338,23 +341,65 @@ jobs:
           if ((Get-Content "$root\app\storage\app\smoke-keep.txt") -ne 'kept') { throw 'Uploaded files were lost in the rollback.' }
           Start-Process -FilePath "$root\DentalClinic.exe" -ArgumentList '--stop' -Wait
 
+      - name: Without an activation code every page leads to the activation page
+        shell: pwsh
+        run: |
+          $root = 'C:\DentalClinicOffline'
+          Start-Process -FilePath "$root\DentalClinic.exe" -ArgumentList '--headless' -WorkingDirectory $root
+          $code = ''
+          for ($i = 0; $i -lt 60; $i++) {
+            Start-Sleep -Seconds 5
+            $code = curl.exe -s -o NUL -w '%{http_code} %{redirect_url}' --max-time 10 http://127.0.0.1:8080/login
+            if ($code -match '^30') { break }
+          }
+          Write-Host "login: $code"
+          if ($code -notmatch '^302 .*/activate$') { Get-Content "$root\app\storage\logs\panel.log" -Encoding UTF8 -Tail 30; throw "Before activation /login should lead to /activate, got $code" }
+          $page = Invoke-WebRequest -Uri http://127.0.0.1:8080/activate -UseBasicParsing -TimeoutSec 30
+          if ($page.Content -notmatch '[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}') { throw 'The activation page does not show the machine id.' }
+          $api = curl.exe -s -o NUL -w '%{http_code}' --max-time 10 -H 'Accept: application/json' http://127.0.0.1:8080/api/v1/branding
+          if ($api -ne '403') { throw "Before activation the API should refuse, got $api" }
+          & "$root\php\php.exe" -r "exit(function_exists('sodium_crypto_sign_verify_detached') ? 0 : 1);"
+          if ($LASTEXITCODE -ne 0) { throw 'sodium is missing from the bundled PHP.' }
+          Start-Process -FilePath "$root\DentalClinic.exe" -ArgumentList '--stop' -Wait
+
   release:
     needs: [package, smoke-test]
-    # Installed clinics update themselves to the newest release, so only
-    # main publishes one; other branches just build and test.
+    # Installed copies update themselves from the hosting (2026-10-17, by
+    # request), so only main uploads a build there; other branches just
+    # build and test. The zip goes to public/downloads/offline/ with
+    # latest.json, read by /download and api/v1/offline/latest.
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+      SITE: https://dental.azoclinic.duckdns.org/downloads/offline
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: offline
-      - uses: softprops/action-gh-release@v2
-        with:
-          tag_name: offline-build-${{ github.run_number }}
-          name: Dental Clinic offline (Windows) build ${{ github.run_number }}
-          target_commitish: ${{ github.sha }}
-          body: |
-            The whole system running offline on one Windows PC (PHP + MariaDB bundled).
-            Unzip to C:\DentalClinicOffline and run DentalClinic.exe: one control panel starts everything with no console windows, sits next to the clock and starts with Windows. Press "السماح لأجهزة الشبكة" once, then open https://clinic.lan (install the certificate from http://clinic.lan/setup on each device) and log in as admin / password.
-            Built from ${{ github.ref_name }} @ ${{ github.sha }}.
-          files: DentalClinicOffline-windows.zip
+      - name: Upload to the hosting
+        run: |
+          N=${{ github.run_number }}
+          FILE=DentalClinicOffline-$N.zip
+          mv DentalClinicOffline-windows.zip $FILE
+          jq -n --argjson build $N --arg file $FILE --arg url "$SITE/$FILE" --argjson size $(stat -c %s $FILE) \
+            --arg sha256 $(sha256sum $FILE | cut -d' ' -f1) --arg commit ${{ github.sha }} --arg at "$(date -u +%FT%TZ)" \
+            '{build: $build, file: $file, url: $url, size: $size, sha256: $sha256, commit: $commit, published_at: $at}' > latest.json
+          cat latest.json
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/vps_key
+          chmod 600 ~/.ssh/vps_key
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          vps() { ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" "$@"; }
+          dir="$VPS_APP_DIR/public/downloads/offline"
+          vps "mkdir -p '$dir'"
+          # File first, manifest last, so nothing ever points at a missing file.
+          vps "cat > '$dir/$FILE.part' && mv '$dir/$FILE.part' '$dir/$FILE'" < $FILE
+          vps "cat > '$dir/latest.json.tmp' && mv '$dir/latest.json.tmp' '$dir/latest.json'" < latest.json
+          # Keep this build and the one before it (for copies mid-download).
+          vps "cd '$dir' && ls -1t DentalClinicOffline-*.zip | tail -n +3 | xargs -r rm -f --; ls -la"
+          got=$(curl -fsS -o /dev/null -w '%{http_code}' "$SITE/$FILE" -r 0-0 || true)
+          echo "download check: $got"
+          [ "$got" = 206 ] || [ "$got" = 200 ] || { echo "The uploaded build is not reachable."; exit 1; }

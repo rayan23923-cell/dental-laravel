@@ -32,7 +32,8 @@
         "logout": "Log Out",
         "openMenu": "Open menu",
         "closeMenu": "Close menu",
-        "lab": "Lab"
+        "lab": "Lab",
+        "offlineLicenses": "Offline codes"
     },
     "auth": {
         "pageTitle": "Sign In",
@@ -1272,5 +1273,32 @@
         "saved": "Saved — the task shows the same points.",
         "saveFailed": "Couldn't save the points.",
         "supervisorOnly": "The supervisor enters the points."
+    },
+    "offlineLicenses": {
+        "title": "Offline activation codes",
+        "intro": "One activation code per university. A code is used once only and is tied to the computer it activated, which stays activated and gets updates from the hosting.",
+        "latest": "Latest offline build: {n}.",
+        "download": "Download",
+        "noBuild": "No offline build has been uploaded to the hosting yet.",
+        "newCodes": "Create codes",
+        "university": "University",
+        "count": "Count",
+        "notes": "Note (optional)",
+        "create": "Create",
+        "counts": "{all} codes, {used} used",
+        "search": "Search code, university or computer",
+        "empty": "No codes.",
+        "copy": "Copy code",
+        "revoked": "Revoked",
+        "used": "Used",
+        "unused": "Unused",
+        "machine": "Computer:",
+        "activatedAt": "activated",
+        "lastSeen": "last seen",
+        "release": "Unbind",
+        "revoke": "Revoke",
+        "restore": "Restore",
+        "confirmRelease": "This frees the code for another computer. The old computer stays activated but gets no more updates. Continue?",
+        "confirmDelete": "Delete this code for good?"
     }
 }

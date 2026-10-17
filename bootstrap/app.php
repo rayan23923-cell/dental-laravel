@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prepend(\App\Http\Middleware\AnswerConnectivityChecks::class);
 
         $middleware->web(append: [
+            \App\Http\Middleware\EnsureOfflineActivated::class,
             // Must run before HandleInertiaRequests — that middleware
             // shares app()->getLocale() with the frontend and needs the
             // final resolved value.
@@ -23,6 +24,8 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
+
+        $middleware->api(append: [\App\Http\Middleware\EnsureOfflineActivated::class]);
 
         $middleware->alias([
             'role' => \App\Http\Middleware\EnsureUserHasRole::class,

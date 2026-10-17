@@ -452,6 +452,10 @@ namespace DentalClinicPanel
             // Read by config/backup.php (and cached by `artisan optimize`).
             Environment.SetEnvironmentVariable("BACKUP_PATH", BackupDir);
             Environment.SetEnvironmentVariable("BACKUP_DAILY", "true");
+            // Activation (2026-10-17): the app works only once activated on
+            // this computer, which it recognises by Windows' MachineGuid.
+            Environment.SetEnvironmentVariable("OFFLINE_EDITION", "true");
+            Environment.SetEnvironmentVariable("DENTAL_MACHINE_GUID", MachineGuid());
             try { Directory.CreateDirectory(BackupDir); }
             catch (Exception ex) { Log("تنبيه: تعذّر إنشاء مجلد النسخ الاحتياطية " + BackupDir + ": " + ex.Message); }
             string path = Environment.GetEnvironmentVariable("PATH") ?? "";
@@ -834,6 +838,17 @@ namespace DentalClinicPanel
             using (var p = Process.Start(si)) p.WaitForExit();
         }
 
+        public static string MachineGuid()
+        {
+            try
+            {
+                using (var hklm = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64))
+                using (var key = hklm.OpenSubKey(@"SOFTWARE\Microsoft\Cryptography"))
+                    return key == null ? "" : (key.GetValue("MachineGuid") as string ?? "");
+            }
+            catch { return ""; }
+        }
+
         public string LocalUrl { get { return "http://localhost" + (HttpPort == 80 ? "" : ":" + HttpPort); } }
         public string NetUrl { get { return "https://" + ServerName + (HttpsPort == 443 ? "" : ":" + HttpsPort); } }
         public string IpUrl { get { return "https://" + LanIp + (HttpsPort == 443 ? "" : ":" + HttpsPort); } }
@@ -841,7 +856,7 @@ namespace DentalClinicPanel
     }
 
     // In-app updates (2026-10-14, by request), like Telegram Desktop: the
-    // panel looks for a newer offline build on GitHub, downloads it in the
+    // panel looks for a newer offline build on the hosting, downloads it in the
     // background with a progress bar (resuming where it stopped), checks the
     // whole file against its SHA-256, and only then offers "تحديث الآن".
     // Updating backs the data up, stops the system, swaps the program
@@ -860,8 +875,9 @@ namespace DentalClinicPanel
 
     class Updater
     {
-        const string ReleasesApi = "https://api.github.com/repos/rayan23923-cell/dental-laravel/releases?per_page=30";
-        const string AssetName = "DentalClinicOffline-windows.zip";
+        // Updates come from the hosting (2026-10-17, by request), only for a
+        // computer activated with its university's code.
+        const string LatestApi = "https://dental.azoclinic.duckdns.org/api/v1/offline/latest";
         const string TagPrefix = "offline-build-";
         // Never replaced by an update: the data and this computer's settings.
         static readonly string[] KeepRoot = { "data", "config.txt", "caddy-data", "Caddyfile", "Corefile", "lan-ip.txt", "updates", "panel.ini" };
@@ -942,43 +958,53 @@ namespace DentalClinicPanel
 
         UpdateInfo Check()
         {
+            var license = ReadLicense();
+            if (license == null) return null; // not activated yet: nothing to update
             ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072; // TLS 1.2
-            var req = (HttpWebRequest)WebRequest.Create(ReleasesApi);
+            var req = (HttpWebRequest)WebRequest.Create(LatestApi + "?code=" + Uri.EscapeDataString(license[0]) + "&machine=" + Uri.EscapeDataString(license[1]));
             req.UserAgent = "DentalClinicPanel";
-            req.Accept = "application/vnd.github+json";
+            req.Accept = "application/json";
             req.Timeout = 30000;
             string json;
-            using (var resp = req.GetResponse())
-            using (var sr = new StreamReader(resp.GetResponseStream())) json = sr.ReadToEnd();
-            var releases = new JavaScriptSerializer { MaxJsonLength = int.MaxValue }.DeserializeObject(json) as object[];
-            UpdateInfo best = null;
-            if (releases == null) return null;
-            foreach (var o in releases)
+            try
             {
-                var r = o as Dictionary<string, object>;
-                if (r == null) continue;
-                var tag = r.ContainsKey("tag_name") ? r["tag_name"] as string : null;
-                int n;
-                if (tag == null || !tag.StartsWith(TagPrefix) || !int.TryParse(tag.Substring(TagPrefix.Length), out n)) continue;
-                if (r.ContainsKey("draft") && true.Equals(r["draft"])) continue;
-                if (n <= CurrentBuild || (best != null && n <= best.Build)) continue;
-                var assets = r.ContainsKey("assets") ? r["assets"] as object[] : null;
-                if (assets == null) continue;
-                foreach (var ao in assets)
-                {
-                    var a = ao as Dictionary<string, object>;
-                    if (a == null || (a["name"] as string) != AssetName) continue;
-                    string digest = a.ContainsKey("digest") ? a["digest"] as string : null;
-                    best = new UpdateInfo
-                    {
-                        Build = n,
-                        Url = (string)a["browser_download_url"],
-                        Size = Convert.ToInt64(a["size"]),
-                        Sha256 = digest != null && digest.StartsWith("sha256:") ? digest.Substring(7).ToLowerInvariant() : null,
-                    };
-                }
+                using (var resp = req.GetResponse())
+                using (var sr = new StreamReader(resp.GetResponseStream())) json = sr.ReadToEnd();
             }
-            return best;
+            catch (WebException ex)
+            {
+                var r = ex.Response as HttpWebResponse;
+                if (r != null && r.StatusCode == HttpStatusCode.Forbidden)
+                    throw new Exception("رمز التفعيل لهذا الحاسوب لم يعد يستلم التحديثات. راجع إدارة النظام.");
+                throw;
+            }
+            var latest = new JavaScriptSerializer().DeserializeObject(json) as Dictionary<string, object>;
+            if (latest == null || !latest.ContainsKey("build") || !latest.ContainsKey("url")) return null;
+            int n = Convert.ToInt32(latest["build"]);
+            if (n <= CurrentBuild) return null;
+            string sha = latest.ContainsKey("sha256") ? latest["sha256"] as string : null;
+            return new UpdateInfo
+            {
+                Build = n,
+                Url = (string)latest["url"],
+                Size = Convert.ToInt64(latest["size"]),
+                Sha256 = string.IsNullOrEmpty(sha) ? null : sha.ToLowerInvariant(),
+            };
+        }
+
+        // The activation code and machine id saved by the app's /activate page.
+        string[] ReadLicense()
+        {
+            try
+            {
+                string file = engine.P(@"app\storage\app\offline-license.json");
+                if (!File.Exists(file)) return null;
+                var saved = new JavaScriptSerializer().DeserializeObject(File.ReadAllText(file, Encoding.UTF8)) as Dictionary<string, object>;
+                var payload = saved == null ? null : new JavaScriptSerializer().DeserializeObject(saved["payload"] as string) as Dictionary<string, object>;
+                if (payload == null) return null;
+                return new[] { payload["code"] as string, payload["machine_id"] as string };
+            }
+            catch { return null; }
         }
 
         // Resumable download into updates\, kept as .part until it is whole
