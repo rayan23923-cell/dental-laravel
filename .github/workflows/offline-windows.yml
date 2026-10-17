@@ -102,8 +102,11 @@ jobs:
             ConvertTo-Json | Set-Content out\version.json -Encoding ASCII
           Get-Content out\version.json
       - name: Install silently and check it starts
+        timeout-minutes: 15
         run: |
-          $p = Start-Process out\DentalClinicClientSetup.exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/LOG=C:\client-setup.log' -PassThru -Wait
+          # Not -Wait: that also waits for the app Setup opens at the end, which keeps running.
+          $p = Start-Process out\DentalClinicClientSetup.exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/LOG=C:\client-setup.log' -PassThru
+          if (-not $p.WaitForExit(600000)) { Get-Content C:\client-setup.log -Tail 40; throw 'Setup did not finish.' }
           if ($p.ExitCode -ne 0) { Get-Content C:\client-setup.log -Tail 40; throw "Setup exited with $($p.ExitCode)" }
           $app = "${env:ProgramFiles}\Dental Clinic Client"
           foreach ($f in 'DentalClinicClient.exe', 'Microsoft.Web.WebView2.Core.dll', 'Microsoft.Web.WebView2.WinForms.dll', 'x64\WebView2Loader.dll', 'x86\WebView2Loader.dll') {
