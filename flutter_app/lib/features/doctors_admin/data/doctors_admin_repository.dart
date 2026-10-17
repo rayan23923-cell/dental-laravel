@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
@@ -48,4 +49,49 @@ class DoctorsAdminRepository {
   }
 
   Future<void> delete(int id) => _client.deleteJson('/doctors/$id');
+
+  /// Archive several doctors (`DELETE /doctors-bulk`, the web's "حذف
+  /// المحدد"): linked doctors are skipped and named in `blocked`.
+  Future<({int archived, List<String> blocked})> deleteMany(List<int> ids) async {
+    final data = await _client.deleteJsonData('/doctors-bulk', body: {'ids': ids}) as Map<String, dynamic>;
+    return (
+      archived: (data['archived'] as num?)?.toInt() ?? 0,
+      blocked: [for (final b in data['blocked'] as List<dynamic>? ?? const []) b.toString()],
+    );
+  }
+
+  /// The empty import sheet (`GET /doctors-template`), as .xlsx bytes.
+  Future<List<int>> template() => _client.getBytes('/doctors-template');
+
+  /// Every doctor as .xlsx (`GET /doctors-export`), narrowed to an
+  /// education type/stage like the web's export.
+  Future<List<int>> export({int? educationTypeId, int? stageId}) => _client.getBytes('/doctors-export', query: {
+        if (educationTypeId != null) 'education_type_id': educationTypeId,
+        if (stageId != null) 'stage_id': stageId,
+      });
+
+  /// Excel import (`POST /doctors-import`): every row gets the same
+  /// education type, stage and (optional) default password.
+  Future<({int imported, int skipped, int emailsQueued})> import({
+    required List<int> bytes,
+    required String fileName,
+    required int educationTypeId,
+    required int stageId,
+    String? defaultPassword,
+  }) async {
+    final data = await _client.postFile(
+      '/doctors-import',
+      formData: FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: fileName),
+        'education_type_id': educationTypeId,
+        'stage_id': stageId,
+        if (defaultPassword != null && defaultPassword.isNotEmpty) 'default_password': defaultPassword,
+      }),
+    ) as Map<String, dynamic>;
+    return (
+      imported: (data['imported'] as num?)?.toInt() ?? 0,
+      skipped: (data['skipped'] as num?)?.toInt() ?? 0,
+      emailsQueued: (data['emails_queued'] as num?)?.toInt() ?? 0,
+    );
+  }
 }

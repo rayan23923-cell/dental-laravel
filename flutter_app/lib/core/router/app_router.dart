@@ -31,6 +31,7 @@ import '../../features/users_admin/presentation/user_form_screen.dart';
 import '../../features/case_sheet_forms/presentation/case_sheet_record_list_screen.dart';
 import '../../features/case_sheet_forms/presentation/case_sheet_types_screen.dart';
 import '../../features/doctors_admin/presentation/doctor_form_screen.dart';
+import '../../features/doctors_admin/presentation/doctor_import_screen.dart';
 import '../../features/doctors_admin/presentation/doctor_list_screen.dart';
 import '../../features/printing/presentation/printer_settings_screen.dart';
 import '../../features/task_progress_admin/presentation/doctor_progress_screen.dart';
@@ -49,6 +50,7 @@ import '../../features/records/presentation/payments/payment_list_screen.dart';
 import '../../features/records/presentation/records_hub_screen.dart';
 import '../../features/task_instances/presentation/qr_scan_screen.dart';
 import '../../features/task_instances/presentation/task_instance_detail_screen.dart';
+import '../../features/tasks_admin/presentation/task_detail_screen.dart';
 import '../../features/tasks_admin/presentation/task_form_screen.dart';
 import '../../features/tasks_admin/presentation/task_list_screen.dart';
 import '../../features/taxonomy_admin/domain/taxonomy_item.dart';
@@ -240,6 +242,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/admin/doctors/new',
         builder: (context, state) => const DoctorFormScreen(),
       ),
+      // Excel import (2026-10-17), the web's doctors.import.show — before
+      // `/admin/doctors/:id`, which would otherwise take "import" as an id.
+      GoRoute(
+        path: '/admin/doctors/import',
+        builder: (context, state) => const DoctorImportScreen(),
+      ),
       // A doctor's progress (2026-10-17) — what their ID card QR opens
       // from the task-progress scanner, like the web's doctors.progress.
       GoRoute(
@@ -278,6 +286,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             initialEducationTypeId: extra?['educationTypeId'],
           );
         },
+      ),
+      // The task and its instances (2026-10-17), the web's Tasks/Show.
+      GoRoute(
+        path: '/admin/tasks/:id/detail',
+        builder: (context, state) =>
+            TaskDetailScreen(taskId: int.parse(state.pathParameters['id']!)),
       ),
       GoRoute(
         path: '/admin/tasks/:id',

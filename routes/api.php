@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\DesktopReleaseController;
 use App\Http\Controllers\Api\CaseSheetFormController;
 use App\Http\Controllers\Api\CaseSheetPrintController;
 use App\Http\Controllers\Api\CaseSheetTypeController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\ClinicSettingController;
 use App\Http\Controllers\Api\CompleteDentureRecordController;
 use App\Http\Controllers\Api\DentalChartController;
@@ -172,6 +173,8 @@ Route::name('api.')->prefix('v1')->group(function () {
         // TaskProgressController::nfcScan() reused instead.
         Route::get('/doctors-nfc-lookup', [DoctorController::class, 'nfcLookup'])
             ->middleware('permission:doctors,view');
+        Route::delete('/doctors-bulk', [DoctorController::class, 'destroyMany'])
+            ->middleware('permission:doctors,delete');
         Route::get('/doctors-template', [DoctorImportExportController::class, 'template']);
         Route::get('/doctors-export', [DoctorImportExportController::class, 'export'])->middleware('permission:doctors,export');
         Route::post('/doctors-import', [DoctorImportExportController::class, 'import'])->middleware('permission:doctors,create');
@@ -308,6 +311,9 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::post('/groups/{group}/doctors', [GroupController::class, 'addDoctors']);
         Route::delete('/groups/{group}/doctors', [GroupController::class, 'removeDoctors']);
 
+        // Task detail (2026-10-17): the doctors its instances can go to.
+        Route::get('/tasks/{task}/assignable-doctors', [TaskController::class, 'assignableDoctors'])
+            ->middleware(['role:super_admin,admin,editor', 'permission:tasks,view']);
         Route::get('/tasks/scoring-templates', [TaskController::class, 'scoringTemplates'])
             ->middleware('permission:tasks,create');
         Route::apiResource('tasks', TaskController::class)
@@ -315,6 +321,8 @@ Route::name('api.')->prefix('v1')->group(function () {
             ->middlewareFor('store', 'permission:tasks,create')
             ->middlewareFor('update', 'permission:tasks,edit')
             ->middlewareFor('destroy', 'permission:tasks,delete');
+        Route::get('/dashboard', [DashboardController::class, 'index']);
+        Route::get('/dashboard/tasks-by-education-type/{educationType}', [DashboardController::class, 'tasksByEducationType']);
         Route::get('/my-task-instances', [TaskInstanceController::class, 'mine']);
         // The doctor's own department-grouped task summary — see
         // Api\TaskProgressController::mine()/DoctorTaskSummary.
@@ -331,9 +339,13 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::delete('/my-task-instances/attachments/{attachment}', [TaskInstanceAttachmentController::class, 'destroy'])
             ->name('my-attachments.destroy');
         Route::get('/task-instances/{taskInstance}', [TaskInstanceController::class, 'show']);
-        Route::post('/task-instances', [TaskInstanceController::class, 'store']);
+        // Assigning and removing are staff-admin actions, gated like the
+        // web's task-instances.store/destroy (role:super_admin,admin,editor).
+        Route::post('/task-instances', [TaskInstanceController::class, 'store'])
+            ->middleware('role:super_admin,admin,editor');
         Route::put('/task-instances/{taskInstance}', [TaskInstanceController::class, 'update']);
-        Route::delete('/task-instances/{taskInstance}', [TaskInstanceController::class, 'destroy']);
+        Route::delete('/task-instances/{taskInstance}', [TaskInstanceController::class, 'destroy'])
+            ->middleware('role:super_admin,admin,editor');
         Route::post('/task-instances/{taskInstance}/confirm-paper', [TaskInstanceController::class, 'confirmPaper']);
         Route::get('/task-instances/{taskInstance}/qr', [TaskInstanceQrController::class, 'show']);
         Route::post('/task-instances/scan', [TaskInstanceQrController::class, 'scan']);

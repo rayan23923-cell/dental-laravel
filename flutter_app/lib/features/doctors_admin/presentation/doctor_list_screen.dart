@@ -13,6 +13,8 @@ import '../../../core/widgets/cascading_dropdown.dart';
 import '../../../core/widgets/chat_list_tile.dart';
 import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../domain/doctor_admin.dart';
+import '../data/doctors_admin_repository.dart';
+import 'doctor_files.dart';
 import 'doctor_roster_pdf.dart';
 import 'doctors_admin_providers.dart';
 
@@ -30,6 +32,11 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
   int? _stageId;
   bool _scanningNfc = false;
   bool _printing = false;
+
+  /// "حذف المحدد" (2026-10-17): picking rows, then archiving them at once.
+  bool _selectMode = false;
+  final Set<int> _selected = {};
+  bool _busy = false;
 
   @override
   void dispose() {
@@ -94,6 +101,84 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
     }
   }
 
+  void _snack(String message) {
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _toggle(int id) => setState(() => _selected.contains(id) ? _selected.remove(id) : _selected.add(id));
+
+  void _exitSelect() => setState(() {
+        _selectMode = false;
+        _selected.clear();
+      });
+
+  Future<void> _deleteSelected() async {
+    final t = ref.read(translationsProvider);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(t['doctorsAdmin.deleteSelected']!),
+        content: Text(trf(t['doctorsAdmin.deleteSelectedConfirm']!, {'n': _selected.length})),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(t['nav.cancel']!)),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(t['doctorsAdmin.delete']!)),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    setState(() => _busy = true);
+    try {
+      final result = await ref.read(doctorsAdminRepositoryProvider).deleteMany(_selected.toList());
+      ref.invalidate(doctorAdminListProvider);
+      _exitSelect();
+      if (!mounted) return;
+      if (result.blocked.isEmpty) {
+        _snack(trf(t['doctorsAdmin.archivedCount']!, {'n': result.archived}));
+      } else {
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(trf(t['doctorsAdmin.archivedCount']!, {'n': result.archived})),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(t['doctorsAdmin.skippedLinked']!, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  for (final b in result.blocked) Text('• $b'),
+                ],
+              ),
+            ),
+            actions: [TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(t['common.ok']!))],
+          ),
+        );
+      }
+    } catch (e) {
+      _snack(e is ApiException ? e.userMessage : t['doctorsAdmin.deleteFailed']!);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// The import template, or the doctors as Excel narrowed to the chosen
+  /// education type/stage — saved where the user picks.
+  Future<void> _download({required bool export}) async {
+    final t = ref.read(translationsProvider);
+    setState(() => _busy = true);
+    try {
+      final repo = ref.read(doctorsAdminRepositoryProvider);
+      final bytes = export
+          ? await repo.export(educationTypeId: _educationTypeId, stageId: _stageId)
+          : await repo.template();
+      final path = await saveDownloadedFile(export ? 'doctors.xlsx' : 'doctors_template.xlsx', bytes);
+      if (path != null) _snack(trf(t['doctorsAdmin.fileSaved']!, {'path': path}));
+    } catch (e) {
+      _snack(e is ApiException ? e.userMessage : t['doctorsAdmin.downloadFailed']!);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final educationTypesAsync = ref.watch(doctorEducationTypesProvider);
@@ -102,7 +187,24 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
     final t = ref.watch(translationsProvider);
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: _selectMode
+          ? AppBar(
+              leading: IconButton(icon: const Icon(Icons.close), onPressed: _exitSelect),
+              title: Text(trf(t['doctorsAdmin.selectedCount']!, {'n': _selected.length})),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.select_all),
+                  tooltip: t['doctorsAdmin.selectAll'],
+                  onPressed: () => setState(() => _selected.addAll([for (final d in doctorsAsync.valueOrNull?.items ?? const <DoctorAdmin>[]) d.id])),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  tooltip: t['doctorsAdmin.deleteSelected'],
+                  onPressed: _busy || _selected.isEmpty ? null : _deleteSelected,
+                ),
+              ],
+            )
+          : AppBar(
         title: Text(t['doctorsAdmin.title']!),
         actions: [
           IconButton(
@@ -113,6 +215,27 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
             onPressed: _printing || doctorsAsync.valueOrNull == null
                 ? null
                 : () => _printRoster(doctorsAsync.valueOrNull!.items),
+          ),
+          PopupMenuButton<String>(
+            enabled: !_busy,
+            onSelected: (action) async {
+              switch (action) {
+                case 'import':
+                  await context.push('/admin/doctors/import');
+                case 'template':
+                  await _download(export: false);
+                case 'export':
+                  await _download(export: true);
+                case 'select':
+                  setState(() => _selectMode = true);
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(value: 'import', child: ListTile(leading: const Icon(Icons.upload_file_outlined), title: Text(t['doctorsAdmin.importTitle']!))),
+              PopupMenuItem(value: 'template', child: ListTile(leading: const Icon(Icons.download_outlined), title: Text(t['doctorsAdmin.downloadTemplate']!))),
+              PopupMenuItem(value: 'export', child: ListTile(leading: const Icon(Icons.table_view_outlined), title: Text(t['doctorsAdmin.exportExcel']!))),
+              PopupMenuItem(value: 'select', child: ListTile(leading: const Icon(Icons.checklist), title: Text(t['doctorsAdmin.selectRows']!))),
+            ],
           ),
         ],
       ),
@@ -201,7 +324,12 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
                     padding: const EdgeInsets.only(top: 4, bottom: 88),
                     itemCount: page.items.length,
                     separatorBuilder: (_, __) => chatDivider,
-                    itemBuilder: (context, i) => _DoctorTile(doctor: page.items[i]),
+                    itemBuilder: (context, i) => _DoctorTile(
+                      doctor: page.items[i],
+                      selecting: _selectMode,
+                      selected: _selected.contains(page.items[i].id),
+                      onToggle: () => _toggle(page.items[i].id),
+                    ),
                   ),
                 );
               },
@@ -216,8 +344,11 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
 /// Chat-list row (2026-10-13, by request): photo or initial avatar, name,
 /// username, and stage/education-type chips.
 class _DoctorTile extends StatelessWidget {
-  const _DoctorTile({required this.doctor});
+  const _DoctorTile({required this.doctor, this.selecting = false, this.selected = false, this.onToggle});
   final DoctorAdmin doctor;
+  final bool selecting;
+  final bool selected;
+  final VoidCallback? onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -232,7 +363,9 @@ class _DoctorTile extends StatelessWidget {
         if (doctor.educationTypeName != null)
           ChatChip(label: doctor.educationTypeName!, icon: Icons.school_outlined, color: Colors.blueGrey),
       ],
-      onTap: () => context.push('/admin/doctors/${doctor.id}'),
+      leading: selecting ? Checkbox(value: selected, onChanged: (_) => onToggle?.call()) : null,
+      selected: selected,
+      onTap: selecting ? onToggle : () => context.push('/admin/doctors/${doctor.id}'),
     );
   }
 }
