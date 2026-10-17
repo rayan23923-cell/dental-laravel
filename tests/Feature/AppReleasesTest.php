@@ -42,4 +42,18 @@ class AppReleasesTest extends TestCase
             ->assertJsonPath('url', 'https://example.test/DentalClinicSetup-1.1.9.exe')
             ->assertJsonPath('zip_url', config('desktop_releases.windows.zip_url'));
     }
+
+    public function test_the_phone_app_asks_for_its_own_platform(): void
+    {
+        File::put($this->manifest, json_encode([
+            'windows' => ['version' => '1.1.9', 'url' => 'https://example.test/DentalClinicSetup-1.1.9.exe'],
+            'android' => ['version' => '1.1.10', 'url' => 'https://example.test/DentalClinicApp-1.1.10.apk'],
+        ]));
+
+        $this->getJson('/api/v1/app/version?platform=android')
+            ->assertOk()
+            ->assertJsonPath('version', '1.1.10')
+            ->assertJsonPath('url', 'https://example.test/DentalClinicApp-1.1.10.apk');
+        $this->getJson('/api/v1/app/version')->assertOk()->assertJsonPath('version', '1.1.9');
+    }
 }

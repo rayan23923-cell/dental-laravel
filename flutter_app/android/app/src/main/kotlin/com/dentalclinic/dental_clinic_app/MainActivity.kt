@@ -7,5 +7,6 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         PosPrinterPlugin(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
+        AppUpdatePlugin(this, flutterEngine.dartExecutor.binaryMessenger)
     }
 }

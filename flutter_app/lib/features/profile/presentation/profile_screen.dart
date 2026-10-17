@@ -5,7 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'package:package_info_plus/package_info_plus.dart';
+
 import '../../../core/i18n/locale_controller.dart';
+import '../../../core/updater/desktop_update_checker.dart';
+import '../../../core/updater/desktop_update_gate.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/settings_list.dart';
 import '../../auth/domain/account_type.dart';
@@ -49,6 +53,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   String _locale = '';
   // Telegram-style list (2026-10-14, by request): the open section, if any.
   String? _open;
+  // In-app updates (2026-10-17).
+  String? _version;
+  bool _autoUpdate = true;
+  bool _checkingUpdates = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (DesktopUpdateChecker.isSupported) {
+      PackageInfo.fromPlatform().then((info) {
+        if (mounted) setState(() => _version = info.version);
+      });
+      DesktopUpdateChecker.autoCheckEnabled().then((v) {
+        if (mounted) setState(() => _autoUpdate = v);
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -374,6 +395,40 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ],
                 ),
+                // In-app updates (2026-10-17, by request): Windows and
+                // Android install from the clinic server, no store needed.
+                if (DesktopUpdateChecker.isSupported)
+                  SettingsSection(
+                    icon: Icons.system_update_outlined,
+                    color: const Color(0xFF6366F1),
+                    title: t['profile.updates']!,
+                    summary: _version == null ? '' : trf(t['profile.currentVersion']!, {'version': _version!}),
+                    open: _open == 'updates',
+                    onToggle: () => _toggle('updates'),
+                    children: [
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: _autoUpdate,
+                        title: Text(t['profile.autoUpdate']!),
+                        onChanged: (v) {
+                          setState(() => _autoUpdate = v);
+                          DesktopUpdateChecker.setAutoCheck(v);
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: _checkingUpdates
+                            ? null
+                            : () async {
+                                setState(() => _checkingUpdates = true);
+                                await AppUpdateFlow.checkNow(context);
+                                if (mounted) setState(() => _checkingUpdates = false);
+                              },
+                        icon: const Icon(Icons.refresh),
+                        label: Text(t['profile.checkUpdates']!),
+                      ),
+                    ],
+                  ),
                 InkWell(
                   onTap: () => context.push('/sessions'),
                   child: Padding(

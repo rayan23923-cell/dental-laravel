@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/widgets.dart' show GlobalKey, NavigatorState;
 import 'package:go_router/go_router.dart';
 
 import '../../features/academic_sessions_admin/presentation/academic_session_detail_screen.dart';
@@ -76,11 +77,16 @@ class _AuthRefreshListenable extends ChangeNotifier {
   }
 }
 
+/// The app's root navigator, for dialogs shown from above the router
+/// (the update check in `DesktopUpdateGate`).
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 final routerProvider = Provider<GoRouter>((ref) {
   final refreshListenable = _AuthRefreshListenable(ref);
   ref.onDispose(refreshListenable.dispose);
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/splash',
     refreshListenable: refreshListenable,
     routes: [

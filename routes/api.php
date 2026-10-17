@@ -115,6 +115,7 @@ Route::name('api.')->prefix('v1')->group(function () {
     // Public, unauthenticated — the Windows desktop build polls this on
     // startup to self-update. See DesktopReleaseController docblock.
     Route::get('/desktop/version', DesktopReleaseController::class);
+    Route::get('/app/version', DesktopReleaseController::class);
 
     // Public: activation codes and updates for the offline edition (2026-10-17).
     Route::post('/offline/activate', [\App\Http\Controllers\Api\OfflineLicenseController::class, 'activate'])->middleware('throttle:10,1');

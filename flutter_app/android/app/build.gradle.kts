@@ -93,3 +93,8 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // FileProvider for in-app updates (AppUpdatePlugin.kt).
+    implementation("androidx.core:core:1.13.1")
+}
