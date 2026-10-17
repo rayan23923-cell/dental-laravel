@@ -110,7 +110,7 @@ class TaskController extends Controller
 
         // Warn before adding a task that already exists (2026-10-16, by
         // request): the form asks first and sends allow_duplicates to go ahead.
-        if (! $request->boolean('allow_duplicates') && ($existing = $this->duplicateTitles($validated)) !== []) {
+        if (! $request->boolean('allow_duplicates') && ($existing = self::duplicateTitles($validated)) !== []) {
             throw ValidationException::withMessages([
                 isset($validated['rows']) ? 'rows' : 'title' => 'موجودة مسبقًا في هذا القسم: '.implode('، ', $existing),
             ]);
@@ -209,7 +209,7 @@ class TaskController extends Controller
     }
 
     /** Same title, stage and department in the same academic year (or a year-less task). */
-    private function sameTasks(int $stageId, int $departmentId, ?int $sessionId)
+    private static function sameTasks(int $stageId, int $departmentId, ?int $sessionId)
     {
         return Task::where('stage_id', $stageId)
             ->where('department_id', $departmentId)
@@ -222,13 +222,13 @@ class TaskController extends Controller
         return mb_strtolower(preg_replace('/\s+/u', ' ', trim((string) $title)));
     }
 
-    /** Titles about to be added that the department already has. */
-    private function duplicateTitles(array $validated): array
+    /** Titles about to be added that the department already has (shared with Api\TaskController). */
+    public static function duplicateTitles(array $validated): array
     {
         $titles = isset($validated['rows'])
             ? collect($validated['rows'])->filter(fn ($r) => $r['enabled'] ?? true)->pluck('title')
             : collect([$validated['title'] ?? '']);
-        $existing = $this->sameTasks((int) $validated['stage_id'], (int) $validated['department_id'], $validated['academic_session_id'] ?? null)
+        $existing = self::sameTasks((int) $validated['stage_id'], (int) $validated['department_id'], $validated['academic_session_id'] ?? null)
             ->pluck('title')->map(fn ($t) => self::titleKey($t))->flip();
 
         return $titles->filter(fn ($t) => $existing->has(self::titleKey($t)))->values()->all();

@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use App\Support\CaseSheetGrades;
 use App\Support\ProsthodonticsForm;
+use App\Support\CaseSheetDoctor;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -18,6 +19,9 @@ class ProsthodonticsRecordResource extends JsonResource
             'stage_maxes' => CaseSheetGrades::maxes(ProsthodonticsForm::stages(), true, $this->task_instances_id),
             'task_id' => $this->task_id,
             'doctor_id' => $this->doctor_id,
+            // The sheet's doctor, or its task case's (2026-10-15, as the web's
+            // linkedDoctor) — shown as a name on the form. Not on lists (a query per row).
+            'linked_doctor' => $this->unless($request->routeIs('*.index'), fn () => CaseSheetDoctor::linked($this->doctor_id, $this->task_instances_id)),
             'student_name' => $this->student_name,
             'patient_name' => $this->patient_name,
             'patient_phone' => $this->patient_phone,

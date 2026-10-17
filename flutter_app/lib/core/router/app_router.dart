@@ -31,6 +31,7 @@ import '../../features/case_sheet_forms/presentation/case_sheet_types_screen.dar
 import '../../features/doctors_admin/presentation/doctor_form_screen.dart';
 import '../../features/doctors_admin/presentation/doctor_list_screen.dart';
 import '../../features/printing/presentation/printer_settings_screen.dart';
+import '../../features/task_progress_admin/presentation/doctor_progress_screen.dart';
 import '../../features/task_progress_admin/presentation/task_progress_screen.dart';
 import '../../features/groups_admin/presentation/group_detail_screen.dart';
 import '../../features/groups_admin/presentation/group_form_screen.dart';
@@ -220,6 +221,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin/doctors/new',
         builder: (context, state) => const DoctorFormScreen(),
+      ),
+      // A doctor's progress (2026-10-17) — what their ID card QR opens
+      // from the task-progress scanner, like the web's doctors.progress.
+      GoRoute(
+        path: '/admin/doctors/:id/progress',
+        builder: (context, state) =>
+            DoctorProgressScreen(doctorId: int.parse(state.pathParameters['id']!)),
       ),
       GoRoute(
         path: '/admin/doctors/:id',

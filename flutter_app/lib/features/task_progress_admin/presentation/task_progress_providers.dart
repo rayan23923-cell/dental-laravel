@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/task_progress_repository.dart';
+import '../domain/doctor_progress.dart';
 import '../domain/task_progress_group.dart';
 
 /// Keyed on the current filter selection, same shape as
@@ -25,4 +26,9 @@ final taskProgressGroupProvider =
     FutureProvider.autoDispose.family<TaskProgressGroupDetail, TaskProgressDetailKey>((ref, key) {
   final repository = ref.watch(taskProgressRepositoryProvider);
   return key.groupId != null ? repository.fetchGroup(key.groupId!) : repository.fetchStage(key.stageId!);
+});
+
+/// One doctor's progress, opened from their ID card QR (2026-10-14 on the web).
+final doctorProgressProvider = FutureProvider.autoDispose.family<DoctorProgress, int>((ref, doctorId) {
+  return ref.watch(taskProgressRepositoryProvider).fetchDoctorProgress(doctorId);
 });
