@@ -111,10 +111,11 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
     try {
       switch (widget.mode) {
         case QrScanMode.taskInstance:
-          // A doctor's ID card QR (2026-10-14) opens that doctor.
+          // A doctor's ID card QR (2026-10-14) opens that doctor's task
+          // progress, as the web's task-progress scanner does.
           final doctorId = _doctorIdOf(raw);
           if (doctorId != null) {
-            if (mounted) context.pushReplacement('/admin/doctors/$doctorId');
+            if (mounted) context.pushReplacement('/admin/doctors/$doctorId/progress');
             return;
           }
           final instance = await ref.read(taskInstanceRepositoryProvider).scan(raw);

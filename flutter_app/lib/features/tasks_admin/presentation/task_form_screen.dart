@@ -113,7 +113,15 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
     try {
       final repo = ref.read(tasksAdminRepositoryProvider);
       if (_isCreate) {
-        await repo.create(payload);
+        try {
+          await repo.create(payload);
+        } on ValidationException catch (e) {
+          // Already in this department (same check as the web form): ask,
+          // then resend with allow_duplicates.
+          if (!e.duplicate) rethrow;
+          if (!mounted || !await _confirmDuplicate(e.message)) return;
+          await repo.create({...payload, 'allow_duplicates': true});
+        }
       } else {
         await repo.update(widget.taskId!, payload);
         ref.invalidate(taskAdminProvider(widget.taskId!));
@@ -121,7 +129,7 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
       ref.invalidate(taskAdminListProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isCreate ? t['tasksAdmin.addedSuccess']! : t['tasksAdmin.savedSuccess']!)));
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(_listFilter());
       }
     } catch (e) {
       if (mounted) {
@@ -132,6 +140,27 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  /// Back on the list, filtered on this task's stage and department
+  /// (same as the web, 2026-10-16), so the change shows straight away.
+  Map<String, int?> _listFilter() =>
+      {'educationTypeId': _educationTypeId, 'stageId': _stageId, 'departmentId': _departmentId};
+
+  Future<bool> _confirmDuplicate(String message) async {
+    final t = ref.read(translationsProvider);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(t['tasksAdmin.duplicateTitle']!),
+        content: Text('$message\n\n${t['tasksAdmin.duplicateConfirmBody']!}'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(t['tasksAdmin.cancel']!)),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(t['tasksAdmin.addAnyway']!)),
+        ],
+      ),
+    );
+    return confirmed == true;
   }
 
   Future<void> _delete() async {
@@ -154,7 +183,7 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
       ref.invalidate(taskAdminListProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['tasksAdmin.deletedSuccess']!)));
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(_listFilter());
       }
     } catch (e) {
       if (mounted) {

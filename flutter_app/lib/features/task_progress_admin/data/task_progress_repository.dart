@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
+import '../domain/doctor_progress.dart';
 import '../domain/nfc_lookup_result.dart';
 import '../domain/task_progress_group.dart';
 
@@ -60,6 +61,13 @@ class TaskProgressRepository {
   Future<TaskProgressGroupDetail> fetchStage(int stageId) async {
     final data = await _client.getJson('/task-progress/stages/$stageId') as Map<String, dynamic>;
     return TaskProgressGroupDetail.fromJson(data);
+  }
+
+  /// One doctor's progress (`GET /doctors/{id}/progress`) — opened by a
+  /// doctor's ID card QR, as the web's task-progress scanner does.
+  Future<DoctorProgress> fetchDoctorProgress(int doctorId) async {
+    final data = await _client.getJson('/doctors/$doctorId/progress') as Map<String, dynamic>;
+    return DoctorProgress.fromJson(data);
   }
 
   Future<void> completeInstance(int instanceId, {double? grade, String? notes}) {

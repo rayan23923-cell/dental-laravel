@@ -27,7 +27,11 @@ sealed class ApiException implements Exception {
           for (final entry in (rawErrors ?? const {}).entries)
             entry.key as String: List<String>.from(entry.value as List),
         };
-        return ValidationException(message ?? 'Validation failed', errors);
+        return ValidationException(
+          message ?? 'Validation failed',
+          errors,
+          duplicate: data is Map && data['duplicate'] == true,
+        );
       case 401:
         return UnauthorizedException(message ?? 'Unauthorized');
       case 403:
@@ -43,9 +47,13 @@ sealed class ApiException implements Exception {
 /// 422 — always field-keyed for this API's validation errors (e.g.
 /// `{"email": ["The provided credentials are incorrect."]}`).
 final class ValidationException extends ApiException {
-  const ValidationException(this.message, this.errors);
+  const ValidationException(this.message, this.errors, {this.duplicate = false});
   final String message;
   final Map<String, List<String>> errors;
+
+  /// The server's "already exists — send allow_duplicates to go ahead"
+  /// refusal (e.g. `Api\TaskController::store`), so a form can ask first.
+  final bool duplicate;
 
   /// First message for a given field, if any — what a form field's
   /// `errorText` wants.

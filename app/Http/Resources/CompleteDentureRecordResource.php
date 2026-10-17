@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use App\Support\CaseSheetGrades;
 use App\Support\CompleteDentureForm;
+use App\Support\CaseSheetDoctor;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -14,6 +15,9 @@ class CompleteDentureRecordResource extends JsonResource
         return [
             'id' => $this->id,
             'doctor_id' => $this->doctor_id,
+            // The sheet's doctor, or its task case's (2026-10-15, as the web's
+            // linkedDoctor) — shown as a name on the form. Not on lists (a query per row).
+            'linked_doctor' => $this->unless($request->routeIs('*.index'), fn () => CaseSheetDoctor::linked($this->doctor_id, $this->task_instances_id)),
             'task_instances_id' => $this->task_instances_id,
             // Each grade's max — the linked task's step max, else 10 (2026-10-15).
             'stage_maxes' => CaseSheetGrades::maxes(CompleteDentureForm::stages(), false, $this->task_instances_id),

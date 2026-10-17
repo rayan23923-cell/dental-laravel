@@ -151,20 +151,41 @@ class CaseSheetFormScreen extends ConsumerWidget {
           ),
         (AsyncData(value: final schema), AsyncData(value: final record)) => SingleChildScrollView(
             padding: const EdgeInsets.all(12),
-            child: DynamicSectionForm(
-              key: _formStateKey,
-              resource: resource,
-              schema: schema,
-              record: record,
-              readonly: readonly,
-              supervisorEditableFields: supervisorEditableFields,
-              t: t,
-              onStageField: isCreate
-                  ? null
-                  : (key, value) => ref.read(caseSheetRecordRepositoryProvider).saveStageField(resource, recordId!, key, value),
-              onSubmit: (payload) => isCreate
-                  ? _create(context, ref, schema)(payload)
-                  : _update(context, ref, recordId!)(payload),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // The sheet's doctor (2026-10-15, as the web's linkedDoctor):
+                // the API's `linked_doctor`, so staff see whose sheet it is.
+                if (record['linked_doctor'] case {'name': final String doctorName})
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.person, color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(width: 8),
+                        Text('${t['caseSheetForm.doctorLabel']!}: ', style: const TextStyle(color: Colors.grey)),
+                        Expanded(
+                          child: Text(doctorName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                        ),
+                      ],
+                    ),
+                  ),
+                DynamicSectionForm(
+                  key: _formStateKey,
+                  resource: resource,
+                  schema: schema,
+                  record: record,
+                  readonly: readonly,
+                  supervisorEditableFields: supervisorEditableFields,
+                  t: t,
+                  onStageField: isCreate
+                      ? null
+                      : (key, value) => ref.read(caseSheetRecordRepositoryProvider).saveStageField(resource, recordId!, key, value),
+                  onSubmit: (payload) => isCreate
+                      ? _create(context, ref, schema)(payload)
+                      : _update(context, ref, recordId!)(payload),
+                ),
+              ],
             ),
           ),
         _ => const Center(child: CircularProgressIndicator()),
