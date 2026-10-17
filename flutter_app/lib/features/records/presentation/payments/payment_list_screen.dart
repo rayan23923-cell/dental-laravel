@@ -8,6 +8,8 @@ import '../../../../core/network/api_exception.dart';
 import '../../../../core/widgets/chat_list_tile.dart';
 import '../../domain/payment.dart';
 import '../records_providers.dart';
+import '../../../clinic_settings/presentation/clinic_settings_providers.dart';
+import 'payment_stats_overview.dart';
 
 class PaymentListScreen extends ConsumerStatefulWidget {
   const PaymentListScreen({super.key});
@@ -91,17 +93,28 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
               error: (error, stackTrace) => Center(
                 child: Text(error is ApiException ? error.userMessage : t['recordsHub.loadFailed']!),
               ),
+              // The income overview scrolls with the list as its first row
+              // (2026-10-17), so a phone isn't left with a sliver of list.
               data: (page) {
-                if (page.items.isEmpty) {
-                  return Center(child: Text(t['recordsHub.paymentsEmptyList']!));
-                }
                 return RefreshIndicator(
-                  onRefresh: () async => ref.invalidate(paymentListProvider(_filters)),
+                  onRefresh: () async {
+                    ref.invalidate(paymentListProvider(_filters));
+                    ref.invalidate(paymentStatsProvider(_filters));
+                  },
                   child: ListView.separated(
                     padding: const EdgeInsets.only(top: 4, bottom: 88),
-                    itemCount: page.items.length,
-                    separatorBuilder: (_, __) => chatDivider,
-                    itemBuilder: (context, i) => _PaymentTile(payment: page.items[i]),
+                    itemCount: page.items.length + 1 + (page.items.isEmpty ? 1 : 0),
+                    separatorBuilder: (_, i) => i == 0 ? const SizedBox.shrink() : chatDivider,
+                    itemBuilder: (context, i) {
+                      if (i == 0) return PaymentStatsOverview(filters: _filters);
+                      if (page.items.isEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Center(child: Text(t['recordsHub.paymentsEmptyList']!)),
+                        );
+                      }
+                      return _PaymentTile(payment: page.items[i - 1]);
+                    },
                   ),
                 );
               },
@@ -217,7 +230,10 @@ class _PaymentFilterSheetState extends ConsumerState<_PaymentFilterSheet> {
 }
 
 /// Chat-list row (2026-10-13, by request): payer name, the amount as the
-/// subtitle, and source / paid-by / date chips.
+/// subtitle, and source / paid-by / date chips. Since 2026-10-17 the
+/// source follows `type` (a lab fee is no longer shown as a registration
+/// payment), archived patients are marked, and the amount is formatted
+/// with the clinic's currency as on the web.
 class _PaymentTile extends ConsumerWidget {
   const _PaymentTile({required this.payment});
   final Payment payment;
@@ -225,17 +241,20 @@ class _PaymentTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider);
-    final fromRegistration = payment.patientRegistrationName != null;
+    final currency = ref.watch(clinicSettingsProvider).valueOrNull?.currency;
     return ChatListTile(
       title: payment.personName,
-      color: Colors.green,
-      icon: Icons.payments_outlined,
-      // LTR isolate so the number keeps its order inside RTL text.
-      subtitle: '\u2066${payment.amount.toStringAsFixed(2)}\u2069',
+      color: payment.isLabFee ? Colors.purple : Colors.green,
+      icon: payment.isLabFee ? Icons.biotech_outlined : Icons.payments_outlined,
+      subtitle: formatMoney(payment.amount, currency),
       chips: [
-        fromRegistration
-            ? ChatChip(label: t['recordsHub.sourceRegistration']!, icon: Icons.how_to_reg_outlined, color: Colors.teal)
-            : ChatChip(label: t['recordsHub.sourceAppointment']!, icon: Icons.event_outlined, color: Colors.indigo),
+        switch (payment.source) {
+          'lab' => ChatChip(label: t['payments.labFee']!, icon: Icons.biotech_outlined, color: Colors.purple),
+          'appointment' => ChatChip(label: t['recordsHub.sourceAppointment']!, icon: Icons.event_outlined, color: Colors.indigo),
+          _ => ChatChip(label: t['recordsHub.sourceRegistration']!, icon: Icons.how_to_reg_outlined, color: Colors.teal),
+        },
+        if (payment.isArchivedPatient)
+          ChatChip(label: t['payments.archivedPatient']!, icon: Icons.archive_outlined, color: Colors.orange),
         if (payment.paidBy != null && payment.paidBy!.isNotEmpty)
           ChatChip(label: payment.paidBy!, icon: Icons.person_outline, color: Colors.blueGrey),
         if (payment.paidAt != null)

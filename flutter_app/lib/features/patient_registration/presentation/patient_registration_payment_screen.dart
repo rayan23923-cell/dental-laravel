@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../../core/platform/platform_support.dart';
 import '../../../core/i18n/locale_controller.dart';
@@ -17,14 +16,18 @@ import '../../printing/presentation/printer_settings_providers.dart';
 import '../../printing/presentation/receipt_widget.dart';
 import '../../printing/presentation/ticket_renderer.dart';
 import '../../records/data/records_repository.dart';
+import '../../records/domain/payment.dart';
 import '../data/patient_registration_repository.dart';
 import '../domain/registration_payment_state.dart';
-import '../../../core/widgets/numeric_input.dart';
 
 /// The payment-desk screen reached after scanning a registration's ticket
 /// QR (or its on-screen equivalent) — shows whether it's paid, and if
-/// not, takes a payment via quick-digit amount entry and prints a
-/// receipt. See Phase 5's plan, Step 5.
+/// not, takes the service's price and prints a receipt.
+///
+/// Mirrors the web since 2026-10-17: the amount is the service's fixed
+/// price (no typed amount — the web's registration charges exactly that),
+/// and the lab fee is not taken here but at the lab, with the screening
+/// result (`LabFeeGate::chargeIfDue()` in `confirmScreening()`).
 class PatientRegistrationPaymentScreen extends ConsumerStatefulWidget {
   const PatientRegistrationPaymentScreen({super.key, required this.initial});
 
@@ -36,7 +39,6 @@ class PatientRegistrationPaymentScreen extends ConsumerStatefulWidget {
 
 class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegistrationPaymentScreen> {
   late RegistrationPaymentState _state;
-  final _amountController = TextEditingController();
   bool _paying = false;
 
   @override
@@ -45,29 +47,11 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
     _state = widget.initial;
   }
 
-  @override
-  void dispose() {
-    _amountController.dispose();
-    super.dispose();
-  }
-
-  /// Quick-digit entry: `0`/`00`/`000` append to whatever's already
-  /// typed, so a clerk types "5" then taps `000` for 5000 — exactly the
-  /// flow described when this was planned. A bare `TextField` still
-  /// allows typing any digits directly for anything the quick buttons
-  /// don't cover.
-  void _appendDigits(String digits) {
-    setState(() {
-      _amountController.text += digits;
-      _amountController.selection = TextSelection.collapsed(offset: _amountController.text.length);
-    });
-  }
-
-  void _clearAmount() => setState(() => _amountController.clear());
-
+  /// The service's price, or null when the service has none (the web
+  /// can't pick such a service either; it has to be priced first).
   double? get _amount {
-    final value = double.tryParse(_amountController.text);
-    return (value != null && value > 0) ? value : null;
+    final price = _state.registration.servicePrice;
+    return (price != null && price > 0) ? price : null;
   }
 
   Future<void> _confirmPayment() async {
@@ -85,10 +69,7 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
       });
       final updated = await ref.read(patientRegistrationRepositoryProvider).status(_state.registration.id);
       if (!mounted) return;
-      setState(() {
-        _state = updated;
-        _amountController.clear();
-      });
+      setState(() => _state = updated);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['payments.paymentRecorded']!)));
 
       await _printReceipt(updated, amount);
@@ -106,7 +87,7 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
   /// payment already succeeded — a print failure is reported, not treated
   /// as the operation having failed (same convention as the registration
   /// ticket in `patient_registration_form_screen.dart`).
-  Future<void> _printReceipt(RegistrationPaymentState updated, double amount, {bool labFee = false}) async {
+  Future<void> _printReceipt(RegistrationPaymentState updated, double amount) async {
     if (!canPrintTickets || !mounted) return;
     final t = ref.read(translationsProvider);
     try {
@@ -133,9 +114,9 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
           registration: updated.registration,
           amountPaid: amount,
           totalPaid: updated.totalPaid,
-          title: labFee ? t['payments.labFeeReceiptTitle']! : 'وصل دفع',
-          amountLabel: labFee ? t['payments.labFee']! : 'المبلغ المدفوع',
-          showTotal: !labFee,
+          title: 'وصل دفع',
+          amountLabel: 'المبلغ المدفوع',
+          showTotal: true,
           logoBytes: logoBytes,
           headerTitle: settings?.universityName ?? settings?.clinicName,
           headerSubtitle: settings?.collegeName,
@@ -150,39 +131,11 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
     }
   }
 
-  /// Lab screening fee (2026-10-11): its own payment (`type: lab`) at the
-  /// clinic's configured amount, payable before screening, with a printed
-  /// "وصل دفع أجور المختبر".
-  Future<void> _payLabFee() async {
-    final fee = _state.labFee;
-    if (fee == null) return;
-    setState(() => _paying = true);
-    final t = ref.read(translationsProvider);
-    try {
-      await ref.read(recordsRepositoryProvider).createPayment({
-        'patient_registration_id': _state.registration.id,
-        'amount': fee,
-        'type': 'lab',
-      });
-      final updated = await ref.read(patientRegistrationRepositoryProvider).status(_state.registration.id);
-      if (!mounted) return;
-      setState(() => _state = updated);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['payments.labFeePaid']!)));
-      await _printReceipt(updated, fee, labFee: true);
-    } catch (e) {
-      if (mounted) {
-        final message = e is ApiException ? e.userMessage : t['payments.recordPaymentFailed']!;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-      }
-    } finally {
-      if (mounted) setState(() => _paying = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final r = _state.registration;
     final t = ref.watch(translationsProvider);
+    final currency = ref.watch(clinicSettingsProvider).valueOrNull?.currency;
 
     return Scaffold(
       appBar: AppBar(title: Text(t['payments.registrationPaymentTitle']!)),
@@ -210,14 +163,9 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
               color: _state.labPaid ? Colors.blue.shade50 : Colors.amber.shade50,
               child: ListTile(
                 leading: Icon(Icons.science_outlined, color: _state.labPaid ? Colors.blue.shade700 : Colors.amber.shade800),
-                title: Text('${t['payments.labFee']!}: ${NumberFormat('#,##0.##').format(_state.labFee)}'),
-                subtitle: _state.labPaid ? Text(t['payments.labFeePaid']!) : null,
-                trailing: _state.labPaid
-                    ? Icon(Icons.check_circle, color: Colors.blue.shade700)
-                    : FilledButton(
-                        onPressed: _paying ? null : _payLabFee,
-                        child: Text(t['payments.payLabFee']!),
-                      ),
+                title: Text('${t['payments.labFee']!}: ${formatMoney(_state.labFee!, currency)}'),
+                subtitle: Text(_state.labPaid ? t['payments.labFeePaid']! : t['payments.labFeeWithResult']!),
+                trailing: _state.labPaid ? Icon(Icons.check_circle, color: Colors.blue.shade700) : null,
               ),
             ),
             const SizedBox(height: 16),
@@ -232,42 +180,29 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
             for (final p in _state.payments.where((p) => !p.isLabFee))
               Card(
                 child: ListTile(
-                  title: Text(NumberFormat('#,##0.##').format(p.amount)),
+                  title: Text(formatMoney(p.amount, currency)),
                   subtitle: Text(p.paidAt ?? '—'),
                 ),
               ),
           ] else ...[
-            Text(t['payments.enterAmount']!, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _amountController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: decimalOnly,
-              textDirection: TextDirection.ltr,
-              textAlign: TextAlign.left,
-              decoration: InputDecoration(labelText: t['payments.amountLabel']!, border: const OutlineInputBorder()),
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final digits in const ['0', '00', '000'])
-                  OutlinedButton(onPressed: () => _appendDigits(digits), child: Text(digits)),
-                OutlinedButton.icon(
-                  onPressed: _clearAmount,
-                  icon: const Icon(Icons.backspace_outlined),
-                  label: Text(t['payments.clear']!),
-                ),
-              ],
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.sell_outlined),
+                title: Text(t['payments.servicePriceLabel']!),
+                subtitle: _amount == null
+                    ? Text(t['payments.noServicePrice']!, style: TextStyle(color: Theme.of(context).colorScheme.error))
+                    : null,
+                trailing: _amount == null
+                    ? null
+                    : Text(formatMoney(_amount!, currency), style: Theme.of(context).textTheme.titleMedium),
+              ),
             ),
             const SizedBox(height: 24),
             FilledButton(
               onPressed: (_paying || _amount == null) ? null : _confirmPayment,
               child: _paying
                   ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text(t['payments.confirmAndPrint']!),
+                  : Text(t['payments.takeServicePrice']!),
             ),
           ],
         ],
