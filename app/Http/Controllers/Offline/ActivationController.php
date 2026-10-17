@@ -23,7 +23,7 @@ class ActivationController extends Controller
             return redirect('/login');
         }
 
-        return view('offline.activate', [
+        return view('activate', [
             'machineId' => OfflineLicensing::machineId(),
             'machineName' => OfflineLicensing::machineName(),
         ]);
