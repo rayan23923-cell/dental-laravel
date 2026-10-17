@@ -25,6 +25,7 @@ import 'case_sheet_form_providers.dart';
 import 'case_sheet_print_pdf.dart';
 import 'dynamic_section_form.dart';
 import 'sync_status_badge.dart';
+import 'task_work_panel.dart';
 
 /// Fetches a resource's layout schema and (when editing) one of its real
 /// records, then renders `DynamicSectionForm` bound to both.
@@ -151,26 +152,39 @@ class CaseSheetFormScreen extends ConsumerWidget {
           ),
         (AsyncData(value: final schema), AsyncData(value: final record)) => SingleChildScrollView(
             padding: const EdgeInsets.all(12),
-            child: DynamicSectionForm(
-              key: _formStateKey,
-              resource: resource,
-              schema: schema,
-              record: record,
-              readonly: readonly,
-              supervisorEditableFields: supervisorEditableFields,
-              t: t,
-              onStageField: isCreate
-                  ? null
-                  : (key, value) => ref.read(caseSheetRecordRepositoryProvider).saveStageField(resource, recordId!, key, value),
-              onSubmit: (payload) => isCreate
-                  ? _create(context, ref, schema)(payload)
-                  : _update(context, ref, recordId!)(payload),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // The linked task's points, the same ones task progress
+                // records (2026-10-17, web SectionedForm.vue's TaskWorkPanel):
+                // the case from the route, or the one the saved sheet is
+                // linked to.
+                if (_linkedInstanceId(record) case final id?) TaskWorkPanel(key: ValueKey(id), taskInstanceId: id),
+                DynamicSectionForm(
+                  key: _formStateKey,
+                  resource: resource,
+                  schema: schema,
+                  record: record,
+                  readonly: readonly,
+                  supervisorEditableFields: supervisorEditableFields,
+                  t: t,
+                  onStageField: isCreate
+                      ? null
+                      : (key, value) => ref.read(caseSheetRecordRepositoryProvider).saveStageField(resource, recordId!, key, value),
+                  onSubmit: (payload) => isCreate
+                      ? _create(context, ref, schema)(payload)
+                      : _update(context, ref, recordId!)(payload),
+                ),
+              ],
             ),
           ),
         _ => const Center(child: CircularProgressIndicator()),
       },
     );
   }
+
+  int? _linkedInstanceId(Map<String, dynamic> record) =>
+      taskInstanceId ?? int.tryParse(record['task_instances_id']?.toString() ?? '');
 
   Future<void> Function(Map<String, dynamic>) _update(BuildContext context, WidgetRef ref, int id) {
     return (payload) async {
