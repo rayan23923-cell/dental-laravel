@@ -28,6 +28,9 @@ class PaymentResource extends JsonResource
                 'id' => $this->patientRegistration->id,
                 'name' => $this->patientRegistration->name,
                 'phone' => $this->patientRegistration->phone,
+                // Archived (soft-deleted) patients still own their
+                // payments; the lists mark them (2026-10-17, as on web).
+                'deleted_at' => $this->patientRegistration->deleted_at,
             ] : null),
         ];
     }

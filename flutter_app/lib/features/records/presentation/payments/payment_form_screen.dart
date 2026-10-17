@@ -13,6 +13,7 @@ import '../../../patient_registration/presentation/patient_registration_list_scr
 import '../../data/records_repository.dart';
 import '../../domain/payment.dart';
 import '../records_providers.dart';
+import '../../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../../../../core/widgets/numeric_input.dart';
 
 class PaymentFormScreen extends ConsumerStatefulWidget {
@@ -59,7 +60,6 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
   // `DEFAULT current_timestamp()` fills it in), and never touched on
   // update (the `sometimes` partial-update rule leaves an edited
   // payment's original date alone).
-  bool _seeded = false;
   bool _submitting = false;
 
   bool get _isCreate => widget.paymentId == null;
@@ -70,37 +70,6 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
   void dispose() {
     _amountController.dispose();
     super.dispose();
-  }
-
-  void _seed(Payment payment) {
-    if (_seeded) return;
-    _seeded = true;
-    _amountController.text = payment.amount.toStringAsFixed(2);
-    if (payment.patientRegistrationId != null) {
-      final t = ref.read(translationsProvider);
-      _registration = PatientRegistration(
-        id: payment.patientRegistrationId!,
-        name: payment.patientRegistrationName ?? trf(t['recordsHub.registrationFallbackTemplate']!, {'id': '${payment.patientRegistrationId}'}),
-        phone: payment.patientRegistrationPhone ?? '',
-        age: null,
-        sex: null,
-        address: null,
-        occupation: null,
-        serviceId: null,
-        registerDayId: null,
-        serviceName: null,
-        registerDayName: null,
-        createdAt: null,
-        taskId: null,
-        taskTitle: null,
-        stageName: null,
-        educationTypeName: null,
-        // Unknown here — this seed comes from `Payment`'s denormalized
-        // fields, not a fresh fetch, and this manual-entry form doesn't
-        // gate on screening status anyway (only the QR desk flow does).
-        screeningStatus: 'pending',
-      );
-    }
   }
 
   Future<void> _pickRegistration() async {
@@ -204,11 +173,8 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
 
     try {
       final repo = ref.read(recordsRepositoryProvider);
-      if (_isCreate) {
-        await repo.createPayment(payload);
-      } else {
-        await repo.updatePayment(widget.paymentId!, payload);
-      }
+      // Create only: an existing payment opens read-only (see `build()`).
+      await repo.createPayment(payload);
       ref.invalidate(paymentListProvider);
       if (mounted) {
         final t = ref.read(translationsProvider);
@@ -269,7 +235,9 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
             body: Center(child: Text(error is ApiException ? error.userMessage : t['recordsHub.loadFailed']!)),
           );
         case AsyncData(:final value):
-          _seed(value);
+          // Read-only (2026-10-17), as on the web: payments aren't edited
+          // by hand any more and the API no longer routes the update.
+          return _details(context, t, value);
         default:
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
       }
@@ -277,10 +245,7 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isCreate ? t['recordsHub.newPaymentTitle']! : t['recordsHub.editPaymentTitle']!),
-        actions: [
-          if (!_isCreate) IconButton(icon: const Icon(Icons.delete_outline), onPressed: _delete),
-        ],
+        title: Text(t['recordsHub.newPaymentTitle']!),
       ),
       body: Form(
         key: _formKey,
@@ -318,7 +283,7 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
             // and whether their screening is clear — neither was shown
             // before, so a clerk could try to charge an already-paid or
             // not-yet-clear patient with no feedback until submit failed.
-            if (_isCreate && _paymentState != null) ...[
+            if (_paymentState != null) ...[
               const SizedBox(height: 8),
               PaidBanner(state: _paymentState!),
             ],
@@ -369,6 +334,45 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _details(BuildContext context, Map<String, String> t, Payment p) {
+    final currency = ref.watch(clinicSettingsProvider).valueOrNull?.currency;
+    final source = switch (p.source) {
+      'lab' => t['payments.labFee']!,
+      'appointment' => t['recordsHub.sourceAppointment']!,
+      _ => t['recordsHub.sourceRegistration']!,
+    };
+    Widget row(String label, String value) => ListTile(
+          dense: true,
+          title: Text(label, style: Theme.of(context).textTheme.bodySmall),
+          subtitle: Text(value, style: Theme.of(context).textTheme.bodyLarge),
+        );
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(t['payments.detailTitle']!),
+        actions: [IconButton(icon: const Icon(Icons.delete_outline), onPressed: _delete)],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            child: Column(
+              children: [
+                row(t['payments.personLabel']!, p.personName + (p.isArchivedPatient ? ' (${t['payments.archivedPatient']!})' : '')),
+                if ((p.patientRegistrationPhone ?? '').isNotEmpty) row(t['payments.phoneLabel']!, p.patientRegistrationPhone!),
+                row(t['recordsHub.amountLabel']!, formatMoney(p.amount, currency)),
+                row(t['payments.sourceLabel']!, source),
+                if ((p.paidBy ?? '').isNotEmpty) row(t['payments.paidByLabel']!, p.paidBy!),
+                row(t['payments.paidAtLabel']!, p.paidAt ?? '—'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(t['payments.readOnlyNote']!, style: Theme.of(context).textTheme.bodySmall),
+        ],
       ),
     );
   }

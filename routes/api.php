@@ -403,7 +403,11 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::post('/endodontics-xrays', [EndodonticsXrayController::class, 'store']);
 
         Route::apiResource('appointments', AppointmentController::class);
-        Route::apiResource('payments', PaymentController::class);
+        // Income overview (2026-10-17) — declared before the resource so
+        // "stats" isn't bound as a {payment}. No `update`: payments are
+        // not edited by hand any more (see PaymentController).
+        Route::get('/payments/stats', [PaymentController::class, 'stats'])->name('payments.stats');
+        Route::apiResource('payments', PaymentController::class)->except(['update']);
 
         Route::get('/activity-logs', [ActivityLogController::class, 'index']);
 
