@@ -6,7 +6,7 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import Icon from '@/Components/Icon.vue';
 import PermissionsEditor from '@/Components/Permissions/PermissionsEditor.vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
 import { watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -49,9 +49,15 @@ const submit = () => {
     <AuthenticatedLayout>
         <!-- Chat-list style (2026-10-13, by request): rounded card with an icon, rounded inputs. -->
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                {{ t('usersAdmin.addUserTitle') }}
-            </h2>
+            <div class="flex items-center justify-between gap-3">
+                <h2 class="text-xl font-semibold leading-tight text-gray-800">
+                    {{ t('usersAdmin.addUserTitle') }}
+                </h2>
+                <!-- Back to the users list (2026-10-18, by request). -->
+                <Link :href="route('permissions.index')" class="flex items-center gap-1 text-sm text-indigo-600 hover:underline">
+                    {{ t('common.back') }}
+                </Link>
+            </div>
         </template>
 
         <div class="py-6 pb-28 sm:py-10 sm:pb-28">
