@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources;
 
+use App\Models\UserPermission;
+use App\Support\PermissionMatrix;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
@@ -30,6 +32,12 @@ class UserResource extends JsonResource
             // App\Http\Middleware\ResolveLocale (web) and the Flutter
             // LocaleController equivalent.
             'locale' => $this->locale,
+            // What the account was granted, as "module.permission" pairs
+            // (2026-10-18), so the app shows only the sections it may open.
+            'permissions' => $this->role === 'super_admin'
+                ? PermissionMatrix::pairs()
+                : UserPermission::where('user_id', $this->id)->where('granted', true)->get(['module', 'permission'])
+                    ->map(fn ($p) => "{$p->module}.{$p->permission}")->values()->all(),
         ];
     }
 }

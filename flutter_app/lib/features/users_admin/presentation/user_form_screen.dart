@@ -65,13 +65,7 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
       'role': _role,
       // Only once the editor has loaded; otherwise the role preset applies.
       if (_options != null) 'grants': _grants.toList(),
-      if (_options != null)
-        'scope': {
-          'departments': _scope.departmentIds,
-          'stages': _scope.stageIds,
-          'education_types': _scope.educationTypeIds,
-          'academic_sessions': _scope.academicSessionIds,
-        },
+      if (_options != null) 'scope': _scope.toJson(),
     };
 
     try {

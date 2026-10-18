@@ -47,7 +47,7 @@ class AppSidebar extends ConsumerWidget {
     final unreadCount = ref.watch(unreadNotificationCountProvider);
     final currentLocation = GoRouterState.of(context).matchedLocation;
     final t = ref.watch(translationsProvider);
-    final destinations = navDestinationsFor(accountType, unreadNotifications: unreadCount, t: t);
+    final destinations = navDestinationsFor(accountType, unreadNotifications: unreadCount, t: t, account: account);
     final theme = Theme.of(context);
 
     return Material(

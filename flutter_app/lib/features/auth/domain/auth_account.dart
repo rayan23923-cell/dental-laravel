@@ -25,6 +25,7 @@ final class StaffAccount extends AuthAccount {
     required this.profileImage,
     required this.profileImageUrl,
     required this.locale,
+    this.permissions,
   });
 
   factory StaffAccount.fromJson(Map<String, dynamic> json) => StaffAccount(
@@ -42,6 +43,7 @@ final class StaffAccount extends AuthAccount {
         // ready-to-use URL.
         profileImageUrl: json['profile_image_url'] as String?,
         locale: json['locale'] as String?,
+        permissions: (json['permissions'] as List<dynamic>?)?.map((e) => e as String).toSet(),
       );
 
   final int id;
@@ -55,6 +57,13 @@ final class StaffAccount extends AuthAccount {
   final String? profileImageUrl;
   @override
   final String? locale;
+
+  /// Granted "module.permission" pairs (2026-10-18); null from a server
+  /// older than that, which the app then treats as granting everything.
+  final Set<String>? permissions;
+
+  bool can(String module, String permission) =>
+      role == 'super_admin' || permissions == null || permissions!.contains('$module.$permission');
 
   @override
   AccountType get accountType => AccountType.staff;

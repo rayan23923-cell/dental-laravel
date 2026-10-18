@@ -31,7 +31,8 @@ const form = useForm({
     password: '',
     role: 'editor',
     grants: defaultsFor('editor'),
-    scope: { departments: [], stages: [], education_types: [], academic_sessions: [] },
+    // A new account sees no scoped data until "الكل" or items are picked.
+    scope: { departments: [], stages: [], education_types: [], academic_sessions: [], all_education_types: false, all_academic_sessions: false },
 });
 
 // Picking a role starts its permissions over from that role's preset.

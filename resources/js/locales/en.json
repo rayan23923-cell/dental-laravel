@@ -501,6 +501,8 @@
         "addUserShort": "Add user",
         "title": "Permissions",
         "scopeAll": "All",
+        "scopeNone": "Sees nothing",
+        "scopeHintTop": "With nothing picked the account sees nothing. Choose “All” or specific items.",
         "scopeHint": "Pick specific items to limit the account to their data, or leave it on “All”.",
         "noStage": "No stage",
         "groupPermissions": "Permissions",

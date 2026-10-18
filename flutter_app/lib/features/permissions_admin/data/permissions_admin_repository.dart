@@ -31,12 +31,7 @@ class PermissionsAdminRepository {
         '/permissions/$userId',
         body: {
           'grants': grants,
-          'scope': {
-            'departments': scope.departmentIds,
-            'stages': scope.stageIds,
-            'education_types': scope.educationTypeIds,
-            'academic_sessions': scope.academicSessionIds,
-          },
+          'scope': scope.toJson(),
         },
       );
 }

@@ -14,9 +14,11 @@ import '../domain/permission_admin.dart';
 /// It edits [grants] ("module.permission" pairs) and [scope] in place and
 /// calls [onChanged] after each change. The access scope cascades:
 /// education types first, then only the stages of the chosen types, then
-/// only the departments of the chosen stages. Nothing picked on a level
-/// means everything within the level above, the same rule the server
-/// keeps (`App\Services\ScopeHelper`).
+/// only the departments of the chosen stages. On the top levels (types,
+/// academic sessions) nothing picked means nothing, and "الكل" is its own
+/// choice (2026-10-18, by request); stages and departments with nothing
+/// picked follow the level above, the same rules the server keeps
+/// (`App\Services\ScopeHelper`).
 class PermissionsEditor extends ConsumerStatefulWidget {
   const PermissionsEditor({
     super.key,
@@ -74,15 +76,26 @@ class _PermissionsEditorState extends ConsumerState<PermissionsEditor> {
     setState(() {
       final list = widget.scope.listFor(dimension);
       list.remove(id);
-      if (on) list.add(id);
+      if (on) {
+        list.add(id);
+        widget.scope.setAll(dimension, false);
+      }
       _prune(o);
     });
     widget.onChanged();
   }
 
+  /// "الكل" is on: nothing picked and, on a top level, the flag set.
+  bool _allOn(String dimension) =>
+      widget.scope.listFor(dimension).isEmpty && (widget.scope.allFor(dimension) ?? true);
+
+  /// "الكل" toggles on a top level; on a lower level it clears the picks so
+  /// the level follows the one above.
   void _clearScope(PermissionScopeOptions o, String dimension) {
     setState(() {
+      final wasOn = _allOn(dimension);
       widget.scope.listFor(dimension).clear();
+      widget.scope.setAll(dimension, !wasOn);
       _prune(o);
     });
     widget.onChanged();
@@ -160,6 +173,11 @@ class _PermissionsEditorState extends ConsumerState<PermissionsEditor> {
 
   String _scopeSummary(Map<String, String> t, _ScopeDim dim) {
     final ids = widget.scope.listFor(dim.key);
+    final top = widget.scope.allFor(dim.key) != null;
+    final typesNone = widget.scope.educationTypeIds.isEmpty && !widget.scope.allEducationTypes;
+    if (ids.isEmpty && (top ? !_allOn(dim.key) : typesNone && widget.scope.stageIds.isEmpty)) {
+      return t['permissionsAdmin.scopeNone']!;
+    }
     if (ids.isEmpty) {
       return dim.filteredBy.isEmpty ? t['permissionsAdmin.unrestricted']! : '${t['permissionsAdmin.unrestricted']!} ${dim.filteredBy}';
     }
@@ -171,6 +189,8 @@ class _PermissionsEditorState extends ConsumerState<PermissionsEditor> {
 
   List<Widget> _scopeFields(Map<String, String> t, PermissionScopeOptions o, _ScopeDim dim) {
     final selected = widget.scope.listFor(dim.key);
+    final allOn = _allOn(dim.key);
+    final top = widget.scope.allFor(dim.key) != null;
     final scheme = Theme.of(context).colorScheme;
     final groups = <String, List<LookupItem>>{};
     for (final item in dim.options) {
@@ -178,23 +198,25 @@ class _PermissionsEditorState extends ConsumerState<PermissionsEditor> {
     }
     return [
       Material(
-        color: selected.isEmpty ? scheme.primaryContainer : scheme.surface,
+        color: allOn ? scheme.primaryContainer : scheme.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: selected.isEmpty ? scheme.primary.withValues(alpha: 0.4) : scheme.outlineVariant),
+          side: BorderSide(color: allOn ? scheme.primary.withValues(alpha: 0.4) : scheme.outlineVariant),
         ),
         child: ListTile(
           dense: true,
           leading: const Icon(Icons.all_inclusive),
           title: Text(t['permissionsAdmin.scopeAll']!, style: const TextStyle(fontWeight: FontWeight.w600)),
-          trailing: selected.isEmpty ? Icon(Icons.check_circle, color: scheme.primary) : null,
+          trailing: allOn ? Icon(Icons.check_circle, color: scheme.primary) : null,
           onTap: () => _clearScope(o, dim.key),
         ),
       ),
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         child: Text(
-          dim.filteredBy.isEmpty
+          top
+              ? t['permissionsAdmin.scopeHintTop']!
+              : dim.filteredBy.isEmpty
               ? t['permissionsAdmin.scopeHint']!
               : trf(t['permissionsAdmin.scopeHintFiltered']!, {'level': dim.filteredBy}),
           style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),

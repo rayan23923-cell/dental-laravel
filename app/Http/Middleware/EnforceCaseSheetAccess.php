@@ -2,11 +2,14 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
 use App\Services\CaseSheetAccess;
+use App\Services\PermissionManager;
 use App\Support\CaseSheetSupervisorFields;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -77,6 +80,18 @@ class EnforceCaseSheetAccess
         // an actual value into a supervisor field at creation time is
         // still correctly blocked.
         $changedFields = $this->changedFields($request, $boundRecord);
+
+        // Rule 0 (2026-10-18) — staff open case sheets only with the
+        // task-progress "open case sheet" grant, the same one the case-sheet
+        // and print endpoints already check; without it an account with no
+        // grants (a lab account, say) could read every clinical record.
+        if (! CaseSheetAccess::isDoctor()) {
+            $staff = Auth::guard('web')->user() ?? $request->user();
+            abort_unless(
+                $staff instanceof User && (new PermissionManager($staff))->can('task_progress', 'open_case_sheet'),
+                403,
+            );
+        }
 
         // Rule 1 — staff may change only the supervisor fields.
         if ($isWrite && CaseSheetAccess::isViewOnly()) {

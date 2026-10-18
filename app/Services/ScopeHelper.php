@@ -21,10 +21,13 @@ use Illuminate\Support\Facades\DB;
  * pivot tables (composite primary key, no `id`, no model) — queried
  * directly here rather than through Eloquent models, matching their shape.
  *
- * Important semantic carried over from the original (easy to get backwards):
- * a user with **zero** rows in `user_allowed_*` is **unrestricted** (sees
- * everything), not locked out. Restriction only kicks in once at least one
- * row exists for that user.
+ * Changed 2026-10-18 (by request): the original treated **zero** rows in
+ * `user_allowed_*` as unrestricted, so an account nobody gave a scope saw
+ * everything. Now nothing picked on the top levels (education types,
+ * academic sessions) means **nothing**, and "الكل" is its own choice, kept
+ * in `users.scope_all_education_types` / `scope_all_academic_sessions`.
+ * Admins with nothing picked still see everything. Stages and departments
+ * keep following the level above when none are picked.
  *
  * Only `super_admin` is unconditionally unrestricted — verified directly
  * against includes/scope_helper.php's getUserAllowedEducationTypes() /
@@ -159,6 +162,10 @@ class ScopeHelper
             'scope.education_types.*' => ['integer', 'exists:education_types,id'],
             'scope.academic_sessions' => ['nullable', 'array'],
             'scope.academic_sessions.*' => ['integer', 'exists:academic_sessions,id'],
+            // "الكل" on the top levels (2026-10-18). Clients older than that
+            // don't send these; for them an empty list still means "الكل".
+            'scope.all_education_types' => ['nullable', 'boolean'],
+            'scope.all_academic_sessions' => ['nullable', 'boolean'],
         ];
     }
 
@@ -178,10 +185,16 @@ class ScopeHelper
             $departments = Department::whereIn('id', $departments)->whereIn('stage_id', $parentStages)->pluck('id')->all();
         }
 
+        $sessions = array_values(array_unique(array_map('intval', $scope['academic_sessions'] ?? [])));
+        $user->forceFill([
+            'scope_all_education_types' => $types === [] && (bool) ($scope['all_education_types'] ?? true),
+            'scope_all_academic_sessions' => $sessions === [] && (bool) ($scope['all_academic_sessions'] ?? true),
+        ])->save();
+
         static::setAllowedEducationTypes($user, $types);
         static::setAllowedStages($user, $stages);
         static::setAllowedDepartments($user, $departments);
-        static::setAllowedAcademicSessions($user, array_values(array_unique(array_map('intval', $scope['academic_sessions'] ?? []))));
+        static::setAllowedAcademicSessions($user, $sessions);
     }
 
     /** Shared by both fallbacks above — see the class docblock. */
@@ -202,6 +215,45 @@ class ScopeHelper
         }
 
         $ids = DB::table('user_allowed_education_types')->where('user_id', $user->id)->pluck('education_type_id')->all();
+        if ($ids !== []) {
+            return $ids;
+        }
+        if (static::seesAll($user, 'scope_all_education_types')) {
+            return null;
+        }
+
+        // Stages or departments picked without a type: the types they
+        // belong to, so the account still sees its own corner.
+        if (($stages = static::chosenStageIds($user)) !== null) {
+            return Stage::whereIn('id', $stages)->pluck('education_type_id')->filter()->unique()->values()->all();
+        }
+        if (($departments = static::chosenDepartmentIds($user)) !== null) {
+            return Stage::whereIn('id', Department::whereIn('id', $departments)->pluck('stage_id'))
+                ->pluck('education_type_id')->filter()->unique()->values()->all();
+        }
+
+        return [];
+    }
+
+    /**
+     * Nothing picked on a top level: admins and accounts given "الكل" see
+     * everything, anyone else nothing.
+     */
+    private static function seesAll(User $user, string $flag): bool
+    {
+        return $user->role === 'admin' || (bool) $user->{$flag};
+    }
+
+    /**
+     * The ids picked on a top level for the permissions screen, null when
+     * none are; whether that means "الكل" is the account's flag.
+     */
+    public static function chosenTopLevel(User $user, string $dimension): ?array
+    {
+        [$table, $column] = $dimension === 'education_types'
+            ? ['user_allowed_education_types', 'education_type_id']
+            : ['user_allowed_academic_sessions', 'academic_session_id'];
+        $ids = DB::table($table)->where('user_id', $user->id)->pluck($column)->all();
 
         return $ids === [] ? null : $ids;
     }
@@ -219,8 +271,11 @@ class ScopeHelper
         }
 
         $ids = DB::table('user_allowed_academic_sessions')->where('user_id', $user->id)->pluck('academic_session_id')->all();
+        if ($ids !== []) {
+            return $ids;
+        }
 
-        return $ids === [] ? null : $ids;
+        return static::seesAll($user, 'scope_all_academic_sessions') ? null : [];
     }
 
     /**

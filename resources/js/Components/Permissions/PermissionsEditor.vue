@@ -7,10 +7,12 @@
  * It edits `form.grants` ("module.permission" pairs) and `form.scope` (the
  * four scope dimensions as id lists) of the Inertia form it is given.
  * Each module offers only the actions it defines (App\Support\PermissionMatrix).
- * An empty scope selection means the account sees everything on that
- * dimension (ScopeHelper's "zero rows = unrestricted" rule), so "الكل"
- * simply clears the selection. The scope cascades: education type, then
- * its stages, then their departments.
+ * On the top levels (education types, academic sessions) nothing picked
+ * means the account sees nothing; "الكل" is its own choice, kept in
+ * `form.scope.all_education_types` / `all_academic_sessions` (2026-10-18,
+ * by request). The scope cascades: education type, then its stages, then
+ * their departments; stages and departments with nothing picked follow the
+ * level above.
  */
 import Icon from '@/Components/Icon.vue';
 import ChatListCard from '@/Components/ChatList/ChatListCard.vue';
@@ -65,7 +67,7 @@ const groupBy = (items, keyOf, nameOf) => {
 };
 
 const dimensions = computed(() => [
-    { key: 'education_types', icon: 'school', tone: 'bg-amber-500', label: t('permissionsAdmin.educationTypesLabel'), options: opts.educationTypes, all: opts.educationTypes },
+    { key: 'education_types', top: true, icon: 'school', tone: 'bg-amber-500', label: t('permissionsAdmin.educationTypesLabel'), options: opts.educationTypes, all: opts.educationTypes },
     {
         key: 'stages', icon: 'stairs', tone: 'bg-violet-500', label: t('permissionsAdmin.stagesLabel'), all: opts.stages,
         options: visibleStages.value,
@@ -81,7 +83,7 @@ const dimensions = computed(() => [
         }),
         filteredBy: form.scope.stages.length ? t('permissionsAdmin.filteredByStages') : form.scope.education_types.length ? t('permissionsAdmin.filteredByTypes') : '',
     },
-    { key: 'academic_sessions', icon: 'event', tone: 'bg-emerald-500', label: t('permissionsAdmin.academicSessionsLabel'), options: opts.academicSessions, all: opts.academicSessions },
+    { key: 'academic_sessions', top: true, icon: 'event', tone: 'bg-emerald-500', label: t('permissionsAdmin.academicSessionsLabel'), options: opts.academicSessions, all: opts.academicSessions },
 ]);
 
 // Unticking a type or stage drops the stages and departments under it.
@@ -96,16 +98,27 @@ const scopeHas = (dimension, id) => form.scope[dimension].includes(id);
 const setScope = (dimension, id, on) => {
     const list = form.scope[dimension].filter((i) => i !== id);
     form.scope[dimension] = on ? [...list, id] : list;
+    if (on && form.scope['all_' + dimension] !== undefined) form.scope['all_' + dimension] = false;
     prune();
 };
-const clearScope = (dimension) => {
-    form.scope[dimension] = [];
+// "الكل" on a top level toggles; on a lower level it clears the picks so
+// the level follows the one above.
+const scopeAllOn = (dim) => !form.scope[dim.key].length && (!dim.top || form.scope['all_' + dim.key]);
+const clearScope = (dim) => {
+    const wasOn = scopeAllOn(dim);
+    form.scope[dim.key] = [];
+    if (dim.top) form.scope['all_' + dim.key] = !wasOn;
     prune();
 };
+// Nothing picked on the types and no "الكل": nothing below shows either.
+const typesNone = computed(() => !form.scope.education_types.length && !form.scope.all_education_types);
 
 const scopeSummary = (dim) => {
     const ids = form.scope[dim.key];
     if (!ids.length) {
+        if (dim.top ? !form.scope['all_' + dim.key] : typesNone.value && !form.scope.stages.length) {
+            return t('permissionsAdmin.scopeNone');
+        }
         return dim.filteredBy ? `${t('permissionsAdmin.unrestricted')} ${dim.filteredBy}` : t('permissionsAdmin.unrestricted');
     }
     return dim.all
@@ -178,14 +191,14 @@ const moduleSummary = (module) => {
                     <button
                         type="button"
                         class="mb-2 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm transition"
-                        :class="form.scope[dim.key].length ? 'bg-white text-gray-600 ring-1 ring-gray-200 hover:bg-gray-50' : 'bg-indigo-50 font-semibold text-indigo-700 ring-1 ring-indigo-200'"
-                        @click="clearScope(dim.key)"
+                        :class="!scopeAllOn(dim) ? 'bg-white text-gray-600 ring-1 ring-gray-200 hover:bg-gray-50' : 'bg-indigo-50 font-semibold text-indigo-700 ring-1 ring-indigo-200'"
+                        @click="clearScope(dim)"
                     >
                         <Icon name="all_inclusive" size="text-[18px]" />
                         <span class="flex-1 text-start">{{ t('permissionsAdmin.scopeAll') }}</span>
-                        <Icon v-if="!form.scope[dim.key].length" name="check_circle" size="text-[18px]" />
+                        <Icon v-if="scopeAllOn(dim)" name="check_circle" size="text-[18px]" />
                     </button>
-                    <p class="mb-2 px-1 text-xs text-gray-500">{{ dim.filteredBy ? t('permissionsAdmin.scopeHintFiltered', { level: dim.filteredBy }) : t('permissionsAdmin.scopeHint') }}</p>
+                    <p class="mb-2 px-1 text-xs text-gray-500">{{ dim.top ? t('permissionsAdmin.scopeHintTop') : dim.filteredBy ? t('permissionsAdmin.scopeHintFiltered', { level: dim.filteredBy }) : t('permissionsAdmin.scopeHint') }}</p>
 
                     <p v-if="!dim.options.length" class="px-1 py-2 text-xs text-gray-400">{{ t('permissionsAdmin.noOptionsAvailable') }}</p>
 

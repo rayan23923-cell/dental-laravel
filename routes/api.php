@@ -284,8 +284,12 @@ Route::name('api.')->prefix('v1')->group(function () {
         // the choice, the app keeps it and sends it back as the
         // X-Academic-Session header, see AcademicSessionHelper.
         Route::post('/academic-sessions/select', [AcademicSessionController::class, 'select']);
-        Route::apiResource('academic-sessions', AcademicSessionController::class);
-        Route::put('/academic-sessions/{academic_session}/set-current', [AcademicSessionController::class, 'setCurrent']);
+        // The list stays open (the year picker reads it); the rest is the
+        // web's: admins only (2026-10-18, was open to every account).
+        Route::apiResource('academic-sessions', AcademicSessionController::class)
+            ->middlewareFor(['show', 'store', 'update', 'destroy'], 'role:super_admin,admin');
+        Route::put('/academic-sessions/{academic_session}/set-current', [AcademicSessionController::class, 'setCurrent'])
+            ->middleware('role:super_admin,admin');
 
         // The list stays open (forms read it); changes need the module.
         // Never deleted (2026-10-15) — switch one off instead.
@@ -338,10 +342,18 @@ Route::name('api.')->prefix('v1')->group(function () {
             Route::get('/backup/{filename}/download', [BackupController::class, 'download']);
         });
 
-        Route::apiResource('groups', GroupController::class);
-        Route::get('/groups-available-doctors', [GroupController::class, 'availableDoctors']);
-        Route::post('/groups/{group}/doctors', [GroupController::class, 'addDoctors']);
-        Route::delete('/groups/{group}/doctors', [GroupController::class, 'removeDoctors']);
+        // Same gates as the web's groups routes (2026-10-18, was open to
+        // every account).
+        Route::middleware('role:super_admin,admin')->group(function () {
+            Route::apiResource('groups', GroupController::class)
+                ->middlewareFor(['index', 'show'], 'permission:groups,view')
+                ->middlewareFor('store', 'permission:groups,create')
+                ->middlewareFor('update', 'permission:groups,edit')
+                ->middlewareFor('destroy', 'permission:groups,delete');
+            Route::get('/groups-available-doctors', [GroupController::class, 'availableDoctors'])->middleware('permission:groups,view');
+            Route::post('/groups/{group}/doctors', [GroupController::class, 'addDoctors'])->middleware('permission:groups,edit');
+            Route::delete('/groups/{group}/doctors', [GroupController::class, 'removeDoctors'])->middleware('permission:groups,edit');
+        });
 
         // Task detail (2026-10-17): the doctors its instances can go to.
         Route::get('/tasks/{task}/assignable-doctors', [TaskController::class, 'assignableDoctors'])
@@ -472,20 +484,28 @@ Route::name('api.')->prefix('v1')->group(function () {
         // See `EndodonticsXrayController`'s own doc comment.
         Route::post('/endodontics-xrays', [EndodonticsXrayController::class, 'store']);
 
-        Route::apiResource('appointments', AppointmentController::class);
-        // Income overview (2026-10-17) — declared before the resource so
-        // "stats" isn't bound as a {payment}. No `update`: payments are
-        // not edited by hand any more (see PaymentController).
-        Route::get('/payments/stats', [PaymentController::class, 'stats'])->name('payments.stats');
-        // The payments report PDF's data (2026-10-17), the web payments.report.
-        Route::get('/payments/report', [PaymentController::class, 'report'])->name('payments.report');
-        Route::apiResource('payments', PaymentController::class)->except(['update']);
+        // Role gates as on the web (2026-10-18, these were open to every
+        // account, a lab or ticket-desk account included). Payments also
+        // let the accountant in, whose work they are.
+        Route::apiResource('appointments', AppointmentController::class)
+            ->middleware('role:super_admin,admin,editor');
+        Route::middleware('role:super_admin,admin,editor,accountant')->group(function () {
+            // Income overview (2026-10-17) — declared before the resource so
+            // "stats" isn't bound as a {payment}. No `update`: payments are
+            // not edited by hand any more (see PaymentController).
+            Route::get('/payments/stats', [PaymentController::class, 'stats'])->name('payments.stats');
+            // The payments report PDF's data (2026-10-17), the web payments.report.
+            Route::get('/payments/report', [PaymentController::class, 'report'])->name('payments.report');
+            Route::apiResource('payments', PaymentController::class)->except(['update']);
+        });
 
-        Route::get('/activity-logs', [ActivityLogController::class, 'index']);
+        Route::middleware('role:super_admin,admin')->group(function () {
+            Route::get('/activity-logs', [ActivityLogController::class, 'index']);
 
-        Route::get('/permissions', [UserPermissionController::class, 'index'])->name('permissions.index');
-        Route::get('/permissions/{user}', [UserPermissionController::class, 'show'])->name('permissions.show');
-        Route::put('/permissions/{user}', [UserPermissionController::class, 'update'])->name('permissions.update');
+            Route::get('/permissions', [UserPermissionController::class, 'index'])->name('permissions.index');
+            Route::get('/permissions/{user}', [UserPermissionController::class, 'show'])->name('permissions.show');
+            Route::put('/permissions/{user}', [UserPermissionController::class, 'update'])->name('permissions.update');
+        });
 
         // New staff/admin account creation — the 'users' module has sat in
         // PermissionMatrix since it was built, unused by any route (the

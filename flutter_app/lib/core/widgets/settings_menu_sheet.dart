@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/domain/auth_account.dart';
+import '../../features/auth/presentation/auth_controller.dart';
+import '../../features/auth/presentation/auth_state.dart';
+import '../auth/staff_access.dart';
 import '../i18n/locale_controller.dart';
 
 /// Staff-only "الإعدادات" destinations — the exact 5 items already grouped
@@ -24,7 +28,15 @@ List<_SettingsItem> _settingsItems(Map<String, String> t) => [
     ];
 
 Future<void> showAdminSettingsSheet(BuildContext context) {
-  final t = ProviderScope.containerOf(context).read(translationsProvider);
+  final container = ProviderScope.containerOf(context);
+  final t = container.read(translationsProvider);
+  final authState = container.read(authControllerProvider).valueOrNull;
+  final account = authState is Authenticated ? authState.account : null;
+  // Only what the account may open (2026-10-18).
+  final items = [
+    for (final item in _settingsItems(t))
+      if (account is! StaffAccount || staffCanOpen(account, item.route)) item,
+  ];
   return showModalBottomSheet(
     context: context,
     showDragHandle: true,
@@ -39,7 +51,7 @@ Future<void> showAdminSettingsSheet(BuildContext context) {
               child: Text(t['nav.settings']!, style: Theme.of(context).textTheme.titleMedium),
             ),
           ),
-          for (final item in _settingsItems(t))
+          for (final item in items)
             ListTile(
               leading: Icon(item.icon),
               title: Text(item.label),

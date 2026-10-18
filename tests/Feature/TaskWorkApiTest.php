@@ -6,6 +6,7 @@ use App\Models\Doctor;
 use App\Models\Task;
 use App\Models\TaskInstance;
 use App\Models\User;
+use App\Services\PermissionManager;
 use App\Support\TaskScoring;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -91,7 +92,11 @@ class TaskWorkApiTest extends TestCase
         $task = $this->task(['measure' => 'count', 'checklist' => [['label' => 'Session 1'], ['label' => 'Session 2']]]);
         $instance = TaskInstance::create(['task_id' => $task->id, 'doctor_id' => $doctor->id, 'status' => 'assigned']);
 
-        Sanctum::actingAs(User::factory()->create(['role' => 'editor']));
+        // Reading needs the "open case sheet" grant (2026-10-18), saving finish.
+        $editor = User::factory()->create(['role' => 'editor']);
+        Sanctum::actingAs($editor);
+        $this->getJson("/api/v1/case-sheets/instances/{$instance->id}/work")->assertForbidden();
+        PermissionManager::syncGrants($editor, ['task_progress.open_case_sheet']);
         $this->getJson("/api/v1/case-sheets/instances/{$instance->id}/work")->assertOk()->assertJsonPath('can_edit', false);
         $this->putJson("/api/v1/case-sheets/instances/{$instance->id}/work", ['work_items' => [['check' => 0]]])->assertForbidden();
     }

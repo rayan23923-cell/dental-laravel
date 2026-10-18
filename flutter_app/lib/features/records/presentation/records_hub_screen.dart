@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/auth/staff_access.dart';
 import '../../../core/i18n/locale_controller.dart';
+import '../../auth/domain/auth_account.dart';
+import '../../auth/presentation/auth_controller.dart';
+import '../../auth/presentation/auth_state.dart';
 
 /// "السجلات" — staff-only entry point to the patients/appointments/
 /// payments trio, mirroring `CaseSheetTypesScreen`'s role on the doctor
@@ -19,11 +23,13 @@ class RecordsHubScreen extends ConsumerWidget {
     // reception-desk front door, but the route/screen behind it still
     // works: Appointments' patient picker has no other way to create a
     // new `Patient` row (see AppointmentController.php's formOptions()).
+    final authState = ref.watch(authControllerProvider).valueOrNull;
+    final account = authState is Authenticated ? authState.account : null;
     final items = [
       (t['labels.registerPatients']!, Icons.how_to_reg_outlined, '/records/patient-registrations'),
       // Appointments hidden for now (2026-10-13, by request), as on the web.
       (t['labels.payments']!, Icons.payments_outlined, '/records/payments'),
-    ];
+    ].where((item) => account is! StaffAccount || staffCanOpen(account, item.$3)).toList();
 
     return Scaffold(
       appBar: AppBar(title: Text(t['nav.records']!)),

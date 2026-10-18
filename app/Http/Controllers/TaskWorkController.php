@@ -24,6 +24,8 @@ class TaskWorkController extends Controller
     {
         $doctor = CaseSheetAccess::doctor();
         abort_if($doctor && (int) $taskInstance->doctor_id !== (int) $doctor->id, 403);
+        // Staff read it with the case sheet it sits on (2026-10-18).
+        abort_if(! $doctor && ! $this->can('open_case_sheet'), 403);
 
         $taskInstance->loadMissing('task');
         // A task graded by its sheet's steps shows what the sheet adds up to now.
@@ -71,8 +73,13 @@ class TaskWorkController extends Controller
 
     private function canEdit(): bool
     {
+        return $this->can('finish');
+    }
+
+    private function can(string $permission): bool
+    {
         $user = request()->user();
 
-        return $user instanceof User && (new PermissionManager($user))->can('task_progress', 'finish');
+        return $user instanceof User && (new PermissionManager($user))->can('task_progress', $permission);
     }
 }

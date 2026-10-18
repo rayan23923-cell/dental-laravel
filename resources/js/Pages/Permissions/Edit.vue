@@ -25,7 +25,7 @@ const props = defineProps({
     granted: Array,
     // Option lists + the account's current selection for each of the four
     // scope dimensions (App\Services\ScopeHelper). `null` on any dimension
-    // in `scope` means unrestricted.
+    // in `scope` means nothing picked; see the all* flags for "الكل".
     scopeOptions: Object,
     scope: Object,
 });
@@ -37,6 +37,9 @@ const form = useForm({
         stages: props.scope.stages ? [...props.scope.stages] : [],
         education_types: props.scope.educationTypes ? [...props.scope.educationTypes] : [],
         academic_sessions: props.scope.academicSessions ? [...props.scope.academicSessions] : [],
+        // "الكل" on the top levels (2026-10-18).
+        all_education_types: props.scope.allEducationTypes,
+        all_academic_sessions: props.scope.allAcademicSessions,
     },
 });
 
