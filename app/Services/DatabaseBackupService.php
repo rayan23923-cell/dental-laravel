@@ -150,11 +150,17 @@ class DatabaseBackupService
             if (filesize($sql) === 0) {
                 throw new \RuntimeException("The backup is empty: {$path}");
             }
+            [$portable, $filled] = $this->forMariaDb($sql);
+            if ($temp) {
+                @unlink($temp);
+            }
+            $temp = $sql = $portable;
             Schema::dropAllTables();
             $connection = config('database.connections.'.config('database.default'));
             if (! $this->importWithClient($connection, $sql)) {
-                DB::unprepared(file_get_contents($sql));
+                $this->importWithPdo($sql);
             }
+            $this->assertFilled($filled);
         } finally {
             if ($temp) {
                 @unlink($temp);
@@ -164,6 +170,78 @@ class DatabaseBackupService
         $uploads = dirname($path).DIRECTORY_SEPARATOR.self::UPLOADS_DIR;
         if (is_dir($uploads)) {
             $this->copyNewer($uploads, storage_path('app/public'));
+        }
+    }
+
+    /**
+     * A copy of the dump that MariaDB (the offline package) also accepts
+     * (2026-10-18): the hosted server runs MySQL 8, whose tables use the
+     * utf8mb4_0900_* collations and /*!80016 ... *\/ options MariaDB
+     * rejects, so a hosted copy restored offline used to fail after the
+     * tables were dropped. Line by line, so a large dump isn't held in memory.
+     * Also returns the tables the dump has rows for, to check afterwards.
+     *
+     * @return array{0: string, 1: array<int, string>}
+     */
+    private function forMariaDb(string $sql): array
+    {
+        $out = tempnam(sys_get_temp_dir(), 'restore');
+        $in = fopen($sql, 'r');
+        $to = fopen($out, 'w');
+        $filled = [];
+        while (($line = fgets($in)) !== false) {
+            if (str_contains($line, '_0900_') || str_contains($line, '/*!80')) {
+                $line = preg_replace(['/\butf8mb4_0900_\w+/', '/\/\*!80\d{3}.*?\*\/\s?/'], ['utf8mb4_unicode_ci', ''], $line);
+            }
+            if (str_starts_with($line, 'INSERT INTO `') && preg_match('/^INSERT INTO `((?:[^`]|``)+)`/', $line, $m)) {
+                $filled[str_replace('``', '`', $m[1])] = true;
+            }
+            fwrite($to, $line);
+        }
+        fclose($in);
+        fclose($to);
+
+        return [$out, array_keys($filled)];
+    }
+
+    /**
+     * Runs the dump one statement at a time (2026-10-18): a whole file in
+     * one unprepared call only reports an error in its first statement, so
+     * a failing CREATE TABLE further down went unnoticed and the restore
+     * "succeeded" with empty tables. Dumps escape newlines inside values,
+     * so a line ending in `;` ends a statement.
+     */
+    private function importWithPdo(string $sql): void
+    {
+        $in = fopen($sql, 'r');
+        $statement = '';
+        try {
+            while (($line = fgets($in)) !== false) {
+                $statement .= $line;
+                if (! str_ends_with(rtrim($line), ';')) {
+                    continue;
+                }
+                try {
+                    DB::unprepared($statement);
+                } catch (\Throwable $e) {
+                    throw new \RuntimeException('Import failed at: '.mb_substr(trim($statement), 0, 150).' ... '.$e->getMessage(), 0, $e);
+                }
+                $statement = '';
+            }
+            if (trim($statement) !== '') {
+                DB::unprepared($statement);
+            }
+        } finally {
+            fclose($in);
+        }
+    }
+
+    /** Every table the dump has rows for must have come back with rows. */
+    private function assertFilled(array $tables): void
+    {
+        $missing = array_values(array_filter($tables, fn ($t) => ! Schema::hasTable($t) || ! DB::table($t)->exists()));
+        if ($missing !== []) {
+            throw new \RuntimeException('The backup did not import fully, these tables came back empty: '.implode(', ', array_slice($missing, 0, 10)));
         }
     }
 

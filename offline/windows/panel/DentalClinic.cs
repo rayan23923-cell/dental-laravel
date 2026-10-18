@@ -638,7 +638,23 @@ namespace DentalClinicPanel
         public bool RestoreBackup(string file, out string message)
         {
             Log("استعادة النسخة " + Path.GetFileName(file) + "...");
-            var r = RunArtisan("backup:restore \"" + file + "\" --force", 3600000);
+            // A file from elsewhere (e.g. Downloads under an Arabic user name) is
+            // copied into the backups folder under a plain name first, so PHP
+            // gets a path it can open (2026-10-18).
+            string arg = file;
+            try
+            {
+                var dir = Path.GetFullPath(BackupDir).TrimEnd('\\');
+                if (!string.Equals(Path.GetDirectoryName(Path.GetFullPath(file)).TrimEnd('\\'), dir, StringComparison.OrdinalIgnoreCase)
+                    || Path.GetFileName(file).Any(c => c > 127))
+                {
+                    Directory.CreateDirectory(dir);
+                    arg = Path.Combine(dir, "restore_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + Path.GetExtension(file).ToLowerInvariant());
+                    File.Copy(file, arg, true);
+                }
+            }
+            catch (Exception ex) { Log("تنبيه: تعذّر نسخ الملف إلى مجلد النسخ: " + ex.Message); }
+            var r = RunArtisan("backup:restore \"" + arg + "\" --force", 3600000);
             bool ok = r.Code == 0;
             message = ok ? "تمت الاستعادة من " + Path.GetFileName(file) + ". حُفظت البيانات السابقة كنسخة احتياطية أيضًا."
                          : "تعذّرت الاستعادة: " + Tail(r.Output, 3);

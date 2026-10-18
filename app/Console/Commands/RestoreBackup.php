@@ -36,7 +36,18 @@ class RestoreBackup extends Command
         $safety = $backups->create('before-restore');
         $this->info("Current data saved first: {$safety['filename']}");
 
-        $backups->restore($path);
+        try {
+            $backups->restore($path);
+        } catch (\Throwable $e) {
+            // Tables were already dropped: put the data from just before back.
+            $backups->restore($backups->fullPath($safety['filename']));
+            $this->call('migrate', ['--force' => true]);
+            $this->warn("The previous data was put back from {$safety['filename']}.");
+            // Last, so the panel (which shows the last lines) shows why.
+            $this->error('Restore failed: '.$e->getMessage());
+
+            return self::FAILURE;
+        }
         $this->call('migrate', ['--force' => true]);
         $this->call('cache:clear');
 
