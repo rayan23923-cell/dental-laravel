@@ -17,8 +17,8 @@ use App\Models\UserPermission;
 class RolePresets
 {
     public const GRANTS = [
-        'reception' => ['patients' => ['view', 'create']],
-        'lab' => ['patient_screening' => ['view', 'confirm']],
+        'reception' => ['patients' => ['view', 'create'], 'printer_settings' => ['view']],
+        'lab' => ['patient_screening' => ['view', 'confirm'], 'printer_settings' => ['view']],
     ];
 
     /** The page a desk role lands on instead of the dashboard. */

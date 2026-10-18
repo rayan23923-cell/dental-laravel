@@ -72,7 +72,7 @@ class PermissionGatesTest extends TestCase
 
         $this->getJson('/api/v1/me')
             ->assertOk()
-            ->assertJsonPath('permissions', fn ($p) => collect($p)->sort()->values()->all() === ['patient_screening.confirm', 'patient_screening.view']);
+            ->assertJsonPath('permissions', fn ($p) => collect($p)->sort()->values()->all() === ['patient_screening.confirm', 'patient_screening.view', 'printer_settings.view']);
     }
 
     public function test_nothing_picked_in_the_scope_means_nothing(): void

@@ -99,6 +99,12 @@ class PermissionMatrix
                 'name' => 'الإعدادات',
                 'permissions' => ['view' => 'عرض', 'edit' => 'تعديل'],
             ],
+            // The app's printer set-up on this device (2026-10-18, by
+            // request), so desk accounts like the lab can be given it.
+            'printer_settings' => [
+                'name' => 'إعدادات الطابعة',
+                'permissions' => ['view' => 'فتح الإعدادات'],
+            ],
         ];
     }
 

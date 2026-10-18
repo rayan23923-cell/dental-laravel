@@ -23,13 +23,16 @@ bool staffCanOpen(StaffAccount account, String route) {
     '/admin/task-progress' => can('task_progress'),
     '/admin/case-sheet-types' => can('case_sheet_types'),
     '/admin/clinic-settings' || '/admin/waiting-screen-settings' => admin && can('settings'),
+    // A permission since 2026-10-18 (by request), so the lab or the
+    // ticket desk can be given the printer without the rest of settings.
+    '/admin/printer-settings' => can('printer_settings'),
     '/admin/academic-sessions' ||
     '/admin/permissions' ||
     '/admin/department-roles' ||
     '/admin/activity-log' ||
     '/admin/backup' ||
     '/admin/broadcast' => admin,
-    // The printer and pairing a TV are this device's own set-up.
+    // Pairing a TV is this device's own set-up.
     _ => true,
   };
 }

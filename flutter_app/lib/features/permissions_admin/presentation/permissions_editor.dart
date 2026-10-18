@@ -297,6 +297,7 @@ const _moduleStyles = <String, (IconData, Color)>{
   'patient_screening': (Icons.fact_check_outlined, Colors.pinkAccent),
   'reports': (Icons.bar_chart, Colors.purple),
   'settings': (Icons.settings_outlined, Colors.grey),
+  'printer_settings': (Icons.print_outlined, Colors.green),
 };
 
 class _ScopeDim {
