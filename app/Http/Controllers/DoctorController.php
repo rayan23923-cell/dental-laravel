@@ -20,6 +20,8 @@ use Inertia\Response;
 
 class DoctorController extends Controller
 {
+    private const PAGE_SIZES = [15, 25, 50, 75, 100];
+
     public function index(Request $request): Response
     {
         // Matches admin/ajax/doctors_crud.php: education-type and stage
@@ -56,8 +58,12 @@ class DoctorController extends Controller
                         ->orWhere('username', 'like', "%{$search}%");
                 });
             })
-            ->orderBy('name')
-            ->paginate(15)
+            ->orderBy('name');
+        // Rows per page (2026-10-18, by request): 15, 25, 50, 75, 100 or all.
+        $perPage = $request->string('per_page')->toString();
+        $perPage = $perPage === 'all' ? 'all' : (in_array((int) $perPage, self::PAGE_SIZES, true) ? (int) $perPage : 15);
+        $doctors = $doctors
+            ->paginate($perPage === 'all' ? max(1, (clone $doctors)->count()) : $perPage)
             ->withQueryString();
 
         return Inertia::render('Doctors/Index', [
@@ -65,6 +71,7 @@ class DoctorController extends Controller
             'educationTypes' => ScopeHelper::scopeEducationTypes(EducationType::query(), $request->user())->orderBy('name')->get(['id', 'name']),
             'stages' => ScopeHelper::scopeStages(Stage::query(), $request->user())->orderBy('name')->get(['id', 'name', 'education_type_id']),
             'filters' => $request->only('search', 'education_type_id', 'stage_id'),
+            'perPage' => (string) $perPage,
             'currentSession' => $session?->only('id', 'name'),
             'allSessions' => $request->boolean('all_sessions'),
         ]);
@@ -101,9 +108,22 @@ class DoctorController extends Controller
         return $blocked ? $redirect->with('error', implode("\n", $blocked)) : $redirect;
     }
 
+    /**
+     * The doctors list the user came from, with its filters and page
+     * (2026-10-18, by request: back and save return there). Anything that
+     * isn't the list falls back to it, so this never redirects elsewhere.
+     */
+    private function listUrl(?string $url): string
+    {
+        $index = route('doctors.index');
+
+        return $url && ($url === $index || str_starts_with($url, $index.'?')) ? $url : $index;
+    }
+
     public function create(): Response
     {
         return Inertia::render('Doctors/Create', [
+            'backUrl' => $this->listUrl(url()->previous()),
             'educationTypes' => EducationType::orderBy('name')->get(),
             'stages' => Stage::orderBy('name')->get(),
         ]);
@@ -128,13 +148,14 @@ class DoctorController extends Controller
         $doctor = Doctor::create($validated);
         CredentialMailer::queueWelcome('doctor', $doctor->email, $doctor->name, $doctor->username, $plainPassword);
 
-        return redirect()->route('doctors.index')->with('success', 'Doctor added successfully.');
+        return redirect($this->listUrl($request->input('back')))->with('success', 'Doctor added successfully.');
     }
 
     public function edit(Request $request, Doctor $doctor): Response
     {
         return Inertia::render('Doctors/Edit', [
             'doctor' => $doctor,
+            'backUrl' => $this->listUrl(url()->previous()),
             'educationTypes' => EducationType::orderBy('name')->get(),
             'stages' => Stage::orderBy('name')->get(),
             // Editable so a doctor can be moved between academic years, and
@@ -166,7 +187,7 @@ class DoctorController extends Controller
 
         $doctor->update($validated);
 
-        return redirect()->route('doctors.index')->with('success', 'Doctor updated successfully.');
+        return redirect($this->listUrl($request->input('back')))->with('success', 'Doctor updated successfully.');
     }
 
     public function destroy(Doctor $doctor): RedirectResponse
