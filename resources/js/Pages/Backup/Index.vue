@@ -24,6 +24,7 @@ const props = defineProps({
     folder: String,
     lastBackupAt: String,
     files: { type: Array, default: () => [] },
+    offlineCopy: Boolean,
 });
 
 const page = usePage();
@@ -106,6 +107,24 @@ const formatDate = (unixSeconds) => new Date(unixSeconds * 1000).toLocaleString(
                         {{ t('backupAdmin.scheduleNote') }}
                         <p v-if="folder" class="mt-2 break-all">{{ t('backupAdmin.folderNote') }} <span class="font-mono" dir="ltr">{{ folder }}</span></p>
                     </div>
+                </div>
+
+                <!-- The hosted data for the offline edition (2026-10-18): restored there with the control panel's "Restore". -->
+                <div v-if="offlineCopy" class="flex flex-wrap items-center gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+                    <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 text-white">
+                        <Icon name="wifi_off" size="text-[24px]" />
+                    </div>
+                    <div class="min-w-0 flex-1 text-sm text-gray-700">
+                        <p class="font-medium text-gray-800">{{ t('backupAdmin.offlineCopyTitle') }}</p>
+                        <p class="mt-1">{{ t('backupAdmin.offlineCopyNote') }}</p>
+                    </div>
+                    <a
+                        :href="route('backup.offline-copy')"
+                        class="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                    >
+                        <Icon name="cloud_download" size="text-[18px]" />
+                        {{ t('backupAdmin.offlineCopyDownload') }}
+                    </a>
                 </div>
 
                 <ChatListCard :empty="files.length === 0" :empty-text="t('backupAdmin.emptyList')" empty-icon="cloud_off">

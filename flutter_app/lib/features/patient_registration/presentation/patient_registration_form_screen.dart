@@ -1,8 +1,8 @@
 import 'dart:typed_data';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../../core/platform/platform_support.dart';
 import '../../../core/i18n/locale_controller.dart';
@@ -16,13 +16,15 @@ import '../../printing/presentation/printer_error_snackbar.dart';
 import '../../printing/presentation/ticket_print_animation.dart';
 import '../../printing/presentation/ticket_renderer.dart';
 import '../../printing/presentation/ticket_widget.dart';
+import '../../records/domain/payment.dart';
 import '../data/patient_registration_repository.dart';
 import '../domain/service.dart';
 import 'patient_registration_providers.dart';
 import '../../../core/widgets/numeric_input.dart';
 
 /// "تسجيل مريض جديد" — mirrors `PatientRegistrations/Create.vue`: name,
-/// phone and a service picked from cards with its price (2026-10-12 — the
+/// phone and a service picked from a horizontal, swipeable row of cards
+/// with its price (2026-10-18) (2026-10-12 — the
 /// day picker is gone, registration is by service only). Payment is
 /// mandatory and is the service's price, recorded by the server, so there
 /// is no amount field; a service with no price yet cannot be picked. On Android, a successful submit also
@@ -147,7 +149,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
   Widget build(BuildContext context) {
     final servicesAsync = ref.watch(servicesProvider);
     final t = ref.watch(translationsProvider);
-    final priceFormat = NumberFormat('#,##0.##');
+    final currency = ref.watch(clinicSettingsProvider).valueOrNull?.currency;
 
     return Scaffold(
       appBar: AppBar(title: Text(t['patientRegFlutter.newRegistrationTitle']!)),
@@ -185,29 +187,38 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (services.isEmpty) Text(t['patientRegFlutter.noServices']!),
-                      GridView.count(
-                        crossAxisCount: 2,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        mainAxisSpacing: 8,
-                        crossAxisSpacing: 8,
-                        childAspectRatio: 1.9,
-                        children: [
-                          for (final s in services)
-                            _ServiceCard(
-                              service: s,
-                              selected: s.id == field.value,
-                              priceLabel: s.price == null
-                                  ? t['patientRegFlutter.noPriceYet']!
-                                  : priceFormat.format(s.price),
-                              onTap: s.price == null
-                                  ? null
-                                  : () {
-                                      field.didChange(s.id);
-                                      setState(() => _serviceId = s.id);
-                                    },
-                            ),
-                        ],
+                      // One row that swipes left and right, for faster entry
+                      // than scanning a grid (2026-10-18, by request). The
+                      // mouse drags it too, for the Windows app.
+                      SizedBox(
+                        height: 96,
+                        child: ScrollConfiguration(
+                          behavior: ScrollConfiguration.of(context).copyWith(dragDevices: PointerDeviceKind.values.toSet()),
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: services.length,
+                            separatorBuilder: (_, _) => const SizedBox(width: 8),
+                            itemBuilder: (context, i) {
+                              final s = services[i];
+                              return SizedBox(
+                                width: 150,
+                                child: _ServiceCard(
+                                  service: s,
+                                  selected: s.id == field.value,
+                                  priceLabel: s.price == null
+                                      ? t['patientRegFlutter.noPriceYet']!
+                                      : formatMoney(s.price!, currency),
+                                  onTap: s.price == null
+                                      ? null
+                                      : () {
+                                          field.didChange(s.id);
+                                          setState(() => _serviceId = s.id);
+                                        },
+                                ),
+                              );
+                            },
+                          ),
+                        ),
                       ),
                       if (field.errorText != null)
                         Padding(
@@ -225,7 +236,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                     child: ListTile(
                       title: Text(t['patientRegFlutter.amountDue']!),
                       trailing: Text(
-                        priceFormat.format(selected.price),
+                        formatMoney(selected.price!, currency),
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                       ),
                     ),

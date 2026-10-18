@@ -1,0 +1,60 @@
+name: Tests
+
+# The PHP feature tests against MariaDB, and the web build, on every pull
+# request and push to main (2026-10-18, by request: changes are checked on
+# GitHub Actions instead of a local computer). The Breeze starter tests for
+# self-registration and the profile page are left out: those screens are
+# replaced in this app, so they fail by design.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  php:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_DATABASE: dtest
+          MARIADB_USER: t
+          MARIADB_PASSWORD: t
+          MARIADB_ROOT_PASSWORD: root
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo_mysql, zip, gd, sodium, intl
+          tools: composer
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: |
+          cp .env.example .env
+          php artisan key:generate
+      - name: Feature tests
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: dtest
+          DB_USERNAME: t
+          DB_PASSWORD: t
+        run: php vendor/bin/phpunit --exclude-filter '/(Auth\\AuthenticationTest::test_users_can_authenticate_using_the_login_screen|Auth\\RegistrationTest|ProfileTest)/'

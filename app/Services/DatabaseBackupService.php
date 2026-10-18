@@ -66,6 +66,46 @@ class DatabaseBackupService
         return ['filename' => basename($file), 'size' => filesize($file)];
     }
 
+    /**
+     * Tables an offline copy gets empty when it takes this database
+     * (2026-10-18, by request): sessions, queues, tokens and the licensing
+     * records belong to the hosted server only.
+     */
+    public const HOSTED_ONLY_TABLES = [
+        'cache', 'cache_locks', 'sessions', 'jobs', 'job_batches', 'failed_jobs', 'queued_emails',
+        'offline_licenses', 'license_admins', 'license_universities',
+        'password_reset_tokens', 'password_reset_otps', 'personal_access_tokens', 'device_tokens',
+        'scanner_pairings', 'waiting_screen_pairings', 'mikrotik_settings',
+    ];
+
+    /** Columns blanked in that copy: secrets of the hosted server (mail_password is encrypted with its APP_KEY anyway). */
+    public const HOSTED_ONLY_COLUMNS = [
+        'clinic_settings' => ['mail_password', 'mikrotik_ip', 'mikrotik_user', 'mikrotik_pass', 'mikrotik_ssh_port', 'jwt_secret_key'],
+    ];
+
+    /**
+     * The hosted database for an offline copy, as a backup-style zip
+     * (`database.sql`) in a temporary file the caller deletes. Always
+     * the PHP dump, which can leave out the hosted-only rows and secrets.
+     */
+    public function createForOffline(): string
+    {
+        $sql = tempnam(sys_get_temp_dir(), 'offline-sync');
+        $this->dumpWithPhp($sql, self::HOSTED_ONLY_TABLES, self::HOSTED_ONLY_COLUMNS);
+
+        $zipPath = $sql.'.zip';
+        $zip = new ZipArchive();
+        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            @unlink($sql);
+            throw new \RuntimeException("Unable to write {$zipPath}");
+        }
+        $zip->addFile($sql, 'database.sql');
+        $zip->close();
+        @unlink($sql);
+
+        return $zipPath;
+    }
+
     /** @return array<int, array{name: string, size: int, mtime: int}> */
     public function list(): array
     {
@@ -240,8 +280,11 @@ class DatabaseBackupService
         return false;
     }
 
-    /** Same fallback the original uses when mysqldump isn't reachable: dump structure + data via PDO. */
-    private function dumpWithPhp(string $fullPath): void
+    /**
+     * Same fallback the original uses when mysqldump isn't reachable: dump structure + data via PDO.
+     * `$structureOnly` tables get no rows; `$nullColumns` (table => columns) are written as NULL.
+     */
+    private function dumpWithPhp(string $fullPath, array $structureOnly = [], array $nullColumns = []): void
     {
         $pdo = DB::connection()->getPdo();
 
@@ -258,6 +301,10 @@ class DatabaseBackupService
             $quoted = str_replace('`', '``', $table);
             $create = $pdo->query("SHOW CREATE TABLE `{$quoted}`")->fetch(\PDO::FETCH_ASSOC);
             fwrite($handle, "--\n-- Table structure for table `{$table}`\n--\n\nDROP TABLE IF EXISTS `{$quoted}`;\n".($create['Create Table'] ?? '').";\n\n");
+            if (in_array($table, $structureOnly, true)) {
+                continue;
+            }
+            $blank = $nullColumns[$table] ?? [];
 
             $stmt = $pdo->query("SELECT * FROM `{$quoted}`");
             $batch = [];
@@ -265,7 +312,7 @@ class DatabaseBackupService
 
             while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
                 $columns ??= array_keys($row);
-                $values = array_map(fn ($col) => is_null($row[$col]) ? 'NULL' : $pdo->quote($row[$col]), $columns);
+                $values = array_map(fn ($col) => is_null($row[$col]) || in_array($col, $blank, true) ? 'NULL' : $pdo->quote($row[$col]), $columns);
                 $batch[] = '('.implode(',', $values).')';
 
                 if (count($batch) >= 500) {

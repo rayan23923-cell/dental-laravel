@@ -83,4 +83,33 @@ class BackupRestoreTest extends TestCase
         $this->artisan('backup:run')->expectsOutputToContain('Backup created')->assertSuccessful();
         $this->artisan('backup:run')->expectsOutputToContain('already ran today')->assertSuccessful();
     }
+
+    public function test_the_copy_for_the_offline_system_leaves_out_server_only_data_and_restores(): void
+    {
+        $admin = User::factory()->create(['username' => 'hostadmin', 'role' => 'admin']);
+        \App\Models\ClinicSetting::current()->update(['mail_password' => 'smtp-secret']);
+        \Illuminate\Support\Facades\DB::table('sessions')->insert(['id' => 'sess-1', 'payload' => 'x', 'last_activity' => time()]);
+
+        $response = $this->actingAs($admin)->get(route('backup.offline-copy'));
+        $response->assertOk();
+        $file = $response->baseResponse->getFile()->getPathname();
+        $zip = new ZipArchive();
+        $zip->open($file);
+        $sql = $zip->getFromName('database.sql');
+        $zip->close();
+        $copy = $this->dir.'/offline-copy.zip';
+        File::ensureDirectoryExists($this->dir);
+        copy($file, $copy);
+
+        $this->assertStringContainsString('hostadmin', $sql);
+        $this->assertStringContainsString('CREATE TABLE `sessions`', $sql);
+        $this->assertStringNotContainsString('sess-1', $sql);
+        $this->assertStringNotContainsString(\App\Models\ClinicSetting::current()->getRawOriginal('mail_password'), $sql);
+
+        $this->artisan('backup:restore', ['file' => $copy, '--force' => true])->assertSuccessful();
+        $this->assertDatabaseHas('users', ['username' => 'hostadmin']);
+        $this->assertNull(\App\Models\ClinicSetting::current()->mail_password);
+
+        $this->actingAs(User::factory()->create(['role' => 'doctor']))->get(route('backup.offline-copy'))->assertForbidden();
+    }
 }

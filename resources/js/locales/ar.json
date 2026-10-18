@@ -274,6 +274,8 @@
         "filterDays": "تصفية الأيام...",
         "chooseDay": "اختر اليوم",
         "filterServices": "تصفية الخدمات...",
+        "scrollServicesBack": "الخدمات السابقة",
+        "scrollServicesForward": "الخدمات التالية",
         "chooseService": "اختر الخدمة",
         "chooseDayFirst": "اختر اليوم أولاً",
         "noServicesForDay": "لا توجد خدمات متاحة في هذا اليوم.",
@@ -774,6 +776,9 @@
         "emptyList": "لا يوجد نشاط مسجل بعد."
     },
     "backupAdmin": {
+        "offlineCopyTitle": "نسخة لنظام الأوفلاين",
+        "offlineCopyNote": "قاعدة بيانات هذا الموقع (المستخدمون والطلاب والخدمات والمرضى والإعدادات) لنقلها إلى نسخة الأوفلاين: في لوحة تحكم الأوفلاين اضغط «استعادة نسخة» واختر هذا الملف. الصور المرفوعة غير مشمولة.",
+        "offlineCopyDownload": "تنزيل النسخة",
         "title": "النسخ الاحتياطي لقاعدة البيانات",
         "lastBackupAt": "آخر نسخة احتياطية: {date}",
         "noPreviousBackup": "لا يوجد نسخ سابق",
