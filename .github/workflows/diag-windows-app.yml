@@ -1,0 +1,36 @@
+name: Diag Windows app startup
+# Temporary: reproduces "the offline Windows app closes on start" (2026-10-18). Not for main.
+on:
+  push:
+    branches: [claude/project-thread-ov2by5]
+    paths: ['.github/workflows/diag-windows-app.yml']
+jobs:
+  run:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [windows, windows_offline]
+    steps:
+      - name: Install and launch
+        shell: pwsh
+        run: |
+          $rel = Invoke-RestMethod https://dental.azoclinic.duckdns.org/downloads/releases.json
+          $e = $rel.'${{ matrix.variant }}'
+          Write-Host "version $($e.version) url $($e.url)"
+          Invoke-WebRequest $e.url -OutFile setup.exe
+          $p = Start-Process .\setup.exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -PassThru
+          $p | Wait-Process -Timeout 300
+          Start-Sleep 5
+          Get-Process | Where-Object { $_.Path -like '*Dental Clinic App*' } | Stop-Process -Force -ErrorAction SilentlyContinue
+          $exe = Get-ChildItem "$env:ProgramFiles\Dental Clinic App" -Filter *.exe | Where-Object Name -notlike 'unins*' | Select-Object -First 1
+          Write-Host "exe $($exe.FullName)"
+          $start = Get-Date
+          $app = Start-Process $exe.FullName -PassThru
+          Start-Sleep 40
+          $app.Refresh()
+          if ($app.HasExited) { Write-Host "EXITED code $($app.ExitCode)" } else { Write-Host "RUNNING after 40s" }
+          Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=$start} -ErrorAction SilentlyContinue |
+            Where-Object { $_.ProviderName -in 'Application Error','Windows Error Reporting','.NET Runtime','Application Hang' } |
+            ForEach-Object { Write-Host "---- $($_.ProviderName) $($_.Id)"; Write-Host $_.Message }
+          Get-ChildItem $env:APPDATA, $env:LOCALAPPDATA -Recurse -Filter *.log -ErrorAction SilentlyContinue | Where-Object LastWriteTime -gt $start | ForEach-Object { Write-Host "== $($_.FullName)"; Get-Content $_.FullName -Tail 50 }
