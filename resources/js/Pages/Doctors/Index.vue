@@ -32,6 +32,7 @@ const props = defineProps({
     filters: Object,
     currentSession: { type: Object, default: null },
     allSessions: { type: Boolean, default: false },
+    perPage: { type: String, default: '15' },
 });
 
 const page = usePage();
@@ -44,6 +45,10 @@ const stage = ref(props.filters.stage_id ?? '');
 // being worked in. This toggle lifts that filter to review past intakes
 // without switching the whole app's session in the navbar.
 const allSessions = ref(props.allSessions);
+
+// Rows per page (2026-10-18, by request).
+const perPage = ref(props.perPage);
+const pageSizes = ['15', '25', '50', '75', '100', 'all'];
 
 // Stage list cascades off the selected education type, as in the original
 // (its #filter-stage is disabled until an education type is chosen).
@@ -61,6 +66,7 @@ const applyFilters = () => {
             ...(educationType.value ? { education_type_id: educationType.value } : {}),
             ...(stage.value ? { stage_id: stage.value } : {}),
             ...(allSessions.value ? { all_sessions: 1 } : {}),
+            ...(perPage.value !== '15' ? { per_page: perPage.value } : {}),
         },
         { preserveState: true, replace: true }
     );
@@ -131,6 +137,10 @@ const printFilteredUrl = computed(() => `${route('doctors.print')}?${filterParam
 
 // "طباعة المحدد" — the same roster endpoint, restricted to the ticked rows.
 const printSelectedUrl = computed(() => `${route('doctors.print')}?ids=${selected.value.join(',')}`);
+
+// The doctors' cards, for the same filter or the ticked rows (2026-10-18).
+const cardsFilteredUrl = computed(() => `${route('doctors.cards')}?${filterParams.value.toString()}`);
+const cardsSelectedUrl = computed(() => `${route('doctors.cards')}?ids=${selected.value.join(',')}`);
 </script>
 
 <template>
@@ -185,7 +195,11 @@ const printSelectedUrl = computed(() => `${route('doctors.print')}?ids=${selecte
                     </select>
                     <ChatAction v-if="hasFilters" icon="filter_alt_off" :label="t('taskProgressAdmin.clearFilters')" @click="clearFilters" />
                     <div class="ms-auto flex items-center">
+                        <select v-model="perPage" @change="applyFilters" :title="t('doctorsAdmin.perPage')" class="me-1 rounded-full border-gray-200 bg-white py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            <option v-for="size in pageSizes" :key="size" :value="size">{{ size === 'all' ? t('doctorsAdmin.perPageAll') : size }}</option>
+                        </select>
                         <ChatAction icon="print" :label="t('doctorsAdmin.printFiltered')" :href="printFilteredUrl" external />
+                        <ChatAction icon="badge" :label="t('doctorsAdmin.printCardsFiltered')" :href="cardsFilteredUrl" external />
                         <a :href="exportUrl" :title="t('doctorsAdmin.exportExcelTitle')" class="inline-flex h-9 w-9 items-center justify-center rounded-full text-emerald-600 transition hover:bg-emerald-50">
                             <Icon name="table_view" size="text-[20px]" :label="t('doctorsAdmin.exportExcelTitle')" />
                         </a>
@@ -197,6 +211,7 @@ const printSelectedUrl = computed(() => `${route('doctors.print')}?ids=${selecte
                     <span class="text-sm font-medium text-amber-900">{{ t('doctorsAdmin.selectedCount', { n: selected.length }) }}</span>
                     <div class="flex items-center">
                         <ChatAction icon="print" :label="t('doctorsAdmin.printSelected')" :href="printSelectedUrl" external />
+                        <ChatAction icon="badge" :label="t('doctorsAdmin.printCardsSelected')" :href="cardsSelectedUrl" external />
                         <ChatAction icon="delete" :label="t('doctorsAdmin.deleteSelected')" danger @click="destroySelected" />
                     </div>
                 </div>

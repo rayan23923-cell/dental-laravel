@@ -4,7 +4,7 @@ import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -12,9 +12,12 @@ const { t } = useI18n();
 const props = defineProps({
     educationTypes: Array,
     stages: Array,
+    // The list the user came from, filters and page kept (2026-10-18).
+    backUrl: String,
 });
 
 const form = useForm({
+    back: props.backUrl,
     name: '',
     username: '',
     email: '',
@@ -54,9 +57,15 @@ const submit = () => {
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                {{ t('doctorsAdmin.addDoctor') }}
-            </h2>
+            <div class="flex items-center justify-between gap-2">
+                <h2 class="text-xl font-semibold leading-tight text-gray-800">
+                    {{ t('doctorsAdmin.addDoctor') }}
+                </h2>
+                <!-- Back to the doctors list (2026-10-18, by request). -->
+                <Link :href="backUrl || route('doctors.index')" class="flex items-center gap-1 text-sm text-indigo-600 hover:underline">
+                    {{ t('common.back') }}
+                </Link>
+            </div>
         </template>
 
         <div class="py-12">

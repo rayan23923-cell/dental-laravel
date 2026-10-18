@@ -10,6 +10,7 @@ use App\Support\QrCodeFactory;
 use Endroid\QrCode\QrCode;
 use Endroid\QrCode\Writer\PngWriter;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 
 /**
@@ -29,6 +30,40 @@ use Illuminate\Http\Request;
 class DoctorPrintController extends Controller
 {
     public function roster(Request $request): View
+    {
+        $doctors = $this->filtered($request);
+
+        // The original groups the roster by stage and prints a per-stage
+        // heading with its own count.
+        $byStage = $doctors->groupBy(fn ($d) => $d->stage?->name ?? 'غير محدد');
+
+        return view('print.doctors', [
+            'settings' => ClinicSetting::current(),
+            'byStage' => $byStage,
+            'total' => $doctors->count(),
+            // "مراحل متعددة" when the selection spans more than one stage,
+            // matching the original's header logic.
+            'stageLabel' => $byStage->count() === 1 ? $byStage->keys()->first() : 'مراحل متعددة',
+            // No group column while groups are turned off in clinic settings.
+            'groupsEnabled' => ClinicSetting::groupsEnabled(),
+        ]);
+    }
+
+    /**
+     * Every listed or ticked doctor's card in one printout (2026-10-18, by
+     * request), the same filters as the roster.
+     */
+    public function cards(Request $request): View
+    {
+        return view('print.doctor-cards', [
+            'settings' => ClinicSetting::current(),
+            'doctors' => $this->filtered($request)->map(fn (Doctor $d) => [$d, $this->qr($d)]),
+            'groupsEnabled' => ClinicSetting::groupsEnabled(),
+        ]);
+    }
+
+    /** The doctors list's filters, or an explicit id list ("المحدد"). */
+    private function filtered(Request $request): Collection
     {
         $query = Doctor::with(['educationType:id,name', 'stage:id,name', 'groups:id,name']);
         $query = ScopeHelper::scopeEducationTypes($query, $request->user(), 'education_type_id');
@@ -60,20 +95,7 @@ class DoctorPrintController extends Controller
             ->orderBy('name')
             ->get();
 
-        // The original groups the roster by stage and prints a per-stage
-        // heading with its own count.
-        $byStage = $doctors->groupBy(fn ($d) => $d->stage?->name ?? 'غير محدد');
-
-        return view('print.doctors', [
-            'settings' => ClinicSetting::current(),
-            'byStage' => $byStage,
-            'total' => $doctors->count(),
-            // "مراحل متعددة" when the selection spans more than one stage,
-            // matching the original's header logic.
-            'stageLabel' => $byStage->count() === 1 ? $byStage->keys()->first() : 'مراحل متعددة',
-            // No group column while groups are turned off in clinic settings.
-            'groupsEnabled' => ClinicSetting::groupsEnabled(),
-        ]);
+        return $doctors;
     }
 
     public function card(Doctor $doctor): View
@@ -84,13 +106,20 @@ class DoctorPrintController extends Controller
             'settings' => ClinicSetting::current(),
             'doctor' => $doctor,
             'groupsEnabled' => ClinicSetting::groupsEnabled(),
-            // The doctor's QR (2026-10-14, by request): `{"type":"doctor"}`,
-            // which the task-progress scanner opens as this doctor's progress.
-            'qr' => (new PngWriter())->write(new QrCode(
-                data: QrCodeFactory::payload('doctor', $doctor->id),
-                size: 220,
-                margin: 6,
-            ))->getDataUri(),
+            'qr' => $this->qr($doctor),
         ]);
+    }
+
+    /**
+     * The doctor's QR (2026-10-14, by request): `{"type":"doctor"}`, which
+     * the task-progress scanner opens as this doctor's progress.
+     */
+    private function qr(Doctor $doctor): string
+    {
+        return (new PngWriter())->write(new QrCode(
+            data: QrCodeFactory::payload('doctor', $doctor->id),
+            size: 220,
+            margin: 6,
+        ))->getDataUri();
     }
 }

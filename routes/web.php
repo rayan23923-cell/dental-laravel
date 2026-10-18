@@ -418,6 +418,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/doctors/{doctor}/card', [DoctorPrintController::class, 'card'])
             ->middleware('permission:doctors,export')
             ->name('doctors.card');
+        Route::get('/doctors-cards', [DoctorPrintController::class, 'cards'])
+            ->middleware('permission:doctors,export')
+            ->name('doctors.cards');
     });
 
     Route::middleware('role:super_admin,admin')->group(function () {
