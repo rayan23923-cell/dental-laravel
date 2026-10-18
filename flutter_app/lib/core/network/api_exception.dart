@@ -100,8 +100,17 @@ extension ApiExceptionPresentation on ApiException {
         ValidationException(:final message) => message,
         UnauthorizedException() => 'انتهت صلاحية الجلسة، الرجاء تسجيل الدخول من جديد.',
         ForbiddenException() => 'لا تملك صلاحية القيام بهذا الإجراء.',
-        ServerException() => 'حدث خطأ في الخادم، حاول مرة أخرى.',
+        // The server's own Arabic reason for a 4xx (e.g. "التسجيل غير
+        // موجود.") instead of a generic line (2026-10-18): a lab scan on
+        // the offline server showed only "server error" for a ticket that
+        // wasn't in its database. A 404 without one means the server
+        // doesn't have this screen yet, i.e. it needs updating.
+        ServerException(:final statusCode, :final message) when statusCode < 500 && _isArabic(message) => message,
+        ServerException(statusCode: 404) => 'هذه الخدمة غير موجودة على الخادم، حدّث الخادم إلى آخر نسخة.',
+        ServerException(:final statusCode) => 'حدث خطأ في الخادم ($statusCode)، حاول مرة أخرى.',
         NetworkException() => 'تعذر الاتصال بالخادم، تحقق من عنوان الخادم واتصال الشبكة.',
         UnknownApiException() => 'حدث خطأ غير متوقع.',
       };
 }
+
+bool _isArabic(String text) => RegExp(r'[\u0600-\u06FF]').hasMatch(text);
