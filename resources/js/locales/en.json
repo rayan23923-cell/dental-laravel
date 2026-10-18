@@ -774,6 +774,9 @@
         "emptyList": "No activity recorded yet."
     },
     "backupAdmin": {
+        "offlineCopyTitle": "Copy for the offline system",
+        "offlineCopyNote": "This site's database (users, students, services, patients, settings) for the offline edition: in its control panel choose \"Restore backup\" and pick this file. Uploaded photos are not included.",
+        "offlineCopyDownload": "Download copy",
         "title": "Database Backup",
         "lastBackupAt": "Last backup: {date}",
         "noPreviousBackup": "No previous backups",

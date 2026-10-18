@@ -39,6 +39,8 @@ class BackupController extends Controller
             'folder' => $backups->dir(),
             'lastBackupAt' => $settings->last_backup_at?->toDateTimeString(),
             'files' => $backups->list(),
+            // Only the hosted system hands its data to offline copies.
+            'offlineCopy' => ! config('offline.edition'),
         ]);
     }
 
@@ -58,6 +60,18 @@ class BackupController extends Controller
         ClinicSetting::current()->update(['enable_daily_backup' => $validated['enabled']]);
 
         return back();
+    }
+
+    /**
+     * This database for the offline edition (2026-10-18, by request): the
+     * offline control panel's "Restore" puts it in place. Sessions, queues,
+     * tokens and server secrets are left out, see DatabaseBackupService.
+     */
+    public function offlineCopy(DatabaseBackupService $backups): BinaryFileResponse
+    {
+        @set_time_limit(0);
+
+        return ResponseFacade::download($backups->createForOffline(), 'offline-copy_'.now()->format('Ymd_His').'.zip')->deleteFileAfterSend();
     }
 
     public function download(string $filename, DatabaseBackupService $backups): BinaryFileResponse

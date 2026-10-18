@@ -592,6 +592,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/backup', [BackupController::class, 'index'])->name('backup.index');
         Route::post('/backup', [BackupController::class, 'store'])->name('backup.store');
         Route::put('/backup/auto', [BackupController::class, 'toggleAuto'])->name('backup.toggle-auto');
+        Route::get('/backup/offline-copy', [BackupController::class, 'offlineCopy'])->name('backup.offline-copy');
         Route::get('/backup/{filename}/download', [BackupController::class, 'download'])->name('backup.download');
     });
 
