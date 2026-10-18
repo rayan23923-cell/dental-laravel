@@ -17,7 +17,8 @@ import axios from 'axios';
 import Icon from '@/Components/Icon.vue';
 import ScoreSummary from '@/Components/Tasks/ScoreSummary.vue';
 import WorkItemsInput from '@/Components/Tasks/WorkItemsInput.vue';
-import { workItemsToForm } from '@/Components/Tasks/workItems.js';
+import TaskStepsList from '@/Components/Tasks/TaskStepsList.vue';
+import { stepsFromScoring, workItemsToForm } from '@/Components/Tasks/workItems.js';
 import StructureTabs from '@/Components/StructureTabs.vue';
 import TaskStartRequestsPanel from '@/Components/TaskStartRequestsPanel.vue';
 
@@ -202,13 +203,30 @@ const borderClass = (status) =>
 // --- Start task ---
 // No patient QR (2026-10-12, by request): a task starts from the case QR or
 // by picking the doctor and task here.
-const startForm = useForm({ doctor_id: null, task_id: null, notes: '' });
+// The steps done at this first session are signed in the same dialog (2026-10-18).
+const startForm = useForm({ doctor_id: null, task_id: null, notes: '', steps: [] });
 const startTarget = ref(null);
 const openStart = (doctor, card) => {
     startTarget.value = { doctor, card };
     startForm.doctor_id = doctor.id;
     startForm.task_id = card.task_id;
     startForm.notes = '';
+    startForm.steps = [];
+};
+const startSteps = computed(() => stepsFromScoring(startTarget.value?.card?.task_scoring));
+
+// --- A started case's steps, signed one after another (2026-10-18) ---
+const stepsTarget = ref(null);
+const stepsData = ref(null);
+const openSteps = async (doctor, card) => {
+    stepsTarget.value = { doctor, card };
+    stepsData.value = null;
+    const { data } = await axios.get(route('case-sheets.instance-work', card.instance_id));
+    stepsData.value = data;
+};
+const closeSteps = () => {
+    stepsTarget.value = null;
+    reloadGroup();
 };
 const submitStart = () => {
     startForm.post(route('task-progress.start'), {
@@ -334,6 +352,7 @@ const startFromScan = () => {
     openStart({ id: scanResult.value.doctor.id, name: scanResult.value.doctor.name }, {
         task_id: scanResult.value.task.id,
         task_title: scanResult.value.task.title,
+        task_scoring: scanResult.value.task.scoring,
     });
 };
 </script>
@@ -618,6 +637,14 @@ const startFromScan = () => {
                                                                     >
                                                                         {{ t('taskProgressAdmin.openForm') }}
                                                                     </a>
+                                                                    <button
+                                                                        v-if="card.instance_id && card.steps_count && ['assigned', 'completed'].includes(card.status)"
+                                                                        @click.stop="openSteps(doctor, card)"
+                                                                        class="rounded px-2 py-1 text-white"
+                                                                        :class="card.steps_signed >= card.steps_count ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-500 hover:bg-amber-600'"
+                                                                    >
+                                                                        <Icon name="checklist" class="ml-1" />{{ t('taskSteps.button', { done: Math.min(card.steps_signed, card.steps_count), total: card.steps_count }) }}
+                                                                    </button>
                                                                     <button v-if="card.status === 'unassigned'" @click.stop="openStart(doctor, card)" class="rounded bg-indigo-600 px-2 py-1 text-white hover:bg-indigo-700">
                                                                         {{ t('taskProgressAdmin.startTask') }}
                                                                     </button>
@@ -756,6 +783,11 @@ const startFromScan = () => {
                 <h2 class="text-lg font-medium text-gray-900">{{ t('taskProgressAdmin.startTaskModalTitle') }}</h2>
                 <p class="mt-1 text-sm text-gray-500">{{ startTarget?.doctor.name }} — {{ startTarget?.card.task_title }}</p>
 
+                <div v-if="startSteps.length" class="mt-4">
+                    <p class="mb-2 text-xs text-gray-500">{{ t('taskSteps.startHint') }}</p>
+                    <TaskStepsList v-model="startForm.steps" :scoring="startTarget?.card?.task_scoring" />
+                    <InputError class="mt-2" :message="startForm.errors.step ?? startForm.errors.grade" />
+                </div>
                 <div class="mt-4">
                     <InputLabel for="start-notes" :value="t('tasksAdmin.notesLabel')" />
                     <textarea id="start-notes" v-model="startForm.notes" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
@@ -765,6 +797,24 @@ const startFromScan = () => {
                     <PrimaryButton :disabled="startForm.processing">{{ t('taskProgressAdmin.startButton') }}</PrimaryButton>
                 </div>
             </form>
+        </Modal>
+
+        <!-- A started case's steps -->
+        <Modal :show="stepsTarget !== null" @close="closeSteps">
+            <div class="p-6">
+                <h2 class="text-lg font-medium text-gray-900">{{ t('taskSteps.modalTitle') }}</h2>
+                <p class="mt-1 text-sm text-gray-500">{{ stepsTarget?.doctor.name }} — {{ stepsTarget?.card.task_title }}</p>
+                <div v-if="!stepsData" class="mt-4 text-sm text-gray-500">…</div>
+                <div v-else class="mt-4">
+                    <TaskStepsList :steps="stepsData.steps" :instance-id="stepsTarget.card.instance_id" :can-sign="stepsData.can_sign" @updated="stepsData = $event" />
+                    <p v-if="stepsData.points !== null && stepsData.points !== undefined" class="mt-3 text-sm font-semibold text-indigo-800">
+                        {{ t('taskScoring.pointsValue', { n: stepsData.points }) }}
+                    </p>
+                </div>
+                <div class="mt-6 flex justify-end">
+                    <SecondaryButton @click="closeSteps">{{ t('common.close') }}</SecondaryButton>
+                </div>
+            </div>
         </Modal>
 
         <!-- Complete task modal -->

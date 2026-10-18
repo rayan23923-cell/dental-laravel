@@ -36,6 +36,8 @@ class TaskInstance extends Model
         // The work done and its points (2026-10-14); see App\Support\TaskScoring.
         'points',
         'work_items',
+        // Steps signed one after another (2026-10-18); see App\Support\TaskSteps.
+        'step_signoffs',
     ];
 
     protected function casts(): array
@@ -48,6 +50,7 @@ class TaskInstance extends Model
             'paper_case_sheet_confirmed_at' => 'datetime',
             'points' => 'float',
             'work_items' => 'array',
+            'step_signoffs' => 'array',
         ];
     }
 

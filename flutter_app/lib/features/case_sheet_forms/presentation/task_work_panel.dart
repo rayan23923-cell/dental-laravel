@@ -7,6 +7,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../tasks_admin/domain/task_scoring.dart';
 import '../../tasks_admin/domain/work_items.dart';
+import 'task_steps_list.dart';
 
 /// The linked task's points on its case sheet (2026-10-17), the app's port
 /// of the web's `TaskWorkPanel.vue` + `WorkItemsInput.vue`: the same work,
@@ -47,24 +48,29 @@ class _TaskWorkPanelState extends ConsumerState<TaskWorkPanel> {
   Future<void> _load() async {
     try {
       final d = await ref.read(apiClientProvider).getJson(_path) as Map<String, dynamic>;
-      if (!mounted) return;
-      setState(() {
-        _data = d;
-        _scoring = TaskScoringSetup.maybe(d['scoring']) ?? TaskScoringSetup();
-        _items = _fromSheet ? [] : workItemsToForm(_scoring, d['work_items'] as List<dynamic>?);
-        _stepGrades = {
-          for (final w in _workItems)
-            if (w['custom'] == true) w['step'].toString(): (w['points'] as num?)?.toDouble(),
-        };
-      });
+      _apply(d);
     } catch (_) {
       // No panel when the work can't be read (no access, offline), as on the web.
     }
   }
 
+  void _apply(Map<String, dynamic> d) {
+    if (!mounted) return;
+    setState(() {
+      _data = d;
+      _scoring = TaskScoringSetup.maybe(d['scoring']) ?? TaskScoringSetup();
+      _items = _fromSheet ? [] : workItemsToForm(_scoring, d['work_items'] as List<dynamic>?);
+      _stepGrades = {
+        for (final w in _workItems)
+          if (w['custom'] == true) w['step'].toString(): (w['points'] as num?)?.toDouble(),
+      };
+    });
+  }
+
   bool get _fromSheet => _data?['from_sheet'] == true;
   bool get _canEdit => _data?['can_edit'] == true;
-  List<Map<String, dynamic>> get _workItems => ((_data?['work_items'] as List<dynamic>?) ?? const []).whereType<Map<String, dynamic>>().toList();
+  List<Map<String, dynamic>> get _workItems =>
+      ((_data?['work_items'] as List<dynamic>?) ?? const []).whereType<Map<String, dynamic>>().toList();
   num? get _points => _data?['points'] as num?;
 
   Future<void> _save() async {
@@ -103,7 +109,8 @@ class _TaskWorkPanelState extends ConsumerState<TaskWorkPanel> {
   Widget build(BuildContext context) {
     final t = ref.watch(translationsProvider);
     final data = _data;
-    if (data == null || !(_fromSheet || _scoring.hasWork)) return const SizedBox.shrink();
+    final hasSteps = ((data?['steps'] as List<dynamic>?) ?? const []).isNotEmpty;
+    if (data == null || !(_fromSheet || _scoring.hasWork || hasSteps)) return const SizedBox.shrink();
     final colors = Theme.of(context).colorScheme;
     final minPoints = _scoring.minPoints;
     final reached = _points != null && minPoints != null && _points! >= minPoints;
@@ -125,8 +132,12 @@ class _TaskWorkPanelState extends ConsumerState<TaskWorkPanel> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(t['taskScoring.sheetPanel']!, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-                      if (data['title'] != null) Text(data['title'].toString(), style: Theme.of(context).textTheme.bodySmall),
+                      Text(
+                        t['taskScoring.sheetPanel']!,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                      ),
+                      if (data['title'] != null)
+                        Text(data['title'].toString(), style: Theme.of(context).textTheme.bodySmall),
                     ],
                   ),
                 ),
@@ -144,16 +155,27 @@ class _TaskWorkPanelState extends ConsumerState<TaskWorkPanel> {
               ],
             ),
             const SizedBox(height: 8),
+            // The case's steps, signed one after another (2026-10-18, by request).
+            if (hasSteps) ...[
+              TaskStepsList(taskInstanceId: widget.taskInstanceId, data: data, onUpdated: _apply),
+              const SizedBox(height: 8),
+            ],
             if (_fromSheet)
               ..._sheetSteps(t, colors)
-            else
-              _WorkItemsInput(scoring: _scoring, items: _items, enabled: _canEdit, t: t, onChanged: () => setState(() {})),
-            if (!_fromSheet && !_canEdit)
+            else if (_scoring.hasWork)
+              _WorkItemsInput(
+                scoring: _scoring,
+                items: _items,
+                enabled: _canEdit,
+                t: t,
+                onChanged: () => setState(() {}),
+              ),
+            if (!_fromSheet && _scoring.hasWork && !_canEdit)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(t['taskScoring.supervisorOnly']!, style: Theme.of(context).textTheme.bodySmall),
               ),
-            if (_canEdit && (!_fromSheet || _workItems.any((w) => w['custom'] == true)))
+            if (_canEdit && ((!_fromSheet && _scoring.hasWork) || _workItems.any((w) => w['custom'] == true)))
               Padding(
                 padding: const EdgeInsets.only(top: 10),
                 child: Wrap(
@@ -226,7 +248,13 @@ class _TaskWorkPanelState extends ConsumerState<TaskWorkPanel> {
 /// item on a graded task, otherwise kind + count + multipliers per row.
 /// Edits [items] in place and calls [onChanged].
 class _WorkItemsInput extends StatelessWidget {
-  const _WorkItemsInput({required this.scoring, required this.items, required this.enabled, required this.t, required this.onChanged});
+  const _WorkItemsInput({
+    required this.scoring,
+    required this.items,
+    required this.enabled,
+    required this.t,
+    required this.onChanged,
+  });
 
   final TaskScoringSetup scoring;
   final List<WorkItemForm> items;
@@ -405,7 +433,9 @@ class _WorkItemsInput extends StatelessWidget {
                           DropdownMenuItem(
                             value: oi,
                             child: Text(
-                              _off ? scoring.options[oi].label : '${scoring.options[oi].label} (${fmtPoints(scoring.options[oi].points)})',
+                              _off
+                                  ? scoring.options[oi].label
+                                  : '${scoring.options[oi].label} (${fmtPoints(scoring.options[oi].points)})',
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -476,7 +506,15 @@ class _WorkItemsInput extends StatelessWidget {
 /// A small number box that keeps its own text while typing (so "2." isn't
 /// rewritten mid-edit) and reports the parsed value, capped at [max].
 class _NumField extends StatefulWidget {
-  const _NumField({super.key, required this.value, required this.onChanged, this.max, this.enabled = true, this.integer = false, this.label});
+  const _NumField({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.max,
+    this.enabled = true,
+    this.integer = false,
+    this.label,
+  });
 
   final double? value;
   final double? max;

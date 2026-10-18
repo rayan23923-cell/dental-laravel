@@ -31,3 +31,12 @@ export function workItemsToForm(scoring, workItems) {
 
 /** Whether a task has work to record on a case (kinds of work or a checklist). */
 export const hasWork = (scoring) => !!scoring?.options?.length || !!scoring?.checklist?.length;
+
+/** A task's steps to sign, as App\Support\TaskSteps lists them, for a case not started yet (2026-10-18). */
+export function stepsFromScoring(scoring) {
+    const off = !!scoring?.points_off;
+    return [
+        ...(scoring?.steps ?? []).filter((s) => s.enabled !== false).map((s) => ({ key: `s:${s.key}`, label: s.label, max: off ? null : Number(s.max) })),
+        ...(scoring?.checklist ?? []).map((c, i) => ({ key: `c:${i}`, label: c.label, max: !off && c.scored ? Number(c.max) : null })),
+    ];
+}

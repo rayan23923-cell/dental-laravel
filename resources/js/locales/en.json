@@ -1230,6 +1230,20 @@
         "title": "Notifications",
         "empty": "No notifications."
     },
+    "taskSteps": {
+        "title": "Work steps",
+        "progress": "{done} of {total}",
+        "sign": "Sign",
+        "undo": "Undo",
+        "grade": "Grade",
+        "gradeRange": "Enter a grade between 0 and {max}.",
+        "signedBy": "Signed by {name}",
+        "atStart": "at the start",
+        "failed": "Couldn't save the signature.",
+        "button": "Steps ({done}/{total})",
+        "modalTitle": "Task steps",
+        "startHint": "Sign the steps done in this session in order; the rest are signed later from the Steps button."
+    },
     "taskScoring": {
         "dragStep": "Drag to reorder",
         "moveUp": "Move up",

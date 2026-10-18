@@ -6,7 +6,9 @@ use App\Models\TaskInstance;
 use App\Models\User;
 use App\Services\CaseSheetAccess;
 use App\Services\PermissionManager;
+use App\Support\CaseSheetSignatures;
 use App\Support\TaskScoring;
+use App\Support\TaskSteps;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -39,7 +41,39 @@ class TaskWorkController extends Controller
             'points' => $fromSheet[1] ?? $taskInstance->points,
             'from_sheet' => $fromSheet !== null,
             'can_edit' => ! $doctor && $this->canEdit(),
+            // Its steps, signed one after another (2026-10-18).
+            'steps' => TaskSteps::list($taskInstance->task, $taskInstance),
+            'can_sign' => ! $doctor && $this->canSign(),
         ]);
+    }
+
+    /** Signs the case's next step with its grade (2026-10-18), see TaskSteps. */
+    public function signStep(Request $request, TaskInstance $taskInstance): JsonResponse
+    {
+        abort_unless($this->canSign(), 403);
+        $validated = $request->validate([
+            'step' => ['required', 'string', 'max:40'],
+            'grade' => ['nullable', 'numeric', 'min:0'],
+        ]);
+        TaskSteps::sign($taskInstance, $validated['step'], $validated['grade'] ?? null, CaseSheetSignatures::signerName($request));
+
+        return $this->show($taskInstance->fresh());
+    }
+
+    /** Takes back the last signed step. */
+    public function undoStep(Request $request, TaskInstance $taskInstance): JsonResponse
+    {
+        abort_unless($this->canSign(), 403);
+        $validated = $request->validate(['step' => ['required', 'string', 'max:40']]);
+        TaskSteps::undo($taskInstance, $validated['step']);
+
+        return $this->show($taskInstance->fresh());
+    }
+
+    /** Whoever starts or finishes cases signs their steps. */
+    private function canSign(): bool
+    {
+        return $this->can('finish') || $this->can('start');
     }
 
     public function update(Request $request, TaskInstance $taskInstance): JsonResponse

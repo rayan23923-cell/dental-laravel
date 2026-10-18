@@ -78,6 +78,8 @@ class TaskSlotCard {
     this.allSigned = false,
     this.attachmentsCount = 0,
     this.notedAttachmentsCount = 0,
+    this.stepsCount = 0,
+    this.stepsSigned = 0,
   });
 
   factory TaskSlotCard.fromJson(Map<String, dynamic> json) => TaskSlotCard(
@@ -100,6 +102,8 @@ class TaskSlotCard {
         allSigned: json['all_signed'] as bool? ?? false,
         attachmentsCount: json['attachments_count'] as int? ?? 0,
         notedAttachmentsCount: json['noted_attachments_count'] as int? ?? 0,
+        stepsCount: json['steps_count'] as int? ?? 0,
+        stepsSigned: json['steps_signed'] as int? ?? 0,
       );
 
   final int slot;
@@ -138,6 +142,11 @@ class TaskSlotCard {
 
   /// Photos the supervisor wrote a note on (2026-10-15).
   final int notedAttachmentsCount;
+
+  /// The task's steps to sign one after another, and how many this case
+  /// has signed (2026-10-18); see `TaskStepsList`.
+  final int stepsCount;
+  final int stepsSigned;
 }
 
 class TaskProgressDoctorRow {

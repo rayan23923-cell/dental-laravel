@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Support\TaskSteps;
+use App\Support\CaseSheetSignatures;
 use App\Support\TaskScoring;
 use App\Http\Controllers\Controller;
 use App\Models\Doctor;
@@ -93,6 +95,10 @@ class TaskProgressController extends Controller
             // gate still applies (see TaskStarter).
             'patient_registration_id' => ['nullable', 'exists:patients_simple,id'],
             'notes' => ['nullable', 'string'],
+            // Steps done at this first session, signed as it starts (2026-10-18).
+            'steps' => ['nullable', 'array', 'max:40'],
+            'steps.*.step' => ['required', 'string', 'max:40'],
+            'steps.*.grade' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $task = Task::findOrFail($validated['task_id']);
@@ -112,6 +118,7 @@ class TaskProgressController extends Controller
         } catch (TaskStartException|PatientScreeningException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
+        self::signSteps($instance, $validated['steps'] ?? [], $request);
 
         return response()->json([
             'data' => [
@@ -218,5 +225,14 @@ class TaskProgressController extends Controller
             'grade' => $taskInstance->grade,
             'notes' => $taskInstance->notes,
         ]]);
+    }
+
+    /** Signs the steps ticked in the start dialog, in order (2026-10-18). */
+    private static function signSteps(TaskInstance $instance, array $steps, Request $request): void
+    {
+        $signer = CaseSheetSignatures::signerName($request);
+        foreach ($steps as $step) {
+            TaskSteps::sign($instance->fresh(), $step['step'], $step['grade'] ?? null, $signer);
+        }
     }
 }

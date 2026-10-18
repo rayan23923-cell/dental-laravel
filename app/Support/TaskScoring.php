@@ -632,6 +632,10 @@ class TaskScoring
             } else {
                 $column = $step['key'] === 'diagnosis' ? 'diagnosis_grade' : "stage_{$step['key']}_grade";
                 $raw = $record?->getAttribute($column);
+                // Signed off before the sheet had it (2026-10-18), see TaskSteps.
+                if (! is_numeric($raw)) {
+                    $raw = $instance->step_signoffs["s:{$step['key']}"]['grade'] ?? null;
+                }
             }
             $grade = is_numeric($raw) ? max(0.0, min((float) $raw, (float) $step['max'])) : 0.0;
             $total += $grade;

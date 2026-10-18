@@ -1,4 +1,5 @@
 <script setup>
+import TaskStepsList from '@/Components/Tasks/TaskStepsList.vue';
 import WorkItemsInput from '@/Components/Tasks/WorkItemsInput.vue';
 import { hasWork, workItemsToForm } from '@/Components/Tasks/workItems.js';
 import axios from 'axios';
@@ -22,12 +23,15 @@ const saving = ref(false);
 const message = ref('');
 const error = ref('');
 
+const apply = (d) => {
+    data.value = d;
+    items.value = d.from_sheet ? [] : workItemsToForm(d.scoring, d.work_items);
+    stepGrades.value = Object.fromEntries((d.work_items ?? []).filter((w) => w.custom).map((w) => [w.step, w.points]));
+};
 const load = async () => {
     try {
         const { data: d } = await axios.get(route('case-sheets.instance-work', props.taskInstanceId));
-        data.value = d;
-        items.value = d.from_sheet ? [] : workItemsToForm(d.scoring, d.work_items);
-        stepGrades.value = Object.fromEntries((d.work_items ?? []).filter((w) => w.custom).map((w) => [w.step, w.points]));
+        apply(d);
     } catch {
         data.value = null;
     }
@@ -53,13 +57,18 @@ const save = async () => {
 </script>
 
 <template>
-    <section v-if="data && (data.from_sheet || hasWork(data.scoring))" class="rounded-lg border border-indigo-200 bg-white p-4 shadow-sm">
+    <section v-if="data && (data.from_sheet || hasWork(data.scoring) || data.steps?.length)" class="rounded-lg border border-indigo-200 bg-white p-4 shadow-sm">
         <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div>
                 <h3 class="font-semibold text-gray-900">{{ t('taskScoring.sheetPanel') }}</h3>
                 <p class="text-xs text-gray-500">{{ data.title }}</p>
             </div>
             <span v-if="data.points !== null && data.points !== undefined" class="rounded-full bg-indigo-600 px-3 py-1 text-sm text-white">{{ t('taskScoring.pointsValue', { n: data.points }) }}</span>
+        </div>
+
+        <!-- The case's steps, signed one after another (2026-10-18, by request). -->
+        <div v-if="data.steps?.length" class="mb-4">
+            <TaskStepsList :steps="data.steps" :instance-id="taskInstanceId" :can-sign="data.can_sign" @updated="apply" />
         </div>
 
         <template v-if="data.from_sheet">
@@ -85,7 +94,7 @@ const save = async () => {
             </div>
         </template>
 
-        <template v-else>
+        <template v-else-if="hasWork(data.scoring)">
             <fieldset :disabled="!data.can_edit">
                 <WorkItemsInput v-model="items" :scoring="data.scoring" />
             </fieldset>
