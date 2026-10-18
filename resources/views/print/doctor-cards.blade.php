@@ -9,8 +9,11 @@
     <style>
         .cards-page {
             display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
-            gap: 6mm; height: 265mm; break-after: page; page-break-after: always;
+            /* Short of the A4 page so the header and footer some browsers
+               add (iPhone Safari) still leave room for both rows. */
+            gap: 5mm; height: 240mm; break-after: page; page-break-after: always;
         }
+        @page { size: A4 portrait; margin: 8mm; }
         .cards-page:last-child { break-after: auto; page-break-after: auto; }
         .cards-page > div { min-height: 0; overflow: hidden; break-inside: avoid; }
         @media screen { .cards-page { max-width: 210mm; margin: 0 auto 16px; } }
