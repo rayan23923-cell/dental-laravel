@@ -112,4 +112,56 @@ class BackupRestoreTest extends TestCase
 
         $this->actingAs(User::factory()->create(['role' => 'doctor']))->get(route('backup.offline-copy'))->assertForbidden();
     }
+
+    /** A copy from the hosted MySQL 8 server, with its collations and version comments, restores on MariaDB. */
+    public function test_a_mysql_8_copy_restores_on_mariadb(): void
+    {
+        User::factory()->create(['username' => 'fromhost', 'role' => 'doctor']);
+        $sql = $this->dump();
+        $sql = preg_replace('/(\) ENGINE=InnoDB[^;]*?) COLLATE=\w+/', "$1 COLLATE=utf8mb4_0900_ai_ci /*!80016 DEFAULT ENCRYPTION='N' */", $sql);
+        $sql = str_replace('COLLATE utf8mb4_unicode_ci', 'COLLATE utf8mb4_0900_ai_ci', $sql);
+        $this->assertStringContainsString('utf8mb4_0900_ai_ci', $sql);
+        $file = $this->zipped($sql);
+        User::where('username', 'fromhost')->delete();
+
+        $this->artisan('backup:restore', ['file' => $file, '--force' => true])->assertSuccessful();
+        $this->assertDatabaseHas('users', ['username' => 'fromhost']);
+    }
+
+    /** A copy that breaks halfway doesn't leave empty tables: the data from before comes back and it says why. */
+    public function test_a_restore_that_fails_puts_the_previous_data_back(): void
+    {
+        User::factory()->create(['username' => 'before', 'role' => 'doctor']);
+        $sql = str_replace('INSERT INTO `users`', "CREATE TABLE `broken` (`x` not_a_type);\nINSERT INTO `users`", $this->dump());
+        $file = $this->zipped($sql);
+
+        $this->artisan('backup:restore', ['file' => $file, '--force' => true])
+            ->expectsOutputToContain('Restore failed')
+            ->assertFailed();
+        $this->assertDatabaseHas('users', ['username' => 'before']);
+    }
+
+    private function dump(): string
+    {
+        $file = app(\App\Services\DatabaseBackupService::class)->createForOffline();
+        $zip = new ZipArchive();
+        $zip->open($file);
+        $sql = $zip->getFromName('database.sql');
+        $zip->close();
+        @unlink($file);
+
+        return $sql;
+    }
+
+    private function zipped(string $sql): string
+    {
+        File::ensureDirectoryExists($this->dir);
+        $path = $this->dir.'/copy-'.uniqid().'.zip';
+        $zip = new ZipArchive();
+        $zip->open($path, ZipArchive::CREATE);
+        $zip->addFromString('database.sql', $sql);
+        $zip->close();
+
+        return $path;
+    }
 }
