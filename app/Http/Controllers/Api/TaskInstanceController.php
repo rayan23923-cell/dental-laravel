@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\TaskInstanceResource;
 use App\Models\Doctor;
 use App\Models\TaskInstance;
+use App\Models\User;
+use App\Services\PermissionManager;
 use App\Support\TaskInstanceVisibility;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -38,6 +40,8 @@ class TaskInstanceController extends Controller
 
         if ($doctor instanceof Doctor) {
             abort_unless($taskInstance->doctor_id === $doctor->id, 403);
+        } else {
+            static::authorizeStaff($doctor, 'view');
         }
 
         $taskInstance->load(['task.department', 'task.caseSheetType']);
@@ -71,6 +75,8 @@ class TaskInstanceController extends Controller
 
         if ($doctor instanceof Doctor) {
             abort_unless($taskInstance->doctor_id === $doctor->id, 403);
+        } else {
+            static::authorizeStaff($doctor, 'finish');
         }
 
         $validated = $request->validate([
@@ -118,5 +124,15 @@ class TaskInstanceController extends Controller
         ]);
 
         return (new TaskInstanceResource($taskInstance))->response();
+    }
+
+    /**
+     * Staff reach someone's case only through task progress (2026-10-18):
+     * viewing needs its view grant, changing the status or grade its
+     * finish grant, as on the task-progress screens.
+     */
+    public static function authorizeStaff(mixed $user, string $permission): void
+    {
+        abort_unless($user instanceof User && (new PermissionManager($user))->can('task_progress', $permission), 403);
     }
 }

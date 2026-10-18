@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/auth/staff_access.dart';
 import '../../../core/i18n/locale_controller.dart';
+import '../../auth/domain/auth_account.dart';
+import '../../auth/presentation/auth_controller.dart';
+import '../../auth/presentation/auth_state.dart';
 import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 
 /// "الإدارة" — staff-only entry point to Phase 3's admin modules, built
@@ -34,6 +38,10 @@ class AdminHubScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider);
+    final authState = ref.watch(authControllerProvider).valueOrNull;
+    final account = authState is Authenticated ? authState.account : null;
+    // Only what the account may open (2026-10-18).
+    bool allowed(_AdminItem item) => account is! StaffAccount || staffCanOpen(account, item.route);
     final groups = [
       // Doctors, tasks and task progress sit with the reference data,
       // ordered tasks → academic year → doctors → groups → task progress
@@ -62,7 +70,10 @@ class AdminHubScreen extends ConsumerWidget {
         _AdminItem(t['waitingScreenPairing.title']!, Icons.connected_tv_outlined, '/admin/waiting-screen/pair'),
         _AdminItem(t['adminBroadcast.title']!, Icons.campaign_outlined, '/admin/broadcast'),
       ]),
-    ];
+    ]
+        .map((g) => _AdminGroup(g.title, g.items.where(allowed).toList()))
+        .where((g) => g.items.isNotEmpty)
+        .toList();
 
     return Scaffold(
       appBar: AppBar(title: Text(t['nav.admin']!)),

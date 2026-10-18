@@ -53,12 +53,17 @@ class UserPermissionController extends Controller
             // Each option carries its parent so the screen can cascade:
             // education type → stages → departments (2026-10-14).
             'scope_options' => ScopeHelper::options(),
-            // null on any dimension means "unrestricted" (nothing picked).
+            // Picked ids, or null when none are picked. On the top levels
+            // nothing picked means nothing, unless the all_* flag ("الكل")
+            // is on (2026-10-18); stages and departments follow the level
+            // above.
             'scope' => [
                 'departments' => ScopeHelper::chosenDepartmentIds($user),
                 'stages' => ScopeHelper::chosenStageIds($user),
-                'education_types' => ScopeHelper::allowedEducationTypeIds($user),
-                'academic_sessions' => ScopeHelper::allowedAcademicSessionIds($user),
+                'education_types' => ScopeHelper::chosenTopLevel($user, 'education_types'),
+                'academic_sessions' => ScopeHelper::chosenTopLevel($user, 'academic_sessions'),
+                'all_education_types' => (bool) $user->scope_all_education_types,
+                'all_academic_sessions' => (bool) $user->scope_all_academic_sessions,
             ],
         ]);
     }

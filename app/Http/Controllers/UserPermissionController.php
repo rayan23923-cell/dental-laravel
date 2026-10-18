@@ -75,12 +75,15 @@ class UserPermissionController extends Controller
                     'academicSessions' => $o['academic_sessions'],
                 ];
             })(),
-            // null in any of these means "unrestricted" (nothing picked).
+            // Picked ids, or null when none are picked; see the API twin
+            // for the all* flags ("الكل", 2026-10-18).
             'scope' => [
                 'departments' => ScopeHelper::chosenDepartmentIds($user),
                 'stages' => ScopeHelper::chosenStageIds($user),
-                'educationTypes' => ScopeHelper::allowedEducationTypeIds($user),
-                'academicSessions' => ScopeHelper::allowedAcademicSessionIds($user),
+                'educationTypes' => ScopeHelper::chosenTopLevel($user, 'education_types'),
+                'academicSessions' => ScopeHelper::chosenTopLevel($user, 'academic_sessions'),
+                'allEducationTypes' => (bool) $user->scope_all_education_types,
+                'allAcademicSessions' => (bool) $user->scope_all_academic_sessions,
             ],
         ]);
     }

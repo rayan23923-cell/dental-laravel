@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:intl/intl.dart';
 
+import '../../../core/auth/staff_access.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/widgets/academic_year_banner.dart';
 import '../../../core/widgets/chat_list_tile.dart';
@@ -95,15 +96,17 @@ class _StaffDashboard extends ConsumerWidget {
       Icons.how_to_reg_outlined,
       () => context.push('/records/patient-registrations'),
       Colors.indigo,
+      '/records/patient-registrations',
     );
     final labShortcut = _Shortcut(
       t['labels.lab']!,
       Icons.coronavirus_outlined,
       () => context.push('/records/patient-registrations/scan-screening'),
       Colors.red,
+      '/lab',
     );
     final paymentsShortcut =
-        _Shortcut(t['labels.payments']!, Icons.payments_outlined, () => context.push('/records/payments'), Colors.orange);
+        _Shortcut(t['labels.payments']!, Icons.payments_outlined, () => context.push('/records/payments'), Colors.orange, '/records/payments');
     // Roles with a home of their own (2026-10-18, by request): the lab, the
     // ticket desk and the accountant see their own panels and shortcuts
     // instead of the admin dashboard.
@@ -129,7 +132,7 @@ class _StaffDashboard extends ConsumerWidget {
       // docblock) — every tap crashed straight to "Page Not Found"
       // (`GoException: no routes for location: /admin/task-progress/nfc`).
       // The admin hub's own tile was updated at the time; this one was missed.
-      _Shortcut(t['labels.taskProgress']!, Icons.fact_check_outlined, () => context.push('/admin/task-progress'), Colors.lightBlue),
+      _Shortcut(t['labels.taskProgress']!, Icons.fact_check_outlined, () => context.push('/admin/task-progress'), Colors.lightBlue, '/admin/task-progress'),
       // The infectious-disease screening feature (2026-08-25) had no
       // dashboard entry point at all — the only way in was a small icon
       // inside the patient-registrations list, easy to miss. Added
@@ -139,17 +142,25 @@ class _StaffDashboard extends ConsumerWidget {
       // "عرض تقدم الأطباء", as on the web dashboard: the doctors list,
       // where each doctor's progress opens.
       if (dashboard?.canDoctors ?? false)
-        _Shortcut(t['home.doctorsProgress']!, Icons.medical_services_outlined, () => context.push('/admin/doctors'), Colors.green),
+        _Shortcut(t['home.doctorsProgress']!, Icons.medical_services_outlined, () => context.push('/admin/doctors'), Colors.green, '/admin/doctors'),
     ];
 
     // Chat-list layout (2026-10-13, by request), as on the web dashboard:
     // the shortcuts as rows, then the latest registrations (opening the
     // patient registry) and the latest payments.
+    // Only what the account may open (2026-10-18, by request).
+    final authState = ref.watch(authControllerProvider).valueOrNull;
+    final account = authState is Authenticated ? authState.account : null;
+    bool allowed(String route) => account is! StaffAccount || staffCanOpen(account, route);
+    bool any(List<String> routes) => routes.any(allowed);
     final rows = [
-      for (final s in shortcuts) (s.label, null as String?, s.icon, s.color, s.onTap),
+      for (final s in shortcuts)
+        if (s.route == null || allowed(s.route!)) (s.label, null as String?, s.icon, s.color, s.onTap),
       if (!isDeskRole) ...[
-        (t['nav.records']!, t['home.recordsSubtitle'], Icons.folder_shared_outlined, Colors.blueGrey, () => context.push('/records')),
-        (t['nav.admin']!, t['home.adminSubtitle'], Icons.admin_panel_settings_outlined, Colors.deepPurple, () => context.push('/admin')),
+        if (any(recordsRoutes))
+          (t['nav.records']!, t['home.recordsSubtitle'], Icons.folder_shared_outlined, Colors.blueGrey, () => context.push('/records')),
+        if (any(adminRoutes))
+          (t['nav.admin']!, t['home.adminSubtitle'], Icons.admin_panel_settings_outlined, Colors.deepPurple, () => context.push('/admin')),
       ],
     ];
 
@@ -375,9 +386,12 @@ class _LatestPayments extends ConsumerWidget {
 }
 
 class _Shortcut {
-  const _Shortcut(this.label, this.icon, this.onTap, [this.color = Colors.indigo]);
+  const _Shortcut(this.label, this.icon, this.onTap, [this.color = Colors.indigo, this.route]);
   final String label;
   final IconData icon;
   final VoidCallback onTap;
   final Color color;
+
+  /// The section it opens, for [staffCanOpen].
+  final String? route;
 }

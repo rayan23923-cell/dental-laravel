@@ -43,6 +43,8 @@ class TaskInstanceQrController extends Controller
 
         if ($doctor instanceof Doctor) {
             abort_unless($taskInstance->doctor_id === $doctor->id, 403);
+        } else {
+            TaskInstanceController::authorizeStaff($doctor, 'view');
         }
 
         return QrCodeFactory::pngResponse(
@@ -73,6 +75,8 @@ class TaskInstanceQrController extends Controller
         $doctor = $request->user();
         if ($doctor instanceof Doctor) {
             abort_unless($taskInstance->doctor_id === $doctor->id, 403, 'This case is assigned to a different doctor.');
+        } else {
+            TaskInstanceController::authorizeStaff($doctor, 'view');
         }
 
         if (TaskInstanceVisibility::canSeeStudentInfo($doctor)) {

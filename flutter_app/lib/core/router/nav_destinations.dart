@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../features/auth/domain/account_type.dart';
+import '../../features/auth/domain/auth_account.dart';
+import '../auth/staff_access.dart';
 
 /// One sidebar nav entry (`AppSidebar`) — mirrors the existing
 /// `_AdminItem`/`_AdminGroup` pattern `admin_hub_screen.dart` already uses
@@ -27,11 +29,16 @@ class NavDestination {
 /// plain parameter rather than importing the i18n provider here, so this
 /// stays a pure function independent of Riverpod's `ref` (2026-09-04, by
 /// request — same feature as the web's per-locale nav labels).
+/// A staff account sees "السجلات" and "الإدارة" only when it may open
+/// something in them (2026-10-18).
 List<NavDestination> navDestinationsFor(
   AccountType type, {
   required int unreadNotifications,
   required Map<String, String> t,
+  AuthAccount? account,
 }) {
+  bool any(List<String> routes) => account is! StaffAccount || routes.any((r) => staffCanOpen(account, r));
+
   final notifications = NavDestination(
     label: t['nav.notifications']!,
     icon: Icons.notifications_outlined,
@@ -66,16 +73,18 @@ List<NavDestination> navDestinationsFor(
       icon: Icons.home_outlined,
       route: '/home',
     ),
-    NavDestination(
-      label: t['nav.records']!,
-      icon: Icons.folder_shared_outlined,
-      route: '/records',
-    ),
-    NavDestination(
-      label: t['nav.admin']!,
-      icon: Icons.admin_panel_settings_outlined,
-      route: '/admin',
-    ),
+    if (any(recordsRoutes))
+      NavDestination(
+        label: t['nav.records']!,
+        icon: Icons.folder_shared_outlined,
+        route: '/records',
+      ),
+    if (any(adminRoutes))
+      NavDestination(
+        label: t['nav.admin']!,
+        icon: Icons.admin_panel_settings_outlined,
+        route: '/admin',
+      ),
     notifications,
   ];
 }

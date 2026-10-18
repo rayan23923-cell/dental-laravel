@@ -28,7 +28,10 @@ class SettingsGroupCard extends StatelessWidget {
     return Card(
       margin: EdgeInsets.zero,
       elevation: 0,
-      clipBehavior: Clip.antiAlias,
+      // hardEdge, not antiAlias (2026-10-18): the permissions screen showed
+      // only its upper half on an Android phone, and an anti-aliased clip
+      // of a tall card is the likely cause (the layout itself measures fine).
+      clipBehavior: Clip.hardEdge,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
         side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5)),

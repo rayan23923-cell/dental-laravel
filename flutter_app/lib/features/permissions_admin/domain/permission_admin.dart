@@ -71,19 +71,31 @@ class PermissionScopeOptions {
 
 /// "نطاق الوصول" (Access Scope, `App\Services\ScopeHelper`) — which
 /// departments/stages/education types/academic sessions this account's
-/// data visibility is confined to. A `null` list on any dimension means
-/// unrestricted (sees everything) — `ScopeHelper`'s own "zero rows"
-/// convention, not "nothing selected". Independent of the module/action
-/// grants above: this restricts what data the account can see at all,
-/// not any single create/edit/delete action.
+/// data visibility is confined to. A `null` list means nothing picked. On
+/// the top levels (education types, academic sessions) that means nothing
+/// is visible unless the `all*` flag ("الكل") is on (2026-10-18); stages and
+/// departments with nothing picked follow the level above. Independent of
+/// the module/action grants above: this restricts what data the account
+/// can see at all, not any single create/edit/delete action.
 class PermissionScope {
-  const PermissionScope({this.departmentIds, this.stageIds, this.educationTypeIds, this.academicSessionIds});
+  const PermissionScope({
+    this.departmentIds,
+    this.stageIds,
+    this.educationTypeIds,
+    this.academicSessionIds,
+    this.allEducationTypes = false,
+    this.allAcademicSessions = false,
+  });
 
+  // A server older than the flags sends none; there nothing picked meant
+  // everything.
   factory PermissionScope.fromJson(Map<String, dynamic> json) => PermissionScope(
         departmentIds: _ids(json['departments']),
         stageIds: _ids(json['stages']),
         educationTypeIds: _ids(json['education_types']),
         academicSessionIds: _ids(json['academic_sessions']),
+        allEducationTypes: json['all_education_types'] as bool? ?? json['education_types'] == null,
+        allAcademicSessions: json['all_academic_sessions'] as bool? ?? json['academic_sessions'] == null,
       );
 
   static List<int>? _ids(dynamic raw) => raw == null ? null : (raw as List<dynamic>).map((e) => e as int).toList();
@@ -92,19 +104,23 @@ class PermissionScope {
   final List<int>? stageIds;
   final List<int>? educationTypeIds;
   final List<int>? academicSessionIds;
+  final bool allEducationTypes;
+  final bool allAcademicSessions;
 }
 
 /// Mutable, always-non-null counterpart to [PermissionScope] for the edit
-/// screen's live form state. An empty list on any dimension means
-/// unrestricted — same convention as [PermissionScope.fromJson], just
-/// normalized to `[]` instead of `null` since UI checkboxes need a concrete
-/// list to check membership against either way.
+/// screen's live form state. An empty list means nothing picked — same
+/// convention as [PermissionScope.fromJson], just normalized to `[]`
+/// instead of `null` since UI checkboxes need a concrete list to check
+/// membership against either way.
 class PermissionScopeSelection {
   PermissionScopeSelection({
     List<int>? departmentIds,
     List<int>? stageIds,
     List<int>? educationTypeIds,
     List<int>? academicSessionIds,
+    this.allEducationTypes = false,
+    this.allAcademicSessions = false,
   })  : departmentIds = List.of(departmentIds ?? const []),
         stageIds = List.of(stageIds ?? const []),
         educationTypeIds = List.of(educationTypeIds ?? const []),
@@ -115,12 +131,38 @@ class PermissionScopeSelection {
         stageIds: scope.stageIds,
         educationTypeIds: scope.educationTypeIds,
         academicSessionIds: scope.academicSessionIds,
+        allEducationTypes: scope.allEducationTypes,
+        allAcademicSessions: scope.allAcademicSessions,
       );
 
   final List<int> departmentIds;
   final List<int> stageIds;
   final List<int> educationTypeIds;
   final List<int> academicSessionIds;
+
+  /// "الكل" on the top levels; nothing picked without it means nothing.
+  bool allEducationTypes;
+  bool allAcademicSessions;
+
+  bool? allFor(String dimension) => switch (dimension) {
+        'education_types' => allEducationTypes,
+        'academic_sessions' => allAcademicSessions,
+        _ => null,
+      };
+
+  void setAll(String dimension, bool on) {
+    if (dimension == 'education_types') allEducationTypes = on;
+    if (dimension == 'academic_sessions') allAcademicSessions = on;
+  }
+
+  Map<String, dynamic> toJson() => {
+        'departments': departmentIds,
+        'stages': stageIds,
+        'education_types': educationTypeIds,
+        'academic_sessions': academicSessionIds,
+        'all_education_types': allEducationTypes,
+        'all_academic_sessions': allAcademicSessions,
+      };
 
   List<int> listFor(String dimension) {
     switch (dimension) {
