@@ -133,6 +133,14 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: flutter build windows --release ${{ env.BUILD_FLAGS }} --dart-define=API_BASE_URL=${{ env.API_BASE_URL }}
+      - name: Bundle the Visual C++ runtime
+        # App-local copies (2026-10-18): on a PC without the VC++ 2015-2022
+        # redistributable the app closed right after starting.
+        shell: pwsh
+        run: |
+          foreach ($d in 'msvcp140.dll','msvcp140_1.dll','msvcp140_2.dll','vcruntime140.dll','vcruntime140_1.dll') {
+            Copy-Item "$env:WINDIR\System32\$d" build\windows\x64\runner\Release\ -Force
+          }
       - name: Portable zip
         shell: pwsh
         run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath ..\DentalClinicApp-windows.zip
@@ -143,6 +151,14 @@ jobs:
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" windows\installer\setup.iss "/DMyAppVersion=$env:APP_VERSION"
           Copy-Item build\windows\installer\DentalClinicSetup-*.exe ..\DentalClinicApp-windows-setup.exe
       - run: flutter build windows --release ${{ env.BUILD_FLAGS }} --dart-define=API_BASE_URL=${{ env.API_BASE_URL }} ${{ env.OFFLINE_DEFINES }}
+      - name: Bundle the Visual C++ runtime
+        # App-local copies (2026-10-18): on a PC without the VC++ 2015-2022
+        # redistributable the app closed right after starting.
+        shell: pwsh
+        run: |
+          foreach ($d in 'msvcp140.dll','msvcp140_1.dll','msvcp140_2.dll','vcruntime140.dll','vcruntime140_1.dll') {
+            Copy-Item "$env:WINDIR\System32\$d" build\windows\x64\runner\Release\ -Force
+          }
       - name: Offline installer (Inno Setup)
         shell: pwsh
         run: |
