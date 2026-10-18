@@ -32,6 +32,9 @@ Future<void> showAdminSettingsSheet(BuildContext context) {
   final t = container.read(translationsProvider);
   final authState = container.read(authControllerProvider).valueOrNull;
   final account = authState is Authenticated ? authState.account : null;
+  // Taken now: the sheet's own context is gone once it closes, so pushing
+  // through it did nothing (2026-10-18, "it shows but won't open").
+  final router = GoRouter.of(context);
   // Only what the account may open (2026-10-18).
   final items = [
     for (final item in _settingsItems(t))
@@ -57,7 +60,7 @@ Future<void> showAdminSettingsSheet(BuildContext context) {
               title: Text(item.label),
               onTap: () {
                 Navigator.of(context).pop();
-                context.push(item.route);
+                router.push(item.route);
               },
             ),
         ],

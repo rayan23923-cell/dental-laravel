@@ -143,6 +143,7 @@ const moduleIcons = {
     patient_screening: ['fact_check', 'bg-pink-500'],
     reports: ['bar_chart', 'bg-fuchsia-500'],
     settings: ['settings', 'bg-gray-500'],
+    printer_settings: ['print', 'bg-emerald-600'],
 };
 const iconOf = (module) => moduleIcons[module.key]?.[0] ?? 'shield';
 const toneOf = (module) => moduleIcons[module.key]?.[1] ?? 'bg-slate-500';
