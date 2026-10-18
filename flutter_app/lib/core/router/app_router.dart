@@ -219,6 +219,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/lab',
         builder: (context, state) => const LabListScreen(),
       ),
+      // Outside the shell (2026-10-18): it is opened from screens above the
+      // shell (the lab, the print-error "إعدادات الطابعة" button), and
+      // pushing a shell route from there built a second shell and failed
+      // (go_router "keyReservation" assertion), so the screen never opened.
+      GoRoute(
+        path: '/admin/printer-settings',
+        builder: (context, state) => const PrinterSettingsScreen(),
+      ),
       GoRoute(
         path: '/lab/scan',
         builder: (context, state) =>
@@ -431,10 +439,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/admin/task-progress',
             builder: (context, state) => TaskProgressScreen(initialTab: state.uri.queryParameters['tab'] ?? 'progress'),
-          ),
-          GoRoute(
-            path: '/admin/printer-settings',
-            builder: (context, state) => const PrinterSettingsScreen(),
           ),
           GoRoute(
             path: '/admin/clinic-settings',

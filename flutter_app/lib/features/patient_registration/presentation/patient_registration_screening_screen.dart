@@ -220,7 +220,7 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
         task: () => ref.read(posPrinterServiceProvider).printTicket(pngBytes),
       );
     } catch (e) {
-      if (mounted) showPrinterErrorSnackBar(context, t['patientRegFlutter.printFailed']!, error: e);
+      if (mounted) showPrinterErrorSnackBar(context, t['screening.resultPrintFailed']!, error: e);
     }
   }
 
