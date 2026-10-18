@@ -40,20 +40,25 @@ void showPrinterErrorSnackBar(BuildContext context, String messagePrefix, {Objec
     return;
   }
 
-  // Temporary (2026-08-28): appends the raw native error detail, purely
-  // to diagnose the new iOS BLE plugin's real on-device failures instead
-  // of guessing — remove once that path is confirmed stable, per this
-  // file's own doc comment on why the message is normally kept generic.
-  final detail = switch (error) {
-    PlatformException e => ' [${e.code}: ${e.message}]',
+  // The reason in plain words on its own line (2026-10-18, by request:
+  // "[print_failed: ...]" read as code); the native message is already
+  // Arabic, its error code is left out.
+  final reason = switch (error) {
+    PlatformException e => e.message,
     // Windows USB/network printing (2026-10-16): say which step failed.
-    WindowsRawPrinterException e => ' [${e.message}]',
-    SocketException e => ' [${e.message}${e.osError != null ? ': ${e.osError!.message}' : ''}]',
-    _ => '',
+    WindowsRawPrinterException e => e.message,
+    SocketException e => e.osError?.message ?? e.message,
+    _ => null,
   };
+  final bluetoothOff = reason != null && reason.contains('البلوتوث مغلق');
+  final hint = bluetoothOff ? 'شغّل البلوتوث في الجهاز ثم أعد الطباعة.' : 'تأكد أن الطابعة مشغّلة وموصولة ثم أعد الطباعة.';
 
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-    content: Text('$messagePrefix تحقق من توصيل الطابعة.$detail'),
+    content: Text([
+      messagePrefix,
+      if (reason != null && reason.trim().isNotEmpty && !bluetoothOff) 'السبب: ${reason.trim()}',
+      hint,
+    ].join('\n')),
     duration: const Duration(seconds: 10),
     action: SnackBarAction(
       label: 'إعدادات الطابعة',
