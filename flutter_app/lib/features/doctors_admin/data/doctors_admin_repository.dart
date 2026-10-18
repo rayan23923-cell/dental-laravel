@@ -24,8 +24,17 @@ class DoctorsAdminRepository {
   DoctorsAdminRepository(this._client);
   final ApiClient _client;
 
-  Future<Paginated<DoctorAdmin>> list({String? search, int? educationTypeId, int? stageId}) async {
+  /// [perPage] is 15, 25, 50, 75, 100 or 'all', as on the web list.
+  Future<Paginated<DoctorAdmin>> list({
+    String? search,
+    int? educationTypeId,
+    int? stageId,
+    String perPage = '15',
+    int page = 1,
+  }) async {
     final data = await _client.getJson('/doctors', query: {
+      'per_page': perPage,
+      if (page > 1) 'page': page,
       if (search != null && search.isNotEmpty) 'search': search,
       if (educationTypeId != null) 'education_type_id': educationTypeId,
       if (stageId != null) 'stage_id': stageId,
