@@ -54,6 +54,7 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
+                'print_ticket' => fn () => $request->session()->get('print_ticket'),
             ],
             // Which case sheets have a printable version. Taken from the
             // registry itself rather than restated per controller, so the

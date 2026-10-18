@@ -22,6 +22,7 @@ import { Head, router } from '@inertiajs/vue3';
 import { computed, nextTick, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import axios from 'axios';
+import { printInFrame } from '@/printInFrame';
 
 const { t } = useI18n();
 const props = defineProps({
@@ -114,45 +115,27 @@ const selected = ref(null);
 const submitting = ref(false);
 const resultError = ref('');
 
-// Saving a result prints the lab slip (result, paid fee, patient QR). The tab is
-// opened before the request, while still inside the click, so browsers
-// don't block it as a pop-up; it is pointed at the slip once saved.
-const openPrint = (id, win) => {
-    const url = route('lab.print', { patientRegistration: id, autoprint: 1 });
-    if (win) win.location.href = url;
-    else window.open(url, '_blank');
-};
-
-// Prints the slip in a hidden frame: used after a QR scan, where there is
-// no click for the browser to allow a new tab on.
-const printInFrame = (id) => {
-    document.getElementById('lab-print-frame')?.remove();
-    const frame = document.createElement('iframe');
-    frame.id = 'lab-print-frame';
-    frame.style.cssText = 'position:fixed;width:0;height:0;border:0;visibility:hidden';
-    frame.src = route('lab.print', { patientRegistration: id, autoprint: 1 });
-    document.body.appendChild(frame);
-};
+// Saving a result prints the lab slip (result, paid fee, patient QR)
+// straight away, in a hidden frame rather than a new tab (2026-10-18, by
+// request).
+const printSlip = (id) => printInFrame(route('lab.print', { patientRegistration: id, autoprint: 1 }));
 
 const autoReused = ref(false);
 const reuse = async ({ silent = false } = {}) => {
     submitting.value = true;
     resultError.value = '';
-    const printWindow = silent ? null : window.open('', '_blank');
     try {
         const id = selected.value.id;
         const { data } = await axios.post(route('lab.reuse', id));
+        printSlip(id);
         if (silent) {
-            printInFrame(id);
             selected.value = { ...selected.value, ...data.data };
             autoReused.value = true;
         } else {
-            openPrint(id, printWindow);
             selected.value = null;
         }
         router.reload({ only: ['registrations', 'counts'] });
     } catch (e) {
-        printWindow?.close();
         resultError.value = e?.response?.data?.message ?? t('lab.recordFailed');
     } finally {
         submitting.value = false;
@@ -162,15 +145,13 @@ const reuse = async ({ silent = false } = {}) => {
 const record = async (status) => {
     submitting.value = true;
     resultError.value = '';
-    const printWindow = window.open('', '_blank');
     try {
         const id = selected.value.id;
         await axios.post(route('patient-registrations.screening', id), { screening_status: status });
-        openPrint(id, printWindow);
+        printSlip(id);
         selected.value = null;
         router.reload({ only: ['registrations', 'counts'] });
     } catch (e) {
-        printWindow?.close();
         resultError.value = e?.response?.data?.message ?? t('lab.recordFailed');
     } finally {
         submitting.value = false;
@@ -336,7 +317,7 @@ const record = async (status) => {
                 <button
                     v-if="selected.screening_status !== 'pending'"
                     type="button"
-                    @click="openPrint(selected.id)"
+                    @click="printSlip(selected.id)"
                     class="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
                     <Icon name="print" class="ml-1" />{{ t('lab.printResult') }}

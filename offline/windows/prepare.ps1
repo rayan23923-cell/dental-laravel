@@ -72,6 +72,12 @@ $httpsHost = if ($HttpsPort -eq 443) { '{host}' } else { "{host}:$HttpsPort" }
 	# Our own http site below serves the certificate and setup page and does
 	# the redirect for everything else, so Caddy must not redirect first.
 	auto_https disable_redirects
+	# No HTTP/3 (2026-10-18): it runs over UDP, which the firewall rule
+	# doesn't open, so browsers on other devices kept retrying it and pages
+	# on https://clinic.lan loaded very slowly (by IP they were fine).
+	servers {
+		protocols h1 h2
+	}
 	log {
 		output file "$fwd/app/storage/logs/caddy.log"
 		level ERROR
@@ -133,7 +139,12 @@ $httpsHost = if ($HttpsPort -eq 443) { '{host}' } else { "{host}:$HttpsPort" }
 # install its root once from http://$ServerName/setup.
 https://${ServerName}:$HttpsPort, https://${ServerIp}:$HttpsPort {
 	tls internal
-	import app
+	# The apps, client and certificate here too (2026-10-18), so
+	# https://clinic.lan/apps works as well as http.
+	import lanfiles
+	handle {
+		import app
+	}
 }
 
 # On this computer itself plain http works (localhost counts as secure).

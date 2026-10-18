@@ -61,4 +61,8 @@
             <p class="muted" style="margin-top:4px">رمز المريض</p>
         </div>
     </div>
+
+    @if ($autoprint ?? false)
+        <script>window.addEventListener('load', () => setTimeout(() => window.print(), 300));</script>
+    @endif
 @endsection

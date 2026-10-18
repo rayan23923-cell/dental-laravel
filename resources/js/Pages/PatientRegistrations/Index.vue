@@ -17,7 +17,8 @@ import ChatAddButton from '@/Components/ChatList/ChatAddButton.vue';
 import ChatPager from '@/Components/ChatList/ChatPager.vue';
 import { toneFor } from '@/Components/ChatList/tones';
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { printInFrame } from '@/printInFrame';
 import { useI18n } from 'vue-i18n';
 import axios from 'axios';
 
@@ -30,6 +31,15 @@ const props = defineProps({
 });
 
 const page = usePage();
+
+// A patient just registered: their ticket prints straight away.
+watch(
+    () => page.props.flash?.print_ticket,
+    (id) => {
+        if (id) printInFrame(route('patient-registrations.print', { patientRegistration: id, autoprint: 1 }));
+    },
+    { immediate: true },
+);
 const search = ref(props.filters.search || '');
 const from = ref(props.filters.from ?? '');
 const to = ref(props.filters.to ?? '');

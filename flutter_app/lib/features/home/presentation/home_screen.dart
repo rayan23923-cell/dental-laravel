@@ -102,19 +102,27 @@ class _StaffDashboard extends ConsumerWidget {
       () => context.push('/records/patient-registrations/scan-screening'),
       Colors.red,
     );
-    final isDeskRole = role == 'reception' || role == 'lab';
+    final paymentsShortcut =
+        _Shortcut(t['labels.payments']!, Icons.payments_outlined, () => context.push('/records/payments'), Colors.orange);
+    // Roles with a home of their own (2026-10-18, by request): the lab, the
+    // ticket desk and the accountant see their own panels and shortcuts
+    // instead of the admin dashboard.
+    final isDeskRole = role == 'reception' || role == 'lab' || role == 'accountant';
     // The web dashboard's figures (2026-10-17); desk roles don't get them,
     // as on the web, so they never call the endpoint.
     final dashboardAsync = isDeskRole ? null : ref.watch(dashboardProvider);
     final dashboard = dashboardAsync?.valueOrNull;
+    final deskAsync = isDeskRole ? ref.watch(deskPanelsProvider) : null;
     final shortcuts = role == 'reception'
         ? [registerShortcut]
         : role == 'lab'
             ? [labShortcut]
+            : role == 'accountant'
+                ? [paymentsShortcut]
             : [
       registerShortcut,
       // Appointments hidden for now (2026-10-13, by request), as on the web.
-      _Shortcut(t['labels.payments']!, Icons.payments_outlined, () => context.push('/records/payments'), Colors.orange),
+      paymentsShortcut,
       // Real bug found live: this still pointed at the old NFC-only
       // screen's route, removed when it was superseded by the full
       // day→group→department→doctor matrix (see that screen's own
@@ -169,13 +177,21 @@ class _StaffDashboard extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
         ],
+        if (deskAsync != null) ...[
+          deskAsync.when(
+            loading: () => const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator())),
+            error: (e, _) => _SectionCard(children: [ListTile(title: Text(t['home.dashboardLoadFailed']!))]),
+            data: (panels) => DeskPanelCounters(panels: panels, t: t),
+          ),
+          const SizedBox(height: 16),
+        ],
         _SectionCard(
           children: [
             for (final r in rows)
               ChatListTile(title: r.$1, subtitle: r.$2, icon: r.$3, color: r.$4, onTap: r.$5),
           ],
         ),
-        if (role != 'lab') ...[
+        if (role != 'lab' && role != 'accountant') ...[
           const SizedBox(height: 20),
           _SectionHeader(
             title: t['home.latestPatients']!,
@@ -184,7 +200,7 @@ class _StaffDashboard extends ConsumerWidget {
           ),
           const _LatestRegistrations(),
         ],
-        if (!isDeskRole) ...[
+        if (!isDeskRole || role == 'accountant') ...[
           const SizedBox(height: 20),
           _SectionHeader(
             title: t['home.latestPayments']!,
@@ -197,8 +213,14 @@ class _StaffDashboard extends ConsumerWidget {
       ],
     );
 
-    if (dashboardAsync == null) return list;
-    return RefreshIndicator(onRefresh: () async => ref.invalidate(dashboardProvider), child: list);
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(isDeskRole ? deskPanelsProvider : dashboardProvider);
+        ref.invalidate(patientRegistrationListProvider(null));
+        ref.invalidate(paymentListProvider((search: null, from: null, to: null, source: null)));
+      },
+      child: list,
+    );
   }
 
   /// Latest doctors, task statuses and tasks per education type, below the

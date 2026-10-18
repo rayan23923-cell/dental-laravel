@@ -19,6 +19,11 @@ class DashboardRepository {
     return DashboardData.fromJson(data);
   }
 
+  Future<DeskPanels> fetchDesk() async {
+    final data = await _client.getJson('/dashboard/desk') as Map<String, dynamic>;
+    return DeskPanels.fromJson(data);
+  }
+
   Future<List<DashboardDepartment>> tasksByEducationType(int educationTypeId) async {
     final data = await _client.getJson('/dashboard/tasks-by-education-type/$educationTypeId') as Map<String, dynamic>;
     return [
@@ -30,6 +35,10 @@ class DashboardRepository {
 
 final dashboardProvider = FutureProvider.autoDispose<DashboardData>((ref) {
   return ref.watch(dashboardRepositoryProvider).fetch();
+});
+
+final deskPanelsProvider = FutureProvider.autoDispose<DeskPanels>((ref) {
+  return ref.watch(dashboardRepositoryProvider).fetchDesk();
 });
 
 final dashboardTasksByEducationTypeProvider =
