@@ -201,7 +201,10 @@ class PatientRegistrationController extends Controller
             ]);
         }
 
-        return redirect()->route('patient-registrations.index')->with('success', 'تم تسجيل المريض بنجاح.');
+        // The ticket prints straight away on the list page (2026-10-18, by request).
+        return redirect()->route('patient-registrations.index')
+            ->with('success', 'تم تسجيل المريض بنجاح.')
+            ->with('print_ticket', $registration->id);
     }
 
     /**
