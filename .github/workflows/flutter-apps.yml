@@ -5,7 +5,10 @@ name: Flutter apps (Android, iOS, Windows)
 # GitHub release. Runs on any push that touches flutter_app/, or by hand.
 # Builds from main are also uploaded to the VPS (public/downloads/ plus
 # releases.json), so /download offers them and installed Windows apps
-# update themselves.
+# update themselves. Android and Windows are also built a second time as
+# the "offline" apps (2026-10-18, by request): the same app, but a fresh
+# install starts on the clinic's offline server (clinic.lan) instead of
+# the cloud; the offline package carries these.
 on:
   push:
     paths:
@@ -22,6 +25,7 @@ env:
   # Every build gets its own version so installed apps see it as newer.
   APP_VERSION: 1.1.${{ github.run_number }}
   BUILD_FLAGS: --build-name=1.1.${{ github.run_number }} --build-number=${{ github.run_number }}
+  OFFLINE_DEFINES: --dart-define=DEFAULT_SERVER=clinic --dart-define=DEFAULT_SERVER_HOST=clinic.lan
 
 defaults:
   run:
@@ -73,10 +77,14 @@ jobs:
       - run: flutter pub get
       - run: flutter build apk --release $BUILD_FLAGS --dart-define=API_BASE_URL=$API_BASE_URL
       - run: cp build/app/outputs/flutter-apk/app-release.apk ../DentalClinicApp-android.apk
+      - run: flutter build apk --release $BUILD_FLAGS --dart-define=API_BASE_URL=$API_BASE_URL $OFFLINE_DEFINES
+      - run: cp build/app/outputs/flutter-apk/app-release.apk ../DentalClinicApp-offline-android.apk
       - uses: actions/upload-artifact@v4
         with:
           name: android
-          path: DentalClinicApp-android.apk
+          path: |
+            DentalClinicApp-android.apk
+            DentalClinicApp-offline-android.apk
 
   ios:
     # Unsigned .ipa (no Apple Developer account) — install with AltStore /
@@ -134,12 +142,19 @@ jobs:
           if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" windows\installer\setup.iss "/DMyAppVersion=$env:APP_VERSION"
           Copy-Item build\windows\installer\DentalClinicSetup-*.exe ..\DentalClinicApp-windows-setup.exe
+      - run: flutter build windows --release ${{ env.BUILD_FLAGS }} --dart-define=API_BASE_URL=${{ env.API_BASE_URL }} ${{ env.OFFLINE_DEFINES }}
+      - name: Offline installer (Inno Setup)
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" windows\installer\setup.iss "/DMyAppVersion=$env:APP_VERSION" "/FDentalClinicSetup-offline-$env:APP_VERSION"
+          Copy-Item "build\windows\installer\DentalClinicSetup-offline-$env:APP_VERSION.exe" ..\DentalClinicApp-offline-windows-setup.exe
       - uses: actions/upload-artifact@v4
         with:
           name: windows
           path: |
             DentalClinicApp-windows.zip
             DentalClinicApp-windows-setup.exe
+            DentalClinicApp-offline-windows-setup.exe
 
   release:
     needs: [android, ios, windows]
@@ -202,6 +217,16 @@ jobs:
             cp dist/DentalClinicApp-android.apk out/DentalClinicApp-$V.apk
             (cd out && zip -q DentalClinicApp-$V.zip DentalClinicApp-$V.apk)
             add android DentalClinicApp-$V.apk "$SITE/DentalClinicApp-$V.zip"
+          fi
+          if [ -f dist/DentalClinicApp-offline-windows-setup.exe ]; then
+            cp dist/DentalClinicApp-offline-windows-setup.exe out/DentalClinicSetup-offline-$V.exe
+            (cd out && zip -q DentalClinicSetup-offline-$V.zip DentalClinicSetup-offline-$V.exe)
+            add windows_offline DentalClinicSetup-offline-$V.exe "$SITE/DentalClinicSetup-offline-$V.zip"
+          fi
+          if [ -f dist/DentalClinicApp-offline-android.apk ]; then
+            cp dist/DentalClinicApp-offline-android.apk out/DentalClinicApp-offline-$V.apk
+            (cd out && zip -q DentalClinicApp-offline-$V.zip DentalClinicApp-offline-$V.apk)
+            add android_offline DentalClinicApp-offline-$V.apk "$SITE/DentalClinicApp-offline-$V.zip"
           fi
           if [ -f dist/DentalClinicApp-ios-unsigned.ipa ]; then
             cp dist/DentalClinicApp-ios-unsigned.ipa out/DentalClinicApp-$V.ipa

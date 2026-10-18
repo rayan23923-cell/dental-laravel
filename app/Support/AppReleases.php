@@ -18,7 +18,8 @@ class AppReleases
         $path = public_path('downloads/releases.json');
         $published = is_file($path) ? json_decode((string) file_get_contents($path), true) : null;
 
-        foreach (['windows', 'android', 'ios'] as $platform) {
+        // *_offline: the same apps built to start on the clinic's offline server.
+        foreach (['windows', 'android', 'ios', 'windows_offline', 'android_offline'] as $platform) {
             if (is_array($published[$platform] ?? null)) {
                 $releases[$platform] = array_merge($releases[$platform] ?? [], $published[$platform]);
             }

@@ -233,12 +233,15 @@ jobs:
           cp offline/windows/apps/index.html $OUT/index.html
           curl -fsSL --retry 3 "$SITE/releases.json" -o rel.json
           echo '{}' > $OUT/releases.json
+          # The "offline" Android/Windows builds start on this server (see flutter-apps.yml).
           for p in windows android ios; do
-            url=$(jq -r --arg p $p '.[$p].url // empty' rel.json)
+            src=$p
+            [ -n "$(jq -r --arg p ${p}_offline '.[$p].url // empty' rel.json)" ] && src=${p}_offline
+            url=$(jq -r --arg p $src '.[$p].url // empty' rel.json)
             [ -n "$url" ] || continue
             f=$(basename "$url")
             curl -fsSL --retry 3 -o "$OUT/$f" "$url"
-            jq --arg p $p --arg v "$(jq -r --arg p $p '.[$p].version' rel.json)" --arg u "/apps/$f" \
+            jq --arg p $p --arg v "$(jq -r --arg p $src '.[$p].version' rel.json)" --arg u "/apps/$f" \
               '.[$p] = {version: $v, url: $u, notes: null}' $OUT/releases.json > t.json && mv t.json $OUT/releases.json
           done
           cat $OUT/releases.json
