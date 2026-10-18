@@ -67,6 +67,8 @@
         "confirmPassword": "تأكيد كلمة المرور"
     },
     "common": {
+        "exportExcel": "تصدير ملف Excel",
+        "importExcel": "استيراد ملف Excel",
         "loading": "جارٍ التحميل...",
         "academicYearActive": "العام الدراسي النشط:",
         "close": "إغلاق",

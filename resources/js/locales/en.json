@@ -67,6 +67,8 @@
         "confirmPassword": "Confirm Password"
     },
     "common": {
+        "exportExcel": "Export Excel file",
+        "importExcel": "Import Excel file",
         "loading": "Loading...",
         "academicYearActive": "Active academic year:",
         "close": "Close",

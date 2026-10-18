@@ -46,6 +46,7 @@ use App\Http\Controllers\PreventionRecordController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PwaManifestController;
 use App\Http\Controllers\ProsthodonticsRecordController;
+use App\Http\Controllers\ExcelTransferController;
 use App\Http\Controllers\RegisterSettingsController;
 use App\Http\Controllers\StageController;
 use App\Http\Controllers\SurgeryController;
@@ -586,6 +587,11 @@ Route::middleware('auth')->group(function () {
             ->middleware('permission:settings,edit')->name('register-services.update');
         Route::delete('/register-services/{service}', [RegisterSettingsController::class, 'destroyService'])
             ->middleware('permission:settings,edit')->name('register-services.destroy');
+        // Excel export/import for moving to the offline system (2026-10-18, by request).
+        Route::get('/register-services-export', [ExcelTransferController::class, 'exportServices'])
+            ->middleware('permission:settings,edit')->name('register-services.export');
+        Route::post('/register-services-import', [ExcelTransferController::class, 'importServices'])
+            ->middleware('permission:settings,edit')->name('register-services.import');
         Route::put('/register-settings/lab', [RegisterSettingsController::class, 'updateLab'])
             ->middleware('permission:settings,edit')->name('register-settings.lab');
         Route::put('/tasks/{task}/register-days', [RegisterSettingsController::class, 'updateTaskDays'])
@@ -613,6 +619,11 @@ Route::middleware('auth')->group(function () {
             ->middlewareFor(['index', 'show'], 'permission:tasks,view')
             ->middlewareFor(['create', 'store'], 'permission:tasks,create')
             ->middlewareFor(['edit', 'update'], 'permission:tasks,edit');
+        // Excel export/import for moving to the offline system (2026-10-18, by request).
+        Route::get('/tasks-export', [ExcelTransferController::class, 'exportTasks'])
+            ->middleware('permission:tasks,view')->name('tasks.export');
+        Route::post('/tasks-import', [ExcelTransferController::class, 'importTasks'])
+            ->middleware('permission:tasks,create')->name('tasks.import');
         Route::delete('/tasks/{task}', [TaskController::class, 'destroy'])
             ->middleware('permission:tasks,delete')
             ->name('tasks.destroy');

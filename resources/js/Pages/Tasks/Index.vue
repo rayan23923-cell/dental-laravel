@@ -6,6 +6,7 @@ import ChatListRow from '@/Components/ChatList/ChatListRow.vue';
 import ChatChip from '@/Components/ChatList/ChatChip.vue';
 import ChatAction from '@/Components/ChatList/ChatAction.vue';
 import ChatAddButton from '@/Components/ChatList/ChatAddButton.vue';
+import ExcelTransferButtons from '@/Components/ExcelTransferButtons.vue';
 import ChatPager from '@/Components/ChatList/ChatPager.vue';
 import { toneFor } from '@/Components/ChatList/tones';
 import { Head, router, usePage } from '@inertiajs/vue3';
@@ -104,7 +105,10 @@ const destroy = (task) => {
         <template #header>
             <div class="flex items-center justify-between gap-3">
                 <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('tasksAdmin.title') }}</h2>
-                <ChatAddButton :label="t('tasksAdmin.addTask')" :href="createTaskHref" />
+                <div class="flex items-center gap-2">
+                    <ExcelTransferButtons :export-url="route('tasks.export')" :import-url="route('tasks.import')" />
+                    <ChatAddButton :label="t('tasksAdmin.addTask')" :href="createTaskHref" />
+                </div>
             </div>
         </template>
 
