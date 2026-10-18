@@ -131,6 +131,11 @@ Route::get('/activate', [\App\Http\Controllers\Offline\ActivationController::cla
 Route::post('/activate', [\App\Http\Controllers\Offline\ActivationController::class, 'store'])->middleware('throttle:10,1');
 
 Route::get('/download', function () {
+    // The offline server lists the apps it carries itself, at /apps/, so
+    // they install and update on the LAN without internet (2026-10-18).
+    if (config('offline.edition')) {
+        return redirect('/apps/');
+    }
     $releases = \App\Support\AppReleases::all();
 
     return view('downloads', [

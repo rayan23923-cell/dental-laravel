@@ -118,6 +118,10 @@ const submit = () => {
                     {{ t('auth.forgotPassword') }}
                 </Link>
             </div>
+            <!-- The apps' download page (2026-10-18); on the offline server it lists the apps it carries. -->
+            <div class="text-center">
+                <a href="/download" class="text-xs font-semibold text-ig-blue hover:underline">{{ t('auth.downloadApps') }}</a>
+            </div>
         </form>
     </GuestLayout>
 </template>

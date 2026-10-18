@@ -43,4 +43,12 @@ class DownloadPageTest extends TestCase
             ->assertSee('https://example.test/DentalClinicApp-offline-1.1.130.apk')
             ->assertSee('https://example.test/DentalClinicSetup-offline-1.1.130.exe');
     }
+
+    /** The offline server sends /download to the apps it carries (2026-10-18). */
+    public function test_the_offline_server_lists_its_own_apps(): void
+    {
+        config(['offline.edition' => true, 'offline.activation' => false]);
+
+        $this->get('/download')->assertRedirect('/apps/');
+    }
 }

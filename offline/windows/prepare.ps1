@@ -139,7 +139,12 @@ $httpsHost = if ($HttpsPort -eq 443) { '{host}' } else { "{host}:$HttpsPort" }
 # install its root once from http://$ServerName/setup.
 https://${ServerName}:$HttpsPort, https://${ServerIp}:$HttpsPort {
 	tls internal
-	import app
+	# The apps, client and certificate here too (2026-10-18), so
+	# https://clinic.lan/apps works as well as http.
+	import lanfiles
+	handle {
+		import app
+	}
 }
 
 # On this computer itself plain http works (localhost counts as secure).
