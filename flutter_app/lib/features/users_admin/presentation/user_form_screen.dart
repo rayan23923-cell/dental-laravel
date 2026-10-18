@@ -127,7 +127,6 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
               controller: _emailController,
               textDirection: TextDirection.ltr,
               keyboardType: TextInputType.emailAddress,
-              inputFormatters: digitsOnly,
               decoration: InputDecoration(labelText: t['usersAdmin.emailLabel'], border: const OutlineInputBorder()),
               validator: (v) => (v == null || v.trim().isEmpty) ? t['usersAdmin.requiredField'] : null,
             ),

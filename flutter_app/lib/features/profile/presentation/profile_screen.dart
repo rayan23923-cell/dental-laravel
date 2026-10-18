@@ -317,7 +317,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       controller: _emailController,
                       textDirection: TextDirection.ltr,
                       keyboardType: TextInputType.emailAddress,
-                      inputFormatters: digitsOnly,
                       decoration: InputDecoration(labelText: t['profile.email']!, border: const OutlineInputBorder()),
                       validator: (v) => (v == null || v.trim().isEmpty) ? t['profile.requiredField']! : null,
                     ),
