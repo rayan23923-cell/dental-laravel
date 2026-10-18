@@ -416,6 +416,8 @@ const Map<String, String> kTranslationsAr = {
   'patientRegFlutter.submit': 'تسجيل',
   'patientRegFlutter.currentStatusPrefix': 'الحالة الحالية:',
   'patientRegFlutter.noServices': 'لا توجد خدمات بعد — أضفها من إعدادات التسجيل.',
+  'patientRegFlutter.servicesVertical': 'عرض عمودي',
+  'patientRegFlutter.servicesHorizontal': 'عرض أفقي',
 
   'screening.markedClear': 'تم تسجيل المريض سليمًا.',
   'screening.markedFlagged': 'تم تسجيل نتيجة الفحص كغير سليمة.',
@@ -1663,6 +1665,8 @@ const Map<String, String> kTranslationsEn = {
   'patientRegFlutter.submit': 'Register',
   'patientRegFlutter.currentStatusPrefix': 'Current status:',
   'patientRegFlutter.noServices': 'No services yet — add them in Registration Settings.',
+  'patientRegFlutter.servicesVertical': 'Vertical view',
+  'patientRegFlutter.servicesHorizontal': 'Horizontal view',
 
   'screening.markedClear': 'Patient marked as clear.',
   'screening.markedFlagged': 'Screening result recorded as flagged.',
