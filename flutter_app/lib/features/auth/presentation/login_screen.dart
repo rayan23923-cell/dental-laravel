@@ -101,7 +101,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         autofocus: true,
                         enabled: !sending,
                         keyboardType: TextInputType.emailAddress,
-                        inputFormatters: digitsOnly,
                         autofillHints: const [AutofillHints.email],
                         decoration: const InputDecoration(
                           labelText: 'البريد الإلكتروني',
@@ -336,7 +335,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       controller: _identifierController,
                       enabled: !isLoading,
                       keyboardType: TextInputType.emailAddress,
-                      inputFormatters: digitsOnly,
                       autofillHints: const [
                         AutofillHints.username,
                         AutofillHints.email,

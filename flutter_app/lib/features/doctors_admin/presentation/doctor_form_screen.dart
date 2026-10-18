@@ -244,7 +244,6 @@ class _DoctorFormScreenState extends ConsumerState<DoctorFormScreen> {
             TextFormField(
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
-              inputFormatters: digitsOnly,
               decoration: InputDecoration(labelText: t['doctorsAdmin.emailLabel'], border: const OutlineInputBorder()),
               validator: (v) => (v == null || v.trim().isEmpty) ? t['doctorsAdmin.requiredField'] : null,
             ),
