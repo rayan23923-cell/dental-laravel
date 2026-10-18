@@ -274,6 +274,8 @@
         "filterDays": "تصفية الأيام...",
         "chooseDay": "اختر اليوم",
         "filterServices": "تصفية الخدمات...",
+        "scrollServicesBack": "الخدمات السابقة",
+        "scrollServicesForward": "الخدمات التالية",
         "chooseService": "اختر الخدمة",
         "chooseDayFirst": "اختر اليوم أولاً",
         "noServicesForDay": "لا توجد خدمات متاحة في هذا اليوم.",

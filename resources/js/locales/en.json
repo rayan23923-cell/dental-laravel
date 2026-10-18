@@ -274,6 +274,8 @@
         "filterDays": "Filter days...",
         "chooseDay": "Choose the day",
         "filterServices": "Filter services...",
+        "scrollServicesBack": "Previous services",
+        "scrollServicesForward": "More services",
         "chooseService": "Choose the service",
         "chooseDayFirst": "Choose the day first",
         "noServicesForDay": "No services are available on this day.",

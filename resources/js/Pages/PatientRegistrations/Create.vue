@@ -4,9 +4,10 @@ import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
+import Icon from '@/Components/Icon.vue';
 import ChatAddButton from '@/Components/ChatList/ChatAddButton.vue';
 import { Head, useForm } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
@@ -22,7 +23,8 @@ const form = useForm({
 });
 
 // Registration is name + phone + a priced service (2026-10-12). Services
-// are picked from cards; payment is mandatory and is the service's price,
+// are picked from a horizontal row of cards (2026-10-18, by request) that
+// swipes on touch and drags with the mouse; payment is mandatory and is the service's price,
 // recorded by the server, so there is no amount field. A service with no
 // price yet cannot be picked.
 const serviceFilter = ref('');
@@ -38,6 +40,68 @@ const isPriced = (service) => service.price !== null && service.price !== undefi
 const pickService = (service) => {
     if (isPriced(service)) form.service_id = service.id;
 };
+
+// The card row. Touch swipe is the browser's own scrolling; the mouse
+// drags it with pointer events. A drag past a few pixels swallows the
+// click that follows, so letting go over a card does not pick it.
+const scroller = ref(null);
+const rtl = ref(true);
+const canBack = ref(false);
+const canForward = ref(false);
+const dragging = ref(false);
+let drag = null;
+let suppressClick = false;
+
+const updateArrows = () => {
+    const el = scroller.value;
+    if (!el) return;
+    // In RTL scrollLeft runs from 0 down to negative values.
+    const offset = Math.abs(el.scrollLeft);
+    canBack.value = offset > 1;
+    canForward.value = offset < el.scrollWidth - el.clientWidth - 1;
+};
+
+const scrollRow = (towardEnd) => {
+    const el = scroller.value;
+    if (!el) return;
+    const step = el.clientWidth * 0.8 * (towardEnd ? 1 : -1);
+    el.scrollBy({ left: rtl.value ? -step : step, behavior: 'smooth' });
+};
+
+const onPointerDown = (e) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
+    drag = { id: e.pointerId, x: e.clientX, left: scroller.value.scrollLeft, moved: false };
+};
+const onPointerMove = (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.x;
+    if (!drag.moved && Math.abs(dx) < 6) return;
+    if (!drag.moved) {
+        drag.moved = true;
+        dragging.value = true;
+        // Capture only once it is a drag, so a plain click still lands on its card.
+        scroller.value.setPointerCapture(e.pointerId);
+    }
+    scroller.value.scrollLeft = drag.left - dx;
+};
+const onPointerUp = (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    suppressClick = drag.moved;
+    drag = null;
+    dragging.value = false;
+};
+const onClickCapture = (e) => {
+    if (!suppressClick) return;
+    suppressClick = false;
+    e.preventDefault();
+    e.stopPropagation();
+};
+
+onMounted(() => {
+    if (scroller.value) rtl.value = getComputedStyle(scroller.value).direction === 'rtl';
+    updateArrows();
+});
+watch(filteredServices, () => nextTick(updateArrows));
 
 const submit = () => {
     form.post(route('patient-registrations.store'));
@@ -81,27 +145,66 @@ const submit = () => {
                                 :placeholder="t('patientReg.filterServices')"
                                 class="mt-1 block w-full rounded-xl"
                             />
-                            <div role="radiogroup" class="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                                <button
-                                    v-for="service in filteredServices"
-                                    :key="service.id"
-                                    type="button"
-                                    role="radio"
-                                    :aria-checked="form.service_id === service.id"
-                                    :disabled="!isPriced(service)"
-                                    @click="pickService(service)"
-                                    class="flex min-h-[5.5rem] flex-col items-center justify-center gap-1 rounded-2xl border-2 p-3 text-center transition"
-                                    :class="
-                                        form.service_id === service.id
-                                            ? 'border-indigo-600 bg-indigo-50 ring-2 ring-indigo-200'
-                                            : isPriced(service)
-                                              ? 'border-gray-200 bg-white hover:border-indigo-300'
-                                              : 'cursor-not-allowed border-dashed border-gray-200 bg-gray-50 opacity-60'
-                                    "
+                            <!-- One swipeable row; scroll-snap is off while the mouse drags so it does not fight the pointer. -->
+                            <div class="relative mt-2">
+                                <div
+                                    ref="scroller"
+                                    role="radiogroup"
+                                    :aria-label="t('patientReg.serviceLabel')"
+                                    class="flex gap-3 overflow-x-auto overscroll-x-contain px-1 pb-2 pt-1"
+                                    :class="dragging ? 'cursor-grabbing select-none' : 'snap-x snap-mandatory'"
+                                    @scroll.passive="updateArrows"
+                                    @pointerdown="onPointerDown"
+                                    @pointermove="onPointerMove"
+                                    @pointerup="onPointerUp"
+                                    @pointercancel="onPointerUp"
+                                    @click.capture="onClickCapture"
+                                    @dragstart.prevent
                                 >
-                                    <span class="font-semibold text-gray-900">{{ service.name }}</span>
-                                    <span v-if="isPriced(service)" class="text-sm text-indigo-700" dir="ltr">{{ formatPrice(service.price) }}</span>
-                                    <span v-else class="text-xs text-amber-700">{{ t('patientReg.noPriceYet') }}</span>
+                                    <button
+                                        v-for="service in filteredServices"
+                                        :key="service.id"
+                                        type="button"
+                                        role="radio"
+                                        :aria-checked="form.service_id === service.id"
+                                        :disabled="!isPriced(service)"
+                                        @click="pickService(service)"
+                                        class="flex min-h-[5.5rem] w-36 shrink-0 snap-start flex-col items-center justify-center gap-1 rounded-2xl border-2 p-3 text-center transition sm:w-40"
+                                        :class="
+                                            form.service_id === service.id
+                                                ? 'border-indigo-600 bg-indigo-50 ring-2 ring-indigo-200'
+                                                : isPriced(service)
+                                                  ? 'border-gray-200 bg-white hover:border-indigo-300'
+                                                  : 'cursor-not-allowed border-dashed border-gray-200 bg-gray-50 opacity-60'
+                                        "
+                                    >
+                                        <span class="line-clamp-2 font-semibold text-gray-900">{{ service.name }}</span>
+                                        <span v-if="isPriced(service)" class="text-sm text-indigo-700" dir="ltr">{{ formatPrice(service.price) }}</span>
+                                        <span v-else class="text-xs text-amber-700">{{ t('patientReg.noPriceYet') }}</span>
+                                    </button>
+                                </div>
+                                <!-- Arrows for desktop; touch screens swipe instead. -->
+                                <button
+                                    v-show="canBack"
+                                    type="button"
+                                    tabindex="-1"
+                                    :title="t('patientReg.scrollServicesBack')"
+                                    @click="scrollRow(false)"
+                                    class="absolute top-1/2 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white text-gray-700 shadow ring-1 ring-gray-200 hover:bg-gray-50 sm:flex"
+                                    :class="rtl ? '-right-3' : '-left-3'"
+                                >
+                                    <Icon :name="rtl ? 'chevron_right' : 'chevron_left'" :label="t('patientReg.scrollServicesBack')" />
+                                </button>
+                                <button
+                                    v-show="canForward"
+                                    type="button"
+                                    tabindex="-1"
+                                    :title="t('patientReg.scrollServicesForward')"
+                                    @click="scrollRow(true)"
+                                    class="absolute top-1/2 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white text-gray-700 shadow ring-1 ring-gray-200 hover:bg-gray-50 sm:flex"
+                                    :class="rtl ? '-left-3' : '-right-3'"
+                                >
+                                    <Icon :name="rtl ? 'chevron_left' : 'chevron_right'" :label="t('patientReg.scrollServicesForward')" />
                                 </button>
                             </div>
                             <InputError class="mt-2" :message="form.errors.service_id" />
