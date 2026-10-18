@@ -138,6 +138,8 @@ Route::get('/download', function () {
         'windows' => $releases['windows'],
         'android' => $releases['android'],
         'ios' => $releases['ios'],
+        'androidOffline' => $releases['android_offline'] ?? null,
+        'windowsOffline' => $releases['windows_offline'] ?? null,
         'offline' => \App\Support\OfflineLicensing::latestBuild(),
     ]);
 })->name('download');
