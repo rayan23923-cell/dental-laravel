@@ -81,6 +81,7 @@
     @endif
 
     <div class="sheet">
+        @unless (View::hasSection('no_letterhead'))
         <div class="letterhead">
             @if ($settings->universityLogoUrl())
                 <img src="{{ $settings->universityLogoUrl() }}" alt="">
@@ -92,6 +93,7 @@
             @yield('letterhead')
             <p class="muted">تاريخ الطباعة: {{ now()->format('Y-m-d H:i') }}</p>
         </div>
+        @endunless
 
         @yield('content')
     </div>

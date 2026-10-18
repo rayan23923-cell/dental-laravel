@@ -45,7 +45,12 @@ class DoctorsListToolsTest extends TestCase
     {
         $ids = Doctor::orderBy('name')->limit(2)->pluck('id');
 
-        $this->get(route('doctors.cards'))->assertOk()->assertSee('طبيب 30');
+        // Four to a page: 30 doctors make 8 pages.
+        $all = $this->get(route('doctors.cards'))->assertOk()->assertSee('طبيب 30')->getContent();
+        $this->assertSame(8, substr_count($all, 'class="cards-page"'));
+        if ($out = getenv('CARDS_HTML_OUT')) {
+            file_put_contents($out, $all);
+        }
         $this->get(route('doctors.cards', ['ids' => $ids->implode(',')]))
             ->assertOk()->assertSee('طبيب 01')->assertDontSee('طبيب 30');
     }
