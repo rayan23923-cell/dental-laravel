@@ -93,6 +93,83 @@ class DashboardCounters extends StatelessWidget {
   }
 }
 
+/// The per-role panels (2026-10-18, by request): the lab's screening
+/// queue, the ticket desk's registrations and the accountant's income,
+/// as counter tiles that open the matching screen.
+class DeskPanelCounters extends StatelessWidget {
+  const DeskPanelCounters({super.key, required this.panels, required this.t});
+  final DeskPanels panels;
+  final Map<String, String> t;
+
+  @override
+  Widget build(BuildContext context) {
+    final reg = panels.registrations;
+    final lab = panels.lab;
+    final pay = panels.payments;
+    String money(double v) => '${_plain.format(v)} ${pay?.currency ?? ''}'.trim();
+    final tiles = [
+      if (lab != null) ...[
+        _Counter(
+          label: t['home.labPending']!,
+          value: _plain.format(lab.pending),
+          hint: trf(t['home.labCheckedToday']!, {'n': _plain.format(lab.checkedToday)}),
+          icon: Icons.hourglass_empty,
+          color: Colors.orange,
+          onTap: () => context.push('/lab'),
+        ),
+        _Counter(
+          label: t['home.labFlagged']!,
+          value: _plain.format(lab.flagged),
+          hint: trf(t['home.labClear']!, {'n': _plain.format(lab.clear)}),
+          icon: Icons.coronavirus_outlined,
+          color: Colors.red,
+          onTap: () => context.push('/lab'),
+        ),
+      ],
+      if (reg != null)
+        _Counter(
+          label: t['home.registrationsToday']!,
+          value: _plain.format(reg.today),
+          hint: trf(t['home.registrationsTotal']!, {'n': _plain.format(reg.total)}),
+          icon: Icons.how_to_reg_outlined,
+          color: Colors.lightBlue,
+          onTap: () => context.push('/records/patient-registrations'),
+        ),
+      if (pay != null) ...[
+        _Counter(
+          label: t['home.todayIncome']!,
+          value: money(pay.today.total),
+          hint: trf(t['home.paymentsCount']!, {'n': _plain.format(pay.today.count)}),
+          icon: Icons.payments_outlined,
+          color: Colors.green,
+          onTap: () => context.push('/records/payments'),
+        ),
+        _Counter(
+          label: t['home.weekIncome']!,
+          value: money(pay.week.total),
+          hint: trf(t['home.monthIncome']!, {'amount': money(pay.month.total)}),
+          icon: Icons.account_balance_wallet_outlined,
+          color: Colors.orange,
+          onTap: () => context.push('/records/payments'),
+        ),
+      ],
+    ];
+    if (tiles.isEmpty) return const SizedBox.shrink();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final perRow = constraints.maxWidth >= 720 ? 4 : 2;
+        final width = (constraints.maxWidth - 8 * (perRow - 1)) / perRow;
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [for (final tile in tiles) SizedBox(width: width, child: tile)],
+        );
+      },
+    );
+  }
+}
+
 class _Counter extends StatelessWidget {
   const _Counter({required this.label, required this.value, required this.icon, required this.color, this.hint, this.onTap});
   final String label;

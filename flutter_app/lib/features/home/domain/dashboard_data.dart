@@ -134,3 +134,46 @@ class DashboardDepartment {
   final int completed;
   final List<({int id, String title, int required, int completed, int remaining})> tasks;
 }
+
+/// The app's per-role home panels (`GET /dashboard/desk`, 2026-10-18):
+/// each one present only when the user may open it.
+class DeskPanels {
+  const DeskPanels({this.registrations, this.lab, this.payments});
+
+  factory DeskPanels.fromJson(Map<String, dynamic> json) {
+    final panels = json['panels'] as Map<String, dynamic>? ?? const {};
+    int n(Map<String, dynamic>? m, String key) => (m?[key] as num?)?.toInt() ?? 0;
+    final reg = panels['registrations'] as Map<String, dynamic>?;
+    final lab = panels['lab'] as Map<String, dynamic>?;
+    final pay = panels['payments'] as Map<String, dynamic>?;
+    final periods = pay?['periods'] as Map<String, dynamic>? ?? const {};
+    ({double total, int count}) period(String key) {
+      final p = periods[key] as Map<String, dynamic>?;
+      return (total: double.tryParse(p?['total']?.toString() ?? '') ?? 0, count: n(p, 'count'));
+    }
+
+    return DeskPanels(
+      registrations: reg == null ? null : (today: n(reg, 'today'), total: n(reg, 'total')),
+      lab: lab == null
+          ? null
+          : (pending: n(lab, 'pending'), clear: n(lab, 'clear'), flagged: n(lab, 'flagged'), checkedToday: n(lab, 'checked_today')),
+      payments: pay == null
+          ? null
+          : (
+              today: period('today'),
+              week: period('week'),
+              month: period('month'),
+              currency: pay['currency'] as String? ?? '',
+            ),
+    );
+  }
+
+  final ({int today, int total})? registrations;
+  final ({int pending, int clear, int flagged, int checkedToday})? lab;
+  final ({
+    ({double total, int count}) today,
+    ({double total, int count}) week,
+    ({double total, int count}) month,
+    String currency,
+  })? payments;
+}

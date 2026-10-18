@@ -354,6 +354,8 @@ Route::name('api.')->prefix('v1')->group(function () {
             ->middlewareFor('update', 'permission:tasks,edit')
             ->middlewareFor('destroy', 'permission:tasks,delete');
         Route::get('/dashboard', [DashboardController::class, 'index']);
+        // The app's per-role panels (2026-10-18): lab, registrations, payments.
+        Route::get('/dashboard/desk', [DashboardController::class, 'desk']);
         Route::get('/dashboard/tasks-by-education-type/{educationType}', [DashboardController::class, 'tasksByEducationType']);
         Route::get('/my-task-instances', [TaskInstanceController::class, 'mine']);
         // The doctor's own department-grouped task summary — see
