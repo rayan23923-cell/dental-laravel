@@ -16,6 +16,7 @@ import ChatChip from '@/Components/ChatList/ChatChip.vue';
 import ChatAction from '@/Components/ChatList/ChatAction.vue';
 import ChatSearch from '@/Components/ChatList/ChatSearch.vue';
 import ChatAddButton from '@/Components/ChatList/ChatAddButton.vue';
+import ExcelTransferButtons from '@/Components/ExcelTransferButtons.vue';
 import ChatPager from '@/Components/ChatList/ChatPager.vue';
 import { toneFor } from '@/Components/ChatList/tones';
 import { Head, router, usePage } from '@inertiajs/vue3';
@@ -151,6 +152,7 @@ const cardsSelectedUrl = computed(() => `${route('doctors.cards')}?ids=${selecte
             <div class="flex items-center justify-between gap-3">
                 <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('doctorsAdmin.title') }}</h2>
                 <div class="flex items-center gap-2">
+                    <ExcelTransferButtons :export-url="exportUrl" />
                     <ChatAddButton :label="t('doctorsAdmin.importExcel')" icon="upload_file" secondary :href="route('doctors.import.show')" />
                     <ChatAddButton :label="t('doctorsAdmin.addDoctor')" :href="route('doctors.create')" />
                 </div>

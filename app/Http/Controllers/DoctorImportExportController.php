@@ -6,6 +6,7 @@ use App\Models\Doctor;
 use App\Models\EducationType;
 use App\Models\Stage;
 use App\Services\CredentialMailer;
+use App\Support\ExcelTransfer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -36,6 +37,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class DoctorImportExportController extends Controller
 {
+    private const EXPORT_HEADERS = ['Name', 'Username', 'Email', 'Phone', 'Stage', 'Education Type', 'Created At'];
+
     public function showImport(): Response
     {
         return Inertia::render('Doctors/Import', [
@@ -87,7 +90,7 @@ class DoctorImportExportController extends Controller
         ]);
 
         $spreadsheet = IOFactory::load($request->file('file')->getRealPath());
-        $rows = $spreadsheet->getActiveSheet()->toArray();
+        $rows = self::fromExportLayout($spreadsheet->getActiveSheet()->toArray());
 
         if (! $request->filled('default_password') && $missing = CredentialMailer::unreachableImportRows($rows)) {
             throw ValidationException::withMessages([
@@ -105,7 +108,7 @@ class DoctorImportExportController extends Controller
                 continue; // header row
             }
 
-            [$firstName, $lastName, $email, $phone, $username] = array_pad($row, 5, null);
+            [$firstName, $lastName, $email, $phone, $username, $stageName, $typeName] = array_pad($row, 7, null);
             $username = trim((string) $username);
 
             if ($username === '') {
@@ -124,13 +127,17 @@ class DoctorImportExportController extends Controller
                 ? (string) $request->string('default_password')
                 : CredentialMailer::generatePassword();
 
+            // An exported file names each doctor's own stage; one this
+            // system doesn't have falls back to the stage chosen on the form.
+            $stage = self::stageNamed($stageName, $typeName);
+
             $doctor = Doctor::create([
                 'name' => $name !== '' ? $name : $username,
                 'username' => $username,
                 'email' => trim((string) $email) ?: "{$username}@placeholder.local",
                 'phone' => trim((string) $phone) ?: null,
-                'education_type_id' => $request->integer('education_type_id'),
-                'stage_id' => $request->integer('stage_id'),
+                'education_type_id' => $stage?->education_type_id ?? $request->integer('education_type_id'),
+                'stage_id' => $stage?->id ?? $request->integer('stage_id'),
                 'password' => Hash::make($plainPassword),
             ]);
 
@@ -145,39 +152,56 @@ class DoctorImportExportController extends Controller
                 .". {$queued} login emails queued (sent gradually within the daily limit).");
     }
 
+    /**
+     * Without passwords (2026-10-18, by request); the columns are the
+     * ones import() reads back, so the file moves doctors to the offline
+     * system (see fromExportLayout()).
+     */
     public function export(Request $request): StreamedResponse
     {
         $doctors = Doctor::with(['stage', 'educationType'])
             ->when($request->integer('stage_id'), fn ($q, $id) => $q->where('stage_id', $id))
             ->when($request->integer('education_type_id'), fn ($q, $id) => $q->where('education_type_id', $id))
             ->orderBy('id')
-            ->get();
+            ->get()
+            ->map(fn (Doctor $d) => [
+                $d->name, $d->username, $d->email, $d->phone, $d->stage?->name,
+                $d->educationType?->name ?? $d->stage?->educationType?->name, $d->created_at?->format('Y-m-d'),
+            ]);
 
-        $spreadsheet = new Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
+        return ExcelTransfer::download(self::EXPORT_HEADERS, $doctors, 'doctors_export');
+    }
 
-        $headers = ['Name', 'Stage', 'Education Type', 'Username', 'Email', 'Phone', 'Created At'];
-        foreach ($headers as $i => $header) {
-            $sheet->setCellValue(Coordinate::stringFromColumnIndex($i + 1).'1', $header);
+    /**
+     * Rows of an exported file in the template's layout (first name, last
+     * name, email, phone, username) plus stage and education type names.
+     * Any other file is returned as it is.
+     */
+    private static function fromExportLayout(array $rows): array
+    {
+        $headers = array_map(fn ($h) => ExcelTransfer::key($h), $rows[0] ?? []);
+        if (! in_array('name', $headers, true) || ! in_array('username', $headers, true)) {
+            return $rows;
         }
-        $sheet->getStyle('A1:G1')->getFont()->setBold(true);
+        $col = array_flip($headers);
+        $get = fn ($row, $key) => isset($col[$key]) ? ($row[$col[$key]] ?? null) : null;
 
-        foreach ($doctors as $i => $doctor) {
-            $row = $i + 2;
-            $sheet->setCellValue("A{$row}", $doctor->name);
-            $sheet->setCellValue("B{$row}", $doctor->stage?->name);
-            $sheet->setCellValue("C{$row}", $doctor->educationType?->name);
-            $sheet->setCellValue("D{$row}", $doctor->username);
-            $sheet->setCellValue("E{$row}", $doctor->email);
-            $sheet->setCellValue("F{$row}", $doctor->phone);
-            $sheet->setCellValue("G{$row}", $doctor->created_at?->format('Y-m-d'));
+        return array_map(fn ($row) => [
+            $get($row, 'name'), '', $get($row, 'email'), $get($row, 'phone'),
+            $get($row, 'username'), $get($row, 'stage'), $get($row, 'education type'),
+        ], $rows);
+    }
+
+    private static function stageNamed(?string $stage, ?string $type): ?Stage
+    {
+        $stage = trim((string) $stage);
+        if ($stage === '') {
+            return null;
         }
 
-        foreach (range('A', 'G') as $col) {
-            $sheet->getColumnDimension($col)->setAutoSize(true);
-        }
-
-        return $this->streamSpreadsheet($spreadsheet, 'doctors_export_'.now()->format('Ymd_His').'.xlsx');
+        return Stage::where('name', $stage)
+            ->when(trim((string) $type) !== '', fn ($q) => $q->whereHas('educationType', fn ($t) => $t->where('name', trim((string) $type))))
+            ->first();
     }
 
     private function streamSpreadsheet(Spreadsheet $spreadsheet, string $filename): StreamedResponse

@@ -11,6 +11,7 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import ChatAction from '@/Components/ChatList/ChatAction.vue';
 import ChatAddButton from '@/Components/ChatList/ChatAddButton.vue';
+import ExcelTransferButtons from '@/Components/ExcelTransferButtons.vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -77,10 +78,16 @@ const submitLab = () => {
                 <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
                     {{ page.props.flash.success }}
                 </div>
+                <div v-if="page.props.flash?.error" class="rounded-xl bg-red-50 p-4 text-sm text-red-700 whitespace-pre-line">
+                    {{ page.props.flash.error }}
+                </div>
 
                 <!-- Services and prices -->
                 <div class="overflow-hidden rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
-                    <h3 class="mb-4 font-semibold text-gray-800">{{ t('patientReg.servicesPricesHeading') }}</h3>
+                    <div class="mb-4 flex items-center justify-between gap-3">
+                        <h3 class="font-semibold text-gray-800">{{ t('patientReg.servicesPricesHeading') }}</h3>
+                        <ExcelTransferButtons :export-url="route('register-services.export')" :import-url="route('register-services.import')" />
+                    </div>
                     <form @submit.prevent="submitService" class="mb-6 grid grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_12rem_auto]">
                         <div>
                             <InputLabel for="service_name" :value="t('patientReg.serviceNameLabel')" />
