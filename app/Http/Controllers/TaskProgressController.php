@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\TaskSteps;
+use App\Support\CaseSheetSignatures;
 use App\Support\TaskScoring;
 use App\Models\ClinicSetting;
 use App\Models\Doctor;
@@ -189,6 +191,8 @@ class TaskProgressController extends Controller
                     'title' => $task->title,
                     'department' => $task->department?->name,
                     'required_count' => $task->required_count,
+                    // Its steps, signed in the start dialog (2026-10-18).
+                    'scoring' => $task->scoring,
                 ],
             ]);
         }
@@ -228,6 +232,10 @@ class TaskProgressController extends Controller
             // gate still applies (see TaskStarter).
             'patient_registration_id' => ['nullable', 'exists:patients_simple,id'],
             'notes' => ['nullable', 'string'],
+            // Steps done at this first session, signed as it starts (2026-10-18).
+            'steps' => ['nullable', 'array', 'max:40'],
+            'steps.*.step' => ['required', 'string', 'max:40'],
+            'steps.*.grade' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $task = Task::findOrFail($validated['task_id']);
@@ -237,10 +245,11 @@ class TaskProgressController extends Controller
             : null;
 
         try {
-            TaskStarter::start($task, $doctor, $patientRegistration, $validated['notes'] ?? null, auth()->id());
+            $instance = TaskStarter::start($task, $doctor, $patientRegistration, $validated['notes'] ?? null, auth()->id());
         } catch (TaskStartException|PatientScreeningException $e) {
             return back()->with('error', $e->getMessage());
         }
+        self::signSteps($instance, $validated['steps'] ?? [], $request);
 
         return back()->with('success', 'Task started for this doctor.');
     }
@@ -283,5 +292,14 @@ class TaskProgressController extends Controller
         }
 
         return back()->with('success', 'Task instance updated.');
+    }
+
+    /** Signs the steps ticked in the start dialog, in order (2026-10-18). */
+    private static function signSteps(TaskInstance $instance, array $steps, Request $request): void
+    {
+        $signer = CaseSheetSignatures::signerName($request);
+        foreach ($steps as $step) {
+            TaskSteps::sign($instance->fresh(), $step['step'], $step['grade'] ?? null, $signer);
+        }
     }
 }

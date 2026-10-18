@@ -164,7 +164,7 @@ class CaseSheetSignatures
         return $data;
     }
 
-    private static function stamp(string $signerName): string
+    public static function stamp(string $signerName): string
     {
         return $signerName.' — '.now()->format('Y-m-d H:i');
     }

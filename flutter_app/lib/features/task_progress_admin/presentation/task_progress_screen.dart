@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:printing/printing.dart';
 
+import '../../case_sheet_forms/presentation/task_steps_list.dart';
 import '../../../core/platform/platform_support.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_client.dart';
@@ -199,8 +200,10 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
   Future<void> _startTask(
     int doctorId,
     int taskId,
-    TaskProgressGroupOption groupOption,
-  ) async {
+    TaskProgressGroupOption groupOption, {
+    int stepsCount = 0,
+    String title = '',
+  }) async {
     // No patient QR (2026-10-12, by request): the doctor and task picked
     // here (or the case QR) are enough to start it.
     final t = ref.read(translationsProvider);
@@ -217,6 +220,12 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(t['taskProgressAdmin.startedSuccess']!)));
+      }
+      // The task's steps right away, to sign those done at this first
+      // session (2026-10-18, by request).
+      if (mounted && stepsCount > 0) {
+        await showTaskStepsSheet(context, taskInstanceId: result.instanceId, title: title);
+        _reloadGroup();
       }
       if (mounted) await _printReceipt(result, groupOption);
     } catch (e) {
@@ -1092,7 +1101,13 @@ class _TaskSlotTile extends ConsumerWidget {
             children: [
               if (card.status == 'unassigned')
                 TextButton(
-                  onPressed: () => screen._startTask(doctor.id, card.taskId, groupOption),
+                  onPressed: () => screen._startTask(
+                    doctor.id,
+                    card.taskId,
+                    groupOption,
+                    stepsCount: card.stepsCount,
+                    title: '${card.taskTitle} - ${doctor.name}',
+                  ),
                   child: Text(t['taskProgressAdmin.startTask']!),
                 ),
               if (card.status == 'assigned')
@@ -1108,6 +1123,22 @@ class _TaskSlotTile extends ConsumerWidget {
                 TextButton(
                   onPressed: () => screen._editInstance(card),
                   child: Text(t['taskProgressAdmin.editLabel']!),
+                ),
+              // The case's steps, signed one after another (2026-10-18).
+              if (card.instanceId != null && card.stepsCount > 0 && card.status != 'pending')
+                TextButton.icon(
+                  onPressed: () async {
+                    await showTaskStepsSheet(context, taskInstanceId: card.instanceId!, title: '${card.taskTitle} - ${doctor.name}');
+                    screen._reloadGroup();
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: card.stepsSigned >= card.stepsCount ? Colors.green.shade800 : Colors.orange.shade800,
+                  ),
+                  icon: const Icon(Icons.checklist, size: 18),
+                  label: Text(trf(t['taskSteps.button']!, {
+                    'done': card.stepsSigned.clamp(0, card.stepsCount),
+                    'total': card.stepsCount,
+                  })),
                 ),
               // Photos of the paper case sheet (2026-10-13), as on the web.
               if (card.instanceId != null)

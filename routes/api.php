@@ -407,6 +407,11 @@ Route::name('api.')->prefix('v1')->group(function () {
             ->name('case-sheets.instance-work');
         Route::put('/case-sheets/instances/{taskInstance}/work', [\App\Http\Controllers\TaskWorkController::class, 'update'])
             ->name('case-sheets.instance-work.update');
+        // Signing the case's steps one after another (2026-10-18); see TaskSteps.
+        Route::post('/case-sheets/instances/{taskInstance}/steps', [\App\Http\Controllers\TaskWorkController::class, 'signStep'])
+            ->name('case-sheets.instance-steps.sign');
+        Route::delete('/case-sheets/instances/{taskInstance}/steps', [\App\Http\Controllers\TaskWorkController::class, 'undoStep'])
+            ->name('case-sheets.instance-steps.undo');
         // Optional pre-instance draft (2026-08-28) — see CaseSheetController::openForTask()'s doc comment.
         Route::get('/tasks/{task}/case-sheet-draft', [CaseSheetController::class, 'openForTask']);
         // The doctor's own "pending task" QR (task+doctor, no instance yet
