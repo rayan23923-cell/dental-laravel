@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/platform/platform_support.dart';
 import '../../../core/i18n/locale_controller.dart';
@@ -47,6 +48,26 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
   int? _taskId;
   bool _submitting = false;
 
+  /// Services as one swiping row, or wrapped in rows below each other
+  /// (2026-10-18, by request); remembered on this device.
+  static const _verticalKey = 'registration_services_vertical';
+  bool _servicesVertical = false;
+
+  @override
+  void initState() {
+    super.initState();
+    SharedPreferences.getInstance().then((prefs) {
+      final v = prefs.getBool(_verticalKey) ?? false;
+      if (mounted && v != _servicesVertical) setState(() => _servicesVertical = v);
+    });
+  }
+
+  void _toggleServicesLayout() {
+    final v = !_servicesVertical;
+    setState(() => _servicesVertical = v);
+    SharedPreferences.getInstance().then((prefs) => prefs.setBool(_verticalKey, v));
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -61,7 +82,9 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
     final t = ref.read(translationsProvider);
 
     try {
-      final registration = await ref.read(patientRegistrationRepositoryProvider).create(
+      final registration = await ref
+          .read(patientRegistrationRepositoryProvider)
+          .create(
             name: _nameController.text.trim(),
             phone: _phoneController.text.trim(),
             serviceId: _serviceId!,
@@ -165,7 +188,10 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
               children: [
                 TextFormField(
                   controller: _nameController,
-                  decoration: InputDecoration(labelText: t['patientRegFlutter.patientNameLabel']!, border: const OutlineInputBorder()),
+                  decoration: InputDecoration(
+                    labelText: t['patientRegFlutter.patientNameLabel']!,
+                    border: const OutlineInputBorder(),
+                  ),
                   validator: (v) => (v == null || v.trim().isEmpty) ? t['profile.requiredField']! : null,
                 ),
                 const SizedBox(height: 16),
@@ -178,55 +204,84 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                   validator: (v) => (v == null || v.trim().isEmpty) ? t['profile.requiredField']! : null,
                 ),
                 const SizedBox(height: 16),
-                Text(t['patientRegFlutter.serviceLabel']!, style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(t['patientRegFlutter.serviceLabel']!, style: Theme.of(context).textTheme.titleSmall),
+                    ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(_servicesVertical ? Icons.view_carousel_outlined : Icons.grid_view),
+                      tooltip: _servicesVertical
+                          ? t['patientRegFlutter.servicesHorizontal']!
+                          : t['patientRegFlutter.servicesVertical']!,
+                      onPressed: _toggleServicesLayout,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
                 FormField<int>(
                   initialValue: services.any((s) => s.id == _serviceId) ? _serviceId : null,
                   validator: (v) => v == null ? t['profile.requiredField'] : null,
-                  builder: (field) => Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (services.isEmpty) Text(t['patientRegFlutter.noServices']!),
-                      // One row that swipes left and right, for faster entry
-                      // than scanning a grid (2026-10-18, by request). The
-                      // mouse drags it too, for the Windows app.
-                      SizedBox(
-                        height: 96,
-                        child: ScrollConfiguration(
-                          behavior: ScrollConfiguration.of(context).copyWith(dragDevices: PointerDeviceKind.values.toSet()),
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: services.length,
-                            separatorBuilder: (_, _) => const SizedBox(width: 8),
-                            itemBuilder: (context, i) {
-                              final s = services[i];
-                              return SizedBox(
-                                width: 150,
-                                child: _ServiceCard(
-                                  service: s,
-                                  selected: s.id == field.value,
-                                  priceLabel: s.price == null
-                                      ? t['patientRegFlutter.noPriceYet']!
-                                      : formatMoney(s.price!, currency),
-                                  onTap: s.price == null
-                                      ? null
-                                      : () {
-                                          field.didChange(s.id);
-                                          setState(() => _serviceId = s.id);
-                                        },
-                                ),
+                  builder: (field) {
+                    Widget card(Service s) => _ServiceCard(
+                      service: s,
+                      selected: s.id == field.value,
+                      priceLabel: s.price == null
+                          ? t['patientRegFlutter.noPriceYet']!
+                          : formatMoney(s.price!, currency),
+                      onTap: s.price == null
+                          ? null
+                          : () {
+                              field.didChange(s.id);
+                              setState(() => _serviceId = s.id);
+                            },
+                    );
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (services.isEmpty) Text(t['patientRegFlutter.noServices']!),
+                        // One row that swipes left and right, for faster entry
+                        // than scanning a grid (2026-10-18, by request). The
+                        // mouse drags it too, for the Windows app.
+                        if (_servicesVertical)
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              const gap = 8.0;
+                              final perRow = (constraints.maxWidth / 158).floor().clamp(2, 8);
+                              final width = (constraints.maxWidth - gap * (perRow - 1)) / perRow;
+                              return Wrap(
+                                spacing: gap,
+                                runSpacing: gap,
+                                children: [
+                                  for (final s in services) SizedBox(width: width, height: 96, child: card(s)),
+                                ],
                               );
                             },
+                          )
+                        else
+                          SizedBox(
+                            height: 96,
+                            child: ScrollConfiguration(
+                              behavior: ScrollConfiguration.of(
+                                context,
+                              ).copyWith(dragDevices: PointerDeviceKind.values.toSet()),
+                              child: ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: services.length,
+                                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                                itemBuilder: (context, i) => SizedBox(width: 150, child: card(services[i])),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      if (field.errorText != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(field.errorText!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                        ),
-                    ],
-                  ),
+                        if (field.errorText != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(field.errorText!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                          ),
+                      ],
+                    );
+                  },
                 ),
                 // "التشخيص" picker removed from registration (2026-10-11, by
                 // request); registrations are saved with no task.

@@ -121,19 +121,22 @@ const submit = () => {
         </template>
 
         <div class="py-6 sm:py-10">
-            <div class="mx-auto max-w-2xl px-4 sm:px-6 lg:px-8">
+            <!-- Wide so the service row shows more cards at once (2026-10-18, by request). -->
+            <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
                 <div class="overflow-hidden rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
                     <form @submit.prevent="submit" class="space-y-6">
-                        <div>
-                            <InputLabel for="name" :value="t('patientReg.patientName')" />
-                            <TextInput id="name" v-model="form.name" type="text" class="mt-1 block w-full rounded-xl" required autofocus />
-                            <InputError class="mt-2" :message="form.errors.name" />
-                        </div>
+                        <div class="grid gap-6 md:grid-cols-2">
+                            <div>
+                                <InputLabel for="name" :value="t('patientReg.patientName')" />
+                                <TextInput id="name" v-model="form.name" type="text" class="mt-1 block w-full rounded-xl" required autofocus />
+                                <InputError class="mt-2" :message="form.errors.name" />
+                            </div>
 
-                        <div>
-                            <InputLabel for="phone" :value="t('profile.phone')" />
-                            <TextInput id="phone" v-model="form.phone" type="tel" class="mt-1 block w-full rounded-xl" dir="ltr" required />
-                            <InputError class="mt-2" :message="form.errors.phone" />
+                            <div>
+                                <InputLabel for="phone" :value="t('profile.phone')" />
+                                <TextInput id="phone" v-model="form.phone" type="tel" class="mt-1 block w-full rounded-xl" dir="ltr" required />
+                                <InputError class="mt-2" :message="form.errors.phone" />
+                            </div>
                         </div>
 
                         <div>

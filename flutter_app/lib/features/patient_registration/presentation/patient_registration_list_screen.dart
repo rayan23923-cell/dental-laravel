@@ -6,12 +6,16 @@ import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/auth/staff_access.dart';
 import '../../../core/platform/platform_support.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/chat_list_tile.dart';
 import '../../../core/widgets/qr_image.dart';
+import '../../auth/domain/auth_account.dart';
+import '../../auth/presentation/auth_controller.dart';
+import '../../auth/presentation/auth_state.dart';
 import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../../printing/data/pos_printer_service.dart';
 import '../../printing/presentation/printer_error_snackbar.dart';
@@ -215,6 +219,10 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
     final servicesAsync = ref.watch(servicesProvider);
     final servicesForFilter = servicesAsync.valueOrNull ?? const [];
     final t = ref.watch(translationsProvider);
+    final authState = ref.watch(authControllerProvider).valueOrNull;
+    final account = authState is Authenticated ? authState.account : null;
+    // Only for accounts the lab would let in (2026-10-18, by request).
+    final canOpenLab = account is! StaffAccount || staffCanOpen(account, '/lab');
 
     return Scaffold(
       appBar: AppBar(
@@ -232,11 +240,12 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                 ),
                 // Infectious-disease screening gate (2026-08-26) — the
                 // lab/reception entry point, same shared ticket QR.
-                IconButton(
-                  icon: const Icon(Icons.coronavirus_outlined),
-                  tooltip: t['patientRegFlutter.screeningTooltip']!,
-                  onPressed: () => context.push('/lab'),
-                ),
+                if (canOpenLab)
+                  IconButton(
+                    icon: const Icon(Icons.coronavirus_outlined),
+                    tooltip: t['patientRegFlutter.screeningTooltip']!,
+                    onPressed: () => context.push('/lab'),
+                  ),
                 IconButton(
                   icon: const Icon(Icons.settings_outlined),
                   tooltip: t['patientRegFlutter.settingsTooltip']!,

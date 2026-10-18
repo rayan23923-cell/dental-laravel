@@ -41,6 +41,14 @@ class DoctorsListToolsTest extends TestCase
         $this->get(route('doctors.index', ['per_page' => 7]))->assertInertia(fn (AssertableInertia $p) => $p->has('doctors.data', 15));
     }
 
+    public function test_the_app_list_takes_the_same_page_sizes(): void
+    {
+        $this->getJson('/api/v1/doctors')->assertOk()->assertJsonCount(15, 'data')->assertJsonPath('meta.total', 30);
+        $this->getJson('/api/v1/doctors?per_page=25&page=2')->assertOk()->assertJsonCount(5, 'data');
+        $this->getJson('/api/v1/doctors?per_page=all')->assertOk()->assertJsonCount(30, 'data');
+        $this->getJson('/api/v1/doctors?per_page=7')->assertOk()->assertJsonCount(15, 'data');
+    }
+
     public function test_the_cards_print_for_the_filter_or_the_ticked_rows(): void
     {
         $ids = Doctor::orderBy('name')->limit(2)->pluck('id');

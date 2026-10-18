@@ -5,13 +5,19 @@ import '../../../core/network/paginated.dart';
 import '../data/doctors_admin_repository.dart';
 import '../domain/doctor_admin.dart';
 
-/// Keyed on `(search, educationTypeId, stageId)` — same record-family
-/// shape as `taskAdminListProvider`.
-final doctorAdminListProvider = FutureProvider.autoDispose
-    .family<Paginated<DoctorAdmin>, ({String? search, int? educationTypeId, int? stageId})>((ref, filter) {
-  return ref
-      .watch(doctorsAdminRepositoryProvider)
-      .list(search: filter.search, educationTypeId: filter.educationTypeId, stageId: filter.stageId);
+typedef DoctorListFilter = ({String? search, int? educationTypeId, int? stageId, String perPage, int page});
+
+/// Keyed on the filters plus rows per page and page (2026-10-18) — same
+/// record-family shape as `taskAdminListProvider`.
+final doctorAdminListProvider =
+    FutureProvider.autoDispose.family<Paginated<DoctorAdmin>, DoctorListFilter>((ref, filter) {
+  return ref.watch(doctorsAdminRepositoryProvider).list(
+        search: filter.search,
+        educationTypeId: filter.educationTypeId,
+        stageId: filter.stageId,
+        perPage: filter.perPage,
+        page: filter.page,
+      );
 });
 
 final doctorAdminProvider = FutureProvider.autoDispose.family<DoctorAdmin, int>((ref, id) {

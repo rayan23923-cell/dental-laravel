@@ -63,10 +63,16 @@ class DoctorController extends Controller
                         ->orWhere('username', 'like', "%{$search}%");
                 });
             })
-            ->orderBy('name')
-            ->paginate(15);
+            ->orderBy('name');
 
-        return DoctorResource::collection($doctors)->response();
+        // Rows per page, as on the web list (2026-10-18, by request): 15,
+        // 25, 50, 75, 100 or all; anything else falls back to 15.
+        $perPage = $request->string('per_page')->toString();
+        $perPage = $perPage === 'all'
+            ? max(1, (clone $doctors)->count())
+            : (in_array((int) $perPage, [15, 25, 50, 75, 100], true) ? (int) $perPage : 15);
+
+        return DoctorResource::collection($doctors->paginate($perPage))->response();
     }
 
     /**

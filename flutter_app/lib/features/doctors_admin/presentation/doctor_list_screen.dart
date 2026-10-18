@@ -1,11 +1,16 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../../core/data/lookup_repository.dart';
 import '../../../core/i18n/locale_controller.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/network/paginated.dart';
 import '../../../core/nfc/nfc_uid_reader.dart';
 import '../../../core/pdf/pdf_letterhead.dart';
 import '../../../core/widgets/academic_year_banner.dart';
@@ -14,6 +19,7 @@ import '../../../core/widgets/chat_list_tile.dart';
 import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../domain/doctor_admin.dart';
 import '../data/doctors_admin_repository.dart';
+import 'doctor_card_pdf.dart';
 import 'doctor_files.dart';
 import 'doctor_roster_pdf.dart';
 import 'doctors_admin_providers.dart';
@@ -33,6 +39,11 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
   bool _scanningNfc = false;
   bool _printing = false;
 
+  /// Rows per page, as on the web list (2026-10-18, by request).
+  static const _pageSizes = ['15', '25', '50', '75', '100', 'all'];
+  String _perPage = '15';
+  int _page = 1;
+
   /// "حذف المحدد" (2026-10-17): picking rows, then archiving them at once.
   bool _selectMode = false;
   final Set<int> _selected = {};
@@ -44,8 +55,8 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
     super.dispose();
   }
 
-  ({String? search, int? educationTypeId, int? stageId}) get _filter =>
-      (search: _search, educationTypeId: _educationTypeId, stageId: _stageId);
+  DoctorListFilter get _filter =>
+      (search: _search, educationTypeId: _educationTypeId, stageId: _stageId, perPage: _perPage, page: _page);
 
   /// Tap-to-scan alternate to typing a name — resolves the card via
   /// `Api\DoctorController::nfcLookup()` and both fills the search box
@@ -60,6 +71,7 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
       if (!mounted) return;
       setState(() {
         _search = doctor.name;
+        _page = 1;
         _searchController.text = doctor.name;
         _educationTypeId = doctor.educationTypeId;
         _stageId = doctor.stageId;
@@ -91,6 +103,38 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
       final logo = await loadLetterheadLogo(ref, settings);
       final bytes = await buildDoctorRosterPdf(doctors: doctors, settings: settings, logo: logo);
       await Printing.layoutPdf(onLayout: (_) async => bytes, name: 'قائمة الأطباء.pdf');
+    } catch (e) {
+      if (mounted) {
+        final t = ref.read(translationsProvider);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(trf(t['doctorsAdmin.printFailed']!, {'error': e}))));
+      }
+    } finally {
+      if (mounted) setState(() => _printing = false);
+    }
+  }
+
+  /// Everyone's cards on screen (or the ticked ones), four to an A4 page,
+  /// like the web's "طباعة البطاقات" (2026-10-18, by request).
+  Future<void> _printCards(List<DoctorAdmin> doctors) async {
+    if (doctors.isEmpty) return;
+    setState(() => _printing = true);
+    try {
+      final settings = await ref.read(clinicSettingsProvider.future);
+      final client = ref.read(apiClientProvider);
+      final photos = <int, pw.ImageProvider>{};
+      final withPhoto = [for (final d in doctors) if (d.profileImageUrl != null) d];
+      // A few at a time; a photo that fails leaves its card without one.
+      for (var i = 0; i < withPhoto.length; i += 6) {
+        await Future.wait([
+          for (final d in withPhoto.skip(i).take(6))
+            client.getBytes(d.profileImageUrl!).then<void>(
+                  (bytes) => photos[d.id] = pw.MemoryImage(Uint8List.fromList(bytes)),
+                  onError: (_) {},
+                ),
+        ]);
+      }
+      final bytes = await buildDoctorCardsPdf(doctors: doctors, settings: settings, photos: photos);
+      await Printing.layoutPdf(onLayout: (_) async => bytes, name: 'بطاقات الأطباء.pdf');
     } catch (e) {
       if (mounted) {
         final t = ref.read(translationsProvider);
@@ -179,6 +223,48 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
     }
   }
 
+  /// Rows-per-page choice plus previous/next page, under the filters.
+  Widget _pager(Map<String, String> t, Paginated<DoctorAdmin>? page) {
+    return Row(
+      children: [
+        Text(t['doctorsAdmin.perPage']!, style: const TextStyle(fontSize: 13)),
+        const SizedBox(width: 6),
+        DropdownButton<String>(
+          value: _perPage,
+          isDense: true,
+          underline: const SizedBox(),
+          items: [
+            for (final size in _pageSizes)
+              DropdownMenuItem(value: size, child: Text(size == 'all' ? t['doctorsAdmin.perPageAll']! : size)),
+          ],
+          onChanged: (v) => setState(() {
+            _perPage = v ?? '15';
+            _page = 1;
+          }),
+        ),
+        const Spacer(),
+        if (page != null) ...[
+          Text(
+            trf(t['doctorsAdmin.pageOf']!, {'page': page.currentPage, 'last': page.lastPage, 'total': page.total}),
+            style: const TextStyle(fontSize: 12),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.chevron_left),
+            tooltip: t['doctorsAdmin.previousPage'],
+            onPressed: page.currentPage > 1 ? () => setState(() => _page = page.currentPage - 1) : null,
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.chevron_right),
+            tooltip: t['doctorsAdmin.nextPage'],
+            onPressed: page.hasMore ? () => setState(() => _page = page.currentPage + 1) : null,
+          ),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final educationTypesAsync = ref.watch(doctorEducationTypesProvider);
@@ -198,6 +284,16 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
                   onPressed: () => setState(() => _selected.addAll([for (final d in doctorsAsync.valueOrNull?.items ?? const <DoctorAdmin>[]) d.id])),
                 ),
                 IconButton(
+                  icon: const Icon(Icons.badge_outlined),
+                  tooltip: t['doctorsAdmin.printSelectedCards'],
+                  onPressed: _printing || _selected.isEmpty
+                      ? null
+                      : () => _printCards([
+                            for (final d in doctorsAsync.valueOrNull?.items ?? const <DoctorAdmin>[])
+                              if (_selected.contains(d.id)) d,
+                          ]),
+                ),
+                IconButton(
                   icon: const Icon(Icons.delete_outline),
                   tooltip: t['doctorsAdmin.deleteSelected'],
                   onPressed: _busy || _selected.isEmpty ? null : _deleteSelected,
@@ -207,15 +303,30 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
           : AppBar(
         title: Text(t['doctorsAdmin.title']!),
         actions: [
-          IconButton(
-            icon: _printing
-                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.print_outlined),
-            tooltip: t['doctorsAdmin.printListTooltip'],
-            onPressed: _printing || doctorsAsync.valueOrNull == null
-                ? null
-                : () => _printRoster(doctorsAsync.valueOrNull!.items),
-          ),
+          // The list or everyone's cards, for exactly the rows on screen.
+          _printing
+              ? const Padding(
+                  padding: EdgeInsets.all(14),
+                  child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                )
+              : PopupMenuButton<String>(
+                  icon: const Icon(Icons.print_outlined),
+                  enabled: doctorsAsync.valueOrNull != null,
+                  onSelected: (action) {
+                    final doctors = doctorsAsync.valueOrNull?.items ?? const <DoctorAdmin>[];
+                    action == 'cards' ? _printCards(doctors) : _printRoster(doctors);
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'list',
+                      child: ListTile(leading: const Icon(Icons.list_alt_outlined), title: Text(t['doctorsAdmin.printListTooltip']!)),
+                    ),
+                    PopupMenuItem(
+                      value: 'cards',
+                      child: ListTile(leading: const Icon(Icons.badge_outlined), title: Text(t['doctorsAdmin.printCards']!)),
+                    ),
+                  ],
+                ),
           PopupMenuButton<String>(
             enabled: !_busy,
             onSelected: (action) async {
@@ -259,7 +370,10 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
                       child: ChatSearchField(
                         controller: _searchController,
                         hintText: t['doctorsAdmin.searchHint']!,
-                        onSubmitted: (v) => setState(() => _search = v.trim().isEmpty ? null : v.trim()),
+                        onSubmitted: (v) => setState(() {
+                          _search = v.trim().isEmpty ? null : v.trim();
+                          _page = 1;
+                        }),
                       ),
                     ),
                     const SizedBox(width: 4),
@@ -284,6 +398,7 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
                           onChanged: (v) => setState(() {
                             _educationTypeId = v;
                             _stageId = null;
+                            _page = 1;
                           }),
                         ),
                       ),
@@ -299,12 +414,17 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
                           ),
                           value: _stageId,
                           enabled: _educationTypeId != null,
-                          onChanged: (v) => setState(() => _stageId = v),
+                          onChanged: (v) => setState(() {
+                            _stageId = v;
+                            _page = 1;
+                          }),
                         ),
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(height: 4),
+                _pager(t, doctorsAsync.valueOrNull),
               ],
             ),
           ),
