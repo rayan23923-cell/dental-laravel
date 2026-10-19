@@ -11,23 +11,12 @@ name: Deploy to VPS
 #   VPS_SSH_KEY  private key for that user, without a passphrase
 #   VPS_APP_DIR  app folder on the server, e.g. /home/ubuntu/dental-laravel
 # Until VPS_HOST is set the job is skipped.
+# Every push to main, app-only changes included (2026-10-19, by request:
+# "عند رفع تحديث كذلك حدث موقع الاستضافة"), so the site always runs the same
+# commit as the apps and the offline package built from that push.
 on:
   push:
     branches: [main]
-    paths:
-      - 'app/**'
-      - 'bootstrap/**'
-      - 'config/**'
-      - 'database/**'
-      - 'resources/**'
-      - 'routes/**'
-      - 'public/**'
-      - 'lang/**'
-      - 'composer.*'
-      - 'package*.json'
-      - 'vite.config.*'
-      - 'deploy/vps/**'
-      - '.github/workflows/deploy-vps.yml'
   workflow_dispatch:
 
 concurrency:
