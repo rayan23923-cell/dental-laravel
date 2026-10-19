@@ -60,7 +60,7 @@ class CaseSheetResolver
     {
         $taskInstance->loadMissing('task.caseSheetType');
 
-        return self::resourceForTypeCode($taskInstance->task?->caseSheetType?->type_code);
+        return self::resourceForTypeCode($taskInstance->task?->caseSheetType?->type_code, $taskInstance->task?->title);
     }
 
     /**
@@ -74,14 +74,33 @@ class CaseSheetResolver
     {
         $task->loadMissing('caseSheetType');
 
-        return self::resourceForTypeCode($task->caseSheetType?->type_code);
+        return self::resourceForTypeCode($task->caseSheetType?->type_code, $task->title);
     }
 
-    private static function resourceForTypeCode(?string $typeCode): string
+    private static function resourceForTypeCode(?string $typeCode, ?string $title = null): string
     {
+        // Pediatric dentistry has no sheet of its own: each of its tasks
+        // opens the sheet for its kind of work (2026-10-19, by request: an
+        // extraction opened the operative sheet).
+        if ($typeCode === 'pediatric') {
+            $typeCode = self::pediatricTypeCode($title);
+        }
+
         // The original defaults to the operative sheet for an unknown or
         // missing type rather than erroring.
         return self::ROUTES[$typeCode] ?? 'dental-charts';
+    }
+
+    /** The case-sheet type a pediatric task's work belongs on, from its title. */
+    public static function pediatricTypeCode(?string $title): string
+    {
+        $title = mb_strtolower((string) $title);
+
+        return match (true) {
+            (bool) preg_match('/extraction|قلع|surgery|جراح/u', $title) => 'surgery',
+            (bool) preg_match('/prophylaxis|fluoride|prevention|وقاية|فلورايد|فلوريد|تنظيف/u', $title) => 'prevention',
+            default => 'operative',
+        };
     }
 
     public static function existingRecordId(string $resource, int $taskInstanceId): ?int
