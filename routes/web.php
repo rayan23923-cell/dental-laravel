@@ -273,6 +273,11 @@ Route::middleware('auth:web,doctor')->group(function () {
         ->name('case-sheets.instance-steps.sign');
     Route::delete('/case-sheets/instances/{taskInstance}/steps', [\App\Http\Controllers\TaskWorkController::class, 'undoStep'])
         ->name('case-sheets.instance-steps.undo');
+    // Steps added to one case, with their names and grades (2026-10-19).
+    Route::post('/case-sheets/instances/{taskInstance}/extra-steps', [\App\Http\Controllers\TaskWorkController::class, 'addExtraStep'])
+        ->name('case-sheets.instance-steps.add');
+    Route::delete('/case-sheets/instances/{taskInstance}/extra-steps', [\App\Http\Controllers\TaskWorkController::class, 'removeExtraStep'])
+        ->name('case-sheets.instance-steps.remove');
 
     // "Active sessions" panel embedded in both Profile pages — see
     // AccountSessionController's own docblock.

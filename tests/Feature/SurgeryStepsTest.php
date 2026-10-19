@@ -33,11 +33,11 @@ class SurgeryStepsTest extends TestCase
     public function test_choosing_the_surgery_sheet_adds_its_graded_steps(): void
     {
         $surgery = CaseSheetType::firstOrCreate(['type_code' => 'surgery'], ['name_ar' => 'العمليات الجراحية', 'name_en' => 'Surgery']);
-        $operative = CaseSheetType::firstOrCreate(['type_code' => 'operative'], ['name_ar' => 'المخطط السني', 'name_en' => 'Operative']);
+        $operative = CaseSheetType::firstOrCreate(['type_code' => 'orthodontics'], ['name_ar' => 'التقويم', 'name_en' => 'Orthodontics']);
 
         $task = $this->task($surgery->id);
         $steps = $task->fresh()->scoring['steps'];
-        $this->assertSame(array_values(TaskScoring::SURGERY_STEPS), array_column($steps, 'label'));
+        $this->assertSame(array_values(TaskScoring::SHEET_STEPS['surgery']), array_column($steps, 'label'));
         $this->assertEquals([10], array_values(array_unique(array_column($steps, 'max'))));
         $this->assertTrue($steps[0]['custom']);
 

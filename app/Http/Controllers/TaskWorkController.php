@@ -70,6 +70,29 @@ class TaskWorkController extends Controller
         return $this->show($taskInstance->fresh());
     }
 
+    /** Adds a step with its name and top grade to this case (2026-10-19, by request). */
+    public function addExtraStep(Request $request, TaskInstance $taskInstance): JsonResponse
+    {
+        abort_unless($this->canSign(), 403);
+        $validated = $request->validate([
+            'label' => ['required', 'string', 'max:100'],
+            'max' => ['required', 'numeric', 'min:0.5', 'max:100'],
+        ]);
+        TaskSteps::addExtra($taskInstance, trim($validated['label']), (float) $validated['max']);
+
+        return $this->show($taskInstance->fresh());
+    }
+
+    /** Removes a step added to this case while it is unsigned. */
+    public function removeExtraStep(Request $request, TaskInstance $taskInstance): JsonResponse
+    {
+        abort_unless($this->canSign(), 403);
+        $validated = $request->validate(['step' => ['required', 'string', 'max:40']]);
+        TaskSteps::removeExtra($taskInstance, $validated['step']);
+
+        return $this->show($taskInstance->fresh());
+    }
+
     /** Whoever starts or finishes cases signs their steps. */
     private function canSign(): bool
     {
@@ -98,6 +121,10 @@ class TaskWorkController extends Controller
         // Saved as progress: an unfinished checklist is fine until the case is completed.
         $resolved = TaskScoring::resolveWorkItems($taskInstance->task, $validated['work_items'] ?? [], requireChecklist: $taskInstance->status === 'completed');
         [$items, $points] = $resolved ?? [[], 0];
+        // Steps added to this case keep their signed grades.
+        $extras = collect($taskInstance->work_items ?? [])->filter(fn ($item) => ! empty($item['extra']))->values();
+        $items = [...$items, ...$extras->all()];
+        $points += $extras->sum('points');
         $scored = ! TaskScoring::pointsOff($taskInstance->task?->scoring)
             && collect($items)->contains(fn ($item) => empty($item['check']) || ! empty($item['scored']));
         $taskInstance->update(['work_items' => $items, 'points' => $scored ? $points : null]);

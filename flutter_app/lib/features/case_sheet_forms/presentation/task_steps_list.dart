@@ -24,6 +24,10 @@ class TaskStepsList extends ConsumerStatefulWidget {
 
 class _TaskStepsListState extends ConsumerState<TaskStepsList> {
   final _grade = TextEditingController();
+  // A step added to this case alone, with its name and top grade (2026-10-19, by request).
+  final _extraLabel = TextEditingController();
+  final _extraMax = TextEditingController(text: '10');
+  bool _adding = false;
   bool _busy = false;
   String? _error;
 
@@ -35,6 +39,8 @@ class _TaskStepsListState extends ConsumerState<TaskStepsList> {
   @override
   void dispose() {
     _grade.dispose();
+    _extraLabel.dispose();
+    _extraMax.dispose();
     super.dispose();
   }
 
@@ -76,14 +82,41 @@ class _TaskStepsListState extends ConsumerState<TaskStepsList> {
     _run((client) => client.postJson(_path, body: {'step': step['key'], 'grade': grade}));
   }
 
+  void _addExtra() {
+    final t = ref.read(translationsProvider);
+    final label = _extraLabel.text.trim();
+    final max = double.tryParse(_extraMax.text.trim().replaceAll(',', '.'));
+    if (label.isEmpty || max == null || max <= 0 || max > 100) {
+      setState(() => _error = t['taskSteps.addStepName']);
+      return;
+    }
+    _run((client) => client.postJson(
+          '/case-sheets/instances/${widget.taskInstanceId}/extra-steps',
+          body: {'label': label, 'max': max},
+        )).then((_) {
+      if (mounted && _error == null) {
+        _extraLabel.clear();
+        _extraMax.text = '10';
+        setState(() => _adding = false);
+      }
+    });
+  }
+
+  void _removeExtra(Map<String, dynamic> step) => _run(
+        (client) => client.deleteJsonData(
+          '/case-sheets/instances/${widget.taskInstanceId}/extra-steps',
+          body: {'step': step['key']},
+        ),
+      );
+
   void _undo(Map<String, dynamic> step) => _run((client) => client.deleteJsonData(_path, body: {'step': step['key']}));
 
   @override
   Widget build(BuildContext context) {
     final t = ref.watch(translationsProvider);
     final steps = _steps;
-    if (steps.isEmpty) return const SizedBox.shrink();
     final canSign = widget.data['can_sign'] == true;
+    if (steps.isEmpty && !canSign) return const SizedBox.shrink();
     final next = steps.indexWhere((s) => s['signed'] != true);
     final last = steps.lastIndexWhere((s) => s['signed'] == true);
     final done = steps.where((s) => s['signed'] == true).length;
@@ -92,6 +125,7 @@ class _TaskStepsListState extends ConsumerState<TaskStepsList> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (steps.isNotEmpty)
         Row(
           children: [
             Expanded(
@@ -106,12 +140,68 @@ class _TaskStepsListState extends ConsumerState<TaskStepsList> {
         const SizedBox(height: 6),
         for (var i = 0; i < steps.length; i++)
           _row(t, colors, steps[i], i, isNext: i == next, isLast: i == last, canSign: canSign),
+        if (canSign) _addForm(t),
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(_error!, style: TextStyle(color: colors.error)),
           ),
       ],
+    );
+  }
+
+  Widget _addForm(Map<String, String> t) {
+    if (!_adding) {
+      return Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: TextButton.icon(
+          onPressed: _busy ? null : () => setState(() => _adding = true),
+          icon: const Icon(Icons.add, size: 18),
+          label: Text(t['taskSteps.addStep']!),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _extraLabel,
+              maxLength: 100,
+              decoration: InputDecoration(
+                isDense: true,
+                counterText: '',
+                labelText: t['taskSteps.addStepName'],
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          SizedBox(
+            width: 80,
+            child: TextField(
+              controller: _extraMax,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              textDirection: TextDirection.ltr,
+              decoration: InputDecoration(
+                isDense: true,
+                labelText: t['taskSteps.addStepMax'],
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: _busy ? null : _addExtra,
+            icon: const Icon(Icons.check),
+            tooltip: t['taskSteps.addStepSave'],
+          ),
+          IconButton(
+            onPressed: _busy ? null : () => setState(() => _adding = false),
+            icon: const Icon(Icons.close),
+          ),
+        ],
+      ),
     );
   }
 
@@ -154,7 +244,19 @@ class _TaskStepsListState extends ConsumerState<TaskStepsList> {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(step['label']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w500)),
+                  child: Text.rich(
+                    TextSpan(
+                      text: step['label']?.toString() ?? '',
+                      children: [
+                        if (step['extra'] == true)
+                          TextSpan(
+                            text: '  ${t['taskSteps.extraBadge']}',
+                            style: TextStyle(fontSize: 11, color: Colors.amber.shade900, fontWeight: FontWeight.normal),
+                          ),
+                      ],
+                    ),
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
                 ),
                 if (signed && max != null) Text('${fmtPoints(step['grade'] as num?)} / ${fmtPoints(max)}'),
                 if (signed && canSign && isLast)
@@ -164,6 +266,13 @@ class _TaskStepsListState extends ConsumerState<TaskStepsList> {
                   ),
                 if (!signed && !isNext && max != null)
                   Text('/ ${fmtPoints(max)}', style: Theme.of(context).textTheme.bodySmall),
+                if (step['extra'] == true && !signed && canSign)
+                  IconButton(
+                    onPressed: _busy ? null : () => _removeExtra(step),
+                    icon: Icon(Icons.delete_outline, size: 20, color: colors.error),
+                    tooltip: t['taskSteps.removeStep'],
+                    visualDensity: VisualDensity.compact,
+                  ),
               ],
             ),
             if (!signed && isNext && canSign)

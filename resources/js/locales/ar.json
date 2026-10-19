@@ -1243,7 +1243,14 @@
         "button": "الخطوات ({done}/{total})",
         "modalTitle": "خطوات المهمة",
         "startHint": "وقّع الخطوات المنجزة في هذه الجلسة بالترتيب، والباقي يوقَّع لاحقاً من زر الخطوات.",
-        "surgeryHint": "تُضاف خطوات الجراحة للمهمة، ولكل خطوة درجة من 10: Chief complaint، History of present illness، Medical history، Examination & diagnosis، Procedures، Post-operative instructions. وتُعدَّل من تعديل المهمة."
+        "surgeryHint": "تُضاف خطوات الجراحة للمهمة، ولكل خطوة درجة من 10: Chief complaint، History of present illness، Medical history، Examination & diagnosis، Procedures، Post-operative instructions. وتُعدَّل من تعديل المهمة.",
+        "operativeHint": "تُضاف خطوات المعالجة للمهمة، ولكل خطوة درجة من 10: Chief complaint and history، Clinical examination، Odontogram. وتُعدَّل من تعديل المهمة.",
+        "addStep": "إضافة خطوة",
+        "addStepName": "اسم الخطوة",
+        "addStepMax": "الدرجة القصوى",
+        "addStepSave": "إضافة",
+        "removeStep": "حذف الخطوة",
+        "extraBadge": "مضافة"
     },
     "taskScoring": {
         "dragStep": "اسحب لتغيير الترتيب",

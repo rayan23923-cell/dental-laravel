@@ -38,6 +38,7 @@ class TaskInstance extends Model
         'work_items',
         // Steps signed one after another (2026-10-18); see App\Support\TaskSteps.
         'step_signoffs',
+        'extra_steps',
     ];
 
     protected function casts(): array
@@ -51,6 +52,7 @@ class TaskInstance extends Model
             'points' => 'float',
             'work_items' => 'array',
             'step_signoffs' => 'array',
+            'extra_steps' => 'array',
         ];
     }
 

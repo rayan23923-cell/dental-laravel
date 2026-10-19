@@ -208,7 +208,7 @@ class TaskProgressGroupSummary
                     'points' => $instance?->points,
                     'work_items' => $instance?->work_items,
                     // Steps to sign one after another (2026-10-18); see TaskSteps.
-                    'steps_count' => count(\App\Support\TaskSteps::list($task)),
+                    'steps_count' => count(\App\Support\TaskSteps::list($task)) + count($instance?->extra_steps ?? []),
                     'steps_signed' => count($instance?->step_signoffs ?? []),
                     // Who started this task — lets the client
                     // (re)print the start receipt at any time,

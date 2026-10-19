@@ -43,11 +43,13 @@ class Task extends Model
         static::saving(function (Task $task) {
             $task->required_per_doctor = (int) $task->required_count;
 
-            // A task on the surgery sheet gets that sheet's steps when the
-            // sheet is chosen (2026-10-19, by request); see TaskScoring::withSurgerySteps().
-            if ((! $task->exists || $task->isDirty('case_sheet_type_id'))
-                && CaseSheetType::whereKey($task->case_sheet_type_id)->value('type_code') === 'surgery') {
-                $task->scoring = TaskScoring::withSurgerySteps($task->scoring);
+            // A task on the surgery or operative sheet gets that sheet's steps
+            // when the sheet is chosen (2026-10-19, by request); see TaskScoring::withSheetSteps().
+            if (! $task->exists || $task->isDirty('case_sheet_type_id')) {
+                $typeCode = CaseSheetType::whereKey($task->case_sheet_type_id)->value('type_code');
+                if (isset(TaskScoring::SHEET_STEPS[$typeCode])) {
+                    $task->scoring = TaskScoring::withSheetSteps($task->scoring, $typeCode);
+                }
             }
         });
     }
