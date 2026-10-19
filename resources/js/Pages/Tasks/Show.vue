@@ -7,7 +7,7 @@ import ChatChip from '@/Components/ChatList/ChatChip.vue';
 import ChatAction from '@/Components/ChatList/ChatAction.vue';
 import ChatAddButton from '@/Components/ChatList/ChatAddButton.vue';
 import { toneFor } from '@/Components/ChatList/tones';
-import { Head, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 
 // Styled like the other chat-list pages (2026-10-19, by request): the
@@ -45,7 +45,16 @@ const statusLabel = (status) => (['pending', 'assigned', 'completed'].includes(s
         <template #header>
             <div class="flex items-center justify-between gap-3">
                 <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ task.title }}</h2>
-                <ChatAddButton :label="t('common.edit')" icon="edit" secondary :href="route('tasks.edit', task.id)" />
+                <div class="flex items-center gap-3">
+                    <!-- Back to the tasks list, on this task's stage and department (2026-10-19, by request). -->
+                    <Link
+                        :href="route('tasks.index', { stage_id: task.stage_id ?? undefined, department_id: task.department_id ?? undefined })"
+                        class="flex items-center gap-1 text-sm text-indigo-600 hover:underline"
+                    >
+                        {{ t('common.back') }}
+                    </Link>
+                    <ChatAddButton :label="t('common.edit')" icon="edit" secondary :href="route('tasks.edit', task.id)" />
+                </div>
             </div>
         </template>
 
