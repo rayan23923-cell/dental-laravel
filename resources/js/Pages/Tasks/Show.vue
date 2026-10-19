@@ -1,10 +1,19 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import Icon from '@/Components/Icon.vue';
+import ChatListCard from '@/Components/ChatList/ChatListCard.vue';
+import ChatListRow from '@/Components/ChatList/ChatListRow.vue';
+import ChatChip from '@/Components/ChatList/ChatChip.vue';
+import ChatAction from '@/Components/ChatList/ChatAction.vue';
+import ChatAddButton from '@/Components/ChatList/ChatAddButton.vue';
+import { toneFor } from '@/Components/ChatList/tones';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 
+// Styled like the other chat-list pages (2026-10-19, by request): the
+// task's details as chips, its doctors as rows with icon actions.
 const { t } = useI18n();
-const props = defineProps({
+defineProps({
     task: Object,
 });
 
@@ -24,11 +33,9 @@ const removeInstance = (instance) => {
     }
 };
 
-const statusColor = (status) => ({
-    pending: 'bg-gray-100 text-gray-700',
-    assigned: 'bg-yellow-100 text-yellow-800',
-    completed: 'bg-green-100 text-green-800',
-}[status] ?? 'bg-gray-100 text-gray-700');
+const statusTone = (status) => ({ pending: 'gray', assigned: 'amber', completed: 'emerald' }[status] ?? 'gray');
+const statusIcon = (status) => ({ pending: 'schedule', assigned: 'pending_actions', completed: 'check_circle' }[status] ?? 'schedule');
+const statusLabel = (status) => (['pending', 'assigned', 'completed'].includes(status) ? t(`doctorDashboard.${status}`) : status);
 </script>
 
 <template>
@@ -36,77 +43,65 @@ const statusColor = (status) => ({
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ task.title }}</h2>
+            <div class="flex items-center justify-between gap-3">
+                <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ task.title }}</h2>
+                <ChatAddButton :label="t('common.edit')" icon="edit" secondary :href="route('tasks.edit', task.id)" />
+            </div>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-4xl space-y-6 sm:px-6 lg:px-8">
-                <div
-                    v-if="page.props.flash?.success"
-                    class="rounded-md bg-green-50 p-4 text-sm text-green-700"
-                >
+        <div class="py-6 sm:py-10">
+            <div class="mx-auto max-w-2xl space-y-4 px-4 sm:px-6 lg:px-8">
+                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
                     {{ page.props.flash.success }}
                 </div>
 
-                <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                    <dl class="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
-                        <div>
-                            <dt class="text-gray-500">{{ t('doctorsAdmin.departmentLabel') }}</dt>
-                            <dd class="font-medium text-gray-900">{{ task.department?.name ?? '—' }}</dd>
+                <div class="flex items-start gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+                    <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 text-white">
+                        <Icon name="assignment" />
+                    </span>
+                    <div class="min-w-0 flex-1">
+                        <div class="font-semibold text-gray-900">{{ task.title }}</div>
+                        <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                            <ChatChip v-if="task.department" icon="apartment" tone="teal">{{ task.department.name }}</ChatChip>
+                            <ChatChip v-if="task.stage" icon="stairs" tone="sky">{{ task.stage.name }}</ChatChip>
+                            <ChatChip v-if="task.case_sheet_type" icon="description" tone="amber">{{ task.case_sheet_type.name_en }}</ChatChip>
+                            <ChatChip icon="tag" tone="indigo">{{ t('tasksAdmin.requiredCountLabel') }}: {{ task.required_count }}</ChatChip>
                         </div>
-                        <div>
-                            <dt class="text-gray-500">{{ t('tasksAdmin.caseSheetCol') }}</dt>
-                            <dd class="font-medium text-gray-900">{{ task.case_sheet_type?.name_en ?? '—' }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-gray-500">{{ t('doctorsAdmin.stageCol') }}</dt>
-                            <dd class="font-medium text-gray-900">{{ task.stage?.name ?? '—' }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-gray-500">{{ t('tasksAdmin.requiredCountLabel') }}</dt>
-                            <dd class="font-medium text-gray-900">{{ task.required_count }}</dd>
-                        </div>
-                    </dl>
-                    <p v-if="task.notes" class="mt-4 text-sm text-gray-600">{{ task.notes }}</p>
+                        <p v-if="task.notes" class="mt-3 text-sm text-gray-600">{{ task.notes }}</p>
+                    </div>
                 </div>
 
-                <div class="overflow-x-auto bg-white shadow-sm sm:rounded-lg">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('patients.doctorCol') }}</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.statusCol') }}</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.assignedDateCol') }}</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('tasksAdmin.gradeColShort') }}</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">{{ t('doctorsAdmin.actionsCol') }}</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200 bg-white">
-                            <tr v-for="instance in task.instances" :key="instance.id">
-                                <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">{{ instance.doctor?.name ?? '—' }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm">
-                                    <span class="rounded-full px-2 py-1 text-xs font-medium" :class="statusColor(instance.status)">{{ instance.status }}</span>
-                                </td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ instance.assigned_date ? new Date(instance.assigned_date).toLocaleDateString() : '—' }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{{ instance.grade ?? '—' }}</td>
-                                <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
-                                    <a :href="route('task-instances.qr', instance.id)" target="_blank" class="text-gray-600 hover:text-gray-900">QR</a>
-                                    <button
-                                        v-if="instance.status !== 'completed'"
-                                        @click="updateStatus(instance, 'completed')"
-                                        class="ml-4 text-green-600 hover:text-green-900"
-                                    >
-                                        {{ t('doctorsAdmin.markComplete') }}
-                                    </button>
-                                    <button @click="removeInstance(instance)" class="ml-4 text-red-600 hover:text-red-900">{{ t('tasksAdmin.removeAssignmentButton') }}</button>
-                                </td>
-                            </tr>
-                            <tr v-if="task.instances.length === 0">
-                                <td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500">{{ t('tasksAdmin.noDoctorsAssignedYet') }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                <h3 class="px-1 text-sm font-semibold text-gray-700">{{ t('patients.doctorCol') }} ({{ task.instances.length }})</h3>
+
+                <ChatListCard :empty="task.instances.length === 0" :empty-text="t('tasksAdmin.noDoctorsAssignedYet')" empty-icon="group">
+                    <ChatListRow
+                        v-for="instance in task.instances"
+                        :key="instance.id"
+                        :title="instance.doctor?.name ?? '—'"
+                        icon="person"
+                        :tone="toneFor(instance.doctor_id ?? instance.id)"
+                    >
+                        <template #meta>
+                            <ChatChip :icon="statusIcon(instance.status)" :tone="statusTone(instance.status)">{{ statusLabel(instance.status) }}</ChatChip>
+                            <ChatChip v-if="instance.assigned_date" icon="calendar_month" :title="t('doctorsAdmin.assignedDateCol')">
+                                {{ new Date(instance.assigned_date).toLocaleDateString() }}
+                            </ChatChip>
+                            <ChatChip v-if="instance.grade !== null && instance.grade !== undefined" icon="grade" tone="violet">
+                                {{ t('tasksAdmin.gradeColShort') }}: {{ instance.grade }}
+                            </ChatChip>
+                        </template>
+                        <template #actions>
+                            <ChatAction icon="qr_code_2" label="QR" :href="route('task-instances.qr', instance.id)" external />
+                            <ChatAction
+                                v-if="instance.status !== 'completed'"
+                                icon="task_alt"
+                                :label="t('doctorsAdmin.markComplete')"
+                                @click="updateStatus(instance, 'completed')"
+                            />
+                            <ChatAction icon="delete" :label="t('tasksAdmin.removeAssignmentButton')" danger @click="removeInstance(instance)" />
+                        </template>
+                    </ChatListRow>
+                </ChatListCard>
             </div>
         </div>
     </AuthenticatedLayout>
