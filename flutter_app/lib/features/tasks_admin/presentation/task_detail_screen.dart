@@ -14,8 +14,8 @@ import '../domain/task_admin.dart';
 import '../domain/task_instance_admin.dart';
 import 'tasks_admin_providers.dart';
 
-/// Port of the web `Tasks/Show.vue` (2026-10-17): the task's details, an
-/// "assign to a doctor" picker, and its instances — each with its QR, an
+/// Port of the web `Tasks/Show.vue` (2026-10-17): the task's details and
+/// its instances — each with its QR, an
 /// edit (status, grade, notes), "mark complete" and remove. Opened from
 /// the tasks list; editing the task itself is the app bar's pencil.
 class TaskDetailScreen extends ConsumerStatefulWidget {
@@ -27,7 +27,6 @@ class TaskDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
-  int? _doctorId;
   bool _busy = false;
 
   TasksAdminRepository get _repo => ref.read(tasksAdminRepositoryProvider);
@@ -49,13 +48,6 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
-  }
-
-  Future<void> _assign() async {
-    final doctorId = _doctorId;
-    if (doctorId == null) return;
-    await _run(() => _repo.assign(taskId: widget.taskId, doctorId: doctorId), 'taskDetailAdmin.assigned');
-    if (mounted) setState(() => _doctorId = null);
   }
 
   Future<void> _remove(TaskInstanceAdmin instance) async {
@@ -124,8 +116,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
             children: [
               _TaskInfoCard(task: data.task, t: t),
               const SizedBox(height: 16),
-              _assignCard(t),
-              const SizedBox(height: 16),
+              // Cases start from task progress, with their patient and steps;
+              // the direct "assign to a doctor" box is gone (2026-10-19, by request).
               Padding(
                 padding: const EdgeInsetsDirectional.only(start: 4, bottom: 8),
                 child: Text(
@@ -149,52 +141,6 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _assignCard(Map<String, String> t) {
-    final doctorsAsync = ref.watch(taskAssignableDoctorsProvider(widget.taskId));
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(t['taskDetailAdmin.assignHeading']!, style: const TextStyle(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 12),
-            doctorsAsync.when(
-              loading: () => const LinearProgressIndicator(),
-              error: (e, _) => Text(e is ApiException ? e.userMessage : t['tasksAdmin.loadFailed']!),
-              data: (doctors) => LayoutBuilder(
-                builder: (context, constraints) => Row(
-                  children: [
-                    Expanded(
-                      child: DropdownMenu<int>(
-                        key: ValueKey('assign-$_doctorId'),
-                        width: constraints.maxWidth - 120,
-                        enableFilter: true,
-                        requestFocusOnTap: true,
-                        initialSelection: _doctorId,
-                        label: Text(t['taskDetailAdmin.selectDoctor']!),
-                        dropdownMenuEntries: [
-                          for (final d in doctors) DropdownMenuEntry(value: d.id, label: d.name),
-                        ],
-                        onSelected: (v) => setState(() => _doctorId = v),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton(
-                      onPressed: _busy || _doctorId == null ? null : _assign,
-                      child: Text(t['taskDetailAdmin.assign']!),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
         ),
       ),
     );
