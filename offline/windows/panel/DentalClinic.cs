@@ -166,6 +166,9 @@ namespace DentalClinicPanel
             return int.TryParse(Get(key, ""), out v) ? v : def;
         }
         public string ServerName { get { return Get("SERVER_NAME", "clinic.lan"); } }
+        // The name server is optional (2026-10-19, by request): devices can reach
+        // the system by its IP, which avoids the stalls a router DNS can cause.
+        public bool DnsOn { get { return GetInt("DNS", 1) != 0; } }
         public int HttpPort { get { return GetInt("HTTP_PORT", 80); } }
         public int HttpsPort { get { return GetInt("HTTPS_PORT", 443); } }
         public int Workers { get { return Math.Max(1, GetInt("PHP_WORKERS", 16)); } }
@@ -425,7 +428,7 @@ namespace DentalClinicPanel
                     i => Spawn(P(@"caddy\caddy.exe"), "run --config \"" + P("Caddyfile") + "\" --adapter caddyfile", Root, "caddy-console.log")),
                 new Service("php", "معالجات PHP", "9100-" + (9100 + workers - 1), workers,
                     i => Spawn(P(@"php\php-cgi.exe"), "-b 127.0.0.1:" + (9100 + i), P(@"app\public"), "php-cgi.log")),
-                new Service("dns", "خادم الأسماء (" + ServerName + ")", "53", 1,
+                new Service("dns", "خادم الأسماء (" + ServerName + ")" + (DnsOn ? "" : " - معطّل"), "53", DnsOn ? 1 : 0,
                     i => Spawn(P(@"coredns\coredns.exe"), "-conf \"" + P("Corefile") + "\"", Root, "coredns.log")),
                 new Service("scheduler", "المهام المجدولة", "-", 1,
                     i => Spawn(P(@"php\php.exe"), "artisan schedule:work", P("app"), "scheduler.log")),
@@ -581,7 +584,7 @@ namespace DentalClinicPanel
                 if (!ok) Thread.Sleep(1000);
             }
             if (!ok) Log("تنبيه: الموقع لم يستجب بعد، قد يحتاج لحظات.");
-            if (DnsBusy || Svc("dns").Alive == 0)
+            if (DnsOn && (DnsBusy || Svc("dns").Alive == 0))
                 Log("تنبيه: المنفذ 53 مستخدم من برنامج آخر، فلن يعمل الاسم " + ServerName + ". يمكن الدخول بالرقم https://" + LanIp);
             SaveSettingsCopy();
         }
@@ -712,7 +715,7 @@ namespace DentalClinicPanel
         {
             string args = string.Format(
                 "-NoProfile -ExecutionPolicy Bypass -File \"{0}\" -Root \"{1}\" -ServerName \"{2}\" -Workers {3} -ServerIp \"{4}\" -HttpPort {5} -HttpsPort {6} -AutoOpen {7}",
-                P("prepare.ps1"), Root, ServerName, Workers, Get("SERVER_IP", ""), HttpPort, HttpsPort, GetInt("AUTO_OPEN", 1));
+                P("prepare.ps1"), Root, ServerName, Workers, Get("SERVER_IP", ""), HttpPort, HttpsPort, DnsOn ? GetInt("AUTO_OPEN", 1) : 0);
             var r = Run(Path.Combine(Environment.SystemDirectory, @"WindowsPowerShell\v1.0\powershell.exe"), args, Root, 120000);
             if (r.Code != 0) throw new Exception("تعذّر تجهيز ملفات الإعداد: " + Tail(r.Output, 3));
             var ip = r.Output.Split('\n').Select(s => s.Trim()).LastOrDefault(s => Regex.IsMatch(s, @"^\d+\.\d+\.\d+\.\d+$"));
@@ -1996,6 +1999,7 @@ namespace DentalClinicPanel
                 int alive = s.Alive;
                 string status; Color color;
                 if (s.Failed) { status = "خطأ - راجع السجلات"; color = Red; }
+                else if (s.Count == 0) { status = "معطّل من الإعدادات"; color = Gray; }
                 else if (alive == s.Count) { status = s.Count > 1 ? "يعمل (" + alive + ")" : "يعمل"; color = Green; }
                 else if (alive > 0) { status = "يعمل جزئيًا (" + alive + " من " + s.Count + ")"; color = Amber; }
                 else if (st == State.Starting) { status = "بانتظار التشغيل"; color = Amber; }
@@ -2098,7 +2102,7 @@ namespace DentalClinicPanel
         readonly TextBox nameBox;
         readonly ComboBox ipBox;
         readonly NumericUpDown httpBox, httpsBox, workersBox;
-        readonly CheckBox autoOpenBox;
+        readonly CheckBox autoOpenBox, dnsBox;
         readonly TextBox backupBox;
         readonly string root;
         readonly Label error;
@@ -2145,6 +2149,9 @@ namespace DentalClinicPanel
             workersBox = Number(2, 64, IntValue(cfg, "PHP_WORKERS", 16));
             AddField(grid, "عدد الطلبات المتزامنة", workersBox, "16 مناسب لأغلب العيادات، و24 أو 32 مع ذاكرة 16 غيغابايت.");
 
+            dnsBox = new CheckBox { Text = "تشغيل خادم الأسماء (DNS)", AutoSize = true, Checked = Value(cfg, "DNS", "1") != "0" };
+            AddField(grid, "", dnsBox, "اختياري. بدونه تدخل الأجهزة بعنوان IP هذا الجهاز، وهو الأسرع والأثبت. يلزم فقط لاسم " + Value(cfg, "SERVER_NAME", "clinic.lan") + " وللفتح التلقائي.");
+
             autoOpenBox = new CheckBox { Text = "فتح النظام تلقائيًا عند الاتصال بالواي فاي", AutoSize = true, Checked = Value(cfg, "AUTO_OPEN", "1") != "0" };
             AddField(grid, "", autoOpenBox, "يحتاج أن يكون هذا الجهاز خادم DNS في راوتر Deco، ومنفذ HTTP هو 80.");
 
@@ -2175,7 +2182,7 @@ namespace DentalClinicPanel
             defaults.Click += (s, e) =>
             {
                 nameBox.Text = "clinic.lan"; ipBox.Text = AutoIp; httpBox.Value = 80; httpsBox.Value = 443;
-                workersBox.Value = 16; autoOpenBox.Checked = true; backupBox.Text = Engine.DefaultBackupDir(root);
+                workersBox.Value = 16; dnsBox.Checked = true; autoOpenBox.Checked = true; backupBox.Text = Engine.DefaultBackupDir(root);
             };
             buttons.Controls.Add(save);
             buttons.Controls.Add(cancel);
@@ -2270,6 +2277,7 @@ namespace DentalClinicPanel
                 { "HTTP_PORT", http.ToString() },
                 { "HTTPS_PORT", https.ToString() },
                 { "PHP_WORKERS", ((int)workersBox.Value).ToString() },
+                { "DNS", dnsBox.Checked ? "1" : "0" },
                 { "AUTO_OPEN", autoOpenBox.Checked ? "1" : "0" },
                 { "BACKUP_DIR", backup },
             };

@@ -25,6 +25,7 @@ import '../../printing/presentation/ticket_renderer.dart';
 import '../../printing/presentation/ticket_widget.dart';
 import '../data/patient_registration_repository.dart';
 import '../domain/patient_registration.dart';
+import 'live_registrations.dart';
 import 'patient_registration_providers.dart';
 
 /// "سجل تسجيل المرضى" — mirrors `PatientRegistrations/Index.vue`,
@@ -47,7 +48,8 @@ class PatientRegistrationListScreen extends ConsumerStatefulWidget {
   ConsumerState<PatientRegistrationListScreen> createState() => _PatientRegistrationListScreenState();
 }
 
-class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrationListScreen> {
+class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrationListScreen>
+    with LiveRegistrations<PatientRegistrationListScreen> {
   final _searchController = TextEditingController();
   String _search = '';
   DateTimeRange? _range;
@@ -102,6 +104,9 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
     ref.invalidate(patientRegistrationPageProvider);
     ref.invalidate(patientRegistrationListProvider);
   }
+
+  @override
+  void onRegistrationsChanged() => _refresh();
 
   void _showArchive(bool archived) {
     setState(() {

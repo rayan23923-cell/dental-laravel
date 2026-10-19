@@ -301,6 +301,17 @@ void main() {
       await expectLater(get(), throwsA(anything));
     });
   });
+
+  test('an IP is pinned only for a clinic name with none set', () async {
+    const named = ServerSettings(kind: ServerKind.clinic, host: 'clinic.lan', ip: '192.168.1.5');
+    expect(await named.withPinnedIp(), named);
+    const byIp = ServerSettings(kind: ServerKind.clinic, host: '192.168.1.5');
+    expect(await byIp.withPinnedIp(), byIp);
+    expect(await ServerSettings.cloud.withPinnedIp(), ServerSettings.cloud);
+    // localhost resolves only to loopback, which is never kept.
+    const local = ServerSettings(kind: ServerKind.clinic, host: 'localhost');
+    expect((await local.withPinnedIp()).ip, '');
+  });
 }
 
 String _cloudNs() => '';

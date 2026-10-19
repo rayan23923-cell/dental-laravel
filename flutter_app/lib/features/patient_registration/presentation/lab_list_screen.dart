@@ -10,6 +10,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/chat_list_tile.dart';
 import '../data/patient_registration_repository.dart';
 import '../domain/lab_registration.dart';
+import 'live_registrations.dart';
 import 'patient_registration_providers.dart';
 
 /// "المختبر" (2026-10-17) — the web `Lab/Index.vue` page in the app:
@@ -27,7 +28,7 @@ class LabListScreen extends ConsumerStatefulWidget {
   ConsumerState<LabListScreen> createState() => _LabListScreenState();
 }
 
-class _LabListScreenState extends ConsumerState<LabListScreen> {
+class _LabListScreenState extends ConsumerState<LabListScreen> with LiveRegistrations<LabListScreen> {
   static const _statuses = ['pending', 'flagged', 'clear', 'all'];
 
   final _searchController = TextEditingController();
@@ -38,6 +39,9 @@ class _LabListScreenState extends ConsumerState<LabListScreen> {
   bool _opening = false;
 
   LabListQuery get _query => (status: _status, search: _search.isEmpty ? null : _search, page: _page);
+
+  @override
+  void onRegistrationsChanged() => ref.invalidate(labListProvider);
 
   @override
   void dispose() {

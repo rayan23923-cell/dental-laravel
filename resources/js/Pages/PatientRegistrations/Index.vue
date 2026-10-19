@@ -21,6 +21,7 @@ import { computed, ref, watch } from 'vue';
 import { printInFrame } from '@/printInFrame';
 import { useI18n } from 'vue-i18n';
 import axios from 'axios';
+import { useLiveRegistrations } from '@/Composables/useLiveRegistrations';
 
 const { t } = useI18n();
 const props = defineProps({
@@ -29,6 +30,9 @@ const props = defineProps({
     services: { type: Array, default: () => [] },
     filters: Object,
 });
+
+// New and changed registrations show up by themselves (2026-10-19, by request).
+useLiveRegistrations(['registrations']);
 
 const page = usePage();
 
