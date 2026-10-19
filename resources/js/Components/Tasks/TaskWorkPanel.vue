@@ -71,7 +71,8 @@ const save = async () => {
             <TaskStepsList :steps="data.steps" :instance-id="taskInstanceId" :can-sign="data.can_sign" @updated="apply" />
         </div>
 
-        <template v-if="data.from_sheet">
+        <!-- With steps to sign, the list above already shows each step's grade (2026-10-19, by request: "صار عندنا تكرار"). -->
+        <template v-if="data.from_sheet && !data.steps?.length">
             <p class="mb-2 text-xs text-gray-500">{{ t('taskScoring.fromSheet') }}</p>
             <div v-for="(w, i) in data.work_items" :key="i" class="flex items-center justify-between gap-2 border-b border-gray-100 py-1 text-sm">
                 <span class="text-gray-700">{{ w.option }}</span>
@@ -94,7 +95,7 @@ const save = async () => {
             </div>
         </template>
 
-        <template v-else-if="hasWork(data.scoring)">
+        <template v-else-if="hasWork(data.scoring) && !(data.steps?.length && (data.from_sheet || !data.scoring?.options?.length))">
             <fieldset :disabled="!data.can_edit">
                 <WorkItemsInput v-model="items" :scoring="data.scoring" />
             </fieldset>
