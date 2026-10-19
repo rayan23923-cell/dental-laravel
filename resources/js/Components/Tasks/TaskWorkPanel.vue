@@ -38,6 +38,10 @@ const load = async () => {
 };
 onMounted(load);
 
+// The sheet's own stages are signed and graded in its own section, so the
+// panel lists only the other steps (2026-10-19, by request: "مكرر الدرجات بالاعلى والاسفل").
+const panelSteps = computed(() => (data.value?.steps ?? []).filter((s) => !s.on_sheet));
+
 const stepsMaxTotal = computed(() => (data.value?.work_items ?? []).reduce((sum, w) => sum + (Number(w.max) || 0), 0));
 
 const save = async () => {
@@ -57,7 +61,7 @@ const save = async () => {
 </script>
 
 <template>
-    <section v-if="data && (data.from_sheet || hasWork(data.scoring) || data.steps?.length)" class="rounded-lg border border-indigo-200 bg-white p-4 shadow-sm">
+    <section v-if="data && (data.from_sheet || hasWork(data.scoring) || panelSteps.length)" class="rounded-lg border border-indigo-200 bg-white p-4 shadow-sm">
         <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div>
                 <h3 class="font-semibold text-gray-900">{{ t('taskScoring.sheetPanel') }}</h3>
@@ -67,14 +71,16 @@ const save = async () => {
         </div>
 
         <!-- The case's steps, signed one after another (2026-10-18, by request). -->
-        <div v-if="data.steps?.length" class="mb-4">
-            <TaskStepsList :steps="data.steps" :instance-id="taskInstanceId" :can-sign="data.can_sign" @updated="apply" />
+        <div v-if="panelSteps.length" class="mb-4">
+            <TaskStepsList :steps="panelSteps" :instance-id="taskInstanceId" :can-sign="data.can_sign" @updated="apply" />
         </div>
 
-        <!-- With steps to sign, the list above already shows each step's grade (2026-10-19, by request: "صار عندنا تكرار"). -->
-        <template v-if="data.from_sheet && !data.steps?.length">
+        <!-- Each grade shows once (2026-10-19, by request: "صار عندنا تكرار"): the
+             sheet's stages in its own section, the other steps in the list above.
+             What's left here is the total, and hand-added steps when there's no list. -->
+        <template v-if="data.from_sheet">
             <p class="mb-2 text-xs text-gray-500">{{ t('taskScoring.fromSheet') }}</p>
-            <div v-for="(w, i) in data.work_items" :key="i" class="flex items-center justify-between gap-2 border-b border-gray-100 py-1 text-sm">
+            <div v-for="(w, i) in panelSteps.length ? [] : data.work_items.filter((w) => w.custom)" :key="i" class="flex items-center justify-between gap-2 border-b border-gray-100 py-1 text-sm">
                 <span class="text-gray-700">{{ w.option }}</span>
                 <span v-if="w.custom && data.can_edit" class="flex items-center gap-1">
                     <input v-model.number="stepGrades[w.step]" type="number" min="0" :max="w.max" step="0.5" class="w-20 rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
@@ -86,7 +92,7 @@ const save = async () => {
                 <span>{{ t('taskScoring.stepsTotal') }}</span>
                 <span>{{ data.points }}<span v-if="data.scoring?.steps" class="text-xs font-normal text-gray-500"> / {{ stepsMaxTotal }}</span></span>
             </div>
-            <div v-if="data.can_edit && data.work_items.some((w) => w.custom)" class="mt-2 flex items-center gap-3">
+            <div v-if="data.can_edit && !panelSteps.length && data.work_items.some((w) => w.custom)" class="mt-2 flex items-center gap-3">
                 <button type="button" class="rounded-md bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700 disabled:opacity-50" :disabled="saving" @click="save">
                     {{ t('taskScoring.savePoints') }}
                 </button>
@@ -95,7 +101,7 @@ const save = async () => {
             </div>
         </template>
 
-        <template v-else-if="hasWork(data.scoring) && !(data.steps?.length && (data.from_sheet || !data.scoring?.options?.length))">
+        <template v-else-if="hasWork(data.scoring) && !(panelSteps.length && !data.scoring?.options?.length)">
             <fieldset :disabled="!data.can_edit">
                 <WorkItemsInput v-model="items" :scoring="data.scoring" />
             </fieldset>

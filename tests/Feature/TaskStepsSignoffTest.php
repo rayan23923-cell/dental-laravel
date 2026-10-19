@@ -64,7 +64,8 @@ class TaskStepsSignoffTest extends TestCase
 
         $this->getJson("/api/v1/case-sheets/instances/{$instance->id}/work")
             ->assertOk()->assertJsonPath('can_sign', true)
-            ->assertJsonPath('steps.0.label', 'صناعة الأسنان')->assertJsonPath('steps.2.key', 'c:0')->assertJsonPath('steps.3.max', null);
+            ->assertJsonPath('steps.0.label', 'صناعة الأسنان')->assertJsonPath('steps.0.on_sheet', false)
+            ->assertJsonPath('steps.2.key', 'c:0')->assertJsonPath('steps.3.max', null);
 
         // Not out of order, not without a grade, not above the max.
         $this->postJson($url, ['step' => 's:custom_2', 'grade' => 4])->assertJsonValidationErrors('step');
@@ -112,8 +113,9 @@ class TaskStepsSignoffTest extends TestCase
 
         // Once the sheet exists, the next step is written on it, signature included.
         $record = ProsthodonticsRecord::create(['doctor_id' => $this->doctor->id, 'patient_name' => 'مريض', 'task_instances_id' => $instance->id]);
+        // The sheet's own stages are flagged, so its points panel leaves them to the sheet.
         $this->postJson("/case-sheets/instances/{$instance->id}/steps", ['step' => 's:preliminary', 'grade' => 7])->assertOk()
-            ->assertJsonPath('points', 15);
+            ->assertJsonPath('points', 15)->assertJsonPath('steps.1.on_sheet', true);
         $record->refresh();
         $this->assertSame('7', (string) (float) $record->stage_preliminary_grade);
         $this->assertStringStartsWith('المشرف — ', $record->stage_preliminary_signature);
