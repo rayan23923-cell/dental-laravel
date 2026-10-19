@@ -1242,7 +1242,8 @@
         "failed": "تعذر حفظ التوقيع.",
         "button": "الخطوات ({done}/{total})",
         "modalTitle": "خطوات المهمة",
-        "startHint": "وقّع الخطوات المنجزة في هذه الجلسة بالترتيب، والباقي يوقَّع لاحقاً من زر الخطوات."
+        "startHint": "وقّع الخطوات المنجزة في هذه الجلسة بالترتيب، والباقي يوقَّع لاحقاً من زر الخطوات.",
+        "surgeryHint": "تُضاف خطوات الجراحة للمهمة، ولكل خطوة درجة من 10: Chief complaint، History of present illness، Medical history، Examination & diagnosis، Procedures، Post-operative instructions. وتُعدَّل من تعديل المهمة."
     },
     "taskScoring": {
         "dragStep": "اسحب لتغيير الترتيب",

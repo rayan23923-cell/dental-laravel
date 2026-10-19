@@ -209,6 +209,10 @@ const submit = () => {
                                 <option v-for="c in caseSheetTypes" :key="c.id" :value="c.id">{{ c.name_en }}</option>
                             </select>
                             <InputError class="mt-2" :message="form.errors.case_sheet_type_id" />
+                            <!-- The surgery sheet's sections become the task's graded steps (2026-10-19). -->
+                            <p v-if="caseSheetTypes.find((c) => c.id === Number(form.case_sheet_type_id))?.type_code === 'surgery'" class="mt-2 rounded-md bg-indigo-50 p-2 text-xs text-indigo-800">
+                                {{ t('taskSteps.surgeryHint') }}
+                            </p>
                         </div>
 
                         <div v-if="rows" class="space-y-3 rounded-lg border border-indigo-100 bg-indigo-50/40 p-3">
