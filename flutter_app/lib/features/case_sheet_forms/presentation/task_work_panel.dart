@@ -160,9 +160,10 @@ class _TaskWorkPanelState extends ConsumerState<TaskWorkPanel> {
               TaskStepsList(taskInstanceId: widget.taskInstanceId, data: data, onUpdated: _apply),
               const SizedBox(height: 8),
             ],
-            if (_fromSheet)
+            // With steps to sign, the list above already shows each step's grade (2026-10-19, by request).
+            if (_fromSheet && !hasSteps)
               ..._sheetSteps(t, colors)
-            else if (_scoring.hasWork)
+            else if (_scoring.hasWork && !(hasSteps && (_fromSheet || _scoring.options.isEmpty)))
               _WorkItemsInput(
                 scoring: _scoring,
                 items: _items,
@@ -170,12 +171,14 @@ class _TaskWorkPanelState extends ConsumerState<TaskWorkPanel> {
                 t: t,
                 onChanged: () => setState(() {}),
               ),
-            if (!_fromSheet && _scoring.hasWork && !_canEdit)
+            if (!_fromSheet && _scoring.hasWork && !(hasSteps && _scoring.options.isEmpty) && !_canEdit)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(t['taskScoring.supervisorOnly']!, style: Theme.of(context).textTheme.bodySmall),
               ),
-            if (_canEdit && ((!_fromSheet && _scoring.hasWork) || _workItems.any((w) => w['custom'] == true)))
+            if (_canEdit &&
+                !(hasSteps && (_fromSheet || _scoring.options.isEmpty)) &&
+                ((!_fromSheet && _scoring.hasWork) || _workItems.any((w) => w['custom'] == true)))
               Padding(
                 padding: const EdgeInsets.only(top: 10),
                 child: Wrap(
