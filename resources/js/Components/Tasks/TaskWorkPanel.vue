@@ -71,7 +71,8 @@ const save = async () => {
         </div>
 
         <!-- The case's steps, signed one after another (2026-10-18, by request). -->
-        <div v-if="panelSteps.length" class="mb-4">
+        <!-- With the "add a step" button for supervisors when the task has steps (2026-10-19). -->
+        <div v-if="panelSteps.length || (data.can_sign && data.steps?.length)" class="mb-4">
             <TaskStepsList :steps="panelSteps" :instance-id="taskInstanceId" :can-sign="data.can_sign" @updated="apply" />
         </div>
 

@@ -243,8 +243,8 @@ class TaskScoring
                 'rows' => array_map(fn ($row) => [
                     ...collect($row)->except('case_sheet')->all(),
                     'case_sheet_type_id' => $ids[$row['case_sheet'] ?? ''] ?? $typeId,
-                    // The surgery sheet's steps show on its rows as they will be saved.
-                    ...(($row['case_sheet'] ?? $code) === 'surgery' ? ['scoring' => self::withSurgerySteps($row['scoring'] ?? null)] : []),
+                    // A sheet's sections show on its rows as the steps they will be saved with.
+                    ...(isset(self::SHEET_STEPS[$row['case_sheet'] ?? $code]) ? ['scoring' => self::withSheetSteps($row['scoring'] ?? null, $row['case_sheet'] ?? $code)] : []),
                 ], $templates[$code]['rows']),
             ])
             ->all();
@@ -592,35 +592,52 @@ class TaskScoring
         ])->filter(fn ($r) => $r['score'] !== null)->values()->all();
     }
 
-    /** The surgery sheet's sections, signed one after another (2026-10-19, by request). */
-    public const SURGERY_STEPS = [
-        'cc' => 'Chief complaint',
-        'hpi' => 'History of present illness',
-        'mh' => 'Medical history',
-        'exam' => 'Examination & diagnosis',
-        'procedure' => 'Procedures',
-        'postop' => 'Post-operative instructions',
+    /**
+     * Case sheets whose sections are a task's steps, signed one after
+     * another (2026-10-19, by request): type_code => [key => label].
+     */
+    public const SHEET_STEPS = [
+        'surgery' => [
+            'cc' => 'Chief complaint',
+            'hpi' => 'History of present illness',
+            'mh' => 'Medical history',
+            'exam' => 'Examination & diagnosis',
+            'procedure' => 'Procedures',
+            'postop' => 'Post-operative instructions',
+        ],
+        'operative' => [
+            'cc_history' => 'Chief complaint and history',
+            'exam' => 'Clinical examination',
+            'odontogram' => 'Odontogram',
+        ],
     ];
 
     /**
-     * Adds the surgery sheet's sections to a task's setup as steps graded up
-     * to 10 each, like the prosthodontics stages (2026-10-19, by request:
+     * Adds a case sheet's sections to a task's setup as steps graded up to
+     * 10 each, like the prosthodontics stages (2026-10-19, by request:
      * "لكل خطوة درجة"), unless it already has steps of its own. A case's
-     * points then come from those grades.
+     * points then come from those grades. Other sheets are left as they are.
      */
-    public static function withSurgerySteps(?array $scoring): array
+    public static function withSheetSteps(?array $scoring, ?string $typeCode): array
     {
         $scoring ??= ['measure' => 'count'];
-        if (! empty($scoring['steps'])) {
+        $sections = self::SHEET_STEPS[$typeCode] ?? null;
+        if (! $sections || ! empty($scoring['steps'])) {
             return $scoring;
         }
         $scoring['steps'] = array_map(
             fn ($key, $label) => ['key' => "custom_$key", 'label' => $label, 'max' => 10, 'enabled' => true, 'custom' => true],
-            array_keys(self::SURGERY_STEPS),
-            self::SURGERY_STEPS,
+            array_keys($sections),
+            $sections,
         );
 
         return self::normalize($scoring);
+    }
+
+    /** The surgery sheet's sections as steps; see withSheetSteps(). */
+    public static function withSurgerySteps(?array $scoring): array
+    {
+        return self::withSheetSteps($scoring, 'surgery');
     }
 
     /** Total max of a task's enabled steps, or null when it has none. */
@@ -680,6 +697,22 @@ class TaskScoring
                 'step' => $step['key'],
                 'max' => (float) $step['max'],
                 ...($custom ? ['custom' => true] : []),
+            ];
+        }
+
+        // Steps added to this case alone (2026-10-19), graded when signed.
+        foreach ($instance->extra_steps ?? [] as $extra) {
+            $raw = $instance->step_signoffs["x:{$extra['key']}"]['grade'] ?? null;
+            $grade = is_numeric($raw) ? max(0.0, min((float) $raw, (float) $extra['max'])) : 0.0;
+            $total += $grade;
+            $items[] = [
+                'option' => $extra['label'],
+                'qty' => 1,
+                'modifiers' => [],
+                'points' => round($grade, 2),
+                'step' => "x:{$extra['key']}",
+                'max' => (float) $extra['max'],
+                'extra' => true,
             ];
         }
 

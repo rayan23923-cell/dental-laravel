@@ -1243,7 +1243,14 @@
         "button": "Steps ({done}/{total})",
         "modalTitle": "Task steps",
         "startHint": "Sign the steps done in this session in order; the rest are signed later from the Steps button.",
-        "surgeryHint": "The surgery steps are added to the task, each graded out of 10: Chief complaint, History of present illness, Medical history, Examination & diagnosis, Procedures, Post-operative instructions. Edit them from the task."
+        "surgeryHint": "The surgery steps are added to the task, each graded out of 10: Chief complaint, History of present illness, Medical history, Examination & diagnosis, Procedures, Post-operative instructions. Edit them from the task.",
+        "operativeHint": "The operative steps are added to the task, each graded out of 10: Chief complaint and history, Clinical examination, Odontogram. Edit them from the task.",
+        "addStep": "Add a step",
+        "addStepName": "Step name",
+        "addStepMax": "Top grade",
+        "addStepSave": "Add",
+        "removeStep": "Remove step",
+        "extraBadge": "Added"
     },
     "taskScoring": {
         "dragStep": "Drag to reorder",

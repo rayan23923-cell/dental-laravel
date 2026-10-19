@@ -161,7 +161,8 @@ class _TaskWorkPanelState extends ConsumerState<TaskWorkPanel> {
             ),
             const SizedBox(height: 8),
             // The case's steps, signed one after another (2026-10-18, by request).
-            if (hasSteps) ...[
+            // With the "add a step" button for supervisors when the task has steps (2026-10-19).
+            if (hasSteps || (data['can_sign'] == true && ((data['steps'] as List<dynamic>?) ?? const []).isNotEmpty)) ...[
               TaskStepsList(
                 taskInstanceId: widget.taskInstanceId,
                 data: {...data, 'steps': panelSteps},

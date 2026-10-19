@@ -63,6 +63,37 @@ const sign = async (row) => {
     }
 };
 
+// A step added to this case alone, with its name and top grade (2026-10-19, by request).
+const adding = ref(false);
+const extra = reactive({ label: '', max: 10 });
+const addExtra = async () => {
+    error.value = '';
+    busy.value = true;
+    try {
+        const { data } = await axios.post(route('case-sheets.instance-steps.add', props.instanceId), { label: extra.label, max: extra.max });
+        extra.label = '';
+        extra.max = 10;
+        adding.value = false;
+        emit('updated', data);
+    } catch (e) {
+        error.value = Object.values(e.response?.data?.errors ?? {})[0]?.[0] ?? e.response?.data?.message ?? t('taskSteps.failed');
+    } finally {
+        busy.value = false;
+    }
+};
+const removeExtra = async (row) => {
+    error.value = '';
+    busy.value = true;
+    try {
+        const { data } = await axios.delete(route('case-sheets.instance-steps.remove', props.instanceId), { data: { step: row.key } });
+        emit('updated', data);
+    } catch (e) {
+        error.value = Object.values(e.response?.data?.errors ?? {})[0]?.[0] ?? e.response?.data?.message ?? t('taskSteps.failed');
+    } finally {
+        busy.value = false;
+    }
+};
+
 const undo = async (row) => {
     error.value = '';
     if (local.value) {
@@ -82,8 +113,8 @@ const undo = async (row) => {
 </script>
 
 <template>
-    <div v-if="rows.length" class="space-y-2">
-        <div class="flex items-center justify-between">
+    <div v-if="rows.length || (!local && canSign)" class="space-y-2">
+        <div v-if="rows.length" class="flex items-center justify-between">
             <h4 class="text-sm font-semibold text-gray-800">{{ t('taskSteps.title') }}</h4>
             <span class="text-xs text-gray-500">{{ t('taskSteps.progress', { done: rows.filter((r) => r.signed).length, total: rows.length }) }}</span>
         </div>
@@ -101,7 +132,10 @@ const undo = async (row) => {
                     >
                         <template v-if="row.signed">✓</template><template v-else>{{ i + 1 }}</template>
                     </span>
-                    <span class="flex-1 font-medium text-gray-800">{{ row.label }}</span>
+                    <span class="flex-1 font-medium text-gray-800">
+                        {{ row.label }}
+                        <span v-if="row.extra" class="ms-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-normal text-amber-800">{{ t('taskSteps.extraBadge') }}</span>
+                    </span>
                     <template v-if="row.signed">
                         <span v-if="row.max !== null" class="rounded-full bg-white px-2 py-0.5 text-xs text-emerald-800 ring-1 ring-emerald-200">{{ row.grade ?? '—' }} / {{ row.max }}</span>
                         <button
@@ -132,12 +166,48 @@ const undo = async (row) => {
                         </button>
                     </template>
                     <span v-else-if="row.max !== null" class="text-xs text-gray-500">/ {{ row.max }}</span>
+                    <button
+                        v-if="row.extra && !row.signed && canSign && !local"
+                        type="button"
+                        class="text-xs text-red-600 hover:underline disabled:opacity-50"
+                        :disabled="busy"
+                        @click="removeExtra(row)"
+                    >
+                        {{ t('taskSteps.removeStep') }}
+                    </button>
                 </div>
                 <p v-if="row.signed && row.signed_by" class="mt-1 ps-8 text-xs text-gray-600">
                     {{ t('taskSteps.signedBy', { name: row.signed_by }) }}<template v-if="row.signed_at"> — {{ row.signed_at }}</template>
                 </p>
             </li>
         </ol>
+        <template v-if="!local && canSign">
+            <form v-if="adding" class="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-indigo-300 p-2" @submit.prevent="addExtra">
+                <input
+                    v-model="extra.label"
+                    type="text"
+                    required
+                    maxlength="100"
+                    :placeholder="t('taskSteps.addStepName')"
+                    class="min-w-0 flex-1 rounded-md border-gray-300 py-1 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                />
+                <input
+                    v-model.number="extra.max"
+                    type="number"
+                    required
+                    min="0.5"
+                    max="100"
+                    step="0.5"
+                    :title="t('taskSteps.addStepMax')"
+                    class="w-20 rounded-md border-gray-300 py-1 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                />
+                <button type="submit" class="rounded-md bg-indigo-600 px-3 py-1 text-xs text-white hover:bg-indigo-700 disabled:opacity-50" :disabled="busy">
+                    {{ t('taskSteps.addStepSave') }}
+                </button>
+                <button type="button" class="text-xs text-gray-500 hover:underline" @click="adding = false">✕</button>
+            </form>
+            <button v-else type="button" class="text-sm text-indigo-600 hover:underline" @click="adding = true">+ {{ t('taskSteps.addStep') }}</button>
+        </template>
         <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
     </div>
 </template>

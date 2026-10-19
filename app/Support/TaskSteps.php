@@ -29,7 +29,7 @@ class TaskSteps
     /**
      * The task's steps in order, with their sign-off on $instance if any.
      *
-     * @return array<int, array{key: string, label: string, max: ?float, signed: bool, grade: ?float, signed_by: ?string, signed_at: ?string, on_sheet: bool}>
+     * @return array<int, array{key: string, label: string, max: ?float, signed: bool, grade: ?float, signed_by: ?string, signed_at: ?string, on_sheet: bool, extra: bool}>
      */
     public static function list(Task $task, ?TaskInstance $instance = null): array
     {
@@ -45,6 +45,16 @@ class TaskSteps
                 'label' => $step['label'],
                 'max' => $off ? null : (float) $step['max'],
                 'sheet' => empty($step['custom']) ? (string) $step['key'] : null,
+            ];
+        }
+        // Steps a supervisor added to this case alone (2026-10-19, by request).
+        foreach ($instance?->extra_steps ?? [] as $extra) {
+            $steps[] = [
+                'key' => 'x:'.$extra['key'],
+                'label' => $extra['label'],
+                'max' => $off ? null : (float) $extra['max'],
+                'sheet' => null,
+                'extra' => true,
             ];
         }
         foreach (array_values($scoring['checklist'] ?? []) as $i => $part) {
@@ -72,6 +82,7 @@ class TaskSteps
                 'signed_at' => $own['signed_at'] ?? null,
                 // A stage the case sheet has its own date/grade/signature for.
                 'on_sheet' => $step['sheet'] !== null,
+                'extra' => ! empty($step['extra']),
             ];
         }, $steps);
     }
@@ -143,10 +154,81 @@ class TaskSteps
         self::sync($instance, $key, null, null);
     }
 
+    /**
+     * Adds a step with its own name and top grade to this case alone
+     * (2026-10-19, by request: "امكانية اضافة خطوات اضافية مع اضافة تسميه
+     * ودرجتها"). It is signed after the task's own steps.
+     */
+    public static function addExtra(TaskInstance $instance, string $label, float $max): void
+    {
+        $extras = $instance->extra_steps ?? [];
+        $extras[] = ['key' => (collect($extras)->max('key') ?? 0) + 1, 'label' => $label, 'max' => $max];
+        $instance->extra_steps = $extras;
+        $instance->save();
+        self::syncPoints($instance->fresh('task'));
+    }
+
+    /** Removes a step added to this case, unless it is already signed. */
+    public static function removeExtra(TaskInstance $instance, string $key): void
+    {
+        $id = str_starts_with($key, 'x:') ? (int) substr($key, 2) : null;
+        $extras = collect($instance->extra_steps ?? []);
+        if ($id === null || ! $extras->contains('key', $id)) {
+            throw ValidationException::withMessages(['step' => 'هذه الخطوة غير موجودة بهذه الحالة.']);
+        }
+        if (isset(($instance->step_signoffs ?? [])[$key])) {
+            throw ValidationException::withMessages(['step' => 'ألغِ توقيع الخطوة أولاً.']);
+        }
+        $instance->extra_steps = $extras->reject(fn ($x) => $x['key'] === $id)->values()->all() ?: null;
+        $instance->save();
+        self::syncPoints($instance->fresh('task'));
+    }
+
+    /**
+     * Recounts a case's points with its added steps: a step-graded task
+     * through TaskScoring::pointsFromCaseSheet(), any other one as scored
+     * work items next to its own work.
+     */
+    private static function syncPoints(TaskInstance $instance): void
+    {
+        $result = TaskScoring::pointsFromCaseSheet($instance);
+        if ($result) {
+            $instance->update(['work_items' => $result[0], 'points' => $result[1]]);
+
+            return;
+        }
+        if (TaskScoring::pointsOff($instance->task?->scoring)) {
+            return;
+        }
+        $items = collect($instance->work_items ?? [])->reject(fn ($item) => ! empty($item['extra']))->values();
+        foreach ($instance->extra_steps ?? [] as $extra) {
+            $grade = $instance->step_signoffs['x:'.$extra['key']]['grade'] ?? null;
+            if ($grade === null) {
+                continue;
+            }
+            $items->push([
+                'option' => $extra['label'], 'qty' => 1, 'modifiers' => [], 'points' => (float) $grade,
+                'grade' => (float) $grade, 'max' => (float) $extra['max'], 'scored' => true, 'check' => true,
+                'step' => 'x:'.$extra['key'], 'extra' => true,
+            ]);
+        }
+        $scored = $items->contains(fn ($item) => empty($item['check']) || ! empty($item['scored']));
+        $instance->update([
+            'work_items' => $items->all() ?: null,
+            'points' => $scored ? round($items->sum('points'), 2) : $instance->points,
+        ]);
+    }
+
     /** Writes a step's grade where the rest of the app reads it. */
     private static function sync(TaskInstance $instance, string $key, ?float $grade, ?string $signerName): void
     {
         $scoring = $instance->task?->scoring ?? [];
+
+        if (str_starts_with($key, 'x:')) {
+            self::syncPoints($instance->fresh('task'));
+
+            return;
+        }
 
         if (str_starts_with($key, 's:')) {
             $stepKey = substr($key, 2);
