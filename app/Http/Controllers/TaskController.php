@@ -6,7 +6,6 @@ use App\Support\LinkedRecords;
 use App\Models\AcademicSession;
 use App\Models\CaseSheetType;
 use App\Models\Department;
-use App\Models\Doctor;
 use App\Models\EducationType;
 use App\Models\Stage;
 use App\Models\Task;
@@ -127,19 +126,8 @@ class TaskController extends Controller
     {
         $task->load(['department', 'caseSheetType', 'stage', 'instances.doctor']);
 
-        // Only doctors from the task's own academic year can be assigned to
-        // it — offering last year's intake would let a 2024 doctor be given a
-        // 2025 task. Session-less doctors stay selectable everywhere.
-        $doctors = Doctor::query()
-            ->when($task->academic_session_id, fn ($q, $sessionId) => $q->where(fn ($q2) => $q2
-                ->where('academic_session_id', $sessionId)
-                ->orWhereNull('academic_session_id')))
-            ->orderBy('name')
-            ->get(['id', 'name']);
-
         return Inertia::render('Tasks/Show', [
             'task' => $task,
-            'doctors' => $doctors,
         ]);
     }
 

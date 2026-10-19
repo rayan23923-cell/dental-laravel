@@ -1,24 +1,14 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import InputError from '@/Components/InputError.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import { Head, router, useForm, usePage } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
 const props = defineProps({
     task: Object,
-    doctors: Array,
 });
 
 const page = usePage();
-
-const assignForm = useForm({ doctor_id: '' });
-const assign = () => {
-    assignForm.post(route('task-instances.store', props.task.id), {
-        onSuccess: () => assignForm.reset(),
-    });
-};
 
 const updateStatus = (instance, status) => {
     router.put(route('task-instances.update', instance.id), {
@@ -78,20 +68,6 @@ const statusColor = (status) => ({
                         </div>
                     </dl>
                     <p v-if="task.notes" class="mt-4 text-sm text-gray-600">{{ task.notes }}</p>
-                </div>
-
-                <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
-                    <h3 class="text-sm font-medium text-gray-900">{{ t('tasksAdmin.assignToDoctorHeading') }}</h3>
-                    <form @submit.prevent="assign" class="mt-3 flex items-start gap-3">
-                        <div class="flex-1">
-                            <select v-model="assignForm.doctor_id" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
-                                <option value="" disabled>{{ t('tasksAdmin.selectDoctor') }}</option>
-                                <option v-for="doctor in doctors" :key="doctor.id" :value="doctor.id">{{ doctor.name }}</option>
-                            </select>
-                            <InputError class="mt-2" :message="assignForm.errors.doctor_id" />
-                        </div>
-                        <PrimaryButton :disabled="assignForm.processing">{{ t('tasksAdmin.assignButton') }}</PrimaryButton>
-                    </form>
                 </div>
 
                 <div class="overflow-x-auto bg-white shadow-sm sm:rounded-lg">

@@ -632,7 +632,6 @@ Route::middleware('auth')->group(function () {
         Route::delete('/tasks/{task}', [TaskController::class, 'destroy'])
             ->middleware('permission:tasks,delete')
             ->name('tasks.destroy');
-        Route::post('/tasks/{task}/instances', [TaskInstanceController::class, 'store'])->name('task-instances.store');
         Route::put('/task-instances/{taskInstance}', [TaskInstanceController::class, 'update'])->name('task-instances.update');
         Route::delete('/task-instances/{taskInstance}', [TaskInstanceController::class, 'destroy'])->name('task-instances.destroy');
         Route::get('/task-instances/{taskInstance}/qr', [TaskInstanceController::class, 'qr'])->name('task-instances.qr');
