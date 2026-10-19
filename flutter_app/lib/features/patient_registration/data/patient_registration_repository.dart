@@ -73,6 +73,14 @@ class PatientRegistrationRepository {
   Future<void> updateTaskDays(int taskId, List<int> dayIds) =>
       _client.putJson('/tasks/$taskId/register-days', body: {'day_ids': dayIds});
 
+  /// A fingerprint of the registrations that changes whenever one is
+  /// added, edited, screened or paid (2026-10-19); see
+  /// `RegistrationsStampController`. null from servers without it.
+  Future<String?> stamp() async {
+    final data = await _client.getJson('/patient-registrations-stamp') as Map<String, dynamic>;
+    return data['stamp'] as String?;
+  }
+
   Future<Paginated<PatientRegistration>> list({String? search, String? from, String? to, int? serviceId}) async =>
       (await listPage(search: search, from: from, to: to, serviceId: serviceId)).page;
 

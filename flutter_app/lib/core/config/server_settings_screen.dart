@@ -108,7 +108,9 @@ class _ServerSettingsScreenState extends ConsumerState<ServerSettingsScreen> {
   Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final t = ref.read(translationsProvider);
-    final next = _settings();
+    final next = await _settings().withPinnedIp();
+    if (!mounted) return;
+    if (next.ip != _ip.text.trim()) _ip.text = next.ip;
     final previous = ref.read(serverSettingsProvider);
     String? pem;
     if (next.isClinic) {

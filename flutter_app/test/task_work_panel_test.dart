@@ -112,7 +112,8 @@ void main() {
       'can_edit': true,
     });
 
-    expect(find.text('4 / 5'), findsOneWidget);
+    // The sheet's own stage is graded in the sheet's stages section (2026-10-19).
+    expect(find.text('4 / 5'), findsNothing);
     await tester.enterText(find.byType(TextField), '2');
     await tester.tap(find.text('Save points'));
     await tester.pumpAndSettle();

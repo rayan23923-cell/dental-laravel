@@ -115,6 +115,7 @@ namespace DentalClinicClient
                     return 0;
                 }
                 App.Settings = ClientSettings.Load();
+                if (App.Settings.PinIp()) { try { App.Settings.Save(); } catch { } }
                 App.DevTools = list.Contains("--devtools");
                 Log.Write("start, build " + BuildInfo.Build + ", server " + App.Settings.Server + " " + App.Settings.ServerIp);
                 Application.Run(new MainForm());
@@ -466,6 +467,25 @@ namespace DentalClinicClient
             i = s.IndexOfAny(new[] { '/', ':', '?', '#' });
             if (i >= 0) s = s.Substring(0, i);
             return s.ToLowerInvariant();
+        }
+
+        // Connections go by IP (2026-10-19, by request): with no IP set, the
+        // name is looked up once and its address kept, so the router's DNS
+        // is no longer asked on every request (the cause of stalls).
+        public bool PinIp()
+        {
+            IPAddress parsed;
+            if (ServerIp.Length > 0 || IPAddress.TryParse(Server, out parsed)) return false;
+            try
+            {
+                var lookup = Dns.GetHostAddressesAsync(Server);
+                if (!lookup.Wait(3000)) return false;
+                var v4 = lookup.Result.FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(a));
+                if (v4 == null) return false;
+                ServerIp = v4.ToString();
+                return true;
+            }
+            catch { return false; }
         }
 
         public string HomeUrl { get { return "https://" + Server + (HttpsPort == 443 ? "" : ":" + HttpsPort) + "/"; } }

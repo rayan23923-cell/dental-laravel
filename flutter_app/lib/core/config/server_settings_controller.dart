@@ -16,7 +16,14 @@ class ServerBootstrap {
     ClinicNetwork.install();
     // The web build is served by its own server; the browser does TLS.
     if (kIsWeb) return;
-    final settings = await store.load();
+    var settings = await store.load();
+    if (settings.isClinic && settings.ip.isEmpty) {
+      final pinned = await settings.withPinnedIp();
+      if (pinned != settings) {
+        settings = pinned;
+        await store.save(settings);
+      }
+    }
     AppConfig.useServer(settings);
     if (!settings.isClinic) return;
     var pem = await store.loadCa(settings.id);

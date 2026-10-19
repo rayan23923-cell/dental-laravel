@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -87,6 +88,21 @@ class ServerSettings {
     final parts = s.split('.');
     if (parts.length != 4) return false;
     return parts.every((p) => RegExp(r'^\d{1,3}$').hasMatch(p) && int.parse(p) <= 255);
+  }
+
+  /// With no IP set, looks the name up once and keeps its IPv4 address
+  /// (2026-10-19, by request): connections then go by IP and no longer ask
+  /// the network's DNS each time, the cause of stalls. Unchanged when the
+  /// name doesn't resolve here, or for the cloud.
+  Future<ServerSettings> withPinnedIp({Duration timeout = const Duration(seconds: 3)}) async {
+    if (!isClinic || ip.isNotEmpty || isIpv4(host)) return this;
+    try {
+      final found = await InternetAddress.lookup(host, type: InternetAddressType.IPv4).timeout(timeout);
+      final v4 = found.where((a) => !a.isLoopback).map((a) => a.address).firstOrNull;
+      return v4 == null ? this : copyWith(ip: v4);
+    } catch (_) {
+      return this;
+    }
   }
 
   static bool validPort(int? p) => p != null && p > 0 && p <= 65535;

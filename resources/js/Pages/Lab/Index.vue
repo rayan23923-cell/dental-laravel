@@ -23,6 +23,7 @@ import { computed, nextTick, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import axios from 'axios';
 import { printInFrame } from '@/printInFrame';
+import { useLiveRegistrations } from '@/Composables/useLiveRegistrations';
 
 const { t } = useI18n();
 const props = defineProps({
@@ -34,6 +35,9 @@ const props = defineProps({
     currency: { type: String, default: '' },
     validityDays: { type: Number, default: 0 },
 });
+
+// New and changed registrations show up by themselves (2026-10-19, by request).
+useLiveRegistrations(['registrations', 'counts']);
 
 const statusTabs = [
     { key: 'pending', label: () => t('patientReg.screeningPending'), tone: 'amber' },

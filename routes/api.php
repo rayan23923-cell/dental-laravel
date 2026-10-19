@@ -195,6 +195,8 @@ Route::name('api.')->prefix('v1')->group(function () {
         // does for these same screens (see PatientRegistrationController
         // and RegisterDayController docblocks) — no new permission module
         // invented.
+        // Lets the app's registrations and lab lists reload when a patient is registered (2026-10-19).
+        Route::get('/patient-registrations-stamp', \App\Http\Controllers\RegistrationsStampController::class);
         Route::get('/patient-registrations', [PatientRegistrationController::class, 'index'])
             ->middleware('permission:patients,view');
         Route::post('/patient-registrations', [PatientRegistrationController::class, 'store'])

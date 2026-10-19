@@ -8,6 +8,9 @@ HTTP_PORT=80
 HTTPS_PORT=443
 # Leave empty to detect this computer's network address automatically.
 SERVER_IP=
+# 1 = run the name server (DNS) so devices can use SERVER_NAME. 0 = devices use
+# this computer's IP only (faster where the router's DNS causes stalls).
+DNS=1
 # 1 = a phone or computer joining the Wi-Fi opens the system by itself
 # (the "sign in to network" page). Needs the router DNS set to this computer.
 AUTO_OPEN=1

@@ -38,6 +38,7 @@ use App\Http\Controllers\OrthodonticsRecordController;
 use App\Http\Controllers\PatientController;
 use App\Http\Controllers\LabController;
 use App\Http\Controllers\PatientRegistrationController;
+use App\Http\Controllers\RegistrationsStampController;
 use App\Http\Controllers\PatientRegistrationPrintController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\AdvancedPeriodontalChartController;
@@ -346,6 +347,8 @@ Route::middleware('auth')->group(function () {
         // docblock. Gates reuse the `patients` module exactly like
         // admin/patient_register.php does in the original (no new
         // permission module invented).
+        // Lets the ticket desk and lab lists reload when a patient is registered (2026-10-19).
+        Route::get('/patient-registrations-stamp', RegistrationsStampController::class)->name('patient-registrations.stamp');
         Route::get('/patient-registrations', [PatientRegistrationController::class, 'index'])
             ->middleware('permission:patients,view')->name('patient-registrations.index');
         Route::get('/patient-registrations/create', [PatientRegistrationController::class, 'create'])
