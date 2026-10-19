@@ -174,8 +174,20 @@ $captiveDns
 		ttl 60
 		fallthrough
 	}
-	forward . 8.8.8.8 1.1.1.1
-	cache 60
+	# Every device on the network asks here once the router hands out this
+	# computer as its DNS, so internet names must not wait (2026-10-19:
+	# pages stuttered on a weak internet line). Answers are kept for an hour
+	# and refreshed in the background; an old answer is given at once while
+	# the internet is slow or down, instead of each device waiting on it.
+	forward . 8.8.8.8 1.1.1.1 {
+		policy sequential
+		max_fails 2
+		expire 30s
+	}
+	cache 3600 {
+		prefetch 5 10m 20%
+		serve_stale 24h immediate
+	}
 	errors
 }
 "@ | Set-Content -LiteralPath "$Root\Corefile" -Encoding ASCII
