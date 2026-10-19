@@ -27,4 +27,18 @@ class CaptivePortalTest extends TestCase
         $this->withServerVariables(['REMOTE_ADDR' => '192.168.68.51'])->get('http://captive.apple.com/hotspot-detect.html')
             ->assertRedirect('http://clinic.lan/portal');
     }
+
+    public function test_the_page_opens_by_the_server_address_when_it_is_known(): void
+    {
+        $file = tempnam(sys_get_temp_dir(), 'lanip');
+        file_put_contents($file, "192.168.68.52\r\n");
+        config(['app.url' => 'https://clinic.lan', 'app.lan_ip_file' => $file]);
+        $server = ['REMOTE_ADDR' => '192.168.68.60'];
+
+        $this->withServerVariables($server)->get('http://connectivitycheck.gstatic.com/generate_204')
+            ->assertRedirect('http://192.168.68.52/portal');
+        $this->withServerVariables($server)->get('http://192.168.68.52/portal')->assertRedirect('http://192.168.68.52/setup');
+
+        unlink($file);
+    }
 }

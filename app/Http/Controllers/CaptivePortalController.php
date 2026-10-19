@@ -56,9 +56,21 @@ class CaptivePortalController extends Controller
         return 'captive-seen:'.$request->ip();
     }
 
-    /** The system's own name on the network, as APP_URL has it (clinic.lan). */
+    /**
+     * Where the "sign in to network" page sends the device: this computer's
+     * network address, which prepare.ps1 writes to lan-ip.txt next to the
+     * app folder. The address works even when the device's name lookup is
+     * slow or not ours (2026-10-19: clinic.lan did not open on first join);
+     * without the file, the name APP_URL has (clinic.lan).
+     */
     private function serverHost(): string
     {
+        $file = config('app.lan_ip_file') ?: base_path('../lan-ip.txt');
+        $ip = is_file($file) ? trim((string) file_get_contents($file)) : '';
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) && ! str_starts_with($ip, '127.')) {
+            return $ip;
+        }
+
         return parse_url(config('app.url'), PHP_URL_HOST) ?: 'clinic.lan';
     }
 
