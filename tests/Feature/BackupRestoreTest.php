@@ -128,6 +128,21 @@ class BackupRestoreTest extends TestCase
         $this->assertDatabaseHas('users', ['username' => 'fromhost']);
     }
 
+    /** Older data the hosted server holds (zero dates, a row with id 0) comes back as it was, not refused by strict mode or renumbered. */
+    public function test_zero_dates_and_id_zero_rows_survive_the_copy(): void
+    {
+        \Illuminate\Support\Facades\DB::statement("SET SESSION sql_mode='NO_AUTO_VALUE_ON_ZERO'");
+        \Illuminate\Support\Facades\DB::statement("CREATE TABLE `legacy_rows` (`id` int NOT NULL AUTO_INCREMENT PRIMARY KEY, `at` datetime NOT NULL DEFAULT '0000-00-00 00:00:00', `name` varchar(20)) ENGINE=InnoDB");
+        \Illuminate\Support\Facades\DB::statement("INSERT INTO `legacy_rows` VALUES (0, '0000-00-00 00:00:00', 'zero'), (7, '2024-01-01 00:00:00', 'seven')");
+        \Illuminate\Support\Facades\DB::reconnect();
+        $file = $this->zipped($this->dump());
+        \Illuminate\Support\Facades\DB::statement('DROP TABLE `legacy_rows`');
+
+        $this->artisan('backup:restore', ['file' => $file, '--force' => true])->assertSuccessful();
+        $this->assertSame([0, 7], \Illuminate\Support\Facades\DB::table('legacy_rows')->orderBy('id')->pluck('id')->map(fn ($id) => (int) $id)->all());
+        \Illuminate\Support\Facades\DB::statement('DROP TABLE `legacy_rows`');
+    }
+
     /** A copy that breaks halfway doesn't leave empty tables: the data from before comes back and it says why. */
     public function test_a_restore_that_fails_puts_the_previous_data_back(): void
     {

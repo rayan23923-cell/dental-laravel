@@ -158,7 +158,12 @@ class DatabaseBackupService
             Schema::dropAllTables();
             $connection = config('database.connections.'.config('database.default'));
             if (! $this->importWithClient($connection, $sql)) {
-                $this->importWithPdo($sql);
+                try {
+                    $this->importWithPdo($sql);
+                } finally {
+                    // Back to the app's own sql_mode for what runs next (migrations).
+                    DB::reconnect();
+                }
             }
             $this->assertFilled($filled);
         } finally {
@@ -189,6 +194,10 @@ class DatabaseBackupService
         $in = fopen($sql, 'r');
         $to = fopen($out, 'w');
         $filled = [];
+        // Rows as they are (2026-10-19): a row with id 0 keeps it, and the
+        // zero dates older data has don't fail the strict mode MariaDB and
+        // this app's connection use. The dump's own settings still follow.
+        fwrite($to, "SET SESSION sql_mode='NO_AUTO_VALUE_ON_ZERO,NO_ENGINE_SUBSTITUTION';\nSET FOREIGN_KEY_CHECKS=0;\n");
         while (($line = fgets($in)) !== false) {
             if (str_contains($line, '_0900_') || str_contains($line, '/*!80')) {
                 $line = preg_replace(['/\butf8mb4_0900_\w+/', '/\/\*!80\d{3}.*?\*\/\s?/'], ['utf8mb4_unicode_ci', ''], $line);
@@ -371,7 +380,7 @@ class DatabaseBackupService
             throw new \RuntimeException("Unable to write backup file: {$fullPath}");
         }
 
-        fwrite($handle, "SET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\n\n");
+        fwrite($handle, "SET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\nSET SESSION sql_mode='NO_AUTO_VALUE_ON_ZERO,NO_ENGINE_SUBSTITUTION';\n\n");
 
         $tables = array_map(fn ($row) => array_values((array) $row)[0], $pdo->query('SHOW FULL TABLES WHERE Table_type = \'BASE TABLE\'')->fetchAll(\PDO::FETCH_NUM));
 
@@ -386,16 +395,21 @@ class DatabaseBackupService
 
             $stmt = $pdo->query("SELECT * FROM `{$quoted}`");
             $batch = [];
+            $bytes = 0;
             $columns = null;
 
             while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
                 $columns ??= array_keys($row);
                 $values = array_map(fn ($col) => is_null($row[$col]) || in_array($col, $blank, true) ? 'NULL' : $pdo->quote($row[$col]), $columns);
-                $batch[] = '('.implode(',', $values).')';
+                $batch[] = $tuple = '('.implode(',', $values).')';
+                $bytes += strlen($tuple);
 
-                if (count($batch) >= 500) {
+                // Also by size (2026-10-19), so rows holding signatures or
+                // photos stay well under the server's max_allowed_packet.
+                if (count($batch) >= 500 || $bytes >= 1048576) {
                     $this->writeInsert($handle, $quoted, $columns, $batch);
                     $batch = [];
+                    $bytes = 0;
                 }
             }
 
