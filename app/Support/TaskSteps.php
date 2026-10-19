@@ -29,7 +29,7 @@ class TaskSteps
     /**
      * The task's steps in order, with their sign-off on $instance if any.
      *
-     * @return array<int, array{key: string, label: string, max: ?float, signed: bool, grade: ?float, signed_by: ?string, signed_at: ?string}>
+     * @return array<int, array{key: string, label: string, max: ?float, signed: bool, grade: ?float, signed_by: ?string, signed_at: ?string, on_sheet: bool}>
      */
     public static function list(Task $task, ?TaskInstance $instance = null): array
     {
@@ -70,6 +70,8 @@ class TaskSteps
                 'grade' => $step['max'] === null ? null : $grade,
                 'signed_by' => $own['signed_by'] ?? ($signedOnSheet ? $sheet['signature'] : null),
                 'signed_at' => $own['signed_at'] ?? null,
+                // A stage the case sheet has its own date/grade/signature for.
+                'on_sheet' => $step['sheet'] !== null,
             ];
         }, $steps);
     }

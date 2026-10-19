@@ -109,7 +109,12 @@ class _TaskWorkPanelState extends ConsumerState<TaskWorkPanel> {
   Widget build(BuildContext context) {
     final t = ref.watch(translationsProvider);
     final data = _data;
-    final hasSteps = ((data?['steps'] as List<dynamic>?) ?? const []).isNotEmpty;
+    // The sheet's own stages are signed and graded in its own section, so the
+    // panel lists only the other steps (2026-10-19, by request).
+    final panelSteps = ((data?['steps'] as List<dynamic>?) ?? const [])
+        .where((s) => s is Map && s['on_sheet'] != true)
+        .toList();
+    final hasSteps = panelSteps.isNotEmpty;
     if (data == null || !(_fromSheet || _scoring.hasWork || hasSteps)) return const SizedBox.shrink();
     final colors = Theme.of(context).colorScheme;
     final minPoints = _scoring.minPoints;
@@ -157,13 +162,18 @@ class _TaskWorkPanelState extends ConsumerState<TaskWorkPanel> {
             const SizedBox(height: 8),
             // The case's steps, signed one after another (2026-10-18, by request).
             if (hasSteps) ...[
-              TaskStepsList(taskInstanceId: widget.taskInstanceId, data: data, onUpdated: _apply),
+              TaskStepsList(
+                taskInstanceId: widget.taskInstanceId,
+                data: {...data, 'steps': panelSteps},
+                onUpdated: _apply,
+              ),
               const SizedBox(height: 8),
             ],
-            // With steps to sign, the list above already shows each step's grade (2026-10-19, by request).
-            if (_fromSheet && !hasSteps)
-              ..._sheetSteps(t, colors)
-            else if (_scoring.hasWork && !(hasSteps && (_fromSheet || _scoring.options.isEmpty)))
+            // Each grade shows once (2026-10-19, by request): the sheet's stages in
+            // its own section, the other steps in the list above.
+            if (_fromSheet)
+              ..._sheetSteps(t, colors, withRows: !hasSteps)
+            else if (_scoring.hasWork && !(hasSteps && _scoring.options.isEmpty))
               _WorkItemsInput(
                 scoring: _scoring,
                 items: _items,
@@ -198,12 +208,14 @@ class _TaskWorkPanelState extends ConsumerState<TaskWorkPanel> {
     );
   }
 
-  List<Widget> _sheetSteps(Map<String, String> t, ColorScheme colors) {
+  /// The total, with the hand-added steps' grades when [withRows]; the
+  /// sheet's own stages are graded in its own section.
+  List<Widget> _sheetSteps(Map<String, String> t, ColorScheme colors, {required bool withRows}) {
     final maxTotal = _workItems.fold<double>(0, (s, w) => s + ((w['max'] as num?)?.toDouble() ?? 0));
     return [
       Text(t['taskScoring.fromSheet']!, style: Theme.of(context).textTheme.bodySmall),
       const SizedBox(height: 4),
-      for (final w in _workItems)
+      for (final w in withRows ? _workItems.where((w) => w['custom'] == true) : const <Map<String, dynamic>>[])
         Container(
           padding: const EdgeInsets.symmetric(vertical: 4),
           decoration: BoxDecoration(
