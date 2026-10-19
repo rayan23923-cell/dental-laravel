@@ -243,6 +243,8 @@ class TaskScoring
                 'rows' => array_map(fn ($row) => [
                     ...collect($row)->except('case_sheet')->all(),
                     'case_sheet_type_id' => $ids[$row['case_sheet'] ?? ''] ?? $typeId,
+                    // The surgery sheet's steps show on its rows as they will be saved.
+                    ...(($row['case_sheet'] ?? $code) === 'surgery' ? ['scoring' => self::withSurgerySteps($row['scoring'] ?? null)] : []),
                 ], $templates[$code]['rows']),
             ])
             ->all();
@@ -588,6 +590,37 @@ class TaskScoring
             'department' => $d->name,
             'score' => self::doctorResult($tasks->where('department_id', $d->id)->values(), $instances, $d->pass_percent),
         ])->filter(fn ($r) => $r['score'] !== null)->values()->all();
+    }
+
+    /** The surgery sheet's sections, signed one after another (2026-10-19, by request). */
+    public const SURGERY_STEPS = [
+        'cc' => 'Chief complaint',
+        'hpi' => 'History of present illness',
+        'mh' => 'Medical history',
+        'exam' => 'Examination & diagnosis',
+        'procedure' => 'Procedures',
+        'postop' => 'Post-operative instructions',
+    ];
+
+    /**
+     * Adds the surgery sheet's sections to a task's setup as steps graded up
+     * to 10 each, like the prosthodontics stages (2026-10-19, by request:
+     * "لكل خطوة درجة"), unless it already has steps of its own. A case's
+     * points then come from those grades.
+     */
+    public static function withSurgerySteps(?array $scoring): array
+    {
+        $scoring ??= ['measure' => 'count'];
+        if (! empty($scoring['steps'])) {
+            return $scoring;
+        }
+        $scoring['steps'] = array_map(
+            fn ($key, $label) => ['key' => "custom_$key", 'label' => $label, 'max' => 10, 'enabled' => true, 'custom' => true],
+            array_keys(self::SURGERY_STEPS),
+            self::SURGERY_STEPS,
+        );
+
+        return self::normalize($scoring);
     }
 
     /** Total max of a task's enabled steps, or null when it has none. */

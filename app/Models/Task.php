@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\TaskScoring;
 use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -41,6 +42,13 @@ class Task extends Model
     {
         static::saving(function (Task $task) {
             $task->required_per_doctor = (int) $task->required_count;
+
+            // A task on the surgery sheet gets that sheet's steps when the
+            // sheet is chosen (2026-10-19, by request); see TaskScoring::withSurgerySteps().
+            if ((! $task->exists || $task->isDirty('case_sheet_type_id'))
+                && CaseSheetType::whereKey($task->case_sheet_type_id)->value('type_code') === 'surgery') {
+                $task->scoring = TaskScoring::withSurgerySteps($task->scoring);
+            }
         });
     }
 
