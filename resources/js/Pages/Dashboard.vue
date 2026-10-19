@@ -16,6 +16,7 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import axios from 'axios';
 import Icon from '@/Components/Icon.vue';
+import { useLiveRegistrations } from '@/Composables/useLiveRegistrations';
 
 const { t } = useI18n();
 const props = defineProps({
@@ -29,6 +30,9 @@ const props = defineProps({
     can: Object,
     currentSession: Object,
 });
+
+// The counters, latest patients and payments follow new registrations by themselves (2026-10-19, by request).
+if (props.can?.patients) useLiveRegistrations(['stats', 'latestPatients', 'latestPayments', 'income']);
 
 const donePct = computed(() => {
     const total = props.stats.tasks_done + props.stats.tasks_not_done;
