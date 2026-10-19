@@ -176,12 +176,16 @@ $captiveDns
 	}
 	# Every device on the network asks here once the router hands out this
 	# computer as its DNS, so internet names must not wait (2026-10-19:
-	# pages stuttered on a weak internet line). Answers are kept for an hour
-	# and refreshed in the background; an old answer is given at once while
-	# the internet is slow or down, instead of each device waiting on it.
+	# pages stuttered, and clinics often have no internet at all). With no
+	# internet the upstreams are marked down after one miss and every
+	# lookup fails at once instead of waiting 2-6 s (CoreDNS 1.12.2+).
+	# Answers are kept for an hour and refreshed in the background; an old
+	# answer is given at once while the internet is slow or down.
 	forward . 8.8.8.8 1.1.1.1 {
 		policy sequential
-		max_fails 2
+		max_fails 1
+		health_check 2s
+		failfast_all_unhealthy_upstreams
 		expire 30s
 	}
 	cache 3600 {

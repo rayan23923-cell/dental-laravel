@@ -27,7 +27,7 @@ env:
   PHP_MINOR: '8.3'
   MARIADB_VERSION: '10.11.10'
   CADDY_VERSION: '2.8.4'
-  COREDNS_VERSION: '1.11.3'
+  COREDNS_VERSION: '1.12.3'
 
 jobs:
   panel:
