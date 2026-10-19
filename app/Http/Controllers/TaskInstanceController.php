@@ -2,13 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Task;
 use App\Models\TaskInstance;
 use App\Support\QrCodeFactory;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Auth;
 
 class TaskInstanceController extends Controller
 {
@@ -21,23 +19,6 @@ class TaskInstanceController extends Controller
         return QrCodeFactory::pngResponse(
             QrCodeFactory::payload('task_instance', $taskInstance->id),
         );
-    }
-
-    public function store(Request $request, Task $task): RedirectResponse
-    {
-        $validated = $request->validate([
-            'doctor_id' => ['required', 'exists:doctors,id'],
-        ]);
-
-        TaskInstance::create([
-            'task_id' => $task->id,
-            'doctor_id' => $validated['doctor_id'],
-            'status' => 'assigned',
-            'assigned_date' => now(),
-            'assigned_by' => Auth::id(),
-        ]);
-
-        return back()->with('success', 'Task assigned to doctor.');
     }
 
     public function update(Request $request, TaskInstance $taskInstance): RedirectResponse
