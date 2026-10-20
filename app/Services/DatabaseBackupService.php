@@ -133,18 +133,7 @@ class DatabaseBackupService
      */
     public function restore(string $path): void
     {
-        $sql = $path;
-        $temp = null;
-        if (str_ends_with(strtolower($path), '.zip')) {
-            $zip = new ZipArchive();
-            if ($zip->open($path) !== true || ($contents = $zip->getFromName('database.sql')) === false) {
-                throw new \RuntimeException("Not a backup zip (no database.sql): {$path}");
-            }
-            $zip->close();
-            $temp = $sql = tempnam(sys_get_temp_dir(), 'restore');
-            file_put_contents($temp, $contents);
-            unset($contents);
-        }
+        [$sql, $temp] = $this->extract($path);
 
         try {
             if (filesize($sql) === 0) {
@@ -175,6 +164,173 @@ class DatabaseBackupService
         $uploads = dirname($path).DIRECTORY_SEPARATOR.self::UPLOADS_DIR;
         if (is_dir($uploads)) {
             $this->copyNewer($uploads, storage_path('app/public'));
+        }
+    }
+
+    /** The dump inside a backup: [sql path, temp file to delete or null]. */
+    private function extract(string $path): array
+    {
+        if (! str_ends_with(strtolower($path), '.zip')) {
+            return [$path, null];
+        }
+        $zip = new ZipArchive();
+        if ($zip->open($path) !== true || ($contents = $zip->getFromName('database.sql')) === false) {
+            throw new \RuntimeException("Not a backup zip (no database.sql): {$path}");
+        }
+        $zip->close();
+        $temp = tempnam(sys_get_temp_dir(), 'restore');
+        file_put_contents($temp, $contents);
+
+        return [$temp, $temp];
+    }
+
+    /**
+     * Tables never offered for a merge: the migrations record and what
+     * belongs to one server only (sessions, queues, tokens, licensing).
+     */
+    public const NOT_MERGED = ['migrations', ...self::HOSTED_ONLY_TABLES];
+
+    /** Names shown when choosing what to take from a backup (2026-10-20). */
+    public const SECTION_LABELS = [
+        'doctors' => 'الأطباء (الطلاب)',
+        'users' => 'المستخدمون',
+        'user_permissions' => 'صلاحيات المستخدمين',
+        'register_services' => 'الخدمات وأسعارها',
+        'register_days' => 'أيام التسجيل',
+        'clinic_settings' => 'إعدادات العيادة',
+        'education_types' => 'أنواع الدراسة',
+        'stages' => 'المراحل',
+        'departments' => 'الأقسام',
+        'groups' => 'المجموعات',
+        'academic_sessions' => 'السنوات الدراسية',
+        'tasks' => 'المهام',
+        'task_instances' => 'تقدم المهام',
+        'case_sheet_types' => 'أنواع الكيس شيت',
+        'patients_simple' => 'تسجيلات المرضى',
+        'patients' => 'المرضى',
+        'payments' => 'المدفوعات',
+        'appointments' => 'المواعيد',
+    ];
+
+    /**
+     * The tables a backup has, for choosing what to merge (2026-10-20):
+     * name, label and whether it carries rows, in the dump's order.
+     *
+     * @return array<int, array{table: string, label: string, rows: bool}>
+     */
+    public function tablesIn(string $path): array
+    {
+        [$sql, $temp] = $this->extract($path);
+        try {
+            $tables = [];
+            $in = fopen($sql, 'r');
+            while (($line = fgets($in)) !== false) {
+                if (preg_match('/^(?:CREATE TABLE|INSERT INTO) `((?:[^`]|``)+)`/', $line, $m)) {
+                    $table = str_replace('``', '`', $m[1]);
+                    $tables[$table] = ($tables[$table] ?? false) || str_starts_with($line, 'INSERT');
+                }
+            }
+            fclose($in);
+        } finally {
+            if ($temp) {
+                @unlink($temp);
+            }
+        }
+
+        $out = [];
+        foreach ($tables as $table => $rows) {
+            if (! in_array($table, self::NOT_MERGED, true)) {
+                $out[] = ['table' => $table, 'label' => self::SECTION_LABELS[$table] ?? $table, 'rows' => $rows];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Adds what a backup has and this database lacks, for the chosen
+     * tables only (2026-10-20, by request: taking a copy must not lose the
+     * data already here). Nothing is dropped or overwritten: a missing
+     * table is created, and each row goes in with INSERT IGNORE, so a row
+     * whose id or unique key (e.g. a doctor's username) already exists is
+     * kept as it is here. Returns rows added per table, and per-table
+     * errors, so one table that doesn't fit doesn't stop the others.
+     *
+     * @param  array<int, string>  $tables
+     * @return array{added: array<string, int>, errors: array<string, string>}
+     */
+    public function merge(string $path, array $tables): array
+    {
+        $wanted = array_flip(array_diff($tables, self::NOT_MERGED));
+        [$sql, $temp] = $this->extract($path);
+        $portable = null;
+        $added = [];
+        $errors = [];
+        try {
+            [$portable] = $this->forMariaDb($sql);
+            $existing = [];
+            foreach (Schema::getTableListing() as $name) {
+                $existing[str_contains($name, '.') ? substr($name, strrpos($name, '.') + 1) : $name] = true;
+            }
+
+            $in = fopen($portable, 'r');
+            $statement = '';
+            while (($line = fgets($in)) !== false) {
+                $statement .= $line;
+                if (! str_ends_with(rtrim($line), ';')) {
+                    continue;
+                }
+                $this->mergeStatement(trim($statement), $wanted, $existing, $added, $errors);
+                $statement = '';
+            }
+            fclose($in);
+        } finally {
+            DB::reconnect();
+            foreach ([$temp, $portable] as $file) {
+                if ($file) {
+                    @unlink($file);
+                }
+            }
+        }
+
+        $uploads = dirname($path).DIRECTORY_SEPARATOR.self::UPLOADS_DIR;
+        if (is_dir($uploads)) {
+            $this->copyNewer($uploads, storage_path('app/public'));
+        }
+
+        return ['added' => $added, 'errors' => $errors];
+    }
+
+    /** One statement of a dump during merge(); see there. */
+    private function mergeStatement(string $statement, array $wanted, array &$existing, array &$added, array &$errors): void
+    {
+        if ($statement === '' || str_starts_with($statement, '--')) {
+            return;
+        }
+        // Session settings (sql_mode, names, foreign keys) run as they are.
+        if (preg_match('/^(?:SET\b|\/\*!\d+ SET\b)/i', $statement)) {
+            DB::unprepared($statement);
+
+            return;
+        }
+        if (! preg_match('/^(CREATE TABLE|INSERT INTO) `((?:[^`]|``)+)`/', $statement, $m)) {
+            return; // DROP TABLE, LOCK/UNLOCK, ALTER ... KEYS, views: not needed to add rows
+        }
+        [$kind, $table] = [$m[1], str_replace('``', '`', $m[2])];
+        if (! isset($wanted[$table]) || isset($errors[$table])) {
+            return;
+        }
+
+        try {
+            if ($kind === 'CREATE TABLE' && ! isset($existing[$table])) {
+                DB::unprepared($statement);
+                $existing[$table] = true;
+            } elseif ($kind === 'INSERT INTO') {
+                $count = DB::getPdo()->exec('INSERT IGNORE'.substr($statement, strlen('INSERT')));
+                $added[$table] = ($added[$table] ?? 0) + (int) $count;
+            }
+        } catch (\Throwable $e) {
+            $errors[$table] = mb_substr($e->getMessage(), 0, 300);
         }
     }
 
@@ -330,7 +486,9 @@ class DatabaseBackupService
 
         foreach ($this->binaries('dump') as $binary) {
             $command = escapeshellarg($binary).$this->connectionArgs($connection)
-                .' --single-transaction --quick --routines --events --triggers --default-character-set=utf8mb4'
+                // --complete-insert (2026-10-20): column names in each INSERT,
+                // so merge() can add rows to a table whose columns are in another order.
+                .' --single-transaction --quick --complete-insert --routines --events --triggers --default-character-set=utf8mb4'
                 .' --result-file='.escapeshellarg($fullPath).' '.escapeshellarg($connection['database']).' 2>&1';
 
             @unlink($fullPath);

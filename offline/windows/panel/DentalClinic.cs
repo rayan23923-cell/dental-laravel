@@ -637,13 +637,12 @@ namespace DentalClinicPanel
             catch { return null; }
         }
 
-        // Puts a backup back; the current data is saved first by the command.
-        public bool RestoreBackup(string file, out string message)
+        // A file from elsewhere (e.g. Downloads under an Arabic user name) is
+        // copied into the backups folder under a plain name first, so PHP
+        // gets a path it can open (2026-10-18). A file already there is used
+        // as it is, so calling this twice copies once.
+        public string LocalBackupPath(string file)
         {
-            Log("استعادة النسخة " + Path.GetFileName(file) + "...");
-            // A file from elsewhere (e.g. Downloads under an Arabic user name) is
-            // copied into the backups folder under a plain name first, so PHP
-            // gets a path it can open (2026-10-18).
             string arg = file;
             try
             {
@@ -657,12 +656,68 @@ namespace DentalClinicPanel
                 }
             }
             catch (Exception ex) { Log("تنبيه: تعذّر نسخ الملف إلى مجلد النسخ: " + ex.Message); }
-            var r = RunArtisan("backup:restore \"" + arg + "\" --force", 3600000);
+            return arg;
+        }
+
+        // Puts a backup back; the current data is saved first by the command.
+        public bool RestoreBackup(string file, out string message)
+        {
+            return RestoreBackup(file, false, null, out message);
+        }
+
+        // With merge (2026-10-20, by request) nothing here is replaced: the
+        // chosen tables only get the rows they lack (backup:restore --merge).
+        public bool RestoreBackup(string file, bool merge, IList<string> tables, out string message)
+        {
+            Log((merge ? "إضافة البيانات الناقصة من النسخة " : "استعادة النسخة ") + Path.GetFileName(file) + "...");
+            string arg = LocalBackupPath(file);
+            string args = "backup:restore \"" + arg + "\" --force";
+            if (merge)
+            {
+                args += " --merge";
+                if (tables != null && tables.Count > 0) args += " --tables=" + string.Join(",", tables.ToArray());
+            }
+            var r = RunArtisan(args, 3600000);
             bool ok = r.Code == 0;
-            message = ok ? "تمت الاستعادة من " + Path.GetFileName(file) + ". حُفظت البيانات السابقة كنسخة احتياطية أيضًا."
-                         : "تعذّرت الاستعادة: " + Tail(r.Output, 3);
+            if (merge)
+                message = ok ? "أُضيفت البيانات الناقصة من " + Path.GetFileName(file) + " وبقيت البيانات الحالية كما هي. " + Tail(r.Output, 1)
+                             : "تعذّرت إضافة بعض البيانات: " + Tail(r.Output, 3);
+            else
+                message = ok ? "تمت الاستعادة من " + Path.GetFileName(file) + ". حُفظت البيانات السابقة كنسخة احتياطية أيضًا."
+                             : "تعذّرت الاستعادة: " + Tail(r.Output, 3);
             Log(message);
             return ok;
+        }
+
+        // The sections (tables) a backup holds, for choosing what to take
+        // from it (2026-10-20); null with an error when it can't be read.
+        public List<BackupSection> BackupSections(string file, out string error)
+        {
+            error = null;
+            var r = RunArtisan("backup:tables \"" + file + "\"", 600000);
+            var json = r.Output.Split('\n').Select(l => l.Trim()).LastOrDefault(l => l.StartsWith("["));
+            if (r.Code != 0 || json == null)
+            {
+                error = Tail(r.Output, 3);
+                return null;
+            }
+            var list = new List<BackupSection>();
+            var items = new JavaScriptSerializer().DeserializeObject(json) as object[];
+            if (items != null)
+            {
+                foreach (var o in items)
+                {
+                    var d = o as Dictionary<string, object>;
+                    if (d == null || !d.ContainsKey("table")) continue;
+                    list.Add(new BackupSection
+                    {
+                        Table = d["table"] as string,
+                        Label = d.ContainsKey("label") ? d["label"] as string : d["table"] as string,
+                        Rows = d.ContainsKey("rows") && d["rows"] is bool && (bool)d["rows"],
+                    });
+                }
+            }
+            return list;
         }
 
         static bool Answers(string url)
@@ -1381,6 +1436,14 @@ namespace DentalClinicPanel
         }
     }
 
+    // One table of a backup, as backup:tables lists it (2026-10-20).
+    class BackupSection
+    {
+        public string Table;
+        public string Label;
+        public bool Rows;
+    }
+
     class MainForm : Form
     {
         static readonly Color Teal = Color.FromArgb(15, 118, 110);
@@ -1785,21 +1848,105 @@ namespace DentalClinicPanel
                 if (dlg.ShowDialog(this) != DialogResult.OK) return;
                 file = dlg.FileName;
             }
-            var r = MessageBox.Show(this,
-                "ستُستبدل كل البيانات الحالية (المرضى والمهام والمدفوعات والصور) ببيانات هذه النسخة:" + Environment.NewLine +
-                Path.GetFileName(file) + Environment.NewLine + Environment.NewLine +
-                "تُحفظ البيانات الحالية كنسخة احتياطية أولًا. هل تريد المتابعة؟",
-                "عيادة الأسنان", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2,
-                MessageBoxOptions.RightAlign | MessageBoxOptions.RtlReading);
-            if (r != DialogResult.Yes) return;
+
+            // What to take from it (2026-10-20, by request): the sections it
+            // holds, added to the current data by default, never replacing it.
+            string local = engine.LocalBackupPath(file);
+            string error;
+            List<BackupSection> sections;
+            Cursor = Cursors.WaitCursor;
+            try { sections = engine.BackupSections(local, out error); }
+            finally { Cursor = Cursors.Default; }
+            if (sections == null)
+            {
+                Notify("تعذّرت قراءة النسخة: " + error, false);
+                return;
+            }
+            bool merge;
+            List<string> tables;
+            if (!ChooseSections(Path.GetFileName(file), sections, out merge, out tables)) return;
+
+            if (!merge)
+            {
+                var r = MessageBox.Show(this,
+                    "ستُستبدل كل البيانات الحالية (المرضى والمهام والمدفوعات والصور) ببيانات هذه النسخة:" + Environment.NewLine +
+                    Path.GetFileName(file) + Environment.NewLine + Environment.NewLine +
+                    "تُحفظ البيانات الحالية كنسخة احتياطية أولًا. هل تريد المتابعة؟",
+                    "عيادة الأسنان", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2,
+                    MessageBoxOptions.RightAlign | MessageBoxOptions.RtlReading);
+                if (r != DialogResult.Yes) return;
+            }
             backupBusy = true;
             ThreadPool.QueueUserWorkItem(_ =>
             {
                 string msg;
-                bool ok = engine.RestoreBackup(file, out msg);
+                bool ok = engine.RestoreBackup(local, merge, tables, out msg);
                 backupBusy = false;
                 try { BeginInvoke(new Action(() => Notify(msg, ok))); } catch { }
             });
+        }
+
+        // The sections of a backup with check boxes, and whether to add what
+        // is missing (the default) or replace everything. False on cancel.
+        bool ChooseSections(string fileName, List<BackupSection> sections, out bool merge, out List<string> tables)
+        {
+            merge = true;
+            tables = new List<string>();
+            using (var dlg = new Form
+            {
+                Text = "استعادة نسخة احتياطية",
+                RightToLeft = RightToLeft.Yes,
+                RightToLeftLayout = true,
+                StartPosition = FormStartPosition.CenterParent,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MinimizeBox = false,
+                MaximizeBox = false,
+                ClientSize = new Size(520, 560),
+                Font = Font,
+            })
+            {
+                var title = new Label { Text = "النسخة: " + fileName, Dock = DockStyle.Top, Height = 28, Padding = new Padding(8, 8, 8, 0) };
+                var mergeRb = new RadioButton { Text = "إضافة البيانات غير الموجودة فقط (لا يُحذف أو يتغيّر شيء من البيانات الحالية)", Checked = true, Dock = DockStyle.Top, Height = 44, Padding = new Padding(8, 0, 8, 0) };
+                var replaceRb = new RadioButton { Text = "استبدال كل البيانات الحالية بالنسخة", Dock = DockStyle.Top, Height = 30, Padding = new Padding(8, 0, 8, 0) };
+                var hint = new Label { Text = "اختر الأقسام التي تؤخذ من النسخة:", Dock = DockStyle.Top, Height = 24, Padding = new Padding(8, 4, 8, 0) };
+                var list = new CheckedListBox { Dock = DockStyle.Fill, CheckOnClick = true, IntegralHeight = false, RightToLeft = RightToLeft.Yes };
+                foreach (var sct in sections)
+                    list.Items.Add((sct.Label ?? sct.Table) + (sct.Label != sct.Table ? "  (" + sct.Table + ")" : "") + (sct.Rows ? "" : "  — فارغ"), sct.Rows);
+
+                var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 48, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(8) };
+                var ok = new Button { Text = "استعادة", DialogResult = DialogResult.OK, Width = 100, Height = 30 };
+                var cancel = new Button { Text = "إلغاء", DialogResult = DialogResult.Cancel, Width = 90, Height = 30 };
+                var all = new Button { Text = "تحديد الكل", Width = 100, Height = 30 };
+                var none = new Button { Text = "إلغاء التحديد", Width = 100, Height = 30 };
+                all.Click += (s, e) => { for (int i = 0; i < list.Items.Count; i++) list.SetItemChecked(i, true); };
+                none.Click += (s, e) => { for (int i = 0; i < list.Items.Count; i++) list.SetItemChecked(i, false); };
+                EventHandler sync = (s, e) => { list.Enabled = all.Enabled = none.Enabled = hint.Enabled = mergeRb.Checked; };
+                mergeRb.CheckedChanged += sync;
+                replaceRb.CheckedChanged += sync;
+                buttons.Controls.AddRange(new Control[] { ok, cancel, all, none });
+
+                // Docked in reverse: the last added sits on top.
+                dlg.Controls.Add(list);
+                dlg.Controls.Add(hint);
+                dlg.Controls.Add(replaceRb);
+                dlg.Controls.Add(mergeRb);
+                dlg.Controls.Add(title);
+                dlg.Controls.Add(buttons);
+                dlg.AcceptButton = ok;
+                dlg.CancelButton = cancel;
+
+                while (true)
+                {
+                    if (dlg.ShowDialog(this) != DialogResult.OK) return false;
+                    merge = mergeRb.Checked;
+                    tables.Clear();
+                    if (!merge) return true;
+                    foreach (int i in list.CheckedIndices) tables.Add(sections[i].Table);
+                    if (tables.Count > 0) return true;
+                    MessageBox.Show(dlg, "اختر قسمًا واحدًا على الأقل.", "عيادة الأسنان", MessageBoxButtons.OK, MessageBoxIcon.Information,
+                        MessageBoxDefaultButton.Button1, MessageBoxOptions.RightAlign | MessageBoxOptions.RtlReading);
+                }
+            }
         }
 
         void RefreshUpdate()
