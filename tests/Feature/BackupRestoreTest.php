@@ -113,6 +113,60 @@ class BackupRestoreTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => 'doctor']))->get(route('backup.offline-copy'))->assertForbidden();
     }
 
+    /**
+     * Merging a copy (2026-10-20): only the chosen tables get the rows they
+     * lack; what is here already, and every other table, stays as it is.
+     */
+    public function test_a_merge_adds_only_missing_rows_of_the_chosen_tables(): void
+    {
+        $admin = User::factory()->create(['username' => 'hostadmin', 'role' => 'admin']);
+        $hostOnly = User::factory()->create(['username' => 'fromhost', 'role' => 'admin']);
+        $service = \App\Models\Service::create(['name' => 'تنظيف أسنان', 'price' => 2000]);
+        \App\Models\Service::create(['name' => 'حشوة جذر', 'price' => 16000]);
+
+        $response = $this->actingAs($admin)->get(route('backup.offline-copy'))->assertOk();
+        File::ensureDirectoryExists($this->dir);
+        copy($response->baseResponse->getFile()->getPathname(), $copy = $this->dir.'/offline-copy.zip');
+
+        // The offline side has since changed a price, lost one service and a
+        // user, and added a user of its own.
+        $service->update(['price' => 2500]);
+        \App\Models\Service::where('name', 'حشوة جذر')->delete();
+        $hostOnly->delete();
+        User::factory()->create(['username' => 'offlineonly', 'role' => 'admin']);
+
+        $this->artisan('backup:tables', ['file' => $copy])->expectsOutputToContain('الخدمات وأسعارها')->assertSuccessful();
+
+        $this->artisan('backup:restore', ['file' => $copy, '--merge' => true, '--tables' => 'register_services', '--force' => true])
+            ->expectsOutputToContain('register_services: +1')
+            ->assertSuccessful();
+
+        $this->assertDatabaseHas('register_services', ['name' => 'حشوة جذر', 'price' => 16000]);
+        // Kept as it is here, not overwritten by the copy.
+        $this->assertDatabaseHas('register_services', ['name' => 'تنظيف أسنان', 'price' => 2500]);
+        // Not chosen: untouched.
+        $this->assertDatabaseMissing('users', ['username' => 'fromhost']);
+        $this->assertDatabaseHas('users', ['username' => 'offlineonly']);
+        $this->assertCount(1, glob($this->dir.'/*_before-merge.zip'));
+
+        // All tables: the missing user comes back, the offline one stays.
+        $this->artisan('backup:restore', ['file' => $copy, '--merge' => true, '--force' => true])->assertSuccessful();
+        $this->assertDatabaseHas('users', ['username' => 'fromhost']);
+        $this->assertDatabaseHas('users', ['username' => 'offlineonly']);
+    }
+
+    /** A regular backup (mariadb-dump) merges too: its inserts name their columns. */
+    public function test_a_regular_backup_merges_by_column_name(): void
+    {
+        User::factory()->create(['username' => 'inbackup', 'role' => 'admin']);
+        $this->artisan('backup:run --force')->assertSuccessful();
+        $zip = glob($this->dir.'/*.zip')[0];
+        User::where('username', 'inbackup')->delete();
+
+        $this->artisan('backup:restore', ['file' => $zip, '--merge' => true, '--tables' => 'users', '--force' => true])->assertSuccessful();
+        $this->assertDatabaseHas('users', ['username' => 'inbackup']);
+    }
+
     /** A copy from the hosted MySQL 8 server, with its collations and version comments, restores on MariaDB. */
     public function test_a_mysql_8_copy_restores_on_mariadb(): void
     {
