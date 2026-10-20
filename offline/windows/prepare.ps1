@@ -78,6 +78,11 @@ $httpsHost = if ($HttpsPort -eq 443) { '{host}' } else { "{host}:$HttpsPort" }
 	servers {
 		protocols h1 h2
 	}
+	# Certificates made on the first visit (the catch-all https site below)
+	# only for bare network addresses, never for any name a device sends.
+	on_demand_tls {
+		ask http://127.0.0.1:$HttpPort/tls-ask
+	}
 	log {
 		output file "$fwd/app/storage/logs/caddy.log"
 		level ERROR
@@ -147,8 +152,28 @@ https://${ServerName}:$HttpsPort, https://${ServerIp}:$HttpsPort {
 	}
 }
 
+# Any other address of this computer (a second network card, or a new
+# address from the router before the panel restarts) still opens over
+# https: its certificate is made on the first visit (2026-10-19, by
+# request: the bare address and http:// must end up on https). Without
+# this, the http redirect below led to a page that would not open.
+https://:$HttpsPort {
+	tls internal {
+		on_demand
+	}
+	import lanfiles
+	handle {
+		import app
+	}
+}
+
 # On this computer itself plain http works (localhost counts as secure).
 http://127.0.0.1:$HttpPort, http://localhost:$HttpPort {
+	@address expression "{query.domain} != '' && !{query.domain}.matches('[^0-9.]')"
+	handle /tls-ask {
+		respond @address 200
+		respond 404
+	}
 	import lanfiles
 	handle {
 		import app
