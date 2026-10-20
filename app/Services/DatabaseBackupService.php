@@ -210,6 +210,28 @@ class DatabaseBackupService
         'patients' => 'المرضى',
         'payments' => 'المدفوعات',
         'appointments' => 'المواعيد',
+        'group_slots' => 'مواعيد المجموعات',
+        'task_instance_attachments' => 'صور ومرفقات المهام',
+        'task_start_requests' => 'طلبات بدء المهام',
+        'department_role_assignments' => 'أدوار الأقسام',
+        // The case sheets (forms) and their parts.
+        'dental_charts' => 'نماذج: مخطط الأسنان (المعالجة)',
+        'dental_follow_ups' => 'نماذج: متابعات المعالجة',
+        'tooth_conditions' => 'نماذج: حالات الأسنان',
+        'tooth_treatments' => 'نماذج: معالجات الأسنان',
+        'treatment_plans' => 'نماذج: خطط العلاج',
+        'treatment_materials' => 'نماذج: مواد العلاج',
+        'surgeries' => 'نماذج: الجراحة والقلع',
+        'surgery_follow_ups' => 'نماذج: متابعات الجراحة',
+        'surgery_images' => 'نماذج: صور الجراحة',
+        'surgery_medications' => 'نماذج: أدوية الجراحة',
+        'periodontal_charts' => 'نماذج: أمراض اللثة',
+        'advanced_periodontal_charts' => 'نماذج: اللثة المتقدم',
+        'oral_medicine_charts' => 'نماذج: طب الفم',
+        'orthodontics_records' => 'نماذج: التقويم',
+        'prevention_records' => 'نماذج: طب الأسنان الوقائي',
+        'prosthodontics_records' => 'نماذج: صناعة الأسنان',
+        'complete_denture_records' => 'نماذج: الطقم الكامل',
     ];
 
     /**
