@@ -27,7 +27,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
-  if (!window.Create(L"العيادة التعليمية", origin, size)) {
+  // The Arabic app name as escapes (2026-10-21): this file is UTF-8 without a BOM,
+  // so MSVC read the Arabic as Windows-1252 and the title bar showed mojibake.
+  if (!window.Create(L"\u0627\u0644\u0639\u064A\u0627\u062F\u0629 \u0627\u0644\u062A\u0639\u0644\u064A\u0645\u064A\u0629", origin, size)) {
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);
