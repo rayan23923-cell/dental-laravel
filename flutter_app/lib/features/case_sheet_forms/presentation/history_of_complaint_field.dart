@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/widgets/numeric_input.dart';
+import '../../../core/theme/muted_colors.dart';
 
 /// "History of the Complaint" — port of `Components/HistoryOfComplaintSection.vue`
 /// + `Components/SymptomsChecklist.vue` (oral_medicine.php's 28-item
@@ -93,9 +94,9 @@ class _HistoryOfComplaintFieldState extends State<HistoryOfComplaintField> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Do you have history of the followings associated with your CC.; please mark the applied ones:',
-          style: TextStyle(fontSize: 12, color: Colors.black54),
+          style: TextStyle(fontSize: 12, color: context.mutedText),
         ),
         const SizedBox(height: 8),
         for (final (key, label, hasSides) in _symptoms)

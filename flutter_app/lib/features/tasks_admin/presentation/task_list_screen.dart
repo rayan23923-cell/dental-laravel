@@ -9,6 +9,7 @@ import '../../../core/widgets/cascading_dropdown.dart';
 import '../../../core/widgets/chat_list_tile.dart';
 import '../domain/task_admin.dart';
 import 'tasks_admin_providers.dart';
+import '../../../core/theme/muted_colors.dart';
 
 /// "المهام" — mirrors dental_clinics2/admin/manage_tasks.php: three
 /// cascading dropdowns (نوع الدراسة -> المرحلة -> القسم), and the task
@@ -140,7 +141,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.filter_alt_outlined, size: 48, color: Colors.black26),
+                          Icon(Icons.filter_alt_outlined, size: 48, color: context.faintText),
                           const SizedBox(height: 8),
                           Text(
                             t['tasksAdmin.emptyPrompt']!,
