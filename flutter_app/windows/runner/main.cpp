@@ -27,7 +27,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
-  if (!window.Create(L"العيادة التعليمية", origin, size)) {
+  // The title is spelled with \u escapes (2026-10-21): the compiler read
+  // the plain Arabic in this UTF-8 file as the Windows code page, so the
+  // title bar showed garbled letters. Same text as `title` in lib/app.dart.
+  if (!window.Create(L"\u0627\u0644\u0639\u064A\u0627\u062F\u0629 \u0627\u0644\u062A\u0639\u0644\u064A\u0645\u064A\u0629", origin, size)) {
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);
