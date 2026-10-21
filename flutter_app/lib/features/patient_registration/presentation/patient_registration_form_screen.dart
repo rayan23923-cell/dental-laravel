@@ -190,133 +190,223 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
         error: (error, _) => Center(child: Text(error is ApiException ? error.userMessage : t['common.loadFailed']!)),
         data: (services) {
           final Service? selected = services.where((s) => s.id == _serviceId).firstOrNull;
+          final scheme = Theme.of(context).colorScheme;
+          final nameField = TextFormField(
+            controller: _nameController,
+            textInputAction: TextInputAction.next,
+            decoration: InputDecoration(
+              labelText: t['patientRegFlutter.patientNameLabel']!,
+              prefixIcon: const Icon(Icons.person_outline),
+              border: const OutlineInputBorder(),
+            ),
+            validator: (v) => (v == null || v.trim().isEmpty) ? t['profile.requiredField']! : null,
+          );
+          // Digits keep their left-to-right order but sit at the label's
+          // side of the field, as the rest of the form reads (2026-10-21).
+          final phoneField = TextFormField(
+            controller: _phoneController,
+            textDirection: TextDirection.ltr,
+            textAlign: TextAlign.end,
+            keyboardType: TextInputType.phone,
+            inputFormatters: phoneOnly,
+            decoration: InputDecoration(
+              labelText: t['profile.phone']!,
+              prefixIcon: const Icon(Icons.phone_outlined),
+              border: const OutlineInputBorder(),
+            ),
+            validator: (v) => (v == null || v.trim().isEmpty) ? t['profile.requiredField']! : null,
+          );
+
+          // Redesigned for the computer too (2026-10-21, by request): a
+          // centred column of cards instead of fields stretched across the
+          // whole window, name and phone side by side when there is room.
           return Form(
             key: _formKey,
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                TextFormField(
-                  controller: _nameController,
-                  decoration: InputDecoration(
-                    labelText: t['patientRegFlutter.patientNameLabel']!,
-                    border: const OutlineInputBorder(),
-                  ),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? t['profile.requiredField']! : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _phoneController,
-                  textDirection: TextDirection.ltr,
-                  keyboardType: TextInputType.phone,
-                  inputFormatters: phoneOnly,
-                  decoration: InputDecoration(labelText: t['profile.phone']!, border: const OutlineInputBorder()),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? t['profile.requiredField']! : null,
-                ),
-                const SizedBox(height: 16),
-                Row(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 820),
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
                   children: [
-                    Expanded(
-                      child: Text(t['patientRegFlutter.serviceLabel']!, style: Theme.of(context).textTheme.titleSmall),
+                    _Section(
+                      icon: Icons.badge_outlined,
+                      title: t['patientRegFlutter.patientInfo']!,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) => constraints.maxWidth >= 560
+                            ? Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(flex: 3, child: nameField),
+                                  const SizedBox(width: 12),
+                                  Expanded(flex: 2, child: phoneField),
+                                ],
+                              )
+                            : Column(children: [nameField, const SizedBox(height: 12), phoneField]),
+                      ),
                     ),
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      icon: Icon(_servicesVertical ? Icons.view_carousel_outlined : Icons.grid_view),
-                      tooltip: _servicesVertical
-                          ? t['patientRegFlutter.servicesHorizontal']!
-                          : t['patientRegFlutter.servicesVertical']!,
-                      onPressed: _toggleServicesLayout,
+                    const SizedBox(height: 12),
+                    _Section(
+                      icon: Icons.medical_services_outlined,
+                      title: t['patientRegFlutter.serviceLabel']!,
+                      trailing: IconButton(
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(_servicesVertical ? Icons.view_carousel_outlined : Icons.grid_view),
+                        tooltip: _servicesVertical
+                            ? t['patientRegFlutter.servicesHorizontal']!
+                            : t['patientRegFlutter.servicesVertical']!,
+                        onPressed: _toggleServicesLayout,
+                      ),
+                      child: FormField<int>(
+                        initialValue: services.any((s) => s.id == _serviceId) ? _serviceId : null,
+                        validator: (v) => v == null ? t['profile.requiredField'] : null,
+                        builder: (field) {
+                          Widget card(Service s) => _ServiceCard(
+                            service: s,
+                            selected: s.id == field.value,
+                            priceLabel: s.price == null
+                                ? t['patientRegFlutter.noPriceYet']!
+                                : formatMoney(s.price!, currency),
+                            onTap: s.price == null
+                                ? null
+                                : () {
+                                    field.didChange(s.id);
+                                    setState(() => _serviceId = s.id);
+                                  },
+                          );
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (services.isEmpty) Text(t['patientRegFlutter.noServices']!),
+                              // One row that swipes left and right, for faster entry
+                              // than scanning a grid (2026-10-18, by request). The
+                              // mouse drags it too, for the Windows app.
+                              if (_servicesVertical)
+                                LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    const gap = 8.0;
+                                    final perRow = (constraints.maxWidth / 158).floor().clamp(2, 8);
+                                    final width = (constraints.maxWidth - gap * (perRow - 1)) / perRow;
+                                    return Wrap(
+                                      spacing: gap,
+                                      runSpacing: gap,
+                                      children: [
+                                        for (final s in services) SizedBox(width: width, height: 96, child: card(s)),
+                                      ],
+                                    );
+                                  },
+                                )
+                              else
+                                SizedBox(
+                                  height: 96,
+                                  child: ScrollConfiguration(
+                                    behavior: ScrollConfiguration.of(
+                                      context,
+                                    ).copyWith(dragDevices: PointerDeviceKind.values.toSet()),
+                                    child: ListView.separated(
+                                      scrollDirection: Axis.horizontal,
+                                      itemCount: services.length,
+                                      separatorBuilder: (_, _) => const SizedBox(width: 8),
+                                      itemBuilder: (context, i) => SizedBox(width: 150, child: card(services[i])),
+                                    ),
+                                  ),
+                                ),
+                              if (field.errorText != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Text(field.errorText!, style: TextStyle(color: scheme.error)),
+                                ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                    // "التشخيص" picker removed from registration (2026-10-11, by
+                    // request); registrations are saved with no task.
+                    const SizedBox(height: 16),
+                    // The amount due beside the button, so both read at a glance.
+                    Card(
+                      margin: EdgeInsets.zero,
+                      color: scheme.primaryContainer.withValues(alpha: 0.35),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(t['patientRegFlutter.amountDue']!, style: Theme.of(context).textTheme.labelLarge),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    selected == null ? '—' : formatMoney(selected.price!, currency),
+                                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                  if (selected != null)
+                                    Text(selected.name, style: Theme.of(context).textTheme.bodySmall),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            SizedBox(
+                              height: 52,
+                              child: FilledButton.icon(
+                                onPressed: _submitting || _serviceId == null ? null : _submit,
+                                icon: _submitting
+                                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                                    : const Icon(Icons.how_to_reg),
+                                label: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  child: Text(t['patientRegFlutter.submit']!, style: const TextStyle(fontSize: 16)),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                FormField<int>(
-                  initialValue: services.any((s) => s.id == _serviceId) ? _serviceId : null,
-                  validator: (v) => v == null ? t['profile.requiredField'] : null,
-                  builder: (field) {
-                    Widget card(Service s) => _ServiceCard(
-                      service: s,
-                      selected: s.id == field.value,
-                      priceLabel: s.price == null
-                          ? t['patientRegFlutter.noPriceYet']!
-                          : formatMoney(s.price!, currency),
-                      onTap: s.price == null
-                          ? null
-                          : () {
-                              field.didChange(s.id);
-                              setState(() => _serviceId = s.id);
-                            },
-                    );
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (services.isEmpty) Text(t['patientRegFlutter.noServices']!),
-                        // One row that swipes left and right, for faster entry
-                        // than scanning a grid (2026-10-18, by request). The
-                        // mouse drags it too, for the Windows app.
-                        if (_servicesVertical)
-                          LayoutBuilder(
-                            builder: (context, constraints) {
-                              const gap = 8.0;
-                              final perRow = (constraints.maxWidth / 158).floor().clamp(2, 8);
-                              final width = (constraints.maxWidth - gap * (perRow - 1)) / perRow;
-                              return Wrap(
-                                spacing: gap,
-                                runSpacing: gap,
-                                children: [
-                                  for (final s in services) SizedBox(width: width, height: 96, child: card(s)),
-                                ],
-                              );
-                            },
-                          )
-                        else
-                          SizedBox(
-                            height: 96,
-                            child: ScrollConfiguration(
-                              behavior: ScrollConfiguration.of(
-                                context,
-                              ).copyWith(dragDevices: PointerDeviceKind.values.toSet()),
-                              child: ListView.separated(
-                                scrollDirection: Axis.horizontal,
-                                itemCount: services.length,
-                                separatorBuilder: (_, _) => const SizedBox(width: 8),
-                                itemBuilder: (context, i) => SizedBox(width: 150, child: card(services[i])),
-                              ),
-                            ),
-                          ),
-                        if (field.errorText != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(field.errorText!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                          ),
-                      ],
-                    );
-                  },
-                ),
-                // "التشخيص" picker removed from registration (2026-10-11, by
-                // request); registrations are saved with no task.
-                if (selected != null) ...[
-                  const SizedBox(height: 16),
-                  Card(
-                    child: ListTile(
-                      title: Text(t['patientRegFlutter.amountDue']!),
-                      trailing: Text(
-                        formatMoney(selected.price!, currency),
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: _submitting || _serviceId == null ? null : _submit,
-                  child: _submitting
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                      : Text(t['patientRegFlutter.submit']!),
-                ),
-              ],
+              ),
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// A titled card of the registration form (2026-10-21).
+class _Section extends StatelessWidget {
+  const _Section({required this.icon, required this.title, required this.child, this.trailing});
+
+  final IconData icon;
+  final String title;
+  final Widget child;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 20, color: scheme.primary),
+                const SizedBox(width: 8),
+                Expanded(child: Text(title, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold))),
+                if (trailing != null) trailing!,
+              ],
+            ),
+            const SizedBox(height: 12),
+            child,
+          ],
+        ),
       ),
     );
   }
