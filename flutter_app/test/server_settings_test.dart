@@ -192,6 +192,23 @@ void main() {
     );
   });
 
+  test('update source: offline server address and order', () {
+    const cloud = ServerSettings.cloud;
+    final signedIn = const ServerSettings(kind: ServerKind.clinic, host: 'srv.lan', httpPort: 8080).normalized();
+    expect(DesktopUpdateChecker.clinicServerFor('', cloud).releasesUrl, 'http://clinic.lan/apps/releases.json');
+    expect(DesktopUpdateChecker.clinicServerFor('', signedIn).releasesUrl, 'http://srv.lan:8080/apps/releases.json');
+    expect(
+      DesktopUpdateChecker.clinicServerFor('192.168.1.10:8080', signedIn).releasesUrl,
+      'http://192.168.1.10:8080/apps/releases.json',
+    );
+    expect(DesktopUpdateChecker.clinicServerFor('http://Clinic.LAN/apps', cloud).releasesUrl, 'http://clinic.lan/apps/releases.json');
+
+    expect(DesktopUpdateChecker.sourcesToTry(UpdateSource.internet, onClinic: true), [UpdateSource.internet]);
+    expect(DesktopUpdateChecker.sourcesToTry(UpdateSource.clinic, onClinic: false), [UpdateSource.clinic]);
+    expect(DesktopUpdateChecker.sourcesToTry(UpdateSource.auto, onClinic: true), [UpdateSource.clinic, UpdateSource.internet]);
+    expect(DesktopUpdateChecker.sourcesToTry(UpdateSource.auto, onClinic: false), [UpdateSource.internet, UpdateSource.clinic]);
+  });
+
   group('connecting to a clinic server', () {
     late HttpServer https;
     late HttpServer http;
