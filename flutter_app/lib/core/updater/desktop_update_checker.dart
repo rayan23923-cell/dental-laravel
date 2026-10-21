@@ -9,6 +9,13 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_config.dart';
+import '../config/server_settings.dart';
+
+/// Where app updates come from (2026-10-21, by request): the internet
+/// (the cloud's /download), the clinic's offline server on the LAN
+/// (`/apps/`), or [auto] — the chosen server's source first, then the
+/// other one when that can't be reached.
+enum UpdateSource { auto, internet, clinic }
 
 class DesktopUpdateInfo {
   const DesktopUpdateInfo({required this.version, required this.url, this.notes});
@@ -35,7 +42,9 @@ class DesktopUpdateInfo {
 /// that a newer version is on the download page.
 ///
 /// With the clinic's offline server chosen, the builds come from that
-/// server's /apps/releases.json instead of the cloud (2026-10-17).
+/// server's /apps/releases.json instead of the cloud (2026-10-17). Since
+/// 2026-10-21 the user can pick the source on the profile page instead
+/// ([UpdateSource]), e.g. update a cloud install from the clinic's LAN.
 class DesktopUpdateChecker {
   const DesktopUpdateChecker._();
 
@@ -57,44 +66,106 @@ class DesktopUpdateChecker {
   static Future<void> setAutoCheck(bool enabled) async =>
       (await SharedPreferences.getInstance()).setBool(autoCheckKey, enabled);
 
+  static const sourceKey = 'app_update.source';
+  static const clinicHostKey = 'app_update.clinic_host';
+
+  static Future<UpdateSource> source() async {
+    final name = (await SharedPreferences.getInstance()).getString(sourceKey);
+    return UpdateSource.values.where((s) => s.name == name).firstOrNull ?? UpdateSource.auto;
+  }
+
+  static Future<void> setSource(UpdateSource source) async =>
+      (await SharedPreferences.getInstance()).setString(sourceKey, source.name);
+
+  /// The offline server to update from, as typed on the profile page
+  /// ("clinic.lan", "192.168.1.10" or "192.168.1.10:8080"). Empty: the
+  /// chosen clinic server, else [ServerSettings.defaultHost].
+  static Future<String> clinicHost() async =>
+      (await SharedPreferences.getInstance()).getString(clinicHostKey) ?? '';
+
+  static Future<void> setClinicHost(String host) async =>
+      (await SharedPreferences.getInstance()).setString(clinicHostKey, host.trim());
+
+  /// The offline server the builds come from: [typed] ("host" or
+  /// "host:httpPort") when given, else the clinic server the app is
+  /// signed in to, else clinic.lan on port 80.
+  static ServerSettings clinicServerFor(String typed, ServerSettings current) {
+    var v = typed.trim();
+    final scheme = v.indexOf('://');
+    if (scheme >= 0) v = v.substring(scheme + 3);
+    v = v.split(RegExp(r'[/?#\s]')).first;
+    if (v.isEmpty) return current.isClinic ? current : const ServerSettings(kind: ServerKind.clinic);
+    var port = 80;
+    final colon = v.lastIndexOf(':');
+    if (colon > 0 && !v.substring(0, colon).contains(':')) {
+      port = int.tryParse(v.substring(colon + 1)) ?? 80;
+      v = v.substring(0, colon);
+    }
+    final host = ServerSettings.cleanHost(v);
+    return ServerSettings(
+      kind: ServerKind.clinic,
+      host: host,
+      ip: ServerSettings.isIpv4(host) ? host : '',
+      httpPort: port,
+    ).normalized();
+  }
+
+  /// The sources to try, in order, for [source].
+  static List<UpdateSource> sourcesToTry(UpdateSource source, {required bool onClinic}) => switch (source) {
+        UpdateSource.internet => [UpdateSource.internet],
+        UpdateSource.clinic => [UpdateSource.clinic],
+        UpdateSource.auto => onClinic
+            ? [UpdateSource.clinic, UpdateSource.internet]
+            : [UpdateSource.internet, UpdateSource.clinic],
+      };
+
   /// The newer build, or null when up to date. [throwOnError] lets a
   /// manual check say why it failed; the startup check stays silent.
-  static Future<DesktopUpdateInfo?> checkForUpdate({bool throwOnError = false}) async {
-    try {
-      final dio = Dio(
-        BaseOptions(
-          connectTimeout: const Duration(seconds: 5),
-          receiveTimeout: const Duration(seconds: 5),
-        ),
-      );
-      final DesktopUpdateInfo? info;
-      final server = AppConfig.server;
-      if (server.isClinic) {
-        // Offline package (2026-10-17): the clinic server ships the app
-        // builds itself, at http://<server>/apps/ — no internet needed.
-        final response = await dio.get<String>(
-          server.releasesUrl,
-          options: Options(responseType: ResponseType.plain),
-        );
-        info = clinicReleaseFor(jsonDecode(response.data ?? 'null'), _platform, server.httpBase);
-      } else {
-        final response = await dio.get<Map<String, dynamic>>(
-          '${AppConfig.cloudBaseUrl}/app/version',
-          queryParameters: {'platform': _platform},
-        );
-        final data = response.data;
-        info = (data == null || data['version'] == null || data['url'] == null) ? null : DesktopUpdateInfo.fromJson(data);
+  /// [source] defaults to the one saved on the profile page.
+  static Future<DesktopUpdateInfo?> checkForUpdate({bool throwOnError = false, UpdateSource? source}) async {
+    final server = AppConfig.server;
+    final order = sourcesToTry(source ?? await DesktopUpdateChecker.source(), onClinic: server.isClinic);
+    final clinic = order.contains(UpdateSource.clinic) ? clinicServerFor(await clinicHost(), server) : null;
+    Object? lastError;
+    for (final from in order) {
+      try {
+        final info = await _latestFrom(from, clinic);
+        if (info == null) return null;
+        final current = (await PackageInfo.fromPlatform()).version;
+        return _isNewer(info.version, current) ? info : null;
+      } catch (e) {
+        // Unreachable — try the next source, if any.
+        lastError = e;
       }
-      if (info == null) return null;
-
-      final current = (await PackageInfo.fromPlatform()).version;
-      return _isNewer(info.version, current) ? info : null;
-    } catch (_) {
-      // Offline, server unreachable, or a malformed response — never block
-      // app startup over this; the user just doesn't get prompted this run.
-      if (throwOnError) rethrow;
-      return null;
     }
+    // Offline, server unreachable, or a malformed response — never block
+    // app startup over this; the user just doesn't get prompted this run.
+    if (throwOnError && lastError != null) throw lastError;
+    return null;
+  }
+
+  static Future<DesktopUpdateInfo?> _latestFrom(UpdateSource from, ServerSettings? clinic) async {
+    final dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 5),
+        receiveTimeout: const Duration(seconds: 5),
+      ),
+    );
+    if (from == UpdateSource.clinic) {
+      // Offline package (2026-10-17): the clinic server ships the app
+      // builds itself, at http://<server>/apps/ — no internet needed.
+      final response = await dio.get<String>(
+        clinic!.releasesUrl,
+        options: Options(responseType: ResponseType.plain),
+      );
+      return clinicReleaseFor(jsonDecode(response.data ?? 'null'), _platform, clinic.httpBase);
+    }
+    final response = await dio.get<Map<String, dynamic>>(
+      '${AppConfig.cloudBaseUrl}/app/version',
+      queryParameters: {'platform': _platform},
+    );
+    final data = response.data;
+    return (data == null || data['version'] == null || data['url'] == null) ? null : DesktopUpdateInfo.fromJson(data);
   }
 
   /// This platform's entry of the clinic server's apps/releases.json

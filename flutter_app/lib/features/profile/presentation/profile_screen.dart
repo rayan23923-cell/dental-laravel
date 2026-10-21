@@ -59,6 +59,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   String? _version;
   bool _autoUpdate = true;
   bool _checkingUpdates = false;
+  // Update from the internet or the clinic's offline server (2026-10-21).
+  UpdateSource _updateSource = UpdateSource.auto;
+  final _updateHostController = TextEditingController();
 
   @override
   void initState() {
@@ -70,6 +73,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       DesktopUpdateChecker.autoCheckEnabled().then((v) {
         if (mounted) setState(() => _autoUpdate = v);
       });
+      DesktopUpdateChecker.source().then((v) {
+        if (mounted) setState(() => _updateSource = v);
+      });
+      DesktopUpdateChecker.clinicHost().then((v) => _updateHostController.text = v);
     }
   }
 
@@ -78,6 +85,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _updateHostController.dispose();
     _oldPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
@@ -417,6 +425,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           DesktopUpdateChecker.setAutoCheck(v);
                         },
                       ),
+                      const SizedBox(height: 8),
+                      Text(t['profile.updateSource']!),
+                      const SizedBox(height: 8),
+                      SegmentedButton<UpdateSource>(
+                        showSelectedIcon: false,
+                        segments: [
+                          ButtonSegment(value: UpdateSource.auto, label: Text(t['profile.updateSourceAuto']!)),
+                          ButtonSegment(value: UpdateSource.internet, icon: const Icon(Icons.public), label: Text(t['profile.updateSourceInternet']!)),
+                          ButtonSegment(value: UpdateSource.clinic, icon: const Icon(Icons.lan_outlined), label: Text(t['profile.updateSourceClinic']!)),
+                        ],
+                        selected: {_updateSource},
+                        onSelectionChanged: (v) {
+                          setState(() => _updateSource = v.first);
+                          DesktopUpdateChecker.setSource(v.first);
+                        },
+                      ),
+                      if (_updateSource != UpdateSource.internet) ...[
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _updateHostController,
+                          keyboardType: TextInputType.url,
+                          textDirection: TextDirection.ltr,
+                          decoration: InputDecoration(
+                            labelText: t['profile.updateClinicHost']!,
+                            hintText: 'clinic.lan',
+                            helperText: t['profile.updateClinicHostHint']!,
+                            helperMaxLines: 2,
+                          ),
+                          onChanged: DesktopUpdateChecker.setClinicHost,
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       OutlinedButton.icon(
                         onPressed: _checkingUpdates
