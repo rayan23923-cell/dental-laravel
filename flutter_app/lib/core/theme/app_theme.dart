@@ -57,6 +57,11 @@ ThemeData _buildTheme({required bool dark}) {
     brightness: dark ? Brightness.dark : Brightness.light,
     primary: InstagramColors.blue,
     onPrimary: InstagramColors.white,
+    // A pale (or, dark, deep) tint of the blue (2026-10-21). Unset, it fell
+    // back to primary itself, so selected cards were solid blue and the
+    // blue text on them vanished.
+    primaryContainer: dark ? const Color(0xFF0B3550) : const Color(0xFFE3F2FD),
+    onPrimaryContainer: dark ? const Color(0xFFD6ECFF) : const Color(0xFF0B3550),
     secondary: onSurface,
     onSecondary: background,
     surface: dark ? InstagramColors.darkSurface : InstagramColors.white,
