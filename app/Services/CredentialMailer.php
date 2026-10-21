@@ -55,8 +55,9 @@ class CredentialMailer
 
     /**
      * @param  'doctor'|'user'  $accountType
+     * @param  bool  $reset  an admin set a new password on an existing account
      */
-    public static function queueWelcome(string $accountType, ?string $email, string $name, string $username, string $plainPassword): bool
+    public static function queueWelcome(string $accountType, ?string $email, string $name, string $username, string $plainPassword, bool $reset = false): bool
     {
         // The Excel importer fills a missing email with {username}@placeholder.local.
         if (! self::isDeliverable($email)) {
@@ -73,6 +74,7 @@ class CredentialMailer
                 'name' => $name,
                 'username' => $username,
                 'password' => $plainPassword,
+                'reset' => $reset,
             ],
             'status' => QueuedEmail::STATUS_PENDING,
         ]);

@@ -73,6 +73,7 @@ const isSettingsGroupActive = computed(
         || route().current('register-services.*')
         || route().current('department-roles.*')
         || route().current('permissions.*')
+        || route().current('users.*')
         || route().current('activity-logs.*')
         || route().current('backup.*')
 );
@@ -132,6 +133,8 @@ const settingsLinks = computed(() => [
     { label: t('nav.waitingScreenSettings'), icon: 'tv', href: route('waiting-screen-settings.edit'), active: route().current('waiting-screen-settings.*') },
     { label: t('nav.pairWaitingScreen'), icon: 'qr_code_scanner', href: route('waiting-screen-pairing.create'), active: route().current('waiting-screen-pairing.*') },
     { label: t('nav.registrationSettings'), icon: 'tune', href: route('patient-registrations.settings'), active: route().current('patient-registrations.settings') || route().current('register-days.*') || route().current('register-services.*') },
+    // Users management (2026-10-21, by request).
+    { label: t('nav.users'), icon: 'manage_accounts', href: route('users.index'), active: route().current('users.index') || route().current('users.edit') },
     { label: t('nav.permissions'), icon: 'admin_panel_settings', href: route('permissions.index'), active: route().current('permissions.*') || route().current('department-roles.*') },
     { label: t('nav.sendBroadcast'), icon: 'campaign', href: route('admin-broadcast.create'), active: route().current('admin-broadcast.*') },
     { label: t('nav.activityLog'), icon: 'history', href: route('activity-logs.index'), active: route().current('activity-logs.*') },

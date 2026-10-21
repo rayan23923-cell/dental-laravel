@@ -32,6 +32,54 @@ class UserAdmin {
   final String status;
 }
 
+/// A row of `GET /users` / `GET /users/{id}` — users management
+/// (2026-10-21, by request). `isSelf` and `roles` come with the single user.
+class ManagedUser {
+  const ManagedUser({
+    required this.id,
+    required this.fullName,
+    required this.username,
+    required this.email,
+    required this.phone,
+    required this.role,
+    required this.status,
+    required this.notes,
+    required this.lastLogin,
+    this.isSelf = false,
+    this.roles = const [],
+  });
+
+  factory ManagedUser.fromJson(Map<String, dynamic> json) => ManagedUser(
+        id: json['id'] as int,
+        fullName: json['full_name'] as String? ?? '',
+        username: json['username'] as String? ?? '',
+        email: json['email'] as String? ?? '',
+        phone: json['phone'] as String?,
+        role: json['role'] as String? ?? '',
+        status: json['status'] as String? ?? 'active',
+        notes: json['notes'] as String?,
+        lastLogin: json['last_login'] as String?,
+        isSelf: json['is_self'] as bool? ?? false,
+        roles: (json['roles'] as List<dynamic>? ?? const []).map((e) => e as String).toList(),
+      );
+
+  final int id;
+  final String fullName;
+  final String username;
+  final String email;
+  final String? phone;
+  final String role;
+  final String status;
+  final String? notes;
+  final String? lastLogin;
+  final bool isSelf;
+
+  /// The roles this account may be given (only `super_admin` for one).
+  final List<String> roles;
+
+  bool get active => status != 'inactive';
+}
+
 /// Mirrors `App\Models\User::ROLES` minus `super_admin` — see
 /// `Api\UserController`'s docblock for why that one role can never be
 /// assigned through this creation form.
@@ -67,3 +115,7 @@ class UserFormOptions {
   /// Role → its ready-made "module.permission" grants.
   final Map<String, List<String>> roleDefaults;
 }
+
+String userRoleLabel(String role) => role == 'super_admin'
+    ? 'مدير النظام'
+    : kAssignableUserRoles.firstWhere((r) => r.$1 == role, orElse: () => (role, role)).$2;

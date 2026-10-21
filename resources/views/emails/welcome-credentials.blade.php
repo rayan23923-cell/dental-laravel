@@ -10,7 +10,7 @@
             <td style="padding:28px 28px 8px;">
                 <h2 style="margin:0 0 6px;font-size:20px;">{{ $clinicName }}</h2>
                 <p style="margin:0;color:#6b7280;font-size:14px;">
-                    {{ $accountType === 'doctor' ? 'تم إنشاء حساب الطبيب الخاص بك' : 'تم إنشاء حسابك في النظام' }}
+                    {{ $reset ? 'تم تغيير كلمة مرور حسابك' : ($accountType === 'doctor' ? 'تم إنشاء حساب الطبيب الخاص بك' : 'تم إنشاء حسابك في النظام') }}
                 </p>
             </td>
         </tr>
@@ -37,7 +37,7 @@
         </tr>
         <tr>
             <td style="padding:16px 28px 28px;font-size:12px;color:#9ca3af;direction:ltr;text-align:left;">
-                Your account was created. Username: {{ $username }} — Password: {{ $password }} — Sign in: {{ $loginUrl }}
+                {{ $reset ? 'Your password was changed.' : 'Your account was created.' }} Username: {{ $username }} — Password: {{ $password }} — Sign in: {{ $loginUrl }}
             </td>
         </tr>
     </table>

@@ -10,7 +10,8 @@ use Illuminate\Mail\Mailables\Envelope;
 
 /**
  * Login details for a newly created account (staff user or doctor), sent
- * through the daily-capped queue (App\Services\CredentialMailer).
+ * through the daily-capped queue (App\Services\CredentialMailer), or the
+ * new ones after an admin reset the password (`reset`, 2026-10-21).
  */
 class WelcomeCredentials extends Mailable
 {
@@ -21,6 +22,7 @@ class WelcomeCredentials extends Mailable
         public string $username,
         public string $password,
         public string $accountType,
+        public bool $reset = false,
     ) {}
 
     public function envelope(): Envelope

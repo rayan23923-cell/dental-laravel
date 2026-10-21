@@ -62,6 +62,13 @@ const filtered = computed(() => {
                 <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('permissionsAdmin.indexTitle') }}</h2>
                 <div class="flex items-center gap-2">
                     <Link
+                        :href="route('users.index')"
+                        :title="t('usersAdmin.manageUsers')"
+                        class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    >
+                        <Icon name="manage_accounts" />
+                    </Link>
+                    <Link
                         :href="route('department-roles.index')"
                         :title="t('permissionsAdmin.departmentRolesShort')"
                         class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200"

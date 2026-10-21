@@ -73,6 +73,6 @@ class SendQueuedEmails extends Command
     {
         $p = $email->payload;
 
-        return new WelcomeCredentials($p['name'], $p['username'], $p['password'], $p['account_type']);
+        return new WelcomeCredentials($p['name'], $p['username'], $p['password'], $p['account_type'], (bool) ($p['reset'] ?? false));
     }
 }
