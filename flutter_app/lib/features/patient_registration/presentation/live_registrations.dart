@@ -3,11 +3,15 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/patient_registration_repository.dart';
+import 'patient_registration_providers.dart';
 
 /// Reloads a registrations screen when a patient is registered or changed
 /// on another device (2026-10-19, by request: the ticket desk and the lab
 /// update by themselves). Asks the server for a small fingerprint every few
-/// seconds and calls [onRegistrationsChanged] only when it changes.
+/// seconds and calls [onRegistrationsChanged] only when it changes. The
+/// fingerprint covers the services and their prices too (2026-10-21), so
+/// those are reloaded here as well: a price edited in the browser reaches
+/// the registration form without reopening the app.
 mixin LiveRegistrations<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   Timer? _liveTimer;
   String? _lastStamp;
@@ -34,7 +38,10 @@ mixin LiveRegistrations<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     try {
       final stamp = await ref.read(patientRegistrationRepositoryProvider).stamp();
       if (!mounted) return;
-      if (_lastStamp != null && stamp != null && stamp != _lastStamp) onRegistrationsChanged();
+      if (_lastStamp != null && stamp != null && stamp != _lastStamp) {
+        ref.invalidate(servicesProvider);
+        onRegistrationsChanged();
+      }
       _lastStamp = stamp ?? _lastStamp;
     } catch (_) {
       // An older server or a dropped connection: try again next time.

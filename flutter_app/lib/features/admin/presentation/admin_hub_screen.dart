@@ -61,6 +61,7 @@ class AdminHubScreen extends ConsumerWidget {
       _AdminGroup(t['nav.settings']!, [
         _AdminItem(t['settingsMenu.printerSettings']!, Icons.print_outlined, '/admin/printer-settings'),
         _AdminItem(t['settingsMenu.clinicSettings']!, Icons.settings_outlined, '/admin/clinic-settings'),
+        _AdminItem(t['registerSettings.title']!, Icons.tune, '/records/patient-registrations/settings'),
         _AdminItem(t['settingsMenu.permissions']!, Icons.lock_outline, '/admin/permissions'),
         _AdminItem(t['departmentRolesAdmin.shortTitle']!, Icons.workspace_premium_outlined, '/admin/department-roles'),
         _AdminItem(t['settingsMenu.activityLog']!, Icons.history_outlined, '/admin/activity-log'),
