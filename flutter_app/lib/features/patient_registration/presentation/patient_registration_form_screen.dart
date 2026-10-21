@@ -64,7 +64,11 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
   void initState() {
     super.initState();
     // The list screen keeps the services loaded; take them fresh here.
-    ref.invalidate(servicesProvider);
+    // After initState: ref reaches the provider scope through context,
+    // which initState itself may not do.
+    Future.microtask(() {
+      if (mounted) ref.invalidate(servicesProvider);
+    });
     SharedPreferences.getInstance().then((prefs) {
       final v = prefs.getBool(_verticalKey) ?? false;
       if (mounted && v != _servicesVertical) setState(() => _servicesVertical = v);
@@ -336,11 +340,16 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(t['patientRegFlutter.amountDue']!, style: Theme.of(context).textTheme.labelLarge),
+                                  Text(
+                                    t['patientRegFlutter.amountDue']!,
+                                    style: Theme.of(context).textTheme.labelLarge,
+                                  ),
                                   const SizedBox(height: 2),
                                   Text(
                                     selected == null ? '—' : formatMoney(selected.price!, currency),
-                                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                                   ),
                                   if (selected != null)
                                     Text(selected.name, style: Theme.of(context).textTheme.bodySmall),
@@ -351,9 +360,18 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                             SizedBox(
                               height: 52,
                               child: FilledButton.icon(
+                                // The app theme makes buttons full width
+                                // (Size.fromHeight), which a Row cannot lay
+                                // out: the whole card came out as an empty
+                                // blue box on Windows (2026-10-21).
+                                style: FilledButton.styleFrom(minimumSize: const Size(140, 52)),
                                 onPressed: _submitting || _serviceId == null ? null : _submit,
                                 icon: _submitting
-                                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
                                     : const Icon(Icons.how_to_reg),
                                 label: Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -399,7 +417,12 @@ class _Section extends StatelessWidget {
               children: [
                 Icon(icon, size: 20, color: scheme.primary),
                 const SizedBox(width: 8),
-                Expanded(child: Text(title, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold))),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ),
                 if (trailing != null) trailing!,
               ],
             ),
@@ -430,7 +453,10 @@ class _ServiceCard extends StatelessWidget {
     return Opacity(
       opacity: enabled ? 1 : 0.5,
       child: Material(
-        color: selected ? scheme.primaryContainer : scheme.surface,
+        // A light tint, not primaryContainer: the app's colour scheme leaves
+        // that equal to primary, so the price (in primary) disappeared on
+        // the selected card (2026-10-21).
+        color: selected ? scheme.primary.withValues(alpha: 0.12) : scheme.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(color: selected ? scheme.primary : scheme.outlineVariant, width: selected ? 2 : 1),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 /// Chat-list rows (2026-10-13, by request: the reference-data screens styled
 /// like the permissions list, "انستقرام او تليجرام"), matching the web's
@@ -69,7 +70,7 @@ class ChatListTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis),
                     if (subtitle != null && subtitle!.isNotEmpty)
                       Text(subtitle!,
-                          style: const TextStyle(fontSize: 12, color: Colors.black54),
+                          style: const TextStyle(fontSize: 12, color: InstagramColors.gray),
                           overflow: TextOverflow.ellipsis),
                     if (chips.isNotEmpty) ...[
                       const SizedBox(height: 4),
@@ -79,7 +80,7 @@ class ChatListTile extends StatelessWidget {
                 ),
               ),
               ...actions,
-              if (actions.isEmpty && onTap != null) const Icon(Icons.chevron_left, color: Colors.black26),
+              if (actions.isEmpty && onTap != null) const Icon(Icons.chevron_left, color: InstagramColors.gray),
             ],
           ),
         ),
@@ -126,7 +127,7 @@ class ChatAction extends StatelessWidget {
     return IconButton(
       icon: Icon(icon, size: 20),
       tooltip: tooltip,
-      color: danger ? Colors.red.shade400 : Colors.black54,
+      color: danger ? Colors.red.shade400 : InstagramColors.gray,
       visualDensity: VisualDensity.compact,
       onPressed: onPressed,
     );

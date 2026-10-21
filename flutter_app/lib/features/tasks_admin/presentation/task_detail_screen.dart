@@ -13,6 +13,7 @@ import '../data/tasks_admin_repository.dart';
 import '../domain/task_admin.dart';
 import '../domain/task_instance_admin.dart';
 import 'tasks_admin_providers.dart';
+import '../../../core/theme/app_theme.dart';
 
 /// Port of the web `Tasks/Show.vue` (2026-10-17): the task's details and
 /// its instances — each with its QR, an
@@ -203,7 +204,7 @@ class _TaskInfoCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+              Text(label, style: const TextStyle(fontSize: 12, color: InstagramColors.gray)),
               Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
             ],
           ),
@@ -227,7 +228,7 @@ class _TaskInfoCard extends StatelessWidget {
             ),
             if (task.notes != null && task.notes!.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Text(task.notes!, style: const TextStyle(color: Colors.black54)),
+              Text(task.notes!, style: const TextStyle(color: InstagramColors.gray)),
             ],
           ],
         ),

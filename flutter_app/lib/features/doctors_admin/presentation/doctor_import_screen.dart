@@ -7,6 +7,7 @@ import '../../../core/widgets/cascading_dropdown.dart';
 import '../data/doctors_admin_repository.dart';
 import 'doctor_files.dart';
 import 'doctors_admin_providers.dart';
+import '../../../core/theme/app_theme.dart';
 
 /// Port of the web `Doctors/Import.vue` (2026-10-17): pick an Excel sheet
 /// (First Name, Last Name, Email, Phone, Username — the template's
@@ -115,7 +116,7 @@ class _DoctorImportScreenState extends ConsumerState<DoctorImportScreen> {
                 children: [
                   Text(t['doctorsAdmin.importInstructions']!),
                   const SizedBox(height: 4),
-                  Text(t['doctorsAdmin.importNote']!, style: const TextStyle(color: Colors.black54, fontSize: 13)),
+                  Text(t['doctorsAdmin.importNote']!, style: const TextStyle(color: InstagramColors.gray, fontSize: 13)),
                   const SizedBox(height: 8),
                   TextButton.icon(
                     onPressed: _downloadTemplate,
