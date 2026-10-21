@@ -7,6 +7,7 @@ import '../../../core/network/api_exception.dart';
 import '../../users_admin/domain/user_admin.dart';
 import '../domain/permission_admin.dart';
 import 'permissions_admin_providers.dart';
+import '../../../core/theme/muted_colors.dart';
 
 class PermissionUserListScreen extends ConsumerStatefulWidget {
   const PermissionUserListScreen({super.key});
@@ -163,7 +164,7 @@ class _UserTile extends StatelessWidget {
           ),
         ),
       ),
-      trailing: const Icon(Icons.chevron_left, color: Colors.black26),
+      trailing: Icon(Icons.chevron_left, color: context.faintText),
       onTap: () => context.push('/admin/permissions/${user.id}'),
     );
   }

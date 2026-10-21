@@ -8,6 +8,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/chat_list_tile.dart';
 import '../data/dashboard_repository.dart';
 import '../domain/dashboard_data.dart';
+import '../../../core/theme/muted_colors.dart';
 
 /// The web dashboard's widgets for the app's staff home (2026-10-17):
 /// counter tiles, task statuses, latest doctors and the tasks per
@@ -201,12 +202,12 @@ class _Counter extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
                     Text(label,
-                        style: const TextStyle(fontSize: 12, color: Colors.black54),
+                        style: TextStyle(fontSize: 12, color: context.mutedText),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
                     if (hint != null)
                       Text(hint!,
-                          style: const TextStyle(fontSize: 11, color: Colors.black38),
+                          style: TextStyle(fontSize: 11, color: context.faintText),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
                   ],
@@ -245,7 +246,7 @@ class DashboardTaskStatuses extends StatelessWidget {
           children: [
             Row(
               children: [
-                Expanded(child: Text(t['home.doneVsNotDone']!, style: const TextStyle(fontSize: 12, color: Colors.black54))),
+                Expanded(child: Text(t['home.doneVsNotDone']!, style: TextStyle(fontSize: 12, color: context.mutedText))),
                 Text('${data.donePercent}%', style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.green)),
               ],
             ),
@@ -256,7 +257,7 @@ class DashboardTaskStatuses extends StatelessWidget {
                 value: data.donePercent / 100,
                 minHeight: 8,
                 color: Colors.green,
-                backgroundColor: Colors.black12,
+                backgroundColor: context.track,
               ),
             ),
             const SizedBox(height: 8),
@@ -274,7 +275,7 @@ class DashboardTaskStatuses extends StatelessWidget {
               child: SizedBox(
                 height: 10,
                 child: total == 0
-                    ? const ColoredBox(color: Colors.black12)
+                    ? ColoredBox(color: context.track)
                     : Row(
                         children: [
                           for (final s in segments)
@@ -290,7 +291,7 @@ class DashboardTaskStatuses extends StatelessWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 for (final s in segments) ChatChip(label: '${s.$4}: ${s.$1}', icon: s.$3, color: s.$2),
-                Text(trf(t['home.totalCases']!, {'n': total}), style: const TextStyle(fontSize: 11, color: Colors.black38)),
+                Text(trf(t['home.totalCases']!, {'n': total}), style: TextStyle(fontSize: 11, color: context.faintText)),
               ],
             ),
           ],
@@ -395,11 +396,11 @@ class _DepartmentRow extends StatelessWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(department.stage ?? '—', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+            Text(department.stage ?? '—', style: TextStyle(fontSize: 12, color: context.mutedText)),
             const SizedBox(height: 4),
             ClipRRect(
               borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(value: ratio, minHeight: 6, color: Colors.green, backgroundColor: Colors.black12),
+              child: LinearProgressIndicator(value: ratio, minHeight: 6, color: Colors.green, backgroundColor: context.track),
             ),
             const SizedBox(height: 4),
             Wrap(

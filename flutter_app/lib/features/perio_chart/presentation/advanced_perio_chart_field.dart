@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/widgets/numeric_input.dart';
+import '../../../core/theme/muted_colors.dart';
 
 /// One tooth position's crown + root outline(s), extracted verbatim (see
 /// `AdvancedPerioChart.vue`'s own doc comment) from a reference asset the
@@ -512,9 +513,9 @@ class AdvancedPerioChartField extends StatelessWidget {
         const SizedBox(height: 12),
         _ArchBlock(field: this, teeth: _kLower, isUpper: false),
         const SizedBox(height: 6),
-        const Text(
+        Text(
           'Bleeding on Probing / Plaque: tap a site to toggle. Furcation: tap a site to cycle its grade (0–3). Gingival Margin (mm, negative = recession) / Probing Depth (mm) / Attachment Level (mm): enter a value per site. Mobility (0–3): one value per tooth. Implant: tap to toggle — the tooth\'s own drawing switches to a fixture graphic and locks its Furcation sites. Extracted: tap the tooth\'s own number — its drawing dims with a red cross and every site metric locks and drops out of the stats. Note: free text per tooth.',
-          style: TextStyle(fontSize: 11, color: Colors.black54),
+          style: TextStyle(fontSize: 11, color: context.mutedText),
         ),
       ],
     );

@@ -327,7 +327,9 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                     // The amount due beside the button, so both read at a glance.
                     Card(
                       margin: EdgeInsets.zero,
-                      color: scheme.primaryContainer.withValues(alpha: 0.35),
+                      // A tint of primary: the theme sets no primaryContainer, so
+                      // it falls back to primary itself (2026-10-21).
+                      color: scheme.primary.withValues(alpha: 0.08),
                       child: Padding(
                         padding: const EdgeInsets.all(12),
                         child: Row(
@@ -351,6 +353,9 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                             SizedBox(
                               height: 52,
                               child: FilledButton.icon(
+                                // The theme's minimum size is full width, which a Row
+                                // can't give: the card came out empty and tall (2026-10-21).
+                                style: FilledButton.styleFrom(minimumSize: const Size(0, 52)),
                                 onPressed: _submitting || _serviceId == null ? null : _submit,
                                 icon: _submitting
                                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
@@ -430,7 +435,7 @@ class _ServiceCard extends StatelessWidget {
     return Opacity(
       opacity: enabled ? 1 : 0.5,
       child: Material(
-        color: selected ? scheme.primaryContainer : scheme.surface,
+        color: selected ? scheme.primary.withValues(alpha: 0.12) : scheme.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(color: selected ? scheme.primary : scheme.outlineVariant, width: selected ? 2 : 1),

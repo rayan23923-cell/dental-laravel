@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/muted_colors.dart';
 
 /// Family History — port of `Components/FamilyHistorySection.vue`
 /// (oral_medicine.php's `$family_history_items`): eight plain free-text
@@ -41,7 +42,7 @@ class _FamilyHistoryFieldState extends State<FamilyHistoryField> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Has any member of your family had disorders such as:', style: TextStyle(fontSize: 12, color: Colors.black54)),
+        Text('Has any member of your family had disorders such as:', style: TextStyle(fontSize: 12, color: context.mutedText)),
         const SizedBox(height: 8),
         for (final (key, label) in _familyItems)
           Padding(
