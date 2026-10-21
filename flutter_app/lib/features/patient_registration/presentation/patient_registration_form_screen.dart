@@ -20,6 +20,7 @@ import '../../printing/presentation/ticket_widget.dart';
 import '../../records/domain/payment.dart';
 import '../data/patient_registration_repository.dart';
 import '../domain/service.dart';
+import 'live_registrations.dart';
 import 'patient_registration_providers.dart';
 import '../../../core/widgets/numeric_input.dart';
 
@@ -40,7 +41,13 @@ class PatientRegistrationFormScreen extends ConsumerStatefulWidget {
   ConsumerState<PatientRegistrationFormScreen> createState() => _PatientRegistrationFormScreenState();
 }
 
-class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrationFormScreen> {
+class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrationFormScreen>
+    with LiveRegistrations<PatientRegistrationFormScreen> {
+  // Services and prices edited elsewhere show up while the form is open
+  // (2026-10-21); the mixin reloads them when the server's stamp changes.
+  @override
+  void onRegistrationsChanged() {}
+
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -56,6 +63,8 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
   @override
   void initState() {
     super.initState();
+    // The list screen keeps the services loaded; take them fresh here.
+    ref.invalidate(servicesProvider);
     SharedPreferences.getInstance().then((prefs) {
       final v = prefs.getBool(_verticalKey) ?? false;
       if (mounted && v != _servicesVertical) setState(() => _servicesVertical = v);

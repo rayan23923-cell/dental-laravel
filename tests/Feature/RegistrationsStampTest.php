@@ -61,6 +61,24 @@ class RegistrationsStampTest extends TestCase
         $this->assertNotSame($paid, $stamp());
     }
 
+    public function test_the_stamp_changes_when_a_service_its_price_or_the_lab_fee_changes(): void
+    {
+        $this->actingAs($this->deskUser('reception'));
+        $stamp = fn () => $this->getJson(route('patient-registrations.stamp'))->assertOk()->json('stamp');
+
+        $before = $stamp();
+        $service = \App\Models\Service::create(['name' => 'حشوة جذر', 'price' => 16000]);
+        $added = $stamp();
+        $this->assertNotSame($before, $added);
+
+        $service->update(['price' => 18000]);
+        $priced = $stamp();
+        $this->assertNotSame($added, $priced);
+
+        \App\Models\ClinicSetting::current()->update(['lab_fee' => 7000]);
+        $this->assertNotSame($priced, $stamp());
+    }
+
     public function test_the_lab_and_the_app_can_read_it_but_others_cannot(): void
     {
         $this->actingAs($this->deskUser('lab'))->getJson(route('patient-registrations.stamp'))->assertOk();

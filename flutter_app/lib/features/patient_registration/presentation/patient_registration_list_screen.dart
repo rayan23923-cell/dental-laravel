@@ -228,6 +228,7 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
     final account = authState is Authenticated ? authState.account : null;
     // Only for accounts the lab would let in (2026-10-18, by request).
     final canOpenLab = account is! StaffAccount || staffCanOpen(account, '/lab');
+    final canOpenSettings = account is! StaffAccount || staffCanOpen(account, '/records/patient-registrations/settings');
 
     return Scaffold(
       appBar: AppBar(
@@ -251,11 +252,12 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                     tooltip: t['patientRegFlutter.screeningTooltip']!,
                     onPressed: () => context.push('/lab'),
                   ),
-                IconButton(
-                  icon: const Icon(Icons.settings_outlined),
-                  tooltip: t['patientRegFlutter.settingsTooltip']!,
-                  onPressed: () => context.push('/records/patient-registrations/settings'),
-                ),
+                if (canOpenSettings)
+                  IconButton(
+                    icon: const Icon(Icons.settings_outlined),
+                    tooltip: t['patientRegFlutter.settingsTooltip']!,
+                    onPressed: () => context.push('/records/patient-registrations/settings'),
+                  ),
                 if (canArchive)
                   IconButton(
                     icon: Icon(_selecting ? Icons.checklist_rtl : Icons.checklist),

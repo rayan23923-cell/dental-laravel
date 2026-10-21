@@ -23,6 +23,8 @@ bool staffCanOpen(StaffAccount account, String route) {
     '/admin/task-progress' => can('task_progress'),
     '/admin/case-sheet-types' => can('case_sheet_types'),
     '/admin/clinic-settings' || '/admin/waiting-screen-settings' => admin && can('settings'),
+    // Services, prices and the lab fee, as on the web's admin menu (2026-10-21).
+    '/records/patient-registrations/settings' => admin && can('settings'),
     // A permission since 2026-10-18 (by request), so the lab or the
     // ticket desk can be given the printer without the rest of settings.
     '/admin/printer-settings' => can('printer_settings'),
@@ -51,6 +53,7 @@ const adminRoutes = [
   '/admin/task-progress',
   '/admin/case-sheet-types',
   '/admin/clinic-settings',
+  '/records/patient-registrations/settings',
   '/admin/permissions',
   '/admin/department-roles',
   '/admin/activity-log',
