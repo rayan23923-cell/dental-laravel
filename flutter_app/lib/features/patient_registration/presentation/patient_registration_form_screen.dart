@@ -63,8 +63,12 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
   @override
   void initState() {
     super.initState();
-    // The list screen keeps the services loaded; take them fresh here.
-    ref.invalidate(servicesProvider);
+    // The list screen keeps the services loaded; take them fresh here,
+    // just after initState: ref reaches the provider scope through
+    // context, which initState may not do (debug builds assert on it).
+    Future.microtask(() {
+      if (mounted) ref.invalidate(servicesProvider);
+    });
     SharedPreferences.getInstance().then((prefs) {
       final v = prefs.getBool(_verticalKey) ?? false;
       if (mounted && v != _servicesVertical) setState(() => _servicesVertical = v);
