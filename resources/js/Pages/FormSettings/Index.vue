@@ -1,9 +1,9 @@
 <script setup>
 /**
  * "إعدادات النماذج" (2026-10-22, by request), opened from task progress:
- * the supervisor's own rotating code at the top, then which forms the
- * students use, whether they see their grades, and the supervisor code
- * settings. See FormSettingsController.
+ * the supervisor's own rotating code at the top, then the supervisor code
+ * settings. Forms, grades shown to students and the task switches are in
+ * the general settings. See FormSettingsController.
  */
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import SettingsToggle from '@/Components/ChatList/SettingsToggle.vue';
@@ -124,7 +124,7 @@ const actionIcon = { start: 'play_circle', step: 'checklist', finish: 'task_alt'
                     <p v-if="!form.supervisor_code_enabled" class="mt-4 rounded-xl bg-amber-400/20 p-2 text-center text-xs text-amber-50">{{ t('formSettings.codeOff') }}</p>
                 </div>
 
-                <!-- Forms and task switches live with the general settings (2026-10-22, by request). -->
+                <!-- Forms, grades and task switches live with the general settings (2026-10-22, by request). -->
                 <Link
                     v-if="canOpenGeneral"
                     :href="route('clinic-settings.edit')"
@@ -138,11 +138,6 @@ const actionIcon = { start: 'play_circle', step: 'checklist', finish: 'task_alt'
                 <p v-if="!canEdit" class="rounded-xl bg-gray-50 p-3 text-sm text-gray-600 ring-1 ring-gray-200">{{ t('formSettings.readOnly') }}</p>
 
                 <fieldset :disabled="!canEdit" class="space-y-5">
-                    <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
-                        <h3 class="mb-1 flex items-center gap-2 font-semibold text-gray-900"><Icon name="grade" class="text-amber-500" />{{ t('formSettings.gradesSection') }}</h3>
-                        <SettingsToggle v-model="form.show_grades_to_doctors" :label="t('formSettings.showGrades')" :hint="t('formSettings.showGradesHint')" />
-                    </section>
-
                     <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
                         <h3 class="mb-1 flex items-center gap-2 font-semibold text-gray-900"><Icon name="pin" class="text-violet-600" />{{ t('formSettings.codeSection') }}</h3>
                         <SettingsToggle v-model="form.supervisor_code_enabled" :label="t('formSettings.codeEnabled')" :hint="t('formSettings.codeEnabledHint')" />

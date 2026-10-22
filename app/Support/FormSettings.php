@@ -48,7 +48,6 @@ class FormSettings
         return [
             'electronic_forms_enabled' => ['sometimes', 'boolean'],
             'paper_forms_enabled' => ['sometimes', 'boolean'],
-            'show_grades_to_doctors' => ['required', 'boolean'],
             'supervisor_code_enabled' => ['required', 'boolean'],
             'supervisor_code_period' => ['required', 'in:'.implode(',', self::PERIODS)],
             'supervisor_code_actions' => ['present', 'array'],
@@ -57,12 +56,13 @@ class FormSettings
         ];
     }
 
-    /** The forms and task switches kept with the general settings (2026-10-22, by request). */
+    /** The forms, grades and task switches kept with the general settings (2026-10-22, by request). */
     public static function generalRules(): array
     {
         return [
             'electronic_forms_enabled' => ['sometimes', 'boolean'],
             'paper_forms_enabled' => ['sometimes', 'boolean'],
+            'show_grades_to_doctors' => ['sometimes', 'boolean'],
             ...collect(self::SWITCHES)->mapWithKeys(fn ($column) => [$column => ['sometimes', 'boolean']])->all(),
         ];
     }

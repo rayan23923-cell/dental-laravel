@@ -117,8 +117,13 @@ class SupervisorCodeTest extends TestCase
         $this->putJson(route('form-settings.update'), [
             'electronic_forms_enabled' => false, 'paper_forms_enabled' => true, 'show_grades_to_doctors' => false,
             'supervisor_code_enabled' => true, 'supervisor_code_period' => 'hourly', 'supervisor_code_actions' => ['start'],
-        ])->assertOk()->assertJsonPath('settings.supervisor_code_actions', ['start']);
+        ])->assertOk()->assertJsonPath('settings.supervisor_code_actions', ['start'])
+            ->assertJsonPath('settings.show_grades_to_doctors', true);
         $this->get(route('form-settings.index'))->assertOk();
+        // Grades shown to students are set in the general settings now.
+        Sanctum::actingAs($admin);
+        $this->putJson('/api/v1/clinic-settings', ['clinic_name' => 'Clinic', 'show_grades_to_doctors' => false])->assertOk();
+        $this->assertFalse(ClinicSetting::current()->show_grades_to_doctors);
 
         TaskInstance::create(['task_id' => $this->task->id, 'doctor_id' => $this->doctor->id, 'status' => 'completed', 'grade' => 17]);
         Sanctum::actingAs($this->doctor);

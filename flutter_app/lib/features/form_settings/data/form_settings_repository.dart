@@ -120,7 +120,6 @@ class FormSettings {
   Map<String, dynamic> toJson() => {
         'electronic_forms_enabled': electronic,
         'paper_forms_enabled': paper,
-        'show_grades_to_doctors': showGrades,
         'supervisor_code_enabled': codeEnabled,
         'supervisor_code_period': period,
         'supervisor_code_actions': actions,

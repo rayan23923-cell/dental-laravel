@@ -434,8 +434,16 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
                         child: Row(
                           children: [
                             SettingsSectionIcon(
-                              icon: key.endsWith('forms_enabled') ? Icons.description_outlined : Icons.fact_check_outlined,
-                              color: key.endsWith('forms_enabled') ? const Color(0xFF6366F1) : const Color(0xFF10B981),
+                              icon: key.endsWith('forms_enabled')
+                                  ? Icons.description_outlined
+                                  : key == 'show_grades_to_doctors'
+                                      ? Icons.grade_outlined
+                                      : Icons.fact_check_outlined,
+                              color: key.endsWith('forms_enabled')
+                                  ? const Color(0xFF6366F1)
+                                  : key == 'show_grades_to_doctors'
+                                      ? const Color(0xFFF59E0B)
+                                      : const Color(0xFF10B981),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -742,5 +750,6 @@ class _LogoPicker extends StatelessWidget {
 String _switchLabel(String key) => switch (key) {
       'electronic_forms_enabled' => 'formSettings.electronic',
       'paper_forms_enabled' => 'formSettings.paper',
+      'show_grades_to_doctors' => 'formSettings.showGrades',
       _ => 'formSettings.$key',
     };
