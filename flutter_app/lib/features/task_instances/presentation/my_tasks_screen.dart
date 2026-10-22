@@ -169,12 +169,14 @@ class _TaskGroupTile extends ConsumerWidget {
     final completed = slots.where((s) => s.status == 'completed').length;
     final required = slots.length;
     final t = ref.watch(translationsProvider);
+    final listsOn = (ref.watch(myFormSettingsProvider).valueOrNull ?? const DoctorFormSettings()).on('task_lists_enabled');
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ExpansionTile(
         title: Text(title),
-        subtitle: Text(trf(t['myTasks.completedOfRequired']!, {'completed': completed, 'required': required})),
+        // The completed count goes with the pending lists' switch (2026-10-22).
+        subtitle: listsOn ? Text(trf(t['myTasks.completedOfRequired']!, {'completed': completed, 'required': required})) : null,
         children: [for (final slot in slots) _SlotRow(slot: slot)],
       ),
     );

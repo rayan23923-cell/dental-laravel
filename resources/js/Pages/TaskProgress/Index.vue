@@ -839,7 +839,7 @@ const startFromScan = () => {
                 <div v-if="completeTarget?.task_notes" class="mt-3 rounded-md bg-blue-50 p-3 text-sm text-blue-800">
                     {{ completeTarget.task_notes }}
                 </div>
-                <div class="mt-4">
+                <div v-if="isOn('grade_entry_enabled')" class="mt-4">
                     <InputLabel for="complete-grade" :value="completeTarget?.task_grade ? t('taskProgressAdmin.gradeWithMax', { max: completeTarget.task_grade }) : t('tasksAdmin.gradeColShort')" />
                     <!-- Picked with a tap (2026-10-22, by request). -->
                     <div v-if="completeTarget?.task_grade && isOn('grade_entry_enabled')" class="mt-1">
@@ -875,7 +875,7 @@ const startFromScan = () => {
             <form @submit.prevent="submitEdit" class="p-6">
                 <h2 class="text-lg font-medium text-gray-900">{{ t('taskProgressAdmin.editModalTitle') }}</h2>
                 <p class="mt-1 text-sm text-gray-500">{{ editTarget?.task_title }}</p>
-                <div class="mt-4">
+                <div v-if="isOn('grade_entry_enabled')" class="mt-4">
                     <InputLabel for="edit-grade" :value="editTarget?.task_grade ? t('taskProgressAdmin.gradeWithMax', { max: editTarget.task_grade }) : t('tasksAdmin.gradeColShort')" />
                     <!-- Picked with a tap (2026-10-22, by request). -->
                     <div v-if="editTarget?.task_grade && isOn('grade_entry_enabled')" class="mt-1">
