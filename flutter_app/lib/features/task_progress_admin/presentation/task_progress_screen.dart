@@ -584,6 +584,12 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
             tooltip: t['taskProgressAdmin.scanTaskCodeTooltip'],
             onPressed: () => context.push('/scan'),
           ),
+          // "إعدادات النماذج" and the supervisor's code (2026-10-22, by request).
+          IconButton(
+            icon: const Icon(Icons.tune),
+            tooltip: t['formSettings.open'],
+            onPressed: () => context.push('/admin/form-settings'),
+          ),
         ],
       ),
       body: Column(

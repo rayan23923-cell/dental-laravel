@@ -7,6 +7,8 @@ import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/qr_dialog.dart';
 import '../../case_sheet_forms/data/case_sheet_record_repository.dart';
+import '../../form_settings/data/form_settings_repository.dart';
+import '../../form_settings/presentation/supervisor_code_sheet.dart';
 import '../../paper_photos/presentation/paper_photos_sheet.dart';
 import '../../task_progress_admin/domain/task_progress_group.dart';
 import '../../task_start_requests/data/task_start_request_repository.dart';
@@ -275,6 +277,27 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
     }
   }
 
+  /// The supervisor's code on this account (2026-10-22, by request).
+  Future<void> _supervisorCode(DoctorFormSettings settings) async {
+    final name = await showSupervisorCodeSheet(
+      context,
+      settings: settings,
+      taskId: slot.taskId,
+      taskTitle: slot.taskTitle,
+      slot: slot.slot,
+      instanceId: slot.instanceId,
+      taskGrade: slot.taskGrade,
+    );
+    if (name == null || !mounted) return;
+    final t = ref.read(translationsProvider);
+    ref.invalidate(myTaskProgressProvider);
+    ref.invalidate(myTaskStartRequestsProvider);
+    if (slot.instanceId != null) invalidateTaskInstance(ref, slot.instanceId!);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(backgroundColor: Colors.green.shade700, content: Text(t['supervisorCode.done']!.replaceAll('{name}', name))),
+    );
+  }
+
   Color _statusColor(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return switch (slot.status) {
@@ -298,6 +321,9 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
     final date = slot.completionDate ?? slot.assignedDate;
     final parsedDate = date != null ? DateTime.tryParse(date) : null;
     final t = ref.watch(translationsProvider);
+    // Forms on offer and the supervisor code (2026-10-22).
+    final settings = ref.watch(myFormSettingsProvider).valueOrNull ?? const DoctorFormSettings();
+    final showCode = (slot.status == 'unassigned' && settings.codeCanStart) || (slot.status == 'assigned' && settings.codeCanProgress);
 
     return ListTile(
       title: Text(trf(t['myTasks.slotTitle']!, {'slot': slot.slot})),
@@ -324,6 +350,25 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
           if (slot.notes != null && slot.notes!.isNotEmpty) Text(slot.notes!),
           // Ask staff to start it (2026-10-14) — or show it's waiting.
           if (slot.instanceId == null) _RequestStartButton(taskId: slot.taskId, taskTitle: slot.taskTitle),
+          if (showCode)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: FilledButton.tonalIcon(
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor: Colors.deepPurple.shade50,
+                  foregroundColor: Colors.deepPurple.shade700,
+                ),
+                onPressed: () => _supervisorCode(settings),
+                icon: const Icon(Icons.pin_outlined, size: 18),
+                label: Text(
+                  slot.status == 'assigned' && slot.stepsCount > 0
+                      ? '${t['supervisorCode.button']!} (${slot.stepsSigned}/${slot.stepsCount})'
+                      : t['supervisorCode.button']!,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ),
           // "تأكيد أنه ورقي" — only meaningful once the case has a real
           // instance (an unstarted slot's optional draft isn't a
           // documented case yet).
@@ -336,7 +381,7 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
                 Text(t['myTasks.confirmedOnPaper']!, style: const TextStyle(fontSize: 12)),
               ],
             )
-          else if (slot.instanceId != null)
+          else if (slot.instanceId != null && settings.paper)
             TextButton(
               style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0), visualDensity: VisualDensity.compact),
               onPressed: _confirmPaper,
@@ -368,6 +413,7 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
           ),
           // Photos next to the form (2026-10-15, as on the web): the doctor
           // uploads, the supervisor previews them and writes notes.
+          if (settings.paper)
           IconButton(
             tooltip: slot.instanceId != null ? t['paperPhotos.uploadShort']! : t['paperPhotos.needsStart']!,
             onPressed: slot.instanceId == null
@@ -383,16 +429,19 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
               child: const Icon(Icons.add_a_photo_outlined),
             ),
           ),
-          _openingCaseSheet
-              ? const Padding(
-                  padding: EdgeInsets.all(8),
-                  child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                )
-              : IconButton(
-                  icon: const Icon(Icons.description_outlined),
-                  tooltip: t['labels.caseSheetForm']!,
-                  onPressed: slot.instanceId != null ? _openCaseSheet : _openCaseSheetForTask,
-                ),
+          if (!settings.electronic)
+            const SizedBox.shrink()
+          else if (_openingCaseSheet)
+            const Padding(
+              padding: EdgeInsets.all(8),
+              child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.description_outlined),
+              tooltip: t['labels.caseSheetForm']!,
+              onPressed: slot.instanceId != null ? _openCaseSheet : _openCaseSheetForTask,
+            ),
           if (slot.instanceId != null) const Icon(Icons.chevron_left),
         ],
       ),

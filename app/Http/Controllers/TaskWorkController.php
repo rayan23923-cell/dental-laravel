@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\CaseSheetAccess;
 use App\Services\PermissionManager;
 use App\Support\CaseSheetSignatures;
+use App\Support\FormSettings;
 use App\Support\TaskScoring;
 use App\Support\TaskSteps;
 use Illuminate\Http\JsonResponse;
@@ -33,7 +34,7 @@ class TaskWorkController extends Controller
         // A task graded by its sheet's steps shows what the sheet adds up to now.
         $fromSheet = TaskScoring::pointsFromCaseSheet($taskInstance);
 
-        return response()->json([
+        $payload = [
             'title' => $taskInstance->task?->title,
             'scoring' => $taskInstance->task?->scoring,
             'status' => $taskInstance->status,
@@ -44,7 +45,15 @@ class TaskWorkController extends Controller
             // Its steps, signed one after another (2026-10-18).
             'steps' => TaskSteps::list($taskInstance->task, $taskInstance),
             'can_sign' => ! $doctor && $this->canSign(),
-        ]);
+        ];
+        // Grades hidden from students in forms settings, and from staff
+        // without `view_grade` (2026-10-22).
+        $showGrades = $doctor ? FormSettings::gradesShownToDoctors() : $this->can('view_grade');
+        if (! $showGrades) {
+            $payload = FormSettings::withoutGrades($payload);
+        }
+
+        return response()->json($payload);
     }
 
     /** Signs the case's next step with its grade (2026-10-18), see TaskSteps. */
@@ -93,10 +102,10 @@ class TaskWorkController extends Controller
         return $this->show($taskInstance->fresh());
     }
 
-    /** Whoever starts or finishes cases signs their steps. */
+    /** Signing steps is its own permission (2026-10-22, was start or finish). */
     private function canSign(): bool
     {
-        return $this->can('finish') || $this->can('start');
+        return $this->can('track_steps');
     }
 
     public function update(Request $request, TaskInstance $taskInstance): JsonResponse
@@ -132,9 +141,10 @@ class TaskWorkController extends Controller
         return response()->json(['work_items' => $items, 'points' => $taskInstance->points]);
     }
 
+    /** Adding and editing grades is its own permission (2026-10-22, was finish). */
     private function canEdit(): bool
     {
-        return $this->can('finish');
+        return $this->can('grade');
     }
 
     private function can(string $permission): bool

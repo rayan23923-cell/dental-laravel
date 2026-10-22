@@ -9,6 +9,7 @@ use App\Models\TaskStartRequest;
 use App\Models\User;
 use App\Notifications\TaskStartRequestNotice;
 use App\Support\CaseSheetResolver;
+use App\Support\FormSettings;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -29,29 +30,15 @@ class TaskStartRequests
 
     public static function create(Doctor $doctor, Task $task, string $formType, ?UploadedFile $photo, ?string $notes): TaskStartRequest
     {
-        if ((int) $task->stage_id !== (int) $doctor->stage_id) {
-            throw ValidationException::withMessages(['task_id' => 'هذه المهمة ليست من مهام مرحلتك.']);
-        }
+        self::ensureCanStart($doctor, $task, $formType);
         if (TaskStartRequest::where('doctor_id', $doctor->id)->where('task_id', $task->id)->where('status', 'pending')->exists()) {
             throw ValidationException::withMessages(['task_id' => 'لديك طلب بدء لهذه المهمة بانتظار الموافقة.']);
-        }
-        $started = TaskInstance::where('doctor_id', $doctor->id)->where('task_id', $task->id)
-            ->whereIn('status', ['assigned', 'completed'])->count();
-        if ($started >= (int) $task->required_count) {
-            throw ValidationException::withMessages(['task_id' => 'بدأت كل الحالات المطلوبة لهذه المهمة.']);
         }
         if ($formType === 'paper' && ! $photo) {
             throw ValidationException::withMessages(['photo' => 'أرفق صورة النموذج الورقي.']);
         }
 
-        $request = TaskStartRequest::create([
-            'doctor_id' => $doctor->id,
-            'task_id' => $task->id,
-            'form_type' => $formType,
-            'photo_path' => $formType === 'paper' ? $photo->store(self::PHOTO_DIR, 'public') : null,
-            'notes' => $notes,
-            'status' => 'pending',
-        ]);
+        $request = self::record($doctor, $task, $formType, $photo, $notes);
 
         foreach (self::reviewersOf($request) as $user) {
             Notifier::send($user, new TaskStartRequestNotice(
@@ -63,6 +50,56 @@ class TaskStartRequests
         }
 
         return $request;
+    }
+
+    /**
+     * Started on the spot with a supervisor's code (2026-10-22, see
+     * SupervisorCode): the doctor's pending request for this task, or a new
+     * one, approved by $supervisor straight away. The photo is optional
+     * here, since the supervisor is with the student.
+     *
+     * @throws TaskStartException|PatientScreeningException
+     */
+    public static function startWithCode(Doctor $doctor, Task $task, string $formType, ?UploadedFile $photo, ?string $notes, User $supervisor): TaskInstance
+    {
+        self::ensureCanStart($doctor, $task, $formType);
+        $request = TaskStartRequest::where('doctor_id', $doctor->id)->where('task_id', $task->id)->where('status', 'pending')->first();
+        if ($request && $photo && ! $request->photo_path) {
+            $request->update(['form_type' => $formType, 'photo_path' => $photo->store(self::PHOTO_DIR, 'public')]);
+        }
+        $request ??= self::record($doctor, $task, $formType, $photo, $notes);
+
+        $instance = self::approve($request, $supervisor, null);
+        $request->update(['review_note' => 'بكود المشرف']);
+
+        return $instance;
+    }
+
+    private static function ensureCanStart(Doctor $doctor, Task $task, string $formType): void
+    {
+        if ((int) $task->stage_id !== (int) $doctor->stage_id) {
+            throw ValidationException::withMessages(['task_id' => 'هذه المهمة ليست من مهام مرحلتك.']);
+        }
+        if (! FormSettings::formTypeEnabled($formType)) {
+            throw ValidationException::withMessages(['form_type' => $formType === 'paper' ? 'النموذج الورقي غير مفعّل.' : 'النموذج الإلكتروني غير مفعّل.']);
+        }
+        $started = TaskInstance::where('doctor_id', $doctor->id)->where('task_id', $task->id)
+            ->whereIn('status', ['assigned', 'completed'])->count();
+        if ($started >= (int) $task->required_count) {
+            throw ValidationException::withMessages(['task_id' => 'بدأت كل الحالات المطلوبة لهذه المهمة.']);
+        }
+    }
+
+    private static function record(Doctor $doctor, Task $task, string $formType, ?UploadedFile $photo, ?string $notes): TaskStartRequest
+    {
+        return TaskStartRequest::create([
+            'doctor_id' => $doctor->id,
+            'task_id' => $task->id,
+            'form_type' => $formType,
+            'photo_path' => $formType === 'paper' && $photo ? $photo->store(self::PHOTO_DIR, 'public') : null,
+            'notes' => $notes,
+            'status' => 'pending',
+        ]);
     }
 
     /** Active staff who may start tasks and can see this request's task. */

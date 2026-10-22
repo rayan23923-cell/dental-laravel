@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Doctor;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\FormSettingsController;
+use App\Support\FormSettings;
+use App\Support\TaskSteps;
 use App\Models\Task;
 use App\Models\TaskInstance;
 use App\Models\TaskStartRequest;
@@ -54,6 +57,7 @@ class RequiredTasksController extends Controller
                     $slots = [];
                     for ($i = 0; $i < $required; $i++) {
                         $instance = $own[$i] ?? null;
+                        $steps = $instance ? TaskSteps::list($task, $instance) : [];
                         $slots[] = [
                             'slot' => $i + 1,
                             'instance_id' => $instance?->id,
@@ -73,6 +77,9 @@ class RequiredTasksController extends Controller
                             'attachments_count' => $instance?->attachments_count ?? 0,
                             // Photos the supervisor wrote a note on (2026-10-15).
                             'noted_attachments_count' => $instance?->noted_attachments_count ?? 0,
+                            // Steps signed so far, for the supervisor code (2026-10-22).
+                            'steps_count' => count($steps),
+                            'steps_signed' => collect($steps)->where('signed', true)->count(),
                         ];
                     }
 
@@ -99,10 +106,15 @@ class RequiredTasksController extends Controller
                 ];
             })->values();
 
+        $departments = $departments->values()->toArray();
+
         return Inertia::render('Doctor/RequiredTasks', [
             'stage' => $doctor->stage?->name,
-            'departments' => $departments,
+            // Grades hidden from students in forms settings (2026-10-22).
+            'departments' => FormSettings::gradesShownToDoctors() ? $departments : FormSettings::withoutGrades($departments),
             'requests' => $requests->map->toView()->values(),
+            // Forms on offer and the supervisor code (2026-10-22).
+            'formSettings' => (new FormSettingsController)->forDoctor()->getData(true),
         ]);
     }
 }

@@ -6,11 +6,12 @@ import Modal from '@/Components/Modal.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
+import GradeInput from '@/Components/GradeInput.vue';
 import QrScanner from '@/Components/QrScanner.vue';
 import PhoneScannerLink from '@/Components/PhoneScannerLink.vue';
 import PaperPhotos from '@/Components/PaperPhotos.vue';
 import { onRemoteScan } from '@/remoteScanner';
-import { Head, router, useForm, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import axios from 'axios';
@@ -364,7 +365,17 @@ const startFromScan = () => {
         <template #header>
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('taskProgressAdmin.heading') }}</h2>
-                <PhoneScannerLink variant="page" />
+                <div class="flex items-center gap-2">
+                    <!-- "إعدادات النماذج" and the supervisor code (2026-10-22, by request). -->
+                    <Link
+                        :href="route('form-settings.index')"
+                        class="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-sm font-medium text-indigo-700 shadow-sm ring-1 ring-indigo-200 hover:bg-indigo-50"
+                        :title="t('formSettings.open')"
+                    >
+                        <Icon name="tune" size="text-[18px]" />{{ t('formSettings.open') }}
+                    </Link>
+                    <PhoneScannerLink variant="page" />
+                </div>
             </div>
         </template>
 
@@ -827,16 +838,15 @@ const startFromScan = () => {
                 </div>
                 <div class="mt-4">
                     <InputLabel for="complete-grade" :value="completeTarget?.task_grade ? t('taskProgressAdmin.gradeWithMax', { max: completeTarget.task_grade }) : t('tasksAdmin.gradeColShort')" />
-                    <TextInput
-                        id="complete-grade"
-                        v-model="completeForm.grade"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        :max="completeTarget?.task_grade ?? undefined"
-                        :disabled="!completeTarget?.task_grade"
-                        class="mt-1 block w-full"
-                    />
+                    <!-- Picked with a tap (2026-10-22, by request). -->
+                    <div v-if="completeTarget?.task_grade" class="mt-1">
+                        <GradeInput
+                            :model-value="completeForm.grade === '' || completeForm.grade === null ? null : Number(completeForm.grade)"
+                            :max="Number(completeTarget.task_grade)"
+                            :title="completeTarget.task_title"
+                            @update:model-value="completeForm.grade = $event ?? ''"
+                        />
+                    </div>
                     <p v-if="!completeTarget?.task_grade" class="mt-1 text-xs text-gray-500">
                         {{ t('taskProgressAdmin.noGradeHintComplete') }}
                     </p>
@@ -864,16 +874,15 @@ const startFromScan = () => {
                 <p class="mt-1 text-sm text-gray-500">{{ editTarget?.task_title }}</p>
                 <div class="mt-4">
                     <InputLabel for="edit-grade" :value="editTarget?.task_grade ? t('taskProgressAdmin.gradeWithMax', { max: editTarget.task_grade }) : t('tasksAdmin.gradeColShort')" />
-                    <TextInput
-                        id="edit-grade"
-                        v-model="editForm.grade"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        :max="editTarget?.task_grade ?? undefined"
-                        :disabled="!editTarget?.task_grade"
-                        class="mt-1 block w-full"
-                    />
+                    <!-- Picked with a tap (2026-10-22, by request). -->
+                    <div v-if="editTarget?.task_grade" class="mt-1">
+                        <GradeInput
+                            :model-value="editForm.grade === '' || editForm.grade === null ? null : Number(editForm.grade)"
+                            :max="Number(editTarget.task_grade)"
+                            :title="editTarget.task_title"
+                            @update:model-value="editForm.grade = $event ?? ''"
+                        />
+                    </div>
                     <p v-if="!editTarget?.task_grade" class="mt-1 text-xs text-gray-500">
                         {{ t('taskProgressAdmin.noGradeHintEdit') }}
                     </p>

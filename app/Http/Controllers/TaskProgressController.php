@@ -73,7 +73,7 @@ class TaskProgressController extends Controller
      */
     public function group(Request $request, Group $group): JsonResponse
     {
-        return response()->json(TaskProgressGroupSummary::build($group, $request->user(), AcademicSessionHelper::resolveId()));
+        return response()->json(self::gradesFor($request, TaskProgressGroupSummary::build($group, $request->user(), AcademicSessionHelper::resolveId())));
     }
 
     /**
@@ -84,7 +84,7 @@ class TaskProgressController extends Controller
     {
         $stage = ScopeHelper::scopeStages(Stage::whereKey($stage), $request->user())->firstOrFail();
 
-        return response()->json(TaskProgressGroupSummary::buildForStage($stage, $request->user(), AcademicSessionHelper::resolveId()));
+        return response()->json(self::gradesFor($request, TaskProgressGroupSummary::buildForStage($stage, $request->user(), AcademicSessionHelper::resolveId())));
     }
 
     /**
@@ -301,5 +301,13 @@ class TaskProgressController extends Controller
         foreach ($steps as $step) {
             TaskSteps::sign($instance->fresh(), $step['step'], $step['grade'] ?? null, $signer);
         }
+    }
+
+    /** Grades hidden from staff without `task_progress.view_grade` (2026-10-22). */
+    private static function gradesFor(Request $request, array $summary): array
+    {
+        return (new \App\Services\PermissionManager($request->user()))->can('task_progress', 'view_grade')
+            ? $summary
+            : \App\Support\FormSettings::withoutGrades($summary);
     }
 }

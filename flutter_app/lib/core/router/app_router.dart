@@ -40,6 +40,7 @@ import '../../features/doctors_admin/presentation/doctor_list_screen.dart';
 import '../../features/printing/presentation/printer_settings_screen.dart';
 import '../../features/task_progress_admin/presentation/doctor_progress_screen.dart';
 import '../../features/task_progress_admin/presentation/task_progress_screen.dart';
+import '../../features/form_settings/presentation/form_settings_screen.dart';
 import '../../features/groups_admin/presentation/group_detail_screen.dart';
 import '../../features/groups_admin/presentation/group_form_screen.dart';
 import '../../features/groups_admin/presentation/group_list_screen.dart';
@@ -450,6 +451,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/admin/task-progress',
             builder: (context, state) => TaskProgressScreen(initialTab: state.uri.queryParameters['tab'] ?? 'progress'),
+          ),
+          // "إعدادات النماذج" and the supervisor code (2026-10-22).
+          GoRoute(
+            path: '/admin/form-settings',
+            builder: (context, state) => const FormSettingsScreen(),
           ),
           GoRoute(
             path: '/admin/clinic-settings',

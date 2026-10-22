@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
+import '../../form_settings/data/form_settings_repository.dart';
 import '../data/task_start_request_repository.dart';
 
 /// "طلب بدء مهمة" (2026-10-14): the doctor picks the electronic form (their
@@ -43,6 +44,14 @@ class _RequestStartSheetState extends ConsumerState<_RequestStartSheet> {
   final _notes = TextEditingController();
   bool _sending = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    // Only the forms turned on in forms settings (2026-10-22).
+    final settings = ref.read(myFormSettingsProvider).valueOrNull;
+    if (settings != null && !settings.electronic) _formType = 'paper';
+  }
 
   @override
   void dispose() {
@@ -88,6 +97,7 @@ class _RequestStartSheetState extends ConsumerState<_RequestStartSheet> {
   Widget build(BuildContext context) {
     final t = ref.watch(translationsProvider);
     final scheme = Theme.of(context).colorScheme;
+    final settings = ref.watch(myFormSettingsProvider).valueOrNull ?? const DoctorFormSettings();
 
     Widget option(String value, IconData icon, String label) {
       final selected = _formType == value;
@@ -126,9 +136,9 @@ class _RequestStartSheetState extends ConsumerState<_RequestStartSheet> {
             const SizedBox(height: 16),
             Row(
               children: [
-                option('electronic', Icons.description_outlined, t['taskRequests.electronicForm']!),
-                const SizedBox(width: 8),
-                option('paper', Icons.photo_camera_outlined, t['taskRequests.paperForm']!),
+                if (settings.electronic) option('electronic', Icons.description_outlined, t['taskRequests.electronicForm']!),
+                if (settings.electronic && settings.paper) const SizedBox(width: 8),
+                if (settings.paper) option('paper', Icons.photo_camera_outlined, t['taskRequests.paperForm']!),
               ],
             ),
             const SizedBox(height: 12),

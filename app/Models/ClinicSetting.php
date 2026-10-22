@@ -58,6 +58,13 @@ class ClinicSetting extends Model
         'lab_fee',
         'lab_validity_days',
         'groups_enabled',
+        // "إعدادات النماذج" (2026-10-22), see App\Support\FormSettings.
+        'electronic_forms_enabled',
+        'paper_forms_enabled',
+        'show_grades_to_doctors',
+        'supervisor_code_enabled',
+        'supervisor_code_period',
+        'supervisor_code_actions',
     ];
 
     /**
@@ -88,6 +95,11 @@ class ClinicSetting extends Model
             'enable_daily_backup' => 'boolean',
             'last_backup_at' => 'datetime',
             'groups_enabled' => 'boolean',
+            'electronic_forms_enabled' => 'boolean',
+            'paper_forms_enabled' => 'boolean',
+            'show_grades_to_doctors' => 'boolean',
+            'supervisor_code_enabled' => 'boolean',
+            'supervisor_code_actions' => 'array',
         ];
     }
 

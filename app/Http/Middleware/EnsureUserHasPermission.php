@@ -22,6 +22,8 @@ use Symfony\Component\HttpFoundation\Response;
  * routes/api.php), so a Doctor principal reaching here must be denied, not
  * passed to PermissionManager — its constructor requires a User and would
  * otherwise TypeError instead of cleanly 403ing.
+ *
+ * `permission:task_progress,view|view_status` passes with either grant.
  */
 class EnsureUserHasPermission
 {
@@ -29,7 +31,9 @@ class EnsureUserHasPermission
     {
         $user = $request->user();
 
-        if (! $user instanceof User || ! (new PermissionManager($user))->can($module, $permission)) {
+        $allowed = $user instanceof User && collect(explode('|', $permission))
+            ->contains(fn ($one) => (new PermissionManager($user))->can($module, $one));
+        if (! $allowed) {
             abort(403, "You don't have permission to {$permission} {$module}.");
         }
 
