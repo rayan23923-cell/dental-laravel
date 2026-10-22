@@ -42,6 +42,10 @@ const form = useForm({
     enable_sms: !!props.settings.enable_sms,
     enable_email: !!props.settings.enable_email,
     groups_enabled: !!(props.settings.groups_enabled ?? true),
+    // Forms and task progress switches for the whole system (2026-10-22).
+    ...Object.fromEntries(
+        ['electronic_forms_enabled', 'paper_forms_enabled', 'task_start_enabled', 'task_finish_enabled', 'task_lists_enabled', 'grade_entry_enabled', 'step_add_enabled'].map((k) => [k, !!(props.settings[k] ?? true)]),
+    ),
     clinic_logo: null,
     university_logo: null,
     mail_host: props.settings.mail_host ?? '',
@@ -291,6 +295,30 @@ const summaries = computed(() => ({
                                 <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-500 text-white"><Icon name="groups" size="text-[20px]" /></span>
                                 <div class="min-w-0 flex-1">
                                     <SettingsToggle v-model="form.groups_enabled" :label="t('clinicSettingsAdmin.groupsEnabled')" :hint="t('clinicSettingsAdmin.groupsNote')" />
+                                </div>
+                            </div>
+                            <!-- Forms and task progress for the whole system (2026-10-22, by request);
+                                 each user still needs the matching permission. -->
+                            <div class="flex items-start gap-3 border-b border-gray-100 px-4 py-2 last:border-b-0">
+                                <span class="mt-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500 text-white"><Icon name="description" size="text-[20px]" /></span>
+                                <div class="min-w-0 flex-1">
+                                    <SettingsToggle v-model="form.electronic_forms_enabled" :label="t('formSettings.electronic')" :hint="t('formSettings.electronicHint')" />
+                                    <SettingsToggle v-model="form.paper_forms_enabled" :label="t('formSettings.paper')" :hint="t('formSettings.paperHint')" />
+                                    <InputError :message="form.errors.paper_forms_enabled" />
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3 border-b border-gray-100 px-4 py-2 last:border-b-0">
+                                <span class="mt-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white"><Icon name="monitoring" size="text-[20px]" /></span>
+                                <div class="min-w-0 flex-1">
+                                    <p class="pt-2 text-sm font-medium text-gray-800">{{ t('formSettings.tasksSection') }}</p>
+                                    <p class="text-xs text-gray-500">{{ t('formSettings.tasksSectionHint') }}</p>
+                                    <SettingsToggle
+                                        v-for="key in ['task_start_enabled', 'task_finish_enabled', 'task_lists_enabled', 'grade_entry_enabled', 'step_add_enabled']"
+                                        :key="key"
+                                        v-model="form[key]"
+                                        :label="t('formSettings.' + key)"
+                                        :hint="t('formSettings.' + key + 'Hint')"
+                                    />
                                 </div>
                             </div>
                         </ChatListCard>

@@ -78,6 +78,9 @@ class _MyTasksScreenState extends ConsumerState<MyTasksScreen> with SingleTicker
         }
 
         final requests = ref.watch(myTaskStartRequestsProvider).valueOrNull ?? const <TaskStartRequest>[];
+        // The pending lists switched off for the whole system (2026-10-22).
+        final listsOn = (ref.watch(myFormSettingsProvider).valueOrNull ?? const DoctorFormSettings()).on('task_lists_enabled');
+        if (!listsOn && _view != 'all') _view = 'all';
         final waiting = requests.where((r) => r.status != 'approved').toList();
         final pendingCount = requests.where((r) => r.status == 'pending').length;
 
@@ -98,8 +101,8 @@ class _MyTasksScreenState extends ConsumerState<MyTasksScreen> with SingleTicker
               child: Row(
                 children: [
                   pill('all', t['taskRequests.allTasksTab']!),
-                  pill('waiting', t['taskRequests.waitingTab']!, badge: pendingCount),
-                  pill('notStarted', t['taskRequests.notStartedTab']!),
+                  if (listsOn) pill('waiting', t['taskRequests.waitingTab']!, badge: pendingCount),
+                  if (listsOn) pill('notStarted', t['taskRequests.notStartedTab']!),
                 ],
               ),
             ),
@@ -349,7 +352,7 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
           if (parsedDate != null) Text(dateFormat.format(parsedDate)),
           if (slot.notes != null && slot.notes!.isNotEmpty) Text(slot.notes!),
           // Ask staff to start it (2026-10-14) — or show it's waiting.
-          if (slot.instanceId == null) _RequestStartButton(taskId: slot.taskId, taskTitle: slot.taskTitle),
+          if (slot.instanceId == null && settings.on('task_start_enabled')) _RequestStartButton(taskId: slot.taskId, taskTitle: slot.taskTitle),
           if (showCode)
             Padding(
               padding: const EdgeInsets.only(top: 4),

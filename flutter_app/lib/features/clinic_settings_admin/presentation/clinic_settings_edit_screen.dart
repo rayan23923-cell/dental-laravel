@@ -49,6 +49,7 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
   bool _enableSms = false;
   bool _enableEmail = true;
   bool _groupsEnabled = true;
+  Map<String, bool> _taskSwitches = {};
   String? _open;
   bool _seeded = false;
   bool _submitting = false;
@@ -102,6 +103,7 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
     _enableSms = settings.enableSms;
     _enableEmail = settings.enableEmail;
     _groupsEnabled = settings.groupsEnabled;
+    _taskSwitches = {...settings.taskSwitches};
     _mailHostController.text = settings.mailHost ?? '';
     _mailPortController.text = settings.mailPort?.toString() ?? '';
     _mailUsernameController.text = settings.mailUsername ?? '';
@@ -175,6 +177,7 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
       'enable_sms': _enableSms,
       'enable_email': _enableEmail,
       'groups_enabled': _groupsEnabled,
+      ..._taskSwitches,
       if (_current?.mailVisible ?? false) ...{
         'mail_host': _mailHostController.text.trim(),
         'mail_port': _mailPortController.text.trim(),
@@ -423,6 +426,30 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
                         ],
                       ),
                     ),
+                    // Forms and task progress for the whole system (2026-10-22,
+                    // by request); each user still needs the matching permission.
+                    for (final key in kTaskSwitchKeys)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                        child: Row(
+                          children: [
+                            SettingsSectionIcon(
+                              icon: key.endsWith('forms_enabled') ? Icons.description_outlined : Icons.fact_check_outlined,
+                              color: key.endsWith('forms_enabled') ? const Color(0xFF6366F1) : const Color(0xFF10B981),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: SwitchListTile(
+                                contentPadding: EdgeInsets.zero,
+                                value: _taskSwitches[key] ?? true,
+                                title: Text(t[_switchLabel(key)]!),
+                                subtitle: Text(t['${_switchLabel(key)}Hint']!, maxLines: 2, overflow: TextOverflow.ellipsis),
+                                onChanged: (v) => setState(() => _taskSwitches = {..._taskSwitches, key: v}),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -710,3 +737,10 @@ class _LogoPicker extends StatelessWidget {
     );
   }
 }
+
+/// Translation key of a forms / task progress switch (2026-10-22).
+String _switchLabel(String key) => switch (key) {
+      'electronic_forms_enabled' => 'formSettings.electronic',
+      'paper_forms_enabled' => 'formSettings.paper',
+      _ => 'formSettings.$key',
+    };

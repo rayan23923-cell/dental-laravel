@@ -48,7 +48,8 @@ const actionsHere = computed(() =>
           ? [{ v: 'start', icon: 'play_circle', label: t('supervisorCode.actionStart') }]
           : [],
 );
-const gradeMax = computed(() => (action.value === 'step' ? nextStep.value?.max ?? null : action.value === 'finish' ? Number(props.target?.task?.grade) || null : null));
+const gradesOn = computed(() => props.settings.grade_entry_enabled !== false);
+const gradeMax = computed(() => (!gradesOn.value ? null : action.value === 'step' ? nextStep.value?.max ?? null : action.value === 'finish' ? Number(props.target?.task?.grade) || null : null));
 const title = computed(() => t(`supervisorCode.${action.value}Title`));
 
 watch(
@@ -74,7 +75,7 @@ watch(
     },
 );
 
-const canSubmit = computed(() => code.value.length === 6 && !busy.value && (action.value !== 'step' || (nextStep.value && (nextStep.value.max === null || grade.value !== null))));
+const canSubmit = computed(() => code.value.length === 6 && !busy.value && (action.value !== 'step' || (nextStep.value && (nextStep.value.max === null || !gradesOn.value || grade.value !== null))));
 
 const submit = async () => {
     busy.value = true;
@@ -162,7 +163,7 @@ const onCode = (e) => {
                         <span class="font-medium">{{ t('supervisorCode.nextStep', { label: nextStep.label }) }}</span>
                         <span class="text-xs">{{ steps.filter((s) => s.signed).length }}/{{ steps.length }}</span>
                     </div>
-                    <GradePicker v-if="nextStep.max !== null" v-model="grade" :max="nextStep.max" />
+                    <GradePicker v-if="nextStep.max !== null && gradesOn" v-model="grade" :max="nextStep.max" />
                 </template>
             </template>
 

@@ -17,6 +17,7 @@ const props = defineProps({
     settings: Object,
     canEdit: Boolean,
     myCode: { type: Object, default: null },
+    canOpenGeneral: Boolean,
 });
 const { t } = useI18n();
 
@@ -123,15 +124,20 @@ const actionIcon = { start: 'play_circle', step: 'checklist', finish: 'task_alt'
                     <p v-if="!form.supervisor_code_enabled" class="mt-4 rounded-xl bg-amber-400/20 p-2 text-center text-xs text-amber-50">{{ t('formSettings.codeOff') }}</p>
                 </div>
 
+                <!-- Forms and task switches live with the general settings (2026-10-22, by request). -->
+                <Link
+                    v-if="canOpenGeneral"
+                    :href="route('clinic-settings.edit')"
+                    class="flex items-center gap-3 rounded-2xl bg-white p-4 text-sm text-gray-700 shadow-sm ring-1 ring-gray-100 hover:bg-gray-50"
+                >
+                    <Icon name="settings" class="text-indigo-600" />
+                    <span class="flex-1">{{ t('formSettings.generalLink') }}</span>
+                    <Icon name="chevron_left" class="text-gray-400" />
+                </Link>
+
                 <p v-if="!canEdit" class="rounded-xl bg-gray-50 p-3 text-sm text-gray-600 ring-1 ring-gray-200">{{ t('formSettings.readOnly') }}</p>
 
                 <fieldset :disabled="!canEdit" class="space-y-5">
-                    <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
-                        <h3 class="mb-1 flex items-center gap-2 font-semibold text-gray-900"><Icon name="description" class="text-indigo-600" />{{ t('formSettings.formsSection') }}</h3>
-                        <SettingsToggle v-model="form.electronic_forms_enabled" :label="t('formSettings.electronic')" :hint="t('formSettings.electronicHint')" />
-                        <SettingsToggle v-model="form.paper_forms_enabled" :label="t('formSettings.paper')" :hint="t('formSettings.paperHint')" />
-                    </section>
-
                     <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
                         <h3 class="mb-1 flex items-center gap-2 font-semibold text-gray-900"><Icon name="grade" class="text-amber-500" />{{ t('formSettings.gradesSection') }}</h3>
                         <SettingsToggle v-model="form.show_grades_to_doctors" :label="t('formSettings.showGrades')" :hint="t('formSettings.showGradesHint')" />

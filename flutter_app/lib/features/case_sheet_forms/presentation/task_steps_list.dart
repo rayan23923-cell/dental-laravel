@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
+import '../../form_settings/presentation/grade_picker.dart';
 import '../../tasks_admin/domain/task_scoring.dart';
 
 /// A case's steps, signed one after another with each one's grade
@@ -72,7 +73,8 @@ class _TaskStepsListState extends ConsumerState<TaskStepsList> {
     final t = ref.read(translationsProvider);
     final max = (step['max'] as num?)?.toDouble();
     double? grade;
-    if (max != null) {
+    // Grades switched off for the whole system (2026-10-22): signed without one.
+    if (max != null && widget.data['grades_on'] != false) {
       grade = double.tryParse(_grade.text.trim().replaceAll(',', '.'));
       if (grade == null || grade < 0 || grade > max) {
         setState(() => _error = trf(t['taskSteps.gradeRange']!, {'max': fmtPoints(max)}));
@@ -140,7 +142,8 @@ class _TaskStepsListState extends ConsumerState<TaskStepsList> {
         const SizedBox(height: 6),
         for (var i = 0; i < steps.length; i++)
           _row(t, colors, steps[i], i, isNext: i == next, isLast: i == last, canSign: canSign),
-        if (canSign) _addForm(t),
+        // Adding a step: its own permission and system switch (2026-10-22).
+        if ((widget.data['can_add_step'] as bool?) ?? canSign) _addForm(t),
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 4),
@@ -280,22 +283,28 @@ class _TaskStepsListState extends ConsumerState<TaskStepsList> {
                 padding: const EdgeInsets.only(top: 6),
                 child: Row(
                   children: [
-                    if (max != null) ...[
-                      SizedBox(
-                        width: 90,
-                        child: TextField(
-                          controller: _grade,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          textDirection: TextDirection.ltr,
-                          decoration: InputDecoration(
-                            isDense: true,
-                            labelText: t['taskSteps.grade'],
-                            border: const OutlineInputBorder(),
-                          ),
-                        ),
+                    if (max != null && widget.data['grades_on'] != false) ...[
+                      // Picked with a tap (2026-10-22, by request).
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.touch_app_outlined, size: 18),
+                        label: Text('${_grade.text.isEmpty ? '—' : _grade.text} / ${fmtPoints(max)}'),
+                        onPressed: () async {
+                          final picked = await showGradePickerSheet(
+                            context,
+                            max: max.toDouble(),
+                            initial: double.tryParse(_grade.text),
+                            title: '${t['gradePicker.title']!} · ${step['label']}',
+                            confirm: t['gradePicker.confirm']!,
+                            labels: {
+                              'outOf': t['gradePicker.outOf']!,
+                              'full': t['gradePicker.full']!,
+                              'half': t['gradePicker.half']!,
+                              'clear': t['gradePicker.clear']!,
+                            },
+                          );
+                          if (picked != null) setState(() => _grade.text = fmtPoints(picked));
+                        },
                       ),
-                      const SizedBox(width: 4),
-                      Text('/ ${fmtPoints(max)}'),
                       const Spacer(),
                     ] else
                       const Spacer(),

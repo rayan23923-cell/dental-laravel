@@ -31,6 +31,9 @@ class TaskStartRequests
     public static function create(Doctor $doctor, Task $task, string $formType, ?UploadedFile $photo, ?string $notes): TaskStartRequest
     {
         self::ensureCanStart($doctor, $task, $formType);
+        if (! FormSettings::on('task_start_enabled')) {
+            throw ValidationException::withMessages(['task_id' => 'بدء المهام متوقف حالياً من إعدادات النماذج.']);
+        }
         if (TaskStartRequest::where('doctor_id', $doctor->id)->where('task_id', $task->id)->where('status', 'pending')->exists()) {
             throw ValidationException::withMessages(['task_id' => 'لديك طلب بدء لهذه المهمة بانتظار الموافقة.']);
         }

@@ -45,6 +45,8 @@ class ClinicSettingController extends Controller
             'lab_fee' => ['nullable', 'numeric', 'min:0'],
             'lab_validity_days' => ['nullable', 'integer', 'min:0', 'max:3650'],
             'groups_enabled' => ['sometimes', 'boolean'],
+            // Forms and task switches for the whole system (2026-10-22).
+            ...\App\Support\FormSettings::generalRules(),
             'clinic_timezone' => ['nullable', 'string', 'max:64'],
             'base_url' => ['nullable', 'string', 'max:255'],
             'university_name' => ['nullable', 'string', 'max:255'],
@@ -85,6 +87,7 @@ class ClinicSettingController extends Controller
             $validated['university_logo'] = $request->file('university_logo')->store('clinic', 'public');
         }
 
+        \App\Support\FormSettings::ensureAFormIsOn($validated);
         $settings->update($validated);
 
         return response()->json($this->payload($settings->fresh(), $request));

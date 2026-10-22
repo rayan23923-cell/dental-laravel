@@ -41,7 +41,10 @@ class TaskWorkController extends Controller
             'work_items' => $fromSheet[0] ?? $taskInstance->work_items ?? [],
             'points' => $fromSheet[1] ?? $taskInstance->points,
             'from_sheet' => $fromSheet !== null,
-            'can_edit' => ! $doctor && $this->canEdit(),
+            'can_edit' => ! $doctor && $this->canEdit() && FormSettings::on('grade_entry_enabled'),
+            // System-wide switches (2026-10-22).
+            'grades_on' => FormSettings::on('grade_entry_enabled'),
+            'can_add_step' => ! $doctor && $this->can('add_step') && FormSettings::on('step_add_enabled'),
             // Its steps, signed one after another (2026-10-18).
             'steps' => TaskSteps::list($taskInstance->task, $taskInstance),
             'can_sign' => ! $doctor && $this->canSign(),
@@ -82,7 +85,8 @@ class TaskWorkController extends Controller
     /** Adds a step with its name and top grade to this case (2026-10-19, by request). */
     public function addExtraStep(Request $request, TaskInstance $taskInstance): JsonResponse
     {
-        abort_unless($this->canSign(), 403);
+        // Its own permission (2026-10-22, was signing steps).
+        abort_unless($this->can('add_step'), 403);
         $validated = $request->validate([
             'label' => ['required', 'string', 'max:100'],
             'max' => ['required', 'numeric', 'min:0.5', 'max:100'],
@@ -111,6 +115,7 @@ class TaskWorkController extends Controller
     public function update(Request $request, TaskInstance $taskInstance): JsonResponse
     {
         abort_unless($this->canEdit(), 403);
+        abort_unless(FormSettings::on('grade_entry_enabled'), 422, 'إدخال الدرجات متوقف حالياً من إعدادات النماذج.');
         $taskInstance->loadMissing('task');
 
         // Steps added by hand to a sheet-graded task are graded here (2026-10-16).

@@ -68,6 +68,9 @@ const switchTab = (key) => {
 };
 
 const page = usePage();
+// Start, complete and grades switched off for the whole system (2026-10-22).
+const switches = computed(() => page.props.taskSwitches ?? {});
+const isOn = (key) => switches.value[key] !== false;
 // Groups turned off in clinic settings: no day/group step, the chosen
 // stage's doctors are shown directly (task-progress.stage).
 const groupsEnabled = computed(() => page.props.groupsEnabled !== false);
@@ -656,11 +659,11 @@ const startFromScan = () => {
                                                                     >
                                                                         <Icon name="checklist" class="ml-1" />{{ t('taskSteps.button', { done: Math.min(card.steps_signed, card.steps_count), total: card.steps_count }) }}
                                                                     </button>
-                                                                    <button v-if="card.status === 'unassigned'" @click.stop="openStart(doctor, card)" class="rounded bg-indigo-600 px-2 py-1 text-white hover:bg-indigo-700">
+                                                                    <button v-if="card.status === 'unassigned' && isOn('task_start_enabled')" @click.stop="openStart(doctor, card)" class="rounded bg-indigo-600 px-2 py-1 text-white hover:bg-indigo-700">
                                                                         {{ t('taskProgressAdmin.startTask') }}
                                                                     </button>
                                                                     <button
-                                                                        v-if="card.status === 'assigned'"
+                                                                        v-if="card.status === 'assigned' && isOn('task_finish_enabled')"
                                                                         @click.stop="openComplete(card)"
                                                                         class="rounded px-2 py-1 text-white"
                                                                         :class="card.all_signed ? 'bg-emerald-600 ring-2 ring-emerald-300 hover:bg-emerald-700' : 'bg-green-600 hover:bg-green-700'"
@@ -817,7 +820,7 @@ const startFromScan = () => {
                 <p class="mt-1 text-sm text-gray-500">{{ stepsTarget?.doctor.name }} — {{ stepsTarget?.card.task_title }}</p>
                 <div v-if="!stepsData" class="mt-4 text-sm text-gray-500">…</div>
                 <div v-else class="mt-4">
-                    <TaskStepsList :steps="stepsData.steps" :instance-id="stepsTarget.card.instance_id" :can-sign="stepsData.can_sign" @updated="stepsData = $event" />
+                    <TaskStepsList :steps="stepsData.steps" :instance-id="stepsTarget.card.instance_id" :can-sign="stepsData.can_sign" :can-add-step="stepsData.can_add_step ?? stepsData.can_sign" @updated="stepsData = $event" />
                     <p v-if="stepsData.points !== null && stepsData.points !== undefined" class="mt-3 text-sm font-semibold text-indigo-800">
                         {{ t('taskScoring.pointsValue', { n: stepsData.points }) }}
                     </p>
@@ -839,7 +842,7 @@ const startFromScan = () => {
                 <div class="mt-4">
                     <InputLabel for="complete-grade" :value="completeTarget?.task_grade ? t('taskProgressAdmin.gradeWithMax', { max: completeTarget.task_grade }) : t('tasksAdmin.gradeColShort')" />
                     <!-- Picked with a tap (2026-10-22, by request). -->
-                    <div v-if="completeTarget?.task_grade" class="mt-1">
+                    <div v-if="completeTarget?.task_grade && isOn('grade_entry_enabled')" class="mt-1">
                         <GradeInput
                             :model-value="completeForm.grade === '' || completeForm.grade === null ? null : Number(completeForm.grade)"
                             :max="Number(completeTarget.task_grade)"
@@ -875,7 +878,7 @@ const startFromScan = () => {
                 <div class="mt-4">
                     <InputLabel for="edit-grade" :value="editTarget?.task_grade ? t('taskProgressAdmin.gradeWithMax', { max: editTarget.task_grade }) : t('tasksAdmin.gradeColShort')" />
                     <!-- Picked with a tap (2026-10-22, by request). -->
-                    <div v-if="editTarget?.task_grade" class="mt-1">
+                    <div v-if="editTarget?.task_grade && isOn('grade_entry_enabled')" class="mt-1">
                         <GradeInput
                             :model-value="editForm.grade === '' || editForm.grade === null ? null : Number(editForm.grade)"
                             :max="Number(editTarget.task_grade)"

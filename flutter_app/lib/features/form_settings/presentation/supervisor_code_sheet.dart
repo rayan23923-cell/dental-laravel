@@ -77,7 +77,9 @@ class _SupervisorCodeSheetState extends ConsumerState<_SupervisorCodeSheet> {
 
   CaseStep? get _nextStep => _steps?.where((s) => !s.signed).firstOrNull;
 
-  double? get _gradeMax => switch (_action) {
+  bool get _gradesOn => widget.settings.on('grade_entry_enabled');
+
+  double? get _gradeMax => !_gradesOn ? null : switch (_action) {
         'step' => _nextStep?.max,
         'finish' => widget.taskGrade,
         _ => null,
@@ -125,7 +127,7 @@ class _SupervisorCodeSheetState extends ConsumerState<_SupervisorCodeSheet> {
   bool get _ready =>
       !_busy &&
       _code.text.length == 6 &&
-      (_action != 'step' || (_nextStep != null && (_nextStep!.max == null || _grade != null)));
+      (_action != 'step' || (_nextStep != null && (_nextStep!.max == null || !_gradesOn || _grade != null)));
 
   Future<void> _submit() async {
     setState(() {

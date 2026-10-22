@@ -29,6 +29,7 @@ import '../../printing/presentation/ticket_print_animation.dart';
 import '../../printing/presentation/ticket_renderer.dart';
 import '../../task_start_requests/presentation/task_start_request_providers.dart';
 import '../../task_start_requests/presentation/task_start_requests_view.dart';
+import '../../form_settings/data/form_settings_repository.dart';
 import '../data/task_progress_repository.dart';
 import '../domain/task_progress_group.dart';
 import 'task_progress_pdf.dart';
@@ -1048,6 +1049,8 @@ class _TaskSlotTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Start and complete switched off for the whole system (2026-10-22).
+    final switches = ref.watch(taskSwitchesProvider).valueOrNull ?? const FormSettings();
     final t = ref.watch(translationsProvider);
     return ListTile(
       title: Text('${card.taskTitle} (${card.slot})'),
@@ -1105,7 +1108,7 @@ class _TaskSlotTile extends ConsumerWidget {
           Wrap(
             spacing: 4,
             children: [
-              if (card.status == 'unassigned')
+              if (card.status == 'unassigned' && switches.on('task_start_enabled'))
                 TextButton(
                   onPressed: () => screen._startTask(
                     doctor.id,
@@ -1116,7 +1119,7 @@ class _TaskSlotTile extends ConsumerWidget {
                   ),
                   child: Text(t['taskProgressAdmin.startTask']!),
                 ),
-              if (card.status == 'assigned')
+              if (card.status == 'assigned' && switches.on('task_finish_enabled'))
                 TextButton(
                   onPressed: () => screen._completeTask(card),
                   style: card.allSigned

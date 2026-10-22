@@ -129,4 +129,27 @@ class SupervisorCodeTest extends TestCase
             ->assertJsonValidationErrors('form_type');
         $this->assertStringNotContainsString('17', json_encode(collect($this->getJson('/api/v1/my-task-progress')->json())->pluck('doctor.tasks')));
     }
+
+    public function test_task_switches_turn_features_off_for_everyone(): void
+    {
+        ClinicSetting::current()->update(['task_start_enabled' => false, 'task_finish_enabled' => false, 'grade_entry_enabled' => false, 'step_add_enabled' => false]);
+        $admin = User::factory()->create(['role' => 'super_admin']);
+
+        $this->actingAs($admin)->post(route('task-progress.start'), ['doctor_id' => $this->doctor->id, 'task_id' => $this->task->id])
+            ->assertSessionHas('error');
+        $this->assertSame(0, TaskInstance::count());
+
+        $instance = TaskInstance::create(['task_id' => $this->task->id, 'doctor_id' => $this->doctor->id, 'status' => 'assigned']);
+        // Steps are signed without a grade; no step can be added.
+        $this->postJson(route('case-sheets.instance-steps.sign', $instance), ['step' => 's:custom_1'])->assertOk();
+        $this->postJson(route('case-sheets.instance-steps.add', $instance), ['label' => 'زيادة', 'max' => 5])->assertJsonValidationErrors('label');
+        $this->put(route('task-progress.complete', $instance), ['grade' => 15])->assertSessionHas('error');
+        $this->assertSame('assigned', $instance->fresh()->status);
+
+        $this->actingAs($this->doctor, 'doctor')
+            ->postJson(route('doctor.task-start-requests.store'), ['task_id' => $this->task->id, 'form_type' => 'electronic'])
+            ->assertJsonValidationErrors('task_id');
+        $this->getJson(route('doctor.form-settings'))->assertJsonPath('task_start_enabled', false)
+            ->assertJsonPath('supervisor_code_actions', ['step']);
+    }
 }

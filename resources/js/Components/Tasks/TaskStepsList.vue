@@ -2,6 +2,7 @@
 import GradeInput from '@/Components/GradeInput.vue';
 import { stepsFromScoring } from '@/Components/Tasks/workItems.js';
 import axios from 'axios';
+import { usePage } from '@inertiajs/vue3';
 import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -20,6 +21,8 @@ const props = defineProps({
     scoring: { type: Object, default: null },
     instanceId: { type: [Number, String], default: null },
     canSign: { type: Boolean, default: true },
+    // Adding a step is its own permission (2026-10-22).
+    canAddStep: { type: Boolean, default: false },
     modelValue: { type: Array, default: () => [] },
 });
 const emit = defineEmits(['update:modelValue', 'updated']);
@@ -39,13 +42,16 @@ const lastSigned = computed(() => {
 });
 
 const grades = reactive({});
+// System-wide switches (2026-10-22): grades and added steps can be off.
+const switches = computed(() => usePage().props.taskSwitches ?? {});
+const gradesOn = computed(() => switches.value.grade_entry_enabled !== false);
 const busy = ref(false);
 const error = ref('');
 
 const sign = async (row) => {
     error.value = '';
-    const grade = row.max === null ? null : grades[row.key];
-    if (row.max !== null && (grade === undefined || grade === null || grade === '' || grade < 0 || grade > row.max)) {
+    const grade = row.max === null || !gradesOn.value ? null : grades[row.key];
+    if (row.max !== null && gradesOn.value && (grade === undefined || grade === null || grade === '' || grade < 0 || grade > row.max)) {
         error.value = t('taskSteps.gradeRange', { max: row.max });
         return;
     }
@@ -150,7 +156,7 @@ const undo = async (row) => {
                         </button>
                     </template>
                     <template v-else-if="canSign && i === nextIndex">
-                        <span v-if="row.max !== null" class="flex items-center gap-1">
+                        <span v-if="row.max !== null && gradesOn" class="flex items-center gap-1">
                             <!-- Picked with a tap (2026-10-22, by request). -->
                             <GradeInput v-model="grades[row.key]" :max="row.max" :title="row.label" />
                         </span>
@@ -174,7 +180,7 @@ const undo = async (row) => {
                 </p>
             </li>
         </ol>
-        <template v-if="!local && canSign">
+        <template v-if="!local && canAddStep && switches.step_add_enabled !== false">
             <form v-if="adding" class="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-indigo-300 p-2" @submit.prevent="addExtra">
                 <input
                     v-model="extra.label"

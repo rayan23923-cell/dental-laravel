@@ -10,6 +10,21 @@ final formSettingsRepositoryProvider = Provider<FormSettingsRepository>((ref) {
 
 /// What a student's screens follow (`GET /my-form-settings`). An older
 /// server without it answers 404, read as everything on and no code.
+/// The system-wide switches for staff screens (`GET /form-settings`); all
+/// on when it can't be read (an older server or no access).
+final taskSwitchesProvider = FutureProvider.autoDispose<FormSettings>((ref) async {
+  try {
+    return (await ref.watch(formSettingsRepositoryProvider).get()).settings;
+  } catch (_) {
+    return const FormSettings();
+  }
+});
+
+Map<String, bool> _switches(Map<String, dynamic> json) => {
+      for (final key in const ['task_start_enabled', 'task_finish_enabled', 'task_lists_enabled', 'grade_entry_enabled', 'step_add_enabled'])
+        if (json[key] is bool) key: json[key] as bool,
+    };
+
 final myFormSettingsProvider = FutureProvider.autoDispose<DoctorFormSettings>((ref) async {
   try {
     return await ref.watch(formSettingsRepositoryProvider).mine();
@@ -78,6 +93,7 @@ class FormSettings {
     this.codeEnabled = false,
     this.period = 'daily',
     this.actions = const ['start', 'step', 'finish'],
+    this.switches = const {},
   });
 
   factory FormSettings.fromJson(Map<String, dynamic> json) => FormSettings(
@@ -87,7 +103,12 @@ class FormSettings {
         codeEnabled: json['supervisor_code_enabled'] as bool? ?? false,
         period: json['supervisor_code_period'] as String? ?? 'daily',
         actions: [for (final a in (json['supervisor_code_actions'] as List<dynamic>? ?? const [])) a as String],
+        switches: _switches(json),
       );
+
+  /// Task progress switched on/off for the whole system (2026-10-22).
+  final Map<String, bool> switches;
+  bool on(String key) => switches[key] ?? true;
 
   final bool electronic;
   final bool paper;
@@ -112,6 +133,7 @@ class FormSettings {
         codeEnabled: codeEnabled ?? this.codeEnabled,
         period: period ?? this.period,
         actions: actions ?? this.actions,
+        switches: switches,
       );
 }
 
@@ -144,19 +166,22 @@ class SupervisorCodeNow {
 }
 
 class DoctorFormSettings {
-  const DoctorFormSettings({this.electronic = true, this.paper = true, this.showGrades = true, this.codeActions = const []});
+  const DoctorFormSettings({this.electronic = true, this.paper = true, this.showGrades = true, this.codeActions = const [], this.switches = const {}});
 
   factory DoctorFormSettings.fromJson(Map<String, dynamic> json) => DoctorFormSettings(
         electronic: json['electronic_forms_enabled'] as bool? ?? true,
         paper: json['paper_forms_enabled'] as bool? ?? true,
         showGrades: json['show_grades'] as bool? ?? true,
         codeActions: [for (final a in (json['supervisor_code_actions'] as List<dynamic>? ?? const [])) a as String],
+        switches: _switches(json),
       );
 
   final bool electronic;
   final bool paper;
   final bool showGrades;
   final List<String> codeActions;
+  final Map<String, bool> switches;
+  bool on(String key) => switches[key] ?? true;
 
   bool get codeCanStart => codeActions.contains('start');
   bool get codeCanProgress => codeActions.contains('step') || codeActions.contains('finish');
