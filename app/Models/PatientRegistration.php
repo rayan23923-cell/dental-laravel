@@ -89,6 +89,12 @@ class PatientRegistration extends Model
         return $this->hasMany(Payment::class, 'patient_registration_id');
     }
 
+    /** Case-sheet work started for this visit (`TaskInstance`). */
+    public function taskInstances(): HasMany
+    {
+        return $this->hasMany(TaskInstance::class, 'patient_registration_id');
+    }
+
     /**
      * The lab/reception staff member who last recorded a screening result
      * (`PatientScreeningGate`/`confirmScreening()`). No FK, same reasoning
