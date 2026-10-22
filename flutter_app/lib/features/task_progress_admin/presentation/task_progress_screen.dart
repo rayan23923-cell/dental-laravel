@@ -504,6 +504,8 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
     );
     final notesController = TextEditingController(text: initialNotes ?? '');
     final t = ref.read(translationsProvider);
+    // Grade entry switched off for the whole system (2026-10-22): notes only.
+    final gradesOn = (ref.read(taskSwitchesProvider).valueOrNull ?? const FormSettings()).on('grade_entry_enabled');
     return showDialog<(double?, String?)>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -511,6 +513,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (gradesOn) ...[
             TextField(
               controller: gradeController,
               keyboardType: const TextInputType.numberWithOptions(
@@ -523,6 +526,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
               ),
             ),
             const SizedBox(height: 12),
+            ],
             TextField(
               controller: notesController,
               decoration: InputDecoration(
@@ -540,7 +544,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop((
-              gradeController.text.trim().isEmpty
+              !gradesOn || gradeController.text.trim().isEmpty
                   ? null
                   : double.tryParse(gradeController.text.trim()),
               notesController.text.trim().isEmpty
