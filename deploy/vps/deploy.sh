@@ -38,7 +38,8 @@ if sudo docker ps --format '{{.Names}}' | grep -qx dental-db; then
     echo "Backed up to $backups (db_$stamp.sql.gz)."
 fi
 
-compose build
+# --pull fetches the newest base images (PHP security fixes) instead of a cached copy.
+compose build --pull
 compose up -d
 
 echo "Waiting for the app to finish migrating..."
@@ -56,4 +57,5 @@ if [ "$first_run" = yes ]; then
     echo "Admin password saved to ~/dental-admin-password.txt"
 fi
 
+echo "PHP $(sudo docker exec dental-app php -r 'echo PHP_VERSION;')"
 compose ps

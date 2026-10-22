@@ -3,7 +3,8 @@
 #   app  - PHP-FPM with the application, vendor/ and the built Vite assets
 #   web  - nginx serving public/ and handing PHP to `app`
 
-FROM php:8.3-fpm-alpine AS base
+# PHP pinned to a patch release: 8.3.36 fixes CVE-2026-109618/109619 (2026-10-22).
+FROM php:8.3.36-fpm-alpine AS base
 RUN apk add --no-cache icu-libs libzip libpng libjpeg-turbo libwebp freetype mariadb-client \
     && apk add --no-cache --virtual .build $PHPIZE_DEPS icu-dev libzip-dev libpng-dev libjpeg-turbo-dev libwebp-dev freetype-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
