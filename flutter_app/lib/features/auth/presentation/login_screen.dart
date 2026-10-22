@@ -8,6 +8,7 @@ import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/instagram_spinner.dart';
+import '../../../core/widgets/server_status_indicator.dart';
 import '../data/auth_repository.dart';
 import '../data/branding_repository.dart';
 import 'auth_controller.dart';
@@ -392,9 +393,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ? const InstagramSpinner(size: 20, strokeWidth: 2)
                           : Text(t['auth.signIn']!),
                     ),
+                    // Server connection: green/red, tap to reconnect (2026-10-22).
+                    const SizedBox(height: 12),
+                    const Center(child: ServerStatusChip()),
                     // Cloud or the clinic's offline server (2026-10-17).
                     if (!kIsWeb) ...[
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 4),
                       Center(
                         child: TextButton.icon(
                           onPressed: isLoading ? null : () => context.push('/server'),

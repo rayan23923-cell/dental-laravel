@@ -10,6 +10,7 @@ import '../../features/notifications/presentation/notifications_providers.dart';
 import '../i18n/locale_controller.dart';
 import '../router/nav_destinations.dart';
 import '../theme/app_theme.dart';
+import 'server_status_indicator.dart';
 import 'settings_menu_sheet.dart';
 
 /// The sidebar's own content — a ChatGPT-style persistent nav list with a
@@ -70,10 +71,18 @@ class AppSidebar extends ConsumerWidget {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    t['nav.clinicName']!,
-                    style: theme.textTheme.titleMedium,
-                    overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        t['nav.clinicName']!,
+                        style: theme.textTheme.titleMedium,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      // Server connection: green/red, tap to reconnect (2026-10-22).
+                      const ServerStatusChip(dense: true),
+                    ],
                   ),
                 ),
               ],

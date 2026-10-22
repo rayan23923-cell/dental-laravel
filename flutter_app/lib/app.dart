@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/updater/desktop_update_gate.dart';
+import 'core/widgets/server_status_indicator.dart';
 import 'features/case_sheet_forms/data/case_sheet_sync_service.dart';
 
 class App extends ConsumerWidget {
@@ -38,7 +39,11 @@ class App extends ConsumerWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       routerConfig: router,
-      builder: (context, child) => DesktopUpdateGate(child: child ?? const SizedBox.shrink()),
+      // Connection strip at the bottom while the server is unreachable
+      // (2026-10-22) — see ServerStatusFrame.
+      builder: (context, child) => DesktopUpdateGate(
+        child: ServerStatusFrame(child: child ?? const SizedBox.shrink()),
+      ),
     );
   }
 }
