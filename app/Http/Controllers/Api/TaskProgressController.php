@@ -233,6 +233,10 @@ class TaskProgressController extends Controller
     /** Signs the steps ticked in the start dialog, in order (2026-10-18). */
     private static function signSteps(TaskInstance $instance, array $steps, Request $request): void
     {
+        // Steps switched off for the whole system (2026-10-22): none signed.
+        if (! \App\Support\FormSettings::on('steps_enabled')) {
+            return;
+        }
         $signer = CaseSheetSignatures::signerName($request);
         foreach ($steps as $step) {
             TaskSteps::sign($instance->fresh(), $step['step'], $step['grade'] ?? null, $signer);

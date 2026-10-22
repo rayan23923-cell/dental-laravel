@@ -1259,6 +1259,7 @@
         "empty": "No notifications."
     },
     "taskSteps": {
+        "gradesOff": "Grade entry is off, so a graded step can't be signed.",
         "title": "Work steps",
         "progress": "{done} of {total}",
         "sign": "Sign",
@@ -1406,7 +1407,9 @@
         "task_lists_enabled": "Pending and completed lists",
         "task_lists_enabledHint": "The waiting and not-started tabs and the completed count on the student's account.",
         "grade_entry_enabled": "Enter grades",
-        "grade_entry_enabledHint": "When off, steps are signed and tasks completed without a grade.",
+        "grade_entry_enabledHint": "When off, tasks are completed without a grade and graded steps can't be signed.",
+        "steps_enabled": "Fill in steps",
+        "steps_enabledHint": "When off, task steps are hidden and can't be signed.",
         "step_add_enabled": "Add a step",
         "step_add_enabledHint": "Add a new step with its name and grade to one case.",
         "generalLink": "Paper and electronic forms and the task progress switches are in the general settings"

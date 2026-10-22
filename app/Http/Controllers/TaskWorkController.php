@@ -44,10 +44,11 @@ class TaskWorkController extends Controller
             'can_edit' => ! $doctor && $this->canEdit() && FormSettings::on('grade_entry_enabled'),
             // System-wide switches (2026-10-22).
             'grades_on' => FormSettings::on('grade_entry_enabled'),
-            'can_add_step' => ! $doctor && $this->can('add_step') && FormSettings::on('step_add_enabled'),
-            // Its steps, signed one after another (2026-10-18).
-            'steps' => TaskSteps::list($taskInstance->task, $taskInstance),
-            'can_sign' => ! $doctor && $this->canSign(),
+            'can_add_step' => ! $doctor && $this->can('add_step') && FormSettings::on('step_add_enabled') && FormSettings::on('steps_enabled'),
+            // Its steps, signed one after another (2026-10-18); none while
+            // steps are switched off for the whole system (2026-10-22).
+            'steps' => FormSettings::on('steps_enabled') ? TaskSteps::list($taskInstance->task, $taskInstance) : [],
+            'can_sign' => ! $doctor && $this->canSign() && FormSettings::on('steps_enabled'),
         ];
         // Grades hidden from students in forms settings, and from staff
         // without `view_grade` (2026-10-22).

@@ -65,6 +65,7 @@ class FormSettingsController extends Controller
         $off = array_keys(array_filter([
             'start' => ! $settings['task_start_enabled'],
             'finish' => ! $settings['task_finish_enabled'],
+            'step' => ! $settings['steps_enabled'],
         ]));
 
         return array_values(array_diff($settings['supervisor_code_actions'], $off));

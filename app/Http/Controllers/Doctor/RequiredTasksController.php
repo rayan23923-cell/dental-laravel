@@ -57,7 +57,7 @@ class RequiredTasksController extends Controller
                     $slots = [];
                     for ($i = 0; $i < $required; $i++) {
                         $instance = $own[$i] ?? null;
-                        $steps = $instance ? TaskSteps::list($task, $instance) : [];
+                        $steps = $instance && FormSettings::on('steps_enabled') ? TaskSteps::list($task, $instance) : [];
                         $slots[] = [
                             'slot' => $i + 1,
                             'instance_id' => $instance?->id,

@@ -71,6 +71,7 @@ class ClinicSetting extends Model
         'task_lists_enabled',
         'grade_entry_enabled',
         'step_add_enabled',
+        'steps_enabled',
     ];
 
     /**
@@ -111,6 +112,7 @@ class ClinicSetting extends Model
             'task_lists_enabled' => 'boolean',
             'grade_entry_enabled' => 'boolean',
             'step_add_enabled' => 'boolean',
+            'steps_enabled' => 'boolean',
         ];
     }
 

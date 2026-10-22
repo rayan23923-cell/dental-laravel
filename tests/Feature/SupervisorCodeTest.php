@@ -140,8 +140,8 @@ class SupervisorCodeTest extends TestCase
         $this->assertSame(0, TaskInstance::count());
 
         $instance = TaskInstance::create(['task_id' => $this->task->id, 'doctor_id' => $this->doctor->id, 'status' => 'assigned']);
-        // Steps are signed without a grade; no step can be added.
-        $this->postJson(route('case-sheets.instance-steps.sign', $instance), ['step' => 's:custom_1'])->assertOk();
+        // A graded step can't be signed without its grade (2026-10-22); no step can be added.
+        $this->postJson(route('case-sheets.instance-steps.sign', $instance), ['step' => 's:custom_1'])->assertJsonValidationErrors('grade');
         $this->postJson(route('case-sheets.instance-steps.add', $instance), ['label' => 'زيادة', 'max' => 5])->assertJsonValidationErrors('label');
         // The app reads these to hide the add-step button and the grade field, whatever the user's grants.
         $this->getJson(route('case-sheets.instance-work', $instance))->assertOk()
@@ -158,5 +158,21 @@ class SupervisorCodeTest extends TestCase
             ->assertJsonValidationErrors('task_id');
         $this->getJson(route('doctor.form-settings'))->assertJsonPath('task_start_enabled', false)
             ->assertJsonPath('supervisor_code_actions', ['step']);
+    }
+
+    public function test_steps_switched_off_are_hidden_and_refused(): void
+    {
+        ClinicSetting::current()->update(['steps_enabled' => false]);
+        $admin = User::factory()->create(['role' => 'super_admin']);
+        $instance = TaskInstance::create(['task_id' => $this->task->id, 'doctor_id' => $this->doctor->id, 'status' => 'assigned']);
+
+        $this->actingAs($admin)->getJson(route('case-sheets.instance-work', $instance))->assertOk()
+            ->assertJsonPath('steps', [])->assertJsonPath('can_sign', false)->assertJsonPath('can_add_step', false);
+        $this->postJson(route('case-sheets.instance-steps.sign', $instance), ['step' => 's:custom_1', 'grade' => 5])->assertJsonValidationErrors('step');
+        $this->postJson(route('case-sheets.instance-steps.add', $instance), ['label' => 'زيادة', 'max' => 5])->assertJsonValidationErrors('label');
+        $this->assertNull($instance->fresh()->step_signoffs);
+
+        $this->actingAs($this->doctor, 'doctor')->getJson(route('doctor.form-settings'))
+            ->assertJsonPath('steps_enabled', false)->assertJsonPath('supervisor_code_actions', ['start', 'finish']);
     }
 }

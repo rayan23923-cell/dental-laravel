@@ -278,7 +278,13 @@ class _TaskStepsListState extends ConsumerState<TaskStepsList> {
                   ),
               ],
             ),
-            if (!signed && isNext && canSign)
+            // No signing a graded step without its grade (2026-10-22, by request).
+            if (!signed && isNext && canSign && max != null && widget.data['grades_on'] == false)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(t['taskSteps.gradesOff']!, style: TextStyle(color: Colors.amber.shade800, fontSize: 12)),
+              )
+            else if (!signed && isNext && canSign)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Row(
