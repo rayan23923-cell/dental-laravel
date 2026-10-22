@@ -35,7 +35,7 @@ class UserCreatePermissionsTest extends TestCase
         $this->post('/users', $this->account('web', [
             'grants' => ['doctors.view', 'tasks.view'],
             'scope' => ['education_types' => [1], 'stages' => [1]],
-        ]))->assertSessionHasNoErrors()->assertRedirect(route('permissions.index'));
+        ]))->assertSessionHasNoErrors()->assertRedirect(route('users.index'));
 
         $user = User::where('username', 'web')->firstOrFail();
         $this->assertDatabaseHas('user_permissions', ['user_id' => $user->id, 'module' => 'doctors', 'permission' => 'view', 'granted' => true]);

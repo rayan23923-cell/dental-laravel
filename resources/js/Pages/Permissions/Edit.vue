@@ -62,7 +62,7 @@ const submit = () => {
         <template #header>
             <div class="flex items-center justify-between gap-2">
                 <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('permissionsAdmin.title') }}</h2>
-                <Link :href="route('permissions.index')" class="flex items-center gap-1 text-sm text-indigo-600 hover:underline">
+                <Link :href="route('users.edit', targetUser.id)" class="flex items-center gap-1 text-sm text-indigo-600 hover:underline">
                     {{ t('common.back') }}
                 </Link>
             </div>

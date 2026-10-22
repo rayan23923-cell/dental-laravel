@@ -91,6 +91,8 @@ class UserController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        UserAccountAdmin::ensureCanOpen($request->user(), 'view');
+
         return response()->json(
             User::query()
                 ->when($request->user()->role !== 'super_admin', fn ($q) => $q->where('role', '!=', 'super_admin'))

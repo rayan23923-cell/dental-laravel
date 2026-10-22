@@ -46,8 +46,21 @@ class UserAccountAdmin
         ];
     }
 
-    public static function ensureCanManage(User $actor, User $target): void
+    /**
+     * The users page is where admins also reach permissions and department
+     * roles since those left the menus (2026-10-22, by request), so every
+     * admin may open it, like the permissions page; another account needs
+     * the `users` grant.
+     */
+    public static function ensureCanOpen(mixed $actor, string $permission): void
     {
+        abort_unless($actor instanceof User
+            && ($actor->isAdmin() || (new PermissionManager($actor))->can('users', $permission)), 403);
+    }
+
+    public static function ensureCanManage(mixed $actor, User $target): void
+    {
+        self::ensureCanOpen($actor, 'edit');
         abort_if($target->role === 'super_admin' && $actor->role !== 'super_admin', 403);
     }
 

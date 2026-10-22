@@ -69,6 +69,13 @@ const filtered = computed(() => {
                         <Icon name="admin_panel_settings" />
                     </Link>
                     <Link
+                        :href="route('department-roles.index')"
+                        :title="t('permissionsAdmin.departmentRolesShort')"
+                        class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    >
+                        <Icon name="account_tree" />
+                    </Link>
+                    <Link
                         :href="route('users.create')"
                         :title="t('permissionsAdmin.addUserShort')"
                         class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-pink-500 text-white shadow hover:opacity-90"

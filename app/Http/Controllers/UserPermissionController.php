@@ -111,6 +111,7 @@ class UserPermissionController extends Controller
             ScopeHelper::saveScope($user, $scope);
         });
 
-        return redirect()->route('permissions.index')->with('success', "Permissions updated for {$user->full_name}.");
+        // Back to the user's page, where permissions are opened from (2026-10-22).
+        return redirect()->route('users.edit', $user)->with('success', "تم حفظ صلاحيات {$user->full_name}.");
     }
 }
