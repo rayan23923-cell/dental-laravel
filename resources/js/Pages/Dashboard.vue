@@ -156,7 +156,7 @@ const loadTasksByDept = async (id) => {
 
                 <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
                     <!-- أحدث المراجعين -->
-                    <section>
+                    <section v-if="can.patients">
                         <div class="mb-2 flex items-center justify-between px-1">
                             <h3 class="text-sm font-semibold text-gray-700">{{ t('dashboard.latestPatients') }}</h3>
                             <Link v-if="can.patients" :href="route('patient-registrations.index')" class="text-xs font-medium text-indigo-600 hover:underline">{{ t('dashboard.viewAll') }}</Link>

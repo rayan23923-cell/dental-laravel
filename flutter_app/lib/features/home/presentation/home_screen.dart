@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/auth/staff_access.dart';
 import '../../../core/i18n/locale_controller.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/academic_year_banner.dart';
 import '../../../core/widgets/chat_list_tile.dart';
 import '../../auth/domain/account_type.dart';
@@ -202,7 +203,9 @@ class _StaffDashboard extends ConsumerWidget {
               ChatListTile(title: r.$1, subtitle: r.$2, icon: r.$3, color: r.$4, onTap: r.$5),
           ],
         ),
-        if (role != 'lab' && role != 'accountant') ...[
+        // Only with the grant to open them (2026-10-22): an account without
+        // patients or payments saw "Instance of 'ForbiddenException'" here.
+        if (role != 'lab' && role != 'accountant' && allowed('/records/patient-registrations')) ...[
           const SizedBox(height: 20),
           _SectionHeader(
             title: t['home.latestPatients']!,
@@ -211,7 +214,7 @@ class _StaffDashboard extends ConsumerWidget {
           ),
           const _LatestRegistrations(),
         ],
-        if (!isDeskRole || role == 'accountant') ...[
+        if ((!isDeskRole || role == 'accountant') && allowed('/records/payments')) ...[
           const SizedBox(height: 20),
           _SectionHeader(
             title: t['home.latestPayments']!,
@@ -323,7 +326,7 @@ class _LatestRegistrations extends ConsumerWidget {
     final async = ref.watch(patientRegistrationListProvider(null));
     return async.when(
       loading: () => const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator())),
-      error: (e, _) => _SectionCard(children: [ListTile(title: Text(e.toString()))]),
+      error: (e, _) => _SectionCard(children: [ListTile(title: Text(e is ApiException ? e.userMessage : t['home.dashboardLoadFailed']!))]),
       data: (items) {
         if (items.isEmpty) return _SectionCard(children: [ListTile(title: Text(t['home.noPatientsYet']!))]);
         return _SectionCard(
@@ -362,7 +365,7 @@ class _LatestPayments extends ConsumerWidget {
     final money = NumberFormat('#,##0', 'en');
     return async.when(
       loading: () => const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator())),
-      error: (e, _) => _SectionCard(children: [ListTile(title: Text(e.toString()))]),
+      error: (e, _) => _SectionCard(children: [ListTile(title: Text(e is ApiException ? e.userMessage : t['home.dashboardLoadFailed']!))]),
       data: (page) {
         if (page.items.isEmpty) return _SectionCard(children: [ListTile(title: Text(t['home.noPaymentsYet']!))]);
         return _SectionCard(
