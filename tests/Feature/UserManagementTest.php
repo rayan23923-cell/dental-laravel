@@ -94,9 +94,18 @@ class UserManagementTest extends TestCase
         $other = User::factory()->create(['role' => 'editor']);
         $this->put("/users/{$other->id}", $this->details($other, ['role' => 'super_admin']))->assertSessionHasErrors('role');
 
-        // Without the users permission the page is closed.
+        // Every admin opens it (permissions and department roles live there
+        // now); another account needs the users grant.
         $plain = User::factory()->create(['role' => 'admin']);
-        $this->actingAs($plain)->get('/users')->assertForbidden();
+        $this->actingAs($plain)->get('/users')->assertOk();
+        $editor = User::factory()->create(['role' => 'editor']);
+        Sanctum::actingAs($editor);
+        $this->getJson('/api/v1/users')->assertForbidden();
+        $this->getJson("/api/v1/users/{$other->id}")->assertForbidden();
+        $granted = User::factory()->create(['role' => 'editor']);
+        UserPermission::create(['user_id' => $granted->id, 'module' => 'users', 'permission' => 'view', 'granted' => true]);
+        Sanctum::actingAs($granted);
+        $this->getJson('/api/v1/users')->assertOk();
     }
 
     public function test_the_api_twin(): void

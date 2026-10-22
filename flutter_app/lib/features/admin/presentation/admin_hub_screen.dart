@@ -62,9 +62,9 @@ class AdminHubScreen extends ConsumerWidget {
         _AdminItem(t['settingsMenu.printerSettings']!, Icons.print_outlined, '/admin/printer-settings'),
         _AdminItem(t['settingsMenu.clinicSettings']!, Icons.settings_outlined, '/admin/clinic-settings'),
         _AdminItem(t['registerSettings.title']!, Icons.tune, '/records/patient-registrations/settings'),
+        // Permissions and department roles open from the users screen
+        // (2026-10-22, by request).
         _AdminItem(t['settingsMenu.users']!, Icons.manage_accounts_outlined, '/admin/users'),
-        _AdminItem(t['settingsMenu.permissions']!, Icons.lock_outline, '/admin/permissions'),
-        _AdminItem(t['departmentRolesAdmin.shortTitle']!, Icons.workspace_premium_outlined, '/admin/department-roles'),
         _AdminItem(t['settingsMenu.activityLog']!, Icons.history_outlined, '/admin/activity-log'),
         _AdminItem(t['settingsMenu.backup']!, Icons.backup_outlined, '/admin/backup'),
         // Ported from the web (2026-10-17).

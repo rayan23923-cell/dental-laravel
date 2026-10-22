@@ -54,7 +54,7 @@ const submit = () => {
                     {{ t('usersAdmin.addUserTitle') }}
                 </h2>
                 <!-- Back to the users list (2026-10-18, by request). -->
-                <Link :href="route('permissions.index')" class="flex items-center gap-1 text-sm text-indigo-600 hover:underline">
+                <Link :href="route('users.index')" class="flex items-center gap-1 text-sm text-indigo-600 hover:underline">
                     {{ t('common.back') }}
                 </Link>
             </div>

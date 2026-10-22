@@ -24,6 +24,8 @@ class UserListScreen extends ConsumerStatefulWidget {
 
 class _UserListScreenState extends ConsumerState<UserListScreen> {
   String _query = '';
+  // Role filter, like the web page's chips (2026-10-22, by request).
+  String? _role;
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +40,11 @@ class _UserListScreenState extends ConsumerState<UserListScreen> {
             tooltip: t['settingsMenu.permissions'],
             icon: const Icon(Icons.lock_outline),
             onPressed: () => context.push('/admin/permissions'),
+          ),
+          IconButton(
+            tooltip: t['departmentRolesAdmin.shortTitle'],
+            icon: const Icon(Icons.workspace_premium_outlined),
+            onPressed: () => context.push('/admin/department-roles'),
           ),
         ],
       ),
@@ -56,12 +63,17 @@ class _UserListScreenState extends ConsumerState<UserListScreen> {
         ),
         data: (users) {
           final q = _query.trim().toLowerCase();
-          final shown = q.isEmpty
-              ? users
-              : users
-                  .where((u) => [u.fullName, u.username, u.email, u.phone ?? '', userRoleLabel(u.role)]
-                      .any((v) => v.toLowerCase().contains(q)))
-                  .toList();
+          final counts = <String, int>{};
+          for (final u in users) {
+            counts[u.role] = (counts[u.role] ?? 0) + 1;
+          }
+          final shown = users
+              .where((u) =>
+                  (_role == null || u.role == _role) &&
+                  (q.isEmpty ||
+                      [u.fullName, u.username, u.email, u.phone ?? '', userRoleLabel(u.role)]
+                          .any((v) => v.toLowerCase().contains(q))))
+              .toList();
           return Column(
             children: [
               Padding(
@@ -76,6 +88,33 @@ class _UserListScreenState extends ConsumerState<UserListScreen> {
                   onChanged: (v) => setState(() => _query = v),
                 ),
               ),
+              if (counts.length > 1)
+                SizedBox(
+                  height: 52,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsetsDirectional.only(end: 6),
+                        child: ChoiceChip(
+                          label: Text('${t['permissionsAdmin.allRoles']!} ${users.length}'),
+                          selected: _role == null,
+                          onSelected: (_) => setState(() => _role = null),
+                        ),
+                      ),
+                      for (final e in counts.entries)
+                        Padding(
+                          padding: const EdgeInsetsDirectional.only(end: 6),
+                          child: ChoiceChip(
+                            label: Text('${userRoleLabel(e.key)} ${e.value}'),
+                            selected: _role == e.key,
+                            onSelected: (on) => setState(() => _role = on ? e.key : null),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: () async => ref.invalidate(managedUsersProvider),

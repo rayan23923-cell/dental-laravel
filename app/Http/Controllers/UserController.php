@@ -31,6 +31,8 @@ class UserController extends Controller
 {
     public function index(Request $request): Response
     {
+        UserAccountAdmin::ensureCanOpen($request->user(), 'view');
+
         return Inertia::render('Users/Index', [
             // super_admin accounts are listed only to another super_admin.
             'users' => User::query()
@@ -122,8 +124,8 @@ class UserController extends Controller
         });
         CredentialMailer::queueWelcome('user', $user->email, $user->full_name, $user->username, $plainPassword);
 
-        // Its permissions were set on the same form, so back to the list.
-        return redirect()->route('permissions.index')
+        // Its permissions were set on the same form, so back to the users list.
+        return redirect()->route('users.index')
             ->with('success', "تمت إضافة المستخدم {$user->full_name} مع صلاحياته.");
     }
 }
