@@ -77,6 +77,40 @@ class LicensingPortalTest extends TestCase
         $this->assertSame('Tikrit University', $code->fresh()->university);
     }
 
+    public function test_each_university_activates_up_to_its_device_limit(): void
+    {
+        $this->actingAs($this->admin(), 'license');
+
+        $this->post('/licensing/universities', ['name' => 'جامعة تكريت', 'max_devices' => 2])->assertSessionHasNoErrors();
+        $university = LicenseUniversity::firstOrFail();
+        $this->assertSame(2, $university->max_devices);
+        $this->post("/licensing/universities/{$university->id}/codes", ['count' => 4]);
+        [$a, $b, $c, $d] = $university->licenses()->orderBy('id')->get()->all();
+
+        $activate = fn ($code, $machine) => $this->postJson('/api/v1/offline/activate', ['code' => $code->code, 'machine_id' => $machine]);
+        $activate($a, 'AAAA-0000-0000-0001')->assertOk();
+        $activate($b, 'AAAA-0000-0000-0002')->assertOk();
+        // A third computer is refused; the second code on the same computer is not a new device.
+        $activate($c, 'AAAA-0000-0000-0003')->assertStatus(422)->assertJsonPath('message', fn ($m) => str_contains($m, 'الحد الأقصى'));
+        $activate($c, 'AAAA-0000-0000-0002')->assertOk();
+        // Already activated computers keep working (a reinstall).
+        $activate($a, 'AAAA-0000-0000-0001')->assertOk();
+
+        $this->get("/licensing/universities/{$university->id}")->assertOk()->assertSee('2 / 2');
+
+        // Stopping a computer frees its place; restarting it then is over the limit.
+        $this->patch("/licensing/codes/{$a->id}", ['action' => 'revoke']);
+        $activate($d, 'AAAA-0000-0000-0003')->assertOk();
+        $this->patch("/licensing/codes/{$a->id}", ['action' => 'restore'])->assertSessionHas('error');
+        $this->assertNotNull($a->fresh()->revoked_at);
+
+        // Raising the limit (or clearing it) lets it back in.
+        $this->patch("/licensing/universities/{$university->id}", ['name' => 'جامعة تكريت', 'max_devices' => ''])->assertSessionHasNoErrors();
+        $this->patch("/licensing/codes/{$a->id}", ['action' => 'restore'])->assertSessionHasNoErrors();
+        $this->assertNull($a->fresh()->revoked_at);
+        $this->post('/licensing/universities', ['name' => 'X', 'max_devices' => 0])->assertSessionHasErrors('max_devices');
+    }
+
     public function test_codes_from_the_clinic_page_join_the_portal_university(): void
     {
         $this->actingAs(User::factory()->create(['role' => 'super_admin']))

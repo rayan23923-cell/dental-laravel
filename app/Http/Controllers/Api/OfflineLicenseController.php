@@ -38,6 +38,11 @@ class OfflineLicenseController extends Controller
             if ($license->machine_id && $license->machine_id !== $data['machine_id']) {
                 return response()->json(['message' => 'رمز التفعيل هذا مستخدم على حاسوب آخر.'], 422);
             }
+            // A new computer only while the university is under its device limit.
+            $university = $license->machine_id ? null : $license->universityRecord()->lockForUpdate()->first();
+            if ($university && ! $university->hasRoomFor($data['machine_id'])) {
+                return response()->json(['message' => 'وصلت الجامعة إلى الحد الأقصى لعدد الأجهزة ('.$university->max_devices.'). راجع إدارة النظام.'], 422);
+            }
 
             $license->forceFill([
                 'machine_id' => $data['machine_id'],
