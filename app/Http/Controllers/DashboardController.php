@@ -99,7 +99,8 @@ class DashboardController extends Controller
             // "أحدث المراجعين" comes from the patient registry (2026-10-13,
             // by request) so each one opens in سجل المرضى, rather than from
             // the separate `patients` table nothing on the dashboard links to.
-            'latestPatients' => PatientRegistration::with('service:id,name')
+            // Only with the patients grant (2026-10-22), like payments below.
+            'latestPatients' => ! $permissions->can('patients', 'view') ? [] : PatientRegistration::with('service:id,name')
                 ->latest('id')->limit(5)
                 ->get(['id', 'name', 'phone', 'service_id', 'screening_status', 'created_at'])
                 ->map(fn ($r) => [
