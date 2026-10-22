@@ -2,10 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Models\Appointment;
 use App\Models\WaitingScreenPairing;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 /**
@@ -30,10 +30,11 @@ class WaitingScreenRegisteredPatientsTest extends TestCase
         $this->register('مريض الأمس', now()->subDay());
         $this->register('مريض مؤرشف', now(), now());
         $booked = $this->register('مريض بموعد', now());
-        Appointment::create([
+        // Booking needs a real user/task row; only the patient link matters here.
+        Schema::withoutForeignKeyConstraints(fn () => DB::table('appointments')->insert([
             'full_name' => 'مريض بموعد', 'patient_registration_id' => $booked,
-            'appointment_date' => now(),
-        ]);
+            'doctor_id' => 1, 'task_id' => 1, 'appointment_date' => today(),
+        ]));
 
         $pairing = WaitingScreenPairing::createNew();
         $pairing->update(['confirmed_at' => now()]);
