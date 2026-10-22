@@ -44,7 +44,7 @@ const form = useForm({
     groups_enabled: !!(props.settings.groups_enabled ?? true),
     // Forms and task progress switches for the whole system (2026-10-22).
     ...Object.fromEntries(
-        ['electronic_forms_enabled', 'paper_forms_enabled', 'task_start_enabled', 'task_finish_enabled', 'task_lists_enabled', 'grade_entry_enabled', 'steps_enabled', 'step_add_enabled'].map((k) => [k, !!(props.settings[k] ?? true)]),
+        ['electronic_forms_enabled', 'paper_forms_enabled', 'show_grades_to_doctors', 'task_start_enabled', 'task_finish_enabled', 'task_lists_enabled', 'grade_entry_enabled', 'steps_enabled', 'step_add_enabled'].map((k) => [k, !!(props.settings[k] ?? true)]),
     ),
     clinic_logo: null,
     university_logo: null,
@@ -305,6 +305,12 @@ const summaries = computed(() => ({
                                     <SettingsToggle v-model="form.electronic_forms_enabled" :label="t('formSettings.electronic')" :hint="t('formSettings.electronicHint')" />
                                     <SettingsToggle v-model="form.paper_forms_enabled" :label="t('formSettings.paper')" :hint="t('formSettings.paperHint')" />
                                     <InputError :message="form.errors.paper_forms_enabled" />
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3 border-b border-gray-100 px-4 py-2 last:border-b-0">
+                                <span class="mt-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white"><Icon name="grade" size="text-[20px]" /></span>
+                                <div class="min-w-0 flex-1">
+                                    <SettingsToggle v-model="form.show_grades_to_doctors" :label="t('formSettings.showGrades')" :hint="t('formSettings.showGradesHint')" />
                                 </div>
                             </div>
                             <div class="flex items-start gap-3 border-b border-gray-100 px-4 py-2 last:border-b-0">

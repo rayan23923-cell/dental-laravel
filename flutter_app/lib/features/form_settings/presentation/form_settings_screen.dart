@@ -153,7 +153,7 @@ class _FormSettingsScreenState extends ConsumerState<FormSettingsScreen> {
                         padding: const EdgeInsets.only(bottom: 12),
                         child: Text(t['formSettings.readOnly']!, style: TextStyle(color: scheme.onSurfaceVariant)),
                       ),
-                    // Forms and task switches live with the general settings (2026-10-22).
+                    // Forms, grades and task switches live with the general settings (2026-10-22).
                     Card(
                       margin: const EdgeInsets.only(bottom: 12),
                       child: ListTile(
@@ -163,9 +163,6 @@ class _FormSettingsScreenState extends ConsumerState<FormSettingsScreen> {
                         onTap: () => context.push('/admin/clinic-settings'),
                       ),
                     ),
-                    section(Icons.grade_outlined, Colors.amber.shade700, t['formSettings.gradesSection']!, [
-                      toggle(t['formSettings.showGrades']!, t['formSettings.showGradesHint']!, form.showGrades, (v) => setState(() => _form = form.copyWith(showGrades: v))),
-                    ]),
                     section(Icons.pin_outlined, Colors.deepPurple, t['formSettings.codeSection']!, [
                       toggle(t['formSettings.codeEnabled']!, t['formSettings.codeEnabledHint']!, form.codeEnabled, (v) => setState(() => _form = form.copyWith(codeEnabled: v))),
                       if (form.codeEnabled) ...[

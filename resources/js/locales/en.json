@@ -1369,7 +1369,7 @@
     "formSettings": {
         "title": "Forms settings",
         "open": "Forms settings",
-        "subtitle": "The supervisor code and grades shown to students.",
+        "subtitle": "The supervisor code.",
         "formsSection": "Forms in use",
         "electronic": "Electronic form",
         "electronicHint": "Students fill the form in their account.",
@@ -1412,7 +1412,7 @@
         "steps_enabledHint": "When off, task steps are hidden and can't be signed.",
         "step_add_enabled": "Add a step",
         "step_add_enabledHint": "Add a new step with its name and grade to one case.",
-        "generalLink": "Paper and electronic forms and the task progress switches are in the general settings"
+        "generalLink": "Paper and electronic forms, grades shown to students and the task progress switches are in the general settings"
     },
     "supervisorCode": {
         "button": "Supervisor code",
