@@ -1029,7 +1029,7 @@
     "waitingScreen": {
         "title": "Waiting Screen",
         "loading": "Loading…",
-        "empty": "No appointments for today.",
+        "empty": "No registered patients or appointments for today.",
         "unassigned": "Awaiting doctor assignment",
         "pageIndicator": "Page {current} of {total}",
         "scanToPairHeading": "Scan the code or enter it to activate this screen",

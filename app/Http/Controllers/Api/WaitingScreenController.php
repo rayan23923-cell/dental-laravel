@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\ClinicSetting;
+use App\Models\PatientRegistration;
+use App\Models\TaskInstance;
 use App\Models\WaitingScreenPairing;
 use App\Models\WaitingScreenSetting;
 use Illuminate\Http\JsonResponse;
@@ -32,6 +34,15 @@ use Illuminate\Http\Request;
  * app. `WaitingScreenSetting` still supplies `group_id` (unchanged, still
  * admin-configured — the app flow only ever asked for stage selection)
  * plus the display-tuning fields (`patients_per_page`/`rotation_seconds`).
+ *
+ * Registered patients (2026-10-22, by request): besides today's
+ * appointments, the screen also lists every patient registered at the
+ * desk today (`PatientRegistration`, `patients_simple`) in registration
+ * order, with the doctor once one has started their case sheet. A
+ * registration already shown through one of today's appointments is not
+ * listed twice. The stage filter matches the registration's task stage or
+ * its doctor's stage; the group filter only hides a registration whose
+ * doctor is outside the group, since an unassigned patient has no group.
  */
 class WaitingScreenController extends Controller
 {
@@ -70,11 +81,42 @@ class WaitingScreenController extends Controller
                 fn ($gq) => $gq->where('groups.id', $groupId)
             ))
             ->orderBy('appointment_date')
+            ->get();
+
+        $shownRegistrationIds = $appointments->pluck('patient_registration_id')->filter()->all();
+
+        $registrations = PatientRegistration::with([
+            'task',
+            'taskInstances' => fn ($q) => $q->whereIn('status', ['assigned', 'completed'])
+                ->whereNotNull('doctor_id')
+                ->latest('assigned_date')
+                ->with('doctor.groups'),
+        ])
+            ->whereDate('created_at', today())
+            ->whereNotIn('id', $shownRegistrationIds)
+            ->orderBy('created_at')
+            ->orderBy('id')
             ->get()
+            ->map(fn (PatientRegistration $registration) => [
+                'registration' => $registration,
+                'doctor' => $registration->taskInstances->first()?->doctor,
+            ])
+            ->filter(fn ($row) => ! $pairing->stage_id
+                || $row['registration']->task?->stage_id == $pairing->stage_id
+                || $row['doctor']?->stage_id == $pairing->stage_id)
+            ->filter(fn ($row) => ! $groupId
+                || ! $row['doctor']
+                || $row['doctor']->groups->contains('id', $groupId));
+
+        $appointments = $appointments
             ->map(fn (Appointment $appointment) => [
                 'patient_name' => $appointment->full_name,
                 'doctor_name' => $appointment->caseSheetDoctor?->name,
             ])
+            ->concat($registrations->map(fn ($row) => [
+                'patient_name' => $row['registration']->name,
+                'doctor_name' => $row['doctor']?->name,
+            ]))
             ->values();
 
         return response()->json([
