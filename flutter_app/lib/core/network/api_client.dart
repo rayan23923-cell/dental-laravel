@@ -7,12 +7,18 @@ import '../config/server_settings_controller.dart';
 import '../storage/academic_session_selection.dart';
 import '../storage/token_storage.dart';
 import 'api_exception.dart';
+import 'server_status.dart';
 
 final apiClientProvider = Provider<ApiClient>((ref) {
   // A new client (new Dio, new connections, new base URL) whenever the
   // user switches server — see `ServerSettingsController.apply`.
   ref.watch(serverSettingsProvider);
-  return ApiClient(ref.watch(tokenStorageProvider), academicSession: ref.watch(academicSessionSelectionProvider));
+  return ApiClient(
+    ref.watch(tokenStorageProvider),
+    academicSession: ref.watch(academicSessionSelectionProvider),
+    // Every request's outcome feeds the connection dot (2026-10-22).
+    onReachability: (reachable) => ref.read(serverStatusProvider.notifier).report(reachable: reachable),
+  );
 });
 
 /// Thin wrapper around one [Dio] instance: attaches the bearer token to
@@ -26,7 +32,7 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 /// auth controller back). The 401 hook is wired at runtime instead — see
 /// `AuthController.build()`.
 class ApiClient {
-  ApiClient(this._tokenStorage, {AcademicSessionSelection? academicSession})
+  ApiClient(this._tokenStorage, {AcademicSessionSelection? academicSession, this.onReachability})
       : _academicSession = academicSession,
         _dio = Dio(
           BaseOptions(
@@ -62,6 +68,10 @@ class ApiClient {
   /// Set once by `AuthController.build()`.
   void Function()? onUnauthorized;
 
+  /// Told whether each request reached the server — see
+  /// `ServerStatusController.report`.
+  final void Function(bool reachable)? onReachability;
+
   Interceptor _authInterceptor() {
     return QueuedInterceptorsWrapper(
       onRequest: (options, handler) async {
@@ -75,7 +85,16 @@ class ApiClient {
         }
         handler.next(options);
       },
+      onResponse: (response, handler) {
+        onReachability?.call(true);
+        handler.next(response);
+      },
       onError: (err, handler) {
+        if (err.type == DioExceptionType.connectionError || err.type == DioExceptionType.connectionTimeout) {
+          onReachability?.call(false);
+        } else if (err.response != null) {
+          onReachability?.call((err.response!.statusCode ?? 500) < 500);
+        }
         if (err.response?.statusCode == 401) {
           onUnauthorized?.call();
         }

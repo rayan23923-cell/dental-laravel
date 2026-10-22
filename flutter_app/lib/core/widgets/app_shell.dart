@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_sidebar.dart';
+import 'server_status_indicator.dart';
 
 /// Persistent navigation frame for the "inside" routes (see
 /// `app_router.dart`'s own `ShellRoute` — hub/list screens get this,
@@ -217,10 +218,21 @@ class _AppShellState extends State<AppShell>
                               child: SizedBox(
                                 width: 44,
                                 height: 44,
-                                child: Icon(
-                                  t > 0.5 ? Icons.close : Icons.menu,
-                                  color: Colors.white,
-                                  size: 22,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    Icon(
+                                      t > 0.5 ? Icons.close : Icons.menu,
+                                      color: Colors.white,
+                                      size: 22,
+                                    ),
+                                    // Server connection badge (2026-10-22).
+                                    const PositionedDirectional(
+                                      top: 4,
+                                      end: 4,
+                                      child: ServerStatusDot(size: 10),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
