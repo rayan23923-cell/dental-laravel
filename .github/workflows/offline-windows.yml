@@ -25,6 +25,8 @@ permissions:
 
 env:
   PHP_MINOR: '8.3'
+  # Never ship an older PHP: 8.3.36 fixes CVE-2026-109618/109619 (2026-10-22).
+  PHP_MIN_VERSION: '8.3.36'
   MARIADB_VERSION: '10.11.10'
   CADDY_VERSION: '2.8.4'
   COREDNS_VERSION: '1.12.3'
@@ -251,17 +253,21 @@ jobs:
       - name: Windows PHP
         run: |
           OUT=dist/DentalClinicOffline
-          ZIP=$(curl -fsSL https://windows.php.net/downloads/releases/releases.json \
-            | jq -r --arg m "$PHP_MINOR" '.[$m]["nts-vs16-x64"].zip.path')
-          echo "PHP: $ZIP"
-          curl -fsSL -o php.zip "https://windows.php.net/downloads/releases/$ZIP"
+          curl -fsSL --retry 5 --retry-delay 10 --retry-all-errors -o php-releases.json https://windows.php.net/downloads/releases/releases.json
+          VER=$(jq -r --arg m "$PHP_MINOR" '.[$m].version' php-releases.json)
+          ZIP=$(jq -r --arg m "$PHP_MINOR" '.[$m]["nts-vs16-x64"].zip.path' php-releases.json)
+          echo "PHP: $VER ($ZIP)"
+          if [ "$(printf '%s\n%s\n' "$PHP_MIN_VERSION" "$VER" | sort -V | head -1)" != "$PHP_MIN_VERSION" ]; then
+            echo "::error::Windows PHP $VER is older than $PHP_MIN_VERSION (security fix); not building."; exit 1
+          fi
+          curl -fsSL --retry 5 --retry-delay 10 --retry-all-errors -o php.zip "https://windows.php.net/downloads/releases/$ZIP"
           mkdir -p $OUT/php && unzip -q php.zip -d $OUT/php
           cat $OUT/php/php.ini-production offline/windows/php.ini.overrides > $OUT/php/php.ini.template
           rm -rf $OUT/php/dev $OUT/php/extras
           # CA list for HTTPS from PHP (activation), see php.ini.overrides.
-          curl -fsSL -o $OUT/php/cacert.pem https://curl.se/ca/cacert.pem
+          curl -fsSL --retry 5 --retry-delay 10 --retry-all-errors -o $OUT/php/cacert.pem https://curl.se/ca/cacert.pem
           grep -q 'BEGIN CERTIFICATE' $OUT/php/cacert.pem
-          curl -fsSL -o $OUT/vc_redist.x64.exe https://aka.ms/vs/17/release/vc_redist.x64.exe
+          curl -fsSL --retry 5 --retry-delay 10 --retry-all-errors -o $OUT/vc_redist.x64.exe https://aka.ms/vs/17/release/vc_redist.x64.exe
 
       - name: Windows MariaDB
         run: |
