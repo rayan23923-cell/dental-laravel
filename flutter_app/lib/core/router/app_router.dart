@@ -29,7 +29,9 @@ import '../../features/permissions_admin/presentation/permission_edit_screen.dar
 import '../../features/permissions_admin/presentation/permission_user_list_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/sessions/presentation/sessions_screen.dart';
+import '../../features/users_admin/presentation/user_edit_screen.dart';
 import '../../features/users_admin/presentation/user_form_screen.dart';
+import '../../features/users_admin/presentation/user_list_screen.dart';
 import '../../features/case_sheet_forms/presentation/case_sheet_record_list_screen.dart';
 import '../../features/case_sheet_forms/presentation/case_sheet_types_screen.dart';
 import '../../features/doctors_admin/presentation/doctor_form_screen.dart';
@@ -335,6 +337,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const UserFormScreen(),
       ),
       GoRoute(
+        path: '/admin/users/:id',
+        builder: (context, state) => UserEditScreen(userId: int.parse(state.pathParameters['id']!)),
+      ),
+      GoRoute(
         path: '/admin/permissions/:id',
         builder: (context, state) => PermissionEditScreen(
           userId: int.parse(state.pathParameters['id']!),
@@ -431,6 +437,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/admin/case-sheet-types',
             builder: (context, state) => const CaseSheetTypeListScreen(),
+          ),
+          // Users management (2026-10-21, by request).
+          GoRoute(
+            path: '/admin/users',
+            builder: (context, state) => const UserListScreen(),
           ),
           GoRoute(
             path: '/admin/permissions',

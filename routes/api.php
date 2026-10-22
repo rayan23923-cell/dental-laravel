@@ -525,6 +525,11 @@ Route::name('api.')->prefix('v1')->group(function () {
         // This is the first route that actually checks it.
         Route::get('/users/form-options', [UserController::class, 'formOptions'])->middleware('permission:users,create');
         Route::post('/users', [UserController::class, 'store'])->middleware('permission:users,create');
+        // Users management (2026-10-21, by request), the web's /users.
+        Route::get('/users', [UserController::class, 'index'])->middleware('permission:users,view');
+        Route::get('/users/{user}', [UserController::class, 'show'])->whereNumber('user')->middleware('permission:users,edit');
+        Route::put('/users/{user}', [UserController::class, 'update'])->whereNumber('user')->middleware('permission:users,edit');
+        Route::put('/users/{user}/password', [UserController::class, 'updatePassword'])->whereNumber('user')->middleware('permission:users,edit');
 
         // Clinical specialty records — each mirrors the pattern above
         // (index scoped to the authenticated doctor where the table has a

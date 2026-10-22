@@ -9,6 +9,7 @@ use App\Support\RolePresets;
 use App\Services\CredentialMailer;
 use App\Services\PermissionManager;
 use App\Services\ScopeHelper;
+use App\Services\UserAccountAdmin;
 use App\Support\PermissionMatrix;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
@@ -82,4 +83,51 @@ class UserController extends Controller
 
         return (new UserResource($user))->response()->setStatusCode(201);
     }
+
+    /**
+     * Users management (2026-10-21, by request) — the web users page's twin;
+     * plain JSON like `Api\UserPermissionController`. The rules live in
+     * App\Services\UserAccountAdmin.
+     */
+    public function index(Request $request): JsonResponse
+    {
+        return response()->json(
+            User::query()
+                ->when($request->user()->role !== 'super_admin', fn ($q) => $q->where('role', '!=', 'super_admin'))
+                ->orderBy('full_name')
+                ->get(self::FIELDS)
+        );
+    }
+
+    public function show(Request $request, User $user): JsonResponse
+    {
+        UserAccountAdmin::ensureCanManage($request->user(), $user);
+
+        return response()->json($user->only(self::FIELDS) + [
+            'is_self' => $request->user()->is($user),
+            'roles' => $user->role === 'super_admin' ? ['super_admin'] : array_values(array_diff(User::ROLES, ['super_admin'])),
+        ]);
+    }
+
+    public function update(Request $request, User $user): JsonResponse
+    {
+        UserAccountAdmin::ensureCanManage($request->user(), $user);
+        $user = UserAccountAdmin::update($request->user(), $user, $request->validate(UserAccountAdmin::rules($user)));
+
+        return response()->json($user->only(self::FIELDS));
+    }
+
+    public function updatePassword(Request $request, User $user): JsonResponse
+    {
+        UserAccountAdmin::ensureCanManage($request->user(), $user);
+        $result = UserAccountAdmin::changePassword($request->user(), $user, $request->validate(UserAccountAdmin::passwordRules()));
+
+        return response()->json([
+            'emailed' => $result['emailed'],
+            // Only a generated one is sent back, to be shown once.
+            'password' => $request->boolean('generate') ? $result['password'] : null,
+        ]);
+    }
+
+    private const FIELDS = ['id', 'full_name', 'username', 'email', 'phone', 'role', 'status', 'notes', 'last_login'];
 }

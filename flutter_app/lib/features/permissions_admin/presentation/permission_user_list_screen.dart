@@ -29,6 +29,12 @@ class _PermissionUserListScreenState extends ConsumerState<PermissionUserListScr
       appBar: AppBar(
         title: Text(t['permissionsAdmin.title']!),
         actions: [
+          // Users management (2026-10-21), as on the web's permissions page.
+          IconButton(
+            tooltip: t['settingsMenu.users'],
+            icon: const Icon(Icons.manage_accounts_outlined),
+            onPressed: () => context.push('/admin/users'),
+          ),
           // As on the web's permissions page (2026-10-17).
           IconButton(
             tooltip: t['departmentRolesAdmin.shortTitle'],

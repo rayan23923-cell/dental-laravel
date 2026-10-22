@@ -558,6 +558,16 @@ Route::middleware('auth')->group(function () {
             ->middleware('permission:users,create')->name('users.create');
         Route::post('/users', [UserController::class, 'store'])
             ->middleware('permission:users,create')->name('users.store');
+        // Users management (2026-10-21, by request): edit an account's
+        // details, switch it off, change its password.
+        Route::get('/users', [UserController::class, 'index'])
+            ->middleware('permission:users,view')->name('users.index');
+        Route::get('/users/{user}/edit', [UserController::class, 'edit'])
+            ->middleware('permission:users,edit')->name('users.edit');
+        Route::put('/users/{user}', [UserController::class, 'update'])
+            ->middleware('permission:users,edit')->name('users.update');
+        Route::put('/users/{user}/password', [UserController::class, 'updatePassword'])
+            ->middleware('permission:users,edit')->name('users.password');
 
         // admin/clinic_settings.php opens with
         // `$perm->requirePermission('settings', 'edit')` — now that

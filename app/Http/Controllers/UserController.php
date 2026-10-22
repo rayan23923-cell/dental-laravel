@@ -7,6 +7,7 @@ use App\Support\RolePresets;
 use App\Services\CredentialMailer;
 use App\Services\PermissionManager;
 use App\Services\ScopeHelper;
+use App\Services\UserAccountAdmin;
 use App\Support\PermissionMatrix;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\RedirectResponse;
@@ -20,13 +21,55 @@ use Inertia\Response;
  * Creating a new staff/admin account — genuinely new, not a port; see
  * App\Http\Controllers\Api\UserController's docblock for why (the web app
  * never had this either, only Breeze's public self-registration screen).
- * Scoped to create/store only — editing an existing user's basic info was
- * not part of this pass. A new user's permissions and access scope are
+ * Editing an existing account's details and password came later
+ * (2026-10-21, "إدارة المستخدمين"; rules in App\Services\UserAccountAdmin).
+ * A new user's permissions and access scope are
  * picked on the same form and saved with the account; changing them later
  * is UserPermissionController's job.
  */
 class UserController extends Controller
 {
+    public function index(Request $request): Response
+    {
+        return Inertia::render('Users/Index', [
+            // super_admin accounts are listed only to another super_admin.
+            'users' => User::query()
+                ->when($request->user()->role !== 'super_admin', fn ($q) => $q->where('role', '!=', 'super_admin'))
+                ->orderBy('full_name')
+                ->get(['id', 'full_name', 'username', 'email', 'phone', 'role', 'status', 'last_login']),
+        ]);
+    }
+
+    public function edit(Request $request, User $user): Response
+    {
+        UserAccountAdmin::ensureCanManage($request->user(), $user);
+
+        return Inertia::render('Users/Edit', [
+            'targetUser' => $user->only(['id', 'full_name', 'username', 'email', 'phone', 'role', 'status', 'notes', 'last_login', 'created_at']),
+            'roles' => $user->role === 'super_admin' ? ['super_admin'] : array_values(array_diff(User::ROLES, ['super_admin'])),
+            'isSelf' => $request->user()->is($user),
+        ]);
+    }
+
+    public function update(Request $request, User $user): RedirectResponse
+    {
+        UserAccountAdmin::ensureCanManage($request->user(), $user);
+        UserAccountAdmin::update($request->user(), $user, $request->validate(UserAccountAdmin::rules($user)));
+
+        return back()->with('success', "تم حفظ بيانات {$user->full_name}.");
+    }
+
+    public function updatePassword(Request $request, User $user): RedirectResponse
+    {
+        UserAccountAdmin::ensureCanManage($request->user(), $user);
+        $result = UserAccountAdmin::changePassword($request->user(), $user, $request->validate(UserAccountAdmin::passwordRules()));
+
+        return back()
+            ->with('success', $result['emailed'] ? 'تم تغيير كلمة المرور وإرسالها إلى بريد المستخدم.' : 'تم تغيير كلمة المرور.')
+            // A generated password is shown once, so the admin can pass it on.
+            ->with('generatedPassword', ($request->boolean('generate')) ? $result['password'] : null);
+    }
+
     public function create(): Response
     {
         $o = ScopeHelper::options();

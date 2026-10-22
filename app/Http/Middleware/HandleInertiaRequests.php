@@ -55,6 +55,8 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
                 'print_ticket' => fn () => $request->session()->get('print_ticket'),
+                // Shown once after an admin generates a user's password.
+                'generated_password' => fn () => $request->session()->get('generatedPassword'),
             ],
             // Which case sheets have a printable version. Taken from the
             // registry itself rather than restated per controller, so the

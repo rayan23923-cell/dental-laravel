@@ -24,6 +24,7 @@ List<_SettingsItem> _settingsItems(Map<String, String> t) => [
       _SettingsItem(t['settingsMenu.clinicSettings']!, Icons.settings_outlined, '/admin/clinic-settings'),
       // Services and prices (2026-10-21), the web's "إعدادات التسجيل".
       _SettingsItem(t['registerSettings.title']!, Icons.tune, '/records/patient-registrations/settings'),
+      _SettingsItem(t['settingsMenu.users']!, Icons.manage_accounts_outlined, '/admin/users'),
       _SettingsItem(t['settingsMenu.permissions']!, Icons.lock_outline, '/admin/permissions'),
       _SettingsItem(t['settingsMenu.activityLog']!, Icons.history_outlined, '/admin/activity-log'),
       _SettingsItem(t['settingsMenu.backup']!, Icons.backup_outlined, '/admin/backup'),

@@ -41,7 +41,8 @@ class AuthController extends Controller
 
         $user = User::where($field, $credentials['login'])->first();
 
-        if ($user && Hash::check($credentials['password'], $user->password)) {
+        // Accounts switched off on the users page can't sign in (2026-10-21).
+        if ($user && $user->status !== 'inactive' && Hash::check($credentials['password'], $user->password)) {
             $token = $user->createToken($credentials['device_name']);
             $this->recordSessionMeta($token->accessToken, $request);
 

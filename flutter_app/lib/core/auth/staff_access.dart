@@ -28,6 +28,8 @@ bool staffCanOpen(StaffAccount account, String route) {
     // A permission since 2026-10-18 (by request), so the lab or the
     // ticket desk can be given the printer without the rest of settings.
     '/admin/printer-settings' => can('printer_settings'),
+    // Users management (2026-10-21): the API's own gate.
+    '/admin/users' => can('users'),
     '/admin/academic-sessions' ||
     '/admin/permissions' ||
     '/admin/department-roles' ||
@@ -54,6 +56,7 @@ const adminRoutes = [
   '/admin/case-sheet-types',
   '/admin/clinic-settings',
   '/records/patient-registrations/settings',
+  '/admin/users',
   '/admin/permissions',
   '/admin/department-roles',
   '/admin/activity-log',

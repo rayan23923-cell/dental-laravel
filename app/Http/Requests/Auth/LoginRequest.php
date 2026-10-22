@@ -53,7 +53,10 @@ class LoginRequest extends FormRequest
         $field = filter_var($this->input('login'), FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
         $credentials = [$field => $this->input('login'), 'password' => $this->input('password')];
 
-        $authenticated = Auth::guard('web')->attempt($credentials, $this->boolean('remember'))
+        // A staff account switched off on the users page can't sign in
+        // (2026-10-21); the doctor guard is still tried, as before.
+        $staff = $credentials + ['status' => fn ($q) => $q->where('status', '!=', 'inactive')];
+        $authenticated = Auth::guard('web')->attempt($staff, $this->boolean('remember'))
             || Auth::guard('doctor')->attempt($credentials, $this->boolean('remember'));
 
         if (! $authenticated) {
