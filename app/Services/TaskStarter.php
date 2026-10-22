@@ -40,6 +40,10 @@ class TaskStarter
         ?string $notes,
         ?int $assignedByUserId
     ): TaskInstance {
+        // Starting tasks switched off for the whole system (2026-10-22).
+        if (! \App\Support\FormSettings::on('task_start_enabled')) {
+            throw new TaskStartException('بدء المهام متوقف حالياً من إعدادات النماذج.');
+        }
         if ($patientRegistration) {
             PatientScreeningGate::ensureClear($patientRegistration);
         }

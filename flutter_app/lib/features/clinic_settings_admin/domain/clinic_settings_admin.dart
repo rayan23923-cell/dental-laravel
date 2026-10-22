@@ -1,3 +1,6 @@
+/// The general settings' forms and task progress switches (2026-10-22).
+const kTaskSwitchKeys = ['electronic_forms_enabled', 'paper_forms_enabled', 'task_start_enabled', 'task_finish_enabled', 'task_lists_enabled', 'grade_entry_enabled', 'step_add_enabled'];
+
 /// `Api\ClinicSettingController::show()`'s response shape. `theme` is
 /// deliberately left out (the Flutter app uses a fixed theme, not the web
 /// app's selectable one, per `flutter_app/README.md` §7). The SMTP
@@ -21,6 +24,7 @@ class ClinicSettingsAdmin {
     required this.enableSms,
     required this.enableEmail,
     this.groupsEnabled = true,
+    this.taskSwitches = const {},
     required this.logoUrl,
     required this.universityLogoUrl,
     this.mailHost,
@@ -52,6 +56,7 @@ class ClinicSettingsAdmin {
         enableSms: json['enable_sms'] as bool? ?? false,
         enableEmail: json['enable_email'] as bool? ?? false,
         groupsEnabled: json['groups_enabled'] as bool? ?? true,
+        taskSwitches: {for (final key in kTaskSwitchKeys) key: json[key] as bool? ?? true},
         logoUrl: json['logo_url'] as String?,
         universityLogoUrl: json['university_logo_url'] as String?,
         mailHost: json['mail_host'] as String?,
@@ -84,6 +89,10 @@ class ClinicSettingsAdmin {
 
   /// Groups on/off (2026-10-13) — see `ClinicSettings.groupsEnabled`.
   final bool groupsEnabled;
+
+  /// Forms and task progress switched on/off for the whole system
+  /// (2026-10-22, by request), keyed like the server's columns.
+  final Map<String, bool> taskSwitches;
   final String? logoUrl;
   final String? universityLogoUrl;
 

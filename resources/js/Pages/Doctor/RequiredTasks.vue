@@ -35,6 +35,9 @@ const onCodeDone = (msg) => {
     setTimeout(() => (codeDone.value = ''), 5000);
     router.reload({ preserveScroll: true });
 };
+// System-wide switches (2026-10-22): pending/completed lists and starting.
+const listsOn = computed(() => props.formSettings.task_lists_enabled !== false);
+const startOn = computed(() => props.formSettings.task_start_enabled !== false);
 const defaultFormType = () => (props.formSettings.electronic_forms_enabled ? 'electronic' : 'paper');
 
 // "كل المهام" | "بانتظار الموافقة" | "المعلقة" (2026-10-14, by request).
@@ -97,7 +100,7 @@ const toggle = (name) => {
 const focusedInstance = ref(null);
 onMounted(async () => {
     const params = new URLSearchParams(window.location.search);
-    if (['all', 'waiting', 'notStarted'].includes(params.get('tab'))) tab.value = params.get('tab');
+    if (listsOn.value && ['all', 'waiting', 'notStarted'].includes(params.get('tab'))) tab.value = params.get('tab');
     const id = Number(params.get('instance'));
     if (!id) return;
     for (const dept of props.departments) {
@@ -179,8 +182,10 @@ const openQr = (task, slot) => {
             <button
                 v-for="item in [
                     { key: 'all', label: t('taskRequests.allTasksTab'), count: null },
-                    { key: 'waiting', label: t('taskRequests.waitingTab'), count: pendingCount },
-                    { key: 'notStarted', label: t('taskRequests.notStartedTab'), count: notStartedTasks.length },
+                    ...(listsOn ? [
+                        { key: 'waiting', label: t('taskRequests.waitingTab'), count: pendingCount },
+                        { key: 'notStarted', label: t('taskRequests.notStartedTab'), count: notStartedTasks.length },
+                    ] : []),
                 ]"
                 :key="item.key"
                 type="button"
@@ -272,7 +277,7 @@ const openQr = (task, slot) => {
                     <span class="flex gap-1 text-xs">
                         <span class="rounded-full bg-sky-100 px-2 py-0.5 text-sky-800">{{ t('requiredTasks.taskCount', { n: dept.tasks.length }) }}</span>
                         <span class="rounded-full bg-indigo-100 px-2 py-0.5 text-indigo-800">{{ t('dashboard.requiredLabel') }}: {{ dept.required }}</span>
-                        <span class="rounded-full bg-green-100 px-2 py-0.5 text-green-800">{{ t('dashboard.completed') }}: {{ dept.completed }}</span>
+                        <span v-if="listsOn" class="rounded-full bg-green-100 px-2 py-0.5 text-green-800">{{ t('dashboard.completed') }}: {{ dept.completed }}</span>
                     </span>
                 </button>
 
@@ -356,7 +361,7 @@ const openQr = (task, slot) => {
                                 </div>
 
                                 <!-- Request to start (2026-10-14) -->
-                                <template v-if="slot.status === 'unassigned'">
+                                <template v-if="slot.status === 'unassigned' && startOn">
                                     <div v-if="task.request_pending" class="mt-2 rounded bg-amber-50 px-2 py-1 text-center text-xs text-amber-700">
                                         <Icon name="hourglass_top" class="ml-1" />{{ t('taskRequests.waitingApproval') }}
                                     </div>

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\TaskInstance;
+use App\Support\FormSettings;
 use App\Support\TaskScoring;
 
 /**
@@ -17,7 +18,7 @@ class TaskInstanceGrader
     /** @throws TaskGradeException */
     public static function validateGrade(TaskInstance $taskInstance, $grade): void
     {
-        if ($grade === null || $grade === '') {
+        if ($grade === null || $grade === '' || ! FormSettings::on('grade_entry_enabled')) {
             return;
         }
 
@@ -35,7 +36,15 @@ class TaskInstanceGrader
     /** @throws TaskGradeException */
     public static function complete(TaskInstance $taskInstance, $grade, $notes, ?array $workItems = null): void
     {
+        // Completing tasks switched off for the whole system (2026-10-22).
+        if (! FormSettings::on('task_finish_enabled')) {
+            throw new TaskGradeException('إكمال المهام متوقف حالياً من إعدادات النماذج.');
+        }
         static::validateGrade($taskInstance, $grade);
+        // Grades switched off: the grade already there stays as it is.
+        if (! FormSettings::on('grade_entry_enabled')) {
+            $grade = null;
+        }
 
         $taskInstance->update([
             'status' => 'completed',
@@ -72,6 +81,9 @@ class TaskInstanceGrader
     public static function updateNotesGrade(TaskInstance $taskInstance, $grade, $notes, ?array $workItems = null): void
     {
         static::validateGrade($taskInstance, $grade);
+        if (! FormSettings::on('grade_entry_enabled')) {
+            $grade = $taskInstance->grade;
+        }
 
         $taskInstance->update([
             'grade' => $grade,

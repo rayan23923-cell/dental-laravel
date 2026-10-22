@@ -112,7 +112,8 @@ class TaskSteps
         if ($before) {
             throw ValidationException::withMessages(['step' => "وقّع خطوة \"{$before['label']}\" أولاً."]);
         }
-        if ($step['max'] !== null) {
+        // Grades switched off for the whole system (2026-10-22): signed without one.
+        if ($step['max'] !== null && FormSettings::on('grade_entry_enabled')) {
             if (! is_numeric($grade)) {
                 throw ValidationException::withMessages(['grade' => 'ضع درجة هذه الخطوة.']);
             }
@@ -161,6 +162,9 @@ class TaskSteps
      */
     public static function addExtra(TaskInstance $instance, string $label, float $max): void
     {
+        if (! FormSettings::on('step_add_enabled')) {
+            throw ValidationException::withMessages(['label' => 'إضافة الخطوات متوقفة حالياً من إعدادات النماذج.']);
+        }
         $extras = $instance->extra_steps ?? [];
         $extras[] = ['key' => (collect($extras)->max('key') ?? 0) + 1, 'label' => $label, 'max' => $max];
         $instance->extra_steps = $extras;

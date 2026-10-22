@@ -164,3 +164,40 @@ class _GradePickerState extends State<GradePicker> {
     );
   }
 }
+
+
+/// Opens [GradePicker] in a bottom sheet (2026-10-22): returns the picked
+/// grade, or null when dismissed.
+Future<double?> showGradePickerSheet(
+  BuildContext context, {
+  required double max,
+  double? initial,
+  required String title,
+  required String confirm,
+  required Map<String, String> labels,
+}) {
+  return showModalBottomSheet<double>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (context) {
+      double? value = initial;
+      return StatefulBuilder(
+        builder: (context, setState) => Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(title, style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              GradePicker(max: max, value: value, labels: labels, onChanged: (v) => setState(() => value = v)),
+              const SizedBox(height: 12),
+              FilledButton(onPressed: value == null ? null : () => Navigator.pop(context, value), child: Text(confirm)),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}

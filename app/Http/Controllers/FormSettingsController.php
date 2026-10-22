@@ -54,8 +54,20 @@ class FormSettingsController extends Controller
             'paper_forms_enabled' => $settings['paper_forms_enabled'],
             'show_grades' => $settings['show_grades_to_doctors'],
             'supervisor_code_enabled' => $settings['supervisor_code_enabled'],
-            'supervisor_code_actions' => $settings['supervisor_code_enabled'] ? $settings['supervisor_code_actions'] : [],
+            'supervisor_code_actions' => $settings['supervisor_code_enabled'] ? self::codeActions($settings) : [],
+            ...collect($settings)->only(FormSettings::SWITCHES)->all(),
         ]);
+    }
+
+    /** The code's actions, less those switched off for the whole system. */
+    private static function codeActions(array $settings): array
+    {
+        $off = array_keys(array_filter([
+            'start' => ! $settings['task_start_enabled'],
+            'finish' => ! $settings['task_finish_enabled'],
+        ]));
+
+        return array_values(array_diff($settings['supervisor_code_actions'], $off));
     }
 
     private function payload(User $user): array
@@ -66,6 +78,8 @@ class FormSettingsController extends Controller
             'settings' => FormSettings::get(),
             'canEdit' => $this->can($user, 'form_settings'),
             'myCode' => $hasCode ? SupervisorCode::current($user) : null,
+            // Forms and task switches are in the general settings (2026-10-22).
+            'canOpenGeneral' => in_array($user->role, ['super_admin', 'admin'], true) && (new PermissionManager($user))->can('settings', 'view'),
         ];
     }
 

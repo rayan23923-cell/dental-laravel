@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
@@ -152,10 +153,16 @@ class _FormSettingsScreenState extends ConsumerState<FormSettingsScreen> {
                         padding: const EdgeInsets.only(bottom: 12),
                         child: Text(t['formSettings.readOnly']!, style: TextStyle(color: scheme.onSurfaceVariant)),
                       ),
-                    section(Icons.description_outlined, scheme.primary, t['formSettings.formsSection']!, [
-                      toggle(t['formSettings.electronic']!, t['formSettings.electronicHint']!, form.electronic, (v) => setState(() => _form = form.copyWith(electronic: v))),
-                      toggle(t['formSettings.paper']!, t['formSettings.paperHint']!, form.paper, (v) => setState(() => _form = form.copyWith(paper: v))),
-                    ]),
+                    // Forms and task switches live with the general settings (2026-10-22).
+                    Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: ListTile(
+                        leading: Icon(Icons.settings_outlined, color: scheme.primary),
+                        title: Text(t['formSettings.generalLink']!, style: const TextStyle(fontSize: 13)),
+                        trailing: const Icon(Icons.chevron_left),
+                        onTap: () => context.push('/admin/clinic-settings'),
+                      ),
+                    ),
                     section(Icons.grade_outlined, Colors.amber.shade700, t['formSettings.gradesSection']!, [
                       toggle(t['formSettings.showGrades']!, t['formSettings.showGradesHint']!, form.showGrades, (v) => setState(() => _form = form.copyWith(showGrades: v))),
                     ]),

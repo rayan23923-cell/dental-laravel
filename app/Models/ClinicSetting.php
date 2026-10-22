@@ -65,6 +65,12 @@ class ClinicSetting extends Model
         'supervisor_code_enabled',
         'supervisor_code_period',
         'supervisor_code_actions',
+        // Task progress switches for the whole system (2026-10-22).
+        'task_start_enabled',
+        'task_finish_enabled',
+        'task_lists_enabled',
+        'grade_entry_enabled',
+        'step_add_enabled',
     ];
 
     /**
@@ -100,6 +106,11 @@ class ClinicSetting extends Model
             'show_grades_to_doctors' => 'boolean',
             'supervisor_code_enabled' => 'boolean',
             'supervisor_code_actions' => 'array',
+            'task_start_enabled' => 'boolean',
+            'task_finish_enabled' => 'boolean',
+            'task_lists_enabled' => 'boolean',
+            'grade_entry_enabled' => 'boolean',
+            'step_add_enabled' => 'boolean',
         ];
     }
 

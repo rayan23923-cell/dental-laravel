@@ -73,7 +73,7 @@ const save = async () => {
         <!-- The case's steps, signed one after another (2026-10-18, by request). -->
         <!-- With the "add a step" button for supervisors when the task has steps (2026-10-19). -->
         <div v-if="panelSteps.length || (data.can_sign && data.steps?.length)" class="mb-4">
-            <TaskStepsList :steps="panelSteps" :instance-id="taskInstanceId" :can-sign="data.can_sign" @updated="apply" />
+            <TaskStepsList :steps="panelSteps" :instance-id="taskInstanceId" :can-sign="data.can_sign" :can-add-step="data.can_add_step ?? data.can_sign" @updated="apply" />
         </div>
 
         <!-- Each grade shows once (2026-10-19, by request: "صار عندنا تكرار"): the

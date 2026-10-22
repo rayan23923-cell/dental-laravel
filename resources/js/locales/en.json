@@ -1368,7 +1368,7 @@
     "formSettings": {
         "title": "Forms settings",
         "open": "Forms settings",
-        "subtitle": "Form types, grades shown to students, and the supervisor code.",
+        "subtitle": "The supervisor code and grades shown to students.",
         "formsSection": "Forms in use",
         "electronic": "Electronic form",
         "electronicHint": "Students fill the form in their account.",
@@ -1396,7 +1396,20 @@
         "codeOff": "The supervisor code is off; turn it on below.",
         "copy": "Copy",
         "copied": "Copied",
-        "noCodePermission": "You don't have the supervisor code permission."
+        "noCodePermission": "You don't have the supervisor code permission.",
+        "tasksSection": "Task progress (whole system)",
+        "tasksSectionHint": "Turn these on or off for everyone, like the groups switch.",
+        "task_start_enabled": "Start tasks",
+        "task_start_enabledHint": "When off, no task starts and no start requests are sent.",
+        "task_finish_enabled": "Complete tasks",
+        "task_finish_enabledHint": "When off, no task is completed.",
+        "task_lists_enabled": "Pending and completed lists",
+        "task_lists_enabledHint": "The waiting and not-started tabs and the completed count on the student's account.",
+        "grade_entry_enabled": "Enter grades",
+        "grade_entry_enabledHint": "When off, steps are signed and tasks completed without a grade.",
+        "step_add_enabled": "Add a step",
+        "step_add_enabledHint": "Add a new step with its name and grade to one case.",
+        "generalLink": "Paper and electronic forms and the task progress switches are in the general settings"
     },
     "supervisorCode": {
         "button": "Supervisor code",
