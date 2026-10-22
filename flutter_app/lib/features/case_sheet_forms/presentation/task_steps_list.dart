@@ -286,6 +286,9 @@ class _TaskStepsListState extends ConsumerState<TaskStepsList> {
                     if (max != null && widget.data['grades_on'] != false) ...[
                       // Picked with a tap (2026-10-22, by request).
                       OutlinedButton.icon(
+                        // The theme's full-width minimum (Size.fromHeight)
+                        // can't lay out inside a Row: the button vanished.
+                        style: OutlinedButton.styleFrom(minimumSize: const Size(64, 40)),
                         icon: const Icon(Icons.touch_app_outlined, size: 18),
                         label: Text('${_grade.text.isEmpty ? '—' : _grade.text} / ${fmtPoints(max)}'),
                         onPressed: () async {
@@ -309,6 +312,7 @@ class _TaskStepsListState extends ConsumerState<TaskStepsList> {
                     ] else
                       const Spacer(),
                     FilledButton.icon(
+                      style: FilledButton.styleFrom(minimumSize: const Size(64, 40)),
                       onPressed: _busy ? null : () => _sign(step),
                       icon: const Icon(Icons.draw_outlined, size: 18),
                       label: Text(t['taskSteps.sign']!),
