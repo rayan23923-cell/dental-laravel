@@ -3,6 +3,7 @@ import DoctorLayout from '@/Layouts/DoctorLayout.vue';
 import Modal from '@/Components/Modal.vue';
 import PaperPhotos from '@/Components/PaperPhotos.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
+import SupervisorCodeDialog from '@/Components/SupervisorCodeDialog.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, nextTick, onMounted, ref } from 'vue';
 import axios from 'axios';
@@ -15,7 +16,26 @@ const props = defineProps({
     departments: Array,
     // The doctor's own start requests (2026-10-14).
     requests: { type: Array, default: () => [] },
+    // Forms on offer, grades and the supervisor code (2026-10-22).
+    formSettings: {
+        type: Object,
+        default: () => ({ electronic_forms_enabled: true, paper_forms_enabled: true, show_grades: true, supervisor_code_enabled: false, supervisor_code_actions: [] }),
+    },
 });
+
+// The supervisor's code on this account (2026-10-22, by request).
+const codeTarget = ref(null);
+const codeDone = ref('');
+const codeActions = computed(() => props.formSettings.supervisor_code_actions ?? []);
+const canCodeStart = computed(() => codeActions.value.includes('start'));
+const canCodeProgress = computed(() => codeActions.value.includes('step') || codeActions.value.includes('finish'));
+const onCodeDone = (msg) => {
+    codeTarget.value = null;
+    codeDone.value = msg;
+    setTimeout(() => (codeDone.value = ''), 5000);
+    router.reload({ preserveScroll: true });
+};
+const defaultFormType = () => (props.formSettings.electronic_forms_enabled ? 'electronic' : 'paper');
 
 // "كل المهام" | "بانتظار الموافقة" | "المعلقة" (2026-10-14, by request).
 const tab = ref('all');
@@ -29,12 +49,12 @@ const notStartedTasks = computed(() =>
 // Request to start a task: the electronic form (the doctor's draft) or a
 // photo of the paper one.
 const requestTask = ref(null);
-const requestForm = ref({ form_type: 'electronic', photo: null, notes: '' });
+const requestForm = ref({ form_type: defaultFormType(), photo: null, notes: '' });
 const requestError = ref('');
 const requestBusy = ref(false);
 const openRequest = (task) => {
     requestTask.value = task;
-    requestForm.value = { form_type: 'electronic', photo: null, notes: '' };
+    requestForm.value = { form_type: defaultFormType(), photo: null, notes: '' };
     requestError.value = '';
 };
 const submitRequest = async () => {
@@ -298,8 +318,9 @@ const openQr = (task, slot) => {
                                      comment for why this never starts the task
                                      itself (still requires the normal QR-scan/
                                      screening-gated flow). -->
-                                <div class="mt-2 grid grid-cols-3 gap-1">
+                                <div class="mt-2 grid gap-1" :class="formSettings.electronic_forms_enabled && formSettings.paper_forms_enabled ? 'grid-cols-3' : 'grid-cols-2'">
                                     <Link
+                                        v-if="formSettings.electronic_forms_enabled"
                                         :href="slot.instance_id ? route('doctor.case-sheet', slot.instance_id) : route('doctor.case-sheet.for-task', task.id)"
                                         class="block rounded bg-indigo-600 px-2 py-1 text-center text-xs font-medium text-white hover:bg-indigo-700"
                                     >
@@ -308,6 +329,7 @@ const openQr = (task, slot) => {
                                     <!-- Photos next to the form (2026-10-15, by request);
                                          the supervisor previews them and writes notes. -->
                                     <button
+                                        v-if="formSettings.paper_forms_enabled"
                                         type="button"
                                         :disabled="!slot.instance_id"
                                         :title="slot.instance_id ? '' : t('paperPhotos.needsStart')"
@@ -348,6 +370,17 @@ const openQr = (task, slot) => {
                                     </button>
                                 </template>
 
+                                <!-- Supervisor code (2026-10-22) -->
+                                <button
+                                    v-if="(slot.status === 'unassigned' && canCodeStart) || (slot.status === 'assigned' && canCodeProgress)"
+                                    type="button"
+                                    @click="codeTarget = { task, slot }"
+                                    class="mt-2 flex w-full items-center justify-center gap-1 rounded bg-violet-600 px-2 py-1 text-center text-xs font-medium text-white hover:bg-violet-700"
+                                >
+                                    <Icon name="pin" />{{ t('supervisorCode.button') }}
+                                    <span v-if="slot.status === 'assigned' && slot.steps_count" class="rounded-full bg-white/25 px-1.5">{{ slot.steps_signed }}/{{ slot.steps_count }}</span>
+                                </button>
+
                                 <!-- "تأكيد أنه ورقي" — only meaningful once
                                      the case has a real instance (a
                                      not-yet-started slot's optional draft
@@ -356,7 +389,7 @@ const openQr = (task, slot) => {
                                     <Icon name="check_circle" class="ml-1" />{{ t('tasks.confirmedPaperPrefix') }} {{ fmt(slot.paper_case_sheet_confirmed_at) }}
                                 </div>
                                 <button
-                                    v-else-if="slot.instance_id"
+                                    v-else-if="slot.instance_id && formSettings.paper_forms_enabled"
                                     type="button"
                                     @click="confirmPaper(slot)"
                                     class="mt-2 block w-full rounded bg-gray-200 px-2 py-1 text-center text-xs font-medium text-gray-700 hover:bg-gray-300"
@@ -404,9 +437,9 @@ const openQr = (task, slot) => {
                     <h3 class="text-lg font-medium text-gray-900"><Icon name="send" class="ml-1" />{{ t('taskRequests.requestTitle') }}</h3>
                     <p class="mt-1 text-sm text-gray-500">{{ requestTask.title }}</p>
                 </div>
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid gap-2" :class="formSettings.electronic_forms_enabled && formSettings.paper_forms_enabled ? 'grid-cols-2' : 'grid-cols-1'">
                     <label
-                        v-for="opt in [{ v: 'electronic', icon: 'description', label: t('taskRequests.electronicForm') }, { v: 'paper', icon: 'photo_camera', label: t('taskRequests.paperForm') }]"
+                        v-for="opt in [{ v: 'electronic', icon: 'description', label: t('taskRequests.electronicForm') }, { v: 'paper', icon: 'photo_camera', label: t('taskRequests.paperForm') }].filter((o) => formSettings[o.v + '_forms_enabled'])"
                         :key="opt.v"
                         class="flex cursor-pointer flex-col items-center gap-1 rounded-xl border-2 p-3 text-sm"
                         :class="requestForm.form_type === opt.v ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-gray-200 text-gray-600'"
@@ -450,5 +483,9 @@ const openQr = (task, slot) => {
                 </div>
             </form>
         </Modal>
+        <SupervisorCodeDialog :target="codeTarget" :settings="formSettings" @close="codeTarget = null" @done="onCodeDone" />
+        <div v-if="codeDone" class="fixed inset-x-4 bottom-6 z-50 mx-auto max-w-sm rounded-2xl bg-emerald-600 px-4 py-3 text-center text-sm font-medium text-white shadow-lg">
+            <Icon name="check_circle" class="ml-1" />{{ codeDone }}
+        </div>
     </DoctorLayout>
 </template>

@@ -156,7 +156,7 @@ class TaskProgressController extends Controller
     /** The department-tabbed doctor/task matrix for one group — see `TaskProgressGroupSummary`. */
     public function group(Request $request, Group $group): JsonResponse
     {
-        return response()->json(TaskProgressGroupSummary::build($group, $request->user(), AcademicSessionHelper::resolveId()));
+        return response()->json(self::gradesFor($request, TaskProgressGroupSummary::build($group, $request->user(), AcademicSessionHelper::resolveId())));
     }
 
     /**
@@ -167,7 +167,7 @@ class TaskProgressController extends Controller
     {
         $stage = ScopeHelper::scopeStages(Stage::whereKey($stage), $request->user())->firstOrFail();
 
-        return response()->json(TaskProgressGroupSummary::buildForStage($stage, $request->user(), AcademicSessionHelper::resolveId()));
+        return response()->json(self::gradesFor($request, TaskProgressGroupSummary::buildForStage($stage, $request->user(), AcademicSessionHelper::resolveId())));
     }
 
     /**
@@ -180,7 +180,10 @@ class TaskProgressController extends Controller
         $doctor = $request->user();
         abort_unless($doctor instanceof Doctor, 403, 'Only doctors have their own task summary.');
 
-        return response()->json(DoctorTaskSummary::build($doctor, AcademicSessionHelper::resolveId()));
+        $summary = DoctorTaskSummary::build($doctor, AcademicSessionHelper::resolveId());
+
+        // Grades hidden from students in forms settings (2026-10-22).
+        return response()->json(\App\Support\FormSettings::gradesShownToDoctors() ? $summary : \App\Support\FormSettings::withoutGrades($summary));
     }
 
     public function complete(Request $request, TaskInstance $taskInstance): JsonResponse
@@ -234,5 +237,13 @@ class TaskProgressController extends Controller
         foreach ($steps as $step) {
             TaskSteps::sign($instance->fresh(), $step['step'], $step['grade'] ?? null, $signer);
         }
+    }
+
+    /** Grades hidden from staff without `task_progress.view_grade` (2026-10-22). */
+    private static function gradesFor(Request $request, array $summary): array
+    {
+        return (new \App\Services\PermissionManager($request->user()))->can('task_progress', 'view_grade')
+            ? $summary
+            : \App\Support\FormSettings::withoutGrades($summary);
     }
 }

@@ -376,6 +376,13 @@ Route::name('api.')->prefix('v1')->group(function () {
         // Api\TaskProgressController::mine()/DoctorTaskSummary.
         Route::get('/my-task-progress', [TaskProgressController::class, 'mine']);
         // "طلبات بدء المهام" (2026-10-14) — a doctor's own requests.
+        // The supervisor's code typed on the student's account (2026-10-22).
+        Route::get('/my-form-settings', [\App\Http\Controllers\FormSettingsController::class, 'forDoctor']);
+        Route::middleware('throttle:30,1')->group(function () {
+            Route::post('/my-supervisor-code/start', [\App\Http\Controllers\SupervisorCodeController::class, 'start']);
+            Route::post('/my-supervisor-code/instances/{taskInstance}/step', [\App\Http\Controllers\SupervisorCodeController::class, 'signStep']);
+            Route::post('/my-supervisor-code/instances/{taskInstance}/complete', [\App\Http\Controllers\SupervisorCodeController::class, 'complete']);
+        });
         Route::get('/my-task-start-requests', [\App\Http\Controllers\TaskStartRequestController::class, 'mine']);
         Route::post('/my-task-start-requests', [\App\Http\Controllers\TaskStartRequestController::class, 'store']);
         Route::delete('/my-task-start-requests/{taskStartRequest}', [\App\Http\Controllers\TaskStartRequestController::class, 'destroy']);
@@ -441,6 +448,13 @@ Route::name('api.')->prefix('v1')->group(function () {
         // NFC doctor lookup — Flutter-only (browsers can't read NFC), the
         // web's session-based /task-progress/scan stays QR-only and is
         // untouched. See Api\TaskProgressController's docblock.
+        // "إعدادات النماذج" and the supervisor's own code (2026-10-22).
+        Route::get('/form-settings', [\App\Http\Controllers\FormSettingsController::class, 'show'])
+            ->middleware('permission:task_progress,view|view_status|form_settings|supervisor_code');
+        Route::put('/form-settings', [\App\Http\Controllers\FormSettingsController::class, 'update'])
+            ->middleware('permission:task_progress,form_settings');
+        Route::get('/task-progress/my-code', [\App\Http\Controllers\FormSettingsController::class, 'myCode'])
+            ->middleware('permission:task_progress,supervisor_code');
         Route::post('/task-progress/nfc-scan', [TaskProgressController::class, 'nfcScan'])
             ->middleware('permission:task_progress,view');
         Route::post('/task-progress/start', [TaskProgressController::class, 'start'])
@@ -455,11 +469,11 @@ Route::name('api.')->prefix('v1')->group(function () {
         // The full matrix screen — see Api\TaskProgressController's
         // docblock. Same permission gates as their web counterparts.
         Route::get('/task-progress/filters', [TaskProgressController::class, 'filters'])
-            ->middleware('permission:task_progress,view');
+            ->middleware('permission:task_progress,view|view_status');
         Route::get('/task-progress/groups/{group}', [TaskProgressController::class, 'group'])
-            ->middleware('permission:task_progress,view');
+            ->middleware('permission:task_progress,view|view_status');
         Route::get('/task-progress/stages/{stage}', [TaskProgressController::class, 'stage'])
-            ->middleware('permission:task_progress,view');
+            ->middleware('permission:task_progress,view|view_status');
         // Paper case-sheet photos (2026-10-13) — see TaskInstanceAttachmentController.
         Route::get('/task-progress/instances/{taskInstance}/attachments', [TaskInstanceAttachmentController::class, 'index'])
             ->middleware('permission:task_progress,view')->name('task-attachments.index');
@@ -472,7 +486,7 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::put('/task-progress/instances/{taskInstance}/complete', [TaskProgressController::class, 'complete'])
             ->middleware('permission:task_progress,finish');
         Route::put('/task-progress/instances/{taskInstance}', [TaskProgressController::class, 'updateInstance'])
-            ->middleware('permission:task_progress,finish');
+            ->middleware('permission:task_progress,grade');
 
         // Was missing entirely on the API side until 2026-08-28 — a real,
         // pre-existing gap found while building the supervisor-preview

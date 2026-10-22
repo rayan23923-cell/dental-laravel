@@ -76,8 +76,15 @@ class PermissionMatrix
                     'view_all' => 'عرض الكل',
                     'export' => 'تصدير',
                     'start' => 'بدء المهمة',
-                    'finish' => 'إنهاء المهمة',
-                    'open_case_sheet' => 'فتح Case Sheet',
+                    // Split out of start/finish/view (2026-10-22, by request).
+                    'track_steps' => 'تتبع الخطوات',
+                    'grade' => 'إضافة الدرجة أو تعديلها',
+                    'finish' => 'إنهاء المهمة وإدخال الدرجة',
+                    'open_case_sheet' => 'فتح النماذج أو الورقة',
+                    'view_grade' => 'مشاهدة الدرجة أو إخفاؤها',
+                    'view_status' => 'معرفة حالة المهام',
+                    'supervisor_code' => 'كود المشرف',
+                    'form_settings' => 'إعدادات النماذج',
                 ],
             ],
             'patients' => [

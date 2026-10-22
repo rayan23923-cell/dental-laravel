@@ -60,7 +60,8 @@ class ProgressController extends Controller
                 'assigned' => $instances->where('status', 'assigned')->count(),
                 'pending' => $instances->where('status', 'pending')->count(),
             ],
-            'tasks' => $tasks,
+            // Grades hidden from students in forms settings (2026-10-22).
+            'tasks' => \App\Support\FormSettings::gradesShownToDoctors() ? $tasks : \App\Support\FormSettings::withoutGrades($tasks->toArray()),
         ]);
     }
 }

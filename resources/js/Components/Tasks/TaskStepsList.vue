@@ -1,4 +1,5 @@
 <script setup>
+import GradeInput from '@/Components/GradeInput.vue';
 import { stepsFromScoring } from '@/Components/Tasks/workItems.js';
 import axios from 'axios';
 import { computed, reactive, ref } from 'vue';
@@ -150,16 +151,8 @@ const undo = async (row) => {
                     </template>
                     <template v-else-if="canSign && i === nextIndex">
                         <span v-if="row.max !== null" class="flex items-center gap-1">
-                            <input
-                                v-model.number="grades[row.key]"
-                                type="number"
-                                min="0"
-                                :max="row.max"
-                                step="0.5"
-                                :placeholder="t('taskSteps.grade')"
-                                class="w-20 rounded-md border-gray-300 py-1 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                            />
-                            <span class="text-xs text-gray-500">/ {{ row.max }}</span>
+                            <!-- Picked with a tap (2026-10-22, by request). -->
+                            <GradeInput v-model="grades[row.key]" :max="row.max" :title="row.label" />
                         </span>
                         <button type="button" class="rounded-md bg-indigo-600 px-3 py-1 text-xs text-white hover:bg-indigo-700 disabled:opacity-50" :disabled="busy" @click="sign(row)">
                             {{ t('taskSteps.sign') }}

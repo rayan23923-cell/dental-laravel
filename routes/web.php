@@ -207,6 +207,13 @@ Route::middleware('auth:doctor')->group(function () {
     Route::get('/doctor/notifications', [NotificationFeedController::class, 'index'])->name('doctor.notifications.index');
     Route::post('/doctor/notifications/read-all', [NotificationFeedController::class, 'markAllRead'])->name('doctor.notifications.read-all');
     Route::post('/doctor/notifications/{id}/read', [NotificationFeedController::class, 'markRead'])->name('doctor.notifications.read');
+    // The supervisor's code typed on the student's account (2026-10-22); see SupervisorCodeController.
+    Route::get('/doctor/form-settings', [\App\Http\Controllers\FormSettingsController::class, 'forDoctor'])->name('doctor.form-settings');
+    Route::middleware('throttle:30,1')->group(function () {
+        Route::post('/doctor/supervisor-code/start', [\App\Http\Controllers\SupervisorCodeController::class, 'start'])->name('doctor.supervisor-code.start');
+        Route::post('/doctor/supervisor-code/instances/{taskInstance}/step', [\App\Http\Controllers\SupervisorCodeController::class, 'signStep'])->name('doctor.supervisor-code.step');
+        Route::post('/doctor/supervisor-code/instances/{taskInstance}/complete', [\App\Http\Controllers\SupervisorCodeController::class, 'complete'])->name('doctor.supervisor-code.complete');
+    });
     Route::get('/doctor/task-start-requests', [TaskStartRequestController::class, 'mine'])->name('doctor.task-start-requests.index');
     Route::post('/doctor/task-start-requests', [TaskStartRequestController::class, 'store'])->name('doctor.task-start-requests.store');
     Route::delete('/doctor/task-start-requests/{taskStartRequest}', [TaskStartRequestController::class, 'destroy'])->name('doctor.task-start-requests.destroy');
@@ -500,11 +507,11 @@ Route::middleware('auth')->group(function () {
         // re-check `start`/`finish` server-side). Now that the matrix
         // carries those actions, the routes enforce them.
         Route::get('/task-progress', [TaskProgressController::class, 'index'])
-            ->middleware('permission:task_progress,view')->name('task-progress.index');
+            ->middleware('permission:task_progress,view|view_status')->name('task-progress.index');
         Route::get('/task-progress/groups/{group}', [TaskProgressController::class, 'group'])
-            ->middleware('permission:task_progress,view')->name('task-progress.group');
+            ->middleware('permission:task_progress,view|view_status')->name('task-progress.group');
         Route::get('/task-progress/stages/{stage}', [TaskProgressController::class, 'stage'])
-            ->middleware('permission:task_progress,view')->name('task-progress.stage');
+            ->middleware('permission:task_progress,view|view_status')->name('task-progress.stage');
         // Staff-side "فتح النموذج" — the original gates this with
         // task_progress.open_case_sheet, checked inside the controller too.
         Route::get('/case-sheet/{taskInstance}', [CaseSheetController::class, 'open'])
@@ -524,6 +531,13 @@ Route::middleware('auth')->group(function () {
             ->middleware('permission:task_progress,start')->name('task-progress.requests.approve');
         Route::post('/task-progress/requests/{taskStartRequest}/reject', [TaskStartRequestController::class, 'reject'])
             ->middleware('permission:task_progress,start')->name('task-progress.requests.reject');
+        // "إعدادات النماذج" and the supervisor's own code (2026-10-22); see FormSettingsController.
+        Route::get('/form-settings', [\App\Http\Controllers\FormSettingsController::class, 'page'])
+            ->middleware('permission:task_progress,view|view_status|form_settings|supervisor_code')->name('form-settings.index');
+        Route::put('/form-settings', [\App\Http\Controllers\FormSettingsController::class, 'update'])
+            ->middleware('permission:task_progress,form_settings')->name('form-settings.update');
+        Route::get('/task-progress/my-code', [\App\Http\Controllers\FormSettingsController::class, 'myCode'])
+            ->middleware('permission:task_progress,supervisor_code')->name('task-progress.my-code');
         Route::put('/task-progress/instances/{taskInstance}/complete', [TaskProgressController::class, 'complete'])
             ->middleware('permission:task_progress,finish')->name('task-progress.complete');
         // The original guards this with `finish || edit` — but
@@ -533,7 +547,7 @@ Route::middleware('auth')->group(function () {
         // which therefore denies every non-super_admin — a latent bug not
         // reproduced here.) Gated on `finish`, matching effective behaviour.
         Route::put('/task-progress/instances/{taskInstance}', [TaskProgressController::class, 'updateInstance'])
-            ->middleware('permission:task_progress,finish')->name('task-progress.update-instance');
+            ->middleware('permission:task_progress,grade')->name('task-progress.update-instance');
         // Photos of the paper case sheet (2026-10-13); deleting checks
         // task_progress,finish in the controller.
         Route::get('/task-progress/instances/{taskInstance}/attachments', [TaskInstanceAttachmentController::class, 'index'])
