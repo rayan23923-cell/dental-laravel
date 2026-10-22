@@ -143,6 +143,13 @@ class SupervisorCodeTest extends TestCase
         // Steps are signed without a grade; no step can be added.
         $this->postJson(route('case-sheets.instance-steps.sign', $instance), ['step' => 's:custom_1'])->assertOk();
         $this->postJson(route('case-sheets.instance-steps.add', $instance), ['label' => 'زيادة', 'max' => 5])->assertJsonValidationErrors('label');
+        // The app reads these to hide the add-step button and the grade field, whatever the user's grants.
+        $this->getJson(route('case-sheets.instance-work', $instance))->assertOk()
+            ->assertJsonPath('can_add_step', false)->assertJsonPath('grades_on', false);
+        Sanctum::actingAs($admin);
+        $this->getJson("/api/v1/case-sheets/instances/{$instance->id}/work")->assertOk()
+            ->assertJsonPath('can_add_step', false)->assertJsonPath('grades_on', false);
+        $this->actingAs($admin);
         $this->put(route('task-progress.complete', $instance), ['grade' => 15])->assertSessionHas('error');
         $this->assertSame('assigned', $instance->fresh()->status);
 
