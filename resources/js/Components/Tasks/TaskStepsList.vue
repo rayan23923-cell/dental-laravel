@@ -155,6 +155,8 @@ const undo = async (row) => {
                             {{ t('taskSteps.undo') }}
                         </button>
                     </template>
+                    <!-- No signing a graded step without its grade (2026-10-22, by request). -->
+                    <span v-else-if="canSign && i === nextIndex && row.max !== null && !gradesOn" class="text-xs text-amber-700">{{ t('taskSteps.gradesOff') }}</span>
                     <template v-else-if="canSign && i === nextIndex">
                         <span v-if="row.max !== null && gradesOn" class="flex items-center gap-1">
                             <!-- Picked with a tap (2026-10-22, by request). -->

@@ -98,6 +98,9 @@ class TaskSteps
     /** Signs the next step with its grade, as $signerName. */
     public static function sign(TaskInstance $instance, string $key, $grade, string $signerName): void
     {
+        if (! FormSettings::on('steps_enabled')) {
+            throw ValidationException::withMessages(['step' => 'تعبئة الخطوات متوقفة حالياً من الإعدادات.']);
+        }
         $instance->loadMissing('task');
         $steps = self::list($instance->task, $instance);
         $index = collect($steps)->search(fn ($s) => $s['key'] === $key);
@@ -112,8 +115,12 @@ class TaskSteps
         if ($before) {
             throw ValidationException::withMessages(['step' => "وقّع خطوة \"{$before['label']}\" أولاً."]);
         }
-        // Grades switched off for the whole system (2026-10-22): signed without one.
-        if ($step['max'] !== null && FormSettings::on('grade_entry_enabled')) {
+        // No signing a graded step without its grade (2026-10-22, by request:
+        // "لايجوز التوقيع بدون ادخال درجة"), so not while grades are off.
+        if ($step['max'] !== null && ! FormSettings::on('grade_entry_enabled')) {
+            throw ValidationException::withMessages(['grade' => 'لا يمكن توقيع خطوة لها درجة وإدخال الدرجة متوقف من الإعدادات.']);
+        }
+        if ($step['max'] !== null) {
             if (! is_numeric($grade)) {
                 throw ValidationException::withMessages(['grade' => 'ضع درجة هذه الخطوة.']);
             }
@@ -162,7 +169,7 @@ class TaskSteps
      */
     public static function addExtra(TaskInstance $instance, string $label, float $max): void
     {
-        if (! FormSettings::on('step_add_enabled')) {
+        if (! FormSettings::on('step_add_enabled') || ! FormSettings::on('steps_enabled')) {
             throw ValidationException::withMessages(['label' => 'إضافة الخطوات متوقفة حالياً من إعدادات النماذج.']);
         }
         $extras = $instance->extra_steps ?? [];

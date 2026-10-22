@@ -797,7 +797,7 @@ const startFromScan = () => {
                 <h2 class="text-lg font-medium text-gray-900">{{ t('taskProgressAdmin.startTaskModalTitle') }}</h2>
                 <p class="mt-1 text-sm text-gray-500">{{ startTarget?.doctor.name }} — {{ startTarget?.card.task_title }}</p>
 
-                <div v-if="startSteps.length" class="mt-4">
+                <div v-if="startSteps.length && isOn('steps_enabled')" class="mt-4">
                     <p class="mb-2 text-xs text-gray-500">{{ t('taskSteps.startHint') }}</p>
                     <TaskStepsList v-model="startForm.steps" :scoring="startTarget?.card?.task_scoring" />
                     <InputError class="mt-2" :message="startForm.errors.step ?? startForm.errors.grade" />

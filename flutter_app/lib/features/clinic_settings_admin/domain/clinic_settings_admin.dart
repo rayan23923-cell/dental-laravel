@@ -1,5 +1,5 @@
 /// The general settings' forms and task progress switches (2026-10-22).
-const kTaskSwitchKeys = ['electronic_forms_enabled', 'paper_forms_enabled', 'task_start_enabled', 'task_finish_enabled', 'task_lists_enabled', 'grade_entry_enabled', 'step_add_enabled'];
+const kTaskSwitchKeys = ['electronic_forms_enabled', 'paper_forms_enabled', 'task_start_enabled', 'task_finish_enabled', 'task_lists_enabled', 'steps_enabled', 'grade_entry_enabled', 'step_add_enabled'];
 
 /// `Api\ClinicSettingController::show()`'s response shape. `theme` is
 /// deliberately left out (the Flutter app uses a fixed theme, not the web
