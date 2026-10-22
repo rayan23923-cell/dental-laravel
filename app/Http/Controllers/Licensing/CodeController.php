@@ -35,6 +35,12 @@ class CodeController extends Controller
     {
         $action = $request->validate(['action' => ['required', 'in:release,revoke,restore']])['action'];
 
+        // Restarting a stopped code brings its computer back: only within the limit.
+        $university = $license->universityRecord;
+        if ($action === 'restore' && $license->machine_id && $university && ! $university->hasRoomFor($license->machine_id)) {
+            return back()->with('error', 'وصلت الجامعة إلى الحد الأقصى لعدد الأجهزة ('.$university->max_devices.'). حرّر أو أوقف حاسوباً آخر، أو ارفع الحد.');
+        }
+
         $license->forceFill(match ($action) {
             'release' => ['machine_id' => null, 'machine_name' => null, 'activated_at' => null, 'installed_build' => null, 'last_ip' => null],
             'revoke' => ['revoked_at' => now()],

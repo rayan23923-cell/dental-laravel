@@ -7,6 +7,7 @@
         $used = $licenses->whereNotNull('machine_id');
         $free = $licenses->whereNull('machine_id');
         $latestBuild = $latest['build'] ?? null;
+        $active = $university->activeDevices();
         $outdated = $latestBuild ? $used->filter(fn ($l) => $l->installed_build && $l->installed_build < $latestBuild)->count() : 0;
     @endphp
 
@@ -19,6 +20,14 @@
     <div class="grid" style="margin: 16px 0;">
         <div class="stat"><span class="muted">الرموز</span><b>{{ $licenses->count() }}</b></div>
         <div class="stat"><span class="muted">حواسيب مفعّلة</span><b>{{ $used->count() }}</b></div>
+        <div class="stat"><span class="muted">الحد المسموح للأجهزة</span>
+            @if ($university->max_devices)
+                <b class="ltr">{{ $active }} / {{ $university->max_devices }}</b>
+                <span class="muted">{{ $active >= $university->max_devices ? 'مكتمل، لن يُفعَّل حاسوب جديد' : 'متبقٍّ '.($university->max_devices - $active) }}</span>
+            @else
+                <b>بلا حد</b>
+            @endif
+        </div>
         <div class="stat"><span class="muted">رموز غير مستخدمة</span><b>{{ $free->count() }}</b></div>
         <div class="stat"><span class="muted">تحتاج تحديث</span><b>{{ $outdated }}</b>
             <span class="muted">آخر نسخة: <span class="ltr">{{ $latestBuild ?? '—' }}</span></span></div>
@@ -96,10 +105,13 @@
             @csrf @method('PATCH')
             <label>اسم الجامعة <input name="name" value="{{ old('name', $university->name) }}" required></label>
             <label>جهة الاتصال <input name="contact" value="{{ old('contact', $university->contact) }}"></label>
+            <label style="flex: 0 1 150px;">عدد الأجهزة المسموح <input type="number" name="max_devices" value="{{ old('max_devices', $university->max_devices) }}" min="1" placeholder="بلا حد"></label>
             <label>ملاحظات <input name="notes" value="{{ old('notes', $university->notes) }}"></label>
             <button type="submit">حفظ</button>
         </form>
+        <p class="muted" style="margin: 8px 0 0;">اتركه فارغاً بلا حد. عند الوصول إلى الحد يُرفض تفعيل أي حاسوب جديد، ويبقى المفعّل يعمل. تحرير رمز أو إيقافه يفرّغ مكاناً.</p>
         @error('name') <div class="error">{{ $message }}</div> @enderror
+        @error('max_devices') <div class="error">{{ $message }}</div> @enderror
         @if ($used->isEmpty())
             <form method="POST" action="{{ route('licensing.universities.destroy', $university) }}" data-confirm="حذف الجامعة وكل رموزها؟" style="margin-top: 14px;">
                 @csrf @method('DELETE')

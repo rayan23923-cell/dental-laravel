@@ -18,6 +18,7 @@ class UniversityController extends Controller
         $universities = LicenseUniversity::withCount([
             'licenses',
             'licenses as used_count' => fn ($q) => $q->whereNotNull('machine_id'),
+            'licenses as active_count' => fn ($q) => $q->whereNotNull('machine_id')->whereNull('revoked_at'),
             'licenses as revoked_count' => fn ($q) => $q->whereNotNull('revoked_at'),
         ])->withMax('licenses', 'last_seen_at')->orderBy('name')->get();
 
@@ -71,6 +72,7 @@ class UniversityController extends Controller
             'name' => ['required', 'string', 'max:255', Rule::unique('license_universities', 'name')->ignore($university)],
             'contact' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:255'],
-        ], [], ['name' => 'اسم الجامعة']);
+            'max_devices' => ['nullable', 'integer', 'min:1', 'max:10000'],
+        ], [], ['name' => 'اسم الجامعة', 'max_devices' => 'عدد الأجهزة']);
     }
 }
