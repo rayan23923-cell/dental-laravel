@@ -208,6 +208,18 @@ class TaskProgressController extends Controller
         ]]);
     }
 
+    /** "إلغاء بدء المهمة" (2026-10-23); see App\Services\TaskCanceller. */
+    public function cancel(TaskInstance $taskInstance): JsonResponse
+    {
+        try {
+            \App\Services\TaskCanceller::cancel($taskInstance);
+        } catch (TaskStartException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json(['message' => 'تم إلغاء بدء المهمة.']);
+    }
+
     public function updateInstance(Request $request, TaskInstance $taskInstance): JsonResponse
     {
         $validated = $request->validate([

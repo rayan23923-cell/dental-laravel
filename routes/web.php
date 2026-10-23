@@ -540,6 +540,9 @@ Route::middleware('auth')->group(function () {
             ->middleware('permission:task_progress,supervisor_code')->name('task-progress.my-code');
         Route::put('/task-progress/instances/{taskInstance}/complete', [TaskProgressController::class, 'complete'])
             ->middleware('permission:task_progress,finish')->name('task-progress.complete');
+        // "إلغاء بدء المهمة" (2026-10-23, by request).
+        Route::delete('/task-progress/instances/{taskInstance}/start', [TaskProgressController::class, 'cancel'])
+            ->middleware('permission:task_progress,cancel')->name('task-progress.cancel');
         // The original guards this with `finish || edit` — but
         // `task_progress.edit` is **never defined in its own permission
         // matrix**, so it can never be granted and the check collapses to

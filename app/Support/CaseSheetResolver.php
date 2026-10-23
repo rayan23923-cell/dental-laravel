@@ -112,6 +112,21 @@ class CaseSheetResolver
             : null;
     }
 
+    /**
+     * Turns the case sheets of a cancelled start (2026-10-23) back into the
+     * doctor's draft for that task, so what was filled in isn't lost.
+     */
+    public static function detachFrom(TaskInstance $instance): void
+    {
+        foreach (self::MODELS as $model) {
+            $model::where('task_instances_id', $instance->id)->update([
+                'task_instances_id' => null,
+                'doctor_id' => $instance->doctor_id,
+                'task_id' => $instance->task_id,
+            ]);
+        }
+    }
+
     /** The Eloquent model class behind a resource slug — used by `CaseSheetSignatures::allSignedForInstance()`. */
     public static function modelFor(string $resource): ?string
     {

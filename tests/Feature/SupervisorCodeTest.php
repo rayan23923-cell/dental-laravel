@@ -180,4 +180,30 @@ class SupervisorCodeTest extends TestCase
         $this->actingAs($this->doctor, 'doctor')->getJson(route('doctor.form-settings'))
             ->assertJsonPath('steps_enabled', false)->assertJsonPath('supervisor_code_actions', ['start', 'finish']);
     }
+
+    public function test_a_started_task_is_cancelled_with_its_permission_and_switch(): void
+    {
+        $instance = \App\Services\TaskStarter::start($this->task, $this->doctor, null, null, $this->supervisor->id);
+        \App\Support\TaskSteps::sign($instance, 's:custom_1', 8, 'د. المشرف');
+
+        // No permission yet.
+        $this->actingAs($this->supervisor)->delete(route('task-progress.cancel', $instance))->assertForbidden();
+
+        PermissionManager::syncGrants($this->supervisor, ['task_progress.view', 'task_progress.start', 'task_progress.cancel']);
+        ClinicSetting::current()->update(['task_cancel_enabled' => false]);
+        $this->delete(route('task-progress.cancel', $instance))->assertSessionHas('error');
+        $this->assertDatabaseHas('task_instances', ['id' => $instance->id]);
+
+        ClinicSetting::current()->update(['task_cancel_enabled' => true]);
+        $this->delete(route('task-progress.cancel', $instance))->assertSessionHas('success');
+        $this->assertDatabaseMissing('task_instances', ['id' => $instance->id]);
+
+        // Started again from scratch, then completed: no longer cancellable.
+        $again = \App\Services\TaskStarter::start($this->task, $this->doctor, null, null, $this->supervisor->id);
+        $this->assertEmpty($again->step_signoffs);
+        $again->update(['status' => 'completed']);
+        Sanctum::actingAs($this->supervisor);
+        $this->deleteJson("/api/v1/task-progress/instances/{$again->id}/start")->assertStatus(422);
+        $this->assertDatabaseHas('task_instances', ['id' => $again->id, 'status' => 'completed']);
+    }
 }

@@ -76,6 +76,7 @@ class PermissionMatrix
                     'view_all' => 'عرض الكل',
                     'export' => 'تصدير',
                     'start' => 'بدء المهمة',
+                    'cancel' => 'إلغاء بدء المهمة',
                     // Split out of start/finish/view (2026-10-22, by request).
                     'track_steps' => 'تتبع الخطوات',
                     'add_step' => 'إضافة خطوة',

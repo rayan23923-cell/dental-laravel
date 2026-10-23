@@ -44,7 +44,7 @@ const form = useForm({
     groups_enabled: !!(props.settings.groups_enabled ?? true),
     // Forms and task progress switches for the whole system (2026-10-22).
     ...Object.fromEntries(
-        ['electronic_forms_enabled', 'paper_forms_enabled', 'show_grades_to_doctors', 'task_start_enabled', 'task_finish_enabled', 'task_lists_enabled', 'grade_entry_enabled', 'steps_enabled', 'step_add_enabled'].map((k) => [k, !!(props.settings[k] ?? true)]),
+        ['electronic_forms_enabled', 'paper_forms_enabled', 'show_grades_to_doctors', 'task_start_enabled', 'task_finish_enabled', 'task_lists_enabled', 'grade_entry_enabled', 'steps_enabled', 'step_add_enabled', 'task_cancel_enabled'].map((k) => [k, !!(props.settings[k] ?? true)]),
     ),
     clinic_logo: null,
     university_logo: null,
@@ -319,7 +319,7 @@ const summaries = computed(() => ({
                                     <p class="pt-2 text-sm font-medium text-gray-800">{{ t('formSettings.tasksSection') }}</p>
                                     <p class="text-xs text-gray-500">{{ t('formSettings.tasksSectionHint') }}</p>
                                     <SettingsToggle
-                                        v-for="key in ['task_start_enabled', 'task_finish_enabled', 'task_lists_enabled', 'steps_enabled', 'grade_entry_enabled', 'step_add_enabled']"
+                                        v-for="key in ['task_start_enabled', 'task_cancel_enabled', 'task_finish_enabled', 'task_lists_enabled', 'steps_enabled', 'grade_entry_enabled', 'step_add_enabled']"
                                         :key="key"
                                         v-model="form[key]"
                                         :label="t('formSettings.' + key)"
