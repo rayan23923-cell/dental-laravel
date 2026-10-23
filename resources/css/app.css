@@ -74,7 +74,9 @@
     .themed .focus\:border-gray-300:focus { border-color: rgb(var(--c-border)); }
     .themed .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
     .themed .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: rgb(var(--c-border)); }
-    .themed .ring-gray-100 { --tw-ring-color: rgb(var(--c-border)); }
+    .themed .ring-gray-100,
+    .themed .ring-gray-200,
+    .themed .ring-gray-300 { --tw-ring-color: rgb(var(--c-border)); }
 
     /* Form fields carry their background from the forms plugin, not a class. */
     .themed input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
