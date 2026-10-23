@@ -74,6 +74,11 @@ class TaskProgressRepository {
     return _client.putJson('/task-progress/instances/$instanceId/complete', body: {'grade': grade, 'notes': notes});
   }
 
+  /// "إلغاء بدء المهمة" (2026-10-23): the case shows as not started again.
+  Future<void> cancelStart(int instanceId) {
+    return _client.deleteJson('/task-progress/instances/$instanceId/start');
+  }
+
   Future<void> updateInstance(int instanceId, {double? grade, String? notes}) {
     return _client.putJson('/task-progress/instances/$instanceId', body: {'grade': grade, 'notes': notes});
   }

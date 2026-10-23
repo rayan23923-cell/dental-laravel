@@ -62,6 +62,8 @@ class TaskProgressController extends Controller
             'currentSession' => $session?->only('id', 'name'),
             // Badge on the "الطلبات" tab (2026-10-14).
             'pendingRequests' => TaskStartRequests::visibleTo($request->user())->where('status', 'pending')->count(),
+            // "إلغاء بدء المهمة" (2026-10-23): its own permission.
+            'canCancel' => (new \App\Services\PermissionManager($request->user()))->can('task_progress', 'cancel'),
         ]);
     }
 
@@ -274,6 +276,18 @@ class TaskProgressController extends Controller
         }
 
         return back()->with('success', 'Task marked as completed.');
+    }
+
+    /** "إلغاء بدء المهمة" (2026-10-23); see App\Services\TaskCanceller. */
+    public function cancel(TaskInstance $taskInstance): RedirectResponse
+    {
+        try {
+            \App\Services\TaskCanceller::cancel($taskInstance);
+        } catch (TaskStartException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'تم إلغاء بدء المهمة.');
     }
 
     /** Ports admin/ajax/update_task_instance.php (edit notes + grade). */

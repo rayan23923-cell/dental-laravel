@@ -489,6 +489,9 @@ Route::name('api.')->prefix('v1')->group(function () {
             ->middleware('permission:task_progress,view')->name('task-attachments.destroy');
         Route::put('/task-progress/instances/{taskInstance}/complete', [TaskProgressController::class, 'complete'])
             ->middleware('permission:task_progress,finish');
+        // "إلغاء بدء المهمة" (2026-10-23, by request).
+        Route::delete('/task-progress/instances/{taskInstance}/start', [TaskProgressController::class, 'cancel'])
+            ->middleware('permission:task_progress,cancel');
         Route::put('/task-progress/instances/{taskInstance}', [TaskProgressController::class, 'updateInstance'])
             ->middleware('permission:task_progress,grade');
 

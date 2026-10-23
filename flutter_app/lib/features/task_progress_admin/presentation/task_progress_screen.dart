@@ -30,6 +30,9 @@ import '../../printing/presentation/ticket_renderer.dart';
 import '../../task_start_requests/presentation/task_start_request_providers.dart';
 import '../../task_start_requests/presentation/task_start_requests_view.dart';
 import '../../form_settings/data/form_settings_repository.dart';
+import '../../auth/domain/auth_account.dart';
+import '../../auth/presentation/auth_controller.dart';
+import '../../auth/presentation/auth_state.dart';
 import '../data/task_progress_repository.dart';
 import '../domain/task_progress_group.dart';
 import 'task_progress_pdf.dart';
@@ -342,6 +345,39 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
       if (mounted) {
         final t = ref.read(translationsProvider);
         showPrinterErrorSnackBar(context, t['taskProgressAdmin.printReceiptFailed']!, error: e);
+      }
+    }
+  }
+
+  /// "إلغاء بدء المهمة" (2026-10-23, by request), after a confirmation.
+  Future<void> _cancelStart(TaskSlotCard card) async {
+    final t = ref.read(translationsProvider);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t['taskProgressAdmin.cancelStart']!),
+        content: Text(trf(t['taskProgressAdmin.cancelStartConfirm']!, {'task': card.taskTitle})),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(t['taskProgressAdmin.cancelStartKeep']!)),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(t['taskProgressAdmin.cancelStart']!),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ref.read(taskProgressRepositoryProvider).cancelStart(card.instanceId!);
+      _reloadGroup();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['taskProgressAdmin.cancelStartDone']!)));
+      }
+    } catch (e) {
+      if (mounted) {
+        final message = e is ApiException ? e.userMessage : t['taskProgressAdmin.completeFailed']!;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     }
   }
@@ -1056,6 +1092,10 @@ class _TaskSlotTile extends ConsumerWidget {
     // Start and complete switched off for the whole system (2026-10-22).
     final switches = ref.watch(taskSwitchesProvider).valueOrNull ?? const FormSettings();
     final t = ref.watch(translationsProvider);
+    final authState = ref.watch(authControllerProvider).valueOrNull;
+    final account = authState is Authenticated ? authState.account : null;
+    // "إلغاء بدء المهمة" (2026-10-23): the switch and the user's permission.
+    final canCancel = switches.on('task_cancel_enabled') && account is StaffAccount && account.can('task_progress', 'cancel');
     return ListTile(
       title: Text('${card.taskTitle} (${card.slot})'),
       subtitle: Column(
@@ -1130,6 +1170,12 @@ class _TaskSlotTile extends ConsumerWidget {
                       ? TextButton.styleFrom(backgroundColor: Colors.green.shade50, foregroundColor: Colors.green.shade800)
                       : null,
                   child: Text(t['taskProgressAdmin.markComplete']!),
+                ),
+              if (card.status == 'assigned' && card.instanceId != null && canCancel)
+                TextButton(
+                  onPressed: () => screen._cancelStart(card),
+                  style: TextButton.styleFrom(foregroundColor: Colors.red.shade700),
+                  child: Text(t['taskProgressAdmin.cancelStart']!),
                 ),
               if (card.instanceId != null &&
                   (card.status == 'assigned' || card.status == 'completed'))

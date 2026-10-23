@@ -33,6 +33,8 @@ const props = defineProps({
     currentSession: Object,
     // Doctors' requests waiting for a start (2026-10-14) — the tab's badge.
     pendingRequests: { type: Number, default: 0 },
+    // "إلغاء بدء المهمة" (2026-10-23): the user's own permission.
+    canCancel: { type: Boolean, default: false },
 });
 
 // "تقدم المهام" | "الطلبات" (2026-10-14, by request); kept in the URL so a
@@ -264,6 +266,15 @@ const submitComplete = () => {
             completeTarget.value = null;
             reloadGroup();
         },
+    });
+};
+
+// --- Cancel a start (2026-10-23, by request); see App\Services\TaskCanceller ---
+const cancelStart = (card) => {
+    if (!window.confirm(t('taskProgressAdmin.cancelStartConfirm', { task: card.task_title }))) return;
+    router.delete(route('task-progress.cancel', card.instance_id), {
+        preserveScroll: true,
+        onSuccess: () => reloadGroup(),
     });
 };
 
@@ -669,6 +680,13 @@ const startFromScan = () => {
                                                                         :class="card.all_signed ? 'bg-emerald-600 ring-2 ring-emerald-300 hover:bg-emerald-700' : 'bg-green-600 hover:bg-green-700'"
                                                                     >
                                                                         {{ t('taskProgressAdmin.markComplete') }}
+                                                                    </button>
+                                                                    <button
+                                                                        v-if="card.status === 'assigned' && card.instance_id && canCancel && isOn('task_cancel_enabled')"
+                                                                        @click.stop="cancelStart(card)"
+                                                                        class="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700"
+                                                                    >
+                                                                        {{ t('taskProgressAdmin.cancelStart') }}
                                                                     </button>
                                                                     <button v-if="card.instance_id && ['assigned', 'completed'].includes(card.status)" @click.stop="openEdit(card)" class="rounded bg-blue-500 px-2 py-1 text-white hover:bg-blue-600">
                                                                         {{ t('common.edit') }}

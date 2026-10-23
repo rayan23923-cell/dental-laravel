@@ -21,8 +21,8 @@ class FormSettings
 
     public const PERIODS = ['daily', 'hourly'];
 
-    /** Switched on or off for everyone: start, complete, pending/completed lists, grades, added steps, steps. */
-    public const SWITCHES = ['task_start_enabled', 'task_finish_enabled', 'task_lists_enabled', 'grade_entry_enabled', 'step_add_enabled', 'steps_enabled'];
+    /** Switched on or off for everyone: start, complete, pending/completed lists, grades, added steps, steps, cancelling a start. */
+    public const SWITCHES = ['task_start_enabled', 'task_finish_enabled', 'task_lists_enabled', 'grade_entry_enabled', 'step_add_enabled', 'steps_enabled', 'task_cancel_enabled'];
 
     public static function get(): array
     {

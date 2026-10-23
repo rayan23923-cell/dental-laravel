@@ -21,7 +21,7 @@ final taskSwitchesProvider = FutureProvider.autoDispose<FormSettings>((ref) asyn
 });
 
 Map<String, bool> _switches(Map<String, dynamic> json) => {
-      for (final key in const ['task_start_enabled', 'task_finish_enabled', 'task_lists_enabled', 'grade_entry_enabled', 'step_add_enabled', 'steps_enabled'])
+      for (final key in const ['task_start_enabled', 'task_finish_enabled', 'task_lists_enabled', 'grade_entry_enabled', 'step_add_enabled', 'steps_enabled', 'task_cancel_enabled'])
         if (json[key] is bool) key: json[key] as bool,
     };
 
