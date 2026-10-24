@@ -275,7 +275,7 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
     return Scaffold(
       appBar: _selectMode
           ? AppBar(
-              leading: IconButton(icon: const Icon(Icons.close), onPressed: _exitSelect),
+              leading: CloseButton(onPressed: _exitSelect),
               title: Text(trf(t['doctorsAdmin.selectedCount']!, {'n': _selected.length})),
               actions: [
                 IconButton(
