@@ -63,9 +63,9 @@ class DashboardController extends Controller
     public function dashboardData(User $user): array
     {
         $permissions = new PermissionManager($user);
-        // Payments routes are role-gated (super_admin/admin/editor), not
-        // permission-gated; mirror that so the dashboard never links past it.
-        $canPayments = in_array($user->role, ['super_admin', 'admin', 'editor'], true);
+        // Payments are a permission since 2026-10-24 (by request); mirror
+        // the routes' gate so the dashboard never links past it.
+        $canPayments = $permissions->can('payments', 'view');
         $session = AcademicSessionHelper::resolve();
         $sessionId = $session?->id;
         $canTasksByDepartment = $permissions->can('dashboard', 'tasks_by_department');

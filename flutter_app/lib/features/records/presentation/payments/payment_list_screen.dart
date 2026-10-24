@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 
+import '../../../../core/auth/staff_access.dart';
 import '../../../../core/i18n/locale_controller.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
@@ -123,13 +124,14 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
       appBar: AppBar(
         title: Text(t['recordsHub.paymentsTitle']!),
         actions: [
-          IconButton(
-            icon: _printingReport
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.picture_as_pdf_outlined),
-            tooltip: t['payments.printReport']!,
-            onPressed: _printingReport ? null : _printReport,
-          ),
+          if (staffCan(ref, 'payments', 'export'))
+            IconButton(
+              icon: _printingReport
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.picture_as_pdf_outlined),
+              tooltip: t['payments.printReport']!,
+              onPressed: _printingReport ? null : _printReport,
+            ),
           IconButton(
             icon: Icon(_hasActiveFilters ? Icons.filter_alt : Icons.filter_alt_outlined),
             tooltip: t['recordsHub.filterTooltip'],

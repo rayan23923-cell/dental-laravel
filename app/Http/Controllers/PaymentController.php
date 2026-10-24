@@ -11,6 +11,7 @@ use App\Support\PaymentStats;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use App\Services\PermissionManager;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -32,6 +33,10 @@ class PaymentController extends Controller
             'filteredTotal' => (float) (clone $query)->sum('amount'),
             'bySource' => PaymentStats::bySource($query),
             'currency' => ClinicSetting::current()->clinic_currency,
+            'can' => [
+                'export' => ($permissions = new PermissionManager($request->user()))->can('payments', 'export'),
+                'delete' => $permissions->can('payments', 'delete'),
+            ],
         ]);
     }
 

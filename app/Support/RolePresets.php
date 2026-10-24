@@ -13,12 +13,21 @@ use App\Models\UserPermission;
  *
  *  - `reception` (موظف التذاكر): register patients and print their tickets.
  *  - `lab` (مختبري): open the lab, record results and print the lab slip.
+ *  - `accountant` (محاسب): payments, and the registration services and
+ *    their prices.
  */
 class RolePresets
 {
     public const GRANTS = [
         'reception' => ['patients' => ['view', 'create'], 'printer_settings' => ['view']],
         'lab' => ['patient_screening' => ['view', 'confirm'], 'printer_settings' => ['view']],
+        // The accountant (2026-10-24, by request): payments and the
+        // registration services with their prices.
+        'accountant' => [
+            'payments' => ['view', 'create', 'delete', 'export'],
+            'register_settings' => ['view', 'edit'],
+            'printer_settings' => ['view'],
+        ],
     ];
 
     /** The page a desk role lands on instead of the dashboard. */

@@ -244,19 +244,24 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::get('/lab/{patientRegistration}/qr', [LabController::class, 'qr']);
 
         Route::get('/register-days', [RegisterDayController::class, 'index']);
-        Route::post('/register-days', [RegisterDayController::class, 'store'])->middleware('permission:settings,edit');
-        Route::put('/register-days/{registerDay}', [RegisterDayController::class, 'update'])->middleware('permission:settings,edit');
-        Route::delete('/register-days/{registerDay}', [RegisterDayController::class, 'destroy'])->middleware('permission:settings,edit');
+        Route::post('/register-days', [RegisterDayController::class, 'store'])->middleware('permission:register_settings,edit');
+        Route::put('/register-days/{registerDay}', [RegisterDayController::class, 'update'])->middleware('permission:register_settings,edit');
+        Route::delete('/register-days/{registerDay}', [RegisterDayController::class, 'destroy'])->middleware('permission:register_settings,edit');
 
         Route::get('/services', [ServiceController::class, 'index']);
-        Route::post('/services', [ServiceController::class, 'store'])->middleware('permission:settings,edit');
-        Route::put('/services/{service}', [ServiceController::class, 'update'])->middleware('permission:settings,edit');
-        Route::delete('/services/{service}', [ServiceController::class, 'destroy'])->middleware('permission:settings,edit');
+        Route::post('/services', [ServiceController::class, 'store'])->middleware('permission:register_settings,edit');
+        Route::put('/services/{service}', [ServiceController::class, 'update'])->middleware('permission:register_settings,edit');
+        Route::delete('/services/{service}', [ServiceController::class, 'destroy'])->middleware('permission:register_settings,edit');
 
         // Day-governed diagnosis settings — see TaskRegisterDaysController's
         // docblock for why this is separate from Api\TaskController.
         Route::put('/tasks/{task}/register-days', [TaskRegisterDaysController::class, 'update'])
-            ->middleware('permission:settings,edit');
+            ->middleware('permission:register_settings,edit');
+        // The lab fee and validity from the registration settings screen
+        // (2026-10-24), under that screen's own permission rather than the
+        // clinic settings' admin gate.
+        Route::put('/register-settings/lab', [ClinicSettingController::class, 'updateLab'])
+            ->middleware('permission:register_settings,edit');
 
         Route::get('/education-types', [LookupController::class, 'educationTypes']);
         Route::post('/education-types', [LookupController::class, 'storeEducationType'])->middleware('role:super_admin,admin');
@@ -518,19 +523,22 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::post('/endodontics-xrays', [EndodonticsXrayController::class, 'store']);
 
         // Role gates as on the web (2026-10-18, these were open to every
-        // account, a lab or ticket-desk account included). Payments also
-        // let the accountant in, whose work they are.
+        // account, a lab or ticket-desk account included).
         Route::apiResource('appointments', AppointmentController::class)
             ->middleware('role:super_admin,admin,editor');
-        Route::middleware('role:super_admin,admin,editor,accountant')->group(function () {
-            // Income overview (2026-10-17) — declared before the resource so
-            // "stats" isn't bound as a {payment}. No `update`: payments are
-            // not edited by hand any more (see PaymentController).
-            Route::get('/payments/stats', [PaymentController::class, 'stats'])->name('payments.stats');
-            // The payments report PDF's data (2026-10-17), the web payments.report.
-            Route::get('/payments/report', [PaymentController::class, 'report'])->name('payments.report');
-            Route::apiResource('payments', PaymentController::class)->except(['update']);
-        });
+        // Payments by permission (2026-10-24, by request), as on the web.
+        // Income overview (2026-10-17) — declared before the resource so
+        // "stats" isn't bound as a {payment}. No `update`: payments are not
+        // edited by hand any more (see PaymentController).
+        Route::get('/payments/stats', [PaymentController::class, 'stats'])
+            ->middleware('permission:payments,view')->name('payments.stats');
+        // The payments report PDF's data (2026-10-17), the web payments.report.
+        Route::get('/payments/report', [PaymentController::class, 'report'])
+            ->middleware('permission:payments,export')->name('payments.report');
+        Route::apiResource('payments', PaymentController::class)->except(['update'])
+            ->middlewareFor(['index', 'show'], 'permission:payments,view')
+            ->middlewareFor('store', 'permission:payments,create')
+            ->middlewareFor('destroy', 'permission:payments,delete');
 
         Route::middleware('role:super_admin,admin')->group(function () {
             Route::get('/activity-logs', [ActivityLogController::class, 'index']);

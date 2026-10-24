@@ -31,6 +31,19 @@ class ClinicSettingController extends Controller
         return response()->json($this->payload(ClinicSetting::current(), $request));
     }
 
+    /** The registration settings screen's lab fee and validity (2026-10-24). */
+    public function updateLab(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'lab_fee' => ['nullable', 'numeric', 'min:0'],
+            'lab_validity_days' => ['nullable', 'integer', 'min:0', 'max:3650'],
+        ]);
+
+        ClinicSetting::current()->update($validated);
+
+        return $this->show($request);
+    }
+
     public function update(Request $request): JsonResponse
     {
         $validated = $request->validate([

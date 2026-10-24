@@ -144,6 +144,8 @@ const moduleIcons = {
     reports: ['bar_chart', 'bg-fuchsia-500'],
     settings: ['settings', 'bg-gray-500'],
     printer_settings: ['print', 'bg-emerald-600'],
+    payments: ['payments', 'bg-amber-600'],
+    register_settings: ['tune', 'bg-yellow-700'],
 };
 const iconOf = (module) => moduleIcons[module.key]?.[0] ?? 'shield';
 const toneOf = (module) => moduleIcons[module.key]?.[1] ?? 'bg-slate-500';

@@ -102,6 +102,17 @@ class PermissionMatrix
                 'name' => 'فحص الأمراض المعدية',
                 'permissions' => ['view' => 'عرض', 'confirm' => 'تأكيد النتيجة'],
             ],
+            // Payments and the registration services' settings (2026-10-24,
+            // by request): permissions of their own instead of role gates, so
+            // they can be given to the accountant or anyone else.
+            'payments' => [
+                'name' => 'المدفوعات',
+                'permissions' => ['view' => 'عرض', 'create' => 'تسجيل دفعة', 'delete' => 'حذف', 'export' => 'التقرير والتصدير'],
+            ],
+            'register_settings' => [
+                'name' => 'إعدادات تسجيل الخدمات وتسعيرها',
+                'permissions' => ['view' => 'عرض', 'edit' => 'تعديل الخدمات والأسعار'],
+            ],
             'reports' => [
                 'name' => 'التقارير',
                 'permissions' => ['view' => 'عرض', 'export' => 'تصدير', 'print' => 'طباعة'],
