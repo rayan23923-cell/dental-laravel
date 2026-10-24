@@ -139,7 +139,7 @@ class _AppShellState extends State<AppShell>
           // animation tick via AnimatedBuilder's own `child` — only the
           // Transform/Positioned wrapper around it repaints while dragging,
           // not the (potentially expensive) screen subtree.
-          child: SafeArea(child: widget.child),
+          child: SafeArea(child: _MenuButtonClearance(child: widget.child)),
           builder: (context, content) {
             final t = _controller.value.clamp(0.0, 1.0);
             final shift = t * AppShell._sidebarWidth * (rtl ? -1 : 1);
@@ -193,21 +193,20 @@ class _AppShellState extends State<AppShell>
                               ),
                             ),
                           ),
-                        // Menu toggle — pinned to the *trailing* corner
-                        // (same side an AppBar puts its `actions`), not the
-                        // leading one. It used to sit on the leading corner,
-                        // which in RTL is exactly where Flutter's automatic
-                        // AppBar back arrow also renders — a real regression
-                        // reported live ("اختفى زر الرجوع"): on any screen
-                        // reached by a push (a real back stack to pop), this
-                        // button was painted directly on top of that arrow,
-                        // hiding it. Not bottom either (would collide with
-                        // HomeScreen's/TaskListScreen's own bottom-end FABs).
-                        // Icon swaps to a close "X" once open.
+                        // Menu toggle — pinned to the *leading* corner, the
+                        // same side the sidebar slides in from (by request,
+                        // 2026-10-24: "حول الخيارات من الجانب الايسر واجعلها
+                        // باتجاه السايد بار"). That corner is also where the
+                        // AppBar's automatic back arrow renders, which once
+                        // hid it ("اختفى زر الرجوع") — `_MenuButtonClearance`
+                        // below now moves the arrow and title past this
+                        // button instead, so both stay visible. Not bottom
+                        // (would collide with HomeScreen's/TaskListScreen's
+                        // own bottom-end FABs). Icon swaps to "X" once open.
                         Positioned(
                           top: topInset + 8,
-                          left: rtl ? 8 : null,
-                          right: rtl ? null : 8,
+                          left: rtl ? null : 8,
+                          right: rtl ? 8 : null,
                           child: Material(
                             color: theme.colorScheme.primary,
                             shape: const CircleBorder(),
@@ -247,6 +246,51 @@ class _AppShellState extends State<AppShell>
           },
         ),
       ),
+    );
+  }
+}
+
+/// Keeps every routed screen's own AppBar clear of the shell's floating menu
+/// button, which sits on the leading corner (narrow layout only) — without
+/// touching any of the ~20 screens' AppBars. The button spans 8..52px from
+/// the leading edge, so:
+/// - with a back/close arrow, the leading slot is widened to
+///   [_leadingWidth] and the arrow icon padded to its far end (≈60..84px);
+/// - with no leading widget, [_titleSpacing] starts the title past it.
+class _MenuButtonClearance extends StatelessWidget {
+  const _MenuButtonClearance({required this.child});
+  final Widget child;
+
+  static const _leadingWidth = 84.0;
+  static const _titleSpacing = 60.0;
+  static const _iconSize = 24.0;
+
+  static Widget _pushed(IconData icon) => Padding(
+        padding: const EdgeInsetsDirectional.only(
+          start: _leadingWidth - _iconSize,
+        ),
+        child: Icon(icon),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cupertino = theme.platform == TargetPlatform.iOS ||
+        theme.platform == TargetPlatform.macOS;
+    return Theme(
+      data: theme.copyWith(
+        appBarTheme: theme.appBarTheme.copyWith(
+          leadingWidth: _leadingWidth,
+          titleSpacing: _titleSpacing,
+        ),
+        actionIconTheme: ActionIconThemeData(
+          backButtonIconBuilder: (_) => _pushed(
+            cupertino ? Icons.arrow_back_ios_new_rounded : Icons.arrow_back,
+          ),
+          closeButtonIconBuilder: (_) => _pushed(Icons.close),
+        ),
+      ),
+      child: child,
     );
   }
 }
