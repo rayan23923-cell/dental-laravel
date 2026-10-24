@@ -252,8 +252,8 @@ const loadTasksByDept = async (id) => {
                     </section>
                 </div>
 
-                <!-- المهام المطلوبة لكل قسم ومرحلة حسب نوع الدراسة -->
-                <section>
+                <!-- المهام المطلوبة لكل قسم ومرحلة حسب نوع الدراسة: by permission, within the account's scope -->
+                <section v-if="can.tasks_by_department && educationTypes.length">
                     <div class="mb-2 px-1">
                         <h3 class="text-sm font-semibold text-gray-700">{{ t('dashboard.tasksByEduType') }}</h3>
                     </div>

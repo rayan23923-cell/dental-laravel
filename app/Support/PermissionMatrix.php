@@ -27,7 +27,9 @@ class PermissionMatrix
             // clinical forms → doctors → groups → task progress.
             'dashboard' => [
                 'name' => 'لوحة التحكم',
-                'permissions' => ['view' => 'عرض', 'edit' => 'تعديل'],
+                // The dashboard's "المهام المطلوبة لكل قسم ومرحلة" section
+                // (2026-10-24, by request), shown within the account's scope.
+                'permissions' => ['view' => 'عرض', 'edit' => 'تعديل', 'tasks_by_department' => 'المهام المطلوبة لكل قسم ومرحلة'],
             ],
             'users' => [
                 'name' => 'إدارة المستخدمين',

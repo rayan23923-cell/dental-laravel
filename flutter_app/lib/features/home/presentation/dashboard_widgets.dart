@@ -205,11 +205,13 @@ class _Counter extends StatelessWidget {
                         style: TextStyle(fontSize: 12, color: context.mutedText),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
-                    if (hint != null)
-                      Text(hint!,
-                          style: TextStyle(fontSize: 11, color: context.faintText),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
+                    // The hint line is always laid out (blank when there
+                    // is none) so every tile in a row is the same height
+                    // (2026-10-24, by request: "عدد الأطباء" was shorter).
+                    Text(hint ?? ' ',
+                        style: TextStyle(fontSize: 11, color: context.faintText),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
                   ],
                 ),
               ),

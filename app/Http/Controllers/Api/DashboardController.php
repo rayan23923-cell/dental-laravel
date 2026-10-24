@@ -81,7 +81,7 @@ class DashboardController extends Controller
     {
         $this->staff($request);
 
-        return app(WebDashboardController::class)->tasksByEducationType($educationType);
+        return app(WebDashboardController::class)->tasksByEducationType($request, $educationType);
     }
 
     private function staff(Request $request): User

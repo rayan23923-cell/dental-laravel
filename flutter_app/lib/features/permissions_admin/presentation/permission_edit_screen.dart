@@ -113,6 +113,10 @@ class _PermissionEditScreenState extends ConsumerState<PermissionEditScreen> {
                 ),
               ),
               FilledButton.icon(
+                // In a Row: with the theme's full-width minimum the whole
+                // save bar failed to lay out and showed as a blank block
+                // covering the bottom of the screen (2026-10-24).
+                style: FilledButton.styleFrom(minimumSize: const Size(64, 40)),
                 onPressed: (_submitting || !_dirty) ? null : _save,
                 icon: _submitting
                     ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
