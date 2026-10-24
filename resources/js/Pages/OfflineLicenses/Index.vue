@@ -72,7 +72,7 @@ const date = (value) => (value ? new Date(value).toLocaleString('ar') : '');
                     <p class="mt-2 text-sm text-gray-700">
                         <template v-if="latest">
                             {{ t('offlineLicenses.latest', { n: latest.build }) }}
-                            <a :href="latest.url" class="font-medium text-indigo-600 hover:underline">{{ t('offlineLicenses.download') }}</a>
+                            <a :href="route('backup.offline-server', 'server')" class="font-medium text-indigo-600 hover:underline">{{ t('offlineLicenses.download') }}</a>
                         </template>
                         <template v-else>{{ t('offlineLicenses.noBuild') }}</template>
                     </p>

@@ -136,4 +136,55 @@ class OfflineLicenseTest extends TestCase
         $this->get('/activate')->assertNotFound();
         $this->get('/login')->assertOk();
     }
+
+    /** A published offline build in a throwaway public folder. */
+    private function publishBuild(): void
+    {
+        $public = sys_get_temp_dir().'/offline-public-'.uniqid();
+        mkdir("$public/downloads/offline", 0777, true);
+        symlink(public_path('build'), "$public/build"); // the Vite manifest
+        file_put_contents("$public/downloads/offline/DentalClinicOffline-500.zip", 'server-zip');
+        file_put_contents("$public/downloads/offline/DentalClinicClientSetup-500.exe", 'client-exe');
+        file_put_contents("$public/downloads/offline/latest.json", json_encode([
+            'build' => 500, 'file' => 'DentalClinicOffline-500.zip', 'url' => 'https://x/downloads/offline/DentalClinicOffline-500.zip', 'size' => 10,
+            'client_file' => 'DentalClinicClientSetup-500.exe', 'client_url' => 'https://x/downloads/offline/DentalClinicClientSetup-500.exe', 'client_size' => 10,
+        ]));
+        $this->app->usePublicPath($public);
+    }
+
+    public function test_the_offline_server_is_only_inside_the_site(): void
+    {
+        $this->publishBuild();
+
+        // Not on the public download page any more (2026-10-24, by request).
+        $this->get('/download')->assertOk()->assertDontSee('سيرفر الأوفلاين')->assertDontSee('DentalClinicOffline-500.zip');
+        $this->get('/backup/offline-server/server')->assertRedirect('/login');
+
+        $this->actingAs(User::factory()->create(['role' => 'doctor']))->get('/backup/offline-server/server')->assertForbidden();
+
+        $admin = User::factory()->create(['role' => 'admin']);
+        $this->actingAs($admin)->get('/backup')->assertInertia(fn ($page) => $page->where('offlineServer.build', 500)->where('offlineServer.hasClient', true));
+        $this->actingAs($admin)->get('/backup/offline-server/server')->assertOk()->assertDownload('DentalClinicOffline-500.zip');
+        $this->actingAs($admin)->get('/backup/offline-server/client')->assertOk()->assertDownload('DentalClinicClientSetup-500.exe');
+        $this->actingAs($admin)->get('/backup/offline-server/other')->assertNotFound();
+
+        // On the VPS nginx sends the file itself from its internal location.
+        $this->actingAs($admin)->withServerVariables(['SERVER_SOFTWARE' => 'nginx/1.27.0'])->get('/backup/offline-server/server')
+            ->assertOk()->assertHeader('X-Accel-Redirect', '/downloads/offline/DentalClinicOffline-500.zip');
+    }
+
+    public function test_an_activated_computer_updates_through_its_own_code(): void
+    {
+        $this->publishBuild();
+        $machine = OfflineLicensing::machineId();
+        $license = OfflineLicense::create(['code' => OfflineLicense::newCode(), 'university' => 'جامعة']);
+        $this->activate($license->code, $machine)->assertOk();
+
+        $url = $this->getJson("/api/v1/offline/latest?code={$license->code}&machine=$machine")
+            ->assertOk()->assertJsonPath('build', 500)->assertJsonMissingPath('client_url')->json('url');
+        $this->assertStringContainsString('/api/v1/offline/download?', $url);
+
+        $this->get($url)->assertOk()->assertDownload('DentalClinicOffline-500.zip');
+        $this->get("/api/v1/offline/download?code={$license->code}&machine=AAAA-AAAA-AAAA-AAAA")->assertForbidden();
+    }
 }

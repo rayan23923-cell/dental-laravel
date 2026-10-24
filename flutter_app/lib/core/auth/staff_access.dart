@@ -30,7 +30,10 @@ bool staffCanOpen(StaffAccount account, String route) {
     // "إعدادات النماذج" (2026-10-22), opened from task progress.
     '/admin/form-settings' => const ['view', 'view_status', 'form_settings', 'supervisor_code'].any((p) => can('task_progress', p)),
     '/admin/case-sheet-types' => can('case_sheet_types'),
-    '/admin/clinic-settings' || '/admin/waiting-screen-settings' => admin && can('settings'),
+    '/admin/clinic-settings' => admin && can('settings'),
+    // The waiting screen's own permission (2026-10-24, by request).
+    '/admin/waiting-screen-settings' => can('waiting_screen'),
+    '/admin/waiting-screen/pair' => can('waiting_screen', 'pair'),
     // Services, prices and the lab fee, as on the web's admin menu (2026-10-21).
     '/records/patient-registrations/settings' => can('register_settings'),
     // A permission since 2026-10-18 (by request), so the lab or the
@@ -69,6 +72,7 @@ const adminRoutes = [
   '/admin/activity-log',
   '/admin/backup',
   '/admin/waiting-screen-settings',
+  '/admin/waiting-screen/pair',
   '/admin/broadcast',
 ];
 

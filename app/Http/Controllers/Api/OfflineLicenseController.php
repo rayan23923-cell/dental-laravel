@@ -8,6 +8,7 @@ use App\Support\OfflineLicensing;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Hosted side of offline activation (2026-10-17, by request). Public: the
@@ -63,8 +64,8 @@ class OfflineLicenseController extends Controller
      */
     public function latest(Request $request): JsonResponse
     {
-        $license = OfflineLicense::where('code', OfflineLicense::normalize($request->query('code')))->first();
-        if (! $license || $license->revoked_at || ! $license->machine_id || $license->machine_id !== $request->query('machine')) {
+        $license = $this->activeLicense($request);
+        if (! $license) {
             return response()->json(['message' => 'هذا الحاسوب غير مفعّل.'], 403);
         }
         $build = filter_var($request->query('build'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
@@ -74,6 +75,31 @@ class OfflineLicenseController extends Controller
             'last_ip' => $request->ip(),
         ])->save();
 
-        return response()->json(OfflineLicensing::latestBuild() ?? ['build' => 0]);
+        $latest = OfflineLicensing::latestBuild();
+        if (! $latest) {
+            return response()->json(['build' => 0]);
+        }
+        // The package is no longer public (2026-10-24): this computer
+        // downloads it with its own code, from `download` below.
+        $latest['url'] = route('api.offline.download', ['code' => $license->code, 'machine' => $license->machine_id]);
+        unset($latest['client_url']);
+
+        return response()->json($latest);
+    }
+
+    /** The newest offline server package, for an activated computer's updater. */
+    public function download(Request $request): Response
+    {
+        abort_unless($this->activeLicense($request), 403, 'هذا الحاسوب غير مفعّل.');
+
+        return OfflineLicensing::packageDownload('server');
+    }
+
+    private function activeLicense(Request $request): ?OfflineLicense
+    {
+        $license = OfflineLicense::where('code', OfflineLicense::normalize($request->query('code')))->first();
+
+        return $license && ! $license->revoked_at && $license->machine_id && $license->machine_id === $request->query('machine')
+            ? $license : null;
     }
 }

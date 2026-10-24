@@ -6,8 +6,9 @@
         privacy-policy.blade.php: a one-off public page needs no Vite bundle.
 
         $apps rows: the online apps, then the "offline" builds that start on
-        the clinic's own server (see .github/workflows/flutter-apps.yml),
-        then the offline server package itself.
+        the clinic's own server (see .github/workflows/flutter-apps.yml).
+        The offline server package itself is for signed-in admins only
+        (2026-10-24, by request): the Backup page inside the system.
     */
     $clinicName = $clinic->clinic_name ?: 'عيادة الأسنان التعليمية';
     $college = $clinic->college_name ?: 'كلية طب الأسنان';
@@ -52,20 +53,6 @@
     }
     if (! empty($windowsOffline['url'])) {
         $apps[] = ['section' => 'offline', 'icon' => 'windows', 'tone' => 'teal', 'title' => 'ويندوز أوفلاين', 'sub' => $offlineNote, 'release' => $windowsOffline, 'button' => 'تثبيت', 'steps' => $offlineSteps($windowsSteps)];
-    }
-    if ($offline) {
-        $apps[] = ['section' => 'offline', 'icon' => 'server', 'tone' => 'purple', 'title' => 'سيرفر الأوفلاين',
-            'sub' => 'النظام كامل على حاسوب ويندوز واحد بدون إنترنت، ويحتاج رمز تفعيل الجامعة مرة واحدة',
-            'release' => ['url' => $offline['url'], 'version' => $offline['build'], 'size' => $offline['size'] ?? null], 'button' => 'تنزيل', 'steps' => [
-                'فك ضغط الملف في مكان ثابت (مثل C:\\DentalClinicOffline) وشغّل <b>DentalClinic.exe</b>.',
-                'اضغط تشغيل، ثم أدخل رمز تفعيل الجامعة في المتصفح عند أول فتح (يحتاج إنترنت مرة واحدة).',
-                'لنقل بيانات هذا الموقع إليه: صفحة «النسخ الاحتياطي» هنا ← «تنزيل النسخة»، ثم «استعادة نسخة» في لوحة التحكم.',
-            ]];
-        if (! empty($offline['client_url'])) {
-            $apps[] = ['section' => 'offline', 'icon' => 'client', 'tone' => 'purple', 'title' => 'برنامج الحواسيب الأخرى',
-                'sub' => 'لحواسيب العيادة الأخرى: يفتح النظام من السيرفر ويطبع التكت والوصولات مباشرة',
-                'release' => ['url' => $offline['client_url'], 'version' => $offline['build'], 'size' => $offline['client_size'] ?? null], 'button' => 'تثبيت', 'steps' => $windowsSteps];
-        }
     }
 
     $mb = fn ($bytes) => $bytes ? (round($bytes / 1048576, $bytes < 10485760 ? 1 : 0).' م.ب') : null;
@@ -200,9 +187,6 @@
         <div class="stat"><b>{{ $android['version'] }}</b><span>الإصدار</span></div>
         <div class="stat"><b>3</b><span>أنظمة</span></div>
         <div class="stat"><b>مجاني</b><span>للطلاب والكادر</span></div>
-        @if ($offline)
-            <div class="stat"><b>أوفلاين</b><span>بدون إنترنت</span></div>
-        @endif
     </div>
 
     <div class="hero-actions">
@@ -210,7 +194,7 @@
         <a href="{{ $windows['url'] }}" class="install">تثبيت على ويندوز</a>
     </div>
 
-    @foreach (['online' => ['تطبيقات العيادة', 'تعمل عبر الإنترنت على هذا الموقع.'], 'offline' => ['للعمل بدون إنترنت (أوفلاين)', 'لسيرفر العيادة على شبكتها المحلية: السيرفر نفسه، وتطبيقات تتصل به مباشرة.']] as $section => [$heading, $note])
+    @foreach (['online' => ['تطبيقات العيادة', 'تعمل عبر الإنترنت على هذا الموقع.'], 'offline' => ['للعمل بدون إنترنت (أوفلاين)', 'تطبيقات تتصل بسيرفر العيادة على شبكتها المحلية مباشرة.']] as $section => [$heading, $note])
         @php $rows = array_filter($apps, fn ($a) => $a['section'] === $section); @endphp
         @if ($rows)
             <h2>{{ $heading }}</h2>

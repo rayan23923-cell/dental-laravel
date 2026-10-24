@@ -158,4 +158,21 @@ class PermissionGatesTest extends TestCase
     {
         $this->assertNull(ScopeHelper::allowedEducationTypeIds(User::factory()->create(['role' => 'admin'])));
     }
+
+    public function test_the_waiting_screen_follows_its_own_permission(): void
+    {
+        $editor = User::factory()->create(['role' => 'editor']);
+        Sanctum::actingAs($editor);
+        $this->getJson('/api/v1/waiting-screen-settings')->assertForbidden();
+        $this->postJson('/api/v1/waiting-screen/pairings/resolve-code', ['code' => '1234'])->assertForbidden();
+
+        PermissionManager::syncGrants($editor, ['waiting_screen.view', 'waiting_screen.pair']);
+        Cache::flush();
+        $this->getJson('/api/v1/waiting-screen-settings')->assertOk();
+        $this->putJson('/api/v1/waiting-screen-settings', [])->assertForbidden();
+        $this->postJson('/api/v1/waiting-screen/pairings/resolve-code', ['code' => '1234'])->assertNotFound();
+
+        $this->actingAs($editor)->get('/waiting-screen-settings')->assertOk();
+        $this->get('/waiting-screen/pair')->assertOk();
+    }
 }

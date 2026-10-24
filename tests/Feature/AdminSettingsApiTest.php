@@ -99,7 +99,8 @@ class AdminSettingsApiTest extends TestCase
         $group = Group::create(['name' => 'A', 'stage_id' => $stage->id]);
 
         $admin = User::factory()->create(['role' => 'admin']);
-        UserPermission::create(['user_id' => $admin->id, 'module' => 'settings', 'permission' => 'view', 'granted' => true]);
+        // Its own permission since 2026-10-24.
+        UserPermission::create(['user_id' => $admin->id, 'module' => 'waiting_screen', 'permission' => 'view', 'granted' => true]);
         Sanctum::actingAs($admin);
 
         $this->getJson('/api/v1/waiting-screen-settings')->assertOk()
@@ -108,7 +109,7 @@ class AdminSettingsApiTest extends TestCase
         // Viewing is not editing.
         $this->putJson('/api/v1/waiting-screen-settings', ['patients_per_page' => 5, 'rotation_seconds' => 10])->assertForbidden();
 
-        UserPermission::create(['user_id' => $admin->id, 'module' => 'settings', 'permission' => 'edit', 'granted' => true]);
+        UserPermission::create(['user_id' => $admin->id, 'module' => 'waiting_screen', 'permission' => 'edit', 'granted' => true]);
         \Illuminate\Support\Facades\Cache::flush();
         $this->putJson('/api/v1/waiting-screen-settings', ['group_id' => $group->id, 'patients_per_page' => 5, 'rotation_seconds' => 10])
             ->assertOk()->assertJsonPath('data.settings.group_id', $group->id);

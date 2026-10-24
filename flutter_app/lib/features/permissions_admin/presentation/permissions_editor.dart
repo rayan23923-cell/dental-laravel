@@ -300,6 +300,7 @@ const _moduleStyles = <String, (IconData, Color)>{
   'printer_settings': (Icons.print_outlined, Colors.green),
   'payments': (Icons.payments_outlined, Colors.orange),
   'register_settings': (Icons.tune, Colors.brown),
+  'waiting_screen': (Icons.tv_outlined, Colors.indigo),
 };
 
 class _ScopeDim {

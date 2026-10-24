@@ -82,6 +82,8 @@ class HandleInertiaRequests extends Middleware
             'navCan' => fn () => ($user = $request->user()) instanceof \App\Models\User ? [
                 'payments' => ($perm = new \App\Services\PermissionManager($user))->can('payments', 'view'),
                 'register_settings' => $perm->can('register_settings', 'view'),
+                'waiting_screen' => $perm->can('waiting_screen', 'view'),
+                'waiting_screen_pair' => $perm->can('waiting_screen', 'pair'),
             ] : [],
             // Groups on/off from clinic settings — see ClinicSetting::groupsEnabled().
             'groupsEnabled' => fn () => ClinicSetting::groupsEnabled(),
