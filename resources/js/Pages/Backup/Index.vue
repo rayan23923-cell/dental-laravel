@@ -123,6 +123,7 @@ const formatDate = (unixSeconds) => new Date(unixSeconds * 1000).toLocaleString(
                     <div class="flex flex-wrap gap-2">
                         <a
                             :href="route('backup.offline-server', 'server')"
+                            download
                             class="inline-flex items-center gap-2 rounded-full bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-700"
                         >
                             <Icon name="cloud_download" size="text-[18px]" />
@@ -131,6 +132,7 @@ const formatDate = (unixSeconds) => new Date(unixSeconds * 1000).toLocaleString(
                         <a
                             v-if="offlineServer.hasClient"
                             :href="route('backup.offline-server', 'client')"
+                            download
                             class="inline-flex items-center gap-2 rounded-full bg-violet-50 px-4 py-2 text-sm font-semibold text-violet-700 ring-1 ring-violet-200 transition hover:bg-violet-100"
                         >
                             <Icon name="desktop_windows" size="text-[18px]" />
@@ -150,6 +152,7 @@ const formatDate = (unixSeconds) => new Date(unixSeconds * 1000).toLocaleString(
                     </div>
                     <a
                         :href="route('backup.offline-copy')"
+                        download
                         class="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
                     >
                         <Icon name="cloud_download" size="text-[18px]" />
@@ -167,6 +170,7 @@ const formatDate = (unixSeconds) => new Date(unixSeconds * 1000).toLocaleString(
                             <!-- A plain link: the file downloads, no Inertia visit. -->
                             <a
                                 :href="route('backup.download', f.name)"
+                                download
                                 :title="t('backupAdmin.download')"
                                 class="inline-flex h-9 w-9 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-indigo-600"
                             >

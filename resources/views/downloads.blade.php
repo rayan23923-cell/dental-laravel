@@ -190,8 +190,8 @@
     </div>
 
     <div class="hero-actions">
-        <a href="{{ $android['url'] }}" class="install">تثبيت على أندرويد</a>
-        <a href="{{ $windows['url'] }}" class="install">تثبيت على ويندوز</a>
+        <a href="{{ $android['url'] }}" class="install" download>تثبيت على أندرويد</a>
+        <a href="{{ $windows['url'] }}" class="install" download>تثبيت على ويندوز</a>
     </div>
 
     @foreach (['online' => ['تطبيقات العيادة', 'تعمل عبر الإنترنت على هذا الموقع.'], 'offline' => ['للعمل بدون إنترنت (أوفلاين)', 'تطبيقات تتصل بسيرفر العيادة على شبكتها المحلية مباشرة.']] as $section => [$heading, $note])
@@ -212,9 +212,9 @@
                             </div>
                         </div>
                         <div class="actions">
-                            <a href="{{ $app['release']['url'] }}" class="install">{{ $app['button'] }}</a>
+                            <a href="{{ $app['release']['url'] }}" class="install" download>{{ $app['button'] }}</a>
                             @if (! empty($app['release']['zip_url']))
-                                <a href="{{ $app['release']['zip_url'] }}" class="zip">نسخة ZIP</a>
+                                <a href="{{ $app['release']['zip_url'] }}" class="zip" download>نسخة ZIP</a>
                             @endif
                         </div>
                     </div>
