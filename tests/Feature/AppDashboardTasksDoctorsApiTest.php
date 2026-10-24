@@ -10,8 +10,11 @@ use App\Models\Stage;
 use App\Models\Task;
 use App\Models\TaskInstance;
 use App\Models\User;
+use App\Models\UserPermission;
+use App\Services\ScopeHelper;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -94,6 +97,34 @@ class AppDashboardTasksDoctorsApiTest extends TestCase
         Sanctum::actingAs(User::factory()->create(['role' => 'reception']));
         $this->getJson('/api/v1/dashboard')->assertForbidden();
         $this->getJson('/api/v1/dashboard/tasks-by-education-type/1')->assertForbidden();
+    }
+
+    public function test_tasks_by_department_follows_its_permission_and_the_scope(): void
+    {
+        EducationType::create(['id' => 2, 'name' => 'مسائي']);
+        Stage::create(['id' => 2, 'name' => 'الخامسة', 'education_type_id' => 2]);
+        $this->task();
+        $user = User::factory()->create(['role' => 'editor']);
+        ScopeHelper::setAllowedEducationTypes($user, [1]);
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/v1/dashboard')
+            ->assertOk()
+            ->assertJsonPath('educationTypes', [])
+            ->assertJsonPath('can.tasks_by_department', false);
+        $this->getJson('/api/v1/dashboard/tasks-by-education-type/1')->assertForbidden();
+
+        UserPermission::create(['user_id' => $user->id, 'module' => 'dashboard', 'permission' => 'tasks_by_department', 'granted' => true]);
+        Cache::flush();
+
+        $this->getJson('/api/v1/dashboard')
+            ->assertOk()
+            ->assertJsonCount(1, 'educationTypes')
+            ->assertJsonPath('educationTypes.0.id', 1);
+        $this->getJson('/api/v1/dashboard/tasks-by-education-type/1')
+            ->assertOk()
+            ->assertJsonPath('departments.0.department', 'اللثة');
+        $this->getJson('/api/v1/dashboard/tasks-by-education-type/2')->assertForbidden();
     }
 
     public function test_a_role_outside_payments_sees_no_income(): void

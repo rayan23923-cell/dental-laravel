@@ -318,13 +318,16 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                       const SizedBox(width: 4),
                       if (_archived)
                         FilledButton.icon(
+                          // In a Row: the theme's full-width minimum would
+                          // make it vanish (see app_theme.dart).
+                          style: FilledButton.styleFrom(minimumSize: const Size(64, 40)),
                           onPressed: _busy || _selected.isEmpty ? null : _restoreSelected,
                           icon: const Icon(Icons.unarchive_outlined),
                           label: Text(t['patientRegFlutter.restoreSelected']!),
                         )
                       else
                         FilledButton.icon(
-                          style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+                          style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700, minimumSize: const Size(64, 40)),
                           onPressed: _busy || _selected.isEmpty ? null : _archiveSelected,
                           icon: const Icon(Icons.inventory_2_outlined),
                           label: Text(t['patientRegFlutter.archiveSelected']!),

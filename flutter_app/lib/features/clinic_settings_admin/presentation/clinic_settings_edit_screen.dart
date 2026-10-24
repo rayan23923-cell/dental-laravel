@@ -684,6 +684,9 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
             ),
             const SizedBox(width: 8),
             FilledButton.tonal(
+              // In a Row: the theme's full-width minimum would make it
+              // vanish (see app_theme.dart).
+              style: FilledButton.styleFrom(minimumSize: const Size(64, 40)),
               onPressed: _sendingTest || _testToController.text.trim().isEmpty ? null : _sendTestEmail,
               child: Text(_sendingTest ? t['clinicSettingsAdmin.testEmailSending']! : t['clinicSettingsAdmin.testEmailSend']!),
             ),

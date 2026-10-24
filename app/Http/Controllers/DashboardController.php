@@ -15,6 +15,7 @@ use App\Models\TaskInstance;
 use App\Models\User;
 use App\Services\AcademicSessionHelper;
 use App\Services\PermissionManager;
+use App\Services\ScopeHelper;
 use Illuminate\Http\JsonResponse;
 use App\Support\RolePresets;
 use Illuminate\Http\RedirectResponse;
@@ -67,6 +68,7 @@ class DashboardController extends Controller
         $canPayments = in_array($user->role, ['super_admin', 'admin', 'editor'], true);
         $session = AcademicSessionHelper::resolve();
         $sessionId = $session?->id;
+        $canTasksByDepartment = $permissions->can('dashboard', 'tasks_by_department');
 
         $tasks = Task::query()
             ->when($sessionId, fn ($q) => $q->where(fn ($q2) => $q2
@@ -126,7 +128,12 @@ class DashboardController extends Controller
                 : [],
             'income' => $canPayments ? (new PaymentStats())->periods() : null,
             'currency' => ClinicSetting::current()->clinic_currency,
-            'educationTypes' => EducationType::orderBy('name')->get(['id', 'name']),
+            // "المهام المطلوبة لكل قسم ومرحلة" (2026-10-24, by request):
+            // only with its permission, and only the education types in the
+            // account's access scope; none hides the section.
+            'educationTypes' => $canTasksByDepartment
+                ? ScopeHelper::scopeEducationTypes(EducationType::query(), $user)->orderBy('name')->get(['id', 'name'])
+                : [],
             // New — the dashboard previously showed no active-year
             // indicator anywhere, unlike Doctors/Groups/Tasks.
             'currentSession' => $session?->only('id', 'name'),
@@ -142,6 +149,7 @@ class DashboardController extends Controller
                 // alongside the Flutter dashboard's matching shortcut.
                 'patient_screening' => $permissions->can('patient_screening', 'confirm'),
                 'payments' => $canPayments,
+                'tasks_by_department' => $canTasksByDepartment,
             ],
         ];
     }
@@ -149,13 +157,20 @@ class DashboardController extends Controller
     /**
      * Port of ajax/dashboard_tasks_by_dept.php — required tasks per
      * department and stage for one education type, loaded on demand when
-     * the dashboard's education-type select changes.
+     * the dashboard's education-type select changes. Needs the section's
+     * permission and keeps to the account's scope (2026-10-24): an education
+     * type outside it is refused, and only its allowed departments show.
      */
-    public function tasksByEducationType(EducationType $educationType): JsonResponse
+    public function tasksByEducationType(Request $request, EducationType $educationType): JsonResponse
     {
+        $user = $request->user();
+        abort_unless((new PermissionManager($user))->can('dashboard', 'tasks_by_department'), 403);
+        abort_unless(ScopeHelper::scopeEducationTypes(EducationType::whereKey($educationType->id), $user)->exists(), 403);
+
         $sessionId = AcademicSessionHelper::resolveId();
 
-        $departments = Department::whereHas('stage', fn ($q) => $q->where('education_type_id', $educationType->id))
+        $departments = ScopeHelper::scopeDepartments(Department::query(), $user)
+            ->whereHas('stage', fn ($q) => $q->where('education_type_id', $educationType->id))
             ->with('stage:id,name')
             ->orderBy('name')
             ->get();
