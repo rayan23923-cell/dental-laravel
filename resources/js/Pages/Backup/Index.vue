@@ -25,6 +25,8 @@ const props = defineProps({
     lastBackupAt: String,
     files: { type: Array, default: () => [] },
     offlineCopy: Boolean,
+    // The offline server package and LAN client (2026-10-24): signed-in only, no longer on /download.
+    offlineServer: { type: Object, default: null },
 });
 
 const page = usePage();
@@ -106,6 +108,34 @@ const formatDate = (unixSeconds) => new Date(unixSeconds * 1000).toLocaleString(
                     <div class="min-w-0">
                         {{ t('backupAdmin.scheduleNote') }}
                         <p v-if="folder" class="mt-2 break-all">{{ t('backupAdmin.folderNote') }} <span class="font-mono" dir="ltr">{{ folder }}</span></p>
+                    </div>
+                </div>
+
+                <!-- The offline server itself (2026-10-24, by request): only here, not on the public /download page. -->
+                <div v-if="offlineServer" class="flex flex-wrap items-center gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+                    <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-purple-600 text-white">
+                        <Icon name="dns" size="text-[24px]" />
+                    </div>
+                    <div class="min-w-0 flex-1 text-sm text-gray-700">
+                        <p class="font-medium text-gray-800">{{ t('backupAdmin.offlineServerTitle', { n: offlineServer.build }) }}</p>
+                        <p class="mt-1">{{ t('backupAdmin.offlineServerNote') }}</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <a
+                            :href="route('backup.offline-server', 'server')"
+                            class="inline-flex items-center gap-2 rounded-full bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-700"
+                        >
+                            <Icon name="cloud_download" size="text-[18px]" />
+                            {{ t('backupAdmin.offlineServerDownload') }}<span v-if="offlineServer.size" class="font-normal opacity-80" dir="ltr">({{ bytesToSize(offlineServer.size) }})</span>
+                        </a>
+                        <a
+                            v-if="offlineServer.hasClient"
+                            :href="route('backup.offline-server', 'client')"
+                            class="inline-flex items-center gap-2 rounded-full bg-violet-50 px-4 py-2 text-sm font-semibold text-violet-700 ring-1 ring-violet-200 transition hover:bg-violet-100"
+                        >
+                            <Icon name="desktop_windows" size="text-[18px]" />
+                            {{ t('backupAdmin.offlineClientDownload') }}
+                        </a>
                     </div>
                 </div>
 

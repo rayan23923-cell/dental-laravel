@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\OfflineLicense;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Activation of the offline edition (2026-10-17, by request).
@@ -147,5 +148,30 @@ class OfflineLicensing
         $data = is_file($file) ? json_decode((string) file_get_contents($file), true) : null;
 
         return is_array($data) && isset($data['build'], $data['url']) ? $data : null;
+    }
+
+    /**
+     * The offline server package (`server`) or the LAN client installer
+     * (`client`) of the newest build, as a download (2026-10-24, by request:
+     * no longer on the public /download page). nginx keeps the files under
+     * /downloads/offline/ internal and sends them itself on X-Accel-Redirect.
+     */
+    public static function packageDownload(string $kind = 'server'): Response
+    {
+        $latest = self::latestBuild();
+        $file = $kind === 'client' ? ($latest['client_file'] ?? null) : ($latest['file'] ?? null);
+        abort_if(! is_string($file) || $file === '' || basename($file) !== $file, 404);
+        $path = public_path('downloads/offline/'.$file);
+        abort_unless(is_file($path), 404);
+
+        if (str_starts_with((string) request()->server('SERVER_SOFTWARE'), 'nginx')) {
+            return response('', 200, [
+                'Content-Type' => 'application/octet-stream',
+                'Content-Disposition' => 'attachment; filename="'.$file.'"',
+                'X-Accel-Redirect' => '/downloads/offline/'.rawurlencode($file),
+            ]);
+        }
+
+        return response()->download($path, $file);
     }
 }

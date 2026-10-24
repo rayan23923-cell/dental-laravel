@@ -601,6 +601,9 @@ jobs:
           vps "cat > '$dir/latest.json.tmp' && mv '$dir/latest.json.tmp' '$dir/latest.json'" < latest.json
           # Keep this build and the one before it (for copies mid-download).
           vps "cd '$dir' && ls -1t DentalClinicOffline-*.zip | tail -n +3 | xargs -r rm -f --; ls -1t DentalClinicClientSetup-*.exe | tail -n +3 | xargs -r rm -f --; ls -la"
-          got=$(curl -fsS -o /dev/null -w '%{http_code}' "$SITE/$FILE" -r 0-0 || true)
-          echo "download check: $got"
-          [ "$got" = 206 ] || [ "$got" = 200 ] || { echo "The uploaded build is not reachable."; exit 1; }
+          # The package is not public any more (2026-10-24): signed-in admins and activated
+          # computers get it through the app, so check it landed and that the public link is closed.
+          vps "test -s '$dir/$FILE' && test -s '$dir/$CLIENT'" || { echo "The uploaded build is missing on the server."; exit 1; }
+          got=$(curl -sS -o /dev/null -w '%{http_code}' "$SITE/$FILE" -r 0-0 || true)
+          echo "public link check: $got"
+          if [ "$got" = 206 ] || [ "$got" = 200 ]; then echo "::warning::The offline package is still public (nginx not redeployed yet?)"; fi

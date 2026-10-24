@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\ClinicSetting;
 use App\Services\DatabaseBackupService;
+use App\Support\OfflineLicensing;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Response as ResponseFacade;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 /**
  * Ports admin/backup.php + admin/ajax/backup_db.php — manual backup button
@@ -41,6 +43,7 @@ class BackupController extends Controller
             'files' => $backups->list(),
             // Only the hosted system hands its data to offline copies.
             'offlineCopy' => ! config('offline.edition'),
+            'offlineServer' => config('offline.edition') ? null : $this->offlineServerInfo(),
         ]);
     }
 
@@ -72,6 +75,26 @@ class BackupController extends Controller
         @set_time_limit(0);
 
         return ResponseFacade::download($backups->createForOffline(), 'offline-copy_'.now()->format('Ymd_His').'.zip')->deleteFileAfterSend();
+    }
+
+    /** The offline server package or its LAN client (2026-10-24, by request: signed-in only). */
+    public function offlineServer(string $kind): SymfonyResponse
+    {
+        abort_if(config('offline.edition'), 404);
+
+        return OfflineLicensing::packageDownload($kind);
+    }
+
+    private function offlineServerInfo(): ?array
+    {
+        $latest = OfflineLicensing::latestBuild();
+
+        return $latest ? [
+            'build' => $latest['build'],
+            'size' => $latest['size'] ?? null,
+            'clientSize' => ! empty($latest['client_file']) ? ($latest['client_size'] ?? null) : null,
+            'hasClient' => ! empty($latest['client_file']),
+        ] : null;
     }
 
     public function download(string $filename, DatabaseBackupService $backups): BinaryFileResponse

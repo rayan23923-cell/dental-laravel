@@ -147,7 +147,6 @@ Route::get('/download', function () {
         'ios' => $releases['ios'],
         'androidOffline' => $releases['android_offline'] ?? null,
         'windowsOffline' => $releases['windows_offline'] ?? null,
-        'offline' => \App\Support\OfflineLicensing::latestBuild(),
     ]);
 })->name('download');
 
@@ -626,6 +625,9 @@ Route::middleware('auth')->group(function () {
         Route::post('/backup', [BackupController::class, 'store'])->name('backup.store');
         Route::put('/backup/auto', [BackupController::class, 'toggleAuto'])->name('backup.toggle-auto');
         Route::get('/backup/offline-copy', [BackupController::class, 'offlineCopy'])->name('backup.offline-copy');
+        // The offline server package and LAN client, signed-in only (2026-10-24, by request).
+        Route::get('/backup/offline-server/{kind}', [BackupController::class, 'offlineServer'])
+            ->whereIn('kind', ['server', 'client'])->name('backup.offline-server');
         Route::get('/backup/{filename}/download', [BackupController::class, 'download'])->name('backup.download');
     });
 
