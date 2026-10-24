@@ -145,8 +145,6 @@
         .info .sub { color: var(--muted); font-size: .8rem; }
         .info .meta { color: var(--muted); font-size: .75rem; margin-top: .15rem; }
         .actions { display: flex; flex-direction: column; align-items: center; gap: .25rem; }
-        .zip { color: var(--link); font-size: .72rem; text-decoration: none; }
-        .zip:hover { text-decoration: underline; }
 
         details { padding: 0 0 .9rem; padding-inline-start: 72px; }
         summary { cursor: pointer; color: var(--link); font-size: .82rem; font-weight: 600; list-style: none; }
@@ -213,9 +211,6 @@
                         </div>
                         <div class="actions">
                             <a href="{{ $app['release']['url'] }}" class="install" download>{{ $app['button'] }}</a>
-                            @if (! empty($app['release']['zip_url']))
-                                <a href="{{ $app['release']['zip_url'] }}" class="zip" download>نسخة ZIP</a>
-                            @endif
                         </div>
                     </div>
                     <details>
@@ -235,7 +230,7 @@
         <h3>إذا لم يبدأ التنزيل</h3>
         <ol>
             <li>Chrome وEdge قد يحجبان الملف بصمت لأنه جديد. افتح التنزيلات (<code>chrome://downloads</code>).</li>
-            <li>إن ظهر <b>Blocked</b> أو <b>Dangerous</b>، اضغط ⌄ بجانبه واختر <b>Keep</b>، أو نزّل «نسخة ZIP» وفك ضغطها.</li>
+            <li>إن ظهر <b>Blocked</b> أو <b>Dangerous</b>، اضغط ⌄ بجانبه واختر <b>Keep</b>.</li>
             <li>إن استمرت المشكلة جرّب متصفحًا آخر.</li>
         </ol>
     </div>
