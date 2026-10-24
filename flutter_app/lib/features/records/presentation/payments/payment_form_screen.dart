@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/auth/staff_access.dart';
 import '../../../../core/i18n/locale_controller.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/widgets/registration_status_banners.dart';
@@ -360,7 +361,8 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
             tooltip: t['payments.printReceipt']!,
             onPressed: () => showPaymentReceiptOptions(context, ref, p),
           ),
-          IconButton(icon: const Icon(Icons.delete_outline), onPressed: _delete),
+          if (staffCan(ref, 'payments', 'delete'))
+            IconButton(icon: const Icon(Icons.delete_outline), onPressed: _delete),
         ],
       ),
       body: ListView(

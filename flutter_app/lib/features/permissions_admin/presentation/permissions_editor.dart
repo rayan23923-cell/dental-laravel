@@ -298,6 +298,8 @@ const _moduleStyles = <String, (IconData, Color)>{
   'reports': (Icons.bar_chart, Colors.purple),
   'settings': (Icons.settings_outlined, Colors.grey),
   'printer_settings': (Icons.print_outlined, Colors.green),
+  'payments': (Icons.payments_outlined, Colors.orange),
+  'register_settings': (Icons.tune, Colors.brown),
 };
 
 class _ScopeDim {

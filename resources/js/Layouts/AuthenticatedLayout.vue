@@ -31,6 +31,7 @@ const isAdmin = computed(() => ['super_admin', 'admin'].includes(page.props.auth
 // Desk roles (2026-10-12): `reception` (موظف التذاكر) and `lab` (مختبري)
 // only reach the ticket desk or the lab, so they see only those links.
 const deskRole = computed(() => (['reception', 'lab'].includes(page.props.auth.user.role) ? page.props.auth.user.role : null));
+const navCan = computed(() => page.props.navCan ?? {});
 
 /**
  * Grouping mirrors the original app's navbar.php dropdowns (إدارة البيانات
@@ -83,15 +84,19 @@ const isSettingsGroupActive = computed(
  * longer be added to one and forgotten in the other — which is exactly how
  * the mobile menu ended up missing half the app.
  */
-const primaryLinks = computed(() => deskRole.value ? [] : [
-    { label: t('nav.home'), icon: 'dashboard', href: route('dashboard'), active: route().current('dashboard') },
+const primaryLinks = computed(() => [
+    ...(deskRole.value ? [] : [{ label: t('nav.home'), icon: 'dashboard', href: route('dashboard'), active: route().current('dashboard') }]),
     // Doctors, tasks and task progress moved under "البيانات الأساسية"
     // (2026-10-13, by request) — see structureLinks.
     // Clinical records hidden from the menu (2026-10-13, by request); case
     // sheets are opened from the task they belong to.
     // Appointments hidden from the menu for now (2026-10-13, by request);
     // the page stays reachable at /appointments.
-    { label: t('nav.payments'), icon: 'payments', href: route('payments.index'), active: route().current('payments.*') },
+    // Payments and, for a non-admin given it (the accountant), the
+    // registration services' settings follow their permissions (2026-10-24),
+    // desk roles included.
+    ...(navCan.value.payments ? [{ label: t('nav.payments'), icon: 'payments', href: route('payments.index'), active: route().current('payments.*') }] : []),
+    ...(!isAdmin.value && navCan.value.register_settings ? [{ label: t('nav.registrationSettings'), icon: 'tune', href: route('patient-registrations.settings'), active: route().current('patient-registrations.settings') }] : []),
 ]);
 
 // "إدارة المرضى" — always visible (patients/patient-registrations are
@@ -132,7 +137,7 @@ const settingsLinks = computed(() => [
     { label: t('nav.clinicSettings'), icon: 'settings', href: route('clinic-settings.edit'), active: route().current('clinic-settings.*') },
     { label: t('nav.waitingScreenSettings'), icon: 'tv', href: route('waiting-screen-settings.edit'), active: route().current('waiting-screen-settings.*') },
     { label: t('nav.pairWaitingScreen'), icon: 'qr_code_scanner', href: route('waiting-screen-pairing.create'), active: route().current('waiting-screen-pairing.*') },
-    { label: t('nav.registrationSettings'), icon: 'tune', href: route('patient-registrations.settings'), active: route().current('patient-registrations.settings') || route().current('register-days.*') || route().current('register-services.*') },
+    ...(navCan.value.register_settings ? [{ label: t('nav.registrationSettings'), icon: 'tune', href: route('patient-registrations.settings'), active: route().current('patient-registrations.settings') || route().current('register-days.*') || route().current('register-services.*') }] : []),
     // Users management (2026-10-21, by request). Permissions and department
     // roles left the menu (2026-10-22, by request): both open from here.
     { label: t('nav.users'), icon: 'manage_accounts', href: route('users.index'), active: route().current('users.*') || route().current('permissions.*') || route().current('department-roles.*') },

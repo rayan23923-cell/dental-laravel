@@ -16,13 +16,11 @@ class ClinicSettingsRepository {
     return ClinicSettings.fromJson(data);
   }
 
-  /// Saves only the lab fee and result validity (2026-10-12). `PUT
-  /// /clinic-settings` updates just the keys it is sent but requires
-  /// `clinic_name`, so the current name is fetched and resent unchanged.
+  /// Saves only the lab fee and result validity (2026-10-12), through the
+  /// registration settings' own endpoint (2026-10-24) so whoever holds that
+  /// permission (the accountant) can save it without the clinic settings.
   Future<ClinicSettings> updateLab({double? labFee, required int labValidityDays}) async {
-    final current = await fetch();
-    final data = await _client.putJson('/clinic-settings', body: {
-      'clinic_name': current.clinicName,
+    final data = await _client.putJson('/register-settings/lab', body: {
       'lab_fee': labFee,
       'lab_validity_days': labValidityDays,
     }) as Map<String, dynamic>;

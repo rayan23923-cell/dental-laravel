@@ -613,30 +613,6 @@ Route::middleware('auth')->group(function () {
         Route::put('/waiting-screen-settings', [WaitingScreenSettingController::class, 'update'])
             ->middleware('permission:settings,edit')->name('waiting-screen-settings.update');
 
-        // Services/days config for patient registration — mirrors
-        // admin/register_settings.php, gated the same way it is there
-        // ($perm->requirePermission('settings', 'edit')).
-        Route::get('/patient-registrations/settings', [RegisterSettingsController::class, 'edit'])
-            ->middleware('permission:settings,edit')->name('patient-registrations.settings');
-        Route::post('/register-days', [RegisterSettingsController::class, 'storeDay'])
-            ->middleware('permission:settings,edit')->name('register-days.store');
-        Route::delete('/register-days/{registerDay}', [RegisterSettingsController::class, 'destroyDay'])
-            ->middleware('permission:settings,edit')->name('register-days.destroy');
-        Route::post('/register-services', [RegisterSettingsController::class, 'storeService'])
-            ->middleware('permission:settings,edit')->name('register-services.store');
-        Route::put('/register-services/{service}', [RegisterSettingsController::class, 'updateService'])
-            ->middleware('permission:settings,edit')->name('register-services.update');
-        Route::delete('/register-services/{service}', [RegisterSettingsController::class, 'destroyService'])
-            ->middleware('permission:settings,edit')->name('register-services.destroy');
-        // Excel export/import for moving to the offline system (2026-10-18, by request).
-        Route::get('/register-services-export', [ExcelTransferController::class, 'exportServices'])
-            ->middleware('permission:settings,edit')->name('register-services.export');
-        Route::post('/register-services-import', [ExcelTransferController::class, 'importServices'])
-            ->middleware('permission:settings,edit')->name('register-services.import');
-        Route::put('/register-settings/lab', [RegisterSettingsController::class, 'updateLab'])
-            ->middleware('permission:settings,edit')->name('register-settings.lab');
-        Route::put('/tasks/{task}/register-days', [RegisterSettingsController::class, 'updateTaskDays'])
-            ->middleware('permission:settings,edit')->name('tasks.register-days.update');
 
         Route::get('/department-roles', [DepartmentRoleAssignmentController::class, 'index'])->name('department-roles.index');
         Route::post('/department-roles', [DepartmentRoleAssignmentController::class, 'store'])->name('department-roles.store');
@@ -651,6 +627,44 @@ Route::middleware('auth')->group(function () {
         Route::put('/backup/auto', [BackupController::class, 'toggleAuto'])->name('backup.toggle-auto');
         Route::get('/backup/offline-copy', [BackupController::class, 'offlineCopy'])->name('backup.offline-copy');
         Route::get('/backup/{filename}/download', [BackupController::class, 'download'])->name('backup.download');
+    });
+
+    // Payments and the registration services' settings by permission, not
+    // by role (2026-10-24, by request), so the accountant or anyone given
+    // them can open them. A migration gave the new permissions to every
+    // account the old role gates let in.
+    // Lab screening fee + printable receipt (2026-10-11).
+    Route::post('/payments/lab', [PaymentController::class, 'storeLab'])
+        ->middleware('permission:payments,create')->name('payments.store-lab');
+    Route::get('/payments/report', [PaymentController::class, 'report'])
+        ->middleware('permission:payments,export')->name('payments.report');
+    Route::get('/payments/{payment}/receipt', [PaymentController::class, 'receipt'])
+        ->middleware('permission:payments,view')->name('payments.receipt');
+    // No "تسجيل دفعة" page any more (2026-10-14, by request): payments are
+    // taken from patient registration and the lab. `store` stays for those
+    // flows' own posts.
+    Route::get('/payments', [PaymentController::class, 'index'])
+        ->middleware('permission:payments,view')->name('payments.index');
+    Route::post('/payments', [PaymentController::class, 'store'])
+        ->middleware('permission:payments,create')->name('payments.store');
+    Route::delete('/payments/{payment}', [PaymentController::class, 'destroy'])
+        ->middleware('permission:payments,delete')->name('payments.destroy');
+
+    // Services/days config for patient registration — mirrors
+    // admin/register_settings.php.
+    Route::get('/patient-registrations/settings', [RegisterSettingsController::class, 'edit'])
+        ->middleware('permission:register_settings,view')->name('patient-registrations.settings');
+    Route::middleware('permission:register_settings,edit')->group(function () {
+        Route::post('/register-days', [RegisterSettingsController::class, 'storeDay'])->name('register-days.store');
+        Route::delete('/register-days/{registerDay}', [RegisterSettingsController::class, 'destroyDay'])->name('register-days.destroy');
+        Route::post('/register-services', [RegisterSettingsController::class, 'storeService'])->name('register-services.store');
+        Route::put('/register-services/{service}', [RegisterSettingsController::class, 'updateService'])->name('register-services.update');
+        Route::delete('/register-services/{service}', [RegisterSettingsController::class, 'destroyService'])->name('register-services.destroy');
+        // Excel export/import for moving to the offline system (2026-10-18, by request).
+        Route::get('/register-services-export', [ExcelTransferController::class, 'exportServices'])->name('register-services.export');
+        Route::post('/register-services-import', [ExcelTransferController::class, 'importServices'])->name('register-services.import');
+        Route::put('/register-settings/lab', [RegisterSettingsController::class, 'updateLab'])->name('register-settings.lab');
+        Route::put('/tasks/{task}/register-days', [RegisterSettingsController::class, 'updateTaskDays'])->name('tasks.register-days.update');
     });
 
     Route::middleware('role:super_admin,admin,editor')->group(function () {
@@ -686,16 +700,6 @@ Route::middleware('auth')->group(function () {
             ->name('appointments.destroy');
         Route::put('/appointments/{appointment}/toggle-pinned', [AppointmentController::class, 'togglePinned'])->name('appointments.toggle-pinned');
 
-        // Lab screening fee + printable receipt (2026-10-11).
-        Route::post('/payments/lab', [PaymentController::class, 'storeLab'])->name('payments.store-lab');
-        Route::get('/payments/report', [PaymentController::class, 'report'])->name('payments.report');
-        Route::get('/payments/{payment}/receipt', [PaymentController::class, 'receipt'])->name('payments.receipt');
-        // No "تسجيل دفعة" page any more (2026-10-14, by request): payments
-        // are taken from patient registration and the lab. `store` stays for
-        // those flows' own posts.
-        Route::resource('payments', PaymentController::class)->only(['index', 'store']);
-        Route::delete('/payments/{payment}', [PaymentController::class, 'destroy'])
-            ->name('payments.destroy');
 
         // Clinical specialty records — hub page + generic Specialty/Index
         // and Specialty/Form.vue pages shared across all 12 (see README

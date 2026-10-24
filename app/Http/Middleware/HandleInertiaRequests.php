@@ -76,6 +76,13 @@ class HandleInertiaRequests extends Middleware
             // what the request's own "ماعدا الجدول والمخططات السنية"
             // already excludes. Un-exclude `kCaseSheetPrintableResources` on
             // the Flutter side to match.
+            // Menu links that follow a permission rather than a role
+            // (2026-10-24, by request): payments and the registration
+            // services' settings.
+            'navCan' => fn () => ($user = $request->user()) instanceof \App\Models\User ? [
+                'payments' => ($perm = new \App\Services\PermissionManager($user))->can('payments', 'view'),
+                'register_settings' => $perm->can('register_settings', 'view'),
+            ] : [],
             // Groups on/off from clinic settings — see ClinicSetting::groupsEnabled().
             'groupsEnabled' => fn () => ClinicSetting::groupsEnabled(),
             // Task progress switches for the whole system (2026-10-22).

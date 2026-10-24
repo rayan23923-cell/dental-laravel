@@ -22,6 +22,8 @@ const props = defineProps({
     filteredTotal: { type: Number, default: 0 },
     bySource: { type: Array, default: () => [] },
     currency: { type: String, default: '' },
+    // The payments permissions (2026-10-24): report and delete.
+    can: { type: Object, default: () => ({ export: true, delete: true }) },
 });
 
 // Income overview (2026-10-12, by request).
@@ -103,6 +105,7 @@ const destroy = (payment) => {
                 <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('nav.payments') }}</h2>
                 <div class="flex items-center gap-2">
                     <a
+                        v-if="can.export"
                         :href="reportUrl"
                         target="_blank"
                         :title="t('payments.printReport')"
@@ -197,7 +200,7 @@ const destroy = (payment) => {
                         </template>
                         <template #actions>
                             <ChatAction icon="receipt_long" :label="t('chatList.printReceipt')" :href="receiptUrl(payment)" external />
-                            <ChatAction icon="delete" :label="t('common.delete')" danger @click="destroy(payment)" />
+                            <ChatAction v-if="can.delete" icon="delete" :label="t('common.delete')" danger @click="destroy(payment)" />
                         </template>
                     </ChatListRow>
                     <template #footer>

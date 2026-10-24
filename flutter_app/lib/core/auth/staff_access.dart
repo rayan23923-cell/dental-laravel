@@ -1,4 +1,8 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../features/auth/domain/auth_account.dart';
+import '../../features/auth/presentation/auth_controller.dart';
+import '../../features/auth/presentation/auth_state.dart';
 
 /// Which app sections a staff account may open (2026-10-18, by request: a
 /// lab account with no grants saw every section). Each rule is the server's
@@ -13,7 +17,9 @@ bool staffCanOpen(StaffAccount account, String route) {
       const ['super_admin', 'admin', 'editor', 'reception', 'lab'].contains(account.role) && can('patients'),
     '/lab' => const ['super_admin', 'admin', 'editor', 'reception', 'lab'].contains(account.role) &&
         (can('patient_screening') || can('patient_screening', 'confirm')),
-    '/records/payments' => const ['super_admin', 'admin', 'editor', 'accountant'].contains(account.role),
+    // Payments and the registration services' settings are permissions
+    // since 2026-10-24 (by request), the accountant's by default.
+    '/records/payments' => can('payments'),
     '/admin/education-types' => admin && can('education_types'),
     '/admin/stages' => admin && can('stages'),
     '/admin/departments' => admin && can('departments'),
@@ -26,7 +32,7 @@ bool staffCanOpen(StaffAccount account, String route) {
     '/admin/case-sheet-types' => can('case_sheet_types'),
     '/admin/clinic-settings' || '/admin/waiting-screen-settings' => admin && can('settings'),
     // Services, prices and the lab fee, as on the web's admin menu (2026-10-21).
-    '/records/patient-registrations/settings' => admin && can('settings'),
+    '/records/patient-registrations/settings' => can('register_settings'),
     // A permission since 2026-10-18 (by request), so the lab or the
     // ticket desk can be given the printer without the rest of settings.
     '/admin/printer-settings' => can('printer_settings'),
@@ -65,3 +71,11 @@ const adminRoutes = [
   '/admin/waiting-screen-settings',
   '/admin/broadcast',
 ];
+
+/// Whether the signed-in staff account holds [module].[permission], for the
+/// buttons inside a screen (a doctor or an old server: true, as `can` does).
+bool staffCan(WidgetRef ref, String module, String permission) {
+  final authState = ref.watch(authControllerProvider).valueOrNull;
+  final account = authState is Authenticated ? authState.account : null;
+  return account is! StaffAccount || account.can(module, permission);
+}

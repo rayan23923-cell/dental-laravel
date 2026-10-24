@@ -64,7 +64,7 @@ class DashboardController extends Controller
             ];
         }
 
-        if (in_array($user->role, self::PAYMENT_ROLES, true)) {
+        if ($permissions->can('payments', 'view')) {
             $panels['payments'] = [
                 'periods' => (new PaymentStats())->periods(),
                 'currency' => ClinicSetting::current()->clinic_currency,
@@ -73,9 +73,6 @@ class DashboardController extends Controller
 
         return response()->json(['role' => $user->role, 'panels' => (object) $panels]);
     }
-
-    /** The web's payments roles, plus the accountant, whose work they are. */
-    private const PAYMENT_ROLES = ['super_admin', 'admin', 'editor', 'accountant'];
 
     public function tasksByEducationType(Request $request, EducationType $educationType): JsonResponse
     {

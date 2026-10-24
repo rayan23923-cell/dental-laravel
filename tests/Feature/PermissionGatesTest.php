@@ -10,6 +10,7 @@ use App\Services\ScopeHelper;
 use App\Support\RolePresets;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 /**
@@ -50,10 +51,46 @@ class PermissionGatesTest extends TestCase
 
     public function test_the_accountant_reads_payments(): void
     {
-        Sanctum::actingAs(User::factory()->create(['role' => 'accountant']));
+        $accountant = User::factory()->create(['role' => 'accountant']);
+        Sanctum::actingAs($accountant);
+        // Payments are a permission since 2026-10-24, the accountant's by default.
+        $this->getJson('/api/v1/payments')->assertForbidden();
 
+        RolePresets::apply($accountant);
+        Cache::flush();
         $this->getJson('/api/v1/payments')->assertOk();
+        $this->getJson('/api/v1/payments/stats')->assertOk();
+        $this->postJson('/api/v1/services', ['name' => 'حشوة', 'price' => 5000])->assertSuccessful();
         $this->getJson('/api/v1/groups')->assertForbidden();
+    }
+
+    public function test_payments_and_register_settings_follow_their_permissions(): void
+    {
+        $editor = User::factory()->create(['role' => 'editor']);
+        Sanctum::actingAs($editor);
+        $this->getJson('/api/v1/payments')->assertForbidden();
+        $this->postJson('/api/v1/services', ['name' => 'قلع'])->assertForbidden();
+        $this->putJson('/api/v1/register-settings/lab', ['lab_fee' => 2000])->assertForbidden();
+
+        PermissionManager::syncGrants($editor, ['payments.view', 'register_settings.edit']);
+        Cache::flush();
+        $this->getJson('/api/v1/payments')->assertOk();
+        $this->getJson('/api/v1/payments/report')->assertForbidden();
+        $this->putJson('/api/v1/register-settings/lab', ['lab_fee' => 2000, 'lab_validity_days' => 30])
+            ->assertOk()->assertJsonPath('lab_validity_days', 30);
+    }
+
+    public function test_the_accountant_opens_payments_and_register_settings_on_the_web(): void
+    {
+        $accountant = User::factory()->create(['role' => 'accountant']);
+        $this->actingAs($accountant)->get('/payments')->assertForbidden();
+        $this->get('/patient-registrations/settings')->assertForbidden();
+
+        RolePresets::apply($accountant);
+        Cache::flush();
+        $this->get('/payments')->assertOk();
+        $this->get('/patient-registrations/settings')->assertOk();
+        $this->get('/groups')->assertForbidden();
     }
 
     public function test_case_sheets_need_the_open_case_sheet_grant(): void
