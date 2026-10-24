@@ -97,6 +97,7 @@ const primaryLinks = computed(() => [
     // desk roles included.
     ...(navCan.value.payments ? [{ label: t('nav.payments'), icon: 'payments', href: route('payments.index'), active: route().current('payments.*') }] : []),
     ...(!isAdmin.value && navCan.value.register_settings ? [{ label: t('nav.registrationSettings'), icon: 'tune', href: route('patient-registrations.settings'), active: route().current('patient-registrations.settings') }] : []),
+    ...(!isAdmin.value && navCan.value.waiting_screen ? [{ label: t('nav.waitingScreenSettings'), icon: 'tv', href: route('waiting-screen-settings.edit'), active: route().current('waiting-screen-settings.*') }] : []),
 ]);
 
 // "إدارة المرضى" — always visible (patients/patient-registrations are
@@ -135,8 +136,9 @@ const structureLinks = useStructureLinks();
 // (2026-10-22, by request): both open from the users page header.
 const settingsLinks = computed(() => [
     { label: t('nav.clinicSettings'), icon: 'settings', href: route('clinic-settings.edit'), active: route().current('clinic-settings.*') },
-    { label: t('nav.waitingScreenSettings'), icon: 'tv', href: route('waiting-screen-settings.edit'), active: route().current('waiting-screen-settings.*') },
-    { label: t('nav.pairWaitingScreen'), icon: 'qr_code_scanner', href: route('waiting-screen-pairing.create'), active: route().current('waiting-screen-pairing.*') },
+    // The waiting screen follows its own permission (2026-10-24).
+    ...(navCan.value.waiting_screen ? [{ label: t('nav.waitingScreenSettings'), icon: 'tv', href: route('waiting-screen-settings.edit'), active: route().current('waiting-screen-settings.*') }] : []),
+    ...(navCan.value.waiting_screen_pair ? [{ label: t('nav.pairWaitingScreen'), icon: 'qr_code_scanner', href: route('waiting-screen-pairing.create'), active: route().current('waiting-screen-pairing.*') }] : []),
     ...(navCan.value.register_settings ? [{ label: t('nav.registrationSettings'), icon: 'tune', href: route('patient-registrations.settings'), active: route().current('patient-registrations.settings') || route().current('register-days.*') || route().current('register-services.*') }] : []),
     // Users management (2026-10-21, by request). Permissions and department
     // roles left the menu (2026-10-22, by request): both open from here.

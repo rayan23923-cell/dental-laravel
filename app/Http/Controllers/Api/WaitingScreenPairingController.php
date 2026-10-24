@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Models\WaitingScreenPairing;
+use App\Services\PermissionManager;
 use App\Support\QrCodeFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -43,6 +45,7 @@ class WaitingScreenPairingController extends Controller
      */
     public function resolveCode(Request $request): JsonResponse
     {
+        $this->authorizePairing($request);
         $validated = $request->validate(['code' => ['required', 'digits:4']]);
 
         $pairing = WaitingScreenPairing::findPendingByCode($validated['code']);
@@ -54,6 +57,7 @@ class WaitingScreenPairingController extends Controller
 
     public function confirm(Request $request, string $token): JsonResponse
     {
+        $this->authorizePairing($request);
         $validated = $request->validate([
             'stage_id' => ['nullable', 'exists:stages,id'],
         ]);
@@ -72,5 +76,15 @@ class WaitingScreenPairingController extends Controller
                 'stage_name' => $pairing->stage?->name,
             ],
         ]);
+    }
+
+    /**
+     * Staff accounts pair a TV with the waiting_screen.pair permission
+     * (2026-10-24, by request); doctors keep pairing as before.
+     */
+    private function authorizePairing(Request $request): void
+    {
+        $user = $request->user();
+        abort_if($user instanceof User && ! (new PermissionManager($user))->can('waiting_screen', 'pair'), 403);
     }
 }

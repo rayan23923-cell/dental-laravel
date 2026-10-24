@@ -335,14 +335,20 @@ Route::middleware('auth')->group(function () {
     Route::post('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
 
-    // Open to any logged-in staff member, not gated behind a role/permission
-    // — pairing a physical TV is an on-the-spot operational task (see
+    // The waiting screen has its own permission (2026-10-24, by request):
+    // its settings, and pairing a physical TV (once open to every staff
+    // account; a migration kept that for existing accounts). See
     // Api\WaitingScreenPairingController's own docblock for the Flutter
-    // side of this same flow), not a settings change.
+    // side of the pairing flow.
     Route::get('/waiting-screen/pair', [WaitingScreenPairingController::class, 'create'])
-        ->name('waiting-screen-pairing.create');
+        ->middleware('permission:waiting_screen,pair')->name('waiting-screen-pairing.create');
     Route::post('/waiting-screen/pair', [WaitingScreenPairingController::class, 'store'])
-        ->name('waiting-screen-pairing.store');
+        ->middleware('permission:waiting_screen,pair')->name('waiting-screen-pairing.store');
+    // Controls for the public /waiting-screen display.
+    Route::get('/waiting-screen-settings', [WaitingScreenSettingController::class, 'edit'])
+        ->middleware('permission:waiting_screen,view')->name('waiting-screen-settings.edit');
+    Route::put('/waiting-screen-settings', [WaitingScreenSettingController::class, 'update'])
+        ->middleware('permission:waiting_screen,edit')->name('waiting-screen-settings.update');
 
     // Ticket desk and lab (2026-10-12): also open to the `reception`
     // (موظف التذاكر) and `lab` (مختبري) roles, which reach nothing else.
@@ -606,12 +612,6 @@ Route::middleware('auth')->group(function () {
             Route::delete('/offline-licenses/{offlineLicense}', [\App\Http\Controllers\OfflineLicenseController::class, 'destroy'])->name('offline-licenses.destroy');
         });
 
-        // Admin controls for the public /waiting-screen display — same
-        // 'settings' module/gate as clinic-settings above.
-        Route::get('/waiting-screen-settings', [WaitingScreenSettingController::class, 'edit'])
-            ->middleware('permission:settings,view')->name('waiting-screen-settings.edit');
-        Route::put('/waiting-screen-settings', [WaitingScreenSettingController::class, 'update'])
-            ->middleware('permission:settings,edit')->name('waiting-screen-settings.update');
 
 
         Route::get('/department-roles', [DepartmentRoleAssignmentController::class, 'index'])->name('department-roles.index');

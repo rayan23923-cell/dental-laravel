@@ -113,6 +113,12 @@ class PermissionMatrix
                 'name' => 'إعدادات تسجيل الخدمات وتسعيرها',
                 'permissions' => ['view' => 'عرض', 'edit' => 'تعديل الخدمات والأسعار'],
             ],
+            // The waiting screen (2026-10-24, by request): its settings and
+            // pairing a TV, instead of the general settings and any account.
+            'waiting_screen' => [
+                'name' => 'شاشة الانتظار',
+                'permissions' => ['view' => 'عرض الإعدادات', 'edit' => 'تعديل الإعدادات', 'pair' => 'ربط شاشة'],
+            ],
             'reports' => [
                 'name' => 'التقارير',
                 'permissions' => ['view' => 'عرض', 'export' => 'تصدير', 'print' => 'طباعة'],

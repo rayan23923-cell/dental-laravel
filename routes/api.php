@@ -273,11 +273,17 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::put('/stages/{stage}', [LookupController::class, 'updateStage'])->middleware(['role:super_admin,admin', 'permission:stages,edit']);
         Route::delete('/stages/{stage}', [LookupController::class, 'destroyStage'])->middleware(['role:super_admin,admin', 'permission:stages,delete']);
 
+        // The waiting screen's settings, by its own permission (2026-10-24).
+        Route::get('/waiting-screen-settings', [WaitingScreenSettingController::class, 'show'])
+            ->middleware('permission:waiting_screen,view');
+        Route::put('/waiting-screen-settings', [WaitingScreenSettingController::class, 'update'])
+            ->middleware('permission:waiting_screen,edit');
+
         // Confirming a scanned waiting-screen pairing QR with a chosen
         // stage — the Flutter side of the privacy gate described in
-        // WaitingScreenPairingController's own docblock. No extra
-        // role/permission gate: same reasoning as /stages just above (both
-        // a staff User and a Doctor token may call this).
+        // WaitingScreenPairingController's own docblock. A staff account
+        // needs waiting_screen.pair (2026-10-24, checked in the controller);
+        // a Doctor token may still call this, as with /stages just above.
         Route::post('/waiting-screen/pairings/{token}/confirm', [WaitingScreenPairingController::class, 'confirm']);
         // The "enter the 4-digit code instead of scanning" alternative —
         // resolves to a token, then the app calls confirm() above as usual.
@@ -334,11 +340,6 @@ Route::name('api.')->prefix('v1')->group(function () {
         // Admin screens ported from the web (2026-10-17), with the same
         // gates as their routes/web.php twins (role:super_admin,admin group).
         Route::middleware('role:super_admin,admin')->group(function () {
-            Route::get('/waiting-screen-settings', [WaitingScreenSettingController::class, 'show'])
-                ->middleware('permission:settings,view');
-            Route::put('/waiting-screen-settings', [WaitingScreenSettingController::class, 'update'])
-                ->middleware('permission:settings,edit');
-
             Route::get('/department-roles', [DepartmentRoleAssignmentController::class, 'index']);
             Route::post('/department-roles', [DepartmentRoleAssignmentController::class, 'store']);
             Route::put('/department-roles/{departmentRoleAssignment}/toggle', [DepartmentRoleAssignmentController::class, 'toggle']);
