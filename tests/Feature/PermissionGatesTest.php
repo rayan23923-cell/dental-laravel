@@ -175,4 +175,18 @@ class PermissionGatesTest extends TestCase
         $this->actingAs($editor)->get('/waiting-screen-settings')->assertOk();
         $this->get('/waiting-screen/pair')->assertOk();
     }
+
+    public function test_pairing_stays_only_with_waiting_screen_editors(): void
+    {
+        $editor = User::factory()->create(['role' => 'editor']);
+        $accountant = User::factory()->create(['role' => 'accountant']);
+        PermissionManager::syncGrants($editor, ['waiting_screen.edit', 'waiting_screen.pair']);
+        PermissionManager::syncGrants($accountant, ['waiting_screen.pair']);
+
+        (require database_path('migrations/2026_10_24_130000_limit_waiting_screen_pair_permission.php'))->up();
+        Cache::flush();
+
+        $this->assertTrue((new PermissionManager($editor))->can('waiting_screen', 'pair'));
+        $this->assertFalse((new PermissionManager($accountant))->can('waiting_screen', 'pair'));
+    }
 }
