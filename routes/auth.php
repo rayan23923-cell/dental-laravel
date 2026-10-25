@@ -24,7 +24,7 @@ Route::middleware('guest')->group(function () {
         ->name('password.request');
 
     Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])
-        ->name('password.email');
+        ->middleware('throttle:6,1')->name('password.email');
 
     // No {token} — a one-time code is typed, not clicked into (2026-08-29,
     // by request; see App\Services\OtpPasswordResetBroker). `email` is
@@ -33,7 +33,7 @@ Route::middleware('guest')->group(function () {
         ->name('password.reset');
 
     Route::post('reset-password', [NewPasswordController::class, 'store'])
-        ->name('password.store');
+        ->middleware('throttle:6,1')->name('password.store');
 });
 
 Route::middleware('auth')->group(function () {
