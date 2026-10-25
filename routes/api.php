@@ -55,7 +55,6 @@ use App\Http\Controllers\Api\PendingTaskQrController;
 use App\Http\Controllers\Api\TaskRegisterDaysController;
 use App\Http\Controllers\Api\TreatmentMaterialController;
 use App\Http\Controllers\Api\TreatmentPlanController;
-use App\Http\Controllers\Api\TvBoardController;
 use App\Http\Controllers\Api\WaitingScreenController;
 use App\Http\Controllers\Api\WaitingScreenPairingController;
 use App\Http\Controllers\Api\WaitingScreenSettingController;
@@ -98,11 +97,9 @@ Route::name('api.')->prefix('v1')->group(function () {
     Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink'])->middleware('throttle:6,1');
     Route::post('/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:6,1');
 
-    // Public, unauthenticated — mirrors the original app's tv_patients.php
-    // waiting-room display. See TvBoardController docblock for a real
-    // display bug in the original app this endpoint deliberately does not
-    // reproduce.
-    Route::get('/tv-board', TvBoardController::class)->middleware('throttle:120,1');
+    // The public /tv-board feed was removed (2026-10-25, security review,
+    // by request): it listed today's patients to anyone. /tv now opens the
+    // paired waiting screen below.
 
     // Public, unauthenticated — feeds the /waiting-screen kiosk display.
     // See WaitingScreenController's own docblock.

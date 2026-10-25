@@ -150,14 +150,10 @@ Route::get('/download', function () {
     ]);
 })->name('download');
 
-// Public waiting-room display — no auth, matches the original app's
-// tv_patients.php being a public screen, not part of the admin app.
-Route::get('/tv', function () {
-    return Inertia::render('TvBoard', [
-        'educationTypes' => EducationType::orderBy('name')->get(['id', 'name']),
-        'stages' => Stage::orderBy('name')->get(['id', 'name', 'education_type_id']),
-    ]);
-})->name('tv-board');
+// The old public TV board showed today's patients and doctors to anyone on
+// the internet; it now opens the waiting screen, which shows names only
+// once staff pair it (2026-10-25, security review, by request).
+Route::redirect('/tv', '/waiting-screen')->name('tv-board');
 
 // Public waiting-room appointments display (2026-09-09) — a newer sibling
 // of /tv built on Appointment/case_sheet_doctor_id rather than the legacy

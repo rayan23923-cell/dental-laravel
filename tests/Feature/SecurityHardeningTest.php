@@ -76,4 +76,10 @@ class SecurityHardeningTest extends TestCase
             ->assertHeader('X-Content-Type-Options', 'nosniff')
             ->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     }
+
+    public function test_public_tv_board_no_longer_lists_patients(): void
+    {
+        $this->get('/tv')->assertRedirect('/waiting-screen');
+        $this->getJson('/api/v1/tv-board')->assertNotFound();
+    }
 }
