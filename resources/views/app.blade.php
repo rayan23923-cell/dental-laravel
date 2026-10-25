@@ -32,7 +32,10 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
-        <title inertia>{{ config('app.name', 'Dental Clinic') }}</title>
+        {{-- The clinic's name from its settings ends every tab title (read by resources/js/app.js). --}}
+        @php $appTitle = \App\Models\ClinicSetting::current()->clinic_name ?: config('app.name', 'Dental Clinic'); @endphp
+        <meta name="app-name" content="{{ $appTitle }}">
+        <title inertia>{{ $appTitle }}</title>
 
         <!-- PWA: installable "Add to Home Screen" support — manifest served
              from a route (App\Http\Controllers\PwaManifestController) so its
@@ -48,7 +51,7 @@
         <meta name="theme-color" content="#0095F6">
         <link rel="apple-touch-icon" href="{{ \App\Models\ClinicSetting::current()->logoUrl() ?: asset('icons/icon-192.png') }}">
         <meta name="apple-mobile-web-app-capable" content="yes">
-        <meta name="apple-mobile-web-app-title" content="{{ config('app.name', 'Dental Clinic') }}">
+        <meta name="apple-mobile-web-app-title" content="{{ $appTitle }}">
 
         <!-- Scripts -->
         @routes

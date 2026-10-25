@@ -8,9 +8,8 @@ import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 import { createI18nInstance } from './i18n';
 import { installNumericInputs } from './numericInputs';
 
-// The VPS image builds without a .env, so VITE_APP_NAME is often empty: fall back to
-// the name app.blade.php rendered from config('app.name'), never the framework's "Laravel".
-const appName = import.meta.env.VITE_APP_NAME || document.title || 'Dental Clinic';
+// The clinic's name from its settings, rendered by app.blade.php; never the framework's "Laravel".
+const appName = document.querySelector('meta[name="app-name"]')?.content || import.meta.env.VITE_APP_NAME || 'Dental Clinic';
 
 installNumericInputs();
 
