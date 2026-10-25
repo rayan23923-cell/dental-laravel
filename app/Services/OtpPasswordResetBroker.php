@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Notifications\OtpPasswordReset;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -132,7 +133,16 @@ class OtpPasswordResetBroker
         ]);
     }
 
-    /** Does not consume the code — the caller calls {@see forget()} only after actually changing the password. */
+    /** Wrong guesses allowed for one code before it is thrown away (2026-10-25, security review). */
+    public const MAX_WRONG = 5;
+
+    /**
+     * Does not consume the code — the caller calls {@see forget()} only after actually changing the password.
+     *
+     * After {@see MAX_WRONG} wrong codes the code is deleted, so a six-digit
+     * code can't be guessed by spreading tries over many addresses; the
+     * owner asks for a new one.
+     */
     public static function verify(string $email, string $guard, string $code): bool
     {
         $row = DB::table('password_reset_otps')->where('email', $email)->where('guard', $guard)->first();
@@ -141,7 +151,22 @@ class OtpPasswordResetBroker
             return false;
         }
 
-        return Hash::check($code, $row->otp);
+        $wrongKey = 'otp-wrong:'.$guard.':'.sha1(strtolower($email).'|'.$row->otp);
+        if (Hash::check($code, $row->otp)) {
+            return true;
+        }
+
+        $wrong = Cache::increment($wrongKey);
+        if ($wrong === 1) {
+            Cache::put($wrongKey, 1, Carbon::parse($row->expires_at));
+        }
+        if ($wrong >= self::MAX_WRONG) {
+            Log::warning('Password reset code discarded after repeated wrong codes', ['email' => $email, 'guard' => $guard]);
+            static::forget($email, $guard);
+            Cache::forget($wrongKey);
+        }
+
+        return false;
     }
 
     public static function forget(string $email, string $guard): void

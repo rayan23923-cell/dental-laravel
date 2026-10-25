@@ -28,6 +28,8 @@ class AuthController extends Controller
         ]);
 
         if (! Auth::guard('license')->attempt($credentials, $request->boolean('remember'))) {
+            \App\Listeners\AuthEventLogger::failed($credentials['username'], 'license');
+
             return back()->withInput($request->only('username'))->withErrors(['username' => 'اسم المستخدم أو كلمة المرور غير صحيحة.']);
         }
 

@@ -102,11 +102,14 @@ Route::name('api.')->prefix('v1')->group(function () {
     // waiting-room display. See TvBoardController docblock for a real
     // display bug in the original app this endpoint deliberately does not
     // reproduce.
-    Route::get('/tv-board', TvBoardController::class);
+    Route::get('/tv-board', TvBoardController::class)->middleware('throttle:120,1');
 
     // Public, unauthenticated — feeds the /waiting-screen kiosk display.
     // See WaitingScreenController's own docblock.
-    Route::get('/waiting-screen', WaitingScreenController::class);
+    // Throttled (2026-10-25, security review): an unpaired call creates a
+    // pairing row, so an open endpoint could fill the table. A screen polls
+    // every 4 s (15/min); 120/min leaves room for 8 screens on one address.
+    Route::get('/waiting-screen', WaitingScreenController::class)->middleware('throttle:120,1');
     // Public — the QR image itself (the TV has no login). Confirming a
     // pairing (choosing a stage) is authenticated, further down in the
     // auth:sanctum group below.

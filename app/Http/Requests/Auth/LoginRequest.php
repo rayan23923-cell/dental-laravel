@@ -61,6 +61,7 @@ class LoginRequest extends FormRequest
 
         if (! $authenticated) {
             RateLimiter::hit($this->throttleKey());
+            \App\Listeners\AuthEventLogger::failed((string) $this->input('login'), 'web');
 
             throw ValidationException::withMessages([
                 'login' => trans('auth.failed'),

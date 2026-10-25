@@ -74,7 +74,10 @@ class ClinicNetwork {
         uri,
         proxyHost,
         proxyPort,
-        context: explicitContext ?? _context,
+        // The clinic's own root is trusted for the clinic server only
+        // (2026-10-25, security review): it is fetched over plain HTTP, so
+        // it must not also vouch for other sites the app reaches.
+        context: explicitContext ?? (uri.host.toLowerCase() == _clinicHost?.toLowerCase() ? _context : null),
         mappedHost: _mappedHost,
         mappedIp: _mappedIp,
       );

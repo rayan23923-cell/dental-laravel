@@ -185,7 +185,8 @@ Route::get('/doctor/forgot-password', [DoctorPasswordResetController::class, 're
 Route::post('/doctor/forgot-password', [DoctorPasswordResetController::class, 'email'])
     ->middleware('throttle:6,1')->name('doctor.password.email');
 Route::get('/doctor/reset-password', [DoctorPasswordResetController::class, 'reset'])->name('doctor.password.reset');
-Route::post('/doctor/reset-password', [DoctorPasswordResetController::class, 'update'])->name('doctor.password.store');
+Route::post('/doctor/reset-password', [DoctorPasswordResetController::class, 'update'])
+    ->middleware('throttle:6,1')->name('doctor.password.store');
 
 // "Sign in with Google" — shared by the one login page, auto-detecting
 // staff vs. doctor from the Google account's email the same way the

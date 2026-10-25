@@ -61,7 +61,8 @@ class GoogleAuthController extends Controller
                 ->withErrors(['login' => 'حساب Google هذا لا يحتوي على بريد إلكتروني.']);
         }
 
-        $user = User::where('email', $googleUser->getEmail())->first();
+        // A switched-off staff account can't sign in this way either (2026-10-25).
+        $user = User::where('email', $googleUser->getEmail())->where('status', '!=', 'inactive')->first();
 
         if ($user) {
             Auth::guard('web')->login($user);
