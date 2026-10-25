@@ -26,9 +26,10 @@ class LabFeeGate
      */
     public static function chargeIfDue(PatientRegistration $registration, ?string $paidBy = null): ?Payment
     {
-        $fee = ClinicSetting::current()->lab_fee;
+        // Less the student discount when the patient is eligible (2026-10-25).
+        $fee = StudentDiscount::labFee($registration);
 
-        if ($fee === null || (float) $fee <= 0 || self::previousScreening($registration)) {
+        if ($fee === null || $fee <= 0 || self::previousScreening($registration)) {
             return null;
         }
 

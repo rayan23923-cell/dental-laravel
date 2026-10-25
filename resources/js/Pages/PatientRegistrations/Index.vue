@@ -265,6 +265,7 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
                         <template #meta>
                             <ChatChip v-if="r.phone" icon="call"><span dir="ltr">{{ r.phone }}</span></ChatChip>
                             <ChatChip v-if="r.service" icon="medical_services" tone="sky">{{ r.service.name }}</ChatChip>
+                            <ChatChip v-if="r.discount_eligible" icon="school" tone="indigo">{{ t('patientReg.studentDiscountApplied') }}</ChatChip>
                             <ChatChip icon="schedule">{{ fmtDate(r.created_at) }}</ChatChip>
                             <ChatChip :icon="screeningIcon(r.screening_status)" :tone="screeningTone(r.screening_status)">{{ screeningLabel(r.screening_status) }}</ChatChip>
                         </template>

@@ -6,6 +6,7 @@ use App\Models\ClinicSetting;
 use App\Models\PatientRegistration;
 use App\Models\Payment;
 use App\Support\LabFeeGate;
+use App\Support\StudentDiscount;
 use App\Support\QrCodeFactory;
 use Endroid\QrCode\ErrorCorrectionLevel;
 use Endroid\QrCode\QrCode;
@@ -126,6 +127,7 @@ class LabController extends Controller
     private function attachPreviousScreenings($registrations): void
     {
         $previous = LabFeeGate::previousScreenings($registrations);
+        $settings = ClinicSetting::current();
 
         foreach ($registrations as $registration) {
             $match = $registration->screening_status === 'pending' ? $previous->get($registration->id) : null;
@@ -136,6 +138,8 @@ class LabController extends Controller
                 'phone' => $match->phone,
                 'matched_by' => $match->matched_by,
             ] : null);
+            // This patient's fee, less the student discount when eligible (2026-10-25).
+            $registration->setAttribute('lab_fee_due', StudentDiscount::labFee($registration, $settings));
         }
     }
 

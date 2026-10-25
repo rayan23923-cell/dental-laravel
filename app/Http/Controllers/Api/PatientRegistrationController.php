@@ -8,6 +8,7 @@ use App\Models\PatientRegistration;
 use App\Models\Payment;
 use App\Models\RegisterDay;
 use App\Models\Service;
+use App\Support\StudentDiscount;
 use App\Models\Task;
 use App\Models\User;
 use App\Services\PermissionManager;
@@ -122,13 +123,17 @@ class PatientRegistrationController extends Controller
             'register_day_id' => ['nullable', 'integer', 'exists:register_days,id'],
             'service_id' => ['required', 'integer', 'exists:register_services,id'],
             'task_id' => ['nullable', 'integer', 'exists:tasks,id'],
+            // Student discount (2026-10-25): not eligible unless ticked.
+            'discount_eligible' => ['sometimes', 'boolean'],
         ]);
+        $validated['discount_eligible'] = (bool) ($validated['discount_eligible'] ?? false);
 
         // Payment is mandatory and fixed by the service's price (2026-10-12,
         // by request): the desk no longer types an amount, and an
         // `amount_paid` an older app build still sends is ignored. A
         // service without a price cannot be registered until one is set.
-        $price = Service::whereKey($validated['service_id'])->value('price');
+        // An eligible student pays the service's price less its discount.
+        $price = StudentDiscount::servicePrice(Service::findOrFail($validated['service_id']), $validated['discount_eligible']);
         if ($price === null) {
             throw ValidationException::withMessages([
                 'service_id' => 'هذه الخدمة بلا سعر — حدّد سعرها في إعدادات التسجيل أولاً.',

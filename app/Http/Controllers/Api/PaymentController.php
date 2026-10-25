@@ -10,6 +10,7 @@ use App\Models\PatientRegistration;
 use App\Services\PatientScreeningException;
 use App\Services\PatientScreeningGate;
 use App\Support\PaymentStats;
+use App\Support\StudentDiscount;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -132,8 +133,11 @@ class PaymentController extends Controller
 
         // Lab fee: always the configured amount, once per registration.
         if (($validated['type'] ?? null) === Payment::TYPE_LAB) {
-            $fee = ClinicSetting::current()->lab_fee;
-            if ($fee === null || empty($validated['patient_registration_id'])) {
+            // Less the student discount when the patient is eligible (2026-10-25).
+            $fee = empty($validated['patient_registration_id'])
+                ? null
+                : StudentDiscount::labFee(PatientRegistration::find($validated['patient_registration_id']));
+            if ($fee === null) {
                 return response()->json(['message' => 'لم تُحدَّد أجور المختبر في الإعدادات.'], 422);
             }
             if (Payment::where('patient_registration_id', $validated['patient_registration_id'])->where('type', Payment::TYPE_LAB)->exists()) {

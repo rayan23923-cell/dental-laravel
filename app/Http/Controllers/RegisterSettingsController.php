@@ -6,6 +6,7 @@ use App\Models\ClinicSetting;
 use App\Models\RegisterDay;
 use App\Models\Service;
 use App\Models\Task;
+use App\Support\StudentDiscount;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -34,7 +35,7 @@ class RegisterSettingsController extends Controller
             'tasks' => Task::with('days:id')->orderBy('title')->get(['id', 'title']),
             // Lab screening price and how long a clear result stays valid
             // (2026-10-12) — also editable in clinic settings.
-            'lab' => ClinicSetting::current()->only(['lab_fee', 'lab_validity_days', 'clinic_currency']),
+            'lab' => ClinicSetting::current()->only(['lab_fee', 'lab_validity_days', 'lab_student_discount_percent', 'clinic_currency']),
         ]);
     }
 
@@ -62,11 +63,17 @@ class RegisterSettingsController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', Rule::unique('register_services', 'name')],
             'price' => ['nullable', 'numeric', 'min:0'],
+            // Student discount percentage (2026-10-25); blank keeps the default 50.
+            'student_discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'day_ids' => ['array'],
             'day_ids.*' => ['integer', 'exists:register_days,id'],
         ]);
 
-        $service = Service::create(['name' => $validated['name'], 'price' => $validated['price'] ?? null]);
+        $service = Service::create([
+            'name' => $validated['name'],
+            'price' => $validated['price'] ?? null,
+            'student_discount_percent' => $validated['student_discount_percent'] ?? StudentDiscount::DEFAULT_PERCENT,
+        ]);
         $service->days()->sync($validated['day_ids'] ?? []);
 
         return back()->with('success', 'تمت إضافة الخدمة.');
@@ -77,11 +84,17 @@ class RegisterSettingsController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', Rule::unique('register_services', 'name')->ignore($service->id)],
             'price' => ['nullable', 'numeric', 'min:0'],
+            // Student discount percentage (2026-10-25); blank keeps the default 50.
+            'student_discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'day_ids' => ['sometimes', 'array'],
             'day_ids.*' => ['integer', 'exists:register_days,id'],
         ]);
 
-        $service->update(['name' => $validated['name'], 'price' => $validated['price'] ?? null]);
+        $service->update([
+            'name' => $validated['name'],
+            'price' => $validated['price'] ?? null,
+            'student_discount_percent' => $validated['student_discount_percent'] ?? $service->student_discount_percent,
+        ]);
         if (array_key_exists('day_ids', $validated)) {
             $service->days()->sync($validated['day_ids']);
         }
@@ -101,6 +114,7 @@ class RegisterSettingsController extends Controller
         $validated = $request->validate([
             'lab_fee' => ['nullable', 'numeric', 'min:0'],
             'lab_validity_days' => ['nullable', 'integer', 'min:0', 'max:3650'],
+            'lab_student_discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
 
         ClinicSetting::current()->update($validated);

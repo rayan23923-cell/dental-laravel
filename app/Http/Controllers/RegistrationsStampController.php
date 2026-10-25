@@ -32,14 +32,14 @@ class RegistrationsStampController extends Controller
         // The table has no updated_at, so a checksum of the columns the
         // lists show catches edits, screening results and archiving too.
         $registrations = PatientRegistration::withTrashed()
-            ->selectRaw("COUNT(*) AS n, MAX(id) AS last_id, COALESCE(SUM(CRC32(CONCAT_WS('|', id, name, phone, age, service_id, register_day_id, screening_status, screening_checked_at, screening_reused_from, deleted_at))), 0) AS sum")
+            ->selectRaw("COUNT(*) AS n, MAX(id) AS last_id, COALESCE(SUM(CRC32(CONCAT_WS('|', id, name, phone, age, discount_eligible, service_id, register_day_id, screening_status, screening_checked_at, screening_reused_from, deleted_at))), 0) AS sum")
             ->first();
         $payments = Payment::whereNotNull('patient_registration_id')->selectRaw('COUNT(*) AS n, MAX(id) AS last_id')->first();
         // The services, their prices and the lab fee too (2026-10-21, by
         // request): a price changed in the browser reaches the app's
         // registration form without reopening the app.
         $services = Service::query()
-            ->selectRaw("COUNT(*) AS n, COALESCE(SUM(CRC32(CONCAT_WS('|', id, name, price))), 0) AS sum")
+            ->selectRaw("COUNT(*) AS n, COALESCE(SUM(CRC32(CONCAT_WS('|', id, name, price, student_discount_percent))), 0) AS sum")
             ->first();
         $lab = ClinicSetting::current();
 
@@ -47,7 +47,7 @@ class RegistrationsStampController extends Controller
             'stamp' => md5(implode('|', [
                 $registrations->n, $registrations->last_id, $registrations->sum,
                 $payments->n, $payments->last_id,
-                $services->n, $services->sum, $lab->lab_fee, $lab->lab_validity_days,
+                $services->n, $services->sum, $lab->lab_fee, $lab->lab_validity_days, $lab->lab_student_discount_percent,
             ])),
         ]);
     }

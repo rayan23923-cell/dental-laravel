@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/platform/platform_support.dart';
@@ -55,6 +56,9 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
   int? _taskId;
   bool _submitting = false;
 
+  /// Student discount (2026-10-25, by request): not eligible by default.
+  bool _discountEligible = false;
+
   /// Services as one swiping row, or wrapped in rows below each other
   /// (2026-10-18, by request); remembered on this device.
   static const _verticalKey = 'registration_services_vertical';
@@ -102,6 +106,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
             phone: _phoneController.text.trim(),
             serviceId: _serviceId!,
             taskId: _taskId,
+            discountEligible: _discountEligible,
           );
       ref.invalidate(patientRegistrationListProvider);
       if (mounted) {
@@ -328,6 +333,26 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                     // "التشخيص" picker removed from registration (2026-10-11, by
                     // request); registrations are saved with no task.
                     const SizedBox(height: 16),
+                    Card(
+                      margin: EdgeInsets.zero,
+                      child: SwitchListTile(
+                        secondary: const Icon(Icons.school_outlined),
+                        title: Text(t['patientRegFlutter.discountEligible']!),
+                        subtitle: Text(
+                          _discountEligible && selected != null
+                              ? t['patientRegFlutter.discountPercentOff']!.replaceAll(
+                                  '{percent}',
+                                  NumberFormat('#,##0.##').format(selected.studentDiscountPercent),
+                                )
+                              : _discountEligible
+                                  ? t['patientRegFlutter.discountEligibleHint']!
+                                  : t['patientRegFlutter.notDiscountEligible']!,
+                        ),
+                        value: _discountEligible,
+                        onChanged: (v) => setState(() => _discountEligible = v),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     // The amount due beside the button, so both read at a glance.
                     Card(
                       margin: EdgeInsets.zero,
@@ -345,7 +370,9 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                                   Text(t['patientRegFlutter.amountDue']!, style: Theme.of(context).textTheme.labelLarge),
                                   const SizedBox(height: 2),
                                   Text(
-                                    selected == null ? '—' : formatMoney(selected.price!, currency),
+                                    selected == null
+                                        ? '—'
+                                        : formatMoney(selected.priceFor(eligible: _discountEligible)!, currency),
                                     style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                                   ),
                                   if (selected != null)

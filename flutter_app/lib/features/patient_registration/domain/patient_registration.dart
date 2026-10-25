@@ -16,6 +16,7 @@ class PatientRegistration {
     required this.registerDayId,
     required this.serviceName,
     this.servicePrice,
+    this.discountEligible = false,
     required this.registerDayName,
     required this.createdAt,
     required this.taskId,
@@ -48,7 +49,14 @@ class PatientRegistration {
       registerDayId: json['register_day_id'] as int?,
       serviceName: service?['name'] as String?,
       // A decimal column, so it may arrive as a string ("25000.00").
-      servicePrice: service?['price'] == null ? null : double.tryParse(service!['price'].toString()),
+      // `service_fee` (2026-10-25) is the price less the student discount
+      // when the patient is eligible; older servers only send the price.
+      servicePrice: json['service_fee'] != null
+          ? double.tryParse(json['service_fee'].toString())
+          : service?['price'] == null
+              ? null
+              : double.tryParse(service!['price'].toString()),
+      discountEligible: json['discount_eligible'] == true,
       registerDayName: day?['name'] as String?,
       createdAt: json['created_at'] as String?,
       taskId: json['task_id'] as int?,
@@ -77,9 +85,13 @@ class PatientRegistration {
   final int? registerDayId;
   final String? serviceName;
 
-  /// The service's price, which registration charges in full (2026-10-12);
+  /// What registration charges for the service (2026-10-12): its price,
+  /// less the student discount when [discountEligible] (2026-10-25);
   /// printed on the ticket as the amount paid.
   final double? servicePrice;
+
+  /// Registered as eligible for the student discount (2026-10-25).
+  final bool discountEligible;
   final String? registerDayName;
   final String? createdAt;
   final int? taskId;

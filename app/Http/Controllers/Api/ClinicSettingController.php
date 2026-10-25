@@ -37,6 +37,7 @@ class ClinicSettingController extends Controller
         $validated = $request->validate([
             'lab_fee' => ['nullable', 'numeric', 'min:0'],
             'lab_validity_days' => ['nullable', 'integer', 'min:0', 'max:3650'],
+            'lab_student_discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
 
         ClinicSetting::current()->update($validated);
@@ -57,6 +58,7 @@ class ClinicSettingController extends Controller
             'clinic_currency' => ['nullable', 'string', 'max:50'],
             'lab_fee' => ['nullable', 'numeric', 'min:0'],
             'lab_validity_days' => ['nullable', 'integer', 'min:0', 'max:3650'],
+            'lab_student_discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'groups_enabled' => ['sometimes', 'boolean'],
             // Forms and task switches for the whole system (2026-10-22).
             ...\App\Support\FormSettings::generalRules(),

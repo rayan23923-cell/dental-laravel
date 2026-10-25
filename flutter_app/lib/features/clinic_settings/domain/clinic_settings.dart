@@ -11,6 +11,7 @@ class ClinicSettings {
     required this.collegeName,
     this.labFee,
     this.labValidityDays = 0,
+    this.labStudentDiscountPercent = 50,
     this.groupsEnabled = true,
     this.currency,
   });
@@ -25,6 +26,7 @@ class ClinicSettings {
         // Decimal column — may arrive as a string ("5000.00").
         labFee: json['lab_fee'] == null ? null : double.tryParse(json['lab_fee'].toString()),
         labValidityDays: int.tryParse('${json['lab_validity_days'] ?? 0}') ?? 0,
+        labStudentDiscountPercent: double.tryParse('${json['lab_student_discount_percent'] ?? ''}') ?? 50,
         groupsEnabled: json['groups_enabled'] as bool? ?? true,
         currency: json['clinic_currency'] as String?,
       );
@@ -46,6 +48,10 @@ class ClinicSettings {
   /// (2026-10-12), see `LabFeeGate` on the backend.
   final double? labFee;
   final int labValidityDays;
+
+  /// Taken off [labFee] for a patient eligible for the student discount
+  /// (2026-10-25); 50 by default.
+  final double labStudentDiscountPercent;
 
   /// Groups on/off from clinic settings (2026-10-13), the same switch as
   /// the web's: off hides groups everywhere and task progress lists a

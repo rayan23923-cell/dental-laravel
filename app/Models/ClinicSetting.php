@@ -57,6 +57,8 @@ class ClinicSetting extends Model
         'last_backup_at',
         'lab_fee',
         'lab_validity_days',
+        // Student discount on the lab fee (2026-10-25), see App\Support\StudentDiscount.
+        'lab_student_discount_percent',
         'groups_enabled',
         // "إعدادات النماذج" (2026-10-22), see App\Support\FormSettings.
         'electronic_forms_enabled',

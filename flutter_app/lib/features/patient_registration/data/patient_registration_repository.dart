@@ -44,10 +44,11 @@ class PatientRegistrationRepository {
   /// registration no longer asks for a day. Note the server keeps the old
   /// price when an update sends `price: null`, so a price can be changed
   /// but not cleared from here.
-  Future<Service> createService(String name, {double? price, List<int>? dayIds}) async {
+  Future<Service> createService(String name, {double? price, double? studentDiscountPercent, List<int>? dayIds}) async {
     final data = await _client.postJson('/services', body: {
       'name': name,
       'price': price,
+      if (studentDiscountPercent != null) 'student_discount_percent': studentDiscountPercent,
       if (dayIds != null) 'day_ids': dayIds,
     }) as Map<String, dynamic>;
     return Service.fromJson(data);
@@ -55,10 +56,11 @@ class PatientRegistrationRepository {
 
   /// The server syncs a missing `day_ids` to "no days", so the settings
   /// screen passes the service's current days through to keep them.
-  Future<Service> updateService(int id, String name, {double? price, List<int>? dayIds}) async {
+  Future<Service> updateService(int id, String name, {double? price, double? studentDiscountPercent, List<int>? dayIds}) async {
     final data = await _client.putJson('/services/$id', body: {
       'name': name,
       'price': price,
+      if (studentDiscountPercent != null) 'student_discount_percent': studentDiscountPercent,
       if (dayIds != null) 'day_ids': dayIds,
     }) as Map<String, dynamic>;
     return Service.fromJson(data);
@@ -160,6 +162,7 @@ class PatientRegistrationRepository {
     required String phone,
     required int serviceId,
     int? taskId,
+    bool discountEligible = false,
   }) async {
     // No `register_day_id` since 2026-10-12 — registration is by service
     // only (the server column is nullable now). No amount either: the
@@ -169,6 +172,9 @@ class PatientRegistrationRepository {
       'phone': phone,
       'service_id': serviceId,
       'task_id': taskId,
+      // Student discount (2026-10-25): the server takes the price less the
+      // service's percentage when true.
+      'discount_eligible': discountEligible,
     }) as Map<String, dynamic>;
     return PatientRegistration.fromJson(data['data'] as Map<String, dynamic>);
   }

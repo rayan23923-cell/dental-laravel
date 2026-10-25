@@ -1,0 +1,84 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\ClinicSetting;
+use App\Models\PatientRegistration;
+use App\Models\Payment;
+use App\Models\Service;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
+use Tests\TestCase;
+
+/**
+ * Student discount (2026-10-25): an eligible patient pays each service's
+ * price, and the lab fee, less its own percentage (50 by default); not
+ * eligible is the default.
+ */
+class StudentDiscountTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private function admin(): User
+    {
+        return User::factory()->create(['role' => 'super_admin']);
+    }
+
+    public function test_new_services_and_the_lab_default_to_fifty_percent(): void
+    {
+        $this->actingAs($this->admin())->post('/register-services', ['name' => 'Filling', 'price' => 20000])->assertRedirect();
+
+        $this->assertEquals(50, Service::firstWhere('name', 'Filling')->student_discount_percent);
+        $this->assertEquals(50, ClinicSetting::current()->fresh()->lab_student_discount_percent);
+    }
+
+    public function test_registration_is_full_price_unless_eligible(): void
+    {
+        $service = Service::create(['name' => 'Filling', 'price' => 20000]);
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->post('/patient-registrations', ['name' => 'Ali', 'phone' => '0770', 'service_id' => $service->id])->assertRedirect();
+        $this->actingAs($admin)->post('/patient-registrations', ['name' => 'Sara', 'phone' => '0771', 'service_id' => $service->id, 'discount_eligible' => true])->assertRedirect();
+
+        $ali = PatientRegistration::firstWhere('name', 'Ali');
+        $sara = PatientRegistration::firstWhere('name', 'Sara');
+        $this->assertFalse($ali->discount_eligible);
+        $this->assertTrue($sara->discount_eligible);
+        $this->assertEquals(20000, Payment::where('patient_registration_id', $ali->id)->value('amount'));
+        $this->assertEquals(10000, Payment::where('patient_registration_id', $sara->id)->value('amount'));
+    }
+
+    public function test_api_uses_each_services_own_percentage_and_the_lab_percentage(): void
+    {
+        ClinicSetting::current()->update(['lab_fee' => 8000, 'lab_student_discount_percent' => 25]);
+        Sanctum::actingAs($this->admin());
+
+        $service = $this->postJson('/api/v1/services', ['name' => 'Crown', 'price' => 30000, 'student_discount_percent' => 20])
+            ->assertCreated()->json();
+
+        $id = $this->postJson('/api/v1/patient-registrations', [
+            'name' => 'Omar', 'phone' => '0772', 'service_id' => $service['id'], 'discount_eligible' => true,
+        ])->assertCreated()->assertJsonPath('data.discount_eligible', true)->json('data.id');
+
+        $this->assertEquals(24000, Payment::where('patient_registration_id', $id)->where('type', 'service')->value('amount'));
+
+        $this->getJson('/api/v1/lab')->assertOk()->assertJsonPath('data.0.lab_fee_due', 6000);
+
+        $this->postJson("/api/v1/patient-registrations/{$id}/screening", ['screening_status' => 'clear'])->assertOk();
+        $this->assertEquals(6000, Payment::where('patient_registration_id', $id)->where('type', 'lab')->value('amount'));
+    }
+
+    public function test_the_lab_fee_is_full_for_a_patient_who_is_not_eligible(): void
+    {
+        ClinicSetting::current()->update(['lab_fee' => 8000]);
+        $service = Service::create(['name' => 'Filling', 'price' => 20000]);
+        Sanctum::actingAs($this->admin());
+
+        $id = $this->postJson('/api/v1/patient-registrations', ['name' => 'Ali', 'phone' => '0770', 'service_id' => $service->id])
+            ->assertCreated()->assertJsonPath('data.discount_eligible', false)->json('data.id');
+
+        $this->postJson("/api/v1/patient-registrations/{$id}/screening", ['screening_status' => 'flagged'])->assertOk();
+        $this->assertEquals(8000, Payment::where('patient_registration_id', $id)->where('type', 'lab')->value('amount'));
+    }
+}

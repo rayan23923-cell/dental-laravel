@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Service;
+use App\Support\StudentDiscount;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -30,11 +31,17 @@ class ServiceController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', Rule::unique('register_services', 'name')],
             'price' => ['nullable', 'numeric', 'min:0'],
+            // Student discount percentage (2026-10-25); blank keeps the default 50.
+            'student_discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'day_ids' => ['array'],
             'day_ids.*' => ['integer', 'exists:register_days,id'],
         ]);
 
-        $service = Service::create(['name' => $validated['name'], 'price' => $validated['price'] ?? null]);
+        $service = Service::create([
+            'name' => $validated['name'],
+            'price' => $validated['price'] ?? null,
+            'student_discount_percent' => $validated['student_discount_percent'] ?? StudentDiscount::DEFAULT_PERCENT,
+        ]);
         $service->days()->sync($validated['day_ids'] ?? []);
 
         return response()->json($service->load('days'))->setStatusCode(201);
@@ -45,11 +52,17 @@ class ServiceController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', Rule::unique('register_services', 'name')->ignore($service->id)],
             'price' => ['nullable', 'numeric', 'min:0'],
+            // Student discount percentage (2026-10-25); blank keeps the default 50.
+            'student_discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'day_ids' => ['array'],
             'day_ids.*' => ['integer', 'exists:register_days,id'],
         ]);
 
-        $service->update(['name' => $validated['name'], 'price' => $validated['price'] ?? $service->price]);
+        $service->update([
+            'name' => $validated['name'],
+            'price' => $validated['price'] ?? $service->price,
+            'student_discount_percent' => $validated['student_discount_percent'] ?? $service->student_discount_percent,
+        ]);
         $service->days()->sync($validated['day_ids'] ?? []);
 
         return response()->json($service->load('days'));

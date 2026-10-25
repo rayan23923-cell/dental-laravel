@@ -28,7 +28,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class ExcelTransferController extends Controller
 {
-    private const SERVICE_HEADERS = ['Name', 'Price', 'Register Days'];
+    private const SERVICE_HEADERS = ['Name', 'Price', 'Student Discount %', 'Register Days'];
 
     private const TASK_HEADERS = [
         'Title', 'Education Type', 'Stage', 'Department', 'Department Pass %', 'Case Sheet Type',
@@ -38,7 +38,7 @@ class ExcelTransferController extends Controller
     public function exportServices(): StreamedResponse
     {
         $rows = Service::with('days')->orderBy('name')->get()->map(fn (Service $s) => [
-            $s->name, $s->price, $s->days->sortBy('sort_order')->pluck('name')->implode(', '),
+            $s->name, $s->price, $s->student_discount_percent, $s->days->sortBy('sort_order')->pluck('name')->implode(', '),
         ]);
 
         return ExcelTransfer::download(self::SERVICE_HEADERS, $rows, 'services');
@@ -59,6 +59,11 @@ class ExcelTransferController extends Controller
                 $service = Service::firstOrNew(['name' => $name]);
                 $service->exists ? $updated++ : $added++;
                 $service->price = is_numeric($price) ? $price : null;
+                // Student discount (2026-10-25): an older sheet without the column keeps the current value.
+                $discount = $row['student discount %'] ?? '';
+                if (is_numeric($discount)) {
+                    $service->student_discount_percent = max(0, min(100, (float) $discount));
+                }
                 $service->save();
                 if (array_key_exists('register days', $row)) {
                     $service->days()->sync($this->dayIds($row['register days']));
