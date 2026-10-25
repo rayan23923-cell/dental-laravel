@@ -163,6 +163,9 @@ class PatientRegistrationRepository {
     required int serviceId,
     int? taskId,
     bool discountEligible = false,
+    String? discountType,
+    String? discountStage,
+    String? discountWorkplace,
   }) async {
     // No `register_day_id` since 2026-10-12 — registration is by service
     // only (the server column is nullable now). No amount either: the
@@ -175,6 +178,10 @@ class PatientRegistrationRepository {
       // Student discount (2026-10-25): the server takes the price less the
       // service's percentage when true.
       'discount_eligible': discountEligible,
+      // 'student' (optional stage) or 'employee' (optional workplace).
+      if (discountEligible) 'discount_type': discountType ?? 'student',
+      if (discountEligible && discountStage != null) 'discount_stage': discountStage,
+      if (discountEligible && discountWorkplace != null) 'discount_workplace': discountWorkplace,
     }) as Map<String, dynamic>;
     return PatientRegistration.fromJson(data['data'] as Map<String, dynamic>);
   }

@@ -28,6 +28,9 @@ class PatientRegistrationResource extends JsonResource
             'task_id' => $this->task_id,
             // Student discount (2026-10-25), see App\Support\StudentDiscount.
             'discount_eligible' => (bool) $this->discount_eligible,
+            'discount_type' => $this->discount_type,
+            'discount_stage' => $this->discount_stage,
+            'discount_workplace' => $this->discount_workplace,
             // What this patient pays for the service: its price, less the
             // student discount when eligible.
             'service_fee' => $this->whenLoaded('service', fn () => $this->service

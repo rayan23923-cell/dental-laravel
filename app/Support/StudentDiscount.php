@@ -16,6 +16,29 @@ class StudentDiscount
 {
     public const DEFAULT_PERCENT = 50.0;
 
+    /** Who can be eligible (2026-10-25): students and employees, same percentages. */
+    public const TYPES = ['student', 'employee'];
+
+    /**
+     * The registration's discount fields made consistent: not eligible
+     * clears them all; eligible defaults to a student, and keeps only the
+     * stage (student) or the workplace (employee), blank as null.
+     */
+    public static function normalize(array $validated): array
+    {
+        $eligible = (bool) ($validated['discount_eligible'] ?? false);
+        $type = $eligible ? (($validated['discount_type'] ?? null) ?: 'student') : null;
+        $stage = trim((string) ($validated['discount_stage'] ?? ''));
+        $workplace = trim((string) ($validated['discount_workplace'] ?? ''));
+
+        return array_merge($validated, [
+            'discount_eligible' => $eligible,
+            'discount_type' => $type,
+            'discount_stage' => $type === 'student' && $stage !== '' ? $stage : null,
+            'discount_workplace' => $type === 'employee' && $workplace !== '' ? $workplace : null,
+        ]);
+    }
+
     /** `$amount` less `$percent` (clamped to 0–100), rounded to 2 places. */
     public static function apply(float $amount, ?float $percent): float
     {

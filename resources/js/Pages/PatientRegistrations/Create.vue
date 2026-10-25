@@ -14,6 +14,7 @@ const { t } = useI18n();
 const props = defineProps({
     services: Array,
     currency: String,
+    stageNames: { type: Array, default: () => [] },
 });
 
 const form = useForm({
@@ -23,6 +24,11 @@ const form = useForm({
     // Student discount (2026-10-25, by request): not eligible by default;
     // when ticked the server takes the service's price less its percentage.
     discount_eligible: false,
+    // Students and employees are both eligible (2026-10-25), at the same
+    // percentages; the stage or the workplace is optional.
+    discount_type: 'student',
+    discount_stage: '',
+    discount_workplace: '',
 });
 
 // Registration is name + phone + a priced service (2026-10-12). Services
@@ -235,6 +241,40 @@ const submit = () => {
                             </span>
                         </label>
                         <InputError :message="form.errors.discount_eligible" />
+
+                        <div v-if="form.discount_eligible" class="grid gap-4 rounded-xl bg-indigo-50/50 p-4 md:grid-cols-2">
+                            <div role="radiogroup" :aria-label="t('patientReg.discountTypeLabel')">
+                                <InputLabel :value="t('patientReg.discountTypeLabel')" />
+                                <div class="mt-1 flex gap-2">
+                                    <button
+                                        v-for="type in ['student', 'employee']"
+                                        :key="type"
+                                        type="button"
+                                        role="radio"
+                                        :aria-checked="form.discount_type === type"
+                                        @click="form.discount_type = type"
+                                        class="flex-1 rounded-xl border-2 px-3 py-2 text-sm font-semibold transition"
+                                        :class="form.discount_type === type ? 'border-indigo-600 bg-white text-indigo-700' : 'border-gray-200 bg-white text-gray-700 hover:border-indigo-300'"
+                                    >
+                                        {{ t(type === 'student' ? 'patientReg.discountStudent' : 'patientReg.discountEmployee') }}
+                                    </button>
+                                </div>
+                                <InputError class="mt-2" :message="form.errors.discount_type" />
+                            </div>
+                            <div v-if="form.discount_type === 'student'">
+                                <InputLabel for="discount_stage" :value="t('patientReg.discountStageLabel')" />
+                                <TextInput id="discount_stage" v-model="form.discount_stage" type="text" list="discount_stage_names" class="mt-1 block w-full rounded-xl" />
+                                <datalist id="discount_stage_names">
+                                    <option v-for="name in stageNames" :key="name" :value="name" />
+                                </datalist>
+                                <InputError class="mt-2" :message="form.errors.discount_stage" />
+                            </div>
+                            <div v-else>
+                                <InputLabel for="discount_workplace" :value="t('patientReg.discountWorkplaceLabel')" />
+                                <TextInput id="discount_workplace" v-model="form.discount_workplace" type="text" class="mt-1 block w-full rounded-xl" />
+                                <InputError class="mt-2" :message="form.errors.discount_workplace" />
+                            </div>
+                        </div>
 
                         <div v-if="selectedService" class="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
                             <span class="text-sm text-gray-600">{{ t('patientReg.amountDue') }}</span>

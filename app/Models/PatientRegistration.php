@@ -52,6 +52,10 @@ class PatientRegistration extends Model
         'screening_reused_from',
         // Student discount (2026-10-25), see App\Support\StudentDiscount.
         'discount_eligible',
+        // 'student' (optional stage) or 'employee' (optional workplace).
+        'discount_type',
+        'discount_stage',
+        'discount_workplace',
     ];
 
     protected function casts(): array

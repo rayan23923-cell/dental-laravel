@@ -59,6 +59,12 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
   /// Student discount (2026-10-25, by request): not eligible by default.
   bool _discountEligible = false;
 
+  /// Students and employees are both eligible (2026-10-25); the stage or
+  /// the workplace is optional.
+  String _discountType = 'student';
+  final _discountStageController = TextEditingController();
+  final _discountWorkplaceController = TextEditingController();
+
   /// Services as one swiping row, or wrapped in rows below each other
   /// (2026-10-18, by request); remembered on this device.
   static const _verticalKey = 'registration_services_vertical';
@@ -89,6 +95,8 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
+    _discountStageController.dispose();
+    _discountWorkplaceController.dispose();
     super.dispose();
   }
 
@@ -107,6 +115,13 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
             serviceId: _serviceId!,
             taskId: _taskId,
             discountEligible: _discountEligible,
+            discountType: _discountType,
+            discountStage: _discountType == 'student' && _discountStageController.text.trim().isNotEmpty
+                ? _discountStageController.text.trim()
+                : null,
+            discountWorkplace: _discountType == 'employee' && _discountWorkplaceController.text.trim().isNotEmpty
+                ? _discountWorkplaceController.text.trim()
+                : null,
           );
       ref.invalidate(patientRegistrationListProvider);
       if (mounted) {
@@ -352,6 +367,53 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                         onChanged: (v) => setState(() => _discountEligible = v),
                       ),
                     ),
+                    if (_discountEligible) ...[
+                      const SizedBox(height: 8),
+                      Card(
+                        margin: EdgeInsets.zero,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              SegmentedButton<String>(
+                                segments: [
+                                  ButtonSegment(
+                                    value: 'student',
+                                    icon: const Icon(Icons.school_outlined),
+                                    label: Text(t['patientRegFlutter.discountStudent']!),
+                                  ),
+                                  ButtonSegment(
+                                    value: 'employee',
+                                    icon: const Icon(Icons.badge_outlined),
+                                    label: Text(t['patientRegFlutter.discountEmployee']!),
+                                  ),
+                                ],
+                                selected: {_discountType},
+                                onSelectionChanged: (v) => setState(() => _discountType = v.first),
+                              ),
+                              const SizedBox(height: 12),
+                              if (_discountType == 'student')
+                                TextField(
+                                  controller: _discountStageController,
+                                  decoration: InputDecoration(
+                                    labelText: t['patientRegFlutter.discountStageLabel']!,
+                                    border: const OutlineInputBorder(),
+                                  ),
+                                )
+                              else
+                                TextField(
+                                  controller: _discountWorkplaceController,
+                                  decoration: InputDecoration(
+                                    labelText: t['patientRegFlutter.discountWorkplaceLabel']!,
+                                    border: const OutlineInputBorder(),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     // The amount due beside the button, so both read at a glance.
                     Card(

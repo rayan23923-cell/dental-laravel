@@ -17,6 +17,9 @@ class PatientRegistration {
     required this.serviceName,
     this.servicePrice,
     this.discountEligible = false,
+    this.discountType,
+    this.discountStage,
+    this.discountWorkplace,
     required this.registerDayName,
     required this.createdAt,
     required this.taskId,
@@ -57,6 +60,9 @@ class PatientRegistration {
               ? null
               : double.tryParse(service!['price'].toString()),
       discountEligible: json['discount_eligible'] == true,
+      discountType: json['discount_type'] as String?,
+      discountStage: json['discount_stage'] as String?,
+      discountWorkplace: json['discount_workplace'] as String?,
       registerDayName: day?['name'] as String?,
       createdAt: json['created_at'] as String?,
       taskId: json['task_id'] as int?,
@@ -92,6 +98,12 @@ class PatientRegistration {
 
   /// Registered as eligible for the student discount (2026-10-25).
   final bool discountEligible;
+
+  /// 'student' or 'employee' when eligible, with the optional stage or
+  /// workplace (2026-10-25).
+  final String? discountType;
+  final String? discountStage;
+  final String? discountWorkplace;
   final String? registerDayName;
   final String? createdAt;
   final int? taskId;

@@ -69,6 +69,44 @@ class StudentDiscountTest extends TestCase
         $this->assertEquals(6000, Payment::where('patient_registration_id', $id)->where('type', 'lab')->value('amount'));
     }
 
+    public function test_employees_are_eligible_with_an_optional_workplace(): void
+    {
+        $service = Service::create(['name' => 'Filling', 'price' => 20000]);
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->post('/patient-registrations', [
+            'name' => 'Huda', 'phone' => '0773', 'service_id' => $service->id,
+            'discount_eligible' => true, 'discount_type' => 'employee', 'discount_workplace' => 'Pharmacy', 'discount_stage' => 'Fifth',
+        ])->assertRedirect();
+        $this->actingAs($admin)->post('/patient-registrations', [
+            'name' => 'Zaid', 'phone' => '0774', 'service_id' => $service->id,
+            'discount_eligible' => true, 'discount_type' => 'student',
+        ])->assertRedirect();
+        $this->actingAs($admin)->post('/patient-registrations', [
+            'name' => 'Noor', 'phone' => '0775', 'service_id' => $service->id,
+            'discount_eligible' => false, 'discount_type' => 'employee', 'discount_workplace' => 'Lab',
+        ])->assertRedirect();
+
+        $huda = PatientRegistration::firstWhere('name', 'Huda');
+        $this->assertSame('employee', $huda->discount_type);
+        $this->assertSame('Pharmacy', $huda->discount_workplace);
+        $this->assertNull($huda->discount_stage);
+        $this->assertEquals(10000, Payment::where('patient_registration_id', $huda->id)->value('amount'));
+
+        $zaid = PatientRegistration::firstWhere('name', 'Zaid');
+        $this->assertSame('student', $zaid->discount_type);
+        $this->assertNull($zaid->discount_stage);
+
+        $noor = PatientRegistration::firstWhere('name', 'Noor');
+        $this->assertNull($noor->discount_type);
+        $this->assertNull($noor->discount_workplace);
+        $this->assertEquals(20000, Payment::where('patient_registration_id', $noor->id)->value('amount'));
+
+        $this->actingAs($admin)->post('/patient-registrations', [
+            'name' => 'Bad', 'phone' => '0776', 'service_id' => $service->id, 'discount_eligible' => true, 'discount_type' => 'other',
+        ])->assertSessionHasErrors('discount_type');
+    }
+
     public function test_the_lab_fee_is_full_for_a_patient_who_is_not_eligible(): void
     {
         ClinicSetting::current()->update(['lab_fee' => 8000]);
