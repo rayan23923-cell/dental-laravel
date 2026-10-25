@@ -69,11 +69,13 @@ const isPaid = (r) => !!r.lab_paid;
 // The lab fee is taken with the result (2026-10-12): picking "سليم" or
 // "غير سليم" records the payment and prints one paid slip (LabFeeGate).
 const hasLabFee = computed(() => props.labFee !== null && props.labFee !== '');
-const labFeeText = computed(() => `${Number(props.labFee).toLocaleString()} ${props.currency ?? ''}`.trim());
+// Each patient's own fee: less the student discount when eligible (2026-10-25).
+const feeOf = (r) => Number(r?.lab_fee_due ?? props.labFee ?? 0);
+const labFeeText = (r) => `${feeOf(r).toLocaleString()} ${props.currency ?? ''}`.trim();
 // A clear result from the last `validityDays` (same phone) is reused
 // instead: no new screening and nothing to pay (LabFeeGate).
 const canReuse = (r) => r.screening_status === 'pending' && !!r.previous_screening;
-const feeDue = (r) => hasLabFee.value && !isPaid(r) && !canReuse(r);
+const feeDue = (r) => hasLabFee.value && feeOf(r) > 0 && !isPaid(r) && !canReuse(r);
 const placeAndDay = (r) => [r.service?.name ?? '—', r.register_day?.name].filter(Boolean).join(' · ');
 const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
 
@@ -280,7 +282,8 @@ const record = async (status) => {
                 <div v-if="!canReuse(selected) && hasLabFee" class="flex items-center gap-1 rounded-xl p-3 text-sm font-semibold" :class="isPaid(selected) ? 'bg-sky-50 text-sky-800' : 'bg-amber-50 text-amber-800'">
                     <Icon :name="isPaid(selected) ? 'paid' : 'payments'" class="ml-1" />
                     <span>{{ isPaid(selected) ? t('lab.paid') : t('lab.feeWithResult') }}</span>
-                    <span class="font-normal" dir="ltr">({{ labFeeText }})</span>
+                    <span class="font-normal" dir="ltr">({{ labFeeText(selected) }})</span>
+                    <span v-if="selected.discount_eligible" class="font-normal">· {{ t('patientReg.studentDiscountApplied') }}</span>
                 </div>
 
                 <div class="rounded-xl p-3 text-sm font-semibold" :class="badgeClass(selected.screening_status)">

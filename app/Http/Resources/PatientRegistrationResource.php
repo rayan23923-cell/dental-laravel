@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\StudentDiscount;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -25,6 +26,16 @@ class PatientRegistrationResource extends JsonResource
             'service_id' => $this->service_id,
             'register_day_id' => $this->register_day_id,
             'task_id' => $this->task_id,
+            // Student discount (2026-10-25), see App\Support\StudentDiscount.
+            'discount_eligible' => (bool) $this->discount_eligible,
+            'discount_type' => $this->discount_type,
+            'discount_stage' => $this->discount_stage,
+            'discount_workplace' => $this->discount_workplace,
+            // What this patient pays for the service: its price, less the
+            // student discount when eligible.
+            'service_fee' => $this->whenLoaded('service', fn () => $this->service
+                ? StudentDiscount::servicePrice($this->service, (bool) $this->discount_eligible)
+                : null),
             'screening_status' => $this->screening_status,
             'screening_reused_from' => $this->screening_reused_from,
             // Who recorded the lab result and when (2026-10-17), and the
@@ -43,6 +54,7 @@ class PatientRegistrationResource extends JsonResource
                 'id' => $this->service->id,
                 'name' => $this->service->name,
                 'price' => $this->service->price !== null ? (float) $this->service->price : null,
+                'student_discount_percent' => (float) ($this->service->student_discount_percent ?? 50),
             ] : null),
             'register_day' => $this->whenLoaded('registerDay', fn () => $this->registerDay ? [
                 'id' => $this->registerDay->id,

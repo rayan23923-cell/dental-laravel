@@ -23,7 +23,7 @@ class Service extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['name', 'price'];
+    protected $fillable = ['name', 'price', 'student_discount_percent'];
 
     public function days(): BelongsToMany
     {

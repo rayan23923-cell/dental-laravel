@@ -2,7 +2,6 @@
 
 namespace App\Support;
 
-use App\Models\ClinicSetting;
 use App\Models\Payment;
 use App\Models\PatientRegistration;
 
@@ -19,7 +18,8 @@ class RegistrationPaymentState
         $payments = $registration->payments()->orderByDesc('paid_at')->get();
         $service = $payments->where('type', '!=', Payment::TYPE_LAB);
         $lab = $payments->where('type', Payment::TYPE_LAB);
-        $labFee = ClinicSetting::current()->lab_fee;
+        // This patient's fee: less the student discount when eligible (2026-10-25).
+        $labFee = StudentDiscount::labFee($registration);
         // A still-valid earlier clear result (same phone) the lab can reuse
         // instead of screening and charging again (2026-10-12).
         $previous = $registration->screening_status === 'pending' ? LabFeeGate::previousScreening($registration) : null;
@@ -35,7 +35,7 @@ class RegistrationPaymentState
             ])->values(),
             'total_paid' => (float) $service->sum('amount'),
             'is_paid' => $service->isNotEmpty(),
-            'lab_fee' => $labFee !== null ? (float) $labFee : null,
+            'lab_fee' => $labFee,
             'lab_paid' => $lab->isNotEmpty(),
             'lab_paid_amount' => (float) $lab->sum('amount'),
             'lab_validity_days' => LabFeeGate::validityDays(),

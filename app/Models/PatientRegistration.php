@@ -50,12 +50,19 @@ class PatientRegistration extends Model
         'screening_checked_by',
         'screening_checked_at',
         'screening_reused_from',
+        // Student discount (2026-10-25), see App\Support\StudentDiscount.
+        'discount_eligible',
+        // 'student' (optional stage) or 'employee' (optional workplace).
+        'discount_type',
+        'discount_stage',
+        'discount_workplace',
     ];
 
     protected function casts(): array
     {
         return [
             'created_at' => 'datetime',
+            'discount_eligible' => 'boolean',
         ];
     }
 

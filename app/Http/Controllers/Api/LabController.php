@@ -10,6 +10,7 @@ use App\Models\Payment;
 use App\Models\User;
 use App\Services\PermissionManager;
 use App\Support\LabFeeGate;
+use App\Support\StudentDiscount;
 use App\Support\QrCodeFactory;
 use App\Support\RegistrationPaymentState;
 use Illuminate\Http\JsonResponse;
@@ -57,11 +58,13 @@ class LabController extends Controller
             ->paginate(20);
 
         $previous = LabFeeGate::previousScreenings($registrations->getCollection());
-        $registrations->setCollection($registrations->getCollection()->map(function (PatientRegistration $r) use ($previous) {
+        $registrations->setCollection($registrations->getCollection()->map(function (PatientRegistration $r) use ($previous, $settings) {
             $match = $r->screening_status === 'pending' ? $previous->get($r->id) : null;
 
             return (new PatientRegistrationResource($r))->resolve() + [
                 'lab_paid' => (bool) $r->lab_paid,
+                // This patient's fee, less the student discount when eligible (2026-10-25).
+                'lab_fee_due' => StudentDiscount::labFee($r, $settings),
                 'previous_screening' => $match ? [
                     'id' => $match->id,
                     'checked_at' => $match->screening_checked_at,

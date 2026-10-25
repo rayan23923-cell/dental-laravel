@@ -11,6 +11,7 @@ use App\Services\PatientScreeningGate;
 use App\Support\QrCodeFactory;
 use App\Support\LabFeeGate;
 use App\Support\RegistrationPaymentState;
+use App\Support\StudentDiscount;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -148,8 +149,10 @@ class PatientRegistrationController extends Controller
         // Name, phone and a priced service (2026-10-12): the day is no
         // longer asked, so every configured service is offered.
         return Inertia::render('PatientRegistrations/Create', [
-            'services' => Service::orderBy('name')->get(['id', 'name', 'price']),
+            'services' => Service::orderBy('name')->get(['id', 'name', 'price', 'student_discount_percent']),
             'currency' => \App\Models\ClinicSetting::current()->clinic_currency,
+            // Suggestions for an eligible student's stage (2026-10-25); any text is accepted.
+            'stageNames' => \App\Models\Stage::query()->distinct()->orderBy('name')->pluck('name'),
         ]);
     }
 
@@ -170,13 +173,23 @@ class PatientRegistrationController extends Controller
             'register_day_id' => ['nullable', 'integer', 'exists:register_days,id'],
             'service_id' => ['required', 'integer', 'exists:register_services,id'],
             'task_id' => ['nullable', 'integer', 'exists:tasks,id'],
+            // Student discount (2026-10-25): not eligible unless ticked.
+            // An eligible patient is a student (optional stage) or an
+            // employee (optional workplace); older app builds send neither,
+            // which counts as a student.
+            'discount_eligible' => ['sometimes', 'boolean'],
+            'discount_type' => ['nullable', Rule::in(StudentDiscount::TYPES)],
+            'discount_stage' => ['nullable', 'string', 'max:100'],
+            'discount_workplace' => ['nullable', 'string', 'max:255'],
         ]);
+        $validated = StudentDiscount::normalize($validated);
 
         // Payment is mandatory and fixed by the service's price (2026-10-12,
         // by request): the desk no longer types an amount, and an
         // `amount_paid` an older app build still sends is ignored. A
         // service without a price cannot be registered until one is set.
-        $price = Service::whereKey($validated['service_id'])->value('price');
+        // An eligible student pays the service's price less its discount.
+        $price = StudentDiscount::servicePrice(Service::findOrFail($validated['service_id']), $validated['discount_eligible']);
         if ($price === null) {
             throw ValidationException::withMessages([
                 'service_id' => 'هذه الخدمة بلا سعر — حدّد سعرها في إعدادات التسجيل أولاً.',

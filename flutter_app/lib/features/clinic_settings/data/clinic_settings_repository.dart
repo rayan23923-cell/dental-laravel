@@ -19,10 +19,11 @@ class ClinicSettingsRepository {
   /// Saves only the lab fee and result validity (2026-10-12), through the
   /// registration settings' own endpoint (2026-10-24) so whoever holds that
   /// permission (the accountant) can save it without the clinic settings.
-  Future<ClinicSettings> updateLab({double? labFee, required int labValidityDays}) async {
+  Future<ClinicSettings> updateLab({double? labFee, required int labValidityDays, double? labStudentDiscountPercent}) async {
     final data = await _client.putJson('/register-settings/lab', body: {
       'lab_fee': labFee,
       'lab_validity_days': labValidityDays,
+      if (labStudentDiscountPercent != null) 'lab_student_discount_percent': labStudentDiscountPercent,
     }) as Map<String, dynamic>;
     return ClinicSettings.fromJson(data);
   }

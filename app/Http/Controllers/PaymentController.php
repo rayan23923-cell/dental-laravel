@@ -8,6 +8,7 @@ use App\Models\PatientRegistration;
 use App\Services\PatientScreeningException;
 use App\Services\PatientScreeningGate;
 use App\Support\PaymentStats;
+use App\Support\StudentDiscount;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -126,7 +127,8 @@ class PaymentController extends Controller
             'paid_by' => ['nullable', 'string', 'max:100'],
         ]);
 
-        $fee = ClinicSetting::current()->lab_fee;
+        // Less the student discount when the patient is eligible (2026-10-25).
+        $fee = StudentDiscount::labFee(PatientRegistration::find($validated['patient_registration_id']));
         if ($fee === null) {
             return response()->json(['message' => 'لم تُحدَّد أجور المختبر في الإعدادات.'], 422);
         }

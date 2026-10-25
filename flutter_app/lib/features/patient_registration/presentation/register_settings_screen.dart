@@ -37,10 +37,21 @@ String _plainAmount(double v) => v == v.truncateToDouble() ? v.toInt().toString(
   return (n == null || n < 0) ? null : (value: n);
 }
 
+/// Student discount percentage (2026-10-25): empty → 50 (the default),
+/// otherwise 0–100; null means invalid.
+double? _parsePercent(String text) {
+  final trimmed = text.trim();
+  if (trimmed.isEmpty) return 50;
+  final n = double.tryParse(trimmed);
+  return (n == null || n < 0 || n > 100) ? null : n;
+}
+
 class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen> {
   final _serviceNameController = TextEditingController();
   final _servicePriceController = TextEditingController();
+  final _serviceDiscountController = TextEditingController(text: '50');
   final _labFeeController = TextEditingController();
+  final _labDiscountController = TextEditingController(text: '50');
   final _labValidityController = TextEditingController();
   bool _addingService = false;
   bool _labLoading = true;
@@ -56,7 +67,9 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
   void dispose() {
     _serviceNameController.dispose();
     _servicePriceController.dispose();
+    _serviceDiscountController.dispose();
     _labFeeController.dispose();
+    _labDiscountController.dispose();
     _labValidityController.dispose();
     super.dispose();
   }
@@ -81,6 +94,7 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
       if (!mounted) return;
       _labFeeController.text = settings.labFee == null ? '' : _plainAmount(settings.labFee!);
       _labValidityController.text = '${settings.labValidityDays}';
+      _labDiscountController.text = _plainAmount(settings.labStudentDiscountPercent);
     } catch (e) {
       _showError(e, 'common.loadFailed');
     } finally {
@@ -100,9 +114,16 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
       _showMessage('registerSettings.labValidityInvalid');
       return;
     }
+    final discount = _parsePercent(_labDiscountController.text);
+    if (discount == null) {
+      _showMessage('registerSettings.discountInvalid');
+      return;
+    }
     setState(() => _savingLab = true);
     try {
-      await ref.read(clinicSettingsRepositoryProvider).updateLab(labFee: fee.value, labValidityDays: days);
+      await ref
+          .read(clinicSettingsRepositoryProvider)
+          .updateLab(labFee: fee.value, labValidityDays: days, labStudentDiscountPercent: discount);
       ref.invalidate(clinicSettingsProvider);
       _showMessage('registerSettings.saved');
     } catch (e) {
@@ -119,13 +140,19 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
       _showMessage('registerSettings.priceInvalid');
       return;
     }
+    final discount = _parsePercent(_serviceDiscountController.text);
+    if (discount == null) {
+      _showMessage('registerSettings.discountInvalid');
+      return;
+    }
     setState(() => _addingService = true);
     try {
       await ref
           .read(patientRegistrationRepositoryProvider)
-          .createService(_serviceNameController.text.trim(), price: price.value);
+          .createService(_serviceNameController.text.trim(), price: price.value, studentDiscountPercent: discount);
       _serviceNameController.clear();
       _servicePriceController.clear();
+      _serviceDiscountController.text = '50';
       ref.invalidate(servicesProvider);
       _showMessage('registerSettings.serviceAdded');
     } catch (e) {
@@ -136,7 +163,7 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
   }
 
   Future<void> _editService(Service service) async {
-    final result = await showDialog<({String name, double? price})>(
+    final result = await showDialog<({String name, double? price, double discount})>(
       context: context,
       builder: (_) => _ServiceDialog(service: service),
     );
@@ -148,6 +175,7 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
             service.id,
             result.name,
             price: result.price,
+            studentDiscountPercent: result.discount,
             dayIds: service.days.map((d) => d.id).toList(),
           );
       ref.invalidate(servicesProvider);
@@ -192,6 +220,19 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
             decoration: InputDecoration(labelText: t['registerSettings.priceLabel']!, border: const OutlineInputBorder()),
           ),
           const SizedBox(height: 8),
+          TextField(
+            controller: _serviceDiscountController,
+            textDirection: TextDirection.ltr,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: decimalOnly,
+            decoration: InputDecoration(
+              labelText: t['registerSettings.studentDiscountLabel']!,
+              helperText: t['registerSettings.studentDiscountHint']!,
+              helperMaxLines: 2,
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 8),
           FilledButton(
             onPressed: _addingService ? null : _addService,
             child: Text(t['registerSettings.addService']!),
@@ -207,7 +248,8 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
                     child: ListTile(
                       title: Text(service.name),
                       subtitle: Text(
-                        service.price == null ? t['registerSettings.noPrice']! : priceFormat.format(service.price),
+                        '${service.price == null ? t['registerSettings.noPrice']! : priceFormat.format(service.price)}'
+                        ' · ${t['registerSettings.studentDiscountShort']!} ${priceFormat.format(service.studentDiscountPercent)}%',
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -263,6 +305,19 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
                 border: const OutlineInputBorder(),
               ),
             ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _labDiscountController,
+              textDirection: TextDirection.ltr,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: decimalOnly,
+              decoration: InputDecoration(
+                labelText: t['registerSettings.studentDiscountLabel']!,
+                helperText: t['registerSettings.studentDiscountHint']!,
+                helperMaxLines: 2,
+                border: const OutlineInputBorder(),
+              ),
+            ),
             const SizedBox(height: 8),
             FilledButton(
               onPressed: _savingLab ? null : _saveLab,
@@ -277,7 +332,8 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
   }
 }
 
-/// Edit a service's name and price; pops `(name, price)` or null.
+/// Edit a service's name, price and student discount; pops
+/// `(name, price, discount)` or null.
 class _ServiceDialog extends ConsumerStatefulWidget {
   const _ServiceDialog({required this.service});
 
@@ -292,17 +348,23 @@ class _ServiceDialogState extends ConsumerState<_ServiceDialog> {
   late final _nameController = TextEditingController(text: widget.service.name);
   late final _priceController =
       TextEditingController(text: widget.service.price == null ? '' : _plainAmount(widget.service.price!));
+  late final _discountController = TextEditingController(text: _plainAmount(widget.service.studentDiscountPercent));
 
   @override
   void dispose() {
     _nameController.dispose();
     _priceController.dispose();
+    _discountController.dispose();
     super.dispose();
   }
 
   void _save() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    Navigator.of(context).pop((name: _nameController.text.trim(), price: _parsePrice(_priceController.text)!.value));
+    Navigator.of(context).pop((
+      name: _nameController.text.trim(),
+      price: _parsePrice(_priceController.text)!.value,
+      discount: _parsePercent(_discountController.text)!,
+    ));
   }
 
   @override
@@ -328,6 +390,15 @@ class _ServiceDialogState extends ConsumerState<_ServiceDialog> {
               inputFormatters: decimalOnly,
               decoration: InputDecoration(labelText: t['registerSettings.priceLabel']!, border: const OutlineInputBorder()),
               validator: (v) => _parsePrice(v ?? '') == null ? t['registerSettings.priceInvalid']! : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _discountController,
+              textDirection: TextDirection.ltr,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: decimalOnly,
+              decoration: InputDecoration(labelText: t['registerSettings.studentDiscountLabel']!, border: const OutlineInputBorder()),
+              validator: (v) => _parsePercent(v ?? '') == null ? t['registerSettings.discountInvalid']! : null,
             ),
           ],
         ),
