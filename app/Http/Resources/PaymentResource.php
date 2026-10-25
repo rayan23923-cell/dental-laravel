@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources;
 
+use App\Models\ClinicSetting;
+use App\Support\StudentDiscount;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -37,6 +39,26 @@ class PaymentResource extends JsonResource
                     'service_name' => $this->patientRegistration->service?->name,
                 ] : []),
             ] : null),
+            // Student/employee discount for receipts and the report
+            // (2026-10-25, by request): the full line and the short label;
+            // null when the patient is not eligible.
+            ...$this->discountFields(),
+        ];
+    }
+
+    private function discountFields(): array
+    {
+        $registration = $this->relationLoaded('patientRegistration') ? $this->patientRegistration : null;
+        if (! $registration?->discount_eligible) {
+            return ['discount_line' => null, 'discount_label' => null];
+        }
+
+        $settings = ClinicSetting::current();
+        $full = StudentDiscount::fullAmountFor($this->resource, $settings);
+
+        return [
+            'discount_line' => StudentDiscount::printLine($registration, (float) $this->amount, $full, (string) $settings->clinic_currency),
+            'discount_label' => StudentDiscount::shortLabel($registration, (float) $this->amount, $full),
         ];
     }
 }

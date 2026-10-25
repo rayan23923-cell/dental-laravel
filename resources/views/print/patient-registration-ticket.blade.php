@@ -48,6 +48,11 @@
                 @php($paid = (float) ($registration->service_paid ?: $registration->service?->price))
                 @if ($paid > 0)
                     <tr><th>المبلغ المدفوع</th><td>{{ number_format($paid) }} {{ $settings->clinic_currency }}</td></tr>
+                    {{-- Student/employee discount (2026-10-25, by request). --}}
+                    @php($discountLine = \App\Support\StudentDiscount::printLine($registration, $paid, $registration->service?->price !== null ? (float) $registration->service->price : null, (string) $settings->clinic_currency))
+                    @if ($discountLine)
+                        <tr><th>التخفيض</th><td>{{ $discountLine }}</td></tr>
+                    @endif
                     <tr><th>الحالة</th><td><strong>مدفوع</strong></td></tr>
                 @endif
                 @if ($registration->registerDay)

@@ -46,6 +46,7 @@ Future<Uint8List> buildLabResultPdf({
       ('تاريخ الفحص السابق', date(r.screeningReusedFromCheckedAt, 'yyyy-MM-dd')),
     ] else if (state.labPaid) ...[
       ('أجور المختبر', '${NumberFormat('#,##0', 'en_US').format(state.labPaidAmount)} $currency'.trim()),
+      if (state.labDiscountLine != null) ('التخفيض', state.labDiscountLine!),
       ('الحالة', 'مدفوع'),
     ],
     ('تاريخ الفحص', date(r.screeningCheckedAt, 'yyyy-MM-dd HH:mm')),

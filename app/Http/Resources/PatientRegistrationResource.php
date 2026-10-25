@@ -36,6 +36,16 @@ class PatientRegistrationResource extends JsonResource
             'service_fee' => $this->whenLoaded('service', fn () => $this->service
                 ? StudentDiscount::servicePrice($this->service, (bool) $this->discount_eligible)
                 : null),
+            // What the ticket prints about the discount (2026-10-25), e.g.
+            // "طالب · المرحلة الرابعة — خصم 50% من 20,000".
+            'discount_line' => $this->whenLoaded('service', fn () => $this->service && $this->service->price !== null
+                ? StudentDiscount::printLine(
+                    $this->resource,
+                    (float) StudentDiscount::servicePrice($this->service, (bool) $this->discount_eligible),
+                    (float) $this->service->price,
+                    (string) \App\Models\ClinicSetting::current()->clinic_currency,
+                )
+                : null),
             'screening_status' => $this->screening_status,
             'screening_reused_from' => $this->screening_reused_from,
             // Who recorded the lab result and when (2026-10-17), and the

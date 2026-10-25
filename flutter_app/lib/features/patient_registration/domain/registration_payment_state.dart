@@ -64,6 +64,7 @@ class RegistrationPaymentState {
     this.labFee,
     this.labPaid = false,
     this.labPaidAmount = 0,
+    this.labDiscountLine,
     this.labValidityDays = 0,
     this.previousScreening,
   });
@@ -80,6 +81,7 @@ class RegistrationPaymentState {
       labFee: data['lab_fee'] == null ? null : double.parse(data['lab_fee'].toString()),
       labPaid: data['lab_paid'] as bool? ?? false,
       labPaidAmount: double.tryParse('${data['lab_paid_amount'] ?? 0}') ?? 0,
+      labDiscountLine: data['lab_discount_line'] as String?,
       labValidityDays: (data['lab_validity_days'] as num?)?.toInt() ?? 0,
       previousScreening: data['previous_screening'] == null
           ? null
@@ -100,6 +102,10 @@ class RegistrationPaymentState {
 
   /// What was actually paid for the lab, printed on the lab slip.
   final double labPaidAmount;
+
+  /// The lab slip's student/employee discount line (2026-10-25); null
+  /// when the patient is not eligible.
+  final String? labDiscountLine;
 
   /// Days a clear result stays valid (0 = reuse off), and — only while
   /// this registration is still pending — the earlier clear result it can

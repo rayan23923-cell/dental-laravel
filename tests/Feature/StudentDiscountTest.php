@@ -119,4 +119,31 @@ class StudentDiscountTest extends TestCase
         $this->postJson("/api/v1/patient-registrations/{$id}/screening", ['screening_status' => 'flagged'])->assertOk();
         $this->assertEquals(8000, Payment::where('patient_registration_id', $id)->where('type', 'lab')->value('amount'));
     }
+
+    public function test_printouts_and_the_report_show_the_discount(): void
+    {
+        ClinicSetting::current()->update(['lab_fee' => 8000, 'lab_student_discount_percent' => 25]);
+        $service = Service::create(['name' => 'Filling', 'price' => 20000]);
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->post('/patient-registrations', [
+            'name' => 'Huda', 'phone' => '0773', 'service_id' => $service->id,
+            'discount_eligible' => true, 'discount_type' => 'employee', 'discount_workplace' => 'Pharmacy',
+        ]);
+        $huda = PatientRegistration::firstWhere('name', 'Huda');
+
+        $this->actingAs($admin)->get("/patient-registrations/{$huda->id}/print")->assertOk()
+            ->assertSee('موظف · Pharmacy — خصم 50% من 20,000', false);
+
+        $payment = Payment::where('patient_registration_id', $huda->id)->first();
+        $this->actingAs($admin)->get("/payments/{$payment->id}/receipt")->assertOk()
+            ->assertSee('موظف · Pharmacy — خصم 50% من 20,000', false);
+
+        Sanctum::actingAs($admin);
+        $this->postJson("/api/v1/patient-registrations/{$huda->id}/screening", ['screening_status' => 'clear'])->assertOk()
+            ->assertJsonPath('data.lab_discount_line', fn ($v) => str_contains($v, 'خصم 25% من 8,000'));
+
+        $this->getJson('/api/v1/payments')->assertOk()
+            ->assertJsonPath('data.0.discount_label', fn ($v) => str_starts_with($v, 'موظف · Pharmacy'));
+    }
 }
