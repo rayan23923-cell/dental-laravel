@@ -1,3 +1,4 @@
+import 'discount_breakdown.dart';
 import 'patient_registration.dart';
 
 /// Mirrors one entry of `Api\PatientRegistrationQrController::stateResponse()`'s
@@ -65,6 +66,7 @@ class RegistrationPaymentState {
     this.labPaid = false,
     this.labPaidAmount = 0,
     this.labDiscountLine,
+    this.labDiscount,
     this.labValidityDays = 0,
     this.previousScreening,
   });
@@ -82,6 +84,7 @@ class RegistrationPaymentState {
       labPaid: data['lab_paid'] as bool? ?? false,
       labPaidAmount: double.tryParse('${data['lab_paid_amount'] ?? 0}') ?? 0,
       labDiscountLine: data['lab_discount_line'] as String?,
+      labDiscount: DiscountBreakdown.fromJson(data['lab_discount']),
       labValidityDays: (data['lab_validity_days'] as num?)?.toInt() ?? 0,
       previousScreening: data['previous_screening'] == null
           ? null
@@ -106,6 +109,9 @@ class RegistrationPaymentState {
   /// The lab slip's student/employee discount line (2026-10-25); null
   /// when the patient is not eligible.
   final String? labDiscountLine;
+
+  /// The same as separate amounts for the slip's rows (2026-10-25).
+  final DiscountBreakdown? labDiscount;
 
   /// Days a clear result stays valid (0 = reuse off), and — only while
   /// this registration is still pending — the earlier clear result it can

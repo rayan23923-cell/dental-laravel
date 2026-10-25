@@ -46,6 +46,15 @@ class PatientRegistrationResource extends JsonResource
                     (string) \App\Models\ClinicSetting::current()->clinic_currency,
                 )
                 : null),
+            // The same as separate amounts for the ticket's rows (2026-10-25):
+            // {who, percent, full, paid}.
+            'discount' => $this->whenLoaded('service', fn () => $this->service && $this->service->price !== null
+                ? StudentDiscount::breakdown(
+                    $this->resource,
+                    (float) StudentDiscount::servicePrice($this->service, (bool) $this->discount_eligible),
+                    (float) $this->service->price,
+                )
+                : null),
             'screening_status' => $this->screening_status,
             'screening_reused_from' => $this->screening_reused_from,
             // Who recorded the lab result and when (2026-10-17), and the

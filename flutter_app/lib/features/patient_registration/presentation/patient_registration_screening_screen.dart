@@ -18,6 +18,7 @@ import '../../printing/presentation/ticket_print_animation.dart';
 import '../../printing/presentation/ticket_renderer.dart';
 import '../../printing/presentation/ticket_widget.dart';
 import '../data/patient_registration_repository.dart';
+import '../domain/discount_breakdown.dart';
 import '../domain/registration_payment_state.dart';
 import 'lab_result_pdf.dart';
 
@@ -204,8 +205,15 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
               (t['screening.paymentStatus']!, t['screening.exemptPrevious']!),
               (t['screening.previousCheckedAt']!, _formatDate(reusedFrom.checkedAt)),
             ] else if (state.labPaid) ...[
-              (t['screening.paymentStatus']!, NumberFormat('#,##0.##').format(state.labPaidAmount)),
-              if (state.labDiscountLine != null) ('التخفيض', state.labDiscountLine!),
+              // Student/employee discount (2026-10-25, by request).
+              ...discountAmountRows(
+                state.labDiscount,
+                label: t['screening.paymentStatus']!,
+                fullLabel: t['screening.paymentStatus']!,
+                amountText: NumberFormat('#,##0.##').format(state.labPaidAmount),
+                money: NumberFormat('#,##0.##').format,
+                fallbackLine: state.labDiscountLine,
+              ),
               (t['screening.statusLabel']!, t['screening.paid']!),
             ],
             (t['screening.checkedAt']!, _formatDateTime(checkedAt) ?? DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())),

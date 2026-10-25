@@ -72,6 +72,13 @@ const hasLabFee = computed(() => props.labFee !== null && props.labFee !== '');
 // Each patient's own fee: less the student discount when eligible (2026-10-25).
 const feeOf = (r) => Number(r?.lab_fee_due ?? props.labFee ?? 0);
 const labFeeText = (r) => `${feeOf(r).toLocaleString()} ${props.currency ?? ''}`.trim();
+// "10,000 − 50%" beside the discounted fee (2026-10-25, by request).
+const labDiscountText = (r) => {
+    const full = Number(props.labFee ?? 0);
+    if (!r?.discount_eligible || !(full > feeOf(r))) return '';
+    const percent = Math.round((1 - feeOf(r) / full) * 1000) / 10;
+    return `${full.toLocaleString()} − ${percent}%`;
+};
 // A clear result from the last `validityDays` (same phone) is reused
 // instead: no new screening and nothing to pay (LabFeeGate).
 const canReuse = (r) => r.screening_status === 'pending' && !!r.previous_screening;
@@ -283,7 +290,8 @@ const record = async (status) => {
                     <Icon :name="isPaid(selected) ? 'paid' : 'payments'" class="ml-1" />
                     <span>{{ isPaid(selected) ? t('lab.paid') : t('lab.feeWithResult') }}</span>
                     <span class="font-normal" dir="ltr">({{ labFeeText(selected) }})</span>
-                    <span v-if="selected.discount_eligible" class="font-normal">· {{ t('patientReg.studentDiscountApplied') }}</span>
+                    <span v-if="labDiscountText(selected)" class="font-normal" dir="ltr">· {{ labDiscountText(selected) }}</span>
+                    <span v-else-if="selected.discount_eligible" class="font-normal">· {{ t('patientReg.studentDiscountApplied') }}</span>
                 </div>
 
                 <div class="rounded-xl p-3 text-sm font-semibold" :class="badgeClass(selected.screening_status)">

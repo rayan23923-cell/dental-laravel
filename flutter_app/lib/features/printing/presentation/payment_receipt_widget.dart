@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
+import '../../patient_registration/domain/discount_breakdown.dart';
 import '../../records/domain/payment.dart';
 import 'ticket_row.dart';
 
@@ -82,8 +83,14 @@ class PaymentReceiptWidget extends StatelessWidget {
               ('رقم الوصل', '#${payment.id}'),
               ('اسم المريض', payment.personName),
               if (payment.patientRegistrationPhone != null) ('الهاتف', payment.patientRegistrationPhone!),
-              ('المبلغ', amount),
-              if (payment.discountLine != null) ('التخفيض', payment.discountLine!),
+              // Student/employee discount (2026-10-25, by request).
+              ...discountAmountRows(
+                payment.discount,
+                label: 'المبلغ',
+                amountText: amount,
+                money: (v) => '${NumberFormat('#,##0.##', 'en_US').format(v)} ${currency ?? ''}'.trim(),
+                fallbackLine: payment.discountLine,
+              ),
               if (payment.paidBy != null && payment.paidBy!.isNotEmpty) ('الدافع', payment.paidBy!),
               ('التاريخ', formatPaidAt(payment.paidAt)),
             ]),

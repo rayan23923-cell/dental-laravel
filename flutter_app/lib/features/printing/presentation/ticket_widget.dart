@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 // collision already found and fixed in `backup_screen.dart` this session.
 import 'package:intl/intl.dart' hide TextDirection;
 
+import '../../patient_registration/domain/discount_breakdown.dart';
 import '../../patient_registration/domain/patient_registration.dart';
 import 'ticket_row.dart';
 
@@ -134,8 +135,14 @@ class TicketWidget extends StatelessWidget {
               ('الخدمة', registration.serviceName ?? '—'),
               if (registration.registerDayName != null) ('اليوم', registration.registerDayName!),
               if (showPaid && (registration.servicePrice ?? 0) > 0) ...[
-                ('المبلغ المدفوع', NumberFormat('#,##0.##').format(registration.servicePrice)),
-                if (registration.discountLine != null) ('التخفيض', registration.discountLine!),
+                // Student/employee discount (2026-10-25, by request).
+                ...discountAmountRows(
+                  registration.discount,
+                  label: 'المبلغ المدفوع',
+                  amountText: NumberFormat('#,##0.##').format(registration.servicePrice),
+                  money: NumberFormat('#,##0.##').format,
+                  fallbackLine: registration.discountLine,
+                ),
                 ('الحالة', 'مدفوع'),
               ],
               ...extraRows,

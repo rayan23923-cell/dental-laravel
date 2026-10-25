@@ -6,6 +6,7 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../../../core/pdf/pdf_letterhead.dart';
 import '../../clinic_settings/domain/clinic_settings.dart';
+import '../domain/discount_breakdown.dart';
 import '../domain/registration_payment_state.dart';
 
 /// The full-page lab result (2026-10-17) — the web `print/lab-result.blade.php`
@@ -45,8 +46,15 @@ Future<Uint8List> buildLabResultPdf({
       ('أجور المختبر', 'معفى — فحص سابق صالح'),
       ('تاريخ الفحص السابق', date(r.screeningReusedFromCheckedAt, 'yyyy-MM-dd')),
     ] else if (state.labPaid) ...[
-      ('أجور المختبر', '${NumberFormat('#,##0', 'en_US').format(state.labPaidAmount)} $currency'.trim()),
-      if (state.labDiscountLine != null) ('التخفيض', state.labDiscountLine!),
+      // Student/employee discount (2026-10-25, by request).
+      ...discountAmountRows(
+        state.labDiscount,
+        label: 'أجور المختبر',
+        fullLabel: 'أجور المختبر',
+        amountText: '${NumberFormat('#,##0', 'en_US').format(state.labPaidAmount)} $currency'.trim(),
+        money: (v) => '${NumberFormat('#,##0', 'en_US').format(v)} $currency'.trim(),
+        fallbackLine: state.labDiscountLine,
+      ),
       ('الحالة', 'مدفوع'),
     ],
     ('تاريخ الفحص', date(r.screeningCheckedAt, 'yyyy-MM-dd HH:mm')),

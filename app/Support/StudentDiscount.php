@@ -125,6 +125,30 @@ class StudentDiscount
             : $who;
     }
 
+    /**
+     * The amount, the discount and the amount after it, each on its own
+     * (2026-10-25, by request: "1000, خصم 50%, 500"). `percent` is worked
+     * out from what was actually paid and is null when nothing was taken
+     * off. Null when the patient is not eligible.
+     *
+     * @return array{who: string, percent: ?string, full: ?float, paid: float}|null
+     */
+    public static function breakdown(?PatientRegistration $registration, float $paid, ?float $full): ?array
+    {
+        if (! $registration?->discount_eligible) {
+            return null;
+        }
+
+        $discounted = $full !== null && $full > 0 && $paid < $full;
+
+        return [
+            'who' => self::whoLabel($registration),
+            'percent' => $discounted ? self::formatPercent((1 - $paid / $full) * 100) : null,
+            'full' => $discounted ? $full : null,
+            'paid' => $paid,
+        ];
+    }
+
     /** The undiscounted amount a registration payment was taken from. */
     public static function fullAmountFor(Payment $payment, ?ClinicSetting $settings = null): ?float
     {

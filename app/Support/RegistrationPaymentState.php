@@ -48,6 +48,12 @@ class RegistrationPaymentState
                 $settings->lab_fee !== null ? (float) $settings->lab_fee : null,
                 (string) $settings->clinic_currency,
             ),
+            // The same as separate amounts for the slip's rows (2026-10-25).
+            'lab_discount' => StudentDiscount::breakdown(
+                $registration,
+                $lab->isNotEmpty() ? (float) $lab->sum('amount') : (float) ($labFee ?? 0),
+                $settings->lab_fee !== null ? (float) $settings->lab_fee : null,
+            ),
             'lab_validity_days' => LabFeeGate::validityDays(),
             'previous_screening' => $previous ? [
                 'id' => $previous->id,

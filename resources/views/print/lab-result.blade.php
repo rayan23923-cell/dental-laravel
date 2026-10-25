@@ -61,12 +61,8 @@
                     {{-- The fee is taken when the result is recorded, so this
                          one slip is also the payment receipt (2026-10-12). --}}
                     @if ($registration->lab_paid)
-                        <tr><th>أجور المختبر</th><td>{{ number_format((float) $registration->lab_fee_paid) }} {{ $settings->clinic_currency }}</td></tr>
                         {{-- Student/employee discount (2026-10-25, by request). --}}
-                        @php($discountLine = \App\Support\StudentDiscount::printLine($registration, (float) $registration->lab_fee_paid, $settings->lab_fee !== null ? (float) $settings->lab_fee : null, (string) $settings->clinic_currency))
-                        @if ($discountLine)
-                            <tr><th>التخفيض</th><td>{{ $discountLine }}</td></tr>
-                        @endif
+                        @include('print.partials.amount-rows', ['paid' => (float) $registration->lab_fee_paid, 'full' => $settings->lab_fee !== null ? (float) $settings->lab_fee : null, 'label' => 'أجور المختبر', 'fullLabel' => 'أجور المختبر', 'currency' => $settings->clinic_currency])
                         <tr><th>الحالة</th><td><strong>مدفوع</strong></td></tr>
                     @endif
                 @endif

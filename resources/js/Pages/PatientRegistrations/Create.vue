@@ -276,12 +276,25 @@ const submit = () => {
                             </div>
                         </div>
 
-                        <div v-if="selectedService" class="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
+                        <!-- A discounted patient sees the amount, the discount and the
+                             amount after it (2026-10-25, by request). -->
+                        <div v-if="selectedService && form.discount_eligible && selectedService.price != null" class="space-y-1 rounded-xl bg-gray-50 px-4 py-3 text-sm">
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-600">{{ t('patientReg.amountFull') }}</span>
+                                <span dir="ltr" class="text-gray-700">{{ formatPrice(selectedService.price) }}</span>
+                            </div>
+                            <div class="flex items-center justify-between text-indigo-700">
+                                <span>{{ t('patientReg.discountRow') }}</span>
+                                <span dir="ltr">{{ discountPercent(selectedService) }}%</span>
+                            </div>
+                            <div class="flex items-center justify-between border-t border-gray-200 pt-1">
+                                <span class="text-gray-600">{{ t('patientReg.amountAfterDiscount') }}</span>
+                                <span dir="ltr" class="text-lg font-bold text-gray-900">{{ formatPrice(amountDue) }}</span>
+                            </div>
+                        </div>
+                        <div v-else-if="selectedService" class="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
                             <span class="text-sm text-gray-600">{{ t('patientReg.amountDue') }}</span>
-                            <span class="flex items-baseline gap-2" dir="ltr">
-                                <span v-if="form.discount_eligible" class="text-sm text-gray-400 line-through">{{ formatPrice(selectedService.price) }}</span>
-                                <span class="text-lg font-bold text-gray-900">{{ formatPrice(amountDue) }}</span>
-                            </span>
+                            <span dir="ltr" class="text-lg font-bold text-gray-900">{{ formatPrice(amountDue) }}</span>
                         </div>
 
                         <div class="flex justify-end">

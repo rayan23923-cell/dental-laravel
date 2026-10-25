@@ -1,5 +1,6 @@
 import 'package:intl/intl.dart';
 
+import '../../patient_registration/domain/discount_breakdown.dart';
 import 'payment_stats.dart';
 
 /// Amounts as the web shows them (2026-10-17): grouped, no decimals, with
@@ -28,6 +29,7 @@ class Payment {
     this.serviceName,
     this.discountLine,
     this.discountLabel,
+    this.discount,
   });
 
   factory Payment.fromJson(Map<String, dynamic> json) => Payment(
@@ -52,6 +54,7 @@ class Payment {
         serviceName: (json['patient_registration'] as Map<String, dynamic>?)?['service_name'] as String?,
         discountLine: json['discount_line'] as String?,
         discountLabel: json['discount_label'] as String?,
+        discount: DiscountBreakdown.fromJson(json['discount']),
       );
 
   final int id;
@@ -81,6 +84,9 @@ class Payment {
   /// label; null when the patient is not eligible.
   final String? discountLine;
   final String? discountLabel;
+
+  /// The amount, the discount and the amount after it (2026-10-25).
+  final DiscountBreakdown? discount;
 
   bool get isLabFee => type == 'lab';
   bool get isArchivedPatient => patientRegistrationDeletedAt != null;

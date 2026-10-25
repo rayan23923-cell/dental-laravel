@@ -81,12 +81,17 @@
     <h3 class="section">المدفوعات ({{ $payments->count() }})</h3>
     <table class="report-table">
         <thead>
-            <tr><th>#</th><th>الشخص</th><th>المصدر</th><th>الخدمة</th><th>المبلغ</th><th>التخفيض</th><th>الدافع</th><th>التاريخ</th></tr>
+            <tr><th>#</th><th>الشخص</th><th>المصدر</th><th>الخدمة</th><th>المبلغ</th><th>التخفيض</th><th>المبلغ بعد التخفيض</th><th>الدافع</th><th>التاريخ</th></tr>
         </thead>
         <tbody>
             @forelse ($payments as $p)
                 @php
                     $source = $p->type === \App\Models\Payment::TYPE_LAB ? 'lab' : ($p->appointment_id ? 'appointment' : 'registration');
+                    // Student/employee discount (2026-10-25, by request): the
+                    // amount, the discount and the amount after it.
+                    $discount = $p->patient_registration_id
+                        ? \App\Support\StudentDiscount::breakdown($p->patientRegistration, (float) $p->amount, \App\Support\StudentDiscount::fullAmountFor($p, $settings ?? null))
+                        : null;
                 @endphp
                 <tr>
                     <td dir="ltr" style="text-align:left">{{ $p->id }}</td>
@@ -96,19 +101,19 @@
                     </td>
                     <td>{{ $sourceLabels[$source] }}</td>
                     <td>{{ $p->patientRegistration?->service?->name ?? '—' }}</td>
-                    <td>{{ $money($p->amount) }}</td>
-                    {{-- Student/employee discount (2026-10-25, by request). --}}
-                    <td>{{ \App\Support\StudentDiscount::shortLabel($p->patientRegistration, (float) $p->amount, $p->patient_registration_id ? \App\Support\StudentDiscount::fullAmountFor($p, $settings ?? null) : null) ?? '—' }}</td>
+                    <td>{{ $money($discount['full'] ?? $p->amount) }}</td>
+                    <td>{{ $discount ? trim(($discount['percent'] !== null ? $discount['percent'].'% · ' : '').$discount['who']) : '—' }}</td>
+                    <td><strong>{{ $money($p->amount) }}</strong></td>
                     <td>{{ $p->paid_by ?? '—' }}</td>
                     <td dir="ltr" style="text-align:left">{{ $p->paid_at?->setTimezone(\App\Support\PaymentStats::TIMEZONE)->format('Y-m-d H:i') ?? '—' }}</td>
                 </tr>
             @empty
-                <tr><td colspan="8" style="text-align:center">لا توجد مدفوعات.</td></tr>
+                <tr><td colspan="9" style="text-align:center">لا توجد مدفوعات.</td></tr>
             @endforelse
         </tbody>
         @if ($payments->count())
             <tfoot>
-                <tr><th colspan="4">المجموع</th><th colspan="4">{{ $money($filteredTotal) }} {{ $currency }}</th></tr>
+                <tr><th colspan="6">المجموع</th><th>{{ $money($filteredTotal) }} {{ $currency }}</th><th colspan="2"></th></tr>
             </tfoot>
         @endif
     </table>
