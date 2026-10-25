@@ -132,18 +132,32 @@ class StudentDiscountTest extends TestCase
         ]);
         $huda = PatientRegistration::firstWhere('name', 'Huda');
 
+        // The amount, the discount and the amount after it, each on its own row.
+        $rows = ['20,000', '50% — موظف · Pharmacy', 'المبلغ بعد التخفيض', '10,000'];
         $this->actingAs($admin)->get("/patient-registrations/{$huda->id}/print")->assertOk()
-            ->assertSee('موظف · Pharmacy — خصم 50% من 20,000', false);
+            ->assertSeeInOrder($rows, false);
 
         $payment = Payment::where('patient_registration_id', $huda->id)->first();
         $this->actingAs($admin)->get("/payments/{$payment->id}/receipt")->assertOk()
-            ->assertSee('موظف · Pharmacy — خصم 50% من 20,000', false);
+            ->assertSeeInOrder($rows, false);
+
+        $this->actingAs($admin)->get('/payments')->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('payments.data.0.discount.percent', '50')
+                ->where('payments.data.0.discount.full', fn ($v) => (float) $v === 20000.0)
+                ->etc());
 
         Sanctum::actingAs($admin);
         $this->postJson("/api/v1/patient-registrations/{$huda->id}/screening", ['screening_status' => 'clear'])->assertOk()
-            ->assertJsonPath('data.lab_discount_line', fn ($v) => str_contains($v, 'خصم 25% من 8,000'));
+            ->assertJsonPath('data.lab_discount_line', fn ($v) => str_contains($v, 'خصم 25% من 8,000'))
+            ->assertJsonPath('data.lab_discount.percent', '25')
+            ->assertJsonPath('data.lab_discount.paid', fn ($v) => (float) $v === 6000.0);
 
         $this->getJson('/api/v1/payments')->assertOk()
-            ->assertJsonPath('data.0.discount_label', fn ($v) => str_starts_with($v, 'موظف · Pharmacy'));
+            ->assertJsonPath('data.0.discount_label', fn ($v) => str_starts_with($v, 'موظف · Pharmacy'))
+            ->assertJsonPath('data.0.discount.who', 'موظف · Pharmacy');
+
+        $this->actingAs($admin)->get('/payments/report')->assertOk()
+            ->assertSeeInOrder(['20,000', '50% · موظف · Pharmacy', '10,000'], false);
     }
 }

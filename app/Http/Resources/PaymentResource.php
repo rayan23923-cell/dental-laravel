@@ -50,7 +50,7 @@ class PaymentResource extends JsonResource
     {
         $registration = $this->relationLoaded('patientRegistration') ? $this->patientRegistration : null;
         if (! $registration?->discount_eligible) {
-            return ['discount_line' => null, 'discount_label' => null];
+            return ['discount_line' => null, 'discount_label' => null, 'discount' => null];
         }
 
         $settings = ClinicSetting::current();
@@ -59,6 +59,9 @@ class PaymentResource extends JsonResource
         return [
             'discount_line' => StudentDiscount::printLine($registration, (float) $this->amount, $full, (string) $settings->clinic_currency),
             'discount_label' => StudentDiscount::shortLabel($registration, (float) $this->amount, $full),
+            // The amount, the discount and the amount after it, each on its
+            // own row (2026-10-25, by request).
+            'discount' => StudentDiscount::breakdown($registration, (float) $this->amount, $full),
         ];
     }
 }

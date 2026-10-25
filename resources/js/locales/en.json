@@ -313,6 +313,9 @@
         "amountPaid": "Amount paid",
         "noPriceYet": "No price yet",
         "amountDue": "Amount to pay",
+        "amountFull": "Amount",
+        "discountRow": "Discount",
+        "amountAfterDiscount": "Amount after discount",
         "discountEligible": "Eligible for discount",
                 "discountWorkplaceLabel": "Workplace (optional)",
         "discountStageLabel": "Stage (optional)",
@@ -364,6 +367,9 @@
         "saveAppointment": "Save Appointment"
     },
     "payments": {
+        "amountBeforeDiscount": "Amount before discount",
+        "amountAfterDiscount": "Amount after discount",
+        "discountChip": "{percent}% off · {who}",
         "today": "Today",
         "thisWeek": "This week",
         "thisMonth": "This month",

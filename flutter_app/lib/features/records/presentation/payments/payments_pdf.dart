@@ -6,6 +6,7 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../../../../core/pdf/pdf_letterhead.dart';
 import '../../../clinic_settings/domain/clinic_settings.dart';
+import '../../../patient_registration/domain/discount_breakdown.dart';
 import '../../domain/payment.dart';
 import '../../domain/payment_stats.dart';
 
@@ -15,6 +16,14 @@ import '../../domain/payment_stats.dart';
 /// text is Arabic, as on the web prints.
 
 String _money(num v) => NumberFormat('#,##0.##', 'en_US').format(v);
+
+/// The report's discount cell: "50% · طالب · المرحلة الرابعة"; an older
+/// server's short label; or "—".
+String _discountCell(Payment p) {
+  final d = p.discount;
+  if (d == null) return p.discountLabel ?? '—';
+  return [if (d.percent != null) '${d.percent}%', d.who].where((s) => s.isNotEmpty).join(' · ');
+}
 
 String _paidAt(String? raw) {
   final parsed = raw == null ? null : DateTime.tryParse(raw);
@@ -39,8 +48,14 @@ Future<Uint8List> buildPaymentReceiptPdf({
     ('رقم الوصل', '#${payment.id}'),
     ('اسم المريض', payment.personName),
     if (payment.patientRegistrationPhone != null) ('الهاتف', payment.patientRegistrationPhone!),
-    ('المبلغ', '${_money(payment.amount)} $currency'.trim()),
-    if (payment.discountLine != null) ('التخفيض', payment.discountLine!),
+    // Student/employee discount (2026-10-25, by request).
+    ...discountAmountRows(
+      payment.discount,
+      label: 'المبلغ',
+      amountText: '${_money(payment.amount)} $currency'.trim(),
+      money: (v) => '${_money(v)} $currency'.trim(),
+      fallbackLine: payment.discountLine,
+    ),
     if (payment.paidBy != null && payment.paidBy!.isNotEmpty) ('الدافع', payment.paidBy!),
     ('التاريخ', _paidAt(payment.paidAt)),
   ];
@@ -223,22 +238,23 @@ Future<Uint8List> buildPaymentsReportPdf({
             3: pw.FlexColumnWidth(1.5),
             4: pw.FlexColumnWidth(1.1),
             5: pw.FlexColumnWidth(1.3),
-            6: pw.FlexColumnWidth(1.2),
-            7: pw.FlexColumnWidth(1.6),
+            6: pw.FlexColumnWidth(1.1),
+            7: pw.FlexColumnWidth(1.2),
+            8: pw.FlexColumnWidth(1.6),
           },
           children: [
             pw.TableRow(
               repeat: true,
               decoration: const pw.BoxDecoration(color: PdfColors.grey200),
               children: [
-                for (final h in ['#', 'الشخص', 'المصدر', 'الخدمة', 'المبلغ', 'التخفيض', 'الدافع', 'التاريخ']) cell(h, header: true),
+                for (final h in ['#', 'الشخص', 'المصدر', 'الخدمة', 'المبلغ', 'التخفيض', 'المبلغ بعد التخفيض', 'الدافع', 'التاريخ']) cell(h, header: true),
               ],
             ),
             if (report.payments.isEmpty)
               pw.TableRow(children: [
                 cell(''),
                 cell('لا توجد مدفوعات.'),
-                for (var i = 0; i < 6; i++) cell(''),
+                for (var i = 0; i < 7; i++) cell(''),
               ]),
             for (final p in report.payments)
               pw.TableRow(children: [
@@ -246,8 +262,11 @@ Future<Uint8List> buildPaymentsReportPdf({
                 cell(p.isArchivedPatient ? '${p.personName} (مؤرشف)' : p.personName),
                 cell(_sourceLabels[p.source] ?? p.source),
                 cell(p.serviceName ?? '—'),
-                cell(_money(p.amount)),
-                cell(p.discountLabel ?? '—'),
+                // Student/employee discount (2026-10-25, by request): the
+                // amount, the discount and the amount after it.
+                cell(_money(p.discount?.full ?? p.amount)),
+                cell(_discountCell(p)),
+                cell(_money(p.amount), header: p.discount?.isDiscounted ?? false),
                 cell(p.paidBy ?? '—'),
                 cell(_paidAt(p.paidAt)),
               ]),
@@ -259,8 +278,9 @@ Future<Uint8List> buildPaymentsReportPdf({
                   cell('المجموع', header: true),
                   cell(''),
                   cell(''),
-                  cell('${_money(stats.filteredTotal)} $currency', header: true),
                   cell(''),
+                  cell(''),
+                  cell('${_money(stats.filteredTotal)} $currency', header: true),
                   cell(''),
                   cell(''),
                 ],

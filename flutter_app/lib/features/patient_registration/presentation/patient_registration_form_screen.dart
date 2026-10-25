@@ -437,6 +437,15 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                                         : formatMoney(selected.priceFor(eligible: _discountEligible)!, currency),
                                     style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                                   ),
+                                  // The amount before the discount and the percentage
+                                  // (2026-10-25, by request: "1000, خصم 50%, 500").
+                                  if (selected != null && _discountEligible && (selected.price ?? 0) > 0)
+                                    Text(
+                                      t['patientRegFlutter.discountBreakdown']!
+                                          .replaceAll('{full}', formatMoney(selected.price!, currency))
+                                          .replaceAll('{percent}', NumberFormat('#,##0.#', 'en_US').format(selected.studentDiscountPercent)),
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.primary),
+                                    ),
                                   if (selected != null)
                                     Text(selected.name, style: Theme.of(context).textTheme.bodySmall),
                                 ],

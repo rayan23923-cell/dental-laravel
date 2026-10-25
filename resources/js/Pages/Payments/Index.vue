@@ -193,7 +193,11 @@ const destroy = (payment) => {
                         :tone="sourceTone(sourceOf(payment))"
                     >
                         <template #meta>
-                            <ChatChip icon="payments" tone="emerald" class="font-bold">{{ plain(payment.amount) }} {{ currency }}</ChatChip>
+                            <template v-if="payment.discount?.percent">
+                                <ChatChip icon="sell" :title="t('payments.amountBeforeDiscount')"><span class="line-through">{{ plain(payment.discount.full) }}</span></ChatChip>
+                                <ChatChip icon="percent" tone="indigo">{{ t('payments.discountChip', { percent: payment.discount.percent, who: payment.discount.who }) }}</ChatChip>
+                            </template>
+                            <ChatChip icon="payments" tone="emerald" class="font-bold" :title="payment.discount?.percent ? t('payments.amountAfterDiscount') : null">{{ plain(payment.amount) }} {{ currency }}</ChatChip>
                             <ChatChip :icon="sourceIcon(sourceOf(payment))" :tone="sourceTone(sourceOf(payment))">{{ sourceLabel(sourceOf(payment)) }}</ChatChip>
                             <ChatChip v-if="payment.paid_by" icon="person" :title="t('payments.paidByCol')">{{ payment.paid_by }}</ChatChip>
                             <ChatChip v-if="payment.patient_registration?.deleted_at" icon="inventory_2">{{ t('payments.archivedPatient') }}</ChatChip>

@@ -1,3 +1,5 @@
+import 'discount_breakdown.dart';
+
 /// Mirrors `App\Http\Resources\PatientRegistrationResource` — the
 /// reception-desk "register a new patient with a service + day" record
 /// (table `patients_simple`). Deliberately separate from
@@ -21,6 +23,7 @@ class PatientRegistration {
     this.discountStage,
     this.discountWorkplace,
     this.discountLine,
+    this.discount,
     required this.registerDayName,
     required this.createdAt,
     required this.taskId,
@@ -65,6 +68,7 @@ class PatientRegistration {
       discountStage: json['discount_stage'] as String?,
       discountWorkplace: json['discount_workplace'] as String?,
       discountLine: json['discount_line'] as String?,
+      discount: DiscountBreakdown.fromJson(json['discount']),
       registerDayName: day?['name'] as String?,
       createdAt: json['created_at'] as String?,
       taskId: json['task_id'] as int?,
@@ -110,6 +114,9 @@ class PatientRegistration {
   /// What the ticket prints about the discount, e.g. "طالب · المرحلة
   /// الرابعة — خصم 50% من 20,000"; null when not eligible.
   final String? discountLine;
+
+  /// The same as separate amounts for the ticket's rows (2026-10-25).
+  final DiscountBreakdown? discount;
   final String? registerDayName;
   final String? createdAt;
   final int? taskId;

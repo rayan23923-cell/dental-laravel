@@ -23,9 +23,18 @@ class PaymentController extends Controller
     {
         $query = $this->filteredQuery($request);
         $stats = new PaymentStats();
+        $settings = ClinicSetting::current();
 
         return Inertia::render('Payments/Index', [
-            'payments' => (clone $query)->latest('paid_at')->paginate(15)->withQueryString(),
+            // Each row with its student/employee discount, if any: the amount,
+            // the percentage and the amount after it (2026-10-25, by request).
+            'payments' => (clone $query)->latest('paid_at')->paginate(15)->withQueryString()
+                ->through(fn (Payment $p) => [
+                    ...$p->toArray(),
+                    'discount' => $p->patientRegistration?->discount_eligible
+                        ? StudentDiscount::breakdown($p->patientRegistration, (float) $p->amount, StudentDiscount::fullAmountFor($p, $settings))
+                        : null,
+                ]),
             'filters' => $this->filters($request),
             // Income overview (2026-10-12, by request).
             'periods' => $stats->periods(),
