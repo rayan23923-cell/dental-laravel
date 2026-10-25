@@ -134,7 +134,12 @@ class StudentDiscount
             return $fee === null ? null : (float) $fee;
         }
 
-        $price = $payment->patientRegistration?->service?->price;
+        $registration = $payment->patientRegistration;
+        // Without loading the relation, so lists that leave the service out
+        // (the payments list) keep their shape; only eligible rows ask.
+        $price = $registration?->relationLoaded('service')
+            ? $registration->service?->price
+            : ($registration?->service_id ? Service::whereKey($registration->service_id)->value('price') : null);
 
         return $price === null ? null : (float) $price;
     }

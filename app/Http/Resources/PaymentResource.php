@@ -49,7 +49,7 @@ class PaymentResource extends JsonResource
     private function discountFields(): array
     {
         $registration = $this->relationLoaded('patientRegistration') ? $this->patientRegistration : null;
-        if (! $registration?->discount_eligible || ($this->type !== 'lab' && ! $registration->relationLoaded('service'))) {
+        if (! $registration?->discount_eligible) {
             return ['discount_line' => null, 'discount_label' => null];
         }
 
