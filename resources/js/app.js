@@ -8,12 +8,14 @@ import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 import { createI18nInstance } from './i18n';
 import { installNumericInputs } from './numericInputs';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+// The VPS image builds without a .env, so VITE_APP_NAME is often empty: fall back to
+// the name app.blade.php rendered from config('app.name'), never the framework's "Laravel".
+const appName = import.meta.env.VITE_APP_NAME || document.title || 'Dental Clinic';
 
 installNumericInputs();
 
 createInertiaApp({
-    title: (title) => `${title} - ${appName}`,
+    title: (title) => (title ? `${title} - ${appName}` : appName),
     resolve: (name) =>
         resolvePageComponent(
             `./Pages/${name}.vue`,
