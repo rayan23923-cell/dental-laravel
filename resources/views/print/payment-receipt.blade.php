@@ -32,6 +32,11 @@
                     <tr><th>الهاتف</th><td dir="ltr" style="text-align:left">{{ $registration->phone }}</td></tr>
                 @endif
                 <tr><th>المبلغ</th><td>{{ $amount }} {{ $settings->clinic_currency }}</td></tr>
+                {{-- Student/employee discount (2026-10-25, by request). --}}
+                @php($discountLine = \App\Support\StudentDiscount::printLine($registration, (float) $payment->amount, \App\Support\StudentDiscount::fullAmountFor($payment, $settings), (string) $settings->clinic_currency))
+                @if ($discountLine)
+                    <tr><th>التخفيض</th><td>{{ $discountLine }}</td></tr>
+                @endif
                 @if ($payment->paid_by)
                     <tr><th>الدافع</th><td>{{ $payment->paid_by }}</td></tr>
                 @endif

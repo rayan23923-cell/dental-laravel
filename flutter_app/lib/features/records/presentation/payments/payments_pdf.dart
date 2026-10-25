@@ -40,6 +40,7 @@ Future<Uint8List> buildPaymentReceiptPdf({
     ('اسم المريض', payment.personName),
     if (payment.patientRegistrationPhone != null) ('الهاتف', payment.patientRegistrationPhone!),
     ('المبلغ', '${_money(payment.amount)} $currency'.trim()),
+    if (payment.discountLine != null) ('التخفيض', payment.discountLine!),
     if (payment.paidBy != null && payment.paidBy!.isNotEmpty) ('الدافع', payment.paidBy!),
     ('التاريخ', _paidAt(payment.paidAt)),
   ];
@@ -221,22 +222,23 @@ Future<Uint8List> buildPaymentsReportPdf({
             2: pw.FlexColumnWidth(1.2),
             3: pw.FlexColumnWidth(1.5),
             4: pw.FlexColumnWidth(1.1),
-            5: pw.FlexColumnWidth(1.2),
-            6: pw.FlexColumnWidth(1.6),
+            5: pw.FlexColumnWidth(1.3),
+            6: pw.FlexColumnWidth(1.2),
+            7: pw.FlexColumnWidth(1.6),
           },
           children: [
             pw.TableRow(
               repeat: true,
               decoration: const pw.BoxDecoration(color: PdfColors.grey200),
               children: [
-                for (final h in ['#', 'الشخص', 'المصدر', 'الخدمة', 'المبلغ', 'الدافع', 'التاريخ']) cell(h, header: true),
+                for (final h in ['#', 'الشخص', 'المصدر', 'الخدمة', 'المبلغ', 'التخفيض', 'الدافع', 'التاريخ']) cell(h, header: true),
               ],
             ),
             if (report.payments.isEmpty)
               pw.TableRow(children: [
                 cell(''),
                 cell('لا توجد مدفوعات.'),
-                for (var i = 0; i < 5; i++) cell(''),
+                for (var i = 0; i < 6; i++) cell(''),
               ]),
             for (final p in report.payments)
               pw.TableRow(children: [
@@ -245,6 +247,7 @@ Future<Uint8List> buildPaymentsReportPdf({
                 cell(_sourceLabels[p.source] ?? p.source),
                 cell(p.serviceName ?? '—'),
                 cell(_money(p.amount)),
+                cell(p.discountLabel ?? '—'),
                 cell(p.paidBy ?? '—'),
                 cell(_paidAt(p.paidAt)),
               ]),
@@ -257,6 +260,7 @@ Future<Uint8List> buildPaymentsReportPdf({
                   cell(''),
                   cell(''),
                   cell('${_money(stats.filteredTotal)} $currency', header: true),
+                  cell(''),
                   cell(''),
                   cell(''),
                 ],

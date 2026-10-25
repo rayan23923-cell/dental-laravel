@@ -20,6 +20,7 @@ class PatientRegistration {
     this.discountType,
     this.discountStage,
     this.discountWorkplace,
+    this.discountLine,
     required this.registerDayName,
     required this.createdAt,
     required this.taskId,
@@ -63,6 +64,7 @@ class PatientRegistration {
       discountType: json['discount_type'] as String?,
       discountStage: json['discount_stage'] as String?,
       discountWorkplace: json['discount_workplace'] as String?,
+      discountLine: json['discount_line'] as String?,
       registerDayName: day?['name'] as String?,
       createdAt: json['created_at'] as String?,
       taskId: json['task_id'] as int?,
@@ -104,6 +106,10 @@ class PatientRegistration {
   final String? discountType;
   final String? discountStage;
   final String? discountWorkplace;
+
+  /// What the ticket prints about the discount, e.g. "طالب · المرحلة
+  /// الرابعة — خصم 50% من 20,000"; null when not eligible.
+  final String? discountLine;
   final String? registerDayName;
   final String? createdAt;
   final int? taskId;

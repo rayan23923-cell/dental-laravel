@@ -83,6 +83,7 @@ class PaymentReceiptWidget extends StatelessWidget {
               ('اسم المريض', payment.personName),
               if (payment.patientRegistrationPhone != null) ('الهاتف', payment.patientRegistrationPhone!),
               ('المبلغ', amount),
+              if (payment.discountLine != null) ('التخفيض', payment.discountLine!),
               if (payment.paidBy != null && payment.paidBy!.isNotEmpty) ('الدافع', payment.paidBy!),
               ('التاريخ', formatPaidAt(payment.paidAt)),
             ]),

@@ -26,6 +26,8 @@ class Payment {
     this.type = 'service',
     this.patientRegistrationDeletedAt,
     this.serviceName,
+    this.discountLine,
+    this.discountLabel,
   });
 
   factory Payment.fromJson(Map<String, dynamic> json) => Payment(
@@ -48,6 +50,8 @@ class Payment {
         type: json['type'] as String? ?? 'service',
         patientRegistrationDeletedAt: (json['patient_registration'] as Map<String, dynamic>?)?['deleted_at'] as String?,
         serviceName: (json['patient_registration'] as Map<String, dynamic>?)?['service_name'] as String?,
+        discountLine: json['discount_line'] as String?,
+        discountLabel: json['discount_label'] as String?,
       );
 
   final int id;
@@ -71,6 +75,12 @@ class Payment {
   /// The registration's service — sent only by the payments report
   /// (`GET /payments/report`, 2026-10-17).
   final String? serviceName;
+
+  /// Student/employee discount (2026-10-25): the receipt line, e.g.
+  /// "طالب · المرحلة الرابعة — خصم 50% من 20,000", and the report's short
+  /// label; null when the patient is not eligible.
+  final String? discountLine;
+  final String? discountLabel;
 
   bool get isLabFee => type == 'lab';
   bool get isArchivedPatient => patientRegistrationDeletedAt != null;

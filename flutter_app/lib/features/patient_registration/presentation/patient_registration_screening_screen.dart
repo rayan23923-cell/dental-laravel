@@ -205,6 +205,7 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
               (t['screening.previousCheckedAt']!, _formatDate(reusedFrom.checkedAt)),
             ] else if (state.labPaid) ...[
               (t['screening.paymentStatus']!, NumberFormat('#,##0.##').format(state.labPaidAmount)),
+              if (state.labDiscountLine != null) ('التخفيض', state.labDiscountLine!),
               (t['screening.statusLabel']!, t['screening.paid']!),
             ],
             (t['screening.checkedAt']!, _formatDateTime(checkedAt) ?? DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())),

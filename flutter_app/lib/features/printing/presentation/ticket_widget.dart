@@ -135,6 +135,7 @@ class TicketWidget extends StatelessWidget {
               if (registration.registerDayName != null) ('اليوم', registration.registerDayName!),
               if (showPaid && (registration.servicePrice ?? 0) > 0) ...[
                 ('المبلغ المدفوع', NumberFormat('#,##0.##').format(registration.servicePrice)),
+                if (registration.discountLine != null) ('التخفيض', registration.discountLine!),
                 ('الحالة', 'مدفوع'),
               ],
               ...extraRows,

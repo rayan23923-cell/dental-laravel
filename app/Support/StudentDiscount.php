@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\ClinicSetting;
 use App\Models\PatientRegistration;
+use App\Models\Payment;
 use App\Models\Service;
 
 /**
@@ -78,5 +79,68 @@ class StudentDiscount
     private static function percent($value): float
     {
         return $value === null ? self::DEFAULT_PERCENT : (float) $value;
+    }
+
+    /** "طالب · المرحلة الرابعة" / "موظف · الصيدلية" — who the discount is for. */
+    public static function whoLabel(PatientRegistration $registration): string
+    {
+        $employee = $registration->discount_type === 'employee';
+        $detail = $employee ? $registration->discount_workplace : $registration->discount_stage;
+
+        return implode(' · ', array_filter([$employee ? 'موظف' : 'طالب', $detail]));
+    }
+
+    /**
+     * What printouts show for a discounted amount (2026-10-25, by request):
+     * who the discount is for, then the percentage and the full price it
+     * was taken from, e.g. "طالب · المرحلة الرابعة — خصم 50% من 20,000".
+     * The percentage is worked out from what was actually paid, so it stays
+     * right after the settings change. Null when the patient is not eligible.
+     */
+    public static function printLine(?PatientRegistration $registration, float $paid, ?float $full, string $currency = ''): ?string
+    {
+        if (! $registration?->discount_eligible) {
+            return null;
+        }
+
+        $line = self::whoLabel($registration);
+        if ($full !== null && $full > 0 && $paid < $full) {
+            $line .= ' — خصم '.self::formatPercent((1 - $paid / $full) * 100).'% من '.trim(number_format($full).' '.$currency);
+        }
+
+        return $line;
+    }
+
+    /** Short form for report tables: "طالب · المرحلة الرابعة 50%"; null when not eligible. */
+    public static function shortLabel(?PatientRegistration $registration, float $paid, ?float $full): ?string
+    {
+        if (! $registration?->discount_eligible) {
+            return null;
+        }
+
+        $who = self::whoLabel($registration);
+
+        return $full !== null && $full > 0 && $paid < $full
+            ? $who.' '.self::formatPercent((1 - $paid / $full) * 100).'%'
+            : $who;
+    }
+
+    /** The undiscounted amount a registration payment was taken from. */
+    public static function fullAmountFor(Payment $payment, ?ClinicSetting $settings = null): ?float
+    {
+        if ($payment->type === Payment::TYPE_LAB) {
+            $fee = ($settings ?? ClinicSetting::current())->lab_fee;
+
+            return $fee === null ? null : (float) $fee;
+        }
+
+        $price = $payment->patientRegistration?->service?->price;
+
+        return $price === null ? null : (float) $price;
+    }
+
+    private static function formatPercent(float $percent): string
+    {
+        return rtrim(rtrim(number_format($percent, 1, '.', ''), '0'), '.');
     }
 }

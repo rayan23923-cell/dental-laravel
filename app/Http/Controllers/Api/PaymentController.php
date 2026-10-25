@@ -82,7 +82,8 @@ class PaymentController extends Controller
     {
         $search = $request->string('search')->toString();
 
-        return Payment::with(['appointment', 'patientRegistration'])
+        // The service too, so each payment can say its discount (2026-10-25).
+        return Payment::with(['appointment', 'patientRegistration.service'])
             ->when($request->integer('appointment_id'), fn ($q, $id) => $q->where('appointment_id', $id))
             ->when(
                 $request->integer('patient_registration_id'),
