@@ -635,15 +635,17 @@ Route::middleware('auth')->group(function () {
     // Lab screening fee + printable receipt (2026-10-11).
     Route::post('/payments/lab', [PaymentController::class, 'storeLab'])
         ->middleware('permission:payments,create')->name('payments.store-lab');
+    // The lab / ticket-desk grants see and print their own payments
+    // (2026-10-26, by request) — see App\Support\PaymentScope.
     Route::get('/payments/report', [PaymentController::class, 'report'])
-        ->middleware('permission:payments,export')->name('payments.report');
+        ->middleware('permission:payments,'.\App\Support\PaymentScope::REPORT)->name('payments.report');
     Route::get('/payments/{payment}/receipt', [PaymentController::class, 'receipt'])
-        ->middleware('permission:payments,view')->name('payments.receipt');
+        ->middleware('permission:payments,'.\App\Support\PaymentScope::VIEW)->name('payments.receipt');
     // No "تسجيل دفعة" page any more (2026-10-14, by request): payments are
     // taken from patient registration and the lab. `store` stays for those
     // flows' own posts.
     Route::get('/payments', [PaymentController::class, 'index'])
-        ->middleware('permission:payments,view')->name('payments.index');
+        ->middleware('permission:payments,'.\App\Support\PaymentScope::VIEW)->name('payments.index');
     Route::post('/payments', [PaymentController::class, 'store'])
         ->middleware('permission:payments,create')->name('payments.store');
     Route::delete('/payments/{payment}', [PaymentController::class, 'destroy'])

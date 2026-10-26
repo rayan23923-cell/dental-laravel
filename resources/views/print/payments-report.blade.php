@@ -9,21 +9,27 @@
     $money = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.');
     $currency = $settings->clinic_currency;
     $sourceLabels = ['registration' => 'تسجيل مريض', 'lab' => 'أجور المختبر', 'appointment' => 'موعد'];
+    // The lab's / the ticket desk's own report (2026-10-26, by request).
+    $reportTitle = match ($scope ?? null) {
+        ['lab'] => 'تقرير مدفوعات المختبر',
+        ['registration'] => 'تقرير واردات التذاكر',
+        default => 'تقرير المدفوعات',
+    };
     $periodLabels = ['today' => 'اليوم', 'week' => 'هذا الأسبوع', 'month' => 'هذا الشهر', 'year' => 'هذه السنة'];
     $filterBits = array_filter([
         $filters['from'] ? 'من ' . $filters['from'] : null,
         $filters['to'] ? 'إلى ' . $filters['to'] : null,
-        $filters['source'] ? 'المصدر: ' . ($sourceLabels[$filters['source']] ?? $filters['source']) : null,
+        $filters['source'] && count($scope ?? ['', '']) > 1 ? 'المصدر: ' . ($sourceLabels[$filters['source']] ?? $filters['source']) : null,
         $filters['search'] ? 'بحث: ' . $filters['search'] : null,
     ]);
 @endphp
 
-@section('title', 'تقرير المدفوعات')
+@section('title', $reportTitle)
 
 @section('back_url', route('payments.index'))
 
 @section('letterhead')
-    <h2 style="margin-top:8px">تقرير المدفوعات</h2>
+    <h2 style="margin-top:8px">{{ $reportTitle }}</h2>
 @endsection
 
 @section('content')

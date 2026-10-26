@@ -19,7 +19,8 @@ bool staffCanOpen(StaffAccount account, String route) {
         (can('patient_screening') || can('patient_screening', 'confirm')),
     // Payments and the registration services' settings are permissions
     // since 2026-10-24 (by request), the accountant's by default.
-    '/records/payments' => can('payments'),
+    // Since 2026-10-26 also the lab's / ticket desk's own payments.
+    '/records/payments' => paymentSources(account)?.isNotEmpty ?? true,
     '/admin/education-types' => admin && can('education_types'),
     '/admin/stages' => admin && can('stages'),
     '/admin/departments' => admin && can('departments'),
@@ -52,6 +53,34 @@ bool staffCanOpen(StaffAccount account, String route) {
     _ => true,
   };
 }
+
+/// The payment sources [account] may see (2026-10-26, by request), the
+/// server's `PaymentScope::sources()`: null for every payment, else 'lab'
+/// (payments.view_lab) and/or 'registration' (payments.view_tickets). For
+/// the report, `view` covers everything only together with `export`.
+List<String>? paymentSources(StaffAccount account, {bool report = false}) {
+  if (account.can('payments', 'view') && (!report || account.can('payments', 'export'))) return null;
+  return [
+    if (account.can('payments', 'view_lab')) 'lab',
+    if (account.can('payments', 'view_tickets')) 'registration',
+  ];
+}
+
+/// The signed-in account's [paymentSources] (a doctor or an old server: null).
+/// [listen] false reads it once, for callbacks outside `build`.
+List<String>? staffPaymentSources(WidgetRef ref, {bool report = false, bool listen = true}) {
+  final authState = (listen ? ref.watch(authControllerProvider) : ref.read(authControllerProvider)).valueOrNull;
+  final account = authState is Authenticated ? authState.account : null;
+  return account is StaffAccount ? paymentSources(account, report: report) : null;
+}
+
+/// The payments screen's name for [sources]: the lab's and the ticket
+/// desk's own payments are named for what they show.
+String paymentsTitleKey(List<String>? sources) => switch (sources) {
+      ['lab'] => 'payments.labPaymentsTitle',
+      ['registration'] => 'payments.ticketPaymentsTitle',
+      _ => 'recordsHub.paymentsTitle',
+    };
 
 /// The records and admin hubs' routes, for showing a hub only when
 /// something in it can be opened.

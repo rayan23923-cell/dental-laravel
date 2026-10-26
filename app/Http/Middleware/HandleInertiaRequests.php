@@ -80,8 +80,11 @@ class HandleInertiaRequests extends Middleware
             // (2026-10-24, by request): payments and the registration
             // services' settings.
             'navCan' => fn () => ($user = $request->user()) instanceof \App\Models\User ? [
-                'payments' => ($perm = new \App\Services\PermissionManager($user))->can('payments', 'view'),
-                'register_settings' => $perm->can('register_settings', 'view'),
+                // The lab / ticket desk's own payments too (2026-10-26):
+                // null is every payment, else the sources they may see.
+                'payments' => \App\Support\PaymentScope::sources($user) !== [],
+                'payments_scope' => \App\Support\PaymentScope::sources($user),
+                'register_settings' => ($perm = new \App\Services\PermissionManager($user))->can('register_settings', 'view'),
                 'waiting_screen' => $perm->can('waiting_screen', 'view'),
                 'waiting_screen_pair' => $perm->can('waiting_screen', 'pair'),
             ] : [],

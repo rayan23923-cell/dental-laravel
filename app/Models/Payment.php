@@ -51,4 +51,10 @@ class Payment extends Model
         // Archived registrations still name their records (2026-10-12).
         return $this->belongsTo(PatientRegistration::class)->withTrashed();
     }
+
+    /** 'lab', 'appointment' or 'registration' (the ticket desk's). */
+    public function source(): string
+    {
+        return $this->type === self::TYPE_LAB ? 'lab' : ($this->appointment_id ? 'appointment' : 'registration');
+    }
 }

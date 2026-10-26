@@ -64,7 +64,12 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
     final result = await showModalBottomSheet<({DateTime? from, DateTime? to, String? source})>(
       context: context,
       isScrollControlled: true,
-      builder: (context) => _PaymentFilterSheet(initialFrom: _from, initialTo: _to, initialSource: _source),
+      builder: (context) => _PaymentFilterSheet(
+        initialFrom: _from,
+        initialTo: _to,
+        initialSource: _source,
+        sources: staffPaymentSources(ref, listen: false),
+      ),
     );
     if (result != null) {
       setState(() {
@@ -82,6 +87,7 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
   Future<void> _printReport() async {
     final t = ref.read(translationsProvider);
     final f = _filters;
+    final sources = staffPaymentSources(ref, report: true, listen: false);
     setState(() => _printingReport = true);
     try {
       final report = await ref.read(recordsRepositoryProvider).fetchPaymentReport(
@@ -93,14 +99,16 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
       final settings = await ref.read(clinicSettingsProvider.future);
       final logo = await loadLetterheadLogo(ref, settings);
       await Printing.layoutPdf(
-        name: '${t['payments.reportTitle']!}.pdf',
+        name: '${sources?.length == 1 ? t[paymentsTitleKey(sources)]! : t['payments.reportTitle']!}.pdf',
         onLayout: (format) => buildPaymentsReportPdf(
           report: report,
           settings: settings,
           search: f.search,
           from: f.from,
           to: f.to,
-          source: f.source,
+          // A single fixed source is the title, not a filter (2026-10-26).
+          source: sources?.length == 1 ? null : f.source,
+          title: sources?.length == 1 ? 'تقرير ${t[paymentsTitleKey(sources)]!}' : null,
           format: format,
           logo: logo,
         ),
@@ -119,12 +127,14 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
   Widget build(BuildContext context) {
     final paymentsAsync = ref.watch(paymentListProvider(_filters));
     final t = ref.watch(translationsProvider);
+    final sources = staffPaymentSources(ref);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(t['recordsHub.paymentsTitle']!),
+        title: Text(t[paymentsTitleKey(sources)]!),
         actions: [
-          if (staffCan(ref, 'payments', 'export'))
+          // The lab / ticket desk grants include printing their report.
+          if (staffPaymentSources(ref, report: true)?.isNotEmpty ?? true)
             IconButton(
               icon: _printingReport
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
@@ -190,7 +200,9 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
 }
 
 class _PaymentFilterSheet extends ConsumerStatefulWidget {
-  const _PaymentFilterSheet({required this.initialFrom, required this.initialTo, required this.initialSource});
+  const _PaymentFilterSheet({required this.initialFrom, required this.initialTo, required this.initialSource, this.sources});
+  /// The account's payment sources (null: all); one source has no choice.
+  final List<String>? sources;
   final DateTime? initialFrom;
   final DateTime? initialTo;
   final String? initialSource;
@@ -256,6 +268,7 @@ class _PaymentFilterSheetState extends ConsumerState<_PaymentFilterSheet> {
               ),
             ],
           ),
+          if (widget.sources == null || widget.sources!.length > 1) ...[
           const SizedBox(height: 16),
           DropdownButtonFormField<String?>(
             initialValue: _source,
@@ -263,11 +276,13 @@ class _PaymentFilterSheetState extends ConsumerState<_PaymentFilterSheet> {
             items: [
               DropdownMenuItem(value: null, child: Text(t['recordsHub.sourceAll']!)),
               // Appointments dropped from payments (2026-10-14, by request).
-              DropdownMenuItem(value: 'registration', child: Text(t['recordsHub.sourceRegistration']!)),
-              DropdownMenuItem(value: 'lab', child: Text(t['payments.labFee']!)),
+              if (widget.sources?.contains('registration') ?? true)
+                DropdownMenuItem(value: 'registration', child: Text(t['recordsHub.sourceRegistration']!)),
+              if (widget.sources?.contains('lab') ?? true) DropdownMenuItem(value: 'lab', child: Text(t['payments.labFee']!)),
             ],
             onChanged: (v) => setState(() => _source = v),
           ),
+          ],
           const SizedBox(height: 24),
           Row(
             children: [

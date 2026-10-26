@@ -26,7 +26,11 @@ class PaymentStats
 
     private int $offsetMinutes;
 
-    public function __construct(?CarbonImmutable $now = null)
+    /**
+     * @param  list<string>|null  $sources  the account's payments (see
+     *                                      PaymentScope); null for all
+     */
+    public function __construct(?CarbonImmutable $now = null, private readonly ?array $sources = null)
     {
         $this->now = ($now ?? CarbonImmutable::now())->setTimezone(self::TIMEZONE);
         $this->offsetMinutes = $this->now->utcOffset();
@@ -44,7 +48,7 @@ class PaymentStats
 
         $out = [];
         foreach ($starts as $key => $start) {
-            $row = Payment::query()
+            $row = PaymentScope::apply(Payment::query(), $this->sources)
                 ->where('paid_at', '>=', $start->utc())
                 ->selectRaw('COALESCE(SUM(amount), 0) as total, COUNT(*) as count')
                 ->first();
@@ -90,7 +94,7 @@ class PaymentStats
     }
 
     /** Total of a filtered payments query, by source (registration service, lab, appointment). */
-    public static function bySource(Builder $query): array
+    public static function bySource(Builder $query, ?array $sources = null): array
     {
         $rows = (clone $query)
             ->reorder()
@@ -101,7 +105,10 @@ class PaymentStats
             ->keyBy('source');
 
         // Appointments dropped from payments (2026-10-14, by request).
+        // Only the account's own sources (PaymentScope, 2026-10-26).
         return collect(['registration', 'lab'])
+            ->filter(fn ($s) => $sources === null || in_array($s, $sources, true))
+            ->values()
             ->map(fn ($s) => ['source' => $s, 'total' => (float) ($rows[$s]->total ?? 0), 'count' => (int) ($rows[$s]->count ?? 0)])
             ->all();
     }
@@ -111,7 +118,7 @@ class PaymentStats
     {
         $bucket = "DATE_FORMAT(DATE_ADD(paid_at, INTERVAL {$this->offsetMinutes} MINUTE), '{$format}')";
 
-        return Payment::query()
+        return PaymentScope::apply(Payment::query(), $this->sources)
             ->where('paid_at', '>=', $start->utc())
             ->selectRaw("{$bucket} as bucket, SUM(amount) as total")
             ->groupBy(DB::raw($bucket))

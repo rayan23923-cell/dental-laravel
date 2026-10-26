@@ -553,6 +553,8 @@ const Map<String, String> kTranslationsAr = {
   'screening.previousCheckedAt': 'تاريخ الفحص السابق',
 
   'payments.labFee': 'أجور المختبر',
+  'payments.labPaymentsTitle': 'مدفوعات المختبر',
+  'payments.ticketPaymentsTitle': 'واردات التذاكر',
   'payments.labFeePaid': 'تم دفع أجور المختبر',
   'payments.payLabFee': 'دفع',
   'payments.labFeeReceiptTitle': 'وصل دفع أجور المختبر',
@@ -1972,6 +1974,8 @@ const Map<String, String> kTranslationsEn = {
   'screening.previousCheckedAt': 'Previous Test Date',
 
   'payments.labFee': 'Lab Fee',
+  'payments.labPaymentsTitle': 'Lab payments',
+  'payments.ticketPaymentsTitle': 'Ticket income',
   'payments.labFeePaid': 'Lab fee paid',
   'payments.payLabFee': 'Pay',
   'payments.labFeeReceiptTitle': 'Lab Fee Receipt',

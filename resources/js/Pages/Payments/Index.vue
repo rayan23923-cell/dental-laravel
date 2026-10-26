@@ -11,6 +11,7 @@ import Icon from '@/Components/Icon.vue';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { paymentsTitleFor } from '@/paymentsTitle';
 
 const { t } = useI18n();
 const props = defineProps({
@@ -24,7 +25,13 @@ const props = defineProps({
     currency: { type: String, default: '' },
     // The payments permissions (2026-10-24): report and delete.
     can: { type: Object, default: () => ({ export: true, delete: true }) },
+    // The sources this account sees (2026-10-26): null for all, ['lab'] for
+    // the lab, ['registration'] for the ticket desk.
+    scope: { type: Array, default: null },
 });
+
+const title = computed(() => paymentsTitleFor(t, props.scope));
+const sourceOptions = computed(() => ['registration', 'lab'].filter((s) => !props.scope || props.scope.includes(s)));
 
 // Income overview (2026-10-12, by request).
 const money = (v) => `${Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 })} ${props.currency ?? ''}`.trim();
@@ -37,7 +44,7 @@ const periodCards = computed(() => [
 ]);
 const sourceLabel = (s) => ({ registration: t('payments.registrationSource'), lab: t('payments.labFee'), appointment: t('payments.appointmentSource') })[s];
 const sourceMax = computed(() => Math.max(1, ...props.bySource.map((s) => s.total)));
-const hasFilters = computed(() => !!(props.filters.search || props.filters.from || props.filters.to || props.filters.source));
+const hasFilters = computed(() => !!(props.filters.search || props.filters.from || props.filters.to || (props.filters.source && sourceOptions.value.length > 1)));
 
 // Printable report with the same filters; the browser's print dialog
 // also saves it as PDF.
@@ -97,12 +104,12 @@ const destroy = (payment) => {
 </script>
 
 <template>
-    <Head :title="t('nav.payments')" />
+    <Head :title="title" />
 
     <AuthenticatedLayout>
         <template #header>
             <div class="flex items-center justify-between gap-3">
-                <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('nav.payments') }}</h2>
+                <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ title }}</h2>
                 <div class="flex items-center gap-2">
                     <a
                         v-if="can.export"
@@ -154,14 +161,14 @@ const destroy = (payment) => {
                         <input v-model="to" type="date" @change="applyFilters" class="rounded-full border-0 bg-transparent py-1 text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500" />
                     </label>
                     <select
+                        v-if="sourceOptions.length > 1"
                         v-model="source"
                         @change="applyFilters"
                         :title="t('payments.sourceLabel')"
                         class="rounded-full border-gray-200 bg-white py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     >
                         <option value="">{{ t('payments.sourceLabel') }}: {{ t('payments.all') }}</option>
-                        <option value="registration">{{ t('payments.registrationSource') }}</option>
-                        <option value="lab">{{ t('payments.labFee') }}</option>
+                        <option v-for="s in sourceOptions" :key="s" :value="s">{{ sourceLabel(s) }}</option>
                     </select>
                     <ChatAction icon="search" :label="t('payments.searchLabel')" @click="applyFilters" />
                 </div>

@@ -9,6 +9,7 @@ use App\Models\Payment;
 use App\Models\PatientRegistration;
 use App\Services\PatientScreeningException;
 use App\Services\PatientScreeningGate;
+use App\Support\PaymentScope;
 use App\Support\PaymentStats;
 use App\Support\StudentDiscount;
 use Illuminate\Database\Eloquent\Builder;
@@ -20,7 +21,7 @@ class PaymentController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $payments = $this->filteredQuery($request)
+        $payments = $this->filteredQuery($request, PaymentScope::sources($request->user()))
             ->latest('paid_at')
             ->paginate(15);
 
@@ -36,8 +37,9 @@ class PaymentController extends Controller
      */
     public function stats(Request $request): JsonResponse
     {
-        $query = $this->filteredQuery($request);
-        $stats = new PaymentStats();
+        $sources = PaymentScope::sources($request->user());
+        $query = $this->filteredQuery($request, $sources);
+        $stats = new PaymentStats(null, $sources);
 
         return response()->json([
             'data' => [
@@ -45,7 +47,8 @@ class PaymentController extends Controller
                 'daily' => $stats->daily(),
                 'monthly' => $stats->monthly(),
                 'filtered_total' => (float) (clone $query)->sum('amount'),
-                'by_source' => PaymentStats::bySource($query),
+                'by_source' => PaymentStats::bySource($query, $sources),
+                'scope' => $sources,
                 'currency' => ClinicSetting::current()->clinic_currency,
             ],
         ]);
@@ -59,8 +62,9 @@ class PaymentController extends Controller
      */
     public function report(Request $request): JsonResponse
     {
-        $query = $this->filteredQuery($request);
-        $stats = new PaymentStats();
+        $sources = PaymentScope::sources($request->user(), true);
+        $query = $this->filteredQuery($request, $sources);
+        $stats = new PaymentStats(null, $sources);
 
         return response()->json([
             'data' => [
@@ -71,18 +75,24 @@ class PaymentController extends Controller
                 'daily' => $stats->daily(),
                 'monthly' => $stats->monthly(),
                 'filtered_total' => (float) (clone $query)->sum('amount'),
-                'by_source' => PaymentStats::bySource($query),
+                'by_source' => PaymentStats::bySource($query, $sources),
+                'scope' => $sources,
                 'currency' => ClinicSetting::current()->clinic_currency,
             ],
         ]);
     }
 
-    /** The search / date range / source filters shared by `index()` and `stats()`/`report()`. */
-    private function filteredQuery(Request $request): Builder
+    /**
+     * The search / date range / source filters shared by `index()` and
+     * `stats()`/`report()`, within the account's [$sources]: the lab fees
+     * or the tickets' income only for the lab / ticket-desk grants
+     * (2026-10-26, by request, see PaymentScope).
+     */
+    private function filteredQuery(Request $request, ?array $sources): Builder
     {
         $search = $request->string('search')->toString();
 
-        return Payment::with(['appointment', 'patientRegistration'])
+        return PaymentScope::apply(Payment::with(['appointment', 'patientRegistration']), $sources)
             ->when($request->integer('appointment_id'), fn ($q, $id) => $q->where('appointment_id', $id))
             ->when(
                 $request->integer('patient_registration_id'),
@@ -111,8 +121,9 @@ class PaymentController extends Controller
             });
     }
 
-    public function show(Payment $payment): JsonResponse
+    public function show(Request $request, Payment $payment): JsonResponse
     {
+        abort_unless(PaymentScope::allows(PaymentScope::sources($request->user()), $payment), 403);
         $payment->load(['appointment', 'patientRegistration']);
 
         return (new PaymentResource($payment))->response();

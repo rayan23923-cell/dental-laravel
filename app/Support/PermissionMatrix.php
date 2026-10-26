@@ -107,7 +107,16 @@ class PermissionMatrix
             // they can be given to the accountant or anyone else.
             'payments' => [
                 'name' => 'المدفوعات',
-                'permissions' => ['view' => 'عرض', 'create' => 'تسجيل دفعة', 'delete' => 'حذف', 'export' => 'التقرير والتصدير'],
+                // The lab's and the ticket desk's own payments, with their
+                // report (2026-10-26, by request); `view` is all of them.
+                'permissions' => [
+                    'view' => 'عرض',
+                    'create' => 'تسجيل دفعة',
+                    'delete' => 'حذف',
+                    'export' => 'التقرير والتصدير',
+                    'view_lab' => 'عرض وطباعة مدفوعات المختبر فقط',
+                    'view_tickets' => 'عرض وطباعة واردات التذاكر فقط',
+                ],
             ],
             'register_settings' => [
                 'name' => 'إعدادات تسجيل الخدمات وتسعيرها',

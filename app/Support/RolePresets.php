@@ -19,8 +19,9 @@ use App\Models\UserPermission;
 class RolePresets
 {
     public const GRANTS = [
-        'reception' => ['patients' => ['view', 'create'], 'printer_settings' => ['view']],
-        'lab' => ['patient_screening' => ['view', 'confirm'], 'printer_settings' => ['view']],
+        // Each desk sees and prints its own income (2026-10-26, by request).
+        'reception' => ['patients' => ['view', 'create'], 'payments' => ['view_tickets'], 'printer_settings' => ['view']],
+        'lab' => ['patient_screening' => ['view', 'confirm'], 'payments' => ['view_lab'], 'printer_settings' => ['view']],
         // The accountant (2026-10-24, by request): payments and the
         // registration services with their prices.
         'accountant' => [
