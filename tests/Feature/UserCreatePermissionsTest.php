@@ -30,7 +30,7 @@ class UserCreatePermissionsTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => 'super_admin']));
 
         $this->get('/users/create')->assertOk()
-            ->assertInertia(fn ($p) => $p->has('modules')->has('scopeOptions.stages', 1)->where('roleDefaults.reception', ['patients.view', 'patients.create', 'printer_settings.view']));
+            ->assertInertia(fn ($p) => $p->has('modules')->has('scopeOptions.stages', 1)->where('roleDefaults.reception', ['patients.view', 'patients.create', 'payments.view_tickets', 'printer_settings.view']));
 
         $this->post('/users', $this->account('web', [
             'grants' => ['doctors.view', 'tasks.view'],
@@ -61,7 +61,7 @@ class UserCreatePermissionsTest extends TestCase
 
         $this->getJson('/api/v1/users/form-options')->assertOk()
             ->assertJsonStructure(['modules', 'scope_options' => ['departments', 'stages', 'education_types', 'academic_sessions'], 'role_defaults'])
-            ->assertJsonPath('role_defaults.lab', ['patient_screening.view', 'patient_screening.confirm', 'printer_settings.view']);
+            ->assertJsonPath('role_defaults.lab', ['patient_screening.view', 'patient_screening.confirm', 'payments.view_lab', 'printer_settings.view']);
 
         $this->postJson('/api/v1/users', $this->account('app', ['grants' => ['tasks.view']]))->assertCreated();
 
