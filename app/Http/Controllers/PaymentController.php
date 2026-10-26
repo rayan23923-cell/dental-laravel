@@ -7,6 +7,7 @@ use App\Models\Payment;
 use App\Models\PatientRegistration;
 use App\Services\PatientScreeningException;
 use App\Services\PatientScreeningGate;
+use App\Support\PaymentScope;
 use App\Support\PaymentStats;
 use App\Support\StudentDiscount;
 use Illuminate\Contracts\View\View;
@@ -21,8 +22,11 @@ class PaymentController extends Controller
 {
     public function index(Request $request): Response
     {
-        $query = $this->filteredQuery($request);
-        $stats = new PaymentStats();
+        // Lab fees only / ticket income only for the lab and ticket-desk
+        // grants (2026-10-26, by request); null is every payment.
+        $sources = PaymentScope::sources($request->user());
+        $query = $this->filteredQuery($request, $sources);
+        $stats = new PaymentStats(null, $sources);
         $settings = ClinicSetting::current();
 
         return Inertia::render('Payments/Index', [
@@ -35,17 +39,19 @@ class PaymentController extends Controller
                         ? StudentDiscount::breakdown($p->patientRegistration, (float) $p->amount, StudentDiscount::fullAmountFor($p, $settings))
                         : null,
                 ]),
-            'filters' => $this->filters($request),
+            'filters' => $this->filters($request, $sources),
+            'scope' => $sources,
             // Income overview (2026-10-12, by request).
             'periods' => $stats->periods(),
             'daily' => $stats->daily(),
             'monthly' => $stats->monthly(),
             'filteredTotal' => (float) (clone $query)->sum('amount'),
-            'bySource' => PaymentStats::bySource($query),
+            'bySource' => PaymentStats::bySource($query, $sources),
             'currency' => ClinicSetting::current()->clinic_currency,
             'can' => [
-                'export' => ($permissions = new PermissionManager($request->user()))->can('payments', 'export'),
-                'delete' => $permissions->can('payments', 'delete'),
+                // The lab / tickets grants include printing their report.
+                'export' => PaymentScope::sources($request->user(), true) !== [],
+                'delete' => (new PermissionManager($request->user()))->can('payments', 'delete'),
             ],
         ]);
     }
@@ -57,15 +63,17 @@ class PaymentController extends Controller
      */
     public function report(Request $request): View
     {
-        $query = $this->filteredQuery($request);
-        $stats = new PaymentStats();
+        $sources = PaymentScope::sources($request->user(), true);
+        $query = $this->filteredQuery($request, $sources);
+        $stats = new PaymentStats(null, $sources);
 
         return view('print.payments-report', [
             'settings' => ClinicSetting::current(),
-            'filters' => $this->filters($request),
+            'filters' => $this->filters($request, $sources),
+            'scope' => $sources,
             'payments' => (clone $query)->with(['appointment', 'patientRegistration.service'])->latest('paid_at')->get(),
             'filteredTotal' => (float) (clone $query)->sum('amount'),
-            'bySource' => PaymentStats::bySource($query),
+            'bySource' => PaymentStats::bySource($query, $sources),
             'periods' => $stats->periods(),
             'daily' => $stats->daily(),
             'monthly' => $stats->monthly(),
@@ -73,13 +81,16 @@ class PaymentController extends Controller
         ]);
     }
 
-    /** The search / date range / source filters shared by `index()` and `report()`. */
-    private function filteredQuery(Request $request)
+    /**
+     * The search / date range / source filters shared by `index()` and
+     * `report()`, within the account's [$sources] (PaymentScope).
+     */
+    private function filteredQuery(Request $request, ?array $sources)
     {
         $search = $request->string('search')->toString();
-        $source = $request->string('source')->toString();
+        $source = $this->filters($request, $sources)['source'];
 
-        return Payment::with(['appointment', 'patientRegistration'])
+        return PaymentScope::apply(Payment::with(['appointment', 'patientRegistration']), $sources)
             ->when($search !== '', fn ($q) => $q->where(fn ($q2) => $q2
                 ->whereHas('appointment', fn ($q3) => $q3->where('full_name', 'like', "%{$search}%"))
                 ->orWhereHas('patientRegistration', fn ($q3) => $q3->where('name', 'like', "%{$search}%"))))
@@ -96,13 +107,19 @@ class PaymentController extends Controller
             });
     }
 
-    private function filters(Request $request): array
+    private function filters(Request $request, ?array $sources): array
     {
+        $source = $request->string('source')->toString() ?: null;
+        // A source outside the account's is dropped; a single one is fixed.
+        if ($sources !== null) {
+            $source = count($sources) === 1 ? $sources[0] : (in_array($source, $sources, true) ? $source : null);
+        }
+
         return [
             'search' => $request->string('search')->toString(),
             'from' => $request->string('from')->toString() ?: null,
             'to' => $request->string('to')->toString() ?: null,
-            'source' => $request->string('source')->toString() ?: null,
+            'source' => $source,
         ];
     }
 
@@ -167,6 +184,7 @@ class PaymentController extends Controller
     /** Printable receipt — "تم دفع أجور المختبر" for lab-fee payments. */
     public function receipt(Request $request, Payment $payment): View
     {
+        abort_unless(PaymentScope::allows(PaymentScope::sources($request->user()), $payment), 403);
         $payment->load('patientRegistration.service', 'patientRegistration.registerDay', 'appointment');
 
         return view('print.payment-receipt', [

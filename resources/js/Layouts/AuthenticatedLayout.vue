@@ -1,4 +1,5 @@
 <script setup>
+import { paymentsTitleFor } from '@/paymentsTitle';
 /**
  * Staff shell.
  *
@@ -32,6 +33,8 @@ const isAdmin = computed(() => ['super_admin', 'admin'].includes(page.props.auth
 // only reach the ticket desk or the lab, so they see only those links.
 const deskRole = computed(() => (['reception', 'lab'].includes(page.props.auth.user.role) ? page.props.auth.user.role : null));
 const navCan = computed(() => page.props.navCan ?? {});
+// The lab's / ticket desk's own payments are named for what they show (2026-10-26).
+const paymentsTitle = (scope) => paymentsTitleFor(t, scope);
 
 /**
  * Grouping mirrors the original app's navbar.php dropdowns (إدارة البيانات
@@ -95,7 +98,7 @@ const primaryLinks = computed(() => [
     // Payments and, for a non-admin given it (the accountant), the
     // registration services' settings follow their permissions (2026-10-24),
     // desk roles included.
-    ...(navCan.value.payments ? [{ label: t('nav.payments'), icon: 'payments', href: route('payments.index'), active: route().current('payments.*') }] : []),
+    ...(navCan.value.payments ? [{ label: paymentsTitle(navCan.value.payments_scope), icon: 'payments', href: route('payments.index'), active: route().current('payments.*') }] : []),
     ...(!isAdmin.value && navCan.value.register_settings ? [{ label: t('nav.registrationSettings'), icon: 'tune', href: route('patient-registrations.settings'), active: route().current('patient-registrations.settings') }] : []),
     ...(!isAdmin.value && navCan.value.waiting_screen ? [{ label: t('nav.waitingScreenSettings'), icon: 'tv', href: route('waiting-screen-settings.edit'), active: route().current('waiting-screen-settings.*') }] : []),
 ]);

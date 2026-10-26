@@ -533,13 +533,14 @@ Route::name('api.')->prefix('v1')->group(function () {
         // Income overview (2026-10-17) — declared before the resource so
         // "stats" isn't bound as a {payment}. No `update`: payments are not
         // edited by hand any more (see PaymentController).
+        // The lab / ticket-desk grants (2026-10-26): their own payments only.
         Route::get('/payments/stats', [PaymentController::class, 'stats'])
-            ->middleware('permission:payments,view')->name('payments.stats');
+            ->middleware('permission:payments,'.\App\Support\PaymentScope::VIEW)->name('payments.stats');
         // The payments report PDF's data (2026-10-17), the web payments.report.
         Route::get('/payments/report', [PaymentController::class, 'report'])
-            ->middleware('permission:payments,export')->name('payments.report');
+            ->middleware('permission:payments,'.\App\Support\PaymentScope::REPORT)->name('payments.report');
         Route::apiResource('payments', PaymentController::class)->except(['update'])
-            ->middlewareFor(['index', 'show'], 'permission:payments,view')
+            ->middlewareFor(['index', 'show'], 'permission:payments,'.\App\Support\PaymentScope::VIEW)
             ->middlewareFor('store', 'permission:payments,create')
             ->middlewareFor('destroy', 'permission:payments,delete');
 

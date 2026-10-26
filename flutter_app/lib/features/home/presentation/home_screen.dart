@@ -106,8 +106,9 @@ class _StaffDashboard extends ConsumerWidget {
       Colors.red,
       '/lab',
     );
-    final paymentsShortcut =
-        _Shortcut(t['labels.payments']!, Icons.payments_outlined, () => context.push('/records/payments'), Colors.orange, '/records/payments');
+    // The lab's / ticket desk's own payments are named for them (2026-10-26).
+    final paymentsShortcut = _Shortcut(
+        staffPaymentSources(ref)?.length == 1 ? t[paymentsTitleKey(staffPaymentSources(ref))]! : t['labels.payments']!, Icons.payments_outlined, () => context.push('/records/payments'), Colors.orange, '/records/payments');
     // Roles with a home of their own (2026-10-18, by request): the lab, the
     // ticket desk and the accountant see their own panels and shortcuts
     // instead of the admin dashboard.
@@ -117,10 +118,12 @@ class _StaffDashboard extends ConsumerWidget {
     final dashboardAsync = isDeskRole ? null : ref.watch(dashboardProvider);
     final dashboard = dashboardAsync?.valueOrNull;
     final deskAsync = isDeskRole ? ref.watch(deskPanelsProvider) : null;
+    // The lab and the ticket desk also see their own income (2026-10-26),
+    // when given it (the shortcuts below are filtered by permission).
     final shortcuts = role == 'reception'
-        ? [registerShortcut]
+        ? [registerShortcut, paymentsShortcut]
         : role == 'lab'
-            ? [labShortcut]
+            ? [labShortcut, paymentsShortcut]
             : role == 'accountant'
                 ? [paymentsShortcut]
             : [

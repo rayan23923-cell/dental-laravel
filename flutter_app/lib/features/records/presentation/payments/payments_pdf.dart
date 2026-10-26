@@ -132,6 +132,7 @@ Future<Uint8List> buildPaymentsReportPdf({
   String? from,
   String? to,
   String? source,
+  String? title,
   PdfPageFormat format = PdfPageFormat.a4,
   pw.ImageProvider? logo,
 }) async {
@@ -162,7 +163,7 @@ Future<Uint8List> buildPaymentsReportPdf({
       pageFormat: format,
       margin: const pw.EdgeInsets.all(28),
       header: (context) => context.pageNumber == 1
-          ? letterhead.build(title: 'تقرير المدفوعات', settings: settings, logo: logo)
+          ? letterhead.build(title: title ?? 'تقرير المدفوعات', settings: settings, logo: logo)
           : pw.SizedBox.shrink(),
       footer: (context) => pw.Align(
         alignment: pw.Alignment.center,

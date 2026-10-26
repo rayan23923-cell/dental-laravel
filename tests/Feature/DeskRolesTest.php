@@ -31,7 +31,8 @@ class DeskRolesTest extends TestCase
         $this->actingAs($user)->get('/patient-registrations')->assertOk()
             ->assertInertia(fn ($p) => $p->where('can.archive', false)->where('can.settings', false)->where('can.screening', false));
         $this->actingAs($user)->get('/lab')->assertForbidden();
-        $this->actingAs($user)->get('/payments')->assertForbidden();
+        // The tickets' own income only (2026-10-26, by request).
+        $this->actingAs($user)->get('/payments')->assertOk()->assertInertia(fn ($p) => $p->where('scope', ['registration']));
         $this->actingAs($user)->get('/doctors')->assertForbidden();
     }
 
@@ -43,7 +44,8 @@ class DeskRolesTest extends TestCase
         $this->actingAs($user)->get('/dashboard')->assertRedirect(route('lab.index'));
         $this->actingAs($user)->get('/lab')->assertOk()->assertInertia(fn ($p) => $p->where('canConfirm', true));
         $this->actingAs($user)->get('/patient-registrations/create')->assertForbidden();
-        $this->actingAs($user)->get('/payments')->assertForbidden();
+        // The lab fees only (2026-10-26, by request).
+        $this->actingAs($user)->get('/payments')->assertOk()->assertInertia(fn ($p) => $p->where('scope', ['lab']));
     }
 
     /** Registering goes straight to printing the ticket (2026-10-18, by request). */

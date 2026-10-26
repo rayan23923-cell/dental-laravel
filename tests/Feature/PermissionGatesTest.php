@@ -34,8 +34,9 @@ class PermissionGatesTest extends TestCase
         $lab = $this->lab();
         Sanctum::actingAs($lab);
 
-        $this->getJson('/api/v1/payments')->assertForbidden();
-        $this->getJson('/api/v1/payments/stats')->assertForbidden();
+        // Its own lab fees only since 2026-10-26 (DeskPaymentsScopeTest);
+        // recording or deleting a payment stays refused.
+        $this->postJson('/api/v1/payments', [])->assertForbidden();
         $this->getJson('/api/v1/appointments')->assertForbidden();
         $this->getJson('/api/v1/groups')->assertForbidden();
         $this->getJson('/api/v1/activity-logs')->assertForbidden();
@@ -109,7 +110,7 @@ class PermissionGatesTest extends TestCase
 
         $this->getJson('/api/v1/me')
             ->assertOk()
-            ->assertJsonPath('permissions', fn ($p) => collect($p)->sort()->values()->all() === ['patient_screening.confirm', 'patient_screening.view', 'printer_settings.view']);
+            ->assertJsonPath('permissions', fn ($p) => collect($p)->sort()->values()->all() === ['patient_screening.confirm', 'patient_screening.view', 'payments.view_lab', 'printer_settings.view']);
     }
 
     public function test_nothing_picked_in_the_scope_means_nothing(): void

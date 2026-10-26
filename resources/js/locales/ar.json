@@ -7,6 +7,8 @@
         "clinicalRecords": "السجلات السريرية",
         "appointments": "المواعيد",
         "payments": "المدفوعات",
+        "labPayments": "مدفوعات المختبر",
+        "ticketPayments": "واردات التذاكر",
         "patientsGroup": "إدارة المرضى",
         "registerPatient": "تسجيل مريض جديد",
         "patientRegistrations": "تسجيل المرضى",
