@@ -142,6 +142,9 @@ Route::name('api.')->prefix('v1')->group(function () {
         // AuthController::me() does — see ProfileController docblock.
         Route::put('/me', [ProfileController::class, 'update']);
         Route::put('/me/password', [ProfileController::class, 'updatePassword']);
+        // The app's "حذف حسابي" (2026-10-28, app stores): see AccountDeletionController.
+        Route::post('/me/deletion-request', [\App\Http\Controllers\AccountDeletionController::class, 'storeForAccount'])
+            ->middleware('throttle:5,1');
 
         // Phone as a QR scanner for the Windows app (2026-10-12); same
         // controller as the web app's, see ScannerPairingController.

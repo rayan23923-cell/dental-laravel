@@ -53,4 +53,13 @@ class ProfileRepository {
       'new_password_confirmation': newPassword,
     });
   }
+
+  /// `POST /me/deletion-request` (2026-10-28, app stores): asks the clinic's
+  /// administration to delete this account; returns the server's message.
+  Future<String> requestDeletion({String? reason}) async {
+    final data = await _client.postJson('/me/deletion-request', body: {
+      if (reason != null && reason.isNotEmpty) 'reason': reason,
+    }) as Map<String, dynamic>;
+    return data['message'] as String? ?? '';
+  }
 }

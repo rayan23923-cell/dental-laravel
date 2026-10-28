@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Google Play build only (2026-10-28): Play updates the app itself and
+     doesn't allow an app to install packages, so the in-app updater's
+     permission is removed. Merged into release builds made with the
+     storeBuild Gradle property (see app/build.gradle.kts). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" tools:node="remove"/>
+</manifest>

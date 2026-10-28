@@ -79,6 +79,7 @@ dependencies:
   # Kotlin Gradle DSL, so it builds against this project's pinned AGP and
   # Kotlin plugin like permission_handler 13 above.
   file_picker: ^8.3.7
+  url_launcher: ^6.3.3          # privacy / terms / account-deletion pages in the browser (store builds, 2026-10-28)
 
 # permission_handler_android 14.0.0 (its own independently-versioned
 # native-Android implementation package) ships an android/build.gradle.kts

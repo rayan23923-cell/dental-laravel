@@ -15,6 +15,7 @@ import '../theme/theme_mode_controller.dart';
 import '../updater/desktop_update_checker.dart';
 import '../updater/desktop_update_gate.dart';
 import '../updater/update_available.dart';
+import 'account_privacy_actions.dart';
 import 'app_sidebar.dart';
 import 'server_status_indicator.dart';
 import 'settings_menu_sheet.dart';
@@ -125,6 +126,22 @@ class _AccountSheet extends ConsumerWidget {
               subtitle: Text(themeLabel),
               onTap: () => _pickTheme(context, ref, themeMode),
             ),
+            const Divider(height: 1),
+            // Both app stores want these reachable in the app (2026-10-28).
+            ListTile(
+              leading: const Icon(Icons.privacy_tip_outlined),
+              title: Text(t['account.privacy']!),
+              onTap: () => openSitePage(outerContext, 'privacy-policy'),
+            ),
+            if (account != null)
+              ListTile(
+                leading: const Icon(Icons.person_remove_outlined),
+                title: Text(t['account.delete']!),
+                onTap: () {
+                  close();
+                  requestAccountDeletion(outerContext, outerRef);
+                },
+              ),
             const Divider(height: 1),
             if (account?.accountType == AccountType.staff)
               ListTile(

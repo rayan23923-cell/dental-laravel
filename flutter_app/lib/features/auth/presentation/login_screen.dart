@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/widgets/account_privacy_actions.dart';
 import '../../../core/config/server_settings_controller.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
@@ -392,6 +393,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       child: isLoading
                           ? const InstagramSpinner(size: 20, strokeWidth: 2)
                           : Text(t['auth.signIn']!),
+                    ),
+                    // Privacy policy before signing in, as the app stores want (2026-10-28).
+                    Center(
+                      child: TextButton(
+                        onPressed: () => openSitePage(context, 'privacy-policy'),
+                        child: Text(t['account.privacy']!, style: const TextStyle(fontSize: 12)),
+                      ),
                     ),
                     // Server connection: green/red, tap to reconnect (2026-10-22).
                     const SizedBox(height: 12),

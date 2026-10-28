@@ -120,6 +120,15 @@ Route::get('/privacy-policy', function () {
     return view('privacy-policy', ['clinic' => ClinicSetting::current()]);
 })->name('privacy-policy');
 
+// The other public pages the app stores ask for (2026-10-28): account
+// deletion (Google Play's "delete account URL"), support (App Store's
+// "Support URL") and terms. Same plain Blade frame as the privacy policy.
+Route::get('/delete-account', [\App\Http\Controllers\AccountDeletionController::class, 'show'])->name('account-deletion.show');
+Route::post('/delete-account', [\App\Http\Controllers\AccountDeletionController::class, 'store'])
+    ->middleware('throttle:5,1')->name('account-deletion.store');
+Route::get('/support', fn () => view('legal.support', ['clinic' => ClinicSetting::current()]))->name('support');
+Route::get('/terms', fn () => view('legal.terms', ['clinic' => ClinicSetting::current()]))->name('terms');
+
 // Plain Blade, same reasoning as /privacy-policy above. Reads both
 // platforms' versions from App\Support\AppReleases (the builds the Flutter
 // workflow published, else config/desktop_releases.php) so this

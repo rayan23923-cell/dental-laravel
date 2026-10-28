@@ -82,5 +82,9 @@
 	<string>مطلوب إذن قراءة NFC لقراءة بطاقة الطبيب.</string>
 	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
 	<array/>
+	<!-- App Store (2026-10-28): only standard HTTPS, no own encryption, so
+	     no export-compliance question on every upload. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

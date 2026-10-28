@@ -53,7 +53,9 @@ class DesktopUpdateChecker {
   /// Turned off from the profile page; on by default.
   static const autoCheckKey = 'app_update.auto_check';
 
-  static bool get isSupported => !kIsWeb && (Platform.isWindows || Platform.isAndroid || Platform.isIOS);
+  // Never in a store build: the store updates it (AppConfig.storeBuild).
+  static bool get isSupported =>
+      !kIsWeb && !AppConfig.storeBuild && (Platform.isWindows || Platform.isAndroid || Platform.isIOS);
 
   /// Whether this platform can install the update itself.
   static bool get canSelfInstall => Platform.isWindows || Platform.isAndroid;

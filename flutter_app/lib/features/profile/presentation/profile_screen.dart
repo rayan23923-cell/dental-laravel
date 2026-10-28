@@ -14,6 +14,7 @@ import '../../../core/security/app_lock.dart';
 import '../../../core/updater/desktop_update_checker.dart';
 import '../../../core/updater/desktop_update_gate.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/account_privacy_actions.dart';
 import '../../../core/widgets/settings_list.dart';
 import '../../auth/domain/account_type.dart';
 import '../../auth/domain/auth_account.dart';
@@ -555,6 +556,50 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             ],
                           ),
                         ),
+                        Icon(Icons.chevron_left, color: scheme.onSurfaceVariant),
+                      ],
+                    ),
+                  ),
+                ),
+                // Privacy, terms and account deletion: both app stores want
+                // them reachable in the app (2026-10-28).
+                InkWell(
+                  onTap: () => openSitePage(context, 'privacy-policy'),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    child: Row(
+                      children: [
+                        const SettingsSectionIcon(icon: Icons.privacy_tip_outlined, color: Color(0xFF0EA5E9)),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text(t['account.privacy']!, style: const TextStyle(fontWeight: FontWeight.w600))),
+                        Icon(Icons.chevron_left, color: scheme.onSurfaceVariant),
+                      ],
+                    ),
+                  ),
+                ),
+                InkWell(
+                  onTap: () => openSitePage(context, 'terms'),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    child: Row(
+                      children: [
+                        const SettingsSectionIcon(icon: Icons.gavel_outlined, color: Color(0xFF64748B)),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text(t['account.terms']!, style: const TextStyle(fontWeight: FontWeight.w600))),
+                        Icon(Icons.chevron_left, color: scheme.onSurfaceVariant),
+                      ],
+                    ),
+                  ),
+                ),
+                InkWell(
+                  onTap: () => requestAccountDeletion(context, ref),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    child: Row(
+                      children: [
+                        const SettingsSectionIcon(icon: Icons.person_remove_outlined, color: Color(0xFFEF4444)),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text(t['account.delete']!, style: const TextStyle(fontWeight: FontWeight.w600))),
                         Icon(Icons.chevron_left, color: scheme.onSurfaceVariant),
                       ],
                     ),
