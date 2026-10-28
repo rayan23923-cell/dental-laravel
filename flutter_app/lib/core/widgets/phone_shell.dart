@@ -9,6 +9,7 @@ import '../../features/auth/domain/auth_account.dart';
 import '../../features/auth/presentation/auth_controller.dart';
 import '../../features/auth/presentation/auth_state.dart';
 import '../../features/notifications/presentation/notifications_providers.dart';
+import '../auth/staff_access.dart';
 import '../i18n/locale_controller.dart';
 import '../router/nav_destinations.dart';
 import '../theme/app_theme.dart';
@@ -95,7 +96,14 @@ class PhoneShell extends ConsumerWidget {
                 left: 16,
                 right: 16,
                 bottom: _TabBar.offsetFor(MediaQuery.paddingOf(context).bottom),
-                child: _TabBar(location: location),
+                child: Row(
+                  children: [
+                    Expanded(child: _TabBar(location: location)),
+                    // Quick actions beside the bar, as Telegram's round
+                    // button next to its tabs (2026-10-28).
+                    const _QuickActionsButton(),
+                  ],
+                ),
               ),
           ],
         ),
@@ -342,6 +350,150 @@ class _TabItem extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(color: color, fontSize: 11, fontWeight: selected ? FontWeight.w700 : FontWeight.w500),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One quick action of [_QuickActionsButton].
+class _QuickAction {
+  const _QuickAction(this.label, this.icon, this.color, this.route);
+  final String label;
+  final IconData icon;
+  final Color color;
+  final String route;
+}
+
+/// The round "+" beside the tab bar: the role's everyday actions one tap
+/// away from any screen (2026-10-28, by request). Only what the account
+/// may do; hidden when that leaves nothing (doctors have the scan tab).
+class _QuickActionsButton extends ConsumerWidget {
+  const _QuickActionsButton();
+
+  static List<_QuickAction> _actionsFor(StaffAccount account, Map<String, String> t) {
+    final registrations = staffCanOpen(account, '/records/patient-registrations');
+    return [
+      if (registrations && account.can('patients', 'create'))
+        _QuickAction(
+          t['patientRegFlutter.newRegistrationTitle']!,
+          Icons.person_add_alt_1_outlined,
+          Colors.indigo,
+          '/records/patient-registrations/new',
+        ),
+      if (registrations)
+        _QuickAction(
+          t['patientRegFlutter.scanPaymentCode']!,
+          Icons.qr_code_scanner,
+          Colors.orange,
+          '/records/patient-registrations/scan',
+        ),
+      if (staffCanOpen(account, '/lab'))
+        _QuickAction(t['lab.scanTicket']!, Icons.coronavirus_outlined, Colors.red, '/lab/scan'),
+      if (staffCanOpen(account, '/admin/doctors') && account.can('doctors', 'create'))
+        _QuickAction(t['doctorsAdmin.newTitle']!, Icons.school_outlined, Colors.green, '/admin/doctors/new'),
+      _QuickAction(t['search.title']!, Icons.search, Colors.blueGrey, '/search'),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authControllerProvider).valueOrNull;
+    final account = authState is Authenticated ? authState.account : null;
+    if (account is! StaffAccount) return const SizedBox.shrink();
+    final t = ref.watch(translationsProvider);
+    final actions = _actionsFor(account, t);
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(start: 10),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: dark ? 0.4 : 0.12),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: ClipOval(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+            child: Material(
+              color: theme.colorScheme.primary.withValues(alpha: 0.9),
+              child: InkWell(
+                onTap: () => _show(context, actions, t),
+                child: const SizedBox(
+                  width: _TabBar.height,
+                  height: _TabBar.height,
+                  child: Icon(Icons.add, color: Colors.white, size: 30),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _show(BuildContext context, List<_QuickAction> actions, Map<String, String> t) {
+    // Taken now: the sheet's own context is gone once it closes.
+    final router = GoRouter.of(context);
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(t['quick.title']!, style: Theme.of(sheetContext).textTheme.titleMedium),
+              ),
+              Wrap(
+                spacing: 12,
+                runSpacing: 16,
+                children: [
+                  for (final a in actions)
+                    SizedBox(
+                      width: 96,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () {
+                          Navigator.of(sheetContext).pop();
+                          router.push(a.route);
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Column(
+                            children: [
+                              CircleAvatar(
+                                radius: 26,
+                                backgroundColor: a.color.withValues(alpha: 0.14),
+                                child: Icon(a.icon, color: a.color, size: 26),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                a.label,
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ],
           ),
