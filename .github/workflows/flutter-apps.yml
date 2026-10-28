@@ -79,18 +79,22 @@ jobs:
       - run: cp build/app/outputs/flutter-apk/app-release.apk ../DentalClinicApp-android.apk
       - run: flutter build apk --release $BUILD_FLAGS --dart-define=API_BASE_URL=$API_BASE_URL $OFFLINE_DEFINES
       - run: cp build/app/outputs/flutter-apk/app-release.apk ../DentalClinicApp-offline-android.apk
-      # Google Play (2026-10-28): an app bundle without the in-app updater
-      # or its install permission (Play updates the app itself). Attached
-      # to the GitHub release only, never to /download.
-      - run: flutter build appbundle --release $BUILD_FLAGS --dart-define=API_BASE_URL=$API_BASE_URL --dart-define=STORE_BUILD=true --android-project-arg=storeBuild=true
-      - run: cp build/app/outputs/bundle/release/app-release.aab ../DentalClinicApp-play.aab
       - uses: actions/upload-artifact@v4
         with:
           name: android
           path: |
             DentalClinicApp-android.apk
             DentalClinicApp-offline-android.apk
-            DentalClinicApp-play.aab
+      # Google Play (2026-10-28): an app bundle without the in-app updater
+      # or its install permission (Play updates the app itself). Attached
+      # to the GitHub release only, never to /download; built after the
+      # APKs are saved so a failure here never holds back /download.
+      - run: flutter build appbundle --release $BUILD_FLAGS --dart-define=API_BASE_URL=$API_BASE_URL --dart-define=STORE_BUILD=true --android-project-arg=storeBuild=true
+      - run: cp build/app/outputs/bundle/release/app-release.aab ../DentalClinicApp-play.aab
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-play
+          path: DentalClinicApp-play.aab
       # Sent to Play's internal-testing track once the Play Console is set
       # up: add a service account's JSON key as the PLAY_SERVICE_ACCOUNT_JSON
       # secret (the very first bundle has to be uploaded by hand in the
