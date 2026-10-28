@@ -13,9 +13,9 @@ import '../auth/staff_access.dart';
 import '../i18n/locale_controller.dart';
 import '../router/nav_destinations.dart';
 import '../theme/app_theme.dart';
-import 'app_sidebar.dart';
+import '../updater/update_available.dart';
+import 'account_sheet.dart';
 import 'server_status_indicator.dart';
-import 'settings_menu_sheet.dart';
 
 /// Android/iPhone frame for the shell routes (2026-10-28, by request:
 /// "اضف فوتر وهيدر مشابه لتليجرام ووزع السايد بار على الهيدر والفوتر").
@@ -132,7 +132,7 @@ class _AccountButton extends ConsumerWidget {
       type: MaterialType.transparency,
       child: InkWell(
         borderRadius: BorderRadius.circular(_TabBar.height / 2),
-        onTap: () => _showAccountSheet(context, ref),
+        onTap: () => showAccountSheet(context, ref),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -153,6 +153,21 @@ class _AccountButton extends ConsumerWidget {
                   ),
                 ),
                 const PositionedDirectional(top: -2, end: -2, child: ServerStatusDot(size: 10)),
+                // A newer build is out: the same dot is on the sheet's update row.
+                if (ref.watch(updateAvailableProvider) != null)
+                  PositionedDirectional(
+                    top: -3,
+                    start: -3,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: InstagramColors.red,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: theme.colorScheme.surface, width: 2),
+                      ),
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 2),
@@ -169,59 +184,6 @@ class _AccountButton extends ConsumerWidget {
           ],
         ),
       ),
-    );
-  }
-
-  void _showAccountSheet(BuildContext context, WidgetRef ref) {
-    final t = ref.read(translationsProvider);
-    final authState = ref.read(authControllerProvider).valueOrNull;
-    final account = authState is Authenticated ? authState.account : null;
-    // Taken now: the sheet's own context is gone once it closes.
-    final router = GoRouter.of(context);
-
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        void close() => Navigator.of(sheetContext).pop();
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ProfileRow(
-                account: account,
-                onTap: () {
-                  close();
-                  router.push('/profile');
-                },
-              ),
-              const Padding(
-                padding: EdgeInsetsDirectional.only(start: 12, bottom: 4),
-                child: Align(alignment: AlignmentDirectional.centerStart, child: ServerStatusChip()),
-              ),
-              const Divider(height: 1),
-              if (account?.accountType == AccountType.staff)
-                ListTile(
-                  leading: const Icon(Icons.settings_outlined),
-                  title: Text(t['nav.settings']!),
-                  onTap: () {
-                    close();
-                    showAdminSettingsSheet(context);
-                  },
-                ),
-              ListTile(
-                leading: const Icon(Icons.logout, color: InstagramColors.red),
-                title: Text(t['nav.logout']!, style: const TextStyle(color: InstagramColors.red)),
-                onTap: () {
-                  close();
-                  confirmLogout(context, ref);
-                },
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 }
