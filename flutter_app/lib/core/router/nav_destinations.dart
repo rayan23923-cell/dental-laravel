@@ -12,10 +12,14 @@ class NavDestination {
     required this.label,
     required this.icon,
     required this.route,
+    this.selectedIcon,
     this.badgeCount,
   });
   final String label;
   final IconData icon;
+
+  /// Filled variant for the phone's bottom tab bar (2026-10-28).
+  final IconData? selectedIcon;
   final String route;
   final int? badgeCount;
 }
@@ -42,6 +46,7 @@ List<NavDestination> navDestinationsFor(
   final notifications = NavDestination(
     label: t['nav.notifications']!,
     icon: Icons.notifications_outlined,
+    selectedIcon: Icons.notifications,
     route: '/notifications',
     badgeCount: unreadNotifications > 0 ? unreadNotifications : null,
   );
@@ -51,11 +56,13 @@ List<NavDestination> navDestinationsFor(
       NavDestination(
         label: t['nav.home']!,
         icon: Icons.home_outlined,
+        selectedIcon: Icons.home,
         route: '/home',
       ),
       NavDestination(
         label: t['nav.caseSheets']!,
         icon: Icons.description_outlined,
+        selectedIcon: Icons.description,
         route: '/case-sheets',
       ),
       NavDestination(
@@ -71,18 +78,21 @@ List<NavDestination> navDestinationsFor(
     NavDestination(
       label: t['nav.home']!,
       icon: Icons.home_outlined,
+        selectedIcon: Icons.home,
       route: '/home',
     ),
     if (any(recordsRoutes))
       NavDestination(
         label: t['nav.records']!,
         icon: Icons.folder_shared_outlined,
+        selectedIcon: Icons.folder_shared,
         route: '/records',
       ),
     if (any(adminRoutes))
       NavDestination(
         label: t['nav.admin']!,
         icon: Icons.admin_panel_settings_outlined,
+        selectedIcon: Icons.admin_panel_settings,
         route: '/admin',
       ),
     notifications,

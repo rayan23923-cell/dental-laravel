@@ -104,7 +104,7 @@ class AppSidebar extends ConsumerWidget {
             ),
           ),
           Divider(height: 1, color: theme.dividerColor),
-          _ProfileRow(account: account, onTap: () => _go(context, '/profile')),
+          ProfileRow(account: account, onTap: () => _go(context, '/profile')),
           if (accountType == AccountType.staff)
             ListTile(
               leading: const Icon(Icons.settings_outlined),
@@ -117,33 +117,36 @@ class AppSidebar extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.logout, color: InstagramColors.red),
             title: Text(t['nav.logout']!, style: const TextStyle(color: InstagramColors.red)),
-            onTap: () => _confirmLogout(context, ref, t),
+            onTap: () => confirmLogout(context, ref, before: onNavigate),
           ),
           const SizedBox(height: 8),
         ],
       ),
     );
   }
+}
 
-  Future<void> _confirmLogout(BuildContext context, WidgetRef ref, Map<String, String> t) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t['nav.logoutConfirmTitle']!),
-        content: Text(t['nav.logoutConfirmBody']!),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(t['nav.cancel']!)),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(t['nav.logout']!, style: const TextStyle(color: InstagramColors.red)),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true) {
-      onNavigate?.call();
-      await ref.read(authControllerProvider.notifier).logout();
-    }
+/// Asks, then logs out — from the sidebar and the phone's account sheet.
+/// [before] runs once confirmed, ahead of the logout itself.
+Future<void> confirmLogout(BuildContext context, WidgetRef ref, {VoidCallback? before}) async {
+  final t = ref.read(translationsProvider);
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(t['nav.logoutConfirmTitle']!),
+      content: Text(t['nav.logoutConfirmBody']!),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(t['nav.cancel']!)),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text(t['nav.logout']!, style: const TextStyle(color: InstagramColors.red)),
+        ),
+      ],
+    ),
+  );
+  if (confirmed == true) {
+    before?.call();
+    await ref.read(authControllerProvider.notifier).logout();
   }
 }
 
@@ -205,8 +208,8 @@ class _NavRow extends StatelessWidget {
   }
 }
 
-class _ProfileRow extends StatelessWidget {
-  const _ProfileRow({required this.account, required this.onTap});
+class ProfileRow extends StatelessWidget {
+  const ProfileRow({required this.account, required this.onTap, super.key});
   final AuthAccount? account;
   final VoidCallback onTap;
 
