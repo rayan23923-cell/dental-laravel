@@ -36,6 +36,12 @@ if (file("google-services.json").exists()) {
     apply(plugin = "com.google.gms.google-services")
 }
 
+// Google Play build (2026-10-28): `flutter build appbundle
+// --dart-define=STORE_BUILD=true --android-project-arg=storeBuild=true`
+// merges src/store/AndroidManifest.xml, which drops the in-app updater's
+// install permission. The /download and offline APKs keep it.
+val storeBuild = (project.findProperty("storeBuild") as String?) == "true"
+
 android {
     namespace = "com.dentalclinic.dental_clinic_app"
     compileSdk = flutter.compileSdkVersion
@@ -77,6 +83,10 @@ android {
                 storePassword = keystoreProperties["storePassword"] as String
             }
         }
+    }
+
+    if (storeBuild) {
+        sourceSets.getByName("release").manifest.srcFile("src/store/AndroidManifest.xml")
     }
 
     buildTypes {

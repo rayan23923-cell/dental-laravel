@@ -1,32 +1,9 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>سياسة الخصوصية — {{ $clinic->clinic_name ?: 'عيادة الأسنان التعليمية' }}</title>
-    <style>
-        body {
-            font-family: -apple-system, "Segoe UI", Tahoma, Arial, sans-serif;
-            background: #0f172a;
-            color: #e2e8f0;
-            margin: 0;
-            padding: 2rem 1.25rem 4rem;
-            line-height: 1.9;
-        }
-        .wrap { max-width: 760px; margin: 0 auto; }
-        h1 { font-size: 1.6rem; margin-bottom: .25rem; }
-        .sub { color: #94a3b8; margin-bottom: 2.5rem; font-size: .95rem; }
-        h2 { font-size: 1.15rem; margin-top: 2.25rem; color: #38bdf8; }
-        p, li { color: #cbd5e1; }
-        ul { padding-inline-start: 1.4rem; }
-        a { color: #38bdf8; }
-        .updated { color: #64748b; font-size: .85rem; margin-top: 3rem; border-top: 1px solid #1e293b; padding-top: 1rem; }
-    </style>
-</head>
-<body>
-<div class="wrap">
-    <h1>سياسة الخصوصية</h1>
-    <p class="sub">{{ $clinic->clinic_name ?: 'عيادة الأسنان التعليمية' }} — {{ $clinic->college_name ?: 'كلية طب الأسنان' }}، {{ $clinic->university_name ?: '' }}</p>
+@extends('legal.layout')
+
+@section('title', 'سياسة الخصوصية')
+
+@section('content')
+
 
     <p>
         هذا التطبيق نظام داخلي تعليمي/سريري خاص بكلية طب الأسنان، يستخدمه
@@ -64,7 +41,11 @@
     <ul>
         <li><strong>الكاميرا:</strong> لمسح رموز QR الخاصة بالمهام والمرضى فقط.</li>
         <li><strong>الإشعارات:</strong> لتنبيه الطبيب عند بدء مهمة جديدة له.</li>
-        <li><strong>مكتبة الصور:</strong> لاختيار صورة الملف الشخصي فقط.</li>
+        <li><strong>مكتبة الصور:</strong> لاختيار صورة الملف الشخصي وصور الحالات فقط.</li>
+        <li><strong>البصمة أو Face ID:</strong> لقفل التطبيق اختياريًا. يتم التحقق على الجهاز نفسه، ولا تصل بيانات البصمة أو الوجه إلينا أبدًا.</li>
+        <li><strong>البلوتوث والموقع (أندرويد 11 وما قبله فقط):</strong> للبحث عن طابعة الإيصالات والاتصال بها. لا يُستخدم الموقع لأي غرض آخر ولا يُحفظ.</li>
+        <li><strong>NFC:</strong> لقراءة بطاقة الطبيب عند تقريبها من الهاتف.</li>
+        <li><strong>الشبكة المحلية:</strong> للاتصال بسيرفر العيادة المحلي عند العمل بدون إنترنت.</li>
     </ul>
 
     <h2>حذف البيانات</h2>
@@ -88,7 +69,8 @@
         للكلية بصرف النظر عن حذف حساب مُدخِلها.
     </p>
 
-    <p class="updated">آخر تحديث: {{ now()->format('Y-m-d') }}</p>
-</div>
-</body>
-</html>
+    <h2>الأطفال</h2>
+    <p>التطبيق مخصّص لطلاب الكلية وموظفيها البالغين، ولا يستهدف الأطفال.</p>
+
+    <p class="sub">آخر تحديث: 2026-10-28</p>
+@endsection

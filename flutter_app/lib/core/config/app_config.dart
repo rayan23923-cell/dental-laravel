@@ -57,6 +57,17 @@ class AppConfig {
     return 'http://localhost/dental_laravel/public/api/v1';
   }
 
+  /// A build for Google Play / the App Store (`--dart-define=STORE_BUILD=true`,
+  /// 2026-10-28): the stores deliver updates themselves and forbid an app
+  /// installing its own, so the in-app updater is off (see
+  /// `DesktopUpdateChecker.isSupported`). The /download and offline builds
+  /// keep it.
+  static const bool storeBuild = bool.fromEnvironment('STORE_BUILD');
+
+  /// The cloud site's public pages (privacy policy, terms, support, account
+  /// deletion) — the ones the store listings link to.
+  static String sitePage(String path) => '${cloudBaseUrl.replaceFirst(RegExp(r'/api/v1/?$'), '')}/$path';
+
   static const Duration connectTimeout = Duration(seconds: 10);
   static const Duration receiveTimeout = Duration(seconds: 10);
 
