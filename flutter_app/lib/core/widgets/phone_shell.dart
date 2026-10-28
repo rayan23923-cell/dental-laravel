@@ -51,6 +51,8 @@ class PhoneShell extends ConsumerWidget {
     // tab other than home returns home first, like Telegram, rather than
     // leaving the app.
     final atHome = location == '/home';
+    // From the screen's bottom edge to the bar's top.
+    final barSpace = _TabBar.offsetFor(MediaQuery.paddingOf(context).bottom) + _TabBar.height + 8;
 
     final appBarTheme = theme.appBarTheme.copyWith(
       centerTitle: true,
@@ -68,25 +70,39 @@ class PhoneShell extends ConsumerWidget {
         color: theme.scaffoldBackgroundColor,
         child: Stack(
           children: [
-            // The screen ends at the bar's top: running under it hid the
-            // last rows of every list whose own padding ignores the inset
-            // (2026-10-28, "يتم تغطية اخر قسم او اخر بيانات بالفوتر").
-            Padding(
-              padding: EdgeInsets.only(
-                bottom: keyboardOpen ? 0 : _TabBar.offsetFor(MediaQuery.paddingOf(context).bottom) + _TabBar.height + 6,
-              ),
-              child: SafeArea(
-                bottom: false,
-                child: MediaQuery.removePadding(
-                  context: context,
-                  removeTop: true,
-                  removeLeft: true,
-                  removeRight: true,
-                  removeBottom: !keyboardOpen,
-                  child: Theme(
-                    data: theme.copyWith(appBarTheme: appBarTheme),
-                    child: child,
-                  ),
+            // The screen runs under the glass bar, as on iPhone (2026-10-28,
+            // by request: "ازل الخلفية الخاصة بالفوتر والتزم بالتأثير
+            // الزجاجي"). So the bar still never hides the last rows
+            // ("يتم تغطية اخر قسم او اخر بيانات بالفوتر"), every vertical
+            // list may scroll [barSpace] past its end ([_BarClearancePhysics])
+            // and the bottom inset tells buttons and SafeAreas to stay above it.
+            SafeArea(
+              bottom: false,
+              child: MediaQuery.removePadding(
+                context: context,
+                removeTop: true,
+                removeLeft: true,
+                removeRight: true,
+                removeBottom: true,
+                child: Builder(
+                  builder: (context) {
+                    final media = MediaQuery.of(context);
+                    return MediaQuery(
+                      data: keyboardOpen
+                          ? media
+                          : media.copyWith(
+                              padding: media.padding.copyWith(bottom: barSpace),
+                              viewPadding: media.viewPadding.copyWith(bottom: barSpace),
+                            ),
+                      child: ScrollConfiguration(
+                        behavior: _BarClearanceBehavior(keyboardOpen ? 0 : barSpace),
+                        child: Theme(
+                          data: theme.copyWith(appBarTheme: appBarTheme),
+                          child: child,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
@@ -222,23 +238,31 @@ class _TabBar extends ConsumerWidget {
         borderRadius: radius,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: dark ? 0.4 : 0.12),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: dark ? 0.3 : 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       child: ClipRRect(
         borderRadius: radius,
+        // iPhone-style glass: a light, see-through tint over a strong blur
+        // with a bright rim, no solid fill (2026-10-28).
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
           child: Container(
             height: height,
             padding: const EdgeInsets.all(5),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surface.withValues(alpha: dark ? 0.62 : 0.72),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: dark
+                    ? [Colors.white.withValues(alpha: 0.14), Colors.white.withValues(alpha: 0.06)]
+                    : [Colors.white.withValues(alpha: 0.55), Colors.white.withValues(alpha: 0.32)],
+              ),
               borderRadius: radius,
-              border: Border.all(color: (dark ? Colors.white : Colors.black).withValues(alpha: 0.08), width: 0.8),
+              border: Border.all(color: Colors.white.withValues(alpha: dark ? 0.18 : 0.6), width: 0.8),
             ),
             child: Row(
               children: [
@@ -463,4 +487,50 @@ class _QuickActionsButton extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Lets each vertical list in the shell scroll [extra] past its end, so its
+/// last rows can come out from under the glass bar whatever padding the
+/// list itself uses.
+class _BarClearanceBehavior extends MaterialScrollBehavior {
+  const _BarClearanceBehavior(this.extra);
+  final double extra;
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) {
+    final physics = super.getScrollPhysics(context);
+    return extra > 0 ? _BarClearancePhysics(extra: extra, parent: physics) : physics;
+  }
+
+  @override
+  bool shouldNotify(_BarClearanceBehavior oldDelegate) => oldDelegate.extra != extra;
+}
+
+class _BarClearancePhysics extends ScrollPhysics {
+  const _BarClearancePhysics({required this.extra, super.parent});
+  final double extra;
+
+  @override
+  _BarClearancePhysics applyTo(ScrollPhysics? ancestor) =>
+      _BarClearancePhysics(extra: extra, parent: buildParent(ancestor));
+
+  ScrollMetrics _extended(ScrollMetrics position) => position.axis == Axis.vertical
+      ? position.copyWith(maxScrollExtent: position.maxScrollExtent + extra)
+      : position;
+
+  // Short pages too: their last rows may also sit under the bar.
+  @override
+  bool shouldAcceptUserOffset(ScrollMetrics position) => super.shouldAcceptUserOffset(_extended(position));
+
+  @override
+  double applyBoundaryConditions(ScrollMetrics position, double value) =>
+      super.applyBoundaryConditions(_extended(position), value);
+
+  @override
+  Simulation? createBallisticSimulation(ScrollMetrics position, double velocity) =>
+      super.createBallisticSimulation(_extended(position), velocity);
+
+  @override
+  double applyPhysicsToUserOffset(ScrollMetrics position, double offset) =>
+      super.applyPhysicsToUserOffset(_extended(position), offset);
 }
