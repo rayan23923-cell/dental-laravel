@@ -20,18 +20,16 @@ import 'settings_menu_sheet.dart';
 /// "اضف فوتر وهيدر مشابه لتليجرام ووزع السايد بار على الهيدر والفوتر").
 /// The sidebar is split the way Telegram lays out its own screens:
 /// - header: each screen's own AppBar, made flat with a centred title and
-///   a hairline under it, plus the account avatar on its leading corner
-///   (profile, server connection, settings, logout — tap for the sheet);
+///   a hairline under it;
 /// - footer: a floating glass tab bar with the sidebar's sections, the same list
-///   and permission filtering as the sidebar ([navDestinationsFor]).
+///   and permission filtering as the sidebar ([navDestinationsFor]), and the
+///   account avatar beside notifications (profile, server connection,
+///   settings, logout — tap for the sheet; moved there from the header by
+///   request, 2026-10-28: "حول البروفايل بجانب الاشعارات").
 /// Wide screens and Windows keep the sidebar (`AppShell`).
 class PhoneShell extends ConsumerWidget {
-  const PhoneShell({required this.child, required this.clearance, super.key});
+  const PhoneShell({required this.child, super.key});
   final Widget child;
-
-  /// Moves the AppBar's back arrow/title past the avatar (`AppShell`'s
-  /// `_MenuButtonClearance`), passed in to keep that class private there.
-  final Widget Function(Widget child) clearance;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -69,35 +67,26 @@ class PhoneShell extends ConsumerWidget {
         color: theme.scaffoldBackgroundColor,
         child: Stack(
           children: [
-            SafeArea(
-              bottom: false,
-              child: Stack(
-                children: [
-                  // The screen runs under the floating tab bar, as in
-                  // Telegram; its bottom padding is raised to the bar's top
-                  // so lists end and FABs sit above it. (The SafeArea's own
-                  // context, not the shell's — that one still carries the
-                  // status bar inset.)
-                  Builder(
-                    builder: (context) {
-                      final media = MediaQuery.of(context);
-                      final bottom = keyboardOpen
-                          ? media.padding.bottom
-                          : _TabBar.offsetFor(media.padding.bottom) + _TabBar.height + 8;
-                      return MediaQuery(
-                        data: media.copyWith(
-                          padding: media.padding.copyWith(bottom: bottom),
-                          viewPadding: media.viewPadding.copyWith(bottom: bottom),
-                        ),
-                        child: Theme(
-                          data: theme.copyWith(appBarTheme: appBarTheme),
-                          child: clearance(child),
-                        ),
-                      );
-                    },
+            // The screen ends at the bar's top: running under it hid the
+            // last rows of every list whose own padding ignores the inset
+            // (2026-10-28, "يتم تغطية اخر قسم او اخر بيانات بالفوتر").
+            Padding(
+              padding: EdgeInsets.only(
+                bottom: keyboardOpen ? 0 : _TabBar.offsetFor(MediaQuery.paddingOf(context).bottom) + _TabBar.height + 6,
+              ),
+              child: SafeArea(
+                bottom: false,
+                child: MediaQuery.removePadding(
+                  context: context,
+                  removeTop: true,
+                  removeLeft: true,
+                  removeRight: true,
+                  removeBottom: !keyboardOpen,
+                  child: Theme(
+                    data: theme.copyWith(appBarTheme: appBarTheme),
+                    child: child,
                   ),
-                  const PositionedDirectional(top: 8, start: 8, child: _AccountButton()),
-                ],
+                ),
               ),
             ),
             // Hidden while typing so the keyboard gets the room, as Telegram does.
@@ -115,7 +104,7 @@ class PhoneShell extends ConsumerWidget {
   }
 }
 
-/// The header's account avatar, with the server connection dot on it.
+/// The footer's account tab: avatar with the server connection dot on it.
 class _AccountButton extends ConsumerWidget {
   const _AccountButton();
 
@@ -134,30 +123,42 @@ class _AccountButton extends ConsumerWidget {
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
-        customBorder: const CircleBorder(),
+        borderRadius: BorderRadius.circular(_TabBar.height / 2),
         onTap: () => _showAccountSheet(context, ref),
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                padding: const EdgeInsets.all(2),
-                decoration: const BoxDecoration(gradient: InstagramColors.gradient, shape: BoxShape.circle),
-                child: CircleAvatar(
-                  backgroundColor: theme.colorScheme.surface,
-                  backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
-                  child: imageUrl == null
-                      ? Text(name.isNotEmpty ? name[0] : '?', style: theme.textTheme.titleSmall)
-                      : null,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  padding: const EdgeInsets.all(1.5),
+                  decoration: const BoxDecoration(gradient: InstagramColors.gradient, shape: BoxShape.circle),
+                  child: CircleAvatar(
+                    backgroundColor: theme.colorScheme.surface,
+                    backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
+                    child: imageUrl == null
+                        ? Text(name.isNotEmpty ? name[0] : '?', style: const TextStyle(fontSize: 12))
+                        : null,
+                  ),
                 ),
+                const PositionedDirectional(top: -2, end: -2, child: ServerStatusDot(size: 10)),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              ref.watch(translationsProvider)['nav.account']!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
               ),
-              const PositionedDirectional(top: 2, end: 2, child: ServerStatusDot(size: 11)),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -285,6 +286,7 @@ class _TabBar extends ConsumerWidget {
                       },
                     ),
                   ),
+                const Expanded(child: _AccountButton()),
               ],
             ),
           ),

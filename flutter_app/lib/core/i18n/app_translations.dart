@@ -167,6 +167,7 @@ const Map<String, String> kTranslationsAr = {
   'nav.scanQr': 'مسح QR',
   'nav.pendingTasksQr': 'رموز المهام المعلقة',
   'nav.myTasks': 'مهامي',
+  'nav.account': 'حسابي',
 
   'auth.subtitle1': 'المستشفى التعليمي لكلية طب الأسنان',
   'auth.subtitle2': 'جامعة تكريت',
@@ -1588,6 +1589,7 @@ const Map<String, String> kTranslationsEn = {
   'nav.scanQr': 'Scan QR',
   'nav.pendingTasksQr': 'Pending Task Codes',
   'nav.myTasks': 'My Tasks',
+  'nav.account': 'Account',
 
   'auth.subtitle1': 'Teaching Hospital, College of Dentistry',
   'auth.subtitle2': 'Tikrit University',
