@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/locale_controller.dart';
+import 'notification_target.dart';
 import 'notifications_providers.dart';
 
 /// New-notification alerts while the app is open (2026-10-14, by request):
@@ -92,7 +93,15 @@ class _NotificationAlertsState extends ConsumerState<NotificationAlerts> with Wi
                 ),
               ],
             ),
-            action: SnackBarAction(label: t['notifications.view']!, onPressed: () => context.push('/notifications')),
+            // One new notification opens what it is about directly
+            // (2026-10-28, by request); several open the inbox.
+            action: SnackBarAction(
+              label: t['notifications.view']!,
+              onPressed: () async {
+                if (fresh.length == 1 && await openNotification(context, ref, first)) return;
+                if (context.mounted) context.push('/notifications');
+              },
+            ),
           ),
         );
     });

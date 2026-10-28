@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/notification_repository.dart';
 import '../domain/app_notification.dart';
+import 'notification_target.dart';
 import 'notifications_providers.dart';
 
 /// The notification inbox — reached from the bell icon on `HomeScreen`.
@@ -118,20 +118,8 @@ class _NotificationTile extends ConsumerWidget {
             Text(dateFormat.format(notification.createdAt), style: Theme.of(context).textTheme.bodySmall),
           ],
         ),
-        onTap: () async {
-          if (notification.isUnread) {
-            await ref.read(notificationRepositoryProvider).markRead(notification.id);
-            ref.invalidate(notificationsListProvider);
-          }
-          if (!context.mounted) return;
-          // Opens what it is about (2026-10-15, as on the web): the case, or
-          // the start requests (staff) / my tasks (doctor).
-          if (notification.taskInstanceId != null) {
-            context.push('/tasks/${notification.taskInstanceId}');
-          } else if (notification.type == 'task_start_request') {
-            context.go(notification.kind == 'new' ? '/admin/task-progress?tab=requests' : '/home');
-          }
-        },
+        // Opens what it is about (see notification_target.dart).
+        onTap: () => openNotification(context, ref, notification),
       ),
     );
   }
