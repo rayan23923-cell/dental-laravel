@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/account_privacy_actions.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/config/server_settings_controller.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
@@ -307,15 +308,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(height: 24),
-                    Center(child: _Logo(logoUrl: branding?.logoUrl)),
+                    // Store builds keep their own logo and name before login
+                    // (see AppConfig.brandLogoAsset).
+                    Center(child: _Logo(logoUrl: AppConfig.storeBuild ? null : branding?.logoUrl)),
                     const SizedBox(height: 16),
                     Text(
-                      t['auth.subtitle1']!,
+                      t[AppConfig.storeBuild ? 'store.appName' : 'auth.subtitle1']!,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.titleMedium,
                     ),
                     Text(
-                      t['auth.subtitle2']!,
+                      t[AppConfig.storeBuild ? 'store.tagline' : 'auth.subtitle2']!,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodySmall,
                     ),
@@ -452,11 +455,11 @@ class _Logo extends StatelessWidget {
                 logoUrl!,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) => Image.asset(
-                  'assets/branding/app_logo.png',
+                  AppConfig.brandLogoAsset,
                   fit: BoxFit.cover,
                 ),
               )
-            : Image.asset('assets/branding/app_logo.png', fit: BoxFit.cover),
+            : Image.asset(AppConfig.brandLogoAsset, fit: BoxFit.cover),
       ),
     );
   }

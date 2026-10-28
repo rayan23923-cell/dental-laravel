@@ -198,6 +198,8 @@ const Map<String, String> kTranslationsAr = {
   'search.typeMore': 'اكتب حرفين على الأقل للبحث',
 
   'auth.subtitle1': 'المستشفى التعليمي لكلية طب الأسنان',
+  'store.appName': 'عيادة الأسنان',
+  'store.tagline': 'إدارة العيادات التعليمية',
   'auth.subtitle2': 'جامعة تكريت',
   'auth.loginPlaceholder': 'البريد الإلكتروني أو اسم المستخدم',
   'auth.passwordPlaceholder': 'كلمة المرور',
@@ -1648,6 +1650,8 @@ const Map<String, String> kTranslationsEn = {
   'search.typeMore': 'Type at least two letters to search',
 
   'auth.subtitle1': 'Teaching Hospital, College of Dentistry',
+  'store.appName': 'Dental Clinic',
+  'store.tagline': 'Teaching clinic management',
   'auth.subtitle2': 'Tikrit University',
   'auth.loginPlaceholder': 'Email or Username',
   'auth.passwordPlaceholder': 'Password',

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../core/i18n/locale_controller.dart';
 
 /// Shown while `authControllerProvider`'s session-restore is resolving.
@@ -139,7 +140,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                                 padding: const EdgeInsets.all(6),
                                 child: ClipOval(
                                   child: Image.asset(
-                                    'assets/branding/app_logo.png',
+                                    AppConfig.brandLogoAsset,
                                     fit: BoxFit.cover,
                                   ),
                                 ),
@@ -168,7 +169,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      t['splash.clinicName']!,
+                      t[AppConfig.storeBuild ? 'store.appName' : 'splash.clinicName']!,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: _goldSoft,
@@ -178,7 +179,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                       ),
                     ),
                     Text(
-                      t['splash.universityName']!,
+                      t[AppConfig.storeBuild ? 'store.tagline' : 'splash.universityName']!,
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 14,

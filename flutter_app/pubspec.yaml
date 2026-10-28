@@ -125,6 +125,8 @@ flutter:
 
   assets:
     - assets/branding/app_logo.png
+    # Store builds' neutral logo (AppConfig.brandLogoAsset).
+    - assets/branding/store_logo.png
     # New-notification chime (2026-10-14), see notification_alerts.dart.
     - assets/sounds/notify.wav
     - assets/fonts/Tajawal-Regular.ttf
