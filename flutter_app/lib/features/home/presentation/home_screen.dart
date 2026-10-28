@@ -191,6 +191,8 @@ class _StaffDashboard extends ConsumerWidget {
             color: colors.primary,
             icon: Icons.person,
             imageUrl: profileImageUrl,
+            // Opens the profile (2026-10-28, by request).
+            onTap: () => context.push('/profile'),
           ),
         ),
         const AcademicYearBanner(margin: EdgeInsets.only(top: 8)),
