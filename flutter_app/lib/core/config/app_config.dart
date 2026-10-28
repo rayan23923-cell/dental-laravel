@@ -64,6 +64,11 @@ class AppConfig {
   /// keep it.
   static const bool storeBuild = bool.fromEnvironment('STORE_BUILD');
 
+  /// The logo on the splash and login screens. Store builds are published
+  /// from a personal developer account, so they show the app's own neutral
+  /// logo, not the college's seal (2026-10-28).
+  static const String brandLogoAsset = storeBuild ? 'assets/branding/store_logo.png' : 'assets/branding/app_logo.png';
+
   /// The cloud site's public pages (privacy policy, terms, support, account
   /// deletion) — the ones the store listings link to.
   static String sitePage(String path) => '${cloudBaseUrl.replaceFirst(RegExp(r'/api/v1/?$'), '')}/$path';
