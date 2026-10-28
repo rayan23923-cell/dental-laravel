@@ -28,6 +28,7 @@ import '../../features/patient_registration/presentation/register_settings_scree
 import '../../features/permissions_admin/presentation/permission_edit_screen.dart';
 import '../../features/permissions_admin/presentation/permission_user_list_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/search/presentation/global_search_screen.dart';
 import '../../features/sessions/presentation/sessions_screen.dart';
 import '../../features/users_admin/presentation/user_edit_screen.dart';
 import '../../features/users_admin/presentation/user_form_screen.dart';
@@ -130,6 +131,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: '/scan', builder: (context, state) => const QrScanScreen()),
+      // One search for tickets, patients and students (2026-10-28).
+      GoRoute(path: '/search', builder: (context, state) => const GlobalSearchScreen()),
       // Must be registered before the ShellRoute's own `/case-sheets/:resource`
       // below — go_router matches routes in overall declaration order, so a
       // `:resource` route reached first would otherwise swallow this static

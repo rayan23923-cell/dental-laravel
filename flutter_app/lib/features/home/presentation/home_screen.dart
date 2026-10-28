@@ -45,7 +45,18 @@ class HomeScreen extends ConsumerWidget {
       // persistent sidebar (AppSidebar) — see this file's own doc comment
       // above for the account-type branching that already drove these same
       // destinations, now surfaced once in the sidebar instead of per-screen.
-      appBar: AppBar(title: Text(isDoctor ? t['nav.myTasks']! : t['nav.home']!)),
+      appBar: AppBar(
+        title: Text(isDoctor ? t['nav.myTasks']! : t['nav.home']!),
+        // One search for tickets, patients and students (2026-10-28).
+        actions: [
+          if (!isDoctor)
+            IconButton(
+              tooltip: t['search.title'],
+              icon: const Icon(Icons.search),
+              onPressed: () => context.push('/search'),
+            ),
+        ],
+      ),
       floatingActionButton: isDoctor
           ? FloatingActionButton.extended(
               onPressed: () => context.push('/scan'),

@@ -32,7 +32,16 @@ class RecordsHubScreen extends ConsumerWidget {
     ].where((item) => account is! StaffAccount || staffCanOpen(account, item.$3)).toList();
 
     return Scaffold(
-      appBar: AppBar(title: Text(t['nav.records']!)),
+      appBar: AppBar(
+        title: Text(t['nav.records']!),
+        actions: [
+          IconButton(
+            tooltip: t['search.title'],
+            icon: const Icon(Icons.search),
+            onPressed: () => context.push('/search'),
+          ),
+        ],
+      ),
       body: ListView.separated(
         padding: const EdgeInsets.all(12),
         itemCount: items.length,
