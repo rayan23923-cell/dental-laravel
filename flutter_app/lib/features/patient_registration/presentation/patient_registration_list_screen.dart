@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/widgets/swipe_actions.dart';
 import '../../../core/auth/staff_access.dart';
 import '../../../core/platform/platform_support.dart';
 import '../../../core/i18n/locale_controller.dart';
@@ -456,7 +457,27 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                       // Chat-list row (2026-10-13, by request): name, phone,
                       // service/day chips and the screening status chip.
                       final selectable = _selecting && canArchive;
-                      return ChatListTile(
+                      final swipable = !widget.pickMode && !_archived && !selectable;
+                      // Swipe for the row's actions (2026-10-28, by request).
+                      return SwipeActions(
+                        rowKey: ValueKey('registration-${r.id}'),
+                        start: swipable && canPrintTickets
+                            ? SwipeAction(
+                                icon: Icons.print_outlined,
+                                label: t['patientRegFlutter.reprintTicket']!,
+                                color: Colors.indigo,
+                                onTriggered: () => _reprintTicket(context, r),
+                              )
+                            : null,
+                        end: swipable
+                            ? SwipeAction(
+                                icon: Icons.qr_code_2,
+                                label: t['patientRegFlutter.paymentCodeTooltip']!,
+                                color: Colors.teal,
+                                onTriggered: () => _showQrDialog(context, r),
+                              )
+                            : null,
+                        child: ChatListTile(
                         title: r.name,
                         color: chatToneFor(r.id),
                         icon: Icons.person_outline,
@@ -498,6 +519,7 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                                   onPressed: () => _showQrDialog(context, r),
                                 ),
                               ],
+                        ),
                       );
                     },
                   ),

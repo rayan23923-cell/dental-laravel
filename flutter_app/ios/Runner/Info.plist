@@ -48,6 +48,8 @@
 	<!-- mobile_scanner (QR check-in, features/task_instances/presentation/qr_scan_screen.dart)
 	     and image_picker's camera-capture path (doctor/surgery photos) both
 	     trigger this same system prompt — one description covers both. -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>يُستخدم Face ID لفتح التطبيق بدل كلمة المرور.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>مطلوب الوصول إلى الكاميرا لمسح رمز QR أو التقاط صورة.</string>
 	<!-- image_picker's gallery-pick path (doctor photo upload, surgery image

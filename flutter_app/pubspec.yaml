@@ -49,6 +49,7 @@ dependencies:
   intl: ^0.20.2                  # Arabic/Gregorian date formatting (pinned by flutter_localizations)
   nfc_manager: ^4.1.1
   shared_preferences: ^2.5.5
+  local_auth: ^2.3.0             # optional fingerprint / Face ID app lock (2026-10-28)
   permission_handler: ^13.0.1
   connectivity_plus: ^6.1.3       # detects the offline->online edge to trigger case-sheet sync
   # Push notifications (task-started alerts) — inert until a real Firebase

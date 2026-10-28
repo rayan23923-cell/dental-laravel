@@ -116,10 +116,7 @@ class _AppShellState extends State<AppShell>
     // drawer (2026-10-28, by request). A narrow Windows window keeps it.
     final platform = theme.platform;
     if (platform == TargetPlatform.android || platform == TargetPlatform.iOS) {
-      return PhoneShell(
-        clearance: (child) => _MenuButtonClearance(child: child),
-        child: widget.child,
-      );
+      return PhoneShell(child: widget.child);
     }
 
     final rtl = Directionality.of(context) == TextDirection.rtl;

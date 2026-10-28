@@ -9,6 +9,7 @@ import '../../features/auth/domain/auth_account.dart';
 import '../../features/auth/presentation/auth_controller.dart';
 import '../../features/auth/presentation/auth_state.dart';
 import '../../features/notifications/presentation/notifications_providers.dart';
+import '../auth/staff_access.dart';
 import '../i18n/locale_controller.dart';
 import '../router/nav_destinations.dart';
 import '../theme/app_theme.dart';
@@ -20,18 +21,16 @@ import 'settings_menu_sheet.dart';
 /// "اضف فوتر وهيدر مشابه لتليجرام ووزع السايد بار على الهيدر والفوتر").
 /// The sidebar is split the way Telegram lays out its own screens:
 /// - header: each screen's own AppBar, made flat with a centred title and
-///   a hairline under it, plus the account avatar on its leading corner
-///   (profile, server connection, settings, logout — tap for the sheet);
+///   a hairline under it;
 /// - footer: a floating glass tab bar with the sidebar's sections, the same list
-///   and permission filtering as the sidebar ([navDestinationsFor]).
+///   and permission filtering as the sidebar ([navDestinationsFor]), and the
+///   account avatar beside notifications (profile, server connection,
+///   settings, logout — tap for the sheet; moved there from the header by
+///   request, 2026-10-28: "حول البروفايل بجانب الاشعارات").
 /// Wide screens and Windows keep the sidebar (`AppShell`).
 class PhoneShell extends ConsumerWidget {
-  const PhoneShell({required this.child, required this.clearance, super.key});
+  const PhoneShell({required this.child, super.key});
   final Widget child;
-
-  /// Moves the AppBar's back arrow/title past the avatar (`AppShell`'s
-  /// `_MenuButtonClearance`), passed in to keep that class private there.
-  final Widget Function(Widget child) clearance;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -69,35 +68,26 @@ class PhoneShell extends ConsumerWidget {
         color: theme.scaffoldBackgroundColor,
         child: Stack(
           children: [
-            SafeArea(
-              bottom: false,
-              child: Stack(
-                children: [
-                  // The screen runs under the floating tab bar, as in
-                  // Telegram; its bottom padding is raised to the bar's top
-                  // so lists end and FABs sit above it. (The SafeArea's own
-                  // context, not the shell's — that one still carries the
-                  // status bar inset.)
-                  Builder(
-                    builder: (context) {
-                      final media = MediaQuery.of(context);
-                      final bottom = keyboardOpen
-                          ? media.padding.bottom
-                          : _TabBar.offsetFor(media.padding.bottom) + _TabBar.height + 8;
-                      return MediaQuery(
-                        data: media.copyWith(
-                          padding: media.padding.copyWith(bottom: bottom),
-                          viewPadding: media.viewPadding.copyWith(bottom: bottom),
-                        ),
-                        child: Theme(
-                          data: theme.copyWith(appBarTheme: appBarTheme),
-                          child: clearance(child),
-                        ),
-                      );
-                    },
+            // The screen ends at the bar's top: running under it hid the
+            // last rows of every list whose own padding ignores the inset
+            // (2026-10-28, "يتم تغطية اخر قسم او اخر بيانات بالفوتر").
+            Padding(
+              padding: EdgeInsets.only(
+                bottom: keyboardOpen ? 0 : _TabBar.offsetFor(MediaQuery.paddingOf(context).bottom) + _TabBar.height + 6,
+              ),
+              child: SafeArea(
+                bottom: false,
+                child: MediaQuery.removePadding(
+                  context: context,
+                  removeTop: true,
+                  removeLeft: true,
+                  removeRight: true,
+                  removeBottom: !keyboardOpen,
+                  child: Theme(
+                    data: theme.copyWith(appBarTheme: appBarTheme),
+                    child: child,
                   ),
-                  const PositionedDirectional(top: 8, start: 8, child: _AccountButton()),
-                ],
+                ),
               ),
             ),
             // Hidden while typing so the keyboard gets the room, as Telegram does.
@@ -106,7 +96,14 @@ class PhoneShell extends ConsumerWidget {
                 left: 16,
                 right: 16,
                 bottom: _TabBar.offsetFor(MediaQuery.paddingOf(context).bottom),
-                child: _TabBar(location: location),
+                child: Row(
+                  children: [
+                    Expanded(child: _TabBar(location: location)),
+                    // Quick actions beside the bar, as Telegram's round
+                    // button next to its tabs (2026-10-28).
+                    const _QuickActionsButton(),
+                  ],
+                ),
               ),
           ],
         ),
@@ -115,7 +112,7 @@ class PhoneShell extends ConsumerWidget {
   }
 }
 
-/// The header's account avatar, with the server connection dot on it.
+/// The footer's account tab: avatar with the server connection dot on it.
 class _AccountButton extends ConsumerWidget {
   const _AccountButton();
 
@@ -134,30 +131,42 @@ class _AccountButton extends ConsumerWidget {
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
-        customBorder: const CircleBorder(),
+        borderRadius: BorderRadius.circular(_TabBar.height / 2),
         onTap: () => _showAccountSheet(context, ref),
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                padding: const EdgeInsets.all(2),
-                decoration: const BoxDecoration(gradient: InstagramColors.gradient, shape: BoxShape.circle),
-                child: CircleAvatar(
-                  backgroundColor: theme.colorScheme.surface,
-                  backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
-                  child: imageUrl == null
-                      ? Text(name.isNotEmpty ? name[0] : '?', style: theme.textTheme.titleSmall)
-                      : null,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  padding: const EdgeInsets.all(1.5),
+                  decoration: const BoxDecoration(gradient: InstagramColors.gradient, shape: BoxShape.circle),
+                  child: CircleAvatar(
+                    backgroundColor: theme.colorScheme.surface,
+                    backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
+                    child: imageUrl == null
+                        ? Text(name.isNotEmpty ? name[0] : '?', style: const TextStyle(fontSize: 12))
+                        : null,
+                  ),
                 ),
+                const PositionedDirectional(top: -2, end: -2, child: ServerStatusDot(size: 10)),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              ref.watch(translationsProvider)['nav.account']!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
               ),
-              const PositionedDirectional(top: 2, end: 2, child: ServerStatusDot(size: 11)),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -285,6 +294,7 @@ class _TabBar extends ConsumerWidget {
                       },
                     ),
                   ),
+                const Expanded(child: _AccountButton()),
               ],
             ),
           ),
@@ -340,6 +350,150 @@ class _TabItem extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(color: color, fontSize: 11, fontWeight: selected ? FontWeight.w700 : FontWeight.w500),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One quick action of [_QuickActionsButton].
+class _QuickAction {
+  const _QuickAction(this.label, this.icon, this.color, this.route);
+  final String label;
+  final IconData icon;
+  final Color color;
+  final String route;
+}
+
+/// The round "+" beside the tab bar: the role's everyday actions one tap
+/// away from any screen (2026-10-28, by request). Only what the account
+/// may do; hidden when that leaves nothing (doctors have the scan tab).
+class _QuickActionsButton extends ConsumerWidget {
+  const _QuickActionsButton();
+
+  static List<_QuickAction> _actionsFor(StaffAccount account, Map<String, String> t) {
+    final registrations = staffCanOpen(account, '/records/patient-registrations');
+    return [
+      if (registrations && account.can('patients', 'create'))
+        _QuickAction(
+          t['patientRegFlutter.newRegistrationTitle']!,
+          Icons.person_add_alt_1_outlined,
+          Colors.indigo,
+          '/records/patient-registrations/new',
+        ),
+      if (registrations)
+        _QuickAction(
+          t['patientRegFlutter.scanPaymentCode']!,
+          Icons.qr_code_scanner,
+          Colors.orange,
+          '/records/patient-registrations/scan',
+        ),
+      if (staffCanOpen(account, '/lab'))
+        _QuickAction(t['lab.scanTicket']!, Icons.coronavirus_outlined, Colors.red, '/lab/scan'),
+      if (staffCanOpen(account, '/admin/doctors') && account.can('doctors', 'create'))
+        _QuickAction(t['doctorsAdmin.newTitle']!, Icons.school_outlined, Colors.green, '/admin/doctors/new'),
+      _QuickAction(t['search.title']!, Icons.search, Colors.blueGrey, '/search'),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authControllerProvider).valueOrNull;
+    final account = authState is Authenticated ? authState.account : null;
+    if (account is! StaffAccount) return const SizedBox.shrink();
+    final t = ref.watch(translationsProvider);
+    final actions = _actionsFor(account, t);
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(start: 10),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: dark ? 0.4 : 0.12),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: ClipOval(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+            child: Material(
+              color: theme.colorScheme.primary.withValues(alpha: 0.9),
+              child: InkWell(
+                onTap: () => _show(context, actions, t),
+                child: const SizedBox(
+                  width: _TabBar.height,
+                  height: _TabBar.height,
+                  child: Icon(Icons.add, color: Colors.white, size: 30),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _show(BuildContext context, List<_QuickAction> actions, Map<String, String> t) {
+    // Taken now: the sheet's own context is gone once it closes.
+    final router = GoRouter.of(context);
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(t['quick.title']!, style: Theme.of(sheetContext).textTheme.titleMedium),
+              ),
+              Wrap(
+                spacing: 12,
+                runSpacing: 16,
+                children: [
+                  for (final a in actions)
+                    SizedBox(
+                      width: 96,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () {
+                          Navigator.of(sheetContext).pop();
+                          router.push(a.route);
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Column(
+                            children: [
+                              CircleAvatar(
+                                radius: 26,
+                                backgroundColor: a.color.withValues(alpha: 0.14),
+                                child: Icon(a.icon, color: a.color, size: 26),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                a.label,
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ],
           ),

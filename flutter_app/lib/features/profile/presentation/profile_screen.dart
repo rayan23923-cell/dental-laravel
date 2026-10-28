@@ -10,6 +10,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../core/config/server_settings_controller.dart';
 import '../../../core/i18n/locale_controller.dart';
+import '../../../core/security/app_lock.dart';
 import '../../../core/updater/desktop_update_checker.dart';
 import '../../../core/updater/desktop_update_gate.dart';
 import '../../../core/network/api_exception.dart';
@@ -405,6 +406,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ],
                 ),
+                // Fingerprint / Face ID lock (2026-10-28, by request).
+                if (AppLockController.isSupportedPlatform)
+                  SettingsSection(
+                    icon: Icons.fingerprint,
+                    color: const Color(0xFF10B981),
+                    title: t['appLock.title']!,
+                    summary: ref.watch(appLockProvider).enabled ? t['appLock.toggle']! : '',
+                    open: _open == 'lock',
+                    onToggle: () => _toggle('lock'),
+                    children: [
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: ref.watch(appLockProvider).enabled,
+                        title: Text(t['appLock.toggle']!),
+                        subtitle: Text(t['appLock.hint']!),
+                        onChanged: (v) async {
+                          final lock = ref.read(appLockProvider.notifier);
+                          final messenger = ScaffoldMessenger.of(context);
+                          if (v && !await lock.deviceSupported()) {
+                            messenger.showSnackBar(SnackBar(content: Text(t['appLock.unsupported']!)));
+                            return;
+                          }
+                          await lock.setEnabled(v, t['appLock.reason']!);
+                        },
+                      ),
+                    ],
+                  ),
                 // In-app updates (2026-10-17, by request): Windows and
                 // Android install from the clinic server, no store needed.
                 if (DesktopUpdateChecker.isSupported)

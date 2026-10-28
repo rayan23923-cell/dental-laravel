@@ -10,6 +10,7 @@ import '../../../../core/auth/staff_access.dart';
 import '../../../../core/i18n/locale_controller.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/widgets/swipe_actions.dart';
 import '../../../../core/pdf/pdf_letterhead.dart';
 import '../../../../core/platform/platform_support.dart';
 import '../../../../core/widgets/chat_list_tile.dart';
@@ -320,7 +321,16 @@ class _PaymentTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider);
     final currency = ref.watch(clinicSettingsProvider).valueOrNull?.currency;
-    return ChatListTile(
+    // Swipe to print the receipt (2026-10-28, by request).
+    return SwipeActions(
+      rowKey: ValueKey('payment-${payment.id}'),
+      start: SwipeAction(
+        icon: Icons.receipt_long_outlined,
+        label: t['payments.printReceipt']!,
+        color: Colors.green,
+        onTriggered: () => showPaymentReceiptOptions(context, ref, payment),
+      ),
+      child: ChatListTile(
       title: payment.personName,
       color: payment.isLabFee ? Colors.purple : Colors.green,
       icon: payment.isLabFee ? Icons.biotech_outlined : Icons.payments_outlined,
@@ -346,6 +356,7 @@ class _PaymentTile extends ConsumerWidget {
         ),
       ],
       onTap: () => context.push('/records/payments/${payment.id}'),
+      ),
     );
   }
 }
