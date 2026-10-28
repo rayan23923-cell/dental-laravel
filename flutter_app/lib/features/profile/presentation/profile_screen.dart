@@ -222,6 +222,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final photo = _photoPreview != null
         ? MemoryImage(_photoPreview!)
         : (currentPhotoUrl != null ? NetworkImage(currentPhotoUrl) : null) as ImageProvider?;
+    final platform = Theme.of(context).platform;
+    final phoneLayout = MediaQuery.sizeOf(context).width < 900 &&
+        (platform == TargetPlatform.android || platform == TargetPlatform.iOS);
     final languageLabel = switch (_locale) {
       'ar' => t['profile.languageAr']!,
       'en' => t['profile.languageEn']!,
@@ -341,31 +344,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     saveButton(t['profile.saveChanges']!, _savingInfo, () => _saveInfo(account.accountType)),
                   ],
                 ),
-                SettingsSection(
-                  icon: Icons.translate,
-                  color: const Color(0xFF0EA5E9),
-                  title: t['profile.language']!,
-                  summary: languageLabel,
-                  open: _open == 'language',
-                  onToggle: () => _toggle('language'),
-                  children: [
-                    RadioGroup<String>(
-                      groupValue: _locale,
-                      onChanged: (v) => setState(() => _locale = v ?? ''),
-                      child: Column(
-                        children: [
-                          for (final (value, label) in [
-                            ('', t['profile.languageSystem']!),
-                            ('ar', t['profile.languageAr']!),
-                            ('en', t['profile.languageEn']!),
-                          ])
-                            RadioListTile<String>(contentPadding: EdgeInsets.zero, value: value, title: Text(label)),
-                        ],
+                // On the phone layout the language moved to the footer's
+                // account sheet (2026-10-28, by request).
+                if (!phoneLayout)
+                  SettingsSection(
+                    icon: Icons.translate,
+                    color: const Color(0xFF0EA5E9),
+                    title: t['profile.language']!,
+                    summary: languageLabel,
+                    open: _open == 'language',
+                    onToggle: () => _toggle('language'),
+                    children: [
+                      RadioGroup<String>(
+                        groupValue: _locale,
+                        onChanged: (v) => setState(() => _locale = v ?? ''),
+                        child: Column(
+                          children: [
+                            for (final (value, label) in [
+                              ('', t['profile.languageSystem']!),
+                              ('ar', t['profile.languageAr']!),
+                              ('en', t['profile.languageEn']!),
+                            ])
+                              RadioListTile<String>(contentPadding: EdgeInsets.zero, value: value, title: Text(label)),
+                          ],
+                        ),
                       ),
-                    ),
-                    saveButton(t['profile.saveChanges']!, _savingInfo, () => _saveInfo(account.accountType)),
-                  ],
-                ),
+                      saveButton(t['profile.saveChanges']!, _savingInfo, () => _saveInfo(account.accountType)),
+                    ],
+                  ),
                 SettingsSection(
                   icon: Icons.lock_outline,
                   color: const Color(0xFFF59E0B),

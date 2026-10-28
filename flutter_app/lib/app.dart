@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/router/app_router.dart';
 import 'core/security/app_lock.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_mode_controller.dart';
 import 'core/updater/desktop_update_gate.dart';
 import 'core/widgets/server_status_indicator.dart';
 import 'features/case_sheet_forms/data/case_sheet_sync_service.dart';
@@ -31,7 +32,8 @@ class App extends ConsumerWidget {
       // palette.
       theme: instagramLightTheme,
       darkTheme: instagramDarkTheme,
-      themeMode: ThemeMode.system,
+      // Chosen in the account sheet (2026-10-28); system by default.
+      themeMode: ref.watch(themeModeProvider),
       locale: const Locale('ar'),
       supportedLocales: const [Locale('ar'), Locale('en')],
       localizationsDelegates: const [

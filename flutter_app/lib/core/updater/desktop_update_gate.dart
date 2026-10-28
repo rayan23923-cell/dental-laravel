@@ -2,35 +2,41 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../router/app_router.dart';
 import 'desktop_update_checker.dart';
+import 'update_available.dart';
 
 /// Wraps the app's root widget and checks once on startup for a newer
 /// build (Windows, and since 2026-10-17 Android and iPhone), unless turned
 /// off on the profile page. See [DesktopUpdateChecker] for the
 /// check/download/install flow.
-class DesktopUpdateGate extends StatefulWidget {
+class DesktopUpdateGate extends ConsumerStatefulWidget {
   const DesktopUpdateGate({required this.child, super.key});
 
   final Widget child;
 
   @override
-  State<DesktopUpdateGate> createState() => _DesktopUpdateGateState();
+  ConsumerState<DesktopUpdateGate> createState() => _DesktopUpdateGateState();
 }
 
-class _DesktopUpdateGateState extends State<DesktopUpdateGate> {
+class _DesktopUpdateGateState extends ConsumerState<DesktopUpdateGate> {
   @override
   void initState() {
     super.initState();
     if (!kIsWeb && DesktopUpdateChecker.isSupported) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (await DesktopUpdateChecker.autoCheckEnabled() && mounted) {
-          final info = await DesktopUpdateChecker.checkForUpdate();
+        // Always checked quietly, for the badge on the account tab
+        // (2026-10-28); the dialog only when auto-check is on.
+        final info = await DesktopUpdateChecker.checkForUpdate();
+        if (!mounted) return;
+        ref.read(updateAvailableProvider.notifier).state = info;
+        if (info != null && await DesktopUpdateChecker.autoCheckEnabled() && mounted) {
           // This widget sits above the router's Navigator, so the dialogs
           // use the navigator's own context.
           final navContext = rootNavigatorKey.currentContext;
-          if (info != null && navContext != null && navContext.mounted) await AppUpdateFlow.offer(navContext, info);
+          if (navContext != null && navContext.mounted) await AppUpdateFlow.offer(navContext, info);
         }
       });
     }
@@ -52,6 +58,7 @@ class AppUpdateFlow {
     try {
       final info = await DesktopUpdateChecker.checkForUpdate(throwOnError: true);
       if (!context.mounted) return;
+      ProviderScope.containerOf(context).read(updateAvailableProvider.notifier).state = info;
       if (info == null) {
         messenger.showSnackBar(const SnackBar(content: Text('التطبيق محدّث إلى آخر نسخة.')));
       } else {
