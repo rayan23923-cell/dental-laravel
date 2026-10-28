@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -20,7 +22,7 @@ import 'settings_menu_sheet.dart';
 /// - header: each screen's own AppBar, made flat with a centred title and
 ///   a hairline under it, plus the account avatar on its leading corner
 ///   (profile, server connection, settings, logout — tap for the sheet);
-/// - footer: a bottom tab bar with the sidebar's sections, the same list
+/// - footer: a floating glass tab bar with the sidebar's sections, the same list
 ///   and permission filtering as the sidebar ([navDestinationsFor]).
 /// Wide screens and Windows keep the sidebar (`AppShell`).
 class PhoneShell extends ConsumerWidget {
@@ -65,38 +67,47 @@ class PhoneShell extends ConsumerWidget {
       },
       child: ColoredBox(
         color: theme.scaffoldBackgroundColor,
-        child: Column(
+        child: Stack(
           children: [
-            Expanded(
-              child: SafeArea(
-                bottom: false,
-                child: Stack(
-                  children: [
-                    // The tab bar below takes the bottom inset (home
-                    // indicator), so the screen itself must not pad for it.
-                    // (The SafeArea's own context, not the shell's — that one
-                    // still carries the status bar inset.)
-                    Builder(
-                      builder: (context) => MediaQuery.removePadding(
-                        context: context,
-                        removeBottom: !keyboardOpen,
+            SafeArea(
+              bottom: false,
+              child: Stack(
+                children: [
+                  // The screen runs under the floating tab bar, as in
+                  // Telegram; its bottom padding is raised to the bar's top
+                  // so lists end and FABs sit above it. (The SafeArea's own
+                  // context, not the shell's — that one still carries the
+                  // status bar inset.)
+                  Builder(
+                    builder: (context) {
+                      final media = MediaQuery.of(context);
+                      final bottom = keyboardOpen
+                          ? media.padding.bottom
+                          : _TabBar.offsetFor(media.padding.bottom) + _TabBar.height + 8;
+                      return MediaQuery(
+                        data: media.copyWith(
+                          padding: media.padding.copyWith(bottom: bottom),
+                          viewPadding: media.viewPadding.copyWith(bottom: bottom),
+                        ),
                         child: Theme(
                           data: theme.copyWith(appBarTheme: appBarTheme),
                           child: clearance(child),
                         ),
-                      ),
-                    ),
-                    const PositionedDirectional(
-                      top: 8,
-                      start: 8,
-                      child: _AccountButton(),
-                    ),
-                  ],
-                ),
+                      );
+                    },
+                  ),
+                  const PositionedDirectional(top: 8, start: 8, child: _AccountButton()),
+                ],
               ),
             ),
             // Hidden while typing so the keyboard gets the room, as Telegram does.
-            if (!keyboardOpen) _TabBar(location: location),
+            if (!keyboardOpen)
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: _TabBar.offsetFor(MediaQuery.paddingOf(context).bottom),
+                child: _TabBar(location: location),
+              ),
           ],
         ),
       ),
@@ -206,10 +217,16 @@ class _AccountButton extends ConsumerWidget {
   }
 }
 
-/// The footer: Telegram-style bottom tabs, icon over a small label.
+/// The footer: a floating, rounded, frosted-glass tab bar (2026-10-28, by
+/// request: "اجعل فوتر يبدو طافيا وحواف دائرية وتأثير زجاجي مثل تليجرام").
 class _TabBar extends ConsumerWidget {
   const _TabBar({required this.location});
   final String location;
+
+  static const height = 64.0;
+
+  /// Gap under the bar: part of the home indicator's inset, or a margin.
+  static double offsetFor(double bottomInset) => bottomInset > 0 ? (bottomInset * 0.6).clamp(12.0, 28.0) : 12.0;
 
   // Full-screen flows outside the shell are pushed on top; the shell's own
   // sections are switched to.
@@ -218,6 +235,7 @@ class _TabBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
     final authState = ref.watch(authControllerProvider).valueOrNull;
     final account = authState is Authenticated ? authState.account : null;
     final destinations = navDestinationsFor(
@@ -226,17 +244,31 @@ class _TabBar extends ConsumerWidget {
       t: ref.watch(translationsProvider),
       account: account,
     );
+    final radius = BorderRadius.circular(height / 2);
 
-    return Material(
-      color: theme.colorScheme.surface,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: theme.dividerColor, width: 0.5)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: SizedBox(
-            height: 58,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: dark ? 0.4 : 0.12),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          child: Container(
+            height: height,
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface.withValues(alpha: dark ? 0.62 : 0.72),
+              borderRadius: radius,
+              border: Border.all(color: (dark ? Colors.white : Colors.black).withValues(alpha: 0.08), width: 0.8),
+            ),
             child: Row(
               children: [
                 for (final d in destinations)
@@ -274,31 +306,44 @@ class _TabItem extends StatelessWidget {
     final color = selected ? theme.colorScheme.primary : theme.colorScheme.onSurface.withValues(alpha: 0.6);
     final badge = destination.badgeCount;
 
-    return InkResponse(
-      onTap: onTap,
-      containedInkWell: true,
-      highlightShape: BoxShape.rectangle,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Badge(
-            isLabelVisible: badge != null,
-            label: Text(badge != null && badge > 99 ? '99+' : '${badge ?? ''}'),
-            backgroundColor: InstagramColors.red,
-            child: Icon(selected ? (destination.selectedIcon ?? destination.icon) : destination.icon, color: color, size: 26),
+    final radius = BorderRadius.circular(_TabBar.height / 2);
+
+    // The selected tab sits on a soft pill, as in Telegram.
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      decoration: BoxDecoration(
+        color: selected ? theme.colorScheme.primary.withValues(alpha: 0.12) : Colors.transparent,
+        borderRadius: radius,
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: radius,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Badge(
+                isLabelVisible: badge != null,
+                label: Text(badge != null && badge > 99 ? '99+' : '${badge ?? ''}'),
+                backgroundColor: InstagramColors.red,
+                child: Icon(
+                  selected ? (destination.selectedIcon ?? destination.icon) : destination.icon,
+                  color: color,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                destination.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: color, fontSize: 11, fontWeight: selected ? FontWeight.w700 : FontWeight.w500),
+              ),
+            ],
           ),
-          const SizedBox(height: 3),
-          Text(
-            destination.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: color,
-              fontSize: 11,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
