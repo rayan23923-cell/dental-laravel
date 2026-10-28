@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_sidebar.dart';
+import 'phone_shell.dart';
 import 'server_status_indicator.dart';
 
 /// Persistent navigation frame for the "inside" routes (see
@@ -108,6 +109,16 @@ class _AppShellState extends State<AppShell>
             ],
           ),
         ),
+      );
+    }
+
+    // Android/iPhone: Telegram-style header and bottom tabs instead of the
+    // drawer (2026-10-28, by request). A narrow Windows window keeps it.
+    final platform = theme.platform;
+    if (platform == TargetPlatform.android || platform == TargetPlatform.iOS) {
+      return PhoneShell(
+        clearance: (child) => _MenuButtonClearance(child: child),
+        child: widget.child,
       );
     }
 
