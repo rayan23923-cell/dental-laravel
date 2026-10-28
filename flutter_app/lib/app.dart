@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
+import 'core/security/app_lock.dart';
 import 'core/theme/app_theme.dart';
 import 'core/updater/desktop_update_gate.dart';
 import 'core/widgets/server_status_indicator.dart';
@@ -41,8 +42,11 @@ class App extends ConsumerWidget {
       routerConfig: router,
       // Connection strip at the bottom while the server is unreachable
       // (2026-10-22) — see ServerStatusFrame.
+      // Fingerprint / Face ID lock when turned on (2026-10-28).
       builder: (context, child) => DesktopUpdateGate(
-        child: ServerStatusFrame(child: child ?? const SizedBox.shrink()),
+        child: AppLockGate(
+          child: ServerStatusFrame(child: child ?? const SizedBox.shrink()),
+        ),
       ),
     );
   }
