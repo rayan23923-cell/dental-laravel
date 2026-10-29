@@ -214,7 +214,14 @@
         "titleWithStage": "Required Tasks by Department — {stage} Stage",
         "noTasksInStage": "There are no tasks in your stage right now.",
         "taskCount": "{n} tasks",
-        "remainingLine": "Remaining: {remaining} of {total}"
+        "remainingLine": "Remaining: {remaining} of {total}",
+        "filterAll": "All",
+        "filterInProgress": "In progress",
+        "filterCompleted": "Completed",
+        "filterNotStarted": "Not started",
+        "progressSummary": "{completed} of {required} done",
+        "noTasksForFilter": "No cases with this status.",
+        "matchCount": "{n} cases"
     },
     "tasks": {
         "qrCode": "QR Code",

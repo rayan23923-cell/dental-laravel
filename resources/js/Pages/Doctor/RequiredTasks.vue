@@ -40,14 +40,47 @@ const listsOn = computed(() => props.formSettings.task_lists_enabled !== false);
 const startOn = computed(() => props.formSettings.task_start_enabled !== false);
 const defaultFormType = () => (props.formSettings.electronic_forms_enabled ? 'electronic' : 'paper');
 
-// "كل المهام" | "بانتظار الموافقة" | "المعلقة" (2026-10-14, by request).
+// The filter row on top (2026-10-29, by request, as in the app): 'all',
+// 'inProgress', 'completed', 'notStarted' filter the cases by status;
+// 'waiting' shows start requests not yet approved.
 const tab = ref('all');
 const waitingRequests = computed(() => props.requests.filter((r) => r.status === 'pending' || r.status === 'rejected'));
 const pendingCount = computed(() => props.requests.filter((r) => r.status === 'pending').length);
-// Tasks with a slot nobody has started yet.
-const notStartedTasks = computed(() =>
-    props.departments.flatMap((d) => d.tasks).filter((task) => task.slots.some((slot) => slot.status === 'unassigned')),
+// A 'pending' instance has no doctor yet, so for the doctor it is not started.
+const slotMatches = (slot, filter) =>
+    ({
+        inProgress: slot.status === 'assigned',
+        completed: slot.status === 'completed',
+        notStarted: slot.status === 'unassigned' || slot.status === 'pending',
+    }[filter] ?? true);
+const allSlots = computed(() => props.departments.flatMap((d) => d.tasks.flatMap((task) => task.slots)));
+const countFor = (filter) => allSlots.value.filter((slot) => slotMatches(slot, filter)).length;
+const completedCount = computed(() => countFor('completed'));
+const progressPercent = computed(() => (allSlots.value.length ? Math.round((completedCount.value / allSlots.value.length) * 100) : 0));
+const filters = computed(() => [
+    { key: 'all', label: t('requiredTasks.filterAll'), icon: 'apps', count: allSlots.value.length, on: 'bg-indigo-600 text-white ring-indigo-600 shadow-md shadow-indigo-200', off: 'bg-indigo-50 text-indigo-700 ring-indigo-200' },
+    ...(listsOn.value
+        ? [
+              { key: 'inProgress', label: t('requiredTasks.filterInProgress'), icon: 'timelapse', count: countFor('inProgress'), on: 'bg-blue-600 text-white ring-blue-600 shadow-md shadow-blue-200', off: 'bg-blue-50 text-blue-700 ring-blue-200' },
+              { key: 'completed', label: t('requiredTasks.filterCompleted'), icon: 'task_alt', count: completedCount.value, on: 'bg-green-600 text-white ring-green-600 shadow-md shadow-green-200', off: 'bg-green-50 text-green-700 ring-green-200' },
+              { key: 'notStarted', label: t('requiredTasks.filterNotStarted'), icon: 'radio_button_unchecked', count: countFor('notStarted'), on: 'bg-slate-600 text-white ring-slate-600 shadow-md shadow-slate-200', off: 'bg-slate-50 text-slate-700 ring-slate-200' },
+              { key: 'waiting', label: t('taskRequests.waitingTab'), icon: 'hourglass_top', count: pendingCount.value, on: 'bg-orange-500 text-white ring-orange-500 shadow-md shadow-orange-200', off: 'bg-orange-50 text-orange-700 ring-orange-200' },
+          ]
+        : []),
+]);
+// Departments and tasks narrowed to the cases under the filter.
+const visibleDepartments = computed(() =>
+    tab.value === 'all'
+        ? props.departments
+        : props.departments
+              .map((d) => ({
+                  ...d,
+                  tasks: d.tasks.map((task) => ({ ...task, slots: task.slots.filter((slot) => slotMatches(slot, tab.value)) })).filter((task) => task.slots.length),
+              }))
+              .filter((d) => d.tasks.length),
 );
+const isOpen = (name) => tab.value !== 'all' || openDepartments.value.has(name);
+const matchCount = (dept) => dept.tasks.reduce((n, task) => n + task.slots.length, 0);
 
 // Request to start a task: the electronic form (the doctor's draft) or a
 // photo of the paper one.
@@ -100,7 +133,7 @@ const toggle = (name) => {
 const focusedInstance = ref(null);
 onMounted(async () => {
     const params = new URLSearchParams(window.location.search);
-    if (listsOn.value && ['all', 'waiting', 'notStarted'].includes(params.get('tab'))) tab.value = params.get('tab');
+    if (listsOn.value && ['all', 'waiting', 'notStarted', 'inProgress', 'completed'].includes(params.get('tab'))) tab.value = params.get('tab');
     const id = Number(params.get('instance'));
     if (!id) return;
     for (const dept of props.departments) {
@@ -177,29 +210,29 @@ const openQr = (task, slot) => {
     <DoctorLayout>
         <h2 class="text-lg font-semibold text-gray-800"><Icon name="assignment" class="ml-1" />{{ t('requiredTasks.titleWithStage', { stage: stage ?? '—' }) }}</h2>
 
-        <!-- Tabs (2026-10-14) -->
-        <div class="mt-4 flex gap-1 rounded-full bg-white p-1 shadow-sm ring-1 ring-gray-100">
+        <!-- Status filters (2026-10-29) -->
+        <div class="mt-4 grid grid-cols-5 gap-2">
             <button
-                v-for="item in [
-                    { key: 'all', label: t('taskRequests.allTasksTab'), count: null },
-                    ...(listsOn ? [
-                        { key: 'waiting', label: t('taskRequests.waitingTab'), count: pendingCount },
-                        { key: 'notStarted', label: t('taskRequests.notStartedTab'), count: notStartedTasks.length },
-                    ] : []),
-                ]"
-                :key="item.key"
+                v-for="f in filters"
+                :key="f.key"
                 type="button"
-                class="flex flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-2 text-xs font-medium transition sm:text-sm"
-                :class="tab === item.key ? 'bg-indigo-600 text-white shadow' : 'text-gray-600 hover:bg-gray-50'"
-                @click="tab = item.key"
+                class="flex flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2.5 ring-1 transition sm:flex-row sm:gap-2 sm:py-3"
+                :class="tab === f.key ? f.on : `${f.off} hover:brightness-95`"
+                @click="tab = f.key"
             >
-                {{ item.label }}
-                <span
-                    v-if="item.count"
-                    class="min-w-[1.25rem] rounded-full px-1.5 text-center text-xs leading-5"
-                    :class="tab === item.key ? 'bg-white/25' : item.key === 'waiting' ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-700'"
-                >{{ item.count }}</span>
+                <span class="flex items-center gap-1">
+                    <Icon :name="f.icon" size="text-[18px]" />
+                    <span class="text-lg font-extrabold leading-none">{{ f.count }}</span>
+                </span>
+                <span class="text-center text-[11px] font-semibold leading-tight sm:text-sm">{{ f.label }}</span>
             </button>
+        </div>
+        <div v-if="listsOn && allSlots.length && tab !== 'waiting'" class="mt-3 flex items-center gap-3 text-xs">
+            <span class="text-gray-500">{{ t('requiredTasks.progressSummary', { completed: completedCount, required: allSlots.length }) }}</span>
+            <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-green-100">
+                <div class="h-full rounded-full bg-green-500 transition-all" :style="{ width: `${progressPercent}%` }"></div>
+            </div>
+            <span class="font-bold text-gray-700">{{ progressPercent }}%</span>
         </div>
 
         <!-- بانتظار الموافقة: pending requests, and turned-down ones with the reason -->
@@ -235,53 +268,31 @@ const openQr = (task, slot) => {
             </div>
         </div>
 
-        <!-- المعلقة: tasks with a case nobody has started yet -->
-        <div v-else-if="tab === 'notStarted'" class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">
-            <div v-if="notStartedTasks.length === 0" class="flex flex-col items-center gap-2 px-4 py-12 text-center text-sm text-gray-500">
-                <Icon name="task_alt" size="text-4xl" class="text-gray-300" />{{ t('taskRequests.noNotStarted') }}
-            </div>
-            <div v-for="task in notStartedTasks" :key="task.id" class="flex items-center gap-3 border-b border-gray-100 px-4 py-3 last:border-b-0">
-                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-700">
-                    <Icon name="assignment" />
-                </span>
-                <div class="min-w-0 flex-1">
-                    <div class="font-medium text-gray-900">{{ task.title }}</div>
-                    <div class="text-xs text-gray-500">
-                        {{ task.department }} · {{ t('requiredTasks.remainingLine', { remaining: task.remaining, total: task.required_count }) }}
-                    </div>
-                </div>
-                <span v-if="task.request_pending" class="shrink-0 rounded-full bg-amber-50 px-3 py-1 text-xs text-amber-700">{{ t('taskRequests.waitingApproval') }}</span>
-                <button
-                    v-else
-                    type="button"
-                    class="shrink-0 rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
-                    @click="openRequest(task)"
-                >
-                    <Icon name="send" size="text-[16px]" class="ml-1" />{{ t('taskRequests.requestStart') }}
-                </button>
-            </div>
-        </div>
-
         <template v-else>
         <div v-if="departments.length === 0" class="mt-4 rounded-lg bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
             {{ t('requiredTasks.noTasksInStage') }}
         </div>
 
+        <div v-else-if="visibleDepartments.length === 0" class="mt-4 flex flex-col items-center gap-2 rounded-2xl bg-white px-4 py-12 text-center text-sm text-gray-500 shadow-sm ring-1 ring-gray-100">
+            <Icon name="filter_alt_off" size="text-4xl" class="text-gray-300" />{{ t('requiredTasks.noTasksForFilter') }}
+        </div>
+
         <div v-else class="mt-4 space-y-3">
-            <div v-for="dept in departments" :key="dept.name" class="overflow-hidden rounded-lg bg-white shadow-sm">
+            <div v-for="dept in visibleDepartments" :key="dept.name" class="overflow-hidden rounded-lg bg-white shadow-sm">
                 <button type="button" class="flex w-full items-center justify-between p-4 text-right hover:bg-gray-50" @click="toggle(dept.name)">
                     <span class="font-semibold text-indigo-700">
-                        <span class="ml-1 text-gray-400">{{ openDepartments.has(dept.name) ? '▾' : '▸' }}</span>
+                        <span class="ml-1 text-gray-400">{{ isOpen(dept.name) ? '▾' : '▸' }}</span>
                         <Icon name="folder" class="ml-1" />{{ dept.name }}
                     </span>
                     <span class="flex gap-1 text-xs">
+                        <span v-if="tab !== 'all'" class="rounded-full bg-gray-800 px-2 py-0.5 text-white">{{ t('requiredTasks.matchCount', { n: matchCount(dept) }) }}</span>
                         <span class="rounded-full bg-sky-100 px-2 py-0.5 text-sky-800">{{ t('requiredTasks.taskCount', { n: dept.tasks.length }) }}</span>
                         <span class="rounded-full bg-indigo-100 px-2 py-0.5 text-indigo-800">{{ t('dashboard.requiredLabel') }}: {{ dept.required }}</span>
                         <span v-if="listsOn" class="rounded-full bg-green-100 px-2 py-0.5 text-green-800">{{ t('dashboard.completed') }}: {{ dept.completed }}</span>
                     </span>
                 </button>
 
-                <div v-if="openDepartments.has(dept.name)" class="border-t border-gray-100 bg-gray-50 p-4">
+                <div v-if="isOpen(dept.name)" class="border-t border-gray-100 bg-gray-50 p-4">
                     <div v-for="task in dept.tasks" :key="task.id" class="mb-4 last:mb-0">
                         <div class="flex flex-wrap items-center justify-between gap-2">
                             <h4 class="font-medium text-gray-900">

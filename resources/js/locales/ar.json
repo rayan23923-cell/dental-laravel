@@ -214,7 +214,14 @@
         "titleWithStage": "المهام المطلوبة حسب الأقسام — مرحلة {stage}",
         "noTasksInStage": "لا توجد مهام في مرحلتك حالياً.",
         "taskCount": "{n} مهمة",
-        "remainingLine": "المتبقي: {remaining} من {total}"
+        "remainingLine": "المتبقي: {remaining} من {total}",
+        "filterAll": "الكل",
+        "filterInProgress": "قيد التنفيذ",
+        "filterCompleted": "المنجزة",
+        "filterNotStarted": "لم تبدأ",
+        "progressSummary": "أنجزت {completed} من {required}",
+        "noTasksForFilter": "لا توجد حالات بهذه الحالة.",
+        "matchCount": "{n} حالة"
     },
     "tasks": {
         "qrCode": "رمز QR",
