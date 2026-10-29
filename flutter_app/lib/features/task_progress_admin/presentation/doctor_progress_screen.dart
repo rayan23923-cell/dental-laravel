@@ -5,6 +5,7 @@ import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../domain/doctor_progress.dart';
 import 'task_progress_providers.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// One doctor's task progress — what a doctor's ID card QR opens from the
 /// task-progress scanner, like the web's `Doctors/Progress.vue` (read-only
@@ -24,7 +25,7 @@ class DoctorProgressScreen extends ConsumerWidget {
         title: Text(progressAsync.valueOrNull?.name ?? t['doctorProgress.title']!),
       ),
       body: progressAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: TgSpinner()),
         error: (error, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),

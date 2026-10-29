@@ -24,6 +24,7 @@ import '../domain/service.dart';
 import 'live_registrations.dart';
 import 'patient_registration_providers.dart';
 import '../../../core/widgets/numeric_input.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// "تسجيل مريض جديد" — mirrors `PatientRegistrations/Create.vue`: name,
 /// phone and a service picked from a horizontal, swipeable row of cards
@@ -210,7 +211,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
     return Scaffold(
       appBar: AppBar(title: Text(t['patientRegFlutter.newRegistrationTitle']!)),
       body: servicesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: TgSpinner()),
         error: (error, _) => Center(child: Text(error is ApiException ? error.userMessage : t['common.loadFailed']!)),
         data: (services) {
           final Service? selected = services.where((s) => s.id == _serviceId).firstOrNull;
@@ -460,7 +461,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                                 style: FilledButton.styleFrom(minimumSize: const Size(0, 52)),
                                 onPressed: _submitting || _serviceId == null ? null : _submit,
                                 icon: _submitting
-                                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                                    ? const SizedBox(height: 20, width: 20, child: TgSpinner(strokeWidth: 2))
                                     : const Icon(Icons.how_to_reg),
                                 label: Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 12),

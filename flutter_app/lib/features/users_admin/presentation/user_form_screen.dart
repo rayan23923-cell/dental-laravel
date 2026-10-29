@@ -11,6 +11,7 @@ import '../../permissions_admin/presentation/permissions_editor.dart';
 import '../data/users_admin_repository.dart';
 import '../domain/user_admin.dart';
 import '../../../core/widgets/numeric_input.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 final userFormOptionsProvider = FutureProvider.autoDispose<UserFormOptions>((ref) {
   return ref.watch(usersAdminRepositoryProvider).formOptions();
@@ -157,7 +158,7 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
             optionsAsync.when(
               loading: () => const Padding(
                 padding: EdgeInsets.all(24),
-                child: Center(child: CircularProgressIndicator()),
+                child: Center(child: TgSpinner()),
               ),
               error: (error, stackTrace) => Text(
                 error is ApiException ? error.userMessage : t['permissionsAdmin.loadFailed']!,
@@ -180,7 +181,7 @@ class _UserFormScreenState extends ConsumerState<UserFormScreen> {
           child: FilledButton.icon(
             onPressed: _submitting ? null : _submit,
             icon: _submitting
-                ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(height: 16, width: 16, child: TgSpinner(strokeWidth: 2))
                 : const Icon(Icons.save_outlined),
             label: Text(t['usersAdmin.saveAndContinue']!),
           ),

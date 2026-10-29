@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 final _recipientCountProvider = FutureProvider.autoDispose<int>((ref) async {
   final data = await ref.watch(apiClientProvider).getJson('/admin-broadcast') as Map<String, dynamic>;
@@ -105,7 +106,7 @@ class _AdminBroadcastScreenState extends ConsumerState<AdminBroadcastScreen> {
             FilledButton.icon(
               onPressed: _sending || count == null ? null : () => _send(count),
               icon: _sending
-                  ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(height: 18, width: 18, child: TgSpinner(strokeWidth: 2))
                   : const Icon(Icons.campaign_outlined),
               label: Text(t['adminBroadcast.sendButton']!),
             ),

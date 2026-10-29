@@ -6,6 +6,7 @@ import '../../../core/network/api_exception.dart';
 import '../data/academic_sessions_repository.dart';
 import '../domain/academic_session_admin.dart';
 import 'academic_sessions_providers.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// `sessionId == null` means create. Mirrors `AcademicSessions/Index.vue`'s
 /// modal form fields exactly: name, start/end date, is_active, is_current.
@@ -126,7 +127,7 @@ class _AcademicSessionFormScreenState extends ConsumerState<AcademicSessionFormS
         case AsyncData(:final value):
           _seed(value.session);
         default:
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(body: Center(child: TgSpinner()));
       }
     }
 
@@ -177,7 +178,7 @@ class _AcademicSessionFormScreenState extends ConsumerState<AcademicSessionFormS
             FilledButton(
               onPressed: _submitting ? null : _submit,
               child: _submitting
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(height: 20, width: 20, child: TgSpinner(strokeWidth: 2))
                   : Text(t['academicSessionsAdmin.save']!),
             ),
           ],

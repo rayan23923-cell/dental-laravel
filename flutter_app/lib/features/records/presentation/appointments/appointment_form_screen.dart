@@ -13,6 +13,7 @@ import '../../../patient_registration/presentation/patient_registration_list_scr
 import '../../data/records_repository.dart';
 import '../../domain/appointment.dart';
 import '../records_providers.dart';
+import '../../../../core/widgets/tg_spinner.dart';
 
 /// `appointmentId == null` means create. `doctor_id` (really "staff
 /// member in charge" — see `Appointment`'s doc comment) is silently
@@ -211,7 +212,7 @@ class _AppointmentFormScreenState extends ConsumerState<AppointmentFormScreen> {
         case AsyncData(:final value):
           _seed(value);
         default:
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(body: Center(child: TgSpinner()));
       }
     }
 
@@ -288,7 +289,7 @@ class _AppointmentFormScreenState extends ConsumerState<AppointmentFormScreen> {
             FilledButton(
               onPressed: _submitting ? null : _submit,
               child: _submitting
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(height: 20, width: 20, child: TgSpinner(strokeWidth: 2))
                   : Text(t['recordsHub.saveButton']!),
             ),
           ],

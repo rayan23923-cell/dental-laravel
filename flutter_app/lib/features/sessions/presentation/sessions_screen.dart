@@ -7,6 +7,7 @@ import '../../../core/network/api_exception.dart';
 import '../data/sessions_repository.dart';
 import '../domain/account_session.dart';
 import 'sessions_providers.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// Instagram-style "الأجهزة النشطة" — every device/app install this
 /// account is currently logged in from, reached from `ProfileScreen`.
@@ -23,7 +24,7 @@ class SessionsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: Text(t['profile.activeSessions']!)),
       body: sessionsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: TgSpinner()),
         error: (error, stackTrace) => _ErrorView(
           error: error,
           onRetry: () => ref.invalidate(accountSessionsProvider),
@@ -172,7 +173,7 @@ class _SessionTileState extends ConsumerState<_SessionTile> {
         trailing: session.isCurrent
             ? null
             : _ending
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(width: 20, height: 20, child: TgSpinner(strokeWidth: 2))
                 : TextButton(onPressed: _end, child: Text(t['sessions.end']!)),
       ),
     );

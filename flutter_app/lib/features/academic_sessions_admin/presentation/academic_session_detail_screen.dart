@@ -9,6 +9,7 @@ import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../data/academic_sessions_repository.dart';
 import '../domain/academic_session_admin.dart';
 import 'academic_sessions_providers.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 class AcademicSessionDetailScreen extends ConsumerWidget {
   const AcademicSessionDetailScreen({super.key, required this.sessionId});
@@ -69,7 +70,7 @@ class AcademicSessionDetailScreen extends ConsumerWidget {
     final t = ref.watch(translationsProvider);
 
     return detailAsync.when(
-      loading: () => Scaffold(appBar: AppBar(), body: const Center(child: CircularProgressIndicator())),
+      loading: () => Scaffold(appBar: AppBar(), body: const Center(child: TgSpinner())),
       error: (error, stackTrace) => Scaffold(
         appBar: AppBar(),
         body: Center(child: Text(error is ApiException ? error.userMessage : t['academicSessionsAdmin.loadFailed']!)),

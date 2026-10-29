@@ -84,6 +84,7 @@ import '../../features/notifications/presentation/notification_alerts.dart';
 class _AuthRefreshListenable extends ChangeNotifier {
   _AuthRefreshListenable(Ref ref) {
     ref.listen(authControllerProvider, (previous, next) => notifyListeners());
+    ref.listen(splashDoneProvider, (previous, next) => notifyListeners());
   }
 }
 
@@ -498,6 +499,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       final loggingIn = state.matchedLocation == '/login';
       final onSplash = state.matchedLocation == '/splash';
       final onServer = state.matchedLocation == '/server';
+      // The opening animation finishes before the splash hands over.
+      if (onSplash && !ref.read(splashDoneProvider)) return null;
 
       return authState.when(
         // Covers both the initial session-restore loading (before the

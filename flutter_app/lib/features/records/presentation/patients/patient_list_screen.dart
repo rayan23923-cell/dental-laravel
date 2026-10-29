@@ -6,6 +6,7 @@ import '../../../../core/i18n/locale_controller.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../domain/patient.dart';
 import '../records_providers.dart';
+import '../../../../core/widgets/tg_spinner.dart';
 
 /// `GET /patients` — staff-only. `pickMode: true` turns taps into
 /// `Navigator.pop(patient)` instead of pushing the edit screen, reused by
@@ -59,7 +60,7 @@ class _PatientListScreenState extends ConsumerState<PatientListScreen> {
           ),
           Expanded(
             child: patientsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: TgSpinner()),
               error: (error, stackTrace) => Center(
                 child: Text(error is ApiException ? error.userMessage : t['recordsHub.loadFailed']!),
               ),

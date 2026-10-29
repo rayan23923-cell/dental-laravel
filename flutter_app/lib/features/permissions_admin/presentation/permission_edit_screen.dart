@@ -8,6 +8,7 @@ import '../data/permissions_admin_repository.dart';
 import '../domain/permission_admin.dart';
 import 'permissions_admin_providers.dart';
 import 'permissions_editor.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// One account's permissions as a settings list (2026-10-14, by request),
 /// the app's copy of the web `Permissions/Edit` page: an account card,
@@ -71,7 +72,7 @@ class _PermissionEditScreenState extends ConsumerState<PermissionEditScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(t['permissionsAdmin.title']!)),
       body: detailAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: TgSpinner()),
         error: (error, stackTrace) => Center(
           child: Text(error is ApiException ? error.userMessage : t['permissionsAdmin.loadFailed']!),
         ),
@@ -119,7 +120,7 @@ class _PermissionEditScreenState extends ConsumerState<PermissionEditScreen> {
                 style: FilledButton.styleFrom(minimumSize: const Size(64, 40)),
                 onPressed: (_submitting || !_dirty) ? null : _save,
                 icon: _submitting
-                    ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(height: 16, width: 16, child: TgSpinner(strokeWidth: 2))
                     : const Icon(Icons.save_outlined),
                 label: Text(t['permissionsAdmin.save']!),
               ),

@@ -8,6 +8,7 @@ import '../../users_admin/domain/user_admin.dart';
 import '../domain/permission_admin.dart';
 import 'permissions_admin_providers.dart';
 import '../../../core/theme/muted_colors.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 class PermissionUserListScreen extends ConsumerStatefulWidget {
   const PermissionUserListScreen({super.key});
@@ -49,7 +50,7 @@ class _PermissionUserListScreenState extends ConsumerState<PermissionUserListScr
         child: const Icon(Icons.person_add_alt_1),
       ),
       body: usersAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: TgSpinner()),
         error: (error, stackTrace) => Center(
           child: Text(error is ApiException ? error.userMessage : t['permissionsAdmin.loadFailed']!),
         ),

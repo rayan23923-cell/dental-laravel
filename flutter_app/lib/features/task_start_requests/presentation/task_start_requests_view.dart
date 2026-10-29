@@ -8,6 +8,7 @@ import '../../../core/network/api_exception.dart';
 import '../data/task_start_request_repository.dart';
 import '../domain/task_start_request.dart';
 import 'task_start_request_providers.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// "الطلبات" tab of task progress (2026-10-14) — the app's copy of the
 /// web's `TaskStartRequestsPanel.vue`: waiting / started / turned down,
@@ -73,7 +74,7 @@ class _TaskStartRequestsViewState extends ConsumerState<TaskStartRequestsView> {
         ),
         Expanded(
           child: boardAsync.isLoading && board == null
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(child: TgSpinner())
               : boardAsync.hasError && board == null
               ? Center(
                   child: Text(

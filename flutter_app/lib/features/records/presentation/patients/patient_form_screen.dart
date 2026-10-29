@@ -7,6 +7,7 @@ import '../../data/records_repository.dart';
 import '../../domain/patient.dart';
 import '../records_providers.dart';
 import '../../../../core/widgets/numeric_input.dart';
+import '../../../../core/widgets/tg_spinner.dart';
 
 /// `patientId == null` means create. `doctor_id` (the treating `Doctor`,
 /// distinct from the staff `doctor_id` on `Appointment` — see that
@@ -128,7 +129,7 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
         case AsyncData(:final value):
           _seed(value);
         default:
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(body: Center(child: TgSpinner()));
       }
     }
 
@@ -174,7 +175,7 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
             FilledButton(
               onPressed: _submitting ? null : _submit,
               child: _submitting
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(height: 20, width: 20, child: TgSpinner(strokeWidth: 2))
                   : Text(t['recordsHub.saveButton']!),
             ),
           ],

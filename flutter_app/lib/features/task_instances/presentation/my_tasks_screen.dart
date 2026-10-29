@@ -18,6 +18,7 @@ import '../../task_start_requests/presentation/task_start_request_providers.dart
 import '../data/task_instance_repository.dart';
 import '../domain/my_task_department.dart';
 import 'task_instances_providers.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// "مهامي" — the doctor's own tasks, grouped by department and, within a
 /// department, by task (one `ExpansionTile` per task showing "X/N مكتملة",
@@ -67,7 +68,7 @@ class _MyTasksScreenState extends ConsumerState<MyTasksScreen> with SingleTicker
     final t = ref.watch(translationsProvider);
 
     return departmentsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: TgSpinner()),
       error: (error, stackTrace) => _ErrorView(error: error, onRetry: () => ref.invalidate(myTaskProgressProvider)),
       data: (departments) {
         _ensureTabController(departments.length);
@@ -587,7 +588,7 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
           else if (_openingCaseSheet)
             const Padding(
               padding: EdgeInsets.all(8),
-              child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+              child: SizedBox(height: 20, width: 20, child: TgSpinner(strokeWidth: 2)),
             )
           else
             IconButton(

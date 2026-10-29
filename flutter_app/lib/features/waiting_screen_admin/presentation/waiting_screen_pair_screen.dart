@@ -6,6 +6,7 @@ import '../../../core/data/lookup_repository.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/waiting_screen_admin_repository.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 final _pairingStagesProvider = FutureProvider.autoDispose<List<LookupItem>>((ref) {
   return ref.watch(lookupRepositoryProvider).stages();
@@ -104,7 +105,7 @@ class _WaitingScreenPairScreenState extends ConsumerState<WaitingScreenPairScree
           FilledButton.icon(
             onPressed: ready ? _confirm : null,
             icon: _submitting
-                ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(height: 18, width: 18, child: TgSpinner(strokeWidth: 2))
                 : const Icon(Icons.check),
             label: Text(t['waitingScreenPairing.confirm']!),
           ),

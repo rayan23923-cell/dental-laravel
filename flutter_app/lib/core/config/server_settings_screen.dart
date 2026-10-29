@@ -8,6 +8,7 @@ import '../network/clinic_network.dart';
 import 'app_config.dart';
 import 'server_settings.dart';
 import 'server_settings_controller.dart';
+import '../widgets/tg_spinner.dart';
 
 /// Cloud server or the clinic's offline server on the LAN (2026-10-17) —
 /// the app's counterpart of the Windows LAN client's "خادم العيادة"
@@ -283,7 +284,7 @@ class _ServerSettingsScreenState extends ConsumerState<ServerSettingsScreen> {
                   OutlinedButton.icon(
                     onPressed: _busy ? null : _test,
                     icon: _busy
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                        ? const SizedBox(width: 18, height: 18, child: TgSpinner(strokeWidth: 2))
                         : const Icon(Icons.network_check),
                     label: Text(t['server.test']!),
                   ),

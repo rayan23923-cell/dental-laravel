@@ -28,6 +28,7 @@ import '../data/patient_registration_repository.dart';
 import '../domain/patient_registration.dart';
 import 'live_registrations.dart';
 import 'patient_registration_providers.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// "سجل تسجيل المرضى" — mirrors `PatientRegistrations/Index.vue`,
 /// including its search + day/service filters (the repository/provider
@@ -436,7 +437,7 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
           ),
           Expanded(
             child: registrationsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: TgSpinner()),
               error: (error, _) => Center(child: Text(error is ApiException ? error.userMessage : t['common.loadFailed']!)),
               data: (registrations) {
                 if (registrations.isEmpty) {

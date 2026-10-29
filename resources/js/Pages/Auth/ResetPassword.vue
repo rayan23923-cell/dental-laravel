@@ -1,4 +1,5 @@
 <script setup>
+import TgSpinner from '@/Components/TgSpinner.vue';
 import AuthField from '@/Components/AuthField.vue';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import Icon from '@/Components/Icon.vue';
@@ -91,7 +92,8 @@ const submit = () => {
                 :disabled="form.processing"
                 class="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-accent to-accent-deep px-4 py-3 font-semibold text-accent-fg shadow-glow transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
             >
-                <Icon :name="form.processing ? 'progress_activity' : 'check_circle'" :class="form.processing ? 'animate-spin' : ''" />
+                <TgSpinner v-if="form.processing" :size="20" />
+                <Icon v-else name="check_circle" />
                 {{ form.processing ? t('authPages.saving') : t('authPages.savePasswordButton') }}
             </button>
 

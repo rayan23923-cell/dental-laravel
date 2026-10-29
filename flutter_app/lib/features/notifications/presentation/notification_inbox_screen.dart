@@ -8,6 +8,7 @@ import '../data/notification_repository.dart';
 import '../domain/app_notification.dart';
 import 'notification_target.dart';
 import 'notifications_providers.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// The notification inbox — reached from the bell icon on `HomeScreen`.
 /// Today the only notification type is "a task was started for you"
@@ -58,7 +59,7 @@ class _NotificationInboxScreenState extends ConsumerState<NotificationInboxScree
         ],
       ),
       body: notificationsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: TgSpinner()),
         error: (error, stackTrace) => _ErrorView(
           error: error,
           onRetry: () => ref.invalidate(notificationsListProvider),

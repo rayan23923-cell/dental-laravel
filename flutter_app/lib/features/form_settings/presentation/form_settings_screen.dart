@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/form_settings_repository.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// "إعدادات النماذج" (2026-10-22, by request), opened from task progress:
 /// the supervisor's own rotating code on top, then paper/electronic forms,
@@ -141,7 +142,7 @@ class _FormSettingsScreenState extends ConsumerState<FormSettingsScreen> {
               ),
             )
           : form == null
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(child: TgSpinner())
               : ListView(
                   padding: const EdgeInsets.all(12),
                   children: [
@@ -199,7 +200,7 @@ class _FormSettingsScreenState extends ConsumerState<FormSettingsScreen> {
                     if (canEdit)
                       FilledButton.icon(
                         onPressed: _saving ? null : _save,
-                        icon: _saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save),
+                        icon: _saving ? const SizedBox(width: 18, height: 18, child: TgSpinner(strokeWidth: 2)) : const Icon(Icons.save),
                         label: Text(t['formSettings.save']!),
                       ),
                   ],

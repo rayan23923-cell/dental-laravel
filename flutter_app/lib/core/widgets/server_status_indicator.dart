@@ -10,6 +10,7 @@ import '../config/server_settings_controller.dart';
 import '../i18n/locale_controller.dart';
 import '../network/server_status.dart';
 import '../theme/app_theme.dart';
+import 'tg_spinner.dart';
 
 /// The connection dot's colours: green connected, red not, amber while the
 /// very first check runs.
@@ -190,7 +191,7 @@ class _ServerStatusSheet extends ConsumerWidget {
             FilledButton.icon(
               onPressed: status.checking ? null : () => ref.read(serverStatusProvider.notifier).check(),
               icon: status.checking
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(width: 18, height: 18, child: TgSpinner(strokeWidth: 2))
                   : const Icon(Icons.refresh),
               label: Text(status.checking ? t['conn.retrying']! : t['conn.retry']!),
             ),
@@ -298,7 +299,7 @@ class _ServerStatusFrameState extends ConsumerState<ServerStatusFrame> {
                             ? const SizedBox(
                                 width: 14,
                                 height: 14,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                child: TgSpinner(strokeWidth: 2, color: Colors.white),
                               )
                             : const Icon(Icons.refresh, size: 18),
                         label: Text(t['conn.retry']!, style: const TextStyle(color: Colors.white)),

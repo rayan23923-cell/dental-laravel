@@ -26,6 +26,7 @@ import 'case_sheet_print_pdf.dart';
 import 'dynamic_section_form.dart';
 import 'sync_status_badge.dart';
 import 'task_work_panel.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// Fetches a resource's layout schema and (when editing) one of its real
 /// records, then renders `DynamicSectionForm` bound to both.
@@ -194,7 +195,7 @@ class CaseSheetFormScreen extends ConsumerWidget {
               ],
             ),
           ),
-        _ => const Center(child: CircularProgressIndicator()),
+        _ => const Center(child: TgSpinner()),
       },
     );
   }

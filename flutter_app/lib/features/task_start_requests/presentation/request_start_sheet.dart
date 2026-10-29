@@ -8,6 +8,7 @@ import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../form_settings/data/form_settings_repository.dart';
 import '../data/task_start_request_repository.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// "طلب بدء مهمة" (2026-10-14): the doctor picks the electronic form (their
 /// draft, opened with [onOpenForm]) or a photo of the paper one, adds an
@@ -199,7 +200,7 @@ class _RequestStartSheetState extends ConsumerState<_RequestStartSheet> {
             FilledButton.icon(
               onPressed: _sending || (_formType == 'paper' && _photo == null) ? null : _send,
               icon: _sending
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(width: 18, height: 18, child: TgSpinner(strokeWidth: 2))
                   : const Icon(Icons.send),
               label: Text(t['taskRequests.send']!),
             ),

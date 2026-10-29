@@ -19,6 +19,7 @@ import '../../task_instances/presentation/my_tasks_screen.dart';
 import '../data/dashboard_repository.dart';
 import '../domain/dashboard_data.dart';
 import 'dashboard_widgets.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// A doctor's home *is* their task list (`/my-task-progress` is
 /// doctor-only server-side — a staff token 403s it, see
@@ -199,7 +200,7 @@ class _StaffDashboard extends ConsumerWidget {
         const SizedBox(height: 16),
         if (dashboardAsync != null) ...[
           dashboardAsync.when(
-            loading: () => const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator())),
+            loading: () => const Padding(padding: EdgeInsets.all(16), child: Center(child: TgSpinner())),
             error: (e, _) => _SectionCard(children: [ListTile(title: Text(t['home.dashboardLoadFailed']!))]),
             data: (data) => DashboardCounters(data: data, t: t),
           ),
@@ -207,7 +208,7 @@ class _StaffDashboard extends ConsumerWidget {
         ],
         if (deskAsync != null) ...[
           deskAsync.when(
-            loading: () => const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator())),
+            loading: () => const Padding(padding: EdgeInsets.all(16), child: Center(child: TgSpinner())),
             error: (e, _) => _SectionCard(children: [ListTile(title: Text(t['home.dashboardLoadFailed']!))]),
             data: (panels) => DeskPanelCounters(panels: panels, t: t),
           ),
@@ -341,7 +342,7 @@ class _LatestRegistrations extends ConsumerWidget {
     final t = ref.watch(translationsProvider);
     final async = ref.watch(patientRegistrationListProvider(null));
     return async.when(
-      loading: () => const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator())),
+      loading: () => const Padding(padding: EdgeInsets.all(24), child: Center(child: TgSpinner())),
       error: (e, _) => _SectionCard(children: [ListTile(title: Text(e is ApiException ? e.userMessage : t['home.dashboardLoadFailed']!))]),
       data: (items) {
         if (items.isEmpty) return _SectionCard(children: [ListTile(title: Text(t['home.noPatientsYet']!))]);
@@ -380,7 +381,7 @@ class _LatestPayments extends ConsumerWidget {
     final async = ref.watch(paymentListProvider((search: null, from: null, to: null, source: null)));
     final money = NumberFormat('#,##0', 'en');
     return async.when(
-      loading: () => const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator())),
+      loading: () => const Padding(padding: EdgeInsets.all(24), child: Center(child: TgSpinner())),
       error: (e, _) => _SectionCard(children: [ListTile(title: Text(e is ApiException ? e.userMessage : t['home.dashboardLoadFailed']!))]),
       data: (page) {
         if (page.items.isEmpty) return _SectionCard(children: [ListTile(title: Text(t['home.noPaymentsYet']!))]);

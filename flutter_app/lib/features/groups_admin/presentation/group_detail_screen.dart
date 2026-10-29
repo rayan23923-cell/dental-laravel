@@ -11,6 +11,7 @@ import '../data/groups_admin_repository.dart';
 import '../domain/group_admin.dart';
 import 'group_roster_pdf.dart';
 import 'groups_admin_providers.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 class GroupDetailScreen extends ConsumerWidget {
   const GroupDetailScreen({super.key, required this.groupId});
@@ -89,7 +90,7 @@ class GroupDetailScreen extends ConsumerWidget {
     final t = ref.watch(translationsProvider);
 
     return groupAsync.when(
-      loading: () => Scaffold(appBar: AppBar(), body: const Center(child: CircularProgressIndicator())),
+      loading: () => Scaffold(appBar: AppBar(), body: const Center(child: TgSpinner())),
       error: (error, stackTrace) => Scaffold(
         appBar: AppBar(),
         body: Center(child: Text(error is ApiException ? error.userMessage : t['groupsAdmin.loadFailed']!)),
@@ -201,7 +202,7 @@ class _AddDoctorsDialogState extends ConsumerState<_AddDoctorsDialog> {
       content: SizedBox(
         width: double.maxFinite,
         child: doctorsAsync.when(
-          loading: () => const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
+          loading: () => const Center(child: Padding(padding: EdgeInsets.all(24), child: TgSpinner())),
           error: (_, __) => Text(t['groupsAdmin.loadAvailableDoctorsFailed']!),
           data: (doctors) {
             if (doctors.isEmpty) {
@@ -235,7 +236,7 @@ class _AddDoctorsDialogState extends ConsumerState<_AddDoctorsDialog> {
         FilledButton(
           onPressed: _submitting ? null : _submit,
           child: _submitting
-              ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              ? const SizedBox(height: 16, width: 16, child: TgSpinner(strokeWidth: 2))
               : Text(t['groupsAdmin.add']!),
         ),
       ],

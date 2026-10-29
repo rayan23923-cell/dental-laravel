@@ -9,6 +9,7 @@ import '../../../core/widgets/chat_list_tile.dart';
 import '../data/dashboard_repository.dart';
 import '../domain/dashboard_data.dart';
 import '../../../core/theme/muted_colors.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// The web dashboard's widgets for the app's staff home (2026-10-17):
 /// counter tiles, task statuses, latest doctors and the tasks per
@@ -365,7 +366,7 @@ class _DashboardTasksByEducationTypeState extends ConsumerState<DashboardTasksBy
         if (departmentsAsync != null) ...[
           const SizedBox(height: 8),
           departmentsAsync.when(
-            loading: () => const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator())),
+            loading: () => const Padding(padding: EdgeInsets.all(24), child: Center(child: TgSpinner())),
             error: (e, _) => _card([ListTile(title: Text(e is ApiException ? e.userMessage : t['common.loadFailed']!))]),
             data: (departments) {
               if (departments.isEmpty) return _card([ListTile(title: Text(t['home.noTasksForEduType']!))]);

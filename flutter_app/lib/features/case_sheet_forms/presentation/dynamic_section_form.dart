@@ -25,6 +25,7 @@ import 'social_history_field.dart';
 import 'surgical_history_field.dart';
 import 'teeth_squares_grid_field.dart';
 import 'value_details_checklist_field.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// Renders any of the 8 case-sheet resources from its
 /// `CaseSheetFormSchema` — one generic widget instead of 12 bespoke
@@ -557,7 +558,7 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
             FilledButton(
               onPressed: _submitting ? null : _submit,
               child: _submitting
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(height: 20, width: 20, child: TgSpinner(strokeWidth: 2))
                   : Text(t['caseSheetForm.saveButton']!),
             ),
           ],

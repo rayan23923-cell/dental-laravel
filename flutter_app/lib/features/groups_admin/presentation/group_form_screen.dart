@@ -8,6 +8,7 @@ import '../../../core/widgets/cascading_dropdown.dart';
 import '../data/groups_admin_repository.dart';
 import '../domain/group_admin.dart';
 import 'groups_admin_providers.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// `groupId == null` means create. `academic_session_id` is left out of
 /// the form entirely — `Api\GroupController::store()` defaults it to the
@@ -141,7 +142,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
         case AsyncData(:final value):
           _seed(value);
         default:
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(body: Center(child: TgSpinner()));
       }
     }
     final stageItems = stagesAsync.valueOrNull;
@@ -203,7 +204,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
             FilledButton(
               onPressed: _submitting ? null : _submit,
               child: _submitting
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(height: 20, width: 20, child: TgSpinner(strokeWidth: 2))
                   : Text(t['groupsAdmin.save']!),
             ),
           ],

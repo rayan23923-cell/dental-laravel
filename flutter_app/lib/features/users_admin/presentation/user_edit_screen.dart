@@ -9,6 +9,7 @@ import '../../../core/widgets/numeric_input.dart';
 import '../../../core/widgets/settings_list.dart';
 import '../data/users_admin_repository.dart';
 import '../domain/user_admin.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 final managedUserProvider = FutureProvider.autoDispose.family<ManagedUser, int>((ref, id) {
   return ref.watch(usersAdminRepositoryProvider).fetch(id);
@@ -27,7 +28,7 @@ class UserEditScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: Text(t['usersAdmin.editTitle']!)),
       body: userAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: TgSpinner()),
         error: (error, stackTrace) => Center(
           child: Text(error is ApiException ? error.userMessage : t['usersAdmin.loadFailed']!),
         ),
@@ -233,7 +234,7 @@ class _UserEditFormState extends ConsumerState<_UserEditForm> {
               FilledButton.icon(
                 onPressed: _saving ? null : _save,
                 icon: _saving
-                    ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(height: 16, width: 16, child: TgSpinner(strokeWidth: 2))
                     : const Icon(Icons.save_outlined),
                 label: Text(t['usersAdmin.saveInfo']!),
               ),

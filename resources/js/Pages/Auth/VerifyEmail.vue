@@ -1,4 +1,5 @@
 <script setup>
+import TgSpinner from '@/Components/TgSpinner.vue';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import Icon from '@/Components/Icon.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
@@ -38,7 +39,8 @@ const verificationLinkSent = computed(() => props.status === 'verification-link-
                 :disabled="form.processing"
                 class="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-accent to-accent-deep px-4 py-3 font-semibold text-accent-fg shadow-glow transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
             >
-                <Icon :name="form.processing ? 'progress_activity' : 'forward_to_inbox'" :class="form.processing ? 'animate-spin' : ''" />
+                <TgSpinner v-if="form.processing" :size="20" />
+                <Icon v-else name="forward_to_inbox" />
                 {{ form.processing ? t('authPages.resendingLink') : t('authPages.resendLinkButton') }}
             </button>
 

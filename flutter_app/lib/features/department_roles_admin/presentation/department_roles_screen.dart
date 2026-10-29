@@ -5,6 +5,7 @@ import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/chat_list_tile.dart';
 import '../data/department_roles_repository.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 final departmentRolesProvider = FutureProvider.autoDispose<DepartmentRolesPage>((ref) {
   return ref.watch(departmentRolesRepositoryProvider).fetch();
@@ -74,7 +75,7 @@ class DepartmentRolesScreen extends ConsumerWidget {
             )
           : null,
       body: pageAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: TgSpinner()),
         error: (error, _) => Center(child: Text(error is ApiException ? error.userMessage : t['departmentRolesAdmin.failed']!)),
         data: (page) {
           if (page.assignments.isEmpty) {
@@ -247,7 +248,7 @@ class _AssignSheetState extends ConsumerState<_AssignSheet> {
               FilledButton(
                 onPressed: ready ? _save : null,
                 child: _saving
-                    ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(height: 18, width: 18, child: TgSpinner(strokeWidth: 2))
                     : Text(t['departmentRolesAdmin.assignButton']!),
               ),
             ],

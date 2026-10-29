@@ -1,7 +1,7 @@
 <script setup>
 import GoogleSignInButton from '@/Components/GoogleSignInButton.vue';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
-import IgSpinner from '@/Components/IgSpinner.vue';
+import TgSpinner from '@/Components/TgSpinner.vue';
 import InputError from '@/Components/InputError.vue';
 import { Head, Link, usePage, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
@@ -87,7 +87,7 @@ const submit = () => {
                 :disabled="form.processing"
                 class="flex w-full items-center justify-center gap-2 rounded-lg bg-ig-blue py-2.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:bg-ig-blue/30"
             >
-                <IgSpinner v-if="form.processing" :size="16" />
+                <TgSpinner v-if="form.processing" :size="16" />
                 {{ form.processing ? t('auth.signingIn') : t('auth.signIn') }}
             </button>
 

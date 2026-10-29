@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import '../../../core/widgets/tg_spinner.dart';
 
 /// Head pain-location diagrams — port of `Components/HeadDiagramsBoard.vue`,
 /// itself a port of `oral_medicine.php`'s four `headDiagram{Frontal,
@@ -118,7 +119,7 @@ class _HeadDiagramsBoardState extends State<HeadDiagramsBoard> {
           const SizedBox(height: 4),
           Expanded(
             child: image == null
-                ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                ? const Center(child: TgSpinner(strokeWidth: 2))
                 : AspectRatio(
                     aspectRatio: image.width / image.height,
                     child: LayoutBuilder(

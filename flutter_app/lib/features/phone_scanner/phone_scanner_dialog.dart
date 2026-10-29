@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/i18n/locale_controller.dart';
 import '../../core/network/api_exception.dart';
 import 'phone_scanner_pairing.dart';
+import '../../core/widgets/tg_spinner.dart';
 
 /// Links a phone to this computer (or reuses the linked one) and shows its
 /// QR and code until the phone opens it — for screens that use the phone
@@ -101,7 +102,7 @@ class _PairDialogState extends ConsumerState<_PairDialog> {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                      const SizedBox(height: 16, width: 16, child: TgSpinner(strokeWidth: 2)),
                       const SizedBox(width: 8),
                       Expanded(child: Text(t['phoneScanner.waiting']!)),
                     ],

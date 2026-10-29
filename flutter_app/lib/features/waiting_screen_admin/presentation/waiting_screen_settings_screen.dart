@@ -8,6 +8,7 @@ import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../data/waiting_screen_admin_repository.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 final waitingScreenSettingsProvider = FutureProvider.autoDispose<WaitingScreenSettingsPage>((ref) {
   return ref.watch(waitingScreenAdminRepositoryProvider).fetch();
@@ -89,7 +90,7 @@ class _WaitingScreenSettingsScreenState extends ConsumerState<WaitingScreenSetti
     return Scaffold(
       appBar: AppBar(title: Text(t['waitingScreenSettings.title']!)),
       body: pageAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: TgSpinner()),
         error: (error, _) => Center(child: Text(error is ApiException ? error.userMessage : t['waitingScreenSettings.loadFailed']!)),
         data: (page) {
           _seed(page);
@@ -145,7 +146,7 @@ class _WaitingScreenSettingsScreenState extends ConsumerState<WaitingScreenSetti
                 FilledButton.icon(
                   onPressed: _saving ? null : _save,
                   icon: _saving
-                      ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      ? const SizedBox(height: 18, width: 18, child: TgSpinner(strokeWidth: 2))
                       : const Icon(Icons.save_outlined),
                   label: Text(t['waitingScreenSettings.save']!),
                 ),

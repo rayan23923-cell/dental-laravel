@@ -9,6 +9,7 @@ import '../../../core/network/api_exception.dart';
 import '../../phone_scanner/phone_scanner_dialog.dart';
 import '../../phone_scanner/phone_scanner_pairing.dart';
 import '../data/paper_photos_repository.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// Opens the paper case-sheet photos of one task instance (2026-10-13, the
 /// same feature as the web's PaperPhotos.vue): take a photo with the camera
@@ -285,7 +286,7 @@ class _PaperPhotosSheetState extends ConsumerState<_PaperPhotosSheet> {
                   ),
                   child: Row(
                     children: [
-                      const SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+                      const SizedBox(height: 14, width: 14, child: TgSpinner(strokeWidth: 2)),
                       const SizedBox(width: 10),
                       Expanded(child: Text(t['paperPhotos.waitingPhone']!)),
                       TextButton(onPressed: _stopPhone, child: Text(t['paperPhotos.done']!)),
@@ -299,7 +300,7 @@ class _PaperPhotosSheetState extends ConsumerState<_PaperPhotosSheet> {
               ],
               const SizedBox(height: 12),
               if (photos == null && _error == null)
-                const Center(child: CircularProgressIndicator())
+                const Center(child: TgSpinner())
               else if ((photos ?? []).isEmpty && _uploading == 0)
                 Padding(
                   padding: const EdgeInsets.all(16),
@@ -355,7 +356,7 @@ class _PaperPhotosSheetState extends ConsumerState<_PaperPhotosSheet> {
                           ],
                         ),
                       for (var i = 0; i < _uploading; i++)
-                        const Center(child: CircularProgressIndicator()),
+                        const Center(child: TgSpinner()),
                     ],
                   ),
                 ),
