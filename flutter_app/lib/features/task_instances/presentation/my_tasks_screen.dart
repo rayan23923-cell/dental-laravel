@@ -77,9 +77,8 @@ class _MyTasksScreenState extends ConsumerState<MyTasksScreen> with SingleTicker
         }
 
         final requests = ref.watch(myTaskStartRequestsProvider).valueOrNull ?? const <TaskStartRequest>[];
-        // The pending lists switched off for the whole system (2026-10-22).
-        final listsOn = (ref.watch(myFormSettingsProvider).valueOrNull ?? const DoctorFormSettings()).on('task_lists_enabled');
-        if (!listsOn && _view != 'all') _view = 'all';
+        // Always shown here, whatever the task_lists_enabled switch says: this
+        // is the doctor's own progress (2026-10-29, by request).
         final waiting = requests.where((r) => r.status != 'approved').toList();
         final pendingCount = requests.where((r) => r.status == 'pending').length;
 
@@ -90,12 +89,10 @@ class _MyTasksScreenState extends ConsumerState<MyTasksScreen> with SingleTicker
 
         final filters = <({String key, String label, IconData icon, Color color, int count})>[
           (key: 'all', label: t['myTasks.filterAll']!, icon: Icons.apps_rounded, color: colors.primary, count: slots.length),
-          if (listsOn) ...[
-            (key: 'inProgress', label: t['myTasks.filterInProgress']!, icon: Icons.timelapse_rounded, color: Colors.blue.shade700, count: count('inProgress')),
-            (key: 'completed', label: t['myTasks.filterCompleted']!, icon: Icons.task_alt_rounded, color: Colors.green.shade700, count: completed),
-            (key: 'notStarted', label: t['myTasks.filterNotStarted']!, icon: Icons.radio_button_unchecked_rounded, color: Colors.blueGrey.shade600, count: count('notStarted')),
-            (key: 'waiting', label: t['taskRequests.waitingTab']!, icon: Icons.hourglass_top_rounded, color: Colors.orange.shade800, count: pendingCount),
-          ],
+          (key: 'inProgress', label: t['myTasks.filterInProgress']!, icon: Icons.timelapse_rounded, color: Colors.blue.shade700, count: count('inProgress')),
+          (key: 'completed', label: t['myTasks.filterCompleted']!, icon: Icons.task_alt_rounded, color: Colors.green.shade700, count: completed),
+          (key: 'notStarted', label: t['myTasks.filterNotStarted']!, icon: Icons.radio_button_unchecked_rounded, color: Colors.blueGrey.shade600, count: count('notStarted')),
+          (key: 'waiting', label: t['taskRequests.waitingTab']!, icon: Icons.hourglass_top_rounded, color: Colors.orange.shade800, count: pendingCount),
         ];
 
         return Column(
@@ -119,7 +116,7 @@ class _MyTasksScreenState extends ConsumerState<MyTasksScreen> with SingleTicker
               ),
             ),
             // Overall progress (with the completed counts' switch).
-            if (listsOn && slots.isNotEmpty && _view != 'waiting') _ProgressSummary(completed: completed, required: slots.length),
+            if (slots.isNotEmpty && _view != 'waiting') _ProgressSummary(completed: completed, required: slots.length),
             if (_view == 'waiting')
               Expanded(child: _WaitingList(requests: waiting))
             else ...[
@@ -321,15 +318,13 @@ class _TaskGroupTile extends ConsumerWidget {
     final completed = allSlots.where((s) => s.status == 'completed').length;
     final required = allSlots.length;
     final t = ref.watch(translationsProvider);
-    final listsOn = (ref.watch(myFormSettingsProvider).valueOrNull ?? const DoctorFormSettings()).on('task_lists_enabled');
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ExpansionTile(
         initiallyExpanded: expanded,
         title: Text(title),
-        // The completed count goes with the pending lists' switch (2026-10-22).
-        subtitle: listsOn ? Text(trf(t['myTasks.completedOfRequired']!, {'completed': completed, 'required': required})) : null,
+        subtitle: Text(trf(t['myTasks.completedOfRequired']!, {'completed': completed, 'required': required})),
         children: [for (final slot in slots) _SlotRow(slot: slot)],
       ),
     );
