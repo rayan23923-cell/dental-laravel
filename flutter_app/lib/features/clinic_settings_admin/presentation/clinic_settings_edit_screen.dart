@@ -11,6 +11,7 @@ import '../data/clinic_settings_admin_repository.dart';
 import '../domain/clinic_settings_admin.dart';
 import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import 'clinic_settings_admin_providers.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 class ClinicSettingsEditScreen extends ConsumerStatefulWidget {
   const ClinicSettingsEditScreen({super.key});
@@ -229,7 +230,7 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
     return Scaffold(
       appBar: AppBar(title: Text(t['clinicSettingsAdmin.title']!)),
       body: settingsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: TgSpinner()),
         error: (error, stackTrace) => Center(child: Text(error is ApiException ? error.userMessage : t['clinicSettingsAdmin.loadFailed']!)),
         data: (settings) {
           _seed(settings);
@@ -507,7 +508,7 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
           child: FilledButton.icon(
             onPressed: _submitting || !settingsAsync.hasValue ? null : _submit,
             icon: _submitting
-                ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(height: 18, width: 18, child: TgSpinner(strokeWidth: 2))
                 : const Icon(Icons.save_outlined),
             label: Text(t['clinicSettingsAdmin.saveSettings']!),
           ),

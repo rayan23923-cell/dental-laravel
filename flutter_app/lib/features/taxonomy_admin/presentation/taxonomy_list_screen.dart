@@ -9,6 +9,7 @@ import '../../../core/widgets/chat_list_tile.dart';
 import '../data/taxonomy_repository.dart';
 import '../domain/taxonomy_item.dart';
 import 'taxonomy_providers.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// One screen reused for all three kinds — see `TaxonomyKind`'s doc
 /// comment for why a shared implementation makes sense here (unlike
@@ -161,7 +162,7 @@ class _TaxonomyListScreenState extends ConsumerState<TaxonomyListScreen> {
           ),
           Expanded(
             child: itemsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: TgSpinner()),
               error: (error, stackTrace) => Center(
                 child: Text(error is ApiException ? error.userMessage : t['taxonomyAdmin.loadFailed']!),
               ),
@@ -378,7 +379,7 @@ class _TaxonomyFormDialogState extends ConsumerState<_TaxonomyFormDialog> {
         FilledButton(
           onPressed: _submitting ? null : _submit,
           child: _submitting
-              ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              ? const SizedBox(height: 16, width: 16, child: TgSpinner(strokeWidth: 2))
               : Text(t['taxonomyAdmin.save']!),
         ),
       ],

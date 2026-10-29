@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../network/api_client.dart';
+import 'tg_spinner.dart';
 
 /// A bearer-token-gated QR PNG, fetched as bytes through [ApiClient] (a
 /// plain `Image.network` has no clean way to attach the auth header).
@@ -25,7 +26,7 @@ class QrImage extends ConsumerWidget {
       width: size,
       height: size,
       child: bytesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: TgSpinner()),
         error: (error, stackTrace) => const Center(child: Icon(Icons.qr_code_2, size: 48)),
         data: (bytes) => Image.memory(Uint8List.fromList(bytes)),
       ),

@@ -7,6 +7,7 @@ import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/form_settings_repository.dart';
 import 'grade_picker.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// The supervisor's code typed on the student's own account (2026-10-22,
 /// by request): starts the task ([instanceId] null), or signs the case's
@@ -388,7 +389,7 @@ class _SupervisorCodeSheetState extends ConsumerState<_SupervisorCodeSheet> {
             const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: _ready ? _submit : null,
-              icon: _busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.verified),
+              icon: _busy ? const SizedBox(width: 18, height: 18, child: TgSpinner(strokeWidth: 2)) : const Icon(Icons.verified),
               label: Text(t['supervisorCode.confirm']!),
             ),
           ],

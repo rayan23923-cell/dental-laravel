@@ -14,6 +14,7 @@ import '../domain/task_admin.dart';
 import '../domain/task_instance_admin.dart';
 import 'tasks_admin_providers.dart';
 import '../../../core/theme/muted_colors.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// Port of the web `Tasks/Show.vue` (2026-10-17): the task's details and
 /// its instances — each with its QR, an
@@ -108,7 +109,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
         ],
       ),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: TgSpinner()),
         error: (e, _) => Center(child: Text(e is ApiException ? e.userMessage : t['tasksAdmin.loadFailed']!)),
         data: (data) => RefreshIndicator(
           onRefresh: () async => ref.invalidate(taskWithInstancesProvider(widget.taskId)),

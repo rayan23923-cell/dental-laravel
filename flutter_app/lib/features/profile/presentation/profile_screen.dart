@@ -22,6 +22,7 @@ import '../../auth/presentation/auth_controller.dart';
 import '../../auth/presentation/auth_state.dart';
 import '../data/profile_repository.dart';
 import '../../../core/widgets/numeric_input.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// Self-service profile + settings, for both account types — mirrors the
 /// web app's `ProfileController`/`Doctor\ProfileController`, which each
@@ -199,7 +200,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider).valueOrNull;
     if (authState is! Authenticated) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: Center(child: TgSpinner()));
     }
     final account = authState.account;
     _seed(account);
@@ -236,7 +237,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       alignment: AlignmentDirectional.centerEnd,
       child: FilledButton(
         onPressed: busy ? null : onPressed,
-        child: busy ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : Text(label),
+        child: busy ? const SizedBox(height: 20, width: 20, child: TgSpinner(strokeWidth: 2)) : Text(label),
       ),
     );
 
@@ -273,7 +274,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         border: Border.all(color: scheme.surface, width: 2),
                       ),
                       child: _savingInfo && _photoPick != null
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          ? const SizedBox(width: 18, height: 18, child: TgSpinner(strokeWidth: 2, color: Colors.white))
                           : const Icon(Icons.photo_camera, size: 18, color: Colors.white),
                     ),
                   ),

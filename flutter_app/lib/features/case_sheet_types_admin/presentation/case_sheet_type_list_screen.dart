@@ -7,6 +7,7 @@ import '../../../core/widgets/chat_list_tile.dart';
 import '../data/case_sheet_types_admin_repository.dart';
 import '../domain/case_sheet_type_admin.dart';
 import 'case_sheet_types_admin_providers.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// Create/edit happens in a dialog, not a full-screen route: the form is
 /// only 4 fields (5 on create) — same "too little content for a separate
@@ -34,7 +35,7 @@ class CaseSheetTypeListScreen extends ConsumerWidget {
         child: const Icon(Icons.add),
       ),
       body: itemsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: TgSpinner()),
         error: (error, stackTrace) => Center(
           child: Text(error is ApiException ? error.userMessage : t['caseSheetTypesAdmin.loadFailed']!),
         ),
@@ -214,7 +215,7 @@ class _CaseSheetTypeFormDialogState extends ConsumerState<_CaseSheetTypeFormDial
         FilledButton(
           onPressed: _submitting ? null : _submit,
           child: _submitting
-              ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              ? const SizedBox(height: 16, width: 16, child: TgSpinner(strokeWidth: 2))
               : Text(t['caseSheetTypesAdmin.save']!),
         ),
       ],

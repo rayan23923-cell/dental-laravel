@@ -7,6 +7,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/theme/muted_colors.dart';
 import '../data/users_admin_repository.dart';
 import '../domain/user_admin.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 final managedUsersProvider = FutureProvider.autoDispose<List<ManagedUser>>((ref) {
   return ref.watch(usersAdminRepositoryProvider).list();
@@ -57,7 +58,7 @@ class _UserListScreenState extends ConsumerState<UserListScreen> {
         child: const Icon(Icons.person_add_alt_1),
       ),
       body: usersAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: TgSpinner()),
         error: (error, stackTrace) => Center(
           child: Text(error is ApiException ? error.userMessage : t['usersAdmin.loadFailed']!),
         ),

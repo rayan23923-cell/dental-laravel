@@ -10,6 +10,7 @@ import '../data/patient_registration_repository.dart';
 import '../domain/service.dart';
 import 'patient_registration_providers.dart';
 import '../../../core/widgets/numeric_input.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// "إعدادات التسجيل" — mirrors `PatientRegistrations/Settings.vue`:
 /// services with a name and a price (the price pre-fills the registration
@@ -322,7 +323,7 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
             FilledButton(
               onPressed: _savingLab ? null : _saveLab,
               child: _savingLab
-                  ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(height: 16, width: 16, child: TgSpinner(strokeWidth: 2))
                   : Text(t['profile.saveChanges']!),
             ),
           ],

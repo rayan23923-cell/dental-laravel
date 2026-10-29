@@ -8,6 +8,7 @@ import '../data/doctors_admin_repository.dart';
 import 'doctor_files.dart';
 import 'doctors_admin_providers.dart';
 import '../../../core/theme/muted_colors.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// Port of the web `Doctors/Import.vue` (2026-10-17): pick an Excel sheet
 /// (First Name, Last Name, Email, Phone, Username — the template's
@@ -169,7 +170,7 @@ class _DoctorImportScreenState extends ConsumerState<DoctorImportScreen> {
           FilledButton.icon(
             onPressed: _busy ? null : _import,
             icon: _busy
-                ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(height: 16, width: 16, child: TgSpinner(strokeWidth: 2))
                 : const Icon(Icons.file_upload_outlined),
             label: Text(t['doctorsAdmin.import']!),
           ),

@@ -12,6 +12,7 @@ import '../data/patient_registration_repository.dart';
 import '../domain/lab_registration.dart';
 import 'live_registrations.dart';
 import 'patient_registration_providers.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// "المختبر" (2026-10-17) — the web `Lab/Index.vue` page in the app:
 /// registrations by screening status (pending / flagged / clear / all,
@@ -159,7 +160,7 @@ class _LabListScreenState extends ConsumerState<LabListScreen> with LiveRegistra
           if (_opening) const LinearProgressIndicator(minHeight: 2),
           Expanded(
             child: pageAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: TgSpinner()),
               error: (error, _) => Center(child: Text(error is ApiException ? error.userMessage : t['common.loadFailed']!)),
               data: (page) => RefreshIndicator(
                 onRefresh: () async => ref.invalidate(labListProvider),

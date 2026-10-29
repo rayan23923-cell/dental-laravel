@@ -11,6 +11,7 @@ import '../../../core/i18n/locale_controller.dart';
 import '../../../core/platform/qr_image_decoder.dart';
 import '../../../core/network/api_exception.dart';
 import '../../phone_scanner/phone_scanner_pairing.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// The QR scanner on the Windows app (2026-10-12, by request):
 /// `mobile_scanner` has no Windows camera support, so this shows the
@@ -286,7 +287,7 @@ class _DesktopQrScannerState extends ConsumerState<DesktopQrScanner> {
         ),
       );
     } else {
-      camera = const Center(child: CircularProgressIndicator());
+      camera = const Center(child: TgSpinner());
     }
 
     return Column(

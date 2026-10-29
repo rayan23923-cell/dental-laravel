@@ -17,6 +17,7 @@ import '../../patient_registration/data/patient_registration_repository.dart';
 import '../../patient_registration/domain/patient_registration.dart';
 import '../../records/data/records_repository.dart';
 import '../../records/domain/patient.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// One search box for tickets, patients and students (2026-10-28, by
 /// request: "بحث موحّد في الأعلى" — Telegram's top search), instead of
@@ -147,7 +148,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
     if (_query.length < 2) {
       body = _Hint(icon: Icons.search, text: t['search.typeMore']!);
     } else if (_loading && _results.isEmpty) {
-      body = const Center(child: CircularProgressIndicator());
+      body = const Center(child: TgSpinner());
     } else if (_results.isEmpty) {
       body = _Hint(icon: Icons.search_off, text: t['search.empty']!);
     } else {

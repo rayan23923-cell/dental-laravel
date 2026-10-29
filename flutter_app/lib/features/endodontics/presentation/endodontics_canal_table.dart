@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/config/app_config.dart';
 import '../data/endodontics_xray_repository.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// Port of `resources/js/Components/EndodonticsCanalTable.vue` — the
 /// per-canal working-length/size table used twice in the Endodontics
@@ -179,7 +180,7 @@ class _XrayCellState extends ConsumerState<_XrayCell> {
             ),
             alignment: Alignment.center,
             child: _uploading
-                ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5))
+                ? const SizedBox(width: 12, height: 12, child: TgSpinner(strokeWidth: 1.5))
                 : Icon(Icons.add_a_photo_outlined, size: 14, color: Theme.of(context).colorScheme.outline),
           ),
         ),

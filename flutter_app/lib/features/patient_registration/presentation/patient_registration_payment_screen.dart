@@ -19,6 +19,7 @@ import '../../records/data/records_repository.dart';
 import '../../records/domain/payment.dart';
 import '../data/patient_registration_repository.dart';
 import '../domain/registration_payment_state.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// The payment-desk screen reached after scanning a registration's ticket
 /// QR (or its on-screen equivalent) — shows whether it's paid, and if
@@ -201,7 +202,7 @@ class _PatientRegistrationPaymentScreenState extends ConsumerState<PatientRegist
             FilledButton(
               onPressed: (_paying || _amount == null) ? null : _confirmPayment,
               child: _paying
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(height: 20, width: 20, child: TgSpinner(strokeWidth: 2))
                   : Text(t['payments.takeServicePrice']!),
             ),
           ],

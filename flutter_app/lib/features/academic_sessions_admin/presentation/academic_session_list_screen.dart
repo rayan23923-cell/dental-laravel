@@ -10,6 +10,7 @@ import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../data/academic_sessions_repository.dart';
 import '../domain/academic_session_admin.dart';
 import 'academic_sessions_providers.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 class AcademicSessionListScreen extends ConsumerWidget {
   const AcademicSessionListScreen({super.key});
@@ -27,7 +28,7 @@ class AcademicSessionListScreen extends ConsumerWidget {
         child: const Icon(Icons.add),
       ),
       body: sessionsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: TgSpinner()),
         error: (error, stackTrace) => Center(
           child: Text(error is ApiException ? error.userMessage : t['academicSessionsAdmin.loadFailed']!),
         ),
@@ -156,7 +157,7 @@ class _SessionTileState extends ConsumerState<_SessionTile> {
         Padding(
           padding: const EdgeInsetsDirectional.only(end: 8),
           child: _submitting
-              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              ? const SizedBox(height: 20, width: 20, child: TgSpinner(strokeWidth: 2))
               : Tooltip(
                   message: t['academicSessionsAdmin.setCurrentLabel']!,
                   child: CupertinoSwitch(

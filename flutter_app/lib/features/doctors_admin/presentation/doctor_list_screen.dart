@@ -23,6 +23,7 @@ import 'doctor_card_pdf.dart';
 import 'doctor_files.dart';
 import 'doctor_roster_pdf.dart';
 import 'doctors_admin_providers.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 class DoctorListScreen extends ConsumerStatefulWidget {
   const DoctorListScreen({super.key});
@@ -307,7 +308,7 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
           _printing
               ? const Padding(
                   padding: EdgeInsets.all(14),
-                  child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                  child: SizedBox(height: 20, width: 20, child: TgSpinner(strokeWidth: 2)),
                 )
               : PopupMenuButton<String>(
                   icon: const Icon(Icons.print_outlined),
@@ -380,7 +381,7 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
                     _scanningNfc
                         ? const Padding(
                             padding: EdgeInsets.all(12),
-                            child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                            child: SizedBox(height: 20, width: 20, child: TgSpinner(strokeWidth: 2)),
                           )
                         : IconButton(icon: const Icon(Icons.nfc), tooltip: t['doctorsAdmin.scanNfcTooltip'], onPressed: _scanNfc),
                   ],
@@ -430,7 +431,7 @@ class _DoctorListScreenState extends ConsumerState<DoctorListScreen> {
           ),
           Expanded(
             child: doctorsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: TgSpinner()),
               error: (error, stackTrace) => Center(
                 child: Text(error is ApiException ? error.userMessage : t['doctorsAdmin.loadFailed']!),
               ),

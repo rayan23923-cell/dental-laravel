@@ -10,6 +10,7 @@ import '../../../core/widgets/chat_list_tile.dart';
 import '../domain/task_admin.dart';
 import 'tasks_admin_providers.dart';
 import '../../../core/theme/muted_colors.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// "المهام" — mirrors dental_clinics2/admin/manage_tasks.php: three
 /// cascading dropdowns (نوع الدراسة -> المرحلة -> القسم), and the task
@@ -153,7 +154,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                     ),
                   )
                 : tasksAsync!.when(
-                    loading: () => const Center(child: CircularProgressIndicator()),
+                    loading: () => const Center(child: TgSpinner()),
                     error: (error, stackTrace) => Center(
                       child: Text(error is ApiException ? error.userMessage : t['tasksAdmin.loadFailed']!),
                     ),

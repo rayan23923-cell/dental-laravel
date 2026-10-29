@@ -16,6 +16,7 @@ import '../domain/printer_settings.dart';
 import 'printer_error_snackbar.dart';
 import 'printer_settings_providers.dart';
 import 'ticket_renderer.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// "إعدادات الطابعة" — lets staff pick between the original built-in POS
 /// printer (unchanged default behavior), an external Bluetooth printer
@@ -325,7 +326,7 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(t['printerSettingsAdmin.title']!)),
       body: settingsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: TgSpinner()),
         error: (error, _) => Center(child: Text(trf(t['printerSettingsAdmin.loadFailed']!, {'error': '$error'}))),
         data: (settings) {
           _seed(settings);
@@ -399,7 +400,7 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
                 OutlinedButton.icon(
                   onPressed: _testing ? null : () => _testPrint(draft),
                   icon: _testing
-                      ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      ? const SizedBox(height: 18, width: 18, child: TgSpinner(strokeWidth: 2))
                       : const Icon(Icons.receipt_long_outlined),
                   label: Text(t['printerSettingsAdmin.testPrint']!),
                 ),
@@ -441,7 +442,7 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
                       style: FilledButton.styleFrom(minimumSize: const Size(64, 44)),
                       onPressed: _scanning ? null : _scanBluetooth,
                       icon: _scanning
-                          ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          ? const SizedBox(height: 16, width: 16, child: TgSpinner(strokeWidth: 2))
                           : const Icon(Icons.bluetooth_searching),
                       label: Text(t['printerSettingsAdmin.searchButton']!),
                     ),
@@ -517,7 +518,7 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
                       style: FilledButton.styleFrom(minimumSize: const Size(64, 44)),
                       onPressed: _loadingUsb ? null : _loadUsbDevices,
                       icon: _loadingUsb
-                          ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          ? const SizedBox(height: 16, width: 16, child: TgSpinner(strokeWidth: 2))
                           : const Icon(Icons.refresh),
                       label: Text(t['printerSettingsAdmin.refreshButton']!),
                     ),
@@ -565,7 +566,7 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
               FilledButton(
                 onPressed: _saving ? null : _save,
                 child: _saving
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(height: 20, width: 20, child: TgSpinner(strokeWidth: 2))
                     : Text(t['printerSettingsAdmin.save']!),
               ),
             ],

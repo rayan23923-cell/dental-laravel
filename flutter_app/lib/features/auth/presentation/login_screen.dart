@@ -9,13 +9,13 @@ import '../../../core/config/server_settings_controller.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/instagram_spinner.dart';
 import '../../../core/widgets/server_status_indicator.dart';
 import '../data/auth_repository.dart';
 import '../data/branding_repository.dart';
 import 'auth_controller.dart';
 import 'auth_state.dart';
 import '../../../core/widgets/numeric_input.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// One field, either the account's email or its username, and a password —
 /// no staff/doctor toggle. The server (`Api\AuthController::login()`)
@@ -246,7 +246,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       }
                     },
               child: sending
-                  ? const InstagramSpinner(size: 18, strokeWidth: 2)
+                  ? const TgSpinner(size: 18, strokeWidth: 2)
                   : Text(step == 1 ? 'إرسال الرمز' : 'حفظ كلمة المرور'),
             ),
           ],
@@ -394,7 +394,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     FilledButton(
                       onPressed: isLoading ? null : _submit,
                       child: isLoading
-                          ? const InstagramSpinner(size: 20, strokeWidth: 2)
+                          ? const TgSpinner(size: 20, strokeWidth: 2)
                           : Text(t['auth.signIn']!),
                     ),
                     // Privacy policy before signing in, as the app stores want (2026-10-28).

@@ -6,6 +6,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../form_settings/presentation/grade_picker.dart';
 import '../../tasks_admin/domain/task_scoring.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// A case's steps, signed one after another with each one's grade
 /// (2026-10-18, by request), the app's port of the web's
@@ -395,7 +396,7 @@ class _TaskStepsSheetState extends ConsumerState<_TaskStepsSheet> {
                 Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))
               else if (data == null)
                 const Center(
-                  child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()),
+                  child: Padding(padding: EdgeInsets.all(16), child: TgSpinner()),
                 )
               else ...[
                 TaskStepsList(

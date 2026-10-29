@@ -6,6 +6,7 @@ import '../../../../core/i18n/locale_controller.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../domain/appointment.dart';
 import '../records_providers.dart';
+import '../../../../core/widgets/tg_spinner.dart';
 
 /// `pickMode: true` turns taps into `Navigator.pop(appointment)` instead of
 /// pushing the edit screen — reused by `PaymentFormScreen`'s appointment
@@ -28,7 +29,7 @@ class AppointmentListScreen extends ConsumerWidget {
               child: const Icon(Icons.add),
             ),
       body: appointmentsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: TgSpinner()),
         error: (error, stackTrace) => Center(
           child: Text(error is ApiException ? error.userMessage : t['recordsHub.loadFailed']!),
         ),

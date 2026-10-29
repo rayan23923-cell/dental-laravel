@@ -13,6 +13,7 @@ import '../../../core/widgets/chat_list_tile.dart';
 import '../data/backup_admin_repository.dart';
 import '../domain/backup_status.dart';
 import 'backup_admin_providers.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 class BackupScreen extends ConsumerStatefulWidget {
   const BackupScreen({super.key});
@@ -82,7 +83,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(t['backupAdmin.title']!)),
       body: statusAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: TgSpinner()),
         error: (error, stackTrace) => Center(
           child: Text(error is ApiException ? error.userMessage : t['backupAdmin.loadFailed']!),
         ),
@@ -114,7 +115,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                       FilledButton.icon(
                         onPressed: _creating ? null : _createBackup,
                         icon: _creating
-                            ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                            ? const SizedBox(height: 16, width: 16, child: TgSpinner(strokeWidth: 2))
                             : const Icon(Icons.backup_outlined),
                         label: Text(_creating ? t['backupAdmin.creating']! : t['backupAdmin.createNow']!),
                       ),
@@ -229,7 +230,7 @@ class _BackupFileTileState extends ConsumerState<_BackupFileTile> {
           _downloading
               ? const Padding(
                   padding: EdgeInsetsDirectional.only(end: 12),
-                  child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                  child: SizedBox(height: 20, width: 20, child: TgSpinner(strokeWidth: 2)),
                 )
               : IconButton(
                   tooltip: t['backupAdmin.download']!,

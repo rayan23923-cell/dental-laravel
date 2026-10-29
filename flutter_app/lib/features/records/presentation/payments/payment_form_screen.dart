@@ -17,6 +17,7 @@ import '../records_providers.dart';
 import 'payment_list_screen.dart' show showPaymentReceiptOptions;
 import '../../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../../../../core/widgets/numeric_input.dart';
+import '../../../../core/widgets/tg_spinner.dart';
 
 class PaymentFormScreen extends ConsumerStatefulWidget {
   const PaymentFormScreen({super.key, this.paymentId});
@@ -241,7 +242,7 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
           // by hand any more and the API no longer routes the update.
           return _details(context, t, value);
         default:
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(body: Center(child: TgSpinner()));
       }
     }
 
@@ -269,7 +270,7 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
                 _scanningRegistration
                     ? const Padding(
                         padding: EdgeInsets.all(8),
-                        child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                        child: SizedBox(height: 20, width: 20, child: TgSpinner(strokeWidth: 2)),
                       )
                     : IconButton.filledTonal(
                         onPressed: _scanRegistration,
@@ -330,7 +331,7 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
               FilledButton(
                 onPressed: _submitting ? null : _submit,
                 child: _submitting
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(height: 20, width: 20, child: TgSpinner(strokeWidth: 2))
                     : Text(t['recordsHub.saveButton']!),
               ),
             ],

@@ -11,6 +11,7 @@ import 'requirements_table.dart';
 import 'scoring_editor.dart';
 import 'tasks_admin_providers.dart';
 import '../../../core/widgets/numeric_input.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 class TaskFormScreen extends ConsumerStatefulWidget {
   const TaskFormScreen({super.key, this.taskId, this.initialEducationTypeId, this.initialStageId});
@@ -275,7 +276,7 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
         case AsyncData(:final value):
           _seed(value);
         default:
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(body: Center(child: TgSpinner()));
       }
     }
     final stageItems = stagesAsync.valueOrNull;
@@ -452,7 +453,7 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
             FilledButton(
               onPressed: _submitting ? null : _submit,
               child: _submitting
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(height: 20, width: 20, child: TgSpinner(strokeWidth: 2))
                   : Text(t['tasksAdmin.save']!),
             ),
           ],

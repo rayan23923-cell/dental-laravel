@@ -38,6 +38,7 @@ import '../domain/task_progress_group.dart';
 import 'task_progress_pdf.dart';
 import 'task_progress_providers.dart';
 import '../../../core/widgets/numeric_input.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// "تقدم المهام" — the full day → education type/stage → group →
 /// department (tabs) → doctor (expandable) → per-slot task-card matrix,
@@ -740,7 +741,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
     final t = ref.watch(translationsProvider);
 
     return groupAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: TgSpinner()),
       error: (error, _) => Center(
         child: Text(
           error is ApiException ? error.userMessage : t['taskProgressAdmin.loadFailed']!,
@@ -819,7 +820,7 @@ class _TaskProgressScreenState extends ConsumerState<TaskProgressScreen>
                               width: 16,
                               child: Padding(
                                 padding: EdgeInsets.all(4),
-                                child: CircularProgressIndicator(
+                                child: TgSpinner(
                                   strokeWidth: 2,
                                 ),
                               ),

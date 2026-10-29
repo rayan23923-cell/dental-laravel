@@ -26,6 +26,7 @@ import '../records_providers.dart';
 import '../../../clinic_settings/presentation/clinic_settings_providers.dart';
 import 'payment_stats_overview.dart';
 import 'payments_pdf.dart';
+import '../../../../core/widgets/tg_spinner.dart';
 
 class PaymentListScreen extends ConsumerStatefulWidget {
   const PaymentListScreen({super.key});
@@ -138,7 +139,7 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
           if (staffPaymentSources(ref, report: true)?.isNotEmpty ?? true)
             IconButton(
               icon: _printingReport
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(width: 20, height: 20, child: TgSpinner(strokeWidth: 2))
                   : const Icon(Icons.picture_as_pdf_outlined),
               tooltip: t['payments.printReport']!,
               onPressed: _printingReport ? null : _printReport,
@@ -163,7 +164,7 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
           ),
           Expanded(
             child: paymentsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: TgSpinner()),
               error: (error, stackTrace) => Center(
                 child: Text(error is ApiException ? error.userMessage : t['recordsHub.loadFailed']!),
               ),

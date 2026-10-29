@@ -11,6 +11,7 @@ import '../../../core/widgets/cascading_dropdown.dart';
 import '../../../core/widgets/chat_list_tile.dart';
 import '../domain/group_admin.dart';
 import 'groups_admin_providers.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// Previously had no search or filter UI at all. Education type here is
 /// UI-only (`Group` has no `education_type_id` column, confirmed) —
@@ -102,7 +103,7 @@ class _GroupListScreenState extends ConsumerState<GroupListScreen> {
                     _scanningNfc
                         ? const Padding(
                             padding: EdgeInsets.all(12),
-                            child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                            child: SizedBox(height: 20, width: 20, child: TgSpinner(strokeWidth: 2)),
                           )
                         : IconButton(icon: const Icon(Icons.nfc), tooltip: t['groupsAdmin.scanNfcTooltip'], onPressed: _scanNfc),
                   ],
@@ -161,7 +162,7 @@ class _GroupListScreenState extends ConsumerState<GroupListScreen> {
           ),
           Expanded(
             child: groupsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: TgSpinner()),
               error: (error, stackTrace) => Center(
                 child: Text(error is ApiException ? error.userMessage : t['groupsAdmin.loadFailed']!),
               ),

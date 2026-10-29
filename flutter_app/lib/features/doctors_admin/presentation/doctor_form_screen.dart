@@ -16,6 +16,7 @@ import '../domain/doctor_admin.dart';
 import 'doctor_card_pdf.dart';
 import 'doctors_admin_providers.dart';
 import '../../../core/widgets/numeric_input.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// `doctorId == null` means create. `password` is required on create,
 /// optional on edit (blank = unchanged) — matches
@@ -205,7 +206,7 @@ class _DoctorFormScreenState extends ConsumerState<DoctorFormScreen> {
         case AsyncData(:final value):
           _seed(value);
         default:
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(body: Center(child: TgSpinner()));
       }
     }
 
@@ -216,7 +217,7 @@ class _DoctorFormScreenState extends ConsumerState<DoctorFormScreen> {
           if (doctorAsync?.valueOrNull case final doctor?)
             IconButton(
               icon: _printingCard
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(height: 20, width: 20, child: TgSpinner(strokeWidth: 2))
                   : const Icon(Icons.badge_outlined),
               tooltip: t['doctorsAdmin.printCard'],
               onPressed: _printingCard ? null : () => _printCard(doctor),
@@ -320,7 +321,7 @@ class _DoctorFormScreenState extends ConsumerState<DoctorFormScreen> {
                 suffixIcon: _scanningNfc
                     ? const Padding(
                         padding: EdgeInsets.all(12),
-                        child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                        child: SizedBox(height: 20, width: 20, child: TgSpinner(strokeWidth: 2)),
                       )
                     : IconButton(icon: const Icon(Icons.nfc), tooltip: t['doctorsAdmin.scanTagTooltip'], onPressed: _scanNfcTag),
               ),
@@ -329,7 +330,7 @@ class _DoctorFormScreenState extends ConsumerState<DoctorFormScreen> {
             FilledButton(
               onPressed: _submitting ? null : _submit,
               child: _submitting
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(height: 20, width: 20, child: TgSpinner(strokeWidth: 2))
                   : Text(t['doctorsAdmin.save']!),
             ),
           ],

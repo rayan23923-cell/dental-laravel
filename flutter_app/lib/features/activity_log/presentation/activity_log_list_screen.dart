@@ -11,6 +11,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/chat_list_tile.dart';
 import '../data/activity_logs_repository.dart';
 import '../domain/activity_log_entry.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 /// No `FutureProvider` here — pagination is accumulated local state (each
 /// "load more" tap appends a page), which doesn't fit Riverpod's
@@ -169,7 +170,7 @@ class _ActivityLogListScreenState extends ConsumerState<ActivityLogListScreen> {
           ),
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: TgSpinner())
                 : _error != null
                     ? Center(child: Text(_error!))
                     : _entries.isEmpty
@@ -186,7 +187,7 @@ class _ActivityLogListScreenState extends ConsumerState<ActivityLogListScreen> {
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(vertical: 12),
                                       child: _loadingMore
-                                          ? const CircularProgressIndicator()
+                                          ? const TgSpinner()
                                           : OutlinedButton(onPressed: _loadMore, child: Text(t['activityLogsAdmin.loadMore']!)),
                                     ),
                                   );

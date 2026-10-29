@@ -12,6 +12,7 @@ import '../domain/task_instance.dart';
 import '../domain/task_instance_status.dart';
 import 'status_badge.dart';
 import 'task_instances_providers.dart';
+import '../../../core/widgets/tg_spinner.dart';
 
 class TaskInstanceDetailScreen extends ConsumerWidget {
   const TaskInstanceDetailScreen({super.key, required this.taskInstanceId});
@@ -25,7 +26,7 @@ class TaskInstanceDetailScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: Text(t['taskDetail.title']!)),
       body: detailAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: TgSpinner()),
         error: (error, stackTrace) => Center(
           child: Text(error is ApiException ? error.userMessage : t['taskDetail.loadFailed']!),
         ),
@@ -154,7 +155,7 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
           FilledButton.icon(
             onPressed: _openingCaseSheet ? null : _openCaseSheet,
             icon: _openingCaseSheet
-                ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(height: 16, width: 16, child: TgSpinner(strokeWidth: 2))
                 : const Icon(Icons.description_outlined),
             label: Text(t['labels.caseSheetForm']!),
           ),
