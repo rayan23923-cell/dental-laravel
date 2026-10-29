@@ -31,8 +31,7 @@ import 'task_instances_providers.dart';
 /// rather than the flat `GET /my-task-instances` this screen replaces —
 /// the flat endpoint only returns rows that already exist in
 /// `task_instances`, so it can't show a required-but-not-yet-started slot
-/// at all. Status filtering (the old screen's chip row) is dropped: each
-/// slot already shows its own status badge in this grouped view.
+/// at all. A filter row on top (2026-10-29) narrows the slots by status.
 class MyTasksScreen extends ConsumerStatefulWidget {
   const MyTasksScreen({super.key});
 
@@ -44,9 +43,9 @@ class _MyTasksScreenState extends ConsumerState<MyTasksScreen> with SingleTicker
   TabController? _tabController;
   int _departmentCount = -1;
 
-  /// 'all' (the department view below), 'waiting' (start requests not yet
-  /// approved) or 'notStarted' (tasks with slots still to start) —
-  /// 2026-10-14, same as the web's "مهامي".
+  /// The filter row at the top (2026-10-29, by request): 'all',
+  /// 'inProgress', 'completed', 'notStarted' filter the department view's
+  /// slots by status; 'waiting' shows start requests not yet approved.
   String _view = 'all';
 
   @override
@@ -84,44 +83,60 @@ class _MyTasksScreenState extends ConsumerState<MyTasksScreen> with SingleTicker
         final waiting = requests.where((r) => r.status != 'approved').toList();
         final pendingCount = requests.where((r) => r.status == 'pending').length;
 
-        Widget pill(String key, String label, {int badge = 0}) => Padding(
-          padding: const EdgeInsetsDirectional.only(end: 8),
-          child: ChoiceChip(
-            label: Badge(isLabelVisible: badge > 0, label: Text('$badge'), offset: const Offset(14, -8), child: Text(label)),
-            selected: _view == key,
-            onSelected: (_) => setState(() => _view = key),
-          ),
-        );
+        final slots = [for (final d in departments) ...d.doctor.tasks];
+        int count(String filter) => slots.where((s) => _slotMatches(s, filter)).length;
+        final completed = count('completed');
+        final colors = Theme.of(context).colorScheme;
+
+        final filters = <({String key, String label, IconData icon, Color color, int count})>[
+          (key: 'all', label: t['myTasks.filterAll']!, icon: Icons.apps_rounded, color: colors.primary, count: slots.length),
+          if (listsOn) ...[
+            (key: 'inProgress', label: t['myTasks.filterInProgress']!, icon: Icons.timelapse_rounded, color: Colors.blue.shade700, count: count('inProgress')),
+            (key: 'completed', label: t['myTasks.filterCompleted']!, icon: Icons.task_alt_rounded, color: Colors.green.shade700, count: completed),
+            (key: 'notStarted', label: t['myTasks.filterNotStarted']!, icon: Icons.radio_button_unchecked_rounded, color: Colors.blueGrey.shade600, count: count('notStarted')),
+            (key: 'waiting', label: t['taskRequests.waitingTab']!, icon: Icons.hourglass_top_rounded, color: Colors.orange.shade800, count: pendingCount),
+          ],
+        ];
 
         return Column(
           children: [
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
               child: Row(
                 children: [
-                  pill('all', t['taskRequests.allTasksTab']!),
-                  if (listsOn) pill('waiting', t['taskRequests.waitingTab']!, badge: pendingCount),
-                  if (listsOn) pill('notStarted', t['taskRequests.notStartedTab']!),
+                  for (final f in filters)
+                    Expanded(
+                      child: _StatusFilterTile(
+                        label: f.label,
+                        icon: f.icon,
+                        color: f.color,
+                        count: f.count,
+                        selected: _view == f.key,
+                        onTap: () => setState(() => _view = f.key),
+                      ),
+                    ),
                 ],
               ),
             ),
+            // Overall progress (with the completed counts' switch).
+            if (listsOn && slots.isNotEmpty && _view != 'waiting') _ProgressSummary(completed: completed, required: slots.length),
             if (_view == 'waiting')
               Expanded(child: _WaitingList(requests: waiting))
-            else if (_view == 'notStarted')
-              Expanded(
-                child: _NotStartedList(departments: departments, requests: requests),
-              )
             else ...[
               TabBar(
                 controller: _tabController,
                 isScrollable: true,
-                tabs: [for (final d in departments) Tab(text: d.name)],
+                tabs: [
+                  for (final d in departments)
+                    Tab(
+                      text: _view == 'all' ? d.name : '${d.name} (${d.doctor.tasks.where((s) => _slotMatches(s, _view)).length})',
+                    ),
+                ],
               ),
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
-                  children: [for (final d in departments) _DepartmentTaskList(department: d)],
+                  children: [for (final d in departments) _DepartmentTaskList(department: d, filter: _view)],
                 ),
               ),
             ],
@@ -132,16 +147,137 @@ class _MyTasksScreenState extends ConsumerState<MyTasksScreen> with SingleTicker
   }
 }
 
-class _DepartmentTaskList extends ConsumerWidget {
-  const _DepartmentTaskList({required this.department});
-  final MyTaskDepartment department;
+/// Whether [slot] belongs under the top filter [filter]. A 'pending'
+/// instance has no doctor yet, so for the doctor it counts as not started.
+bool _slotMatches(TaskSlotCard slot, String filter) => switch (filter) {
+  'inProgress' => slot.status == 'assigned',
+  'completed' => slot.status == 'completed',
+  'notStarted' => slot.status == 'unassigned' || slot.status == 'pending',
+  _ => true,
+};
+
+/// One tile of the filter row: the count on top, icon and label under it,
+/// filled with its own color when selected. Tiles share the width so the
+/// whole row fits a phone screen.
+class _StatusFilterTile extends StatelessWidget {
+  const _StatusFilterTile({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.count,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final int count;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = selected ? Colors.white : color;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 3),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            height: 78,
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+            decoration: BoxDecoration(
+              color: selected ? color : color.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: selected ? color : color.withValues(alpha: 0.22)),
+              boxShadow: selected ? [BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 2))] : null,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, size: 15, color: foreground),
+                    const SizedBox(width: 4),
+                    Text('$count', style: TextStyle(color: foreground, fontWeight: FontWeight.w800, fontSize: 18, height: 1.1)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: foreground, fontWeight: FontWeight.w600, fontSize: 11, height: 1.15),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "أنجزت X من Y حالة" with a progress bar, under the filter row.
+class _ProgressSummary extends ConsumerWidget {
+  const _ProgressSummary({required this.completed, required this.required});
+  final int completed;
+  final int required;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tasks = department.doctor.tasks;
+    final t = ref.watch(translationsProvider);
+    final ratio = required == 0 ? 0.0 : completed / required;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+      child: Row(
+        children: [
+          Text(
+            trf(t['myTasks.progressSummary']!, {'completed': completed, 'required': required}),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(value: ratio, minHeight: 6, color: Colors.green.shade600, backgroundColor: Colors.green.withValues(alpha: 0.15)),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text('${(ratio * 100).round()}%', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+}
+
+class _DepartmentTaskList extends ConsumerWidget {
+  const _DepartmentTaskList({required this.department, required this.filter});
+  final MyTaskDepartment department;
+  final String filter;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tasks = department.doctor.tasks.where((s) => _slotMatches(s, filter)).toList();
     if (tasks.isEmpty) {
       final t = ref.watch(translationsProvider);
-      return Center(child: Text(t['myTasks.noTasksInDept']!));
+      final filtered = filter != 'all' && department.doctor.tasks.isNotEmpty;
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (filtered) Icon(Icons.filter_alt_off_outlined, size: 40, color: Theme.of(context).colorScheme.outline),
+            if (filtered) const SizedBox(height: 8),
+            Text(filtered ? t['myTasks.noTasksForFilter']! : t['myTasks.noTasksInDept']!, style: const TextStyle(color: Colors.grey)),
+          ],
+        ),
+      );
     }
 
     // Group this department's slot cards by task_id, preserving the
@@ -151,29 +287,46 @@ class _DepartmentTaskList extends ConsumerWidget {
     for (final card in tasks) {
       byTask.putIfAbsent(card.taskId, () => []).add(card);
     }
+    // The "X/N مكتملة" line counts every slot of the task, not just the filtered ones.
+    final allSlots = <int, List<TaskSlotCard>>{};
+    for (final card in department.doctor.tasks) {
+      allSlots.putIfAbsent(card.taskId, () => []).add(card);
+    }
 
     return ListView(
       padding: const EdgeInsets.all(12),
-      children: [for (final entry in byTask.entries) _TaskGroupTile(slots: entry.value)],
+      children: [
+        for (final entry in byTask.entries)
+          _TaskGroupTile(
+            // A new key per filter so a filtered list opens expanded.
+            key: ValueKey('${entry.key}-$filter'),
+            slots: entry.value,
+            allSlots: allSlots[entry.key]!,
+            expanded: filter != 'all',
+          ),
+      ],
     );
   }
 }
 
 class _TaskGroupTile extends ConsumerWidget {
-  const _TaskGroupTile({required this.slots});
+  const _TaskGroupTile({super.key, required this.slots, required this.allSlots, this.expanded = false});
   final List<TaskSlotCard> slots;
+  final List<TaskSlotCard> allSlots;
+  final bool expanded;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final title = slots.first.taskTitle;
-    final completed = slots.where((s) => s.status == 'completed').length;
-    final required = slots.length;
+    final completed = allSlots.where((s) => s.status == 'completed').length;
+    final required = allSlots.length;
     final t = ref.watch(translationsProvider);
     final listsOn = (ref.watch(myFormSettingsProvider).valueOrNull ?? const DoctorFormSettings()).on('task_lists_enabled');
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ExpansionTile(
+        initiallyExpanded: expanded,
         title: Text(title),
         // The completed count goes with the pending lists' switch (2026-10-22).
         subtitle: listsOn ? Text(trf(t['myTasks.completedOfRequired']!, {'completed': completed, 'required': required})) : null,
@@ -591,53 +744,6 @@ class _WaitingList extends ConsumerWidget {
                   ),
               ],
             ),
-    );
-  }
-}
-
-/// Tasks that still have slots to start, each with its request button.
-class _NotStartedList extends ConsumerWidget {
-  const _NotStartedList({required this.departments, required this.requests});
-  final List<MyTaskDepartment> departments;
-  final List<TaskStartRequest> requests;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = ref.watch(translationsProvider);
-    final rows = <({String department, TaskSlotCard slot, int open})>[];
-    for (final d in departments) {
-      final byTask = <int, List<TaskSlotCard>>{};
-      for (final card in d.doctor.tasks) {
-        byTask.putIfAbsent(card.taskId, () => []).add(card);
-      }
-      for (final slots in byTask.values) {
-        final open = slots.where((s) => s.instanceId == null).length;
-        if (open > 0) rows.add((department: d.name, slot: slots.first, open: open));
-      }
-    }
-    if (rows.isEmpty) {
-      return Center(
-        child: Text(t['taskRequests.noNotStarted']!, style: const TextStyle(color: Colors.grey)),
-      );
-    }
-    return ListView(
-      padding: const EdgeInsets.all(12),
-      children: [
-        for (final row in rows)
-          Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              title: Text(row.slot.taskTitle),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(row.department),
-                  _RequestStartButton(taskId: row.slot.taskId, taskTitle: row.slot.taskTitle),
-                ],
-              ),
-            ),
-          ),
-      ],
     );
   }
 }
