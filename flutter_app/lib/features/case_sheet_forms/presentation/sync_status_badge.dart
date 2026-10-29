@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/case_sheet_offline_store.dart';
 import '../domain/case_sheet_sync_status.dart';
 
-/// Per-record offline-sync indicator — shown on `CaseSheetRecordListScreen`
-/// rows and `CaseSheetFormScreen`'s AppBar. Renders nothing once synced
+/// Per-record offline-sync indicator — shown in `CaseSheetFormScreen`'s
+/// AppBar. Renders nothing once synced
 /// (the common case), so it never adds visual noise to a record with no
 /// offline history.
 class SyncStatusBadge extends ConsumerWidget {

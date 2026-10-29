@@ -33,8 +33,6 @@ import '../../features/sessions/presentation/sessions_screen.dart';
 import '../../features/users_admin/presentation/user_edit_screen.dart';
 import '../../features/users_admin/presentation/user_form_screen.dart';
 import '../../features/users_admin/presentation/user_list_screen.dart';
-import '../../features/case_sheet_forms/presentation/case_sheet_record_list_screen.dart';
-import '../../features/case_sheet_forms/presentation/case_sheet_types_screen.dart';
 import '../../features/doctors_admin/presentation/doctor_form_screen.dart';
 import '../../features/doctors_admin/presentation/doctor_import_screen.dart';
 import '../../features/doctors_admin/presentation/doctor_list_screen.dart';
@@ -373,15 +371,15 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/pending-tasks-qr',
             redirect: (context, state) => '/home',
           ),
+          // The doctor's "النماذج السريرية" lists were removed (2026-10-29,
+          // by request): forms open from their task, so old links go home.
           GoRoute(
             path: '/case-sheets',
-            builder: (context, state) => const CaseSheetTypesScreen(),
+            redirect: (context, state) => '/home',
           ),
           GoRoute(
             path: '/case-sheets/:resource',
-            builder: (context, state) => CaseSheetRecordListScreen(
-              resource: state.pathParameters['resource']!,
-            ),
+            redirect: (context, state) => '/home',
           ),
           GoRoute(
             path: '/records',

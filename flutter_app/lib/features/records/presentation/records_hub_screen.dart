@@ -9,8 +9,7 @@ import '../../auth/presentation/auth_controller.dart';
 import '../../auth/presentation/auth_state.dart';
 
 /// "السجلات" — staff-only entry point to the patients/appointments/
-/// payments trio, mirroring `CaseSheetTypesScreen`'s role on the doctor
-/// side (see flutter_app/README.md, "Case sheet create — the real
+/// payments trio (see flutter_app/README.md, "Case sheet create — the real
 /// blocker was patient_id, not a Patients CRUD screen").
 class RecordsHubScreen extends ConsumerWidget {
   const RecordsHubScreen({super.key});

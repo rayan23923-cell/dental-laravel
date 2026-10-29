@@ -27,14 +27,16 @@ class NavDestination {
 /// Account-type-aware top-level sections for the persistent sidebar
 /// (revision, by request — "سايد بار مشابه لواجهة chatgbt") — the same
 /// branching `HomeScreen` already does (`AccountType.doctor` sees My
-/// Tasks/Case Sheets; staff sees Records/Admin), now surfaced as a
+/// Tasks; staff sees Records/Admin), now surfaced as a
 /// standing nav list instead of one-off AppBar icons.
 /// [t] is `ref.watch(translationsProvider)` from the caller — kept as a
 /// plain parameter rather than importing the i18n provider here, so this
 /// stays a pure function independent of Riverpod's `ref` (2026-09-04, by
 /// request — same feature as the web's per-locale nav labels).
 /// A staff account sees "السجلات" and "الإدارة" only when it may open
-/// something in them (2026-10-18).
+/// something in them (2026-10-18). Doctors no longer get a "النماذج
+/// السريرية" section (2026-10-29, by request): they open a form from its
+/// task.
 List<NavDestination> navDestinationsFor(
   AccountType type, {
   required int unreadNotifications,
@@ -58,12 +60,6 @@ List<NavDestination> navDestinationsFor(
         icon: Icons.home_outlined,
         selectedIcon: Icons.home,
         route: '/home',
-      ),
-      NavDestination(
-        label: t['nav.caseSheets']!,
-        icon: Icons.description_outlined,
-        selectedIcon: Icons.description,
-        route: '/case-sheets',
       ),
       NavDestination(
         label: t['nav.scanQr']!,
