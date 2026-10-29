@@ -35,8 +35,7 @@ const onCodeDone = (msg) => {
     setTimeout(() => (codeDone.value = ''), 5000);
     router.reload({ preserveScroll: true });
 };
-// System-wide switches (2026-10-22): pending/completed lists and starting.
-const listsOn = computed(() => props.formSettings.task_lists_enabled !== false);
+// System-wide switch (2026-10-22): starting tasks.
 const startOn = computed(() => props.formSettings.task_start_enabled !== false);
 const defaultFormType = () => (props.formSettings.electronic_forms_enabled ? 'electronic' : 'paper');
 
@@ -57,16 +56,14 @@ const allSlots = computed(() => props.departments.flatMap((d) => d.tasks.flatMap
 const countFor = (filter) => allSlots.value.filter((slot) => slotMatches(slot, filter)).length;
 const completedCount = computed(() => countFor('completed'));
 const progressPercent = computed(() => (allSlots.value.length ? Math.round((completedCount.value / allSlots.value.length) * 100) : 0));
+// Always shown here, whatever task_lists_enabled says: this is the
+// doctor's own progress (2026-10-29, by request).
 const filters = computed(() => [
     { key: 'all', label: t('requiredTasks.filterAll'), icon: 'apps', count: allSlots.value.length, on: 'bg-indigo-600 text-white ring-indigo-600 shadow-md shadow-indigo-200', off: 'bg-indigo-50 text-indigo-700 ring-indigo-200' },
-    ...(listsOn.value
-        ? [
-              { key: 'inProgress', label: t('requiredTasks.filterInProgress'), icon: 'timelapse', count: countFor('inProgress'), on: 'bg-blue-600 text-white ring-blue-600 shadow-md shadow-blue-200', off: 'bg-blue-50 text-blue-700 ring-blue-200' },
-              { key: 'completed', label: t('requiredTasks.filterCompleted'), icon: 'task_alt', count: completedCount.value, on: 'bg-green-600 text-white ring-green-600 shadow-md shadow-green-200', off: 'bg-green-50 text-green-700 ring-green-200' },
-              { key: 'notStarted', label: t('requiredTasks.filterNotStarted'), icon: 'radio_button_unchecked', count: countFor('notStarted'), on: 'bg-slate-600 text-white ring-slate-600 shadow-md shadow-slate-200', off: 'bg-slate-50 text-slate-700 ring-slate-200' },
-              { key: 'waiting', label: t('taskRequests.waitingTab'), icon: 'hourglass_top', count: pendingCount.value, on: 'bg-orange-500 text-white ring-orange-500 shadow-md shadow-orange-200', off: 'bg-orange-50 text-orange-700 ring-orange-200' },
-          ]
-        : []),
+    { key: 'inProgress', label: t('requiredTasks.filterInProgress'), icon: 'timelapse', count: countFor('inProgress'), on: 'bg-blue-600 text-white ring-blue-600 shadow-md shadow-blue-200', off: 'bg-blue-50 text-blue-700 ring-blue-200' },
+    { key: 'completed', label: t('requiredTasks.filterCompleted'), icon: 'task_alt', count: completedCount.value, on: 'bg-green-600 text-white ring-green-600 shadow-md shadow-green-200', off: 'bg-green-50 text-green-700 ring-green-200' },
+    { key: 'notStarted', label: t('requiredTasks.filterNotStarted'), icon: 'radio_button_unchecked', count: countFor('notStarted'), on: 'bg-slate-600 text-white ring-slate-600 shadow-md shadow-slate-200', off: 'bg-slate-50 text-slate-700 ring-slate-200' },
+    { key: 'waiting', label: t('taskRequests.waitingTab'), icon: 'hourglass_top', count: pendingCount.value, on: 'bg-orange-500 text-white ring-orange-500 shadow-md shadow-orange-200', off: 'bg-orange-50 text-orange-700 ring-orange-200' },
 ]);
 // Departments and tasks narrowed to the cases under the filter.
 const visibleDepartments = computed(() =>
@@ -133,7 +130,7 @@ const toggle = (name) => {
 const focusedInstance = ref(null);
 onMounted(async () => {
     const params = new URLSearchParams(window.location.search);
-    if (listsOn.value && ['all', 'waiting', 'notStarted', 'inProgress', 'completed'].includes(params.get('tab'))) tab.value = params.get('tab');
+    if (['all', 'waiting', 'notStarted', 'inProgress', 'completed'].includes(params.get('tab'))) tab.value = params.get('tab');
     const id = Number(params.get('instance'));
     if (!id) return;
     for (const dept of props.departments) {
@@ -227,7 +224,7 @@ const openQr = (task, slot) => {
                 <span class="text-center text-[11px] font-semibold leading-tight sm:text-sm">{{ f.label }}</span>
             </button>
         </div>
-        <div v-if="listsOn && allSlots.length && tab !== 'waiting'" class="mt-3 flex items-center gap-3 text-xs">
+        <div v-if="allSlots.length && tab !== 'waiting'" class="mt-3 flex items-center gap-3 text-xs">
             <span class="text-gray-500">{{ t('requiredTasks.progressSummary', { completed: completedCount, required: allSlots.length }) }}</span>
             <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-green-100">
                 <div class="h-full rounded-full bg-green-500 transition-all" :style="{ width: `${progressPercent}%` }"></div>
@@ -288,7 +285,7 @@ const openQr = (task, slot) => {
                         <span v-if="tab !== 'all'" class="rounded-full bg-gray-800 px-2 py-0.5 text-white">{{ t('requiredTasks.matchCount', { n: matchCount(dept) }) }}</span>
                         <span class="rounded-full bg-sky-100 px-2 py-0.5 text-sky-800">{{ t('requiredTasks.taskCount', { n: dept.tasks.length }) }}</span>
                         <span class="rounded-full bg-indigo-100 px-2 py-0.5 text-indigo-800">{{ t('dashboard.requiredLabel') }}: {{ dept.required }}</span>
-                        <span v-if="listsOn" class="rounded-full bg-green-100 px-2 py-0.5 text-green-800">{{ t('dashboard.completed') }}: {{ dept.completed }}</span>
+                        <span class="rounded-full bg-green-100 px-2 py-0.5 text-green-800">{{ t('dashboard.completed') }}: {{ dept.completed }}</span>
                     </span>
                 </button>
 
