@@ -217,7 +217,7 @@ class _TabBar extends ConsumerWidget {
 
   // Full-screen flows outside the shell are pushed on top; the shell's own
   // sections are switched to.
-  static const _pushed = {'/scan'};
+  static const _pushed = {'/scan', '/my-qr'};
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -356,7 +356,7 @@ class _QuickAction {
 
 /// The round "+" beside the tab bar: the role's everyday actions one tap
 /// away from any screen (2026-10-28, by request). Only what the account
-/// may do; hidden when that leaves nothing (doctors have the scan tab).
+/// may do; hidden when that leaves nothing (doctors have the QR tab).
 class _QuickActionsButton extends ConsumerWidget {
   const _QuickActionsButton();
 

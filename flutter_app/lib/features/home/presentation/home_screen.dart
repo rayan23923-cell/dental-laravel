@@ -60,9 +60,9 @@ class HomeScreen extends ConsumerWidget {
       ),
       floatingActionButton: isDoctor
           ? FloatingActionButton.extended(
-              onPressed: () => context.push('/scan'),
-              icon: const Icon(Icons.qr_code_scanner),
-              label: Text(t['nav.scanQr']!),
+              onPressed: () => context.push('/my-qr'),
+              icon: const Icon(Icons.qr_code_2),
+              label: Text(t['nav.myQr']!),
             )
           : null,
       body: isDoctor

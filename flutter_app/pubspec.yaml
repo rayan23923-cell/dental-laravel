@@ -60,6 +60,8 @@ dependencies:
   firebase_core: ^3.8.0
   firebase_messaging: ^15.1.5
   pdf: ^3.12.0
+  # The doctor's own QR on screen (my_qr_screen.dart); already pulled in by pdf.
+  barcode: ^2.2.9
   printing: ^5.14.3
   ffi: ^2.1.0                 # raw ESC/POS to a Windows printer queue (windows_raw_printer.dart)
   flutter_svg: ^2.3.0
