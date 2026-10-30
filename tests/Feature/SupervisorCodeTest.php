@@ -73,6 +73,28 @@ class SupervisorCodeTest extends TestCase
         $this->assertSame('completed', $instance->fresh()->status);
     }
 
+    public function test_a_supervisor_adds_a_step_to_a_case_with_their_code(): void
+    {
+        PermissionManager::syncGrants($this->supervisor, ['task_progress.view', 'task_progress.supervisor_code', 'task_progress.start', 'task_progress.track_steps', 'task_progress.finish', 'task_progress.add_step']);
+        $code = SupervisorCode::for($this->supervisor);
+        $instance = TaskInstance::create(['task_id' => $this->task->id, 'doctor_id' => $this->doctor->id, 'status' => 'assigned', 'assigned_date' => now()]);
+
+        $this->actingAs($this->doctor, 'doctor');
+        $this->getJson(route('doctor.form-settings'))->assertOk()->assertJsonFragment(['supervisor_code_actions' => ['start', 'step', 'finish', 'add_step']]);
+
+        $this->postJson(route('doctor.supervisor-code.add-step', $instance), ['code' => $code, 'label' => 'تلميع إضافي', 'max' => 5])
+            ->assertOk()->assertJsonPath('supervisor', 'د. المشرف');
+        $this->assertSame('تلميع إضافي', $instance->fresh()->extra_steps[0]['label']);
+
+        // The added step is signed like the task's own, after them.
+        $this->postJson(route('doctor.supervisor-code.step', $instance), ['code' => $code, 'step' => 's:custom_1', 'grade' => 8])->assertOk();
+        $this->postJson(route('doctor.supervisor-code.step', $instance), ['code' => $code, 'step' => 'x:1', 'grade' => 4])->assertOk();
+
+        // Off in the code's actions: refused.
+        ClinicSetting::current()->update(['supervisor_code_actions' => ['start', 'step', 'finish']]);
+        $this->postJson(route('doctor.supervisor-code.add-step', $instance), ['code' => $code, 'label' => 'أخرى', 'max' => 5])->assertStatus(422);
+    }
+
     public function test_wrong_codes_and_missing_permissions_are_refused_then_locked(): void
     {
         $this->actingAs($this->doctor, 'doctor');

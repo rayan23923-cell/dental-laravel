@@ -66,6 +66,7 @@ class FormSettingsController extends Controller
             'start' => ! $settings['task_start_enabled'],
             'finish' => ! $settings['task_finish_enabled'],
             'step' => ! $settings['steps_enabled'],
+            'add_step' => ! $settings['steps_enabled'] || ! $settings['step_add_enabled'],
         ]));
 
         return array_values(array_diff($settings['supervisor_code_actions'], $off));

@@ -83,8 +83,8 @@ const copy = async () => {
         // clipboard blocked
     }
 };
-const actions = ['start', 'step', 'finish'];
-const actionIcon = { start: 'play_circle', step: 'checklist', finish: 'task_alt' };
+const actions = ['start', 'step', 'add_step', 'finish'];
+const actionIcon = { start: 'play_circle', step: 'checklist', add_step: 'playlist_add', finish: 'task_alt' };
 </script>
 
 <template>
@@ -156,7 +156,7 @@ const actionIcon = { start: 'play_circle', step: 'checklist', finish: 'task_alt'
                                 </button>
                             </div>
                             <div class="mt-4 text-sm text-gray-700">{{ t('formSettings.actions') }}</div>
-                            <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                            <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                                 <button
                                     v-for="a in actions"
                                     :key="a"

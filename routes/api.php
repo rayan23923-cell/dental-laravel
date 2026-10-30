@@ -397,6 +397,7 @@ Route::name('api.')->prefix('v1')->group(function () {
             Route::post('/my-supervisor-code/start', [\App\Http\Controllers\SupervisorCodeController::class, 'start']);
             Route::post('/my-supervisor-code/instances/{taskInstance}/step', [\App\Http\Controllers\SupervisorCodeController::class, 'signStep']);
             Route::post('/my-supervisor-code/instances/{taskInstance}/complete', [\App\Http\Controllers\SupervisorCodeController::class, 'complete']);
+            Route::post('/my-supervisor-code/instances/{taskInstance}/add-step', [\App\Http\Controllers\SupervisorCodeController::class, 'addStep']);
         });
         Route::get('/my-task-start-requests', [\App\Http\Controllers\TaskStartRequestController::class, 'mine']);
         Route::post('/my-task-start-requests', [\App\Http\Controllers\TaskStartRequestController::class, 'store']);

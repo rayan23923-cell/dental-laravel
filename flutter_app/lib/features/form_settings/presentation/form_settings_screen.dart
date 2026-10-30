@@ -184,7 +184,7 @@ class _FormSettingsScreenState extends ConsumerState<FormSettingsScreen> {
                         Wrap(
                           spacing: 8,
                           children: [
-                            for (final a in const ['start', 'step', 'finish'])
+                            for (final a in const ['start', 'step', 'add_step', 'finish'])
                               FilterChip(
                                 label: Text(t['formSettings.action_$a']!),
                                 selected: form.actions.contains(a),

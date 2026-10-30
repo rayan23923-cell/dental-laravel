@@ -11,7 +11,7 @@ import '../../../core/widgets/tg_spinner.dart';
 
 /// The supervisor's code typed on the student's own account (2026-10-22,
 /// by request): starts the task ([instanceId] null), or signs the case's
-/// next step with its grade, or completes it. Returns the supervisor's
+/// next step with its grade, adds a step (2026-10-30), or completes it. Returns the supervisor's
 /// name once done. See `SupervisorCodeController` on the server.
 Future<String?> showSupervisorCodeSheet(
   BuildContext context, {
@@ -65,6 +65,9 @@ class _SupervisorCodeSheetState extends ConsumerState<_SupervisorCodeSheet> {
   final _code = TextEditingController();
   final _codeFocus = FocusNode();
   final _notes = TextEditingController();
+  // A step added to the case: its name and top grade.
+  final _stepLabel = TextEditingController();
+  final _stepMax = TextEditingController();
   double? _grade;
   XFile? _photo;
   Uint8List? _preview;
@@ -74,7 +77,7 @@ class _SupervisorCodeSheetState extends ConsumerState<_SupervisorCodeSheet> {
 
   List<String> get _actions => widget.instanceId == null
       ? [if (widget.settings.codeActions.contains('start')) 'start']
-      : [for (final a in const ['step', 'finish']) if (widget.settings.codeActions.contains(a)) a];
+      : [for (final a in const ['step', 'add_step', 'finish']) if (widget.settings.codeActions.contains(a)) a];
 
   CaseStep? get _nextStep => _steps?.where((s) => !s.signed).firstOrNull;
 
@@ -112,6 +115,8 @@ class _SupervisorCodeSheetState extends ConsumerState<_SupervisorCodeSheet> {
     _code.dispose();
     _codeFocus.dispose();
     _notes.dispose();
+    _stepLabel.dispose();
+    _stepMax.dispose();
     super.dispose();
   }
 
@@ -128,7 +133,8 @@ class _SupervisorCodeSheetState extends ConsumerState<_SupervisorCodeSheet> {
   bool get _ready =>
       !_busy &&
       _code.text.length == 6 &&
-      (_action != 'step' || (_nextStep != null && (_nextStep!.max == null || !_gradesOn || _grade != null)));
+      (_action != 'step' || (_nextStep != null && (_nextStep!.max == null || !_gradesOn || _grade != null))) &&
+      (_action != 'add_step' || (_stepLabel.text.trim().isNotEmpty && (double.tryParse(_stepMax.text.trim()) ?? 0) > 0));
 
   Future<void> _submit() async {
     setState(() {
@@ -146,6 +152,7 @@ class _SupervisorCodeSheetState extends ConsumerState<_SupervisorCodeSheet> {
             notes: _notes.text,
           ),
         'step' => await repo.signStep(widget.instanceId!, code: _code.text, step: _nextStep!.key, grade: _grade),
+        'add_step' => await repo.addStep(widget.instanceId!, code: _code.text, label: _stepLabel.text.trim(), max: double.parse(_stepMax.text.trim())),
         _ => await repo.complete(widget.instanceId!, code: _code.text, grade: _grade, notes: _notes.text),
       };
       if (mounted) Navigator.of(context).pop(name);
@@ -196,7 +203,12 @@ class _SupervisorCodeSheetState extends ConsumerState<_SupervisorCodeSheet> {
       );
     }
 
-    final titleKey = switch (_action) { 'start' => 'supervisorCode.startTitle', 'step' => 'supervisorCode.stepTitle', _ => 'supervisorCode.finishTitle' };
+    final titleKey = switch (_action) {
+      'start' => 'supervisorCode.startTitle',
+      'step' => 'supervisorCode.stepTitle',
+      'add_step' => 'supervisorCode.addStepTitle',
+      _ => 'supervisorCode.finishTitle',
+    };
 
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
@@ -234,8 +246,8 @@ class _SupervisorCodeSheetState extends ConsumerState<_SupervisorCodeSheet> {
                     choice(
                       a,
                       _action,
-                      a == 'step' ? Icons.checklist : Icons.task_alt,
-                      t[a == 'step' ? 'supervisorCode.actionStep' : 'supervisorCode.actionFinish']!,
+                      switch (a) { 'step' => Icons.checklist, 'add_step' => Icons.playlist_add, _ => Icons.task_alt },
+                      t[switch (a) { 'step' => 'supervisorCode.actionStep', 'add_step' => 'supervisorCode.actionAddStep', _ => 'supervisorCode.actionFinish' }]!,
                       () => setState(() {
                         _action = a;
                         _grade = null;
@@ -299,6 +311,23 @@ class _SupervisorCodeSheetState extends ConsumerState<_SupervisorCodeSheet> {
                 const SizedBox(height: 12),
               ],
             ],
+            if (_action == 'add_step') ...[
+              TextField(
+                controller: _stepLabel,
+                maxLength: 100,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(labelText: t['supervisorCode.stepName'], border: const OutlineInputBorder(), counterText: ''),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _stepMax,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                textDirection: TextDirection.ltr,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(labelText: t['supervisorCode.stepMax'], border: const OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+            ],
             if (_action == 'finish' && gradeMax != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
@@ -319,7 +348,7 @@ class _SupervisorCodeSheetState extends ConsumerState<_SupervisorCodeSheet> {
               ),
               const SizedBox(height: 12),
             ],
-            if (_action != 'step') ...[
+            if (_action == 'start' || _action == 'finish') ...[
               TextField(
                 controller: _notes,
                 maxLines: 2,

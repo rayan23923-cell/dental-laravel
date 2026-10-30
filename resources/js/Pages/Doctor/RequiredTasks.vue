@@ -28,7 +28,7 @@ const codeTarget = ref(null);
 const codeDone = ref('');
 const codeActions = computed(() => props.formSettings.supervisor_code_actions ?? []);
 const canCodeStart = computed(() => codeActions.value.includes('start'));
-const canCodeProgress = computed(() => codeActions.value.includes('step') || codeActions.value.includes('finish'));
+const canCodeProgress = computed(() => ['step', 'add_step', 'finish'].some((a) => codeActions.value.includes(a)));
 const onCodeDone = (msg) => {
     codeTarget.value = null;
     codeDone.value = msg;

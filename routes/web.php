@@ -218,6 +218,7 @@ Route::middleware('auth:doctor')->group(function () {
         Route::post('/doctor/supervisor-code/start', [\App\Http\Controllers\SupervisorCodeController::class, 'start'])->name('doctor.supervisor-code.start');
         Route::post('/doctor/supervisor-code/instances/{taskInstance}/step', [\App\Http\Controllers\SupervisorCodeController::class, 'signStep'])->name('doctor.supervisor-code.step');
         Route::post('/doctor/supervisor-code/instances/{taskInstance}/complete', [\App\Http\Controllers\SupervisorCodeController::class, 'complete'])->name('doctor.supervisor-code.complete');
+        Route::post('/doctor/supervisor-code/instances/{taskInstance}/add-step', [\App\Http\Controllers\SupervisorCodeController::class, 'addStep'])->name('doctor.supervisor-code.add-step');
     });
     Route::get('/doctor/task-start-requests', [TaskStartRequestController::class, 'mine'])->name('doctor.task-start-requests.index');
     Route::post('/doctor/task-start-requests', [TaskStartRequestController::class, 'store'])->name('doctor.task-start-requests.store');

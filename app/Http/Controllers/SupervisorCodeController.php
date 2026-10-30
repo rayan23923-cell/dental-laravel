@@ -23,7 +23,7 @@ use Illuminate\Validation\ValidationException;
 /**
  * The student's side of the supervisor code (2026-10-22, by request): on
  * the student's own account, the supervisor types their code to start a
- * task, sign the case's next step with its grade, or complete it. Each
+ * task, sign the case's next step with its grade, add a step, or complete it. Each
  * action runs exactly as from task progress, under the supervisor whose
  * code it is. Wrong codes lock the student out for a while, so codes
  * can't be guessed. See App\Services\SupervisorCode.
@@ -70,6 +70,26 @@ class SupervisorCodeController extends Controller
         TaskSteps::sign($taskInstance, $validated['step'], $validated['grade'] ?? null, $this->name($supervisor));
 
         return response()->json(['message' => 'تم توقيع الخطوة.', 'supervisor' => $this->name($supervisor)]);
+    }
+
+    /**
+     * Adds a step to this case (2026-10-30, by request), as the supervisor
+     * does from task progress; it is then signed like the task's own steps.
+     */
+    public function addStep(Request $request, TaskInstance $taskInstance): JsonResponse
+    {
+        $doctor = $this->ownCase($taskInstance);
+        $validated = $request->validate([
+            'code' => ['required', 'string', 'max:20'],
+            'label' => ['required', 'string', 'max:100'],
+            'max' => ['required', 'numeric', 'min:0.5', 'max:100'],
+        ]);
+        $this->ensureAssigned($taskInstance);
+        $supervisor = $this->supervisor($doctor, 'add_step', $validated['code'], $taskInstance->task);
+
+        TaskSteps::addExtra($taskInstance, trim($validated['label']), (float) $validated['max']);
+
+        return response()->json(['message' => 'تمت إضافة الخطوة.', 'supervisor' => $this->name($supervisor)]);
     }
 
     public function complete(Request $request, TaskInstance $taskInstance): JsonResponse

@@ -17,6 +17,8 @@ class FormSettings
         'start' => 'start',
         'step' => 'track_steps',
         'finish' => 'finish',
+        // Adding a step to the case (2026-10-30, by request).
+        'add_step' => 'add_step',
     ];
 
     public const PERIODS = ['daily', 'hourly'];

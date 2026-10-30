@@ -1419,6 +1419,7 @@
         "action_start": "Start the task",
         "action_step": "Progress (steps)",
         "action_finish": "Complete the task",
+        "action_add_step": "Add a step",
         "save": "Save",
         "saved": "Saved.",
         "failed": "Could not save.",
@@ -1448,6 +1449,10 @@
         "generalLink": "Paper and electronic forms, grades shown to students and the task progress switches are in the general settings"
     },
     "supervisorCode": {
+        "addStepTitle": "Add a step with the supervisor code",
+        "actionAddStep": "Add a step",
+        "stepName": "Step name",
+        "stepMax": "Top grade of the step",
         "button": "Supervisor code",
         "startTitle": "Start with the supervisor code",
         "stepTitle": "Sign a step with the supervisor code",
