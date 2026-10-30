@@ -24,6 +24,7 @@ Future<String?> showSupervisorCodeSheet(
 }) {
   return showModalBottomSheet<String>(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     showDragHandle: true,
     useSafeArea: true,

@@ -65,6 +65,7 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
   Future<void> _openFilters() async {
     final result = await showModalBottomSheet<({DateTime? from, DateTime? to, String? source})>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       builder: (context) => _PaymentFilterSheet(
         initialFrom: _from,
@@ -369,6 +370,7 @@ Future<void> showPaymentReceiptOptions(BuildContext context, WidgetRef ref, Paym
   final t = ref.read(translationsProvider);
   final choice = await showModalBottomSheet<String>(
     context: context,
+    useRootNavigator: true,
     builder: (context) => SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,

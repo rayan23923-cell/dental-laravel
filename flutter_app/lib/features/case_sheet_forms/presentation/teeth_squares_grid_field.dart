@@ -28,6 +28,7 @@ class TeethSquaresGridField extends StatelessWidget {
 
     final selection = await showModalBottomSheet<String>(
       context: context,
+      useRootNavigator: true,
       builder: (context) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
