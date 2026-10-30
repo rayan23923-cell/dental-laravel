@@ -15,7 +15,6 @@ import '../../task_start_requests/data/task_start_request_repository.dart';
 import '../../task_start_requests/domain/task_start_request.dart';
 import '../../task_start_requests/presentation/request_start_sheet.dart';
 import '../../task_start_requests/presentation/task_start_request_providers.dart';
-import '../data/task_instance_repository.dart';
 import '../domain/my_task_department.dart';
 import 'task_instances_providers.dart';
 import '../../../core/widgets/tg_spinner.dart';
@@ -398,40 +397,6 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
     }
   }
 
-  /// "تأكيد أنه ورقي" (2026-08-28) — non-exclusive, never hides or
-  /// disables the electronic "نموذج سريري" button next to it; see
-  /// `Api\TaskInstanceController::confirmPaper()`'s doc comment.
-  Future<void> _confirmPaper() async {
-    final instanceId = slot.instanceId;
-    if (instanceId == null) return;
-    final t = ref.read(translationsProvider);
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        content: Text(t['myTasks.confirmPaperMsg']!),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(t['nav.cancel']!)),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(t['myTasks.confirm']!)),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-
-    try {
-      await ref.read(taskInstanceRepositoryProvider).confirmPaper(instanceId);
-      invalidateTaskInstance(ref, instanceId);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['myTasks.paperConfirmedSuccess']!)));
-      }
-    } catch (e) {
-      if (mounted) {
-        final message = e is ApiException ? e.userMessage : t['profile.saveFailed']!;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-      }
-    }
-  }
-
   /// The supervisor's code on this account (2026-10-22, by request).
   Future<void> _supervisorCode(DoctorFormSettings settings) async {
     final name = await showSupervisorCodeSheet(
@@ -528,24 +493,6 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
                   style: const TextStyle(fontSize: 12),
                 ),
               ),
-            ),
-          // "تأكيد أنه ورقي" — only meaningful once the case has a real
-          // instance (an unstarted slot's optional draft isn't a
-          // documented case yet).
-          if (slot.instanceId != null && slot.paperCaseSheetConfirmedAt != null)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.check_circle, size: 14, color: Colors.amber),
-                const SizedBox(width: 4),
-                Text(t['myTasks.confirmedOnPaper']!, style: const TextStyle(fontSize: 12)),
-              ],
-            )
-          else if (slot.instanceId != null && settings.paper)
-            TextButton(
-              style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0), visualDensity: VisualDensity.compact),
-              onPressed: _confirmPaper,
-              child: Text(t['myTasks.confirmPaperButton']!, style: const TextStyle(fontSize: 12)),
             ),
         ],
       ),

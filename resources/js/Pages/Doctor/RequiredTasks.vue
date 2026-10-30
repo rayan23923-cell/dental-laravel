@@ -162,14 +162,6 @@ const statusClass = (s) =>
 
 const fmt = (v) => (v ? new Date(v).toLocaleDateString() : null);
 
-// "تأكيد أنه ورقي" (2026-08-28) — a non-exclusive tag, never a mode
-// switch: confirming never hides or disables "فتح النموذج" above it, the
-// electronic form always stays available too.
-const confirmPaper = (slot) => {
-    if (!confirm(t('tasks.confirmPaperConfirmMsg'))) return;
-    router.post(route('doctor.task-instances.confirm-paper', slot.instance_id), {}, { preserveScroll: true });
-};
-
 // Photos of the paper case sheet (2026-10-13), e.g. taken with this phone.
 const photosSlot = ref(null);
 const photosChanged = (slot, count, list) => {
@@ -394,21 +386,6 @@ const openQr = (task, slot) => {
                                     <span v-if="slot.status === 'assigned' && slot.steps_count" class="rounded-full bg-white/25 px-1.5">{{ slot.steps_signed }}/{{ slot.steps_count }}</span>
                                 </button>
 
-                                <!-- "تأكيد أنه ورقي" — only meaningful once
-                                     the case has a real instance (a
-                                     not-yet-started slot's optional draft
-                                     isn't a documented case yet). -->
-                                <div v-if="slot.instance_id && slot.paper_case_sheet_confirmed_at" class="mt-2 rounded bg-amber-50 px-2 py-1 text-center text-xs text-amber-800">
-                                    <Icon name="check_circle" class="ml-1" />{{ t('tasks.confirmedPaperPrefix') }} {{ fmt(slot.paper_case_sheet_confirmed_at) }}
-                                </div>
-                                <button
-                                    v-else-if="slot.instance_id && formSettings.paper_forms_enabled"
-                                    type="button"
-                                    @click="confirmPaper(slot)"
-                                    class="mt-2 block w-full rounded bg-gray-200 px-2 py-1 text-center text-xs font-medium text-gray-700 hover:bg-gray-300"
-                                >
-                                    <Icon name="edit_note" class="ml-1" />{{ t('tasks.confirmPaper') }}
-                                </button>
                             </div>
                         </div>
                     </div>
