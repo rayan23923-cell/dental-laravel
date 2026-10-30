@@ -124,6 +124,7 @@ class ServerStatusChip extends ConsumerWidget {
 Future<void> showServerStatusSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
+    useRootNavigator: true,
     showDragHandle: true,
     builder: (context) => const _ServerStatusSheet(),
   );

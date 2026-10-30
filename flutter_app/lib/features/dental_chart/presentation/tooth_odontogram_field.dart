@@ -92,6 +92,7 @@ class _ToothOdontogramFieldState extends State<ToothOdontogramField> {
   void _openEditor(int number) {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (_) => _ToothEditorSheet(entry: _entryFor(number), onChanged: _updateEntry),

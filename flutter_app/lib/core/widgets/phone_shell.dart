@@ -76,6 +76,8 @@ class PhoneShell extends ConsumerWidget {
             // ("يتم تغطية اخر قسم او اخر بيانات بالفوتر"), every vertical
             // list may scroll [barSpace] past its end ([_BarClearancePhysics])
             // and the bottom inset tells buttons and SafeAreas to stay above it.
+            // Bottom sheets open on the root navigator (`useRootNavigator: true`)
+            // so they cover this bar instead of sliding under it.
             SafeArea(
               bottom: false,
               child: MediaQuery.removePadding(
@@ -433,6 +435,7 @@ class _QuickActionsButton extends ConsumerWidget {
     final router = GoRouter.of(context);
     showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       showDragHandle: true,
       builder: (sheetContext) => SafeArea(
         child: Padding(

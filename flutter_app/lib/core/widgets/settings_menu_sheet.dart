@@ -48,6 +48,7 @@ Future<void> showAdminSettingsSheet(BuildContext context) {
   ];
   return showModalBottomSheet(
     context: context,
+    useRootNavigator: true,
     showDragHandle: true,
     builder: (context) => SafeArea(
       child: Column(

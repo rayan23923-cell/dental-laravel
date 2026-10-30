@@ -29,6 +29,7 @@ Future<void> showAccountSheet(BuildContext context, WidgetRef ref) {
   final router = GoRouter.of(context);
   return showModalBottomSheet<void>(
     context: context,
+    useRootNavigator: true,
     showDragHandle: true,
     isScrollControlled: true,
     builder: (_) => _AccountSheet(outerContext: context, outerRef: ref, router: router),

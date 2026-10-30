@@ -64,6 +64,7 @@ class DepartmentRolesScreen extends ConsumerWidget {
               onPressed: () async {
                 final added = await showModalBottomSheet<bool>(
                   context: context,
+                  useRootNavigator: true,
                   isScrollControlled: true,
                   showDragHandle: true,
                   builder: (_) => _AssignSheet(page: pageAsync.value!),

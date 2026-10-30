@@ -26,6 +26,7 @@ Future<int?> showPaperPhotosSheet(
 }) {
   return showModalBottomSheet<int>(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     showDragHandle: true,
     builder: (_) => _PaperPhotosSheet(instanceId: instanceId, title: title, doctor: doctor),

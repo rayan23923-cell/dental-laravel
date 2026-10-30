@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -21,6 +22,7 @@ Future<bool> showRequestStartSheet(
 }) async {
   final sent = await showModalBottomSheet<bool>(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     showDragHandle: true,
     builder: (context) => _RequestStartSheet(taskId: taskId, taskTitle: taskTitle, onOpenForm: onOpenForm),
@@ -126,7 +128,7 @@ class _RequestStartSheetState extends ConsumerState<_RequestStartSheet> {
     }
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
+      padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + math.max(MediaQuery.viewInsetsOf(context).bottom, MediaQuery.paddingOf(context).bottom)),
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

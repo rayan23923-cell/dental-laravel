@@ -347,6 +347,7 @@ class _TaskStepsListState extends ConsumerState<TaskStepsList> {
 Future<void> showTaskStepsSheet(BuildContext context, {required int taskInstanceId, required String title}) {
   return showModalBottomSheet<void>(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     showDragHandle: true,
     builder: (context) => _TaskStepsSheet(taskInstanceId: taskInstanceId, title: title),

@@ -178,6 +178,7 @@ Future<double?> showGradePickerSheet(
 }) {
   return showModalBottomSheet<double>(
     context: context,
+    useRootNavigator: true,
     showDragHandle: true,
     isScrollControlled: true,
     builder: (context) {
