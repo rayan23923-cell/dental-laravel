@@ -326,6 +326,7 @@ class _TaskGroupTile extends ConsumerWidget {
         initiallyExpanded: expanded,
         title: Text(title),
         subtitle: Text(trf(t['myTasks.completedOfRequired']!, {'completed': completed, 'required': required})),
+        childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
         children: [for (final slot in slots) _SlotRow(slot: slot)],
       ),
     );
@@ -479,8 +480,13 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
     final settings = ref.watch(myFormSettingsProvider).valueOrNull ?? const DoctorFormSettings();
     final showCode = (slot.status == 'unassigned' && settings.codeCanStart) || (slot.status == 'assigned' && settings.codeCanProgress);
 
-    return ListTile(
-      title: Text(trf(t['myTasks.slotTitle']!, {'slot': slot.slot})),
+    // Each case is its own framed card with a status-coloured edge, so
+    // cases no longer run into each other (2026-10-30, by request:
+    // "صعوبة التمييز بين حالة واخرى").
+    final statusColor = _statusColor(context);
+    final colors = Theme.of(context).colorScheme;
+    final tile = ListTile(
+      title: Text(trf(t['myTasks.slotTitle']!, {'slot': slot.slot}), style: const TextStyle(fontWeight: FontWeight.bold)),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -600,6 +606,27 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
         ],
       ),
       onTap: slot.instanceId != null ? () => context.push('/tasks/${slot.instanceId}') : null,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Material(
+        color: colors.surfaceContainerLow,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: colors.outlineVariant),
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(width: 5, color: statusColor),
+              Expanded(child: tile),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
