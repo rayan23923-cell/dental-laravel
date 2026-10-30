@@ -1,8 +1,8 @@
 <script setup>
 /**
  * The supervisor's code typed on the student's own account (2026-10-22, by
- * request): starts the task, signs the case's next step with its grade, or
- * completes it. The supervisor picks the grade with a tap (GradePicker)
+ * request): starts the task, signs the case's next step with its grade,
+ * adds a step to the case (2026-10-30), or completes it. The supervisor picks the grade with a tap (GradePicker)
  * and types their code; the server checks it. See SupervisorCodeController.
  */
 import GradePicker from '@/Components/GradePicker.vue';
@@ -32,6 +32,9 @@ const busy = ref(false);
 const error = ref('');
 const steps = ref(null);
 const codeInput = ref(null);
+// A step added to the case: its name and top grade.
+const stepLabel = ref('');
+const stepMax = ref(null);
 
 const nextStep = computed(() => steps.value?.find((s) => !s.signed) ?? null);
 const formTypes = computed(() => [
@@ -42,6 +45,7 @@ const actionsHere = computed(() =>
     started.value
         ? [
               ...(allowed.value.includes('step') ? [{ v: 'step', icon: 'checklist', label: t('supervisorCode.actionStep') }] : []),
+              ...(allowed.value.includes('add_step') ? [{ v: 'add_step', icon: 'playlist_add', label: t('supervisorCode.actionAddStep') }] : []),
               ...(allowed.value.includes('finish') ? [{ v: 'finish', icon: 'task_alt', label: t('supervisorCode.actionFinish') }] : []),
           ]
         : allowed.value.includes('start')
@@ -50,7 +54,7 @@ const actionsHere = computed(() =>
 );
 const gradesOn = computed(() => props.settings.grade_entry_enabled !== false);
 const gradeMax = computed(() => (!gradesOn.value ? null : action.value === 'step' ? nextStep.value?.max ?? null : action.value === 'finish' ? Number(props.target?.task?.grade) || null : null));
-const title = computed(() => t(`supervisorCode.${action.value}Title`));
+const title = computed(() => t(`supervisorCode.${action.value === 'add_step' ? 'addStep' : action.value}Title`));
 
 watch(
     () => props.target,
@@ -60,6 +64,8 @@ watch(
         grade.value = null;
         photo.value = null;
         steps.value = null;
+        stepLabel.value = '';
+        stepMax.value = null;
         formType.value = formTypes.value[0]?.v ?? 'electronic';
         action.value = actionsHere.value[0]?.v ?? 'start';
         if (target.slot.instance_id) {
@@ -75,7 +81,13 @@ watch(
     },
 );
 
-const canSubmit = computed(() => code.value.length === 6 && !busy.value && (action.value !== 'step' || (nextStep.value && (nextStep.value.max === null || !gradesOn.value || grade.value !== null))));
+const canSubmit = computed(
+    () =>
+        code.value.length === 6 &&
+        !busy.value &&
+        (action.value !== 'step' || (nextStep.value && (nextStep.value.max === null || !gradesOn.value || grade.value !== null))) &&
+        (action.value !== 'add_step' || (stepLabel.value.trim() !== '' && Number(stepMax.value) > 0)),
+);
 
 const submit = async () => {
     busy.value = true;
@@ -92,6 +104,8 @@ const submit = async () => {
             res = await axios.post(route('doctor.supervisor-code.start'), body);
         } else if (action.value === 'step') {
             res = await axios.post(route('doctor.supervisor-code.step', props.target.slot.instance_id), { code: code.value, step: nextStep.value.key, grade: grade.value });
+        } else if (action.value === 'add_step') {
+            res = await axios.post(route('doctor.supervisor-code.add-step', props.target.slot.instance_id), { code: code.value, label: stepLabel.value.trim(), max: Number(stepMax.value) });
         } else {
             res = await axios.post(route('doctor.supervisor-code.complete', props.target.slot.instance_id), { code: code.value, grade: grade.value, notes: notes.value || null });
         }
@@ -167,6 +181,18 @@ const onCode = (e) => {
                 </template>
             </template>
 
+            <!-- Add step: its name and top grade, signed later like the others -->
+            <template v-else-if="action === 'add_step'">
+                <div>
+                    <label class="text-sm text-gray-700">{{ t('supervisorCode.stepName') }}</label>
+                    <input v-model="stepLabel" type="text" maxlength="100" class="mt-1 block w-full rounded-xl border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                </div>
+                <div>
+                    <label class="text-sm text-gray-700">{{ t('supervisorCode.stepMax') }}</label>
+                    <input v-model="stepMax" type="number" min="0.5" max="100" step="0.5" inputmode="decimal" dir="ltr" class="mt-1 block w-full rounded-xl border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                </div>
+            </template>
+
             <!-- Finish: the final grade when the task has one -->
             <template v-else-if="action === 'finish'">
                 <div v-if="gradeMax">
@@ -176,7 +202,7 @@ const onCode = (e) => {
             </template>
 
             <textarea
-                v-if="action !== 'step'"
+                v-if="action === 'start' || action === 'finish'"
                 v-model="notes"
                 rows="2"
                 class="block w-full rounded-xl border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"

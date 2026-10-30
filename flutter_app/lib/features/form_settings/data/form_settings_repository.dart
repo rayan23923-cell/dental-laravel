@@ -75,6 +75,12 @@ class FormSettingsRepository {
     return data['supervisor'] as String? ?? '';
   }
 
+  /// A step added to the case with the supervisor code (2026-10-30, by request).
+  Future<String> addStep(int instanceId, {required String code, required String label, required double max}) async {
+    final data = await _client.postJson('/my-supervisor-code/instances/$instanceId/add-step', body: {'code': code, 'label': label, 'max': max}) as Map<String, dynamic>;
+    return data['supervisor'] as String? ?? '';
+  }
+
   Future<String> complete(int instanceId, {required String code, double? grade, String? notes}) async {
     final data = await _client.postJson('/my-supervisor-code/instances/$instanceId/complete', body: {
       'code': code,
@@ -183,7 +189,7 @@ class DoctorFormSettings {
   bool on(String key) => switches[key] ?? true;
 
   bool get codeCanStart => codeActions.contains('start');
-  bool get codeCanProgress => codeActions.contains('step') || codeActions.contains('finish');
+  bool get codeCanProgress => const ['step', 'add_step', 'finish'].any(codeActions.contains);
 }
 
 class CaseStep {
