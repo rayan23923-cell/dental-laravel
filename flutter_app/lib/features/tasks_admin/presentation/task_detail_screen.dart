@@ -15,7 +15,6 @@ import '../domain/task_instance_admin.dart';
 import 'tasks_admin_providers.dart';
 import '../../../core/theme/muted_colors.dart';
 import '../../../core/widgets/tg_spinner.dart';
-import '../../../core/utils/case_code.dart';
 
 /// Port of the web `Tasks/Show.vue` (2026-10-17): the task's details and
 /// its instances — each with its QR, an
@@ -167,7 +166,6 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
             'qr' => showQrDialog(
                 context,
                 imagePath: '/task-instances/${instance.id}/qr',
-                code: CaseCode.forInstance(instance.id),
                 title: t['myTasks.qrCaseTitle']!,
                 caption: instance.doctorName,
               ),

@@ -27,7 +27,6 @@ import 'dynamic_section_form.dart';
 import 'sync_status_badge.dart';
 import 'task_work_panel.dart';
 import '../../../core/widgets/tg_spinner.dart';
-import '../../../core/utils/case_code.dart';
 
 /// Fetches a resource's layout schema and (when editing) one of its real
 /// records, then renders `DynamicSectionForm` bound to both.
@@ -131,7 +130,6 @@ class CaseSheetFormScreen extends ConsumerWidget {
               onPressed: () => showQrDialog(
                 context,
                 imagePath: '/task-instances/$taskInstanceId/qr',
-                code: CaseCode.forInstance(taskInstanceId!),
                 title: t['caseSheetForm.caseCodeTooltip']!,
                 caption: t['caseSheetForm.caseCodeCaption']!,
               ),

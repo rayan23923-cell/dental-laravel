@@ -37,8 +37,6 @@ import '../../features/doctors_admin/presentation/doctor_form_screen.dart';
 import '../../features/doctors_admin/presentation/doctor_import_screen.dart';
 import '../../features/doctors_admin/presentation/doctor_list_screen.dart';
 import '../../features/printing/presentation/printer_settings_screen.dart';
-import '../../features/task_progress_admin/domain/case_lookup_result.dart';
-import '../../features/task_progress_admin/presentation/case_lookup_screen.dart';
 import '../../features/task_progress_admin/presentation/doctor_progress_screen.dart';
 import '../../features/task_progress_admin/presentation/task_progress_screen.dart';
 import '../../features/form_settings/presentation/form_settings_screen.dart';
@@ -132,14 +130,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: '/scan', builder: (context, state) => const QrScanScreen()),
-      // Typing the case code instead of scanning (2026-10-30, by request):
-      // the same screen with the code field opened straight away, and the
-      // case it points at with its task progress actions.
-      GoRoute(path: '/scan/code', builder: (context, state) => const QrScanScreen(typeCode: true)),
-      GoRoute(
-        path: '/admin/case-lookup',
-        builder: (context, state) => CaseLookupScreen(result: state.extra! as CaseLookupResult),
-      ),
       // One search for tickets, patients and students (2026-10-28).
       GoRoute(path: '/search', builder: (context, state) => const GlobalSearchScreen()),
       // Must be registered before the ShellRoute's own `/case-sheets/:resource`

@@ -7,11 +7,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
-import '../../auth/domain/auth_account.dart';
-import '../../auth/presentation/auth_controller.dart';
-import '../../auth/presentation/auth_state.dart';
 import '../../patient_registration/data/patient_registration_repository.dart';
-import '../../task_progress_admin/data/task_progress_repository.dart';
 import '../data/task_instance_repository.dart';
 import '../../../core/platform/platform_support.dart';
 import 'desktop_qr_scanner.dart';
@@ -59,12 +55,9 @@ enum QrScanMode {
 ///   forward — used by `task_progress_screen.dart` to identify which
 ///   patient a "بدء المهمة" call is for.
 class QrScanScreen extends ConsumerStatefulWidget {
-  const QrScanScreen({super.key, this.mode = QrScanMode.taskInstance, this.typeCode = false});
+  const QrScanScreen({super.key, this.mode = QrScanMode.taskInstance});
 
   final QrScanMode mode;
-
-  /// Opened from "إدخال الرمز" (2026-10-30): the case code field right away.
-  final bool typeCode;
 
   @override
   ConsumerState<QrScanScreen> createState() => _QrScanScreenState();
@@ -87,71 +80,9 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    if (widget.typeCode) WidgetsBinding.instance.addPostFrameCallback((_) => _typeCode());
-  }
-
-  @override
   void dispose() {
     _controller?.dispose();
     super.dispose();
-  }
-
-  /// Staff who follow task progress: a case's QR or typed code opens the
-  /// case with its task progress actions (2026-10-30, by request) instead
-  /// of the plain detail screen.
-  bool get _isSupervisor {
-    final authState = ref.read(authControllerProvider).valueOrNull;
-    final account = authState is Authenticated ? authState.account : null;
-    return account is StaffAccount && account.can('task_progress', 'view');
-  }
-
-  /// The digits under the case's QR on the student's account (2026-10-30,
-  /// by request), for when the camera can't read the code.
-  Future<void> _typeCode() async {
-    final t = ref.read(translationsProvider);
-    final controller = TextEditingController();
-    final code = await showDialog<String>(
-      context: context,
-      builder: (ctx) {
-        void submit() => Navigator.of(ctx).pop(controller.text.trim());
-        return AlertDialog(
-          title: Text(t['caseCode.enterTitle']!),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: controller,
-                autofocus: true,
-                keyboardType: TextInputType.number,
-                textDirection: TextDirection.ltr,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 24, letterSpacing: 4, fontWeight: FontWeight.bold),
-                decoration: InputDecoration(
-                  labelText: t['caseCode.inputLabel'],
-                  hintText: '000 000',
-                  border: const OutlineInputBorder(),
-                ),
-                onSubmitted: (_) => submit(),
-              ),
-              const SizedBox(height: 8),
-              Text(t['caseCode.inputHint']!, style: Theme.of(ctx).textTheme.bodySmall, textAlign: TextAlign.center),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(t['taskProgressAdmin.cancel']!)),
-            FilledButton(onPressed: submit, child: Text(t['caseCode.open']!)),
-          ],
-        );
-      },
-    );
-    if (code == null || !mounted) return;
-    if (code.isEmpty) {
-      setState(() => _error = t['caseCode.invalid']);
-      return;
-    }
-    await _handle(code);
   }
 
   Future<void> _onDetect(BarcodeCapture capture) async {
@@ -185,16 +116,6 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
           final doctorId = _doctorIdOf(raw);
           if (doctorId != null) {
             if (mounted) context.pushReplacement('/admin/doctors/$doctorId/progress');
-            return;
-          }
-          if (_isSupervisor) {
-            final result = await ref.read(taskProgressRepositoryProvider).lookup(raw);
-            if (!mounted) return;
-            if (result.isDoctorCard) {
-              context.pushReplacement('/admin/doctors/${result.doctor.id}/progress');
-            } else {
-              context.pushReplacement('/admin/case-lookup', extra: result);
-            }
             return;
           }
           final instance = await ref.read(taskInstanceRepositoryProvider).scan(raw);
@@ -283,24 +204,11 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
           // app already gives on web (QrScanner.vue's green frame overlay).
           const IgnorePointer(child: CustomPaint(painter: _ScannerFramePainter())),
           ],
-          if (widget.mode == QrScanMode.taskInstance)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 24,
-              child: Center(
-                child: FilledButton.tonalIcon(
-                  onPressed: _handled ? null : _typeCode,
-                  icon: const Icon(Icons.keyboard_outlined),
-                  label: Text(t['caseCode.enterButton']!),
-                ),
-              ),
-            ),
           if (_error != null)
             Positioned(
               left: 16,
               right: 16,
-              bottom: widget.mode == QrScanMode.taskInstance ? 84 : 24,
+              bottom: 24,
               child: MaterialBanner(
                 content: Text(_error!),
                 actions: [

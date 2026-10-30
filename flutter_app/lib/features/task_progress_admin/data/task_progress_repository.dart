@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
 import '../domain/doctor_progress.dart';
-import '../domain/case_lookup_result.dart';
 import '../domain/nfc_lookup_result.dart';
 import '../domain/task_progress_group.dart';
 
@@ -23,12 +22,6 @@ class TaskProgressRepository {
   Future<NfcLookupResult> nfcScan(String tagId) async {
     final data = await _client.postJson('/task-progress/nfc-scan', body: {'tag_id': tagId}) as Map<String, dynamic>;
     return NfcLookupResult.fromJson(data);
-  }
-
-  /// A scanned case QR or a typed case code (2026-10-30, by request).
-  Future<CaseLookupResult> lookup(String payload) async {
-    final data = await _client.postJson('/task-progress/lookup', body: {'payload': payload}) as Map<String, dynamic>;
-    return CaseLookupResult.fromJson(data);
   }
 
   /// `patientRegistrationId` is optional (2026-10-12): a task starts from

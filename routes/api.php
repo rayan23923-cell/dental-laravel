@@ -473,9 +473,6 @@ Route::name('api.')->prefix('v1')->group(function () {
             ->middleware('permission:task_progress,supervisor_code');
         Route::post('/task-progress/nfc-scan', [TaskProgressController::class, 'nfcScan'])
             ->middleware('permission:task_progress,view');
-        // A scanned case QR or a typed case code (2026-10-30, by request).
-        Route::post('/task-progress/lookup', [TaskProgressController::class, 'lookup'])
-            ->middleware(['permission:task_progress,view', 'throttle:60,1']);
         Route::post('/task-progress/start', [TaskProgressController::class, 'start'])
             ->middleware('permission:task_progress,start');
         // Doctors' requests to start a task (2026-10-14).

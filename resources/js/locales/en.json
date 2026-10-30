@@ -1482,17 +1482,5 @@
         "confirm": "Apply",
         "outOf": "of {max}",
         "full": "Full"
-    },
-    "caseCode": {
-        "manualLabel": "Or the supervisor types this code:",
-        "enterTitle": "Enter case code",
-        "enterButton": "Enter code",
-        "inputLabel": "Case code",
-        "inputHint": "Type the digits shown under the QR code on the student's account.",
-        "open": "Open",
-        "orType": "Or type the case code:",
-        "noSlotLeft": "The student already has every required case of this task; nothing left to start.",
-        "openDoctor": "Student progress",
-        "invalid": "Type the case code first."
     }
 }

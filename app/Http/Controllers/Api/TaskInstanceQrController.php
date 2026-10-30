@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\TaskInstanceResource;
 use App\Models\Doctor;
 use App\Models\TaskInstance;
-use App\Support\CaseCode;
 use App\Support\QrCodeFactory;
 use App\Support\TaskInstanceVisibility;
 use Illuminate\Http\JsonResponse;
@@ -62,8 +61,7 @@ class TaskInstanceQrController extends Controller
     {
         $request->validate(['payload' => ['required', 'string']]);
 
-        // A typed case code (2026-10-30) stands for the same payload.
-        $decoded = json_decode(CaseCode::normalize((string) $request->string('payload')) ?? '', true);
+        $decoded = json_decode($request->string('payload'), true);
 
         abort_if(
             ! is_array($decoded) || ($decoded['type'] ?? null) !== 'task_instance' || empty($decoded['id']),

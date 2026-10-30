@@ -13,7 +13,6 @@ import '../domain/task_instance_status.dart';
 import 'status_badge.dart';
 import 'task_instances_providers.dart';
 import '../../../core/widgets/tg_spinner.dart';
-import '../../../core/utils/case_code.dart';
 
 class TaskInstanceDetailScreen extends ConsumerWidget {
   const TaskInstanceDetailScreen({super.key, required this.taskInstanceId});
@@ -165,7 +164,6 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
             onPressed: () => showQrDialog(
               context,
               imagePath: '/task-instances/${instance.id}/qr',
-                code: CaseCode.forInstance(instance.id),
               title: t['myTasks.qrCaseTitle']!,
               caption: t['myTasks.qrCaseCaption']!,
             ),
