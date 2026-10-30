@@ -4,7 +4,9 @@ import Modal from '@/Components/Modal.vue';
 import PaperPhotos from '@/Components/PaperPhotos.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import SupervisorCodeDialog from '@/Components/SupervisorCodeDialog.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import CaseCodeLabel from '@/Components/CaseCodeLabel.vue';
+import { caseCodeForInstance, caseCodeForPending } from '@/caseCode';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, onMounted, ref } from 'vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
@@ -186,17 +188,21 @@ const photosChanged = (slot, count, list) => {
 // `TaskStarter`'s pending-slot pooling) — so the QR is keyed by task, not
 // by slot, until `slot.instance_id` exists.
 const showingQr = ref(null);
+const page = usePage();
+const doctorId = computed(() => page.props.auth?.doctor?.id ?? null);
 const openQr = (task, slot) => {
     showingQr.value = slot.instance_id
         ? {
               imageUrl: route('doctor.task-instances.qr', slot.instance_id),
               title: t('tasks.qrCaseTitle'),
               caption: t('tasks.qrCaseCaption'),
+              code: caseCodeForInstance(slot.instance_id),
           }
         : {
               imageUrl: route('doctor.pending-qr.image', task.id),
               title: t('tasks.qrStartTitle'),
               caption: t('tasks.qrStartCaption'),
+              code: doctorId.value ? caseCodeForPending(task.id, doctorId.value) : null,
           };
 };
 </script>
@@ -435,6 +441,7 @@ const openQr = (task, slot) => {
                 <div class="mt-4 flex justify-center rounded-2xl bg-gray-50 p-4">
                     <img v-if="showingQr" :src="showingQr.imageUrl" alt="QR" class="h-56 w-56" />
                 </div>
+                <CaseCodeLabel v-if="showingQr?.code" :code="showingQr.code" />
                 <p class="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-center text-sm text-amber-800">
                     {{ showingQr?.caption }}
                 </p>

@@ -23,6 +23,8 @@ import QuadrantRepeater from '@/Components/QuadrantRepeater.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import QrScanner from '@/Components/QrScanner.vue';
+import CaseCodeLabel from '@/Components/CaseCodeLabel.vue';
+import { caseCodeForInstance } from '@/caseCode';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, reactive, ref } from 'vue';
 import Icon from '@/Components/Icon.vue';
@@ -1077,6 +1079,7 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                         class="h-56 w-56"
                     />
                 </div>
+                <CaseCodeLabel v-if="showQr && taskInstanceId" :code="caseCodeForInstance(taskInstanceId)" />
                 <p class="mt-3 text-sm text-gray-500">{{ t('specialtyForms.scanToReopenNote') }}</p>
                 <div class="mt-6 flex justify-center">
                     <SecondaryButton @click="showQr = false">{{ t('specialtyForms.closeAction') }}</SecondaryButton>

@@ -18,6 +18,7 @@ use App\Services\TaskGradeException;
 use App\Services\TaskInstanceGrader;
 use App\Services\TaskProgressFilters;
 use App\Services\ScopeHelper;
+use App\Services\TaskCodeLookup;
 use App\Services\TaskProgressGroupSummary;
 use App\Services\TaskStartException;
 use App\Services\TaskStarter;
@@ -147,74 +148,12 @@ class TaskProgressController extends Controller
      */
     public function scan(Request $request): JsonResponse
     {
-        $validated = $request->validate(['payload' => ['required', 'string']]);
+        $validated = $request->validate(['payload' => ['required', 'string', 'max:2000']]);
 
-        $decoded = json_decode($validated['payload'], true);
+        // A typed case code (2026-10-30) resolves the same way; see App\Services\TaskCodeLookup.
+        [$status, $body] = TaskCodeLookup::resolve($validated['payload'], $request->user());
 
-        if (! is_array($decoded)) {
-            return response()->json(['message' => 'رمز غير صالح.'], 422);
-        }
-
-        if (($decoded['type'] ?? null) === 'task_instance' && ! empty($decoded['id'])) {
-            $instance = TaskInstance::with(['task.department', 'task.caseSheetType', 'doctor'])->find($decoded['id']);
-
-            if (! $instance) {
-                return response()->json(['message' => 'حالة المهمة غير موجودة.'], 404);
-            }
-
-            return response()->json([
-                'kind' => 'task_instance',
-                'instance_id' => $instance->id,
-                'status' => $instance->status,
-                'doctor' => ['id' => $instance->doctor?->id, 'name' => $instance->doctor?->name],
-                'task' => [
-                    'id' => $instance->task?->id,
-                    'title' => $instance->task?->title,
-                    'department' => $instance->task?->department?->name,
-                    'case_sheet' => $instance->task?->caseSheetType?->name_ar,
-                ],
-                'case_sheet_url' => route('case-sheet.open', $instance->id),
-            ]);
-        }
-
-        if (($decoded['type'] ?? null) === 'pending_task' && ! empty($decoded['task_id']) && ! empty($decoded['doctor_id'])) {
-            $task = Task::with('department')->find($decoded['task_id']);
-            $doctor = Doctor::find($decoded['doctor_id']);
-
-            if (! $task || ! $doctor) {
-                return response()->json(['message' => 'المهمة أو الطبيب غير موجود.'], 404);
-            }
-
-            return response()->json([
-                'kind' => 'pending_task',
-                'doctor' => ['id' => $doctor->id, 'name' => $doctor->name],
-                'task' => [
-                    'id' => $task->id,
-                    'title' => $task->title,
-                    'department' => $task->department?->name,
-                    'required_count' => $task->required_count,
-                    // Its steps, signed in the start dialog (2026-10-18).
-                    'scoring' => $task->scoring,
-                ],
-            ]);
-        }
-
-        // The doctor's own QR, printed on their ID card (2026-10-14).
-        if (($decoded['type'] ?? null) === 'doctor' && ! empty($decoded['id'])) {
-            $doctor = Doctor::with(['stage:id,name'])->find($decoded['id']);
-
-            if (! $doctor) {
-                return response()->json(['message' => 'الطبيب غير موجود.'], 404);
-            }
-
-            return response()->json([
-                'kind' => 'doctor',
-                'doctor' => ['id' => $doctor->id, 'name' => $doctor->name, 'stage' => $doctor->stage?->name],
-                'progress_url' => route('doctors.progress', $doctor->id),
-            ]);
-        }
-
-        return response()->json(['message' => 'رمز غير معروف — ليس رمز مهمة صالحاً.'], 422);
+        return response()->json($body, $status);
     }
 
     /**

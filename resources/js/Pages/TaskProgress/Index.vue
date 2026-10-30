@@ -305,12 +305,15 @@ const scannerRef = ref(null);
 const scanResult = ref(null);
 const scanError = ref('');
 
-const openScanner = async () => {
+// `typing`: opened from "إدخال الرمز" — the code field, without the camera.
+const openScanner = async (typing = false) => {
     scanResult.value = null;
     scanError.value = '';
+    typedCode.value = '';
     scannerOpen.value = true;
     await nextTick();
-    scannerRef.value?.start();
+    if (typing === true) document.getElementById('case-code')?.focus();
+    else scannerRef.value?.start();
 };
 
 const closeScanner = () => {
@@ -351,9 +354,29 @@ const photosFromScan = () => {
     openPhotos(r.instance_id, r.task.title, r.doctor.name);
 };
 
+// Typing the case code instead of scanning (2026-10-30, by request): the
+// digits under the case's QR on the student's account; same lookup.
+const typedCode = ref('');
+const submitTypedCode = () => {
+    const code = typedCode.value.trim();
+    if (!code) {
+        scanError.value = t('caseCode.invalid');
+        return;
+    }
+    onDecoded(code);
+};
+
+// A case found by its QR or code gets the matrix card's own actions.
+const fromScan = (action) => {
+    const r = scanResult.value;
+    closeScanner();
+    action(r.doctor, r.card);
+};
+
 const rescan = async () => {
     scanResult.value = null;
     scanError.value = '';
+    typedCode.value = '';
     await nextTick();
     scannerRef.value?.start();
 };
@@ -452,8 +475,11 @@ const startFromScan = () => {
                         </div>
                         <div class="flex items-end gap-2">
                             <SecondaryButton @click="clearFilters">{{ t('taskProgressAdmin.clearFilters') }}</SecondaryButton>
-                            <button type="button" @click="openScanner" class="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700">
+                            <button type="button" @click="openScanner()" class="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700">
                                 <Icon name="qr_code_2" class="ml-1" />{{ t('taskProgressAdmin.scanQr') }}
+                            </button>
+                            <button type="button" @click="openScanner(true)" class="rounded-md border border-sky-600 px-4 py-2 text-sm font-medium text-sky-700 hover:bg-sky-50">
+                                <Icon name="keyboard" class="ml-1" />{{ t('caseCode.enterButton') }}
                             </button>
                         </div>
                     </div>
@@ -726,6 +752,22 @@ const startFromScan = () => {
 
                 <div v-if="!scanResult" class="mt-4">
                     <QrScanner ref="scannerRef" @decoded="onDecoded" />
+                    <form class="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3" @submit.prevent="submitTypedCode">
+                        <InputLabel for="case-code" :value="t('caseCode.orType')" />
+                        <div class="mt-1 flex gap-2">
+                            <TextInput
+                                id="case-code"
+                                v-model="typedCode"
+                                dir="ltr"
+                                inputmode="numeric"
+                                autocomplete="off"
+                                class="block w-full text-center font-mono text-lg tracking-widest"
+                                placeholder="000 000"
+                            />
+                            <PrimaryButton type="submit"><Icon name="keyboard" class="ml-1" />{{ t('caseCode.open') }}</PrimaryButton>
+                        </div>
+                        <p class="mt-1 text-xs text-gray-500">{{ t('caseCode.inputHint') }}</p>
+                    </form>
                     <div v-if="scanError" class="mt-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{{ scanError }}</div>
                 </div>
 
@@ -733,13 +775,48 @@ const startFromScan = () => {
                 <div v-else-if="scanResult.kind === 'task_instance'" class="mt-4 space-y-3">
                     <div class="rounded-lg border border-green-200 bg-green-50 p-4">
                         <p class="text-sm text-green-800"><Icon name="check_circle" class="ml-1" />{{ t('taskProgressAdmin.recognizedInstance', { id: scanResult.instance_id }) }}</p>
-                        <dl class="mt-2 space-y-1 text-sm text-gray-700">
-                            <div><span class="text-gray-500">{{ t('patients.doctorCol') }}:</span> {{ scanResult.doctor.name ?? '—' }}</div>
-                            <div><span class="text-gray-500">{{ t('taskProgressAdmin.taskColonLabel') }}</span> {{ scanResult.task.title }}</div>
-                            <div><span class="text-gray-500">{{ t('doctorsAdmin.departmentLabel') }}:</span> {{ scanResult.task.department ?? '—' }}</div>
-                            <div><span class="text-gray-500">{{ t('taskProgressAdmin.formColonLabel') }}</span> {{ scanResult.task.case_sheet ?? '—' }}</div>
-                            <div><span class="text-gray-500">{{ t('doctorsAdmin.statusCol') }}:</span> {{ statusLabel(scanResult.status) }}</div>
+                        <dl class="mt-2 space-y-1 text-sm text-slate-700">
+                            <div><span class="text-slate-500">{{ t('patients.doctorCol') }}:</span> {{ scanResult.doctor.name ?? '—' }}</div>
+                            <div><span class="text-slate-500">{{ t('taskProgressAdmin.taskColonLabel') }}</span> {{ scanResult.task.title }}</div>
+                            <div><span class="text-slate-500">{{ t('doctorsAdmin.departmentLabel') }}:</span> {{ scanResult.task.department ?? '—' }}</div>
+                            <div><span class="text-slate-500">{{ t('taskProgressAdmin.formColonLabel') }}</span> {{ scanResult.task.case_sheet ?? '—' }}</div>
+                            <div><span class="text-slate-500">{{ t('doctorsAdmin.statusCol') }}:</span> {{ statusLabel(scanResult.status) }}</div>
                         </dl>
+                    </div>
+                    <div v-if="scanResult.card" class="flex flex-wrap justify-end gap-2">
+                        <button
+                            v-if="scanResult.card.steps_count && ['assigned', 'completed'].includes(scanResult.card.status)"
+                            type="button"
+                            class="rounded-md px-4 py-2 text-sm font-medium text-white"
+                            :class="scanResult.card.steps_signed >= scanResult.card.steps_count ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-500 hover:bg-amber-600'"
+                            @click="fromScan(openSteps)"
+                        >
+                            <Icon name="checklist" class="ml-1" />{{ t('taskSteps.button', { done: Math.min(scanResult.card.steps_signed, scanResult.card.steps_count), total: scanResult.card.steps_count }) }}
+                        </button>
+                        <button
+                            v-if="scanResult.card.status === 'assigned' && isOn('task_finish_enabled')"
+                            type="button"
+                            class="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                            @click="fromScan((d, card) => openComplete(card))"
+                        >
+                            <Icon name="task_alt" class="ml-1" />{{ t('taskProgressAdmin.markComplete') }}
+                        </button>
+                        <button
+                            v-if="['assigned', 'completed'].includes(scanResult.card.status)"
+                            type="button"
+                            class="rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
+                            @click="fromScan((d, card) => openEdit(card))"
+                        >
+                            <Icon name="edit" class="ml-1" />{{ t('common.edit') }}
+                        </button>
+                        <button
+                            v-if="scanResult.card.status === 'assigned' && canCancel && isOn('task_cancel_enabled')"
+                            type="button"
+                            class="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                            @click="fromScan((d, card) => cancelStart(card))"
+                        >
+                            <Icon name="undo" class="ml-1" />{{ t('taskProgressAdmin.cancelStart') }}
+                        </button>
                     </div>
                     <div class="flex flex-wrap justify-end gap-2">
                         <SecondaryButton @click="rescan">{{ t('taskProgressAdmin.scanAnother') }}</SecondaryButton>
@@ -755,26 +832,26 @@ const startFromScan = () => {
                 <!-- Result: a task the doctor hasn't started yet -->
                 <div v-else-if="scanResult.kind === 'pending_task'" class="mt-4 space-y-3">
                     <div class="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                        <p class="text-sm text-amber-800">{{ t('taskProgressAdmin.pendingTaskMsg') }}</p>
-                        <dl class="mt-2 space-y-1 text-sm text-gray-700">
-                            <div><span class="text-gray-500">{{ t('patients.doctorCol') }}:</span> {{ scanResult.doctor.name }}</div>
-                            <div><span class="text-gray-500">{{ t('taskProgressAdmin.taskColonLabel') }}</span> {{ scanResult.task.title }}</div>
-                            <div><span class="text-gray-500">{{ t('doctorsAdmin.departmentLabel') }}:</span> {{ scanResult.task.department ?? '—' }}</div>
-                            <div><span class="text-gray-500">{{ t('doctorsAdmin.requiredLabel') }}:</span> {{ scanResult.task.required_count }}</div>
+                        <p class="text-sm text-amber-800">{{ scanResult.card ? t('taskProgressAdmin.pendingTaskMsg') : t('caseCode.noSlotLeft') }}</p>
+                        <dl class="mt-2 space-y-1 text-sm text-slate-700">
+                            <div><span class="text-slate-500">{{ t('patients.doctorCol') }}:</span> {{ scanResult.doctor.name }}</div>
+                            <div><span class="text-slate-500">{{ t('taskProgressAdmin.taskColonLabel') }}</span> {{ scanResult.task.title }}</div>
+                            <div><span class="text-slate-500">{{ t('doctorsAdmin.departmentLabel') }}:</span> {{ scanResult.task.department ?? '—' }}</div>
+                            <div><span class="text-slate-500">{{ t('doctorsAdmin.requiredLabel') }}:</span> {{ scanResult.task.required_count }}</div>
                         </dl>
                     </div>
                     <div class="flex flex-wrap justify-end gap-2">
                         <SecondaryButton @click="rescan">{{ t('taskProgressAdmin.scanAnother') }}</SecondaryButton>
-                        <PrimaryButton :disabled="startForm.processing" @click="startFromScan"><Icon name="play_arrow" class="ml-1" />{{ t('taskProgressAdmin.startTaskForDoctor') }}</PrimaryButton>
+                        <PrimaryButton v-if="scanResult.card && isOn('task_start_enabled')" :disabled="startForm.processing" @click="startFromScan"><Icon name="play_arrow" class="ml-1" />{{ t('taskProgressAdmin.startTaskForDoctor') }}</PrimaryButton>
                     </div>
                 </div>
 
                 <!-- Result: a doctor's ID card (2026-10-14) -->
                 <div v-else-if="scanResult.kind === 'doctor'" class="mt-4 space-y-3">
                     <div class="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
-                        <dl class="space-y-1 text-sm text-gray-700">
-                            <div><span class="text-gray-500">{{ t('patients.doctorCol') }}:</span> {{ scanResult.doctor.name }}</div>
-                            <div v-if="scanResult.doctor.stage"><span class="text-gray-500">{{ t('taskProgressAdmin.stageLabel') }}:</span> {{ scanResult.doctor.stage }}</div>
+                        <dl class="space-y-1 text-sm text-slate-700">
+                            <div><span class="text-slate-500">{{ t('patients.doctorCol') }}:</span> {{ scanResult.doctor.name }}</div>
+                            <div v-if="scanResult.doctor.stage"><span class="text-slate-500">{{ t('taskProgressAdmin.stageLabel') }}:</span> {{ scanResult.doctor.stage }}</div>
                         </dl>
                     </div>
                     <div class="flex flex-wrap justify-end gap-2">

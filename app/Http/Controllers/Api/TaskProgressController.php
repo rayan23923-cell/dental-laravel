@@ -19,6 +19,7 @@ use App\Services\TaskGradeException;
 use App\Services\TaskInstanceGrader;
 use App\Services\TaskProgressFilters;
 use App\Services\ScopeHelper;
+use App\Services\TaskCodeLookup;
 use App\Services\TaskProgressGroupSummary;
 use App\Services\TaskStartException;
 use App\Services\TaskStarter;
@@ -83,6 +84,20 @@ class TaskProgressController extends Controller
             'kind' => 'doctor',
             'doctor' => ['id' => $doctor->id, 'name' => $doctor->name, 'username' => $doctor->username],
         ]);
+    }
+
+    /**
+     * The app's "enter the case code" (2026-10-30, by request), also used
+     * for a scanned case QR: the case, or the task not started yet, with
+     * its task progress slot card. See App\Services\TaskCodeLookup.
+     */
+    public function lookup(Request $request): JsonResponse
+    {
+        $validated = $request->validate(['payload' => ['required', 'string', 'max:2000']]);
+
+        [$status, $body] = TaskCodeLookup::resolve($validated['payload'], $request->user());
+
+        return response()->json($body, $status);
     }
 
     public function start(Request $request): JsonResponse

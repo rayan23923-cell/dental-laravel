@@ -5,7 +5,11 @@ import 'package:intl/intl.dart';
 
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/utils/case_code.dart';
 import '../../../core/widgets/qr_dialog.dart';
+import '../../auth/domain/auth_account.dart';
+import '../../auth/presentation/auth_controller.dart';
+import '../../auth/presentation/auth_state.dart';
 import '../../case_sheet_forms/data/case_sheet_record_repository.dart';
 import '../../form_settings/data/form_settings_repository.dart';
 import '../../form_settings/presentation/supervisor_code_sheet.dart';
@@ -477,6 +481,10 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
     final t = ref.watch(translationsProvider);
     // Forms on offer and the supervisor code (2026-10-22).
     final settings = ref.watch(myFormSettingsProvider).valueOrNull ?? const DoctorFormSettings();
+    // The doctor's own id, for the typeable code of a task not started yet (2026-10-30).
+    final authState = ref.watch(authControllerProvider).valueOrNull;
+    final account = authState is Authenticated ? authState.account : null;
+    final doctorId = account is DoctorAccount ? account.id : null;
     final showCode = (slot.status == 'unassigned' && settings.codeCanStart) || (slot.status == 'assigned' && settings.codeCanProgress);
 
     return ListTile(
@@ -563,6 +571,11 @@ class _SlotRowState extends ConsumerState<_SlotRow> {
               imagePath: slot.instanceId != null ? '/task-instances/${slot.instanceId}/qr' : '/pending-tasks/${slot.taskId}/qr',
               title: slot.instanceId != null ? t['myTasks.qrCaseTitle']! : t['myTasks.qrStartTitle']!,
               caption: slot.instanceId != null ? t['myTasks.qrCaseCaption']! : t['myTasks.qrStartCaption']!,
+              code: slot.instanceId != null
+                  ? CaseCode.forInstance(slot.instanceId!)
+                  : doctorId != null
+                      ? CaseCode.forPending(slot.taskId, doctorId)
+                      : null,
             ),
           ),
           // Photos next to the form (2026-10-15, as on the web): the doctor
