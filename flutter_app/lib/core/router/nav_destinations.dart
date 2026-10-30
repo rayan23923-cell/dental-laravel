@@ -36,7 +36,8 @@ class NavDestination {
 /// A staff account sees "السجلات" and "الإدارة" only when it may open
 /// something in them (2026-10-18). Doctors no longer get a "النماذج
 /// السريرية" section (2026-10-29, by request): they open a form from its
-/// task.
+/// task. Doctors get "رمز QR" (their own code) in place of "مسح QR"
+/// (2026-10-30).
 List<NavDestination> navDestinationsFor(
   AccountType type, {
   required int unreadNotifications,
@@ -61,10 +62,12 @@ List<NavDestination> navDestinationsFor(
         selectedIcon: Icons.home,
         route: '/home',
       ),
+      // Their own QR for a supervisor to scan, instead of a scanner
+      // (2026-10-30, by request).
       NavDestination(
-        label: t['nav.scanQr']!,
-        icon: Icons.qr_code_scanner,
-        route: '/scan',
+        label: t['nav.myQr']!,
+        icon: Icons.qr_code_2,
+        route: '/my-qr',
       ),
       notifications,
     ];

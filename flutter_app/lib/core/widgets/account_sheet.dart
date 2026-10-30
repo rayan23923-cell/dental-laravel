@@ -75,6 +75,8 @@ class _AccountSheet extends ConsumerWidget {
           children: [
             ProfileRow(
               account: account,
+              card: true,
+              hint: t['account.viewProfile'],
               onTap: () {
                 close();
                 router.push('/profile');

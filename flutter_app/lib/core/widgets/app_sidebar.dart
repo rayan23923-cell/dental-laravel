@@ -209,9 +209,15 @@ class _NavRow extends StatelessWidget {
 }
 
 class ProfileRow extends StatelessWidget {
-  const ProfileRow({required this.account, required this.onTap, super.key});
+  const ProfileRow({required this.account, required this.onTap, this.card = false, this.hint, super.key});
   final AuthAccount? account;
   final VoidCallback onTap;
+
+  /// The account sheet's header (2026-10-30, by request: users didn't see
+  /// that it opens the profile): a tinted card with a bigger avatar, a
+  /// "view and edit" line ([hint]) and a chevron.
+  final bool card;
+  final String? hint;
 
   @override
   Widget build(BuildContext context) {
@@ -229,21 +235,94 @@ class ProfileRow extends StatelessWidget {
       _ => null,
     };
 
-    return ListTile(
-      onTap: onTap,
-      leading: Container(
-        width: 40,
-        height: 40,
-        padding: const EdgeInsets.all(2),
-        decoration: const BoxDecoration(gradient: InstagramColors.gradient, shape: BoxShape.circle),
-        child: CircleAvatar(
-          backgroundColor: theme.colorScheme.surface,
-          backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
-          child: imageUrl == null ? Text(name.isNotEmpty ? name[0] : '?') : null,
+    final avatarSize = card ? 56.0 : 40.0;
+    final avatar = Container(
+      width: avatarSize,
+      height: avatarSize,
+      padding: EdgeInsets.all(card ? 2.5 : 2),
+      decoration: const BoxDecoration(gradient: InstagramColors.gradient, shape: BoxShape.circle),
+      child: CircleAvatar(
+        backgroundColor: theme.colorScheme.surface,
+        backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
+        child: imageUrl == null ? Text(name.isNotEmpty ? name[0] : '?', style: TextStyle(fontSize: card ? 22 : null)) : null,
+      ),
+    );
+
+    if (!card) {
+      return ListTile(
+        onTap: onTap,
+        leading: avatar,
+        title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: subtitle.isNotEmpty ? Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis) : null,
+      );
+    }
+
+    final radius = BorderRadius.circular(18);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      child: Material(
+        color: theme.colorScheme.primary.withValues(alpha: theme.brightness == Brightness.dark ? 0.14 : 0.07),
+        borderRadius: radius,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: radius,
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.25)),
+            ),
+            child: Row(
+              children: [
+                avatar,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      if (subtitle.isNotEmpty)
+                        Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                        ),
+                      if (hint != null) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.edit_outlined, size: 15, color: theme.colorScheme.primary),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                hint!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: theme.colorScheme.primary),
+              ],
+            ),
+          ),
         ),
       ),
-      title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: subtitle.isNotEmpty ? Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis) : null,
     );
   }
 }

@@ -53,6 +53,7 @@ import '../../features/records/presentation/payments/payment_form_screen.dart';
 import '../../features/records/presentation/payments/payment_list_screen.dart';
 import '../../features/records/presentation/records_hub_screen.dart';
 import '../../features/task_instances/presentation/qr_scan_screen.dart';
+import '../../features/doctor_qr/my_qr_screen.dart';
 import '../../features/task_instances/presentation/task_instance_detail_screen.dart';
 import '../../features/tasks_admin/presentation/task_detail_screen.dart';
 import '../../features/tasks_admin/presentation/task_form_screen.dart';
@@ -130,6 +131,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: '/scan', builder: (context, state) => const QrScanScreen()),
+      // The doctor's own QR, scanned by a supervisor (2026-10-30).
+      GoRoute(path: '/my-qr', builder: (context, state) => const MyQrScreen()),
       // One search for tickets, patients and students (2026-10-28).
       GoRoute(path: '/search', builder: (context, state) => const GlobalSearchScreen()),
       // Must be registered before the ShellRoute's own `/case-sheets/:resource`
