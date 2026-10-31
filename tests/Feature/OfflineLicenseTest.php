@@ -214,6 +214,11 @@ class OfflineLicenseTest extends TestCase
         $report(['url' => 'https://new-address.trycloudflare.com'])->assertOk()->assertJsonPath('link', $link);
         $this->get("/go/$slug")->assertRedirect('https://new-address.trycloudflare.com');
 
+        // The super admin's codes page on the hosting shows the fixed links.
+        $this->actingAs(User::factory()->create(['role' => 'super_admin']))->get('/offline-licenses')
+            ->assertInertia(fn ($page) => $page->where('licenses.0.tunnel_link', $link)
+                ->where('licenses.0.tunnel_online', true)->where('licenses.0.tunnel_panel_link', "$link/control"));
+
         // Turned off, or not heard from for a while: a page that says so.
         $report(['url' => null, 'panel_url' => null])->assertOk();
         $this->get("/go/$slug")->assertStatus(503)->assertSee('غير متصل');
