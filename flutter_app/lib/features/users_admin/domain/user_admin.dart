@@ -92,6 +92,7 @@ const List<(String value, String label)> kAssignableUserRoles = [
   ('hr', 'موارد بشرية'),
   ('reception', 'موظف التذاكر'),
   ('lab', 'مختبري'),
+  ('teacher', 'تدريسي'),
 ];
 
 /// `GET /users/form-options`: what the add-user form needs to show the

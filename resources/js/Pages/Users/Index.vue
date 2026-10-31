@@ -30,6 +30,7 @@ const ROLE_STYLES = {
     hr: { icon: 'badge', chip: 'bg-rose-50 text-rose-700', avatar: 'from-rose-500 to-red-500' },
     reception: { icon: 'confirmation_number', chip: 'bg-teal-50 text-teal-700', avatar: 'from-teal-500 to-green-500' },
     lab: { icon: 'biotech', chip: 'bg-violet-50 text-violet-700', avatar: 'from-violet-500 to-indigo-500' },
+    teacher: { icon: 'school', chip: 'bg-teal-50 text-teal-700', avatar: 'from-teal-500 to-emerald-500' },
 };
 const FALLBACK = { icon: 'person', chip: 'bg-gray-100 text-gray-700', avatar: 'from-gray-400 to-gray-500' };
 

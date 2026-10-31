@@ -1169,7 +1169,8 @@
         "senior": "Department head",
         "hr": "HR",
         "reception": "Ticket desk",
-        "lab": "Lab technician"
+        "lab": "Lab technician",
+        "teacher": "Teaching staff"
     },
     "phoneScanner": {
         "button": "Phone as scanner",

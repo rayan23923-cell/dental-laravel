@@ -23,6 +23,9 @@ class WelcomeCredentials extends Mailable
         public string $password,
         public string $accountType,
         public bool $reset = false,
+        public ?string $loginUrl = null,
+        /** Other addresses of the same server, e.g. its LAN IP. */
+        public array $altUrls = [],
     ) {}
 
     public function envelope(): Envelope
@@ -36,7 +39,8 @@ class WelcomeCredentials extends Mailable
             view: 'emails.welcome-credentials',
             with: [
                 'clinicName' => $this->clinicName(),
-                'loginUrl' => route('login'),
+                'loginUrl' => $this->loginUrl ?: route('login'),
+                'altUrls' => $this->altUrls,
             ],
         );
     }
