@@ -217,14 +217,32 @@ class DesktopUpdateChecker {
     await dir.create(recursive: true);
     final name = Platform.isAndroid ? 'DentalClinicApp-${info.version}.apk' : 'DentalClinicSetup-${info.version}.exe';
     final path = '${dir.path}${Platform.pathSeparator}$name';
+    // Earlier updates (about 100 MB each on Android) are never needed again.
+    await for (final old in dir.list()) {
+      try {
+        await old.delete(recursive: true);
+      } catch (_) {}
+    }
 
-    await Dio().download(
-      info.url,
-      path,
-      onReceiveProgress: (received, total) {
-        if (total > 0) onProgress?.call(received / total);
-      },
-    );
+    // Android (2026-10-31): a cut-off download makes the installer say
+    // "package appears to be invalid", so the file is checked first and
+    // downloaded once more if it isn't a complete APK.
+    for (var attempt = 1;; attempt++) {
+      var complete = true;
+      try {
+        await _download(info.url, path, onProgress);
+      } on UpdateInstallException {
+        complete = false;
+      }
+      if (complete && !Platform.isAndroid) break;
+      final result = complete ? await _channel.invokeMethod<String>('check', {'path': path}) ?? 'ok' : 'corrupt';
+      if (result == 'ok') break;
+      if (result == 'corrupt' && attempt < 2) continue;
+      try {
+        await File(path).delete();
+      } catch (_) {}
+      throw UpdateInstallException(result);
+    }
 
     if (Platform.isAndroid) {
       await _channel.invokeMethod<void>('install', {'path': path});
@@ -242,4 +260,41 @@ class DesktopUpdateChecker {
     );
     exit(0);
   }
+
+  static Future<void> _download(String url, String path, void Function(double progress)? onProgress) async {
+    var expected = -1;
+    await Dio().download(
+      url,
+      path,
+      onReceiveProgress: (received, total) {
+        if (total > 0) {
+          expected = total;
+          onProgress?.call(received / total);
+        }
+      },
+    );
+    if (expected > 0 && await File(path).length() != expected) {
+      throw const UpdateInstallException('corrupt');
+    }
+  }
+}
+
+/// Why a downloaded Android update can't be installed (AppUpdatePlugin.kt's
+/// "check"): corrupt, package, older or signature.
+class UpdateInstallException implements Exception {
+  const UpdateInstallException(this.reason);
+
+  final String reason;
+
+  /// Whether only removing the app and installing it again helps.
+  bool get needsReinstall => reason == 'signature' || reason == 'older' || reason == 'package';
+
+  String get message => switch (reason) {
+        'signature' =>
+          'النسخة المثبتة على هاتفك موقّعة بمفتاح مختلف عن التحديث (نسخة قديمة)، لذلك لا يقبل أندرويد تثبيته فوقها. '
+              'احذف التطبيق من الهاتف ثم ثبّته من صفحة التنزيل. هذا يلزم مرة واحدة فقط، وبعدها تعمل التحديثات من داخل التطبيق.',
+        'older' => 'النسخة المثبتة على هاتفك أحدث من نسخة التحديث. احذف التطبيق ثم ثبّته من صفحة التنزيل.',
+        'package' => 'ملف التحديث ليس لهذا التطبيق. احذف التطبيق ثم ثبّته من صفحة التنزيل.',
+        _ => 'لم يكتمل تنزيل التحديث (الملف ناقص). تأكد من الإنترنت ومن وجود مساحة كافية في الهاتف ثم حاول مرة أخرى.',
+      };
 }
