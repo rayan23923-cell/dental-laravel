@@ -624,6 +624,17 @@ Route::middleware('auth')->group(function () {
             Route::delete('/offline-licenses/{offlineLicense}', [\App\Http\Controllers\OfflineLicenseController::class, 'destroy'])->name('offline-licenses.destroy');
         });
 
+        // Bulk accounts and login emails (2026-10-31, by request): teachers
+        // from a list and new passwords for whole stages, made and emailed
+        // on the hosting; on the offline server the same logins are saved
+        // from the file the hosting gave.
+        Route::middleware('role:super_admin')->group(function () {
+            Route::get('/users/bulk-credentials', [\App\Http\Controllers\BulkCredentialsController::class, 'index'])->name('bulk-credentials.index');
+            Route::post('/users/bulk-credentials/teachers', [\App\Http\Controllers\BulkCredentialsController::class, 'teachers'])->name('bulk-credentials.teachers');
+            Route::post('/users/bulk-credentials/doctors', [\App\Http\Controllers\BulkCredentialsController::class, 'doctors'])->name('bulk-credentials.doctors');
+            Route::post('/users/bulk-credentials/apply', [\App\Http\Controllers\BulkCredentialsController::class, 'apply'])->name('bulk-credentials.apply');
+        });
+
 
 
         Route::get('/department-roles', [DepartmentRoleAssignmentController::class, 'index'])->name('department-roles.index');

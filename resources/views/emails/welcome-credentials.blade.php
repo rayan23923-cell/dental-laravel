@@ -34,9 +34,9 @@
                 @if (! empty($altUrls))
                     <p style="margin:0 0 6px;font-size:14px;">رابط النظام: <a href="{{ $loginUrl }}" style="direction:ltr;unicode-bidi:embed;">{{ $loginUrl }}</a></p>
                     @foreach ($altUrls as $alt)
-                        <p style="margin:0 0 6px;font-size:14px;">أو: <a href="{{ $alt }}" style="direction:ltr;unicode-bidi:embed;">{{ $alt }}</a></p>
+                        <p style="margin:0 0 6px;font-size:14px;">أو عن طريق الآيبي: <a href="{{ $alt }}" style="direction:ltr;unicode-bidi:embed;">{{ $alt }}</a></p>
                     @endforeach
-                    <p style="margin:0 0 16px;font-size:13px;color:#6b7280;">يعمل الرابط عند الاتصال بشبكة العيادة (الواي فاي).</p>
+                    <p style="margin:0 0 16px;font-size:13px;color:#6b7280;">هذا الرابط يعمل فقط عند الاتصال بشبكة عيادة المستشفى التعليمي (الواي فاي).</p>
                 @endif
                 <p style="margin:0 0 8px;font-size:13px;color:#b45309;">لأمان حسابك، غيّر كلمة المرور بعد أول تسجيل دخول.</p>
                 <p style="margin:0;font-size:13px;color:#6b7280;">إذا لم تكن تتوقع هذه الرسالة فتجاهلها.</p>

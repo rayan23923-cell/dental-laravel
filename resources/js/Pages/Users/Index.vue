@@ -77,6 +77,14 @@ const filtered = computed(() => {
                         <Icon name="account_tree" />
                     </Link>
                     <Link
+                        v-if="page.props.auth?.user?.role === 'super_admin'"
+                        :href="route('bulk-credentials.index')"
+                        :title="t('bulkCredentials.navLink')"
+                        class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    >
+                        <Icon name="group_add" />
+                    </Link>
+                    <Link
                         :href="route('users.create')"
                         :title="t('permissionsAdmin.addUserShort')"
                         class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-pink-500 text-white shadow hover:opacity-90"
