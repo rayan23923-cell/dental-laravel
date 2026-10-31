@@ -2,17 +2,14 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Doctor;
 use App\Models\Stage;
-use App\Services\CredentialMailer;
+use App\Services\BulkCredentials;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Hash;
 
 /**
- * Gives the doctors (students) of the chosen stages a new random numeric
- * password and emails it with their username and the login link
- * (2026-10-31, by request: the 4th and 5th stages). Their old password
- * stops working and their app sessions are signed out.
+ * New random numeric passwords for the doctors (students) of the chosen
+ * stages, emailed with their username and the login link (2026-10-31, by
+ * request: the 4th and 5th stages); see App\Services\BulkCredentials.
  */
 class SendDoctorCredentials extends Command
 {
@@ -50,32 +47,12 @@ class SendDoctorCredentials extends Command
         $this->info('Stages: '.$stages->map(fn ($s) => "{$s->id} {$s->name}")->implode(', '));
 
         $dry = (bool) $this->option('dry-run');
-        $links = array_filter([
-            'login_url' => $this->option('login-url') ?: null,
-            'alt_urls' => array_values(array_filter((array) $this->option('alt-url'))),
-        ]);
-        $sent = [];
-        $noEmail = [];
+        $mail = BulkCredentials::links($this->option('login-url'), (array) $this->option('alt-url'));
+        ['reset' => $reset, 'no_email' => $noEmail] = BulkCredentials::resetDoctors($stages->pluck('id')->all(), $mail, $dry);
 
-        $doctors = Doctor::whereIn('stage_id', $stages->pluck('id'))->orderBy('stage_id')->orderBy('name')->get();
-        foreach ($doctors as $doctor) {
-            if (! CredentialMailer::isDeliverable($doctor->email)) {
-                $noEmail[] = [$doctor->name, $doctor->username];
-
-                continue;
-            }
-            if (! $dry) {
-                $password = CredentialMailer::generateNumericPassword();
-                $doctor->forceFill(['password' => Hash::make($password)])->save();
-                $doctor->tokens()->delete();
-                CredentialMailer::queueWelcome('doctor', $doctor->email, $doctor->name, $doctor->username, $password, false, $links);
-            }
-            $sent[] = [$doctor->name, $doctor->username, $doctor->email];
-        }
-
-        $this->info(($dry ? '[dry run] would email ' : 'Reset and queued emails for ').count($sent).' doctors.');
-        if ($sent) {
-            $this->table(['name', 'username', 'email'], $sent);
+        $this->info(($dry ? '[dry run] would email ' : 'Reset and queued emails for ').count($reset).' doctors.');
+        if ($reset) {
+            $this->table(['name', 'username', 'email'], array_map(fn ($r) => [$r['name'], $r['username'], $r['email']], $reset));
         }
         if ($noEmail) {
             $this->warn(count($noEmail).' doctors have no email and were left unchanged:');

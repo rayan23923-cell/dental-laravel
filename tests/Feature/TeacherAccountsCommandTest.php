@@ -9,6 +9,7 @@ use App\Models\QueuedEmail;
 use App\Models\Stage;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -77,5 +78,41 @@ class TeacherAccountsCommandTest extends TestCase
         $this->assertTrue(Hash::check('old', $third->refresh()->password));
         $this->assertTrue(Hash::check('old', $noEmail->refresh()->password));
         $this->assertFalse(Hash::check('old', $fifth->refresh()->password));
+    }
+
+    public function test_the_page_creates_on_the_hosting_and_the_file_saves_the_same_logins_offline(): void
+    {
+        EducationType::create(['id' => 1, 'name' => 'صباحي']);
+        Stage::create(['id' => 1, 'name' => 'الرابعة', 'education_type_id' => 1]);
+        $doctor = Doctor::create(['name' => 'أ', 'username' => 'a', 'password' => 'old', 'email' => 'a@example.com', 'education_type_id' => 1, 'stage_id' => 1]);
+        $admin = User::factory()->create(['role' => 'super_admin']);
+
+        $this->actingAs(User::factory()->create(['role' => 'admin']))
+            ->post('/users/bulk-credentials/doctors', ['stage_ids' => [1], 'send_email' => true])->assertForbidden();
+
+        $this->actingAs($admin);
+        $sheet = UploadedFile::fake()->createWithContent('teachers.csv', "\u{FEFF}الاسم,الايميل\nسارة علي,sara@tu.edu.iq\n");
+        $teachers = $this->post('/users/bulk-credentials/teachers', ['file' => $sheet, 'send_email' => '1', 'login_url' => 'https://clinic.lan/login', 'alt_url' => 'https://192.168.68.52/login'])
+            ->assertOk()->assertJsonPath('count', 1)->json('credentials');
+        $doctors = $this->post('/users/bulk-credentials/doctors', ['stage_ids' => [1], 'send_email' => true, 'login_url' => 'https://clinic.lan/login'])
+            ->assertOk()->assertJsonPath('count', 1)->json('credentials');
+        $this->assertSame(2, QueuedEmail::count());
+        $this->assertSame('sara', $teachers[0]['username']);
+        $this->assertTrue(Hash::check($doctors[0]['password'], $doctor->refresh()->password));
+
+        // The offline server: same logins from the downloaded file, no emails.
+        User::where('role', 'teacher')->delete();
+        $doctor->forceFill(['password' => 'something-else'])->save();
+        QueuedEmail::query()->delete();
+        $cols = ['name', 'email', 'username', 'password', 'account_type'];
+        $csv = implode(',', $cols)."\n".collect([...$teachers, ...$doctors])->map(fn ($r) => implode(',', array_map(fn ($c) => $r[$c], $cols)))->implode("\n");
+
+        $this->post('/users/bulk-credentials/apply', ['file' => UploadedFile::fake()->createWithContent('logins.csv', $csv)])
+            ->assertOk()->assertJson(['created' => 1, 'updated' => 1]);
+        $sara = User::where('username', 'sara')->firstOrFail();
+        $this->assertSame(['teacher', 'sara@tu.edu.iq'], [$sara->role, $sara->email]);
+        $this->assertTrue(Hash::check($teachers[0]['password'], $sara->password));
+        $this->assertTrue(Hash::check($doctors[0]['password'], $doctor->refresh()->password));
+        $this->assertSame(0, QueuedEmail::count());
     }
 }
