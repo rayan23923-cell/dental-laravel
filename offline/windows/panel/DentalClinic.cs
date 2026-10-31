@@ -2154,9 +2154,9 @@ namespace DentalClinicPanel
 
             // State and the main buttons.
             var hero = page.Add(new Card());
-            var heroGrid = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 2, BackColor = Ui.Card, Margin = Padding.Empty };
+            // The state above the buttons, so neither is squeezed in a small window.
+            var heroGrid = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 1, BackColor = Ui.Card, Margin = Padding.Empty };
             heroGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            heroGrid.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             var stateBox = new TableLayoutPanel { AutoSize = true, ColumnCount = 2, Dock = DockStyle.Fill, BackColor = Ui.Card, Margin = Padding.Empty };
             stateBox.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             stateBox.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -2178,9 +2178,9 @@ namespace DentalClinicPanel
             restartBtn = Ui.Button("إعادة التشغيل", Ui.Kind.Secondary);
             restartBtn.MinimumSize = new Size(Ui.S(120), Ui.S(44));
             restartBtn.Click += (s, e) => RestartSystem();
-            var heroButtons = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Anchor = AnchorStyles.Right, BackColor = Ui.Card, Margin = Ui.P(12, 4, 0, 0) };
+            var heroButtons = new FlowLayoutPanel { AutoSize = true, WrapContents = true, Dock = DockStyle.Fill, BackColor = Ui.Card, Margin = Ui.P(0, 12, 0, 0) };
             heroButtons.Controls.AddRange(new Control[] { toggleBtn, openBtn, restartBtn });
-            heroGrid.Controls.Add(heroButtons, 1, 0);
+            heroGrid.Controls.Add(heroButtons, 0, 1);
             hero.Add(heroGrid);
 
             // Three tiles: the addresses and online access.
@@ -2218,7 +2218,7 @@ namespace DentalClinicPanel
             head.Controls.Add(Ui.Icon(glyph, 11f, Ui.Primary));
             head.Controls.Add(Ui.Label(caption, 9.5f, Ui.Muted, false));
             card.Add(head);
-            var value = Ui.Label("-", 11.5f, Ui.Ink, true);
+            var value = Ui.Label("-", 10.5f, Ui.Ink, true);
             value.RightToLeft = RightToLeft.No;
             value.Margin = Ui.P(0, 4, 0, 0);
             value.Cursor = Cursors.Hand;
