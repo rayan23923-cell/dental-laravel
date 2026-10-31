@@ -19,7 +19,12 @@ class OfflineLicenseController extends Controller
     public function index(): Response
     {
         return Inertia::render('OfflineLicenses/Index', [
-            'licenses' => OfflineLicense::orderByDesc('id')->get(),
+            // With the fixed links to each computer over the internet (2026-10-31, by request).
+            'licenses' => OfflineLicense::orderByDesc('id')->get()->map(fn (OfflineLicense $l) => $l->toArray() + [
+                'tunnel_online' => $l->tunnelOnline(),
+                'tunnel_link' => $l->tunnelLink(),
+                'tunnel_panel_link' => $l->tunnel_panel_url ? $l->tunnelLink('control') : null,
+            ]),
             'latest' => OfflineLicensing::latestBuild(),
         ]);
     }

@@ -1371,6 +1371,11 @@
         "supervisorOnly": "The supervisor enters the points."
     },
     "offlineLicenses": {
+        "online": "Online:",
+        "onlineConnected": "Connected",
+        "onlineOffline": "Offline now",
+        "openSystem": "Open system",
+        "openPanel": "Control panel",
         "title": "Offline activation codes",
         "intro": "One activation code per university. A code is used once only and is tied to the computer it activated, which stays activated and gets updates from the hosting.",
         "latest": "Latest offline build: {n}.",

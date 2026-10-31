@@ -123,6 +123,23 @@ const date = (value) => (value ? new Date(value).toLocaleString('ar') : '');
                                     · {{ t('offlineLicenses.activatedAt') }} {{ date(l.activated_at) }}
                                     <template v-if="l.last_seen_at"> · {{ t('offlineLicenses.lastSeen') }} {{ date(l.last_seen_at) }}</template>
                                 </div>
+                                <div v-if="l.tunnel_link" class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                                    <span class="text-gray-500">{{ t('offlineLicenses.online') }}</span>
+                                    <template v-if="l.tunnel_online">
+                                        <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">{{ t('offlineLicenses.onlineConnected') }}</span>
+                                        <a :href="l.tunnel_link" target="_blank" rel="noopener" class="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2 py-1 font-medium text-white hover:bg-indigo-700">
+                                            <Icon name="open_in_new" size="text-[14px]" />{{ t('offlineLicenses.openSystem') }}
+                                        </a>
+                                        <a v-if="l.tunnel_panel_link" :href="l.tunnel_panel_link" target="_blank" rel="noopener" class="inline-flex items-center gap-1 rounded-md border border-gray-300 px-2 py-1 text-gray-700 hover:bg-gray-50">
+                                            <Icon name="settings_remote" size="text-[14px]" />{{ t('offlineLicenses.openPanel') }}
+                                        </a>
+                                    </template>
+                                    <span v-else class="rounded-full bg-gray-100 px-2 py-0.5 text-gray-600">{{ t('offlineLicenses.onlineOffline') }}</span>
+                                    <code dir="ltr" class="font-mono text-gray-500">{{ l.tunnel_link }}</code>
+                                    <button type="button" class="text-gray-400 hover:text-indigo-600" :title="t('offlineLicenses.copy')" @click="copy(l.tunnel_link)">
+                                        <Icon :name="copied === l.tunnel_link ? 'check' : 'content_copy'" size="text-[16px]" />
+                                    </button>
+                                </div>
                             </div>
                             <div class="flex shrink-0 flex-wrap gap-2 text-xs">
                                 <button v-if="l.machine_id" type="button" class="rounded-md border border-gray-300 px-2 py-1 text-gray-700 hover:bg-gray-50" @click="act(l, 'release')">{{ t('offlineLicenses.release') }}</button>
