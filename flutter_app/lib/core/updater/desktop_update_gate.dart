@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../router/app_router.dart';
 import 'desktop_update_checker.dart';
@@ -145,6 +146,27 @@ class AppUpdateFlow {
       // Windows exits the process here; Android opens the installer.
       await DesktopUpdateChecker.downloadAndInstall(info, onProgress: (p) => progress.value = p);
       if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+    } on UpdateInstallException catch (e) {
+      if (!context.mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      if (!e.needsReinstall) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        return;
+      }
+      // The download page on the cloud; a clinic server's /apps/ file opens as is.
+      final page = info.url.replaceFirst(RegExp(r'/downloads/.*$'), '/download');
+      final open = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('لا يمكن التحديث من داخل التطبيق'),
+          content: Text(e.message),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إغلاق')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('فتح صفحة التنزيل')),
+          ],
+        ),
+      );
+      if (open == true) await launchUrl(Uri.parse(page), mode: LaunchMode.externalApplication);
     } catch (_) {
       if (!context.mounted) return;
       Navigator.of(context, rootNavigator: true).pop();
