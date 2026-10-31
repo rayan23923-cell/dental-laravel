@@ -1,90 +1,78 @@
 <?php
 
 use App\Http\Controllers\AcademicSessionController;
-use App\Http\Controllers\AccountDeletionController;
 use App\Http\Controllers\AccountSessionController;
 use App\Http\Controllers\ActivityLogController;
-use App\Http\Controllers\AdminBroadcastController;
-use App\Http\Controllers\AdvancedPeriodontalChartController;
 use App\Http\Controllers\AppointmentController;
-use App\Http\Controllers\Auth\DoctorAuthenticatedSessionController;
-use App\Http\Controllers\Auth\DoctorPasswordResetController;
-use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\BackupController;
-use App\Http\Controllers\BulkCredentialsController;
-use App\Http\Controllers\CaptivePortalController;
 use App\Http\Controllers\CaseSheetController;
 use App\Http\Controllers\CaseSheetPrintController;
 use App\Http\Controllers\CaseSheetTypeController;
+use App\Http\Controllers\AdminBroadcastController;
 use App\Http\Controllers\ClinicSettingController;
+use App\Http\Controllers\WaitingScreenPairingController;
+use App\Http\Controllers\WaitingScreenSettingController;
 use App\Http\Controllers\CompleteDentureRecordController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DentalChartController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DepartmentRoleAssignmentController;
-use App\Http\Controllers\Doctor\DashboardController as DoctorDashboardController;
-use App\Http\Controllers\Doctor\PendingTasksQrController as DoctorPendingTasksQrController;
-use App\Http\Controllers\Doctor\ProfileController as DoctorProfileController;
-use App\Http\Controllers\Doctor\ProgressController as DoctorProgressController;
-use App\Http\Controllers\Doctor\RequiredTasksController as DoctorRequiredTasksController;
-use App\Http\Controllers\Doctor\TaskInstanceController as DoctorTaskInstanceController;
 use App\Http\Controllers\DoctorController;
-use App\Http\Controllers\DoctorImportExportController;
 use App\Http\Controllers\DoctorPrintController;
 use App\Http\Controllers\DoctorTaskProgressController;
-use App\Http\Controllers\EducationTypeController;
 use App\Http\Controllers\EndodonticsXrayController;
-use App\Http\Controllers\ExcelTransferController;
-use App\Http\Controllers\FormSettingsController;
+use App\Http\Controllers\DoctorImportExportController;
+use App\Http\Controllers\Auth\DoctorAuthenticatedSessionController;
+use App\Http\Controllers\Auth\DoctorPasswordResetController;
+use App\Http\Controllers\Auth\GoogleAuthController;
+use App\Http\Controllers\Doctor\DashboardController as DoctorDashboardController;
+use App\Http\Controllers\Doctor\ProfileController as DoctorProfileController;
+use App\Http\Controllers\Doctor\TaskInstanceController as DoctorTaskInstanceController;
+use App\Http\Controllers\Doctor\RequiredTasksController as DoctorRequiredTasksController;
+use App\Http\Controllers\Doctor\ProgressController as DoctorProgressController;
+use App\Http\Controllers\Doctor\PendingTasksQrController as DoctorPendingTasksQrController;
+use App\Http\Controllers\EducationTypeController;
 use App\Http\Controllers\GroupController;
-use App\Http\Controllers\LabController;
-use App\Http\Controllers\NotificationFeedController;
-use App\Http\Controllers\Offline\ActivationController;
-use App\Http\Controllers\OfflineLicenseController;
 use App\Http\Controllers\OralMedicineChartController;
 use App\Http\Controllers\OrthodonticsRecordController;
 use App\Http\Controllers\PatientController;
+use App\Http\Controllers\LabController;
 use App\Http\Controllers\PatientRegistrationController;
+use App\Http\Controllers\RegistrationsStampController;
 use App\Http\Controllers\PatientRegistrationPrintController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\AdvancedPeriodontalChartController;
 use App\Http\Controllers\PeriodontalChartController;
-use App\Http\Controllers\PhoneScannerController;
 use App\Http\Controllers\PreventionRecordController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\ProsthodonticsRecordController;
 use App\Http\Controllers\PwaManifestController;
+use App\Http\Controllers\ProsthodonticsRecordController;
+use App\Http\Controllers\ExcelTransferController;
 use App\Http\Controllers\RegisterSettingsController;
-use App\Http\Controllers\RegistrationsStampController;
-use App\Http\Controllers\ScannerPairingController;
 use App\Http\Controllers\StageController;
-use App\Http\Controllers\SupervisorCodeController;
 use App\Http\Controllers\SurgeryController;
 use App\Http\Controllers\SurgeryFollowUpController;
 use App\Http\Controllers\SurgeryImageController;
 use App\Http\Controllers\SurgeryMedicationController;
 use App\Http\Controllers\TaskController;
-use App\Http\Controllers\TaskInstanceAttachmentController;
 use App\Http\Controllers\TaskInstanceController;
+use App\Http\Controllers\TaskInstanceAttachmentController;
 use App\Http\Controllers\TaskProgressController;
 use App\Http\Controllers\TaskStartRequestController;
-use App\Http\Controllers\TaskWorkController;
+use App\Http\Controllers\NotificationFeedController;
 use App\Http\Controllers\TreatmentMaterialController;
 use App\Http\Controllers\TreatmentPlanController;
-use App\Http\Controllers\TunnelLinkController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserPermissionController;
-use App\Http\Controllers\WaitingScreenPairingController;
-use App\Http\Controllers\WaitingScreenSettingController;
 use App\Models\ClinicSetting;
 use App\Models\Department;
 use App\Models\Doctor;
+use App\Http\Controllers\CaptivePortalController;
+use App\Http\Controllers\PhoneScannerController;
+use App\Http\Controllers\ScannerPairingController;
 use App\Models\EducationType;
 use App\Models\Patient;
 use App\Models\Stage;
-use App\Support\AppReleases;
-use App\Support\CaseSheetPrint;
-use App\Support\CaseSheetsKept;
-use App\Support\PaymentScope;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -135,8 +123,8 @@ Route::get('/privacy-policy', function () {
 // The other public pages the app stores ask for (2026-10-28): account
 // deletion (Google Play's "delete account URL"), support (App Store's
 // "Support URL") and terms. Same plain Blade frame as the privacy policy.
-Route::get('/delete-account', [AccountDeletionController::class, 'show'])->name('account-deletion.show');
-Route::post('/delete-account', [AccountDeletionController::class, 'store'])
+Route::get('/delete-account', [\App\Http\Controllers\AccountDeletionController::class, 'show'])->name('account-deletion.show');
+Route::post('/delete-account', [\App\Http\Controllers\AccountDeletionController::class, 'store'])
     ->middleware('throttle:5,1')->name('account-deletion.store');
 Route::get('/support', fn () => view('legal.support', ['clinic' => ClinicSetting::current()]))->name('support');
 Route::get('/terms', fn () => view('legal.terms', ['clinic' => ClinicSetting::current()]))->name('terms');
@@ -150,12 +138,12 @@ Route::get('/terms', fn () => view('legal.terms', ['clinic' => ClinicSetting::cu
 // distribution channel until Play Store publishing clears the Organization-
 // account requirement).
 // The offline copy's activation page (2026-10-17); see EnsureOfflineActivated.
-Route::get('/activate', [ActivationController::class, 'show']);
-Route::post('/activate', [ActivationController::class, 'store'])->middleware('throttle:10,1');
+Route::get('/activate', [\App\Http\Controllers\Offline\ActivationController::class, 'show']);
+Route::post('/activate', [\App\Http\Controllers\Offline\ActivationController::class, 'store'])->middleware('throttle:10,1');
 
 // The fixed link to an offline server over the internet (2026-10-31): hosted only.
 if (! config('offline.edition')) {
-    Route::get('/go/{slug}/{to?}', TunnelLinkController::class)
+    Route::get('/go/{slug}/{to?}', \App\Http\Controllers\TunnelLinkController::class)
         ->where(['slug' => '[a-z0-9]{8,24}', 'to' => 'control'])->middleware('throttle:60,1')->name('tunnel.link');
 }
 
@@ -165,7 +153,7 @@ Route::get('/download', function () {
     if (config('offline.edition')) {
         return redirect('/apps/');
     }
-    $releases = AppReleases::all();
+    $releases = \App\Support\AppReleases::all();
 
     return view('downloads', [
         'clinic' => ClinicSetting::current(),
@@ -231,12 +219,12 @@ Route::middleware('auth:doctor')->group(function () {
     Route::post('/doctor/notifications/read-all', [NotificationFeedController::class, 'markAllRead'])->name('doctor.notifications.read-all');
     Route::post('/doctor/notifications/{id}/read', [NotificationFeedController::class, 'markRead'])->name('doctor.notifications.read');
     // The supervisor's code typed on the student's account (2026-10-22); see SupervisorCodeController.
-    Route::get('/doctor/form-settings', [FormSettingsController::class, 'forDoctor'])->name('doctor.form-settings');
+    Route::get('/doctor/form-settings', [\App\Http\Controllers\FormSettingsController::class, 'forDoctor'])->name('doctor.form-settings');
     Route::middleware('throttle:30,1')->group(function () {
-        Route::post('/doctor/supervisor-code/start', [SupervisorCodeController::class, 'start'])->name('doctor.supervisor-code.start');
-        Route::post('/doctor/supervisor-code/instances/{taskInstance}/step', [SupervisorCodeController::class, 'signStep'])->name('doctor.supervisor-code.step');
-        Route::post('/doctor/supervisor-code/instances/{taskInstance}/complete', [SupervisorCodeController::class, 'complete'])->name('doctor.supervisor-code.complete');
-        Route::post('/doctor/supervisor-code/instances/{taskInstance}/add-step', [SupervisorCodeController::class, 'addStep'])->name('doctor.supervisor-code.add-step');
+        Route::post('/doctor/supervisor-code/start', [\App\Http\Controllers\SupervisorCodeController::class, 'start'])->name('doctor.supervisor-code.start');
+        Route::post('/doctor/supervisor-code/instances/{taskInstance}/step', [\App\Http\Controllers\SupervisorCodeController::class, 'signStep'])->name('doctor.supervisor-code.step');
+        Route::post('/doctor/supervisor-code/instances/{taskInstance}/complete', [\App\Http\Controllers\SupervisorCodeController::class, 'complete'])->name('doctor.supervisor-code.complete');
+        Route::post('/doctor/supervisor-code/instances/{taskInstance}/add-step', [\App\Http\Controllers\SupervisorCodeController::class, 'addStep'])->name('doctor.supervisor-code.add-step');
     });
     Route::get('/doctor/task-start-requests', [TaskStartRequestController::class, 'mine'])->name('doctor.task-start-requests.index');
     Route::post('/doctor/task-start-requests', [TaskStartRequestController::class, 'store'])->name('doctor.task-start-requests.store');
@@ -277,7 +265,7 @@ Route::middleware('auth:doctor')->group(function () {
 // Which of the two applies is decided inside the controller, not here.
 Route::middleware('auth:web,doctor')->group(function () {
     Route::get('/case-sheets/{resource}/{record}/print', [CaseSheetPrintController::class, 'show'])
-        ->whereIn('resource', array_keys(CaseSheetPrint::SHEETS))
+        ->whereIn('resource', array_keys(App\Support\CaseSheetPrint::SHEETS))
         ->name('case-sheets.print');
 
     // The on-screen "رمز QR" button every case sheet in the original shows
@@ -296,19 +284,19 @@ Route::middleware('auth:web,doctor')->group(function () {
         ->middleware('case-sheet')
         ->name('case-sheets.instance-qr');
     // The task's points shown on its case sheet (2026-10-15); see TaskWorkController.
-    Route::get('/case-sheets/instances/{taskInstance}/work', [TaskWorkController::class, 'show'])
+    Route::get('/case-sheets/instances/{taskInstance}/work', [\App\Http\Controllers\TaskWorkController::class, 'show'])
         ->name('case-sheets.instance-work');
-    Route::put('/case-sheets/instances/{taskInstance}/work', [TaskWorkController::class, 'update'])
+    Route::put('/case-sheets/instances/{taskInstance}/work', [\App\Http\Controllers\TaskWorkController::class, 'update'])
         ->name('case-sheets.instance-work.update');
     // Signing the case's steps one after another (2026-10-18); see TaskSteps.
-    Route::post('/case-sheets/instances/{taskInstance}/steps', [TaskWorkController::class, 'signStep'])
+    Route::post('/case-sheets/instances/{taskInstance}/steps', [\App\Http\Controllers\TaskWorkController::class, 'signStep'])
         ->name('case-sheets.instance-steps.sign');
-    Route::delete('/case-sheets/instances/{taskInstance}/steps', [TaskWorkController::class, 'undoStep'])
+    Route::delete('/case-sheets/instances/{taskInstance}/steps', [\App\Http\Controllers\TaskWorkController::class, 'undoStep'])
         ->name('case-sheets.instance-steps.undo');
     // Steps added to one case, with their names and grades (2026-10-19).
-    Route::post('/case-sheets/instances/{taskInstance}/extra-steps', [TaskWorkController::class, 'addExtraStep'])
+    Route::post('/case-sheets/instances/{taskInstance}/extra-steps', [\App\Http\Controllers\TaskWorkController::class, 'addExtraStep'])
         ->name('case-sheets.instance-steps.add');
-    Route::delete('/case-sheets/instances/{taskInstance}/extra-steps', [TaskWorkController::class, 'removeExtraStep'])
+    Route::delete('/case-sheets/instances/{taskInstance}/extra-steps', [\App\Http\Controllers\TaskWorkController::class, 'removeExtraStep'])
         ->name('case-sheets.instance-steps.remove');
 
     // "Active sessions" panel embedded in both Profile pages — see
@@ -562,11 +550,11 @@ Route::middleware('auth')->group(function () {
         Route::post('/task-progress/requests/{taskStartRequest}/reject', [TaskStartRequestController::class, 'reject'])
             ->middleware('permission:task_progress,start')->name('task-progress.requests.reject');
         // "إعدادات النماذج" and the supervisor's own code (2026-10-22); see FormSettingsController.
-        Route::get('/form-settings', [FormSettingsController::class, 'page'])
+        Route::get('/form-settings', [\App\Http\Controllers\FormSettingsController::class, 'page'])
             ->middleware('permission:task_progress,view|view_status|form_settings|supervisor_code')->name('form-settings.index');
-        Route::put('/form-settings', [FormSettingsController::class, 'update'])
+        Route::put('/form-settings', [\App\Http\Controllers\FormSettingsController::class, 'update'])
             ->middleware('permission:task_progress,form_settings')->name('form-settings.update');
-        Route::get('/task-progress/my-code', [FormSettingsController::class, 'myCode'])
+        Route::get('/task-progress/my-code', [\App\Http\Controllers\FormSettingsController::class, 'myCode'])
             ->middleware('permission:task_progress,supervisor_code')->name('task-progress.my-code');
         Route::put('/task-progress/instances/{taskInstance}/complete', [TaskProgressController::class, 'complete'])
             ->middleware('permission:task_progress,finish')->name('task-progress.complete');
@@ -630,21 +618,24 @@ Route::middleware('auth')->group(function () {
 
         // Activation codes for offline copies (2026-10-17): super admins only.
         Route::middleware('role:super_admin')->group(function () {
-            Route::get('/offline-licenses', [OfflineLicenseController::class, 'index'])->name('offline-licenses.index');
-            Route::post('/offline-licenses', [OfflineLicenseController::class, 'store'])->name('offline-licenses.store');
-            Route::patch('/offline-licenses/{offlineLicense}', [OfflineLicenseController::class, 'update'])->name('offline-licenses.update');
-            Route::delete('/offline-licenses/{offlineLicense}', [OfflineLicenseController::class, 'destroy'])->name('offline-licenses.destroy');
+            Route::get('/offline-licenses', [\App\Http\Controllers\OfflineLicenseController::class, 'index'])->name('offline-licenses.index');
+            Route::post('/offline-licenses', [\App\Http\Controllers\OfflineLicenseController::class, 'store'])->name('offline-licenses.store');
+            Route::patch('/offline-licenses/{offlineLicense}', [\App\Http\Controllers\OfflineLicenseController::class, 'update'])->name('offline-licenses.update');
+            Route::delete('/offline-licenses/{offlineLicense}', [\App\Http\Controllers\OfflineLicenseController::class, 'destroy'])->name('offline-licenses.destroy');
         });
 
         // Bulk accounts and login emails (2026-10-31, by request): teachers
-        // from a list, new passwords for whole stages, and on the hosting
-        // on the offline server the accounts of a login file made on the hosting.
+        // from a list and new passwords for whole stages, made and emailed
+        // on the hosting; on the offline server the same logins are saved
+        // from the file the hosting gave.
         Route::middleware('role:super_admin')->group(function () {
-            Route::get('/users/bulk-credentials', [BulkCredentialsController::class, 'index'])->name('bulk-credentials.index');
-            Route::post('/users/bulk-credentials/teachers', [BulkCredentialsController::class, 'teachers'])->name('bulk-credentials.teachers');
-            Route::post('/users/bulk-credentials/doctors', [BulkCredentialsController::class, 'doctors'])->name('bulk-credentials.doctors');
-            Route::post('/users/bulk-credentials/apply', [BulkCredentialsController::class, 'apply'])->name('bulk-credentials.apply');
+            Route::get('/users/bulk-credentials', [\App\Http\Controllers\BulkCredentialsController::class, 'index'])->name('bulk-credentials.index');
+            Route::post('/users/bulk-credentials/teachers', [\App\Http\Controllers\BulkCredentialsController::class, 'teachers'])->name('bulk-credentials.teachers');
+            Route::post('/users/bulk-credentials/doctors', [\App\Http\Controllers\BulkCredentialsController::class, 'doctors'])->name('bulk-credentials.doctors');
+            Route::post('/users/bulk-credentials/apply', [\App\Http\Controllers\BulkCredentialsController::class, 'apply'])->name('bulk-credentials.apply');
         });
+
+
 
         Route::get('/department-roles', [DepartmentRoleAssignmentController::class, 'index'])->name('department-roles.index');
         Route::post('/department-roles', [DepartmentRoleAssignmentController::class, 'store'])->name('department-roles.store');
@@ -674,14 +665,14 @@ Route::middleware('auth')->group(function () {
     // The lab / ticket-desk grants see and print their own payments
     // (2026-10-26, by request) — see App\Support\PaymentScope.
     Route::get('/payments/report', [PaymentController::class, 'report'])
-        ->middleware('permission:payments,'.PaymentScope::REPORT)->name('payments.report');
+        ->middleware('permission:payments,'.\App\Support\PaymentScope::REPORT)->name('payments.report');
     Route::get('/payments/{payment}/receipt', [PaymentController::class, 'receipt'])
-        ->middleware('permission:payments,'.PaymentScope::VIEW)->name('payments.receipt');
+        ->middleware('permission:payments,'.\App\Support\PaymentScope::VIEW)->name('payments.receipt');
     // No "تسجيل دفعة" page any more (2026-10-14, by request): payments are
     // taken from patient registration and the lab. `store` stays for those
     // flows' own posts.
     Route::get('/payments', [PaymentController::class, 'index'])
-        ->middleware('permission:payments,'.PaymentScope::VIEW)->name('payments.index');
+        ->middleware('permission:payments,'.\App\Support\PaymentScope::VIEW)->name('payments.index');
     Route::post('/payments', [PaymentController::class, 'store'])
         ->middleware('permission:payments,create')->name('payments.store');
     Route::delete('/payments/{payment}', [PaymentController::class, 'destroy'])
@@ -736,6 +727,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/appointments/{appointment}', [AppointmentController::class, 'destroy'])
             ->name('appointments.destroy');
         Route::put('/appointments/{appointment}/toggle-pinned', [AppointmentController::class, 'togglePinned'])->name('appointments.toggle-pinned');
+
 
         // Clinical specialty records — hub page + generic Specialty/Index
         // and Specialty/Form.vue pages shared across all 12 (see README
@@ -801,7 +793,7 @@ Route::middleware(['auth:web,doctor', 'case-sheet'])->group(function () {
     ] as $uri => $controller) {
         // The case sheets themselves are never deleted (2026-10-15, "لتجنب فقدانها").
         Route::resource($uri, $controller)->parameters([$uri => 'record'])
-            ->except(in_array($uri, CaseSheetsKept::RESOURCES, true) ? ['destroy'] : []);
+            ->except(in_array($uri, \App\Support\CaseSheetsKept::RESOURCES, true) ? ['destroy'] : []);
     }
 
     // One stage date/grade saved as soon as it changes (2026-10-15).
