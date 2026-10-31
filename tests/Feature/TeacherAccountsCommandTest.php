@@ -1,0 +1,81 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Mail\WelcomeCredentials;
+use App\Models\Doctor;
+use App\Models\EducationType;
+use App\Models\QueuedEmail;
+use App\Models\Stage;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
+use Tests\TestCase;
+
+/**
+ * Teaching-staff accounts from a list and the login emails to the 4th and
+ * 5th stage doctors (2026-10-31, by request).
+ */
+class TeacherAccountsCommandTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private const LINKS = ['--login-url' => 'https://clinic.lan/login', '--alt-url' => ['https://192.168.68.52/login']];
+
+    public function test_it_creates_teacher_accounts_and_queues_their_emails(): void
+    {
+        User::factory()->create(['email' => 'old@tu.edu.iq', 'username' => 'old']);
+        EducationType::create(['id' => 1, 'name' => 'صباحي']);
+        Stage::create(['id' => 1, 'name' => 'الرابعة', 'education_type_id' => 1]);
+        Doctor::create(['name' => 'طالب', 'username' => 'sara', 'password' => 'x', 'email' => 's@example.com', 'education_type_id' => 1, 'stage_id' => 1]);
+
+        $csv = tempnam(sys_get_temp_dir(), 'teachers');
+        file_put_contents($csv, "\u{FEFF}name,email\nسارة علي,sara@tu.edu.iq\nسارة علي,Sara@tu.edu.iq\nقديم,old@tu.edu.iq\nعمر,omar.b@gmail.com\n");
+
+        $this->artisan('teachers:import', ['file' => $csv, '--dry-run' => true] + self::LINKS)->assertSuccessful();
+        $this->assertSame(0, User::where('role', 'teacher')->count());
+
+        $this->artisan('teachers:import', ['file' => $csv] + self::LINKS)->assertSuccessful();
+
+        $sara = User::where('email', 'sara@tu.edu.iq')->firstOrFail();
+        $this->assertSame(['teacher', 'active', 'sara2'], [$sara->role, $sara->status, $sara->username]); // "sara" is a doctor's
+        $this->assertSame('omar.b', User::where('email', 'omar.b@gmail.com')->value('username'));
+        $this->assertSame(2, User::where('role', 'teacher')->count());
+
+        $mail = QueuedEmail::where('recipient_email', 'sara@tu.edu.iq')->firstOrFail();
+        $this->assertMatchesRegularExpression('/^\d{8}$/', $mail->payload['password']);
+        $this->assertTrue(Hash::check($mail->payload['password'], $sara->password));
+        $this->assertSame('https://clinic.lan/login', $mail->payload['login_url']);
+
+        $html = (new WelcomeCredentials('سارة علي', 'sara2', '12345678', 'user', false, 'https://clinic.lan/login', ['https://192.168.68.52/login']))->render();
+        $this->assertStringContainsString('https://clinic.lan/login', $html);
+        $this->assertStringContainsString('https://192.168.68.52/login', $html);
+    }
+
+    public function test_it_resets_and_emails_the_doctors_of_the_chosen_stages(): void
+    {
+        EducationType::create(['id' => 1, 'name' => 'صباحي']);
+        Stage::create(['id' => 1, 'name' => 'الرابعة', 'education_type_id' => 1]);
+        Stage::create(['id' => 2, 'name' => 'الخامسة', 'education_type_id' => 1]);
+        Stage::create(['id' => 3, 'name' => 'الثالثة', 'education_type_id' => 1]);
+        $fourth = Doctor::create(['name' => 'أ', 'username' => 'a', 'password' => 'old', 'email' => 'a@example.com', 'education_type_id' => 1, 'stage_id' => 1]);
+        $fifth = Doctor::create(['name' => 'ب', 'username' => 'b', 'password' => 'old', 'email' => 'b@example.com', 'education_type_id' => 1, 'stage_id' => 2]);
+        $third = Doctor::create(['name' => 'ج', 'username' => 'c', 'password' => 'old', 'email' => 'c@example.com', 'education_type_id' => 1, 'stage_id' => 3]);
+        $noEmail = Doctor::create(['name' => 'د', 'username' => 'd', 'password' => 'old', 'email' => 'd@placeholder.local', 'education_type_id' => 1, 'stage_id' => 1]);
+        $fourth->createToken('phone');
+
+        $this->artisan('doctors:send-credentials', ['--stage' => ['الرابعة', 'الخامسة'], '--dry-run' => true])->assertSuccessful();
+        $this->assertSame(0, QueuedEmail::count());
+
+        $this->artisan('doctors:send-credentials', ['--stage' => ['الرابعة', 'الخامسة']] + self::LINKS)->assertSuccessful();
+
+        $this->assertEqualsCanonicalizing(['a@example.com', 'b@example.com'], QueuedEmail::pluck('recipient_email')->all());
+        $mail = QueuedEmail::where('recipient_email', 'a@example.com')->first();
+        $this->assertSame('doctor', $mail->payload['account_type']);
+        $this->assertTrue(Hash::check($mail->payload['password'], $fourth->refresh()->password));
+        $this->assertSame(0, $fourth->tokens()->count());
+        $this->assertTrue(Hash::check('old', $third->refresh()->password));
+        $this->assertTrue(Hash::check('old', $noEmail->refresh()->password));
+        $this->assertFalse(Hash::check('old', $fifth->refresh()->password));
+    }
+}

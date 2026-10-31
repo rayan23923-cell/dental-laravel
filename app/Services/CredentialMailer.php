@@ -25,6 +25,17 @@ class CredentialMailer
         return $password;
     }
 
+    /** Digits only (2026-10-31, by request for the teaching staff and students). */
+    public static function generateNumericPassword(int $length = 8): string
+    {
+        $password = (string) random_int(1, 9);
+        for ($i = 1; $i < $length; $i++) {
+            $password .= random_int(0, 9);
+        }
+
+        return $password;
+    }
+
     public static function isDeliverable(?string $email): bool
     {
         $email = trim((string) $email);
@@ -56,8 +67,10 @@ class CredentialMailer
     /**
      * @param  'doctor'|'user'  $accountType
      * @param  bool  $reset  an admin set a new password on an existing account
+     * @param  array{login_url?: string, alt_urls?: list<string>}  $links  where to sign in, when
+     *                                                                     not this server's own login page (e.g. https://clinic.lan and its IP)
      */
-    public static function queueWelcome(string $accountType, ?string $email, string $name, string $username, string $plainPassword, bool $reset = false): bool
+    public static function queueWelcome(string $accountType, ?string $email, string $name, string $username, string $plainPassword, bool $reset = false, array $links = []): bool
     {
         // The Excel importer fills a missing email with {username}@placeholder.local.
         if (! self::isDeliverable($email)) {
@@ -75,6 +88,8 @@ class CredentialMailer
                 'username' => $username,
                 'password' => $plainPassword,
                 'reset' => $reset,
+                'login_url' => $links['login_url'] ?? null,
+                'alt_urls' => array_values($links['alt_urls'] ?? []),
             ],
             'status' => QueuedEmail::STATUS_PENDING,
         ]);

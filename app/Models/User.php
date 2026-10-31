@@ -11,7 +11,7 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
-    public const ROLES = ['super_admin', 'admin', 'editor', 'doctor', 'accountant', 'senior', 'hr', 'reception', 'lab'];
+    public const ROLES = ['super_admin', 'admin', 'editor', 'doctor', 'accountant', 'senior', 'hr', 'reception', 'lab', 'teacher'];
 
     protected $fillable = [
         'full_name',

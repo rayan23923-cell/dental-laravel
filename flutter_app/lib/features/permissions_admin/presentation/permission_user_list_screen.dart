@@ -121,6 +121,7 @@ const _roleStyles = <String, (IconData, Color)>{
   'hr': (Icons.badge_outlined, Colors.pink),
   'reception': (Icons.confirmation_number_outlined, Colors.teal),
   'lab': (Icons.biotech_outlined, Colors.deepPurple),
+  'teacher': (Icons.school_outlined, Colors.teal),
 };
 
 (IconData, Color) _roleStyle(String role) => _roleStyles[role] ?? (Icons.person_outline, Colors.blueGrey);
