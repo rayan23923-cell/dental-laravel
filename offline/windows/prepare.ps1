@@ -1,7 +1,7 @@
 # Writes php.ini, Caddyfile and Corefile for the current folder and network,
 # keeps APP_URL in app\.env in step with config.txt, and prints the
 # computer's LAN address (the only stdout line).
-param([string]$Root, [string]$ServerName, [int]$Workers, [string]$ServerIp, [int]$HttpPort = 80, [int]$HttpsPort = 443, [int]$AutoOpen = 1)
+param([string]$Root, [string]$ServerName, [int]$Workers, [string]$ServerIp, [int]$HttpPort = 80, [int]$HttpsPort = 443, [int]$AutoOpen = 1, [int]$TunnelPort = 0)
 $ErrorActionPreference = 'Stop'
 $Root = (Resolve-Path $Root).Path.TrimEnd('\')
 $fwd = $Root -replace '\\', '/'
@@ -59,6 +59,18 @@ $captiveCaddy = if ($captiveOn) {
 } else { '' }
 $captiveDns = if ($captiveOn) { ($captiveHosts | ForEach-Object { "`t`t$ServerIp $_" }) -join "`n" } else { '' }
 
+# Online access (2026-10-31): a site only this computer can reach, for
+# cloudflared (see the panel's Tunnel). Left out when its port is taken.
+$tunnelSite = if ($TunnelPort -gt 0) {
+    @"
+# Reached only by the tunnel program on this computer.
+http://:$TunnelPort {
+	bind 127.0.0.1
+	import tunnelapp
+}
+"@
+} else { '' }
+
 $upstreams = (0..($Workers - 1) | ForEach-Object { "127.0.0.1:$(9100 + $_)" }) -join ' '
 $ca = "$fwd/caddy-data/caddy/pki/authorities/local"
 $httpsHost = if ($HttpsPort -eq 443) { '{host}' } else { "{host}:$HttpsPort" }
@@ -96,6 +108,25 @@ $httpsHost = if ($HttpsPort -eq 443) { '{host}' } else { "{host}:$HttpsPort" }
 		max_size 64MB
 	}
 	php_fastcgi $upstreams {
+		lb_policy least_conn
+		lb_try_duration 10s
+		dial_timeout 3s
+		read_timeout 300s
+	}
+	file_server
+}
+
+# The same app as reached through the Cloudflare tunnel (2026-10-31): the
+# visitor's connection is HTTPS up to Cloudflare, so the app is told so
+# (secure links and cookies) although cloudflared talks plain http here.
+(tunnelapp) {
+	root * "$fwd/app/public"
+	encode gzip
+	request_body {
+		max_size 64MB
+	}
+	php_fastcgi $upstreams {
+		env HTTPS on
 		lb_policy least_conn
 		lb_try_duration 10s
 		dial_timeout 3s
@@ -180,6 +211,7 @@ http://127.0.0.1:$HttpPort, http://localhost:$HttpPort {
 	}
 }
 
+$tunnelSite
 # Plain http on the network: the certificate and setup page, everything
 # else goes to https.
 http://:$HttpPort {

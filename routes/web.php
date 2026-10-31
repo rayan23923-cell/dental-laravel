@@ -141,6 +141,12 @@ Route::get('/terms', fn () => view('legal.terms', ['clinic' => ClinicSetting::cu
 Route::get('/activate', [\App\Http\Controllers\Offline\ActivationController::class, 'show']);
 Route::post('/activate', [\App\Http\Controllers\Offline\ActivationController::class, 'store'])->middleware('throttle:10,1');
 
+// The fixed link to an offline server over the internet (2026-10-31): hosted only.
+if (! config('offline.edition')) {
+    Route::get('/go/{slug}/{to?}', \App\Http\Controllers\TunnelLinkController::class)
+        ->where(['slug' => '[a-z0-9]{8,24}', 'to' => 'control'])->middleware('throttle:60,1')->name('tunnel.link');
+}
+
 Route::get('/download', function () {
     // The offline server lists the apps it carries itself, at /apps/, so
     // they install and update on the LAN without internet (2026-10-18).

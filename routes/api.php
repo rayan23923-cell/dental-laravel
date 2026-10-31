@@ -131,6 +131,8 @@ Route::name('api.')->prefix('v1')->group(function () {
     Route::get('/offline/latest', [\App\Http\Controllers\Api\OfflineLicenseController::class, 'latest'])->middleware('throttle:30,1');
     Route::get('/offline/download', [\App\Http\Controllers\Api\OfflineLicenseController::class, 'download'])
         ->middleware('throttle:10,1')->name('offline.download');
+    // Online access (2026-10-31): the panel reports its tunnel's address.
+    Route::post('/offline/tunnel', [\App\Http\Controllers\Api\OfflineLicenseController::class, 'tunnel'])->middleware('throttle:30,1');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
