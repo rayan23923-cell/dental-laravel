@@ -337,7 +337,13 @@ pw.Widget _barChart(String title, List<ChartPoint> points, PdfLetterhead letterh
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
               pw.Text(points.first.label, style: pw.TextStyle(font: letterhead.regular, fontSize: 7, color: PdfColors.grey600)),
-              pw.Text('الأعلى ${_money(max)}', style: pw.TextStyle(font: letterhead.regular, fontSize: 7, color: PdfColors.grey600)),
+              // Arabic is only shaped in right-to-left text; inside this
+              // left-to-right axis row it printed as loose, reversed
+              // letters (2026-10-31).
+              pw.Directionality(
+                textDirection: pw.TextDirection.rtl,
+                child: pw.Text('الأعلى ${_money(max)}', style: pw.TextStyle(font: letterhead.regular, fontSize: 7, color: PdfColors.grey600)),
+              ),
               pw.Text(points.last.label, style: pw.TextStyle(font: letterhead.regular, fontSize: 7, color: PdfColors.grey600)),
             ],
           ),
