@@ -13,7 +13,7 @@ use Illuminate\Support\Str;
  */
 class OfflineLicense extends Model
 {
-    protected $fillable = ['code', 'university', 'university_id', 'notes', 'machine_id', 'machine_name', 'activated_at', 'last_seen_at', 'installed_build', 'last_ip', 'revoked_at', 'created_by'];
+    protected $fillable = ['code', 'university', 'university_id', 'notes', 'machine_id', 'machine_name', 'activated_at', 'last_seen_at', 'installed_build', 'last_ip', 'revoked_at', 'created_by', 'tunnel_slug', 'tunnel_url', 'tunnel_panel_url', 'tunnel_seen_at'];
 
     protected function casts(): array
     {
@@ -21,6 +21,7 @@ class OfflineLicense extends Model
             'activated_at' => 'datetime',
             'last_seen_at' => 'datetime',
             'revoked_at' => 'datetime',
+            'tunnel_seen_at' => 'datetime',
         ];
     }
 
@@ -55,6 +56,22 @@ class OfflineLicense extends Model
         } while (self::where('code', $code)->exists());
 
         return $code;
+    }
+
+    /**
+     * The tunnel counts as online while the panel keeps reporting it (every
+     * few minutes, see offline/windows/panel Tunnel.Report).
+     */
+    public function tunnelOnline(): bool
+    {
+        return $this->tunnel_url && $this->tunnel_seen_at && $this->tunnel_seen_at->gt(now()->subMinutes(15));
+    }
+
+    /** The fixed link on the hosting that leads to this computer's tunnel. */
+    public function tunnelLink(string $to = ''): ?string
+    {
+        // Always on the clinic site (APP_URL), also when shown on the licensing portal's domain.
+        return $this->tunnel_slug ? rtrim(config('app.url'), '/').'/go/'.$this->tunnel_slug.($to ? '/'.$to : '') : null;
     }
 
     public static function normalize(?string $code): string

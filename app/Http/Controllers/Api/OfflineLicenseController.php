@@ -8,6 +8,7 @@ use App\Support\OfflineLicensing;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -95,11 +96,57 @@ class OfflineLicenseController extends Controller
         return OfflineLicensing::packageDownload('server');
     }
 
-    private function activeLicense(Request $request): ?OfflineLicense
+    /**
+     * The control panel reports its tunnel's current addresses (2026-10-31,
+     * by request: reach and control the offline server online). A free
+     * Cloudflare tunnel gets a new address on every start, so the hosting
+     * keeps a fixed link, /go/{slug}, that leads to the latest one. Empty
+     * addresses mean the tunnel was turned off.
+     */
+    public function tunnel(Request $request): JsonResponse
     {
-        $license = OfflineLicense::where('code', OfflineLicense::normalize($request->query('code')))->first();
+        $data = $request->validate([
+            'code' => ['required', 'string', 'max:40'],
+            'machine' => ['required', 'string', 'max:32'],
+            'url' => ['nullable', 'string', 'max:255', 'url:https'],
+            'panel_url' => ['nullable', 'string', 'max:255', 'url:https'],
+        ]);
+        $license = $this->activeLicense($request, true);
+        if (! $license) {
+            return response()->json(['message' => 'هذا الحاسوب غير مفعّل.'], 403);
+        }
 
-        return $license && ! $license->revoked_at && $license->machine_id && $license->machine_id === $request->query('machine')
+        $license->forceFill([
+            'tunnel_slug' => $license->tunnel_slug ?: self::newSlug(),
+            'tunnel_url' => $data['url'] ?? null,
+            'tunnel_panel_url' => $data['panel_url'] ?? null,
+            'tunnel_seen_at' => ($data['url'] ?? null) ? now() : null,
+            'last_seen_at' => now(),
+            'last_ip' => $request->ip(),
+        ])->save();
+
+        return response()->json([
+            'link' => $license->tunnelLink(),
+            'panel_link' => $license->tunnelLink('control'),
+        ]);
+    }
+
+    private static function newSlug(): string
+    {
+        do {
+            $slug = strtolower(Str::random(12));
+        } while (OfflineLicense::where('tunnel_slug', $slug)->exists());
+
+        return $slug;
+    }
+
+    private function activeLicense(Request $request, bool $fromBody = false): ?OfflineLicense
+    {
+        $code = $fromBody ? $request->input('code') : $request->query('code');
+        $machine = $fromBody ? $request->input('machine') : $request->query('machine');
+        $license = OfflineLicense::where('code', OfflineLicense::normalize($code))->first();
+
+        return $license && ! $license->revoked_at && $license->machine_id && is_string($machine) && $license->machine_id === $machine
             ? $license : null;
     }
 }

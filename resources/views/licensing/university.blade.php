@@ -41,7 +41,7 @@
             <div class="table-wrap">
                 <table>
                     <thead>
-                        <tr><th>الحاسوب</th><th>رقم الحاسوب</th><th>الرمز</th><th>النسخة المثبّتة</th><th>تاريخ التفعيل</th><th>آخر اتصال</th><th>الحالة</th><th></th></tr>
+                        <tr><th>الحاسوب</th><th>رقم الحاسوب</th><th>الرمز</th><th>النسخة المثبّتة</th><th>تاريخ التفعيل</th><th>آخر اتصال</th><th>عبر الإنترنت</th><th>الحالة</th><th></th></tr>
                     </thead>
                     <tbody>
                         @foreach ($used as $l)
@@ -58,6 +58,14 @@
                                 </td>
                                 <td class="muted">{{ $l->activated_at?->format('Y-m-d H:i') }}</td>
                                 <td class="muted">{{ $l->last_seen_at?->locale('ar')->diffForHumans() ?? '—' }}</td>
+                                <td>
+                                    @if ($l->tunnelOnline())
+                                        <a class="tag green" href="{{ $l->tunnelLink() }}" target="_blank" rel="noopener">فتح النظام</a>
+                                        @if ($l->tunnel_panel_url) <a class="tag" href="{{ $l->tunnelLink('control') }}" target="_blank" rel="noopener">لوحة التشغيل</a> @endif
+                                    @elseif ($l->tunnel_slug) <span class="muted">غير متصل</span>
+                                    @else <span class="muted">—</span>
+                                    @endif
+                                </td>
                                 <td>@if ($l->revoked_at) <span class="tag red">موقوف</span> @else <span class="tag green">فعّال</span> @endif</td>
                                 <td>@include('licensing.code-actions', ['license' => $l])</td>
                             </tr>

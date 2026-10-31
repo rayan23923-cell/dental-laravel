@@ -17,3 +17,6 @@ AUTO_OPEN=1
 # Folder for backups (database every day and before every update, plus the
 # photos). Empty = C:\DentalClinicBackups. Keep it outside this folder.
 BACKUP_DIR=
+# 1 = reach the system and the panel over the internet through a free
+# Cloudflare tunnel (the panel's online access page turns it on).
+TUNNEL=0

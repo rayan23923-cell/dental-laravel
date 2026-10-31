@@ -30,6 +30,8 @@ env:
   MARIADB_VERSION: '10.11.10'
   CADDY_VERSION: '2.8.4'
   COREDNS_VERSION: '1.12.3'
+  # Online access through a Cloudflare tunnel (2026-10-31, by request).
+  CLOUDFLARED_VERSION: '2026.9.3'
 
 jobs:
   panel:
@@ -52,6 +54,30 @@ jobs:
           name: panel
           path: offline/windows/panel/DentalClinic.exe
           retention-days: 3
+      # Pictures of every page of the panel on the runner's small screen, to
+      # check the look and that nothing is cut off. Branches only.
+      - name: Pictures of the panel
+        if: github.ref != 'refs/heads/main'
+        shell: pwsh
+        working-directory: offline/windows/panel
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          Copy-Item ..\config.txt .\config.txt
+          Add-Type -AssemblyName System.Windows.Forms
+          Write-Host "Screen: $([System.Windows.Forms.Screen]::PrimaryScreen.Bounds)"
+          $p = Start-Process -FilePath .\DentalClinic.exe -ArgumentList '--screenshots','shots' -PassThru
+          if (-not $p.WaitForExit(180000)) { $p.Kill(); throw 'The screenshots did not finish.' }
+          Get-ChildItem shots | Format-Table Name,Length | Out-String | Write-Host
+          if (Test-Path shots\errors.txt) { Get-Content shots\errors.txt; throw 'Some pages failed to draw.' }
+          if ((Get-ChildItem shots\*.png).Count -lt 12) { throw 'Pictures are missing.' }
+          Push-Location shots
+          git init -q
+          git checkout -q -b panel-screens
+          git add .
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "Panel pictures for $env:GITHUB_SHA"
+          git push -q -f "https://x-access-token:$env:GH_TOKEN@github.com/$env:GITHUB_REPOSITORY.git" panel-screens
+          Pop-Location
 
   client:
     # The program for the other computers (offline/windows/client): a WebView2
@@ -289,6 +315,14 @@ jobs:
           tar -xzf coredns.tgz -C $OUT/coredns
           test -f $OUT/caddy/caddy.exe && test -f $OUT/coredns/coredns.exe
 
+      - name: Cloudflare tunnel (online access)
+        run: |
+          OUT=dist/DentalClinicOffline
+          mkdir -p $OUT/cloudflared
+          curl -fsSL --retry 5 --retry-delay 10 --retry-all-errors -o $OUT/cloudflared/cloudflared.exe \
+            "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-windows-amd64.exe"
+          test "$(stat -c %s $OUT/cloudflared/cloudflared.exe)" -gt 20000000
+
       - name: Zip
         run: |
           cd dist && zip -qr9 ../DentalClinicOffline-windows.zip DentalClinicOffline
@@ -414,6 +448,34 @@ jobs:
           Start-Sleep -Seconds 10
           $back = curl.exe -s -o NUL -w '%{http_code}' --max-time 30 http://127.0.0.1:8080/login
           if ($back -ne '200') { throw "The panel did not restart the web server, got $back" }
+
+          Write-Host 'Online access: the site the tunnel uses answers on this computer only, with https links'
+          if (-not (Test-Path C:\DentalClinicOffline\cloudflared\cloudflared.exe)) { throw 'cloudflared is missing from the package.' }
+          & C:\DentalClinicOffline\cloudflared\cloudflared.exe --version
+          $tl = (curl.exe -s --max-time 30 -H 'Host: red-blue-green.trycloudflare.com' http://127.0.0.1:18091/login) -join "`n"
+          if ($tl -notmatch 'https://red-blue-green\.trycloudflare\.com/') { Write-Host $tl.Substring(0, [Math]::Min(1500, $tl.Length)); throw 'The tunnel site does not give https links on its own address.' }
+          $tlan = curl.exe -s -o NUL -w '%{http_code}' --max-time 10 "http://${ip}:18091/login"
+          if ($tlan -eq '200') { throw 'The tunnel site must not answer on the network.' }
+          # A real free tunnel, end to end (best effort: Cloudflare may limit them).
+          $cf = Start-Process -FilePath C:\DentalClinicOffline\cloudflared\cloudflared.exe -ArgumentList 'tunnel','--no-autoupdate','--url','http://127.0.0.1:18091' `
+            -RedirectStandardError C:\cf.log -RedirectStandardOutput C:\cf.out -PassThru -WindowStyle Hidden
+          $url = $null
+          for ($i = 0; $i -lt 30 -and -not $url; $i++) {
+            Start-Sleep -Seconds 2
+            $m = Select-String -Path C:\cf.log -Pattern 'https://[a-z0-9-]+\.trycloudflare\.com' -ErrorAction SilentlyContinue | Where-Object { $_.Line -notmatch 'api\.trycloudflare' } | Select-Object -First 1
+            if ($m -and (Select-String -Path C:\cf.log -Pattern 'Registered tunnel connection' -Quiet)) { $url = $m.Matches[0].Value }
+          }
+          if ($url) {
+            Write-Host "tunnel: $url"
+            $code = ''
+            for ($i = 0; $i -lt 12 -and $code -ne '200'; $i++) { Start-Sleep -Seconds 5; $code = curl.exe -s -o NUL -w '%{http_code}' --max-time 30 "$url/login" }
+            Write-Host "login through the tunnel: $code"
+            if ($code -ne '200') { Write-Host '::warning::The login page did not open through a real tunnel.' }
+          } else {
+            Write-Host '::warning::No free tunnel was made on the runner (Cloudflare limits).'
+            Get-Content C:\cf.log -Tail 20
+          }
+          Stop-Process -Id $cf.Id -Force -ErrorAction SilentlyContinue
 
           Write-Host 'Backups: settings copy, backup now, restore'
           $backups = 'C:\DentalClinicBackups'

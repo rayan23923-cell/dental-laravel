@@ -187,4 +187,39 @@ class OfflineLicenseTest extends TestCase
         $this->get($url)->assertOk()->assertDownload('DentalClinicOffline-500.zip');
         $this->get("/api/v1/offline/download?code={$license->code}&machine=AAAA-AAAA-AAAA-AAAA")->assertForbidden();
     }
+
+    public function test_the_panel_reports_its_tunnel_and_the_fixed_link_leads_to_it(): void
+    {
+        $machine = OfflineLicensing::machineId();
+        $license = OfflineLicense::create(['code' => OfflineLicense::newCode(), 'university' => 'جامعة']);
+        $report = fn (array $extra = []) => $this->postJson('/api/v1/offline/tunnel', array_merge([
+            'code' => $license->code, 'machine' => $machine,
+            'url' => 'https://red-blue-green.trycloudflare.com', 'panel_url' => 'https://one-two.trycloudflare.com',
+        ], $extra));
+
+        // Only the activated computer can set where the link leads.
+        $report()->assertForbidden();
+        $this->activate($license->code, $machine)->assertOk();
+        $report(['machine' => 'AAAA-AAAA-AAAA-AAAA'])->assertForbidden();
+        $report(['url' => 'http://plain.example.com'])->assertUnprocessable();
+
+        $link = $report()->assertOk()->json('link');
+        $slug = $license->fresh()->tunnel_slug;
+        $this->assertMatchesRegularExpression('/^[a-z0-9]{12}$/', $slug);
+        $this->assertStringEndsWith("/go/$slug", $link);
+        $this->get("/go/$slug")->assertRedirect('https://red-blue-green.trycloudflare.com');
+        $this->get("/go/$slug/control")->assertRedirect('https://one-two.trycloudflare.com');
+
+        // A new tunnel address keeps the same link.
+        $report(['url' => 'https://new-address.trycloudflare.com'])->assertOk()->assertJsonPath('link', $link);
+        $this->get("/go/$slug")->assertRedirect('https://new-address.trycloudflare.com');
+
+        // Turned off, or not heard from for a while: a page that says so.
+        $report(['url' => null, 'panel_url' => null])->assertOk();
+        $this->get("/go/$slug")->assertStatus(503)->assertSee('غير متصل');
+        $report()->assertOk();
+        $this->travel(20)->minutes();
+        $this->get("/go/$slug")->assertStatus(503);
+        $this->get('/go/unknownslug123')->assertNotFound();
+    }
 }
