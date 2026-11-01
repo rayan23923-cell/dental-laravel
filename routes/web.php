@@ -634,6 +634,7 @@ Route::middleware('auth')->group(function () {
             Route::post('/users/bulk-credentials/doctors', [\App\Http\Controllers\BulkCredentialsController::class, 'doctors'])->name('bulk-credentials.doctors');
             Route::post('/users/bulk-credentials/apply', [\App\Http\Controllers\BulkCredentialsController::class, 'apply'])->name('bulk-credentials.apply');
             Route::get('/users/bulk-credentials/files/{name}', [\App\Http\Controllers\BulkCredentialsController::class, 'download'])->name('bulk-credentials.download');
+            Route::get('/users/bulk-credentials/files/{name}/cards', [\App\Http\Controllers\BulkCredentialsController::class, 'cards'])->name('bulk-credentials.cards');
             Route::delete('/users/bulk-credentials/files/{name}', [\App\Http\Controllers\BulkCredentialsController::class, 'destroy'])->name('bulk-credentials.destroy');
         });
 

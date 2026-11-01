@@ -1522,6 +1522,7 @@
         "filesHelp": "A copy of every login file is kept here. Download it for the clinic server, then delete it: it holds passwords.",
         "downloadFile": "Download",
         "deleteFile": "Delete",
-        "deleteFileConfirm": "Delete this file from the server?"
+        "deleteFileConfirm": "Delete this file from the server?",
+        "printCards": "Print login cards (A4)"
     }
 }
