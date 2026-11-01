@@ -315,7 +315,11 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
                         {{ screeningLabel(screeningRegistration.screening_status) }}
                     </span>
                 </p>
-                <div class="flex gap-3">
+                <!-- A recorded result is final (2026-11-01, by request). -->
+                <p v-if="screeningRegistration.screening_status !== 'pending'" class="rounded-xl bg-gray-50 p-3 text-sm text-gray-600">
+                    {{ t('lab.resultLocked') }}
+                </p>
+                <div v-else class="flex gap-3">
                     <button
                         type="button"
                         :disabled="screeningSubmitting"

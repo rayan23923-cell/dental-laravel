@@ -1168,7 +1168,8 @@
         "feeConfirmYes": "Yes, received",
         "feeConfirmNo": "No, cancel",
         "startTest": "Start test",
-        "startTestHint": "Prints the patient's name and a \"place the samples here\" circle"
+        "startTestHint": "Prints the patient's name and a \"place the samples here\" circle",
+        "resultLocked": "The result is recorded and cannot be changed."
     },
     "roles": {
         "super_admin": "Super admin",

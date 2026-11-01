@@ -21,6 +21,20 @@ use Illuminate\Support\Collection;
 class LabFeeGate
 {
     /**
+     * A recorded result is final (2026-11-01, by request): only a patient
+     * still waiting for the test can be marked سليم / غير سليم.
+     */
+    public const ALREADY_RECORDED = 'نتيجة فحص هذا المريض مسجلة مسبقًا ولا يمكن تغييرها.';
+
+    /** True when the result can still be recorded (re-read under a row lock inside a transaction). */
+    public static function isPending(PatientRegistration $registration, bool $lock = false): bool
+    {
+        $query = PatientRegistration::whereKey($registration->getKey());
+
+        return ($lock ? $query->lockForUpdate() : $query)->value('screening_status') === 'pending';
+    }
+
+    /**
      * Records the lab fee for this registration unless there is no fee,
      * it is already paid, or an earlier valid result is being reused.
      */

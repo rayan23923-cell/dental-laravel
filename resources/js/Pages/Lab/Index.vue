@@ -318,7 +318,11 @@ const record = async (status, { feeConfirmed = false } = {}) => {
                     <span class="block text-xs font-normal opacity-80">{{ t('lab.startTestHint') }}</span>
                 </button>
 
-                <template v-if="canConfirm">
+                <!-- A recorded result is final (2026-11-01, by request). -->
+                <p v-if="selected.screening_status !== 'pending'" class="rounded-xl bg-gray-50 p-3 text-sm text-gray-600">
+                    <Icon name="lock" class="ml-1" />{{ t('lab.resultLocked') }}
+                </p>
+                <template v-if="canConfirm && selected.screening_status === 'pending'">
                     <h4 v-if="canReuse(selected)" class="text-xs text-gray-500">{{ t('lab.orScreenAgain') }}</h4>
                     <h4 v-else class="text-sm font-medium text-gray-700">{{ t('lab.resultHeading') }}</h4>
                     <div class="grid grid-cols-2 gap-3">
@@ -364,7 +368,7 @@ const record = async (status, { feeConfirmed = false } = {}) => {
                         </div>
                     </div>
                 </template>
-                <p v-else-if="!canConfirm" class="text-sm text-gray-500">{{ t('lab.noConfirmPermission') }}</p>
+                <p v-else-if="!canConfirm && selected.screening_status === 'pending'" class="text-sm text-gray-500">{{ t('lab.noConfirmPermission') }}</p>
 
                 <button
                     v-if="selected.screening_status !== 'pending'"

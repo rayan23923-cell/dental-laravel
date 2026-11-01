@@ -108,6 +108,10 @@ class LabController extends Controller
         $permissions = $this->authorizeLab($request);
         abort_unless($permissions->can('patient_screening', 'confirm'), 403);
 
+        if (! LabFeeGate::isPending($patientRegistration)) {
+            return response()->json(['message' => LabFeeGate::ALREADY_RECORDED], 422);
+        }
+
         $previous = LabFeeGate::previousScreening($patientRegistration);
         if (! $previous) {
             return response()->json(['message' => 'لا يوجد فحص سابق صالح لهذا المريض.'], 422);

@@ -312,8 +312,13 @@ class PatientRegistrationController extends Controller
         ]);
 
         // The lab fee is taken with the result (2026-10-12), so the lab
-        // prints one paid slip; see LabFeeGate::chargeIfDue().
-        DB::transaction(function () use ($patientRegistration, $validated, $request) {
+        // prints one paid slip; see LabFeeGate::chargeIfDue(). A recorded
+        // result cannot be changed (2026-11-01, by request).
+        $recorded = DB::transaction(function () use ($patientRegistration, $validated, $request) {
+            if (! LabFeeGate::isPending($patientRegistration, true)) {
+                return false;
+            }
+
             LabFeeGate::chargeIfDue($patientRegistration);
 
             $patientRegistration->update([
@@ -321,7 +326,13 @@ class PatientRegistrationController extends Controller
                 'screening_checked_by' => $request->user()->id,
                 'screening_checked_at' => now(),
             ]);
+
+            return true;
         });
+
+        if (! $recorded) {
+            return response()->json(['message' => LabFeeGate::ALREADY_RECORDED], 422);
+        }
 
         return $this->stateResponse($patientRegistration->fresh(['service', 'registerDay']));
     }

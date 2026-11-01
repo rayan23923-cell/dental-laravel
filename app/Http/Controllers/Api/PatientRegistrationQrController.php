@@ -127,8 +127,13 @@ class PatientRegistrationQrController extends Controller
         ]);
 
         // The lab fee is taken with the result (2026-10-12), so the lab
-        // prints one paid slip; see LabFeeGate::chargeIfDue().
-        DB::transaction(function () use ($patientRegistration, $validated, $request) {
+        // prints one paid slip; see LabFeeGate::chargeIfDue(). A recorded
+        // result cannot be changed (2026-11-01, by request).
+        $recorded = DB::transaction(function () use ($patientRegistration, $validated, $request) {
+            if (! LabFeeGate::isPending($patientRegistration, true)) {
+                return false;
+            }
+
             LabFeeGate::chargeIfDue($patientRegistration);
 
             $patientRegistration->update([
@@ -136,7 +141,13 @@ class PatientRegistrationQrController extends Controller
                 'screening_checked_by' => $request->user()->id,
                 'screening_checked_at' => now(),
             ]);
+
+            return true;
         });
+
+        if (! $recorded) {
+            return response()->json(['message' => LabFeeGate::ALREADY_RECORDED], 422);
+        }
 
         return $this->stateResponse($patientRegistration->fresh(self::RELATIONS));
     }
@@ -147,6 +158,10 @@ class PatientRegistrationQrController extends Controller
      */
     public function reuseScreening(Request $request, PatientRegistration $patientRegistration): JsonResponse
     {
+        if (! LabFeeGate::isPending($patientRegistration)) {
+            return response()->json(['message' => LabFeeGate::ALREADY_RECORDED], 422);
+        }
+
         $previous = LabFeeGate::previousScreening($patientRegistration);
         if (! $previous) {
             return response()->json(['message' => 'لا يوجد فحص سابق صالح لهذا المريض.'], 422);

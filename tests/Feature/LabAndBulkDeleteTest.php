@@ -96,9 +96,13 @@ class LabAndBulkDeleteTest extends TestCase
         $this->actingAs($admin)->postJson("/patient-registrations/{$a->id}/screening", ['screening_status' => 'flagged'])
             ->assertOk();
         $this->assertSame('flagged', $a->fresh()->screening_status);
-        // Recording it again (a correction) does not charge twice.
+        // A recorded result is final (2026-11-01, by request): no change, no second charge.
         $this->actingAs($admin)->postJson("/patient-registrations/{$a->id}/screening", ['screening_status' => 'clear'])
-            ->assertOk();
+            ->assertStatus(422)->assertJsonPath('message', \App\Support\LabFeeGate::ALREADY_RECORDED);
+        $this->actingAs($admin)->postJson("/api/v1/patient-registrations/{$a->id}/screening", ['screening_status' => 'clear'])
+            ->assertStatus(422);
+        $this->actingAs($admin)->postJson("/lab/{$a->id}/reuse")->assertStatus(422);
+        $this->assertSame('flagged', $a->fresh()->screening_status);
         $this->assertSame(1, \App\Models\Payment::where('patient_registration_id', $a->id)->where('type', 'lab')->count());
         $this->assertDatabaseHas('payments', ['patient_registration_id' => $a->id, 'type' => 'lab', 'amount' => 5000]);
 
@@ -107,7 +111,7 @@ class LabAndBulkDeleteTest extends TestCase
         $this->assertDatabaseHas('payments', ['patient_registration_id' => $b->id, 'type' => 'lab', 'amount' => 5000]);
 
         $this->actingAs($admin)->get("/lab/{$a->id}/print")->assertOk()
-            ->assertSee('سليم')->assertSee('5,000')->assertSee('مدفوع');
+            ->assertSee('غير سليم')->assertSee('5,000')->assertSee('مدفوع');
     }
 
     public function test_lab_result_allowed_when_no_lab_fee_set(): void
