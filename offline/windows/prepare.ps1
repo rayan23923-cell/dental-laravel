@@ -73,7 +73,6 @@ http://:$TunnelPort {
 
 $upstreams = (0..($Workers - 1) | ForEach-Object { "127.0.0.1:$(9100 + $_)" }) -join ' '
 $ca = "$fwd/caddy-data/caddy/pki/authorities/local"
-$httpsHost = if ($HttpsPort -eq 443) { '{host}' } else { "{host}:$HttpsPort" }
 @"
 {
 	admin off
@@ -212,13 +211,14 @@ http://127.0.0.1:$HttpPort, http://localhost:$HttpPort {
 }
 
 $tunnelSite
-# Plain http on the network: the certificate and setup page, everything
-# else goes to https.
+# Plain http on the network opens the app too (2026-11-01, by request:
+# the offline server must work on both http and https). The browser
+# camera (QR scanning) still needs https, so https stays available.
 http://:$HttpPort {
 $captiveCaddy
 	import lanfiles
 	handle {
-		redir https://$httpsHost{uri} 302
+		import app
 	}
 }
 "@ | Set-Content -LiteralPath "$Root\Caddyfile" -Encoding ASCII

@@ -69,4 +69,21 @@ class PaymentPriceAtTimeAndActivityTest extends TestCase
 
         $this->actingAs(User::factory()->create(['role' => 'lab']))->get('/payments/activity')->assertForbidden();
     }
+
+    public function test_date_range_filters_and_titles_the_activity_log_and_report(): void
+    {
+        $service = Service::create(['name' => 'Filling', 'price' => 12000]);
+        $admin = $this->admin();
+        $this->actingAs($admin)->post('/patient-registrations', ['name' => 'Huda', 'phone' => '0773', 'service_id' => $service->id])->assertRedirect();
+        $today = now()->format('Y-m-d');
+        $old = now()->subMonths(2);
+
+        $this->actingAs($admin)->get("/payments/activity?from={$today}&to={$today}")->assertOk()
+            ->assertSee("سجل حركات المدفوعات من {$today} إلى {$today}")->assertSee('Huda');
+        $this->actingAs($admin)->get('/payments/activity?from='.$old->format('Y-m-01').'&to='.$old->format('Y-m-28'))->assertOk()
+            ->assertSee('سجل حركات المدفوعات من '.$old->format('Y-m-01'))->assertDontSee('Huda');
+
+        $this->actingAs($admin)->get("/payments/report?from={$today}&to={$today}")->assertOk()
+            ->assertSee("تقرير المدفوعات من {$today} إلى {$today}")->assertSee('Huda');
+    }
 }

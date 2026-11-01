@@ -13,10 +13,12 @@
     $roles = ['super_admin' => 'مدير عام', 'admin' => 'مدير', 'editor' => 'محرر', 'accountant' => 'محاسب', 'senior' => 'مسؤول قسم', 'hr' => 'موارد بشرية', 'reception' => 'موظف التذاكر', 'lab' => 'مختبر', 'doctor' => 'طبيب', 'teacher' => 'تدريسي'];
     $fields = ['amount' => 'المبلغ', 'full_amount' => 'السعر قبل التخفيض', 'paid_by' => 'الدافع', 'paid_at' => 'تاريخ الدفع', 'type' => 'النوع'];
     $counts = collect($rows)->countBy('action');
-    $range = trim(($from ? 'من ' . $from : '') . ' ' . ($to ? 'إلى ' . $to : '')) ?: 'كل الفترات';
+    $range = trim(($from ? 'من ' . $from : '') . ' ' . ($to ? 'إلى ' . $to : ''));
+    // The payments page's date range goes in the title (2026-11-01, by request).
+    $title = trim('سجل حركات المدفوعات ' . $range);
 @endphp
 
-@section('title', 'سجل حركات المدفوعات')
+@section('title', $title)
 
 @section('back_url', route('payments.index'))
 
@@ -30,8 +32,8 @@
         @media print { @page { size: A4 landscape; margin: 10mm; } }
     </style>
     <div class="activity">
-        <h3 style="text-align:center; margin:0 0 6px;">سجل حركات المدفوعات</h3>
-        <p class="muted" style="text-align:center; margin:0 0 12px;">{{ $range }} · طُبع {{ now()->format('Y-m-d H:i') }}</p>
+        <h3 style="text-align:center; margin:0 0 6px;">{{ $title }}</h3>
+        <p class="muted" style="text-align:center; margin:0 0 12px;">{{ $range === '' ? 'كل الفترات · ' : '' }}طُبع {{ now()->format('Y-m-d H:i') }}</p>
 
         <p class="summary" style="margin:0 0 12px;">
             <span>عدد الحركات: <strong>{{ count($rows) }}</strong></span>

@@ -15,10 +15,14 @@
         ['registration'] => 'تقرير واردات التذاكر',
         default => 'تقرير المدفوعات',
     };
+    // The date range of the payments page goes in the title (2026-11-01,
+    // by request): "تقرير المدفوعات من ... إلى ...".
+    $rangeText = trim(($filters['from'] ? 'من ' . $filters['from'] : '') . ' ' . ($filters['to'] ? 'إلى ' . $filters['to'] : ''));
+    if ($rangeText !== '') {
+        $reportTitle .= ' ' . $rangeText;
+    }
     $periodLabels = ['today' => 'اليوم', 'week' => 'هذا الأسبوع', 'month' => 'هذا الشهر', 'year' => 'هذه السنة'];
     $filterBits = array_filter([
-        $filters['from'] ? 'من ' . $filters['from'] : null,
-        $filters['to'] ? 'إلى ' . $filters['to'] : null,
         $filters['source'] && count($scope ?? ['', '']) > 1 ? 'المصدر: ' . ($sourceLabels[$filters['source']] ?? $filters['source']) : null,
         $filters['search'] ? 'بحث: ' . $filters['search'] : null,
     ]);

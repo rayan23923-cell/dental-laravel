@@ -141,9 +141,10 @@ Future<Uint8List> buildPaymentsReportPdf({
   final stats = report.stats;
   final currency = stats.currency ?? settings?.currency ?? '';
 
+  // The date range goes in the title (2026-11-01, by request), as on the web.
+  final range = [if (from != null) 'من $from', if (to != null) 'إلى $to'].join(' ');
+  final fullTitle = [title ?? 'تقرير المدفوعات', if (range.isNotEmpty) range].join(' ');
   final filterBits = [
-    if (from != null) 'من $from',
-    if (to != null) 'إلى $to',
     if (source != null) 'المصدر: ${_sourceLabels[source] ?? source}',
     if (search != null && search.isNotEmpty) 'بحث: $search',
   ];
@@ -163,7 +164,7 @@ Future<Uint8List> buildPaymentsReportPdf({
       pageFormat: format,
       margin: const pw.EdgeInsets.all(28),
       header: (context) => context.pageNumber == 1
-          ? letterhead.build(title: title ?? 'تقرير المدفوعات', settings: settings, logo: logo)
+          ? letterhead.build(title: fullTitle, settings: settings, logo: logo)
           : pw.SizedBox.shrink(),
       footer: (context) => pw.Align(
         alignment: pw.Alignment.center,
