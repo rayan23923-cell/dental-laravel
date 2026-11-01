@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLog;
 use App\Models\ClinicSetting;
 use App\Models\Payment;
 use App\Models\PatientRegistration;
@@ -52,6 +53,8 @@ class PaymentController extends Controller
                 // The lab / tickets grants include printing their report.
                 'export' => PaymentScope::sources($request->user(), true) !== [],
                 'delete' => (new PermissionManager($request->user()))->can('payments', 'delete'),
+                // The printed activity log (2026-11-01): the full payments grant.
+                'activity' => (new PermissionManager($request->user()))->can('payments', 'view'),
             ],
         ]);
     }
@@ -77,6 +80,54 @@ class PaymentController extends Controller
             'periods' => $stats->periods(),
             'daily' => $stats->daily(),
             'monthly' => $stats->monthly(),
+            'autoprint' => $request->boolean('autoprint'),
+        ]);
+    }
+
+    /**
+     * The payments activity log, printed (2026-11-01, by request): who
+     * added, changed or deleted which payment and when, for the date range
+     * of the payments page. Older entries without a snapshot show what is
+     * still known of the payment.
+     */
+    public function activity(Request $request): View
+    {
+        $from = $request->date('from');
+        $to = $request->date('to');
+
+        $logs = ActivityLog::query()
+            ->where('module', 'Payment')
+            ->when($from, fn ($q) => $q->whereDate('created_at', '>=', $from))
+            ->when($to, fn ($q) => $q->whereDate('created_at', '<=', $to))
+            ->latest('created_at')
+            ->limit(2000)
+            ->get();
+
+        $current = Payment::with(['appointment', 'patientRegistration'])
+            ->whereIn('id', $logs->pluck('record_id')->filter()->unique())
+            ->get()->keyBy('id');
+
+        $rows = $logs->map(function (ActivityLog $log) use ($current) {
+            $data = $log->data ? json_decode($log->data, true) : null;
+            $snapshot = $data['snapshot'] ?? $current->get($log->record_id)?->activitySnapshot();
+
+            return [
+                'at' => $log->created_at,
+                'user' => $log->username,
+                'role' => $log->user_role,
+                'action' => $log->action,
+                'payment_id' => $log->record_id,
+                'snapshot' => $snapshot,
+                'before' => $data['before'] ?? null,
+                'changes' => $data['changes'] ?? ($log->action === 'update' && is_array($data) ? $data : null),
+            ];
+        });
+
+        return view('print.payments-activity', [
+            'settings' => ClinicSetting::current(),
+            'rows' => $rows,
+            'from' => $from?->format('Y-m-d'),
+            'to' => $to?->format('Y-m-d'),
             'autoprint' => $request->boolean('autoprint'),
         ]);
     }

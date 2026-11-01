@@ -45,10 +45,13 @@
                      takes in full at the service's price (2026-10-12), so
                      this is the paid receipt. Older registrations without a
                      recorded payment fall back to the service's price. --}}
-                @php($paid = (float) ($registration->service_paid ?: $registration->service?->price))
+                {{-- The amounts recorded with the payment: the price of the day (2026-11-01). --}}
+                @php($recorded = \App\Support\StudentDiscount::recorded($registration, \App\Models\Payment::TYPE_SERVICE))
+                @php($paid = (float) ($recorded[0] ?? ($registration->service_paid ?: $registration->service?->price)))
+                @php($fullAtTime = $recorded ? $recorded[1] : ($registration->service?->price !== null ? (float) $registration->service->price : null))
                 @if ($paid > 0)
                     {{-- Student/employee discount (2026-10-25, by request). --}}
-                    @include('print.partials.amount-rows', ['full' => $registration->service?->price !== null ? (float) $registration->service->price : null, 'label' => 'المبلغ المدفوع', 'currency' => $settings->clinic_currency])
+                    @include('print.partials.amount-rows', ['full' => $fullAtTime, 'label' => 'المبلغ المدفوع', 'currency' => $settings->clinic_currency])
                     <tr><th>الحالة</th><td><strong>مدفوع</strong></td></tr>
                 @endif
                 @if ($registration->registerDay)

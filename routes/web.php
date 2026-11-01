@@ -670,6 +670,9 @@ Route::middleware('auth')->group(function () {
     // (2026-10-26, by request) — see App\Support\PaymentScope.
     Route::get('/payments/report', [PaymentController::class, 'report'])
         ->middleware('permission:payments,'.\App\Support\PaymentScope::REPORT)->name('payments.report');
+    // The payments activity log, printed (2026-11-01): the full payments grant only.
+    Route::get('/payments/activity', [PaymentController::class, 'activity'])
+        ->middleware('permission:payments,view')->name('payments.activity');
     Route::get('/payments/{payment}/receipt', [PaymentController::class, 'receipt'])
         ->middleware('permission:payments,'.\App\Support\PaymentScope::VIEW)->name('payments.receipt');
     // No "تسجيل دفعة" page any more (2026-10-14, by request): payments are

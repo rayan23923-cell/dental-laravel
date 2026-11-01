@@ -424,7 +424,8 @@
         "labFee": "Lab Fee",
         "labFeePaid": "Lab fee paid",
         "payLabFee": "Pay Lab Fee & Print Receipt",
-        "labFeeFailed": "Couldn't record the lab fee payment."
+        "labFeeFailed": "Couldn't record the lab fee payment.",
+        "printActivity": "Print payments activity log"
     },
     "doctorsAdmin": {
         "title": "Manage Doctors",

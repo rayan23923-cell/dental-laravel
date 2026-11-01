@@ -154,9 +154,49 @@ class StudentDiscount
         ];
     }
 
-    /** The undiscounted amount a registration payment was taken from. */
+    /**
+     * The undiscounted amount a payment was taken from: the price recorded
+     * with it (2026-11-01, by request: the price of the day, not today's).
+     */
     public static function fullAmountFor(Payment $payment, ?ClinicSetting $settings = null): ?float
     {
+        if ($payment->full_amount !== null) {
+            return (float) $payment->full_amount;
+        }
+
+        return self::currentFullAmountFor($payment, $settings);
+    }
+
+    /**
+     * What a registration's recorded payments of one kind ('lab' or
+     * 'service') add up to: [paid, full at the time], or null when nothing
+     * was paid yet, so tickets and slips show the price of the day.
+     *
+     * @return array{0: float, 1: ?float}|null
+     */
+    public static function recorded(PatientRegistration $registration, string $kind): ?array
+    {
+        $payments = $registration->relationLoaded('payments')
+            ? $registration->payments
+            : $registration->payments()->get(['id', 'type', 'amount', 'full_amount']);
+        $payments = $payments->filter(fn ($p) => $kind === Payment::TYPE_LAB ? $p->type === Payment::TYPE_LAB : $p->type !== Payment::TYPE_LAB);
+
+        if ($payments->isEmpty()) {
+            return null;
+        }
+
+        $full = $payments->every(fn ($p) => $p->full_amount !== null) ? (float) $payments->sum('full_amount') : null;
+
+        return [(float) $payments->sum('amount'), $full];
+    }
+
+    /** Today's undiscounted price for a payment (what a new one is taken from). */
+    public static function currentFullAmountFor(Payment $payment, ?ClinicSetting $settings = null): ?float
+    {
+        if ($payment->appointment_id && ! $payment->patient_registration_id) {
+            return null;
+        }
+
         if ($payment->type === Payment::TYPE_LAB) {
             $fee = ($settings ?? ClinicSetting::current())->lab_fee;
 
