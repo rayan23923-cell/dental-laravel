@@ -128,6 +128,17 @@ class PermissionMatrix
                 'name' => 'شاشة الانتظار',
                 'permissions' => ['view' => 'عرض الإعدادات', 'edit' => 'تعديل الإعدادات', 'pair' => 'ربط شاشة'],
             ],
+            // Bulk login details page (2026-11-01, by request): its own
+            // permission instead of super admins only.
+            'bulk_credentials' => [
+                'name' => 'بيانات الدخول الجماعية',
+                'permissions' => [
+                    'view' => 'عرض الصفحة وتنزيل الملفات وطباعة البطاقات',
+                    'create' => 'إنشاء التدريسيين وكلمات مرور جديدة للمراحل',
+                    'apply' => 'حفظ ملف بيانات الدخول (خادم العيادة)',
+                    'delete' => 'حذف الملفات',
+                ],
+            ],
             'reports' => [
                 'name' => 'التقارير',
                 'permissions' => ['view' => 'عرض', 'export' => 'تصدير', 'print' => 'طباعة'],

@@ -462,6 +462,19 @@ Route::middleware('auth')->group(function () {
             ->name('doctors.cards');
     });
 
+    // Bulk accounts and login emails (2026-10-31, by request): teachers
+    // from a list and new passwords for whole stages, made and emailed on
+    // the hosting; on the offline server the same logins are saved from the
+    // file the hosting gave. Its own permission since 2026-11-01 (was super
+    // admins only).
+    Route::get('/users/bulk-credentials', [\App\Http\Controllers\BulkCredentialsController::class, 'index'])->middleware('permission:bulk_credentials,view')->name('bulk-credentials.index');
+    Route::post('/users/bulk-credentials/teachers', [\App\Http\Controllers\BulkCredentialsController::class, 'teachers'])->middleware('permission:bulk_credentials,create')->name('bulk-credentials.teachers');
+    Route::post('/users/bulk-credentials/doctors', [\App\Http\Controllers\BulkCredentialsController::class, 'doctors'])->middleware('permission:bulk_credentials,create')->name('bulk-credentials.doctors');
+    Route::post('/users/bulk-credentials/apply', [\App\Http\Controllers\BulkCredentialsController::class, 'apply'])->middleware('permission:bulk_credentials,apply')->name('bulk-credentials.apply');
+    Route::get('/users/bulk-credentials/files/{name}', [\App\Http\Controllers\BulkCredentialsController::class, 'download'])->middleware('permission:bulk_credentials,view')->name('bulk-credentials.download');
+    Route::get('/users/bulk-credentials/files/{name}/cards', [\App\Http\Controllers\BulkCredentialsController::class, 'cards'])->middleware('permission:bulk_credentials,view')->name('bulk-credentials.cards');
+    Route::delete('/users/bulk-credentials/files/{name}', [\App\Http\Controllers\BulkCredentialsController::class, 'destroy'])->middleware('permission:bulk_credentials,delete')->name('bulk-credentials.destroy');
+
     Route::middleware('role:super_admin,admin')->group(function () {
         Route::resource('education-types', EducationTypeController::class)->except(['show', 'create', 'edit'])
             ->middlewareFor('index', 'permission:education_types,view')
@@ -624,19 +637,6 @@ Route::middleware('auth')->group(function () {
             Route::delete('/offline-licenses/{offlineLicense}', [\App\Http\Controllers\OfflineLicenseController::class, 'destroy'])->name('offline-licenses.destroy');
         });
 
-        // Bulk accounts and login emails (2026-10-31, by request): teachers
-        // from a list and new passwords for whole stages, made and emailed
-        // on the hosting; on the offline server the same logins are saved
-        // from the file the hosting gave.
-        Route::middleware('role:super_admin')->group(function () {
-            Route::get('/users/bulk-credentials', [\App\Http\Controllers\BulkCredentialsController::class, 'index'])->name('bulk-credentials.index');
-            Route::post('/users/bulk-credentials/teachers', [\App\Http\Controllers\BulkCredentialsController::class, 'teachers'])->name('bulk-credentials.teachers');
-            Route::post('/users/bulk-credentials/doctors', [\App\Http\Controllers\BulkCredentialsController::class, 'doctors'])->name('bulk-credentials.doctors');
-            Route::post('/users/bulk-credentials/apply', [\App\Http\Controllers\BulkCredentialsController::class, 'apply'])->name('bulk-credentials.apply');
-            Route::get('/users/bulk-credentials/files/{name}', [\App\Http\Controllers\BulkCredentialsController::class, 'download'])->name('bulk-credentials.download');
-            Route::get('/users/bulk-credentials/files/{name}/cards', [\App\Http\Controllers\BulkCredentialsController::class, 'cards'])->name('bulk-credentials.cards');
-            Route::delete('/users/bulk-credentials/files/{name}', [\App\Http\Controllers\BulkCredentialsController::class, 'destroy'])->name('bulk-credentials.destroy');
-        });
 
 
 

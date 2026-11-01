@@ -19,6 +19,7 @@ const props = defineProps({
     mailConfigured: { type: Boolean, default: false },
     defaults: { type: Object, default: () => ({}) },
     files: { type: Array, default: () => [] },
+    can: { type: Object, default: () => ({ create: true, apply: true, delete: true }) },
 });
 
 const removeFile = (f) => {
@@ -162,7 +163,7 @@ const applyLogins = () => {
                 </section>
 
                 <!-- Teachers -->
-                <section class="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+                <section v-if="can.create" class="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
                     <h3 class="flex items-center gap-2 font-semibold text-gray-800"><Icon name="school" />{{ t('bulkCredentials.teachersTitle') }}</h3>
                     <p class="text-sm text-gray-600">{{ t('bulkCredentials.teachersHelp') }}</p>
                     <input type="file" accept=".csv,.xlsx,.xls" class="block w-full text-sm" @change="teachersFile = $event.target.files[0] ?? null" />
@@ -172,7 +173,7 @@ const applyLogins = () => {
                 </section>
 
                 <!-- Doctors of whole stages -->
-                <section class="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+                <section v-if="can.create" class="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
                     <h3 class="flex items-center gap-2 font-semibold text-gray-800"><Icon name="lock_reset" />{{ t('bulkCredentials.doctorsTitle') }}</h3>
                     <p class="text-sm text-gray-600">{{ t('bulkCredentials.doctorsHelp') }}</p>
                     <div class="space-y-1">
@@ -196,13 +197,13 @@ const applyLogins = () => {
                             <span class="min-w-0 flex-1 truncate" dir="ltr">{{ f.name }}</span>
                             <a :href="route('bulk-credentials.cards', { name: f.name, wifi: links.wifi_name })" target="_blank" class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-indigo-50 text-indigo-700 hover:bg-indigo-100" :title="t('bulkCredentials.printCards')"><Icon name="print" /></a>
                             <a :href="route('bulk-credentials.download', f.name)" download class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200" :title="t('bulkCredentials.downloadFile')"><Icon name="download" /></a>
-                            <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-red-50 text-red-600 hover:bg-red-100" :title="t('bulkCredentials.deleteFile')" @click="removeFile(f)"><Icon name="delete" /></button>
+                            <button v-if="can.delete" type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-red-50 text-red-600 hover:bg-red-100" :title="t('bulkCredentials.deleteFile')" @click="removeFile(f)"><Icon name="delete" /></button>
                         </li>
                     </ul>
                 </section>
 
                 <!-- Offline server: save a login file's accounts and passwords -->
-                <section class="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+                <section v-if="can.apply" class="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
                     <h3 class="flex items-center gap-2 font-semibold text-gray-800"><Icon name="upload_file" />{{ t('bulkCredentials.applyTitle') }}</h3>
                     <p class="text-sm text-gray-600">{{ t('bulkCredentials.applyHelp') }}</p>
                     <input type="file" accept=".csv,.xlsx" class="block w-full text-sm" @change="applyFile = $event.target.files[0] ?? null" />

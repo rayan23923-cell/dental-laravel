@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ClinicSetting;
 use App\Models\Doctor;
 use App\Services\BulkCredentials;
+use App\Services\PermissionManager;
 use App\Support\ExcelTransfer;
 use Endroid\QrCode\ErrorCorrectionLevel;
 use Endroid\QrCode\QrCode;
@@ -32,13 +33,18 @@ class BulkCredentialsController extends Controller
 
     public const DEFAULT_ALT_URL = 'https://192.168.68.52/login';
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
         return Inertia::render('Users/BulkCredentials', [
             'stages' => BulkCredentials::stageSummary(),
             'mailConfigured' => (bool) ClinicSetting::query()->find(1)?->mailConfigured(),
             'defaults' => ['login_url' => self::DEFAULT_LOGIN_URL, 'alt_url' => self::DEFAULT_ALT_URL, 'wifi_name' => BulkCredentials::wifiName()],
             'files' => BulkCredentials::loginFiles(),
+            'can' => [
+                'create' => ($perm = new PermissionManager($request->user()))->can('bulk_credentials', 'create'),
+                'apply' => $perm->can('bulk_credentials', 'apply'),
+                'delete' => $perm->can('bulk_credentials', 'delete'),
+            ],
         ]);
     }
 
