@@ -1165,7 +1165,9 @@
         "autoReused": "Clear: valid earlier test, no new test needed. The slip was printed.",
         "feeConfirmQuestion": "Did you receive the lab fee ({amount}) from the patient? The payment is recorded and the slip prints.",
         "feeConfirmYes": "Yes, received",
-        "feeConfirmNo": "No, cancel"
+        "feeConfirmNo": "No, cancel",
+        "startTest": "Start test",
+        "startTestHint": "Prints the patient's name and a \"place the samples here\" circle"
     },
     "roles": {
         "super_admin": "Super admin",

@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' hide TextDirection;
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../../core/platform/platform_support.dart';
@@ -21,6 +23,7 @@ import '../data/patient_registration_repository.dart';
 import '../domain/discount_breakdown.dart';
 import '../domain/registration_payment_state.dart';
 import 'lab_result_pdf.dart';
+import 'lab_sample_label.dart';
 
 /// The lab/reception infectious-disease screening confirmation screen —
 /// reached after scanning a registration's ticket QR (the exact same QR
@@ -248,6 +251,52 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
     }
   }
 
+  /// "بدء الفحص" (2026-11-01, by request): prints the patient's name with a
+  /// large "هنا توضع العينات" circle for the samples. Thermal printer when
+  /// there is one, otherwise the same picture through the print dialog.
+  Future<void> _printSampleLabel() async {
+    final t = ref.read(translationsProvider);
+    final r = _state.registration;
+    try {
+      final printerSettings = canPrintTickets ? await ref.read(printerSettingsProvider.future) : null;
+      if (!mounted) return;
+      final pngBytes = await renderWidgetToPng(
+        context,
+        LabSampleLabel(
+          patientName: r.name,
+          title: t['screening.sampleTitle']!,
+          circleText: t['screening.sampleCircle']!,
+          subtitle: r.serviceName,
+          widthDots: printerSettings?.dotsPerLine ?? 576,
+        ),
+      );
+      if (!mounted) return;
+      if (canPrintTickets) {
+        await showTicketPrintAnimation<void>(
+          context: context,
+          ticketPngBytes: pngBytes,
+          task: () => ref.read(posPrinterServiceProvider).printTicket(pngBytes),
+        );
+      } else {
+        await Printing.layoutPdf(
+          name: '${t['screening.sampleTitle']!} - ${r.name}.pdf',
+          onLayout: (format) async {
+            final doc = pw.Document();
+            final image = pw.MemoryImage(pngBytes);
+            doc.addPage(pw.Page(
+              pageFormat: PdfPageFormat.roll80,
+              margin: const pw.EdgeInsets.all(4),
+              build: (_) => pw.Center(child: pw.Image(image)),
+            ));
+            return doc.save();
+          },
+        );
+      }
+    } catch (e) {
+      if (mounted) showPrinterErrorSnackBar(context, t['screening.samplePrintFailed']!, error: e);
+    }
+  }
+
   /// The full-page lab result as a PDF (2026-10-17) — the web
   /// `print/lab-result.blade.php` through the system print dialog, which
   /// also saves it as a file. The state's registration must carry the
@@ -438,6 +487,16 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
               onPressed: _reusing || _submitting ? null : _reusePrevious,
               icon: const Icon(Icons.print_outlined),
               label: Text(t['screening.reusePrevious']!),
+            ),
+          ],
+          // Start the test: print the samples sheet (2026-11-01, by request).
+          if (r.screeningStatus == 'pending') ...[
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: _submitting || _reusing ? null : _printSampleLabel,
+              icon: const Icon(Icons.science_outlined),
+              label: Text(t['screening.startTest']!),
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
             ),
           ],
           const SizedBox(height: 24),

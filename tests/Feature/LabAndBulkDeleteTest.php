@@ -39,6 +39,16 @@ class LabAndBulkDeleteTest extends TestCase
             ->assertOk()->assertJsonPath('data.name', 'Ali');
     }
 
+    public function test_start_test_prints_the_samples_sheet(): void
+    {
+        $a = $this->registration(['name' => 'Ali Hassan']);
+
+        $this->actingAs($this->admin())->get("/lab/{$a->id}/sample?autoprint=1")->assertOk()
+            ->assertSee('Ali Hassan')
+            ->assertSee('هنا توضع العينات')
+            ->assertSee('window.print()', false);
+    }
+
     public function test_lab_result_prints_with_qr(): void
     {
         $a = $this->registration(['name' => 'Ali', 'screening_status' => 'flagged', 'screening_checked_at' => now()]);

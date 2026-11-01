@@ -12,6 +12,7 @@ import Modal from '@/Components/Modal.vue';
 import ChatListCard from '@/Components/ChatList/ChatListCard.vue';
 import ChatListRow from '@/Components/ChatList/ChatListRow.vue';
 import ChatChip from '@/Components/ChatList/ChatChip.vue';
+import ChatAction from '@/Components/ChatList/ChatAction.vue';
 import ChatSearch from '@/Components/ChatList/ChatSearch.vue';
 import ChatAddButton from '@/Components/ChatList/ChatAddButton.vue';
 import ChatPager from '@/Components/ChatList/ChatPager.vue';
@@ -127,6 +128,9 @@ const resultError = ref('');
 // straight away, in a hidden frame rather than a new tab (2026-10-18, by
 // request).
 const printSlip = (id) => printInFrame(route('lab.print', { patientRegistration: id, autoprint: 1 }));
+// "بدء الفحص" (2026-11-01, by request): prints the patient's name with a big
+// "هنا توضع العينات" circle, so samples sit under the right name.
+const startTest = (id) => printInFrame(route('lab.sample', { patientRegistration: id, autoprint: 1 }));
 
 const reuse = async () => {
     submitting.value = true;
@@ -220,6 +224,14 @@ const record = async (status, { feeConfirmed = false } = {}) => {
                             <ChatChip icon="location_on">{{ placeAndDay(r) }}</ChatChip>
                             <ChatChip icon="schedule">{{ fmtDate(r.created_at) }}</ChatChip>
                         </template>
+                        <template #actions>
+                            <ChatAction
+                                v-if="r.screening_status === 'pending'"
+                                icon="science"
+                                :label="t('lab.startTest')"
+                                @click="(e) => { e?.stopPropagation(); startTest(r.id); }"
+                            />
+                        </template>
                     </ChatListRow>
                     <template #footer>
                         <ChatPager :links="registrations.links ?? []" />
@@ -295,6 +307,16 @@ const record = async (status, { feeConfirmed = false } = {}) => {
                 </div>
 
                 <div v-if="resultError" class="rounded-xl bg-red-50 p-3 text-sm text-red-700">{{ resultError }}</div>
+
+                <button
+                    v-if="selected.screening_status === 'pending'"
+                    type="button"
+                    @click="startTest(selected.id)"
+                    class="rounded-xl border-2 border-indigo-300 bg-indigo-50 px-4 py-3 text-sm font-semibold text-indigo-800 hover:bg-indigo-100"
+                >
+                    <Icon name="science" class="ml-1" />{{ t('lab.startTest') }}
+                    <span class="block text-xs font-normal opacity-80">{{ t('lab.startTestHint') }}</span>
+                </button>
 
                 <template v-if="canConfirm">
                     <h4 v-if="canReuse(selected)" class="text-xs text-gray-500">{{ t('lab.orScreenAgain') }}</h4>
