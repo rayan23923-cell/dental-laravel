@@ -3,9 +3,9 @@ name: Fetch a login file (encrypted)
 # Run by hand (2026-11-01, by request: print login cards for the 4th and
 # 5th stage doctors). Copies one login file from the hosting
 # (storage/app/bulk-logins, see App\Services\BulkCredentials) into a
-# one-day artifact, encrypted for the RSA public key given, so only the
-# holder of the private key can read the passwords. The file never
-# appears in the log.
+# one-day artifact (and the log, base64), encrypted for the RSA public
+# key given, so only the holder of the private key can read the
+# passwords. The plain file never appears in the log.
 on:
   workflow_dispatch:
     inputs:
@@ -51,6 +51,10 @@ jobs:
           openssl enc -aes-256-cbc -pbkdf2 -salt -in plain.csv -out out/file.csv.enc -pass file:key.txt
           openssl pkeyutl -encrypt -pubin -inkey pub.pem -pkeyopt rsa_padding_mode:oaep -in key.txt -out out/key.bin
           shred -u plain.csv key.txt
+          # Encrypted only, so it is safe in the log too (artifact downloads
+          # are blocked from some networks).
+          echo "BEGIN-KEY"; base64 -w0 out/key.bin; echo; echo "END-KEY"
+          echo "BEGIN-FILE"; base64 -w0 out/file.csv.enc; echo; echo "END-FILE"
 
       - uses: actions/upload-artifact@v4
         with:
