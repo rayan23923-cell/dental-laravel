@@ -1495,6 +1495,8 @@
         "linksTitle": "Login link in the email",
         "loginUrl": "Main link",
         "altUrl": "Alternative link (optional)",
+        "wifiName": "Wi-Fi network name (optional)",
+        "wifiHelp": "Shown in the emails and on the printed cards, and remembered for next time.",
         "noMail": "Mail settings are not configured on this server.",
         "teachersTitle": "Add teaching staff",
         "teachersHelp": "An Excel or CSV file with a name column and an email column. Username = part before {'@'}, password = 8 random digits, role teacher with no departments or permissions. Existing emails are skipped.",

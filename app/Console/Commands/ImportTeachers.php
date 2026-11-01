@@ -17,6 +17,7 @@ class ImportTeachers extends Command
         {--login-url= : Link in the email (default: this server\'s login page)}
         {--alt-url=* : Other addresses of the server listed in the email, e.g. https://192.168.68.52}
         {--no-email : Create the accounts without queueing emails}
+        {--wifi= : Clinic Wi-Fi name to show in the email}
         {--save-file : Keep the login file on this server (downloadable on /users/bulk-credentials)}
         {--dry-run : Only show what would be done}';
 
@@ -32,7 +33,7 @@ class ImportTeachers extends Command
         }
 
         $dry = (bool) $this->option('dry-run');
-        $mail = $this->option('no-email') ? null : BulkCredentials::links($this->option('login-url'), (array) $this->option('alt-url'));
+        $mail = $this->option('no-email') ? null : BulkCredentials::links($this->option('login-url'), (array) $this->option('alt-url'), $this->option('wifi'));
         ['created' => $created, 'skipped' => $skipped] = BulkCredentials::importTeachers(self::readCsv($file), $mail, $dry);
 
         if (! $dry && $created && $this->option('save-file')) {

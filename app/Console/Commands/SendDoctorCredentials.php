@@ -17,6 +17,7 @@ class SendDoctorCredentials extends Command
         {--stage=* : Stage id, or part of its name (e.g. الرابعة)}
         {--login-url= : Link in the email (default: this server\'s login page)}
         {--alt-url=* : Other addresses of the server listed in the email, e.g. https://192.168.68.52}
+        {--wifi= : Clinic Wi-Fi name to show in the email}
         {--save-file : Keep the login file on this server (downloadable on /users/bulk-credentials)}
         {--dry-run : Only show who would get an email}';
 
@@ -48,7 +49,7 @@ class SendDoctorCredentials extends Command
         $this->info('Stages: '.$stages->map(fn ($s) => "{$s->id} {$s->name}")->implode(', '));
 
         $dry = (bool) $this->option('dry-run');
-        $mail = BulkCredentials::links($this->option('login-url'), (array) $this->option('alt-url'));
+        $mail = BulkCredentials::links($this->option('login-url'), (array) $this->option('alt-url'), $this->option('wifi'));
         ['reset' => $reset, 'no_email' => $noEmail] = BulkCredentials::resetDoctors($stages->pluck('id')->all(), $mail, $dry);
 
         foreach (BulkCredentials::stageSummary()->whereIn('id', $stages->pluck('id')) as $s) {
