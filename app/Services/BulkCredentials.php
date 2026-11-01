@@ -222,6 +222,14 @@ class BulkCredentials
         }
         fclose($handle);
         @chmod($dir.'/'.$name, 0600);
+        // Made by an artisan command run as root (docker exec): hand it to
+        // the web server's user, or the page can't list or open it.
+        if (function_exists('posix_geteuid') && posix_geteuid() === 0 && ($web = @posix_getpwnam('www-data'))) {
+            @chown($dir, $web['uid']);
+            @chgrp($dir, $web['gid']);
+            @chown($dir.'/'.$name, $web['uid']);
+            @chgrp($dir.'/'.$name, $web['gid']);
+        }
 
         return $name;
     }
