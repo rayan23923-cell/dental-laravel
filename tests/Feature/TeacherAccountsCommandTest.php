@@ -79,6 +79,7 @@ class TeacherAccountsCommandTest extends TestCase
 
         $this->actingAs(User::factory()->create(['role' => 'super_admin']));
         $this->get('/users/bulk-credentials/files/'.$files[0]['name'])->assertOk();
+        $this->get('/users/bulk-credentials/files/'.$files[0]['name'].'/cards')->assertOk()->assertSee('الرابعة')->assertSee('https://192.168.68.52');
         $this->get('/users/bulk-credentials/files/..%2F.env')->assertNotFound();
         $this->delete('/users/bulk-credentials/files/'.$files[0]['name'])->assertRedirect();
         $this->assertCount(0, BulkCredentials::loginFiles());

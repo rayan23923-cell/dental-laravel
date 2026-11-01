@@ -189,6 +189,7 @@ const applyLogins = () => {
                     <ul class="divide-y divide-gray-100">
                         <li v-for="f in files" :key="f.name" class="flex items-center gap-2 py-2 text-sm">
                             <span class="min-w-0 flex-1 truncate" dir="ltr">{{ f.name }}</span>
+                            <a :href="route('bulk-credentials.cards', f.name)" target="_blank" class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-indigo-50 text-indigo-700 hover:bg-indigo-100" :title="t('bulkCredentials.printCards')"><Icon name="print" /></a>
                             <a :href="route('bulk-credentials.download', f.name)" download class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200" :title="t('bulkCredentials.downloadFile')"><Icon name="download" /></a>
                             <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-red-50 text-red-600 hover:bg-red-100" :title="t('bulkCredentials.deleteFile')" @click="removeFile(f)"><Icon name="delete" /></button>
                         </li>

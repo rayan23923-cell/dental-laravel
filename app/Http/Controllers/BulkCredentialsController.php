@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\ClinicSetting;
+use App\Models\Doctor;
 use App\Services\BulkCredentials;
 use App\Support\ExcelTransfer;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -43,6 +45,33 @@ class BulkCredentialsController extends Controller
         $path = BulkCredentials::loginFilePath($name) ?? abort(404);
 
         return response()->download($path, $name, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /**
+     * A login file as cards to print on A4 (10 per page, cut along the
+     * dashed lines) and hand out (2026-11-01, by request).
+     */
+    public function cards(string $name): View
+    {
+        $path = BulkCredentials::loginFilePath($name) ?? abort(404);
+        $rows = $this->csvRows($path);
+
+        $stages = Doctor::query()
+            ->whereIn('username', collect($rows)->where('account_type', 'doctor')->pluck('username'))
+            ->with('stage:id,name')->get(['username', 'stage_id'])
+            ->mapWithKeys(fn ($d) => [$d->username => $d->stage?->name]);
+        $cards = collect($rows)->map(fn ($r) => $r + [
+            'label' => ($r['account_type'] ?? '') === 'doctor' ? ($stages[$r['username'] ?? ''] ?? 'طالب') : 'تدريسي',
+        ])->sortBy([['label', 'asc'], ['name', 'asc']])->values();
+
+        $setting = ClinicSetting::query()->find(1);
+
+        return view('bulk-credentials-cards', [
+            'cards' => $cards,
+            'title' => $setting?->clinic_name ?: config('app.name'),
+            'loginUrl' => 'https://clinic.lan',
+            'altUrl' => 'https://192.168.68.52',
+        ]);
     }
 
     public function destroy(string $name): RedirectResponse
@@ -133,7 +162,13 @@ class BulkCredentialsController extends Controller
             return array_values(ExcelTransfer::read($file));
         }
 
-        $handle = fopen($file->getRealPath(), 'r');
+        return $this->csvRows($file->getRealPath());
+    }
+
+    /** @return list<array<string, string>> */
+    private function csvRows(string $path): array
+    {
+        $handle = fopen($path, 'r');
         $headers = null;
         $rows = [];
         while (($row = fgetcsv($handle)) !== false) {
