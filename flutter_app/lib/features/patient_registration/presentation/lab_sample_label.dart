@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
@@ -12,6 +14,8 @@ class LabSampleLabel extends StatelessWidget {
     required this.title,
     required this.circleText,
     this.subtitle,
+    this.qrBytes,
+    this.qrCaption,
     this.widthDots = 384,
   });
 
@@ -19,6 +23,11 @@ class LabSampleLabel extends StatelessWidget {
   final String title;
   final String circleText;
   final String? subtitle;
+
+  /// The patient's QR (2026-11-01, by request): scanned when the result is
+  /// ready to open the patient, pick the result and take the fee.
+  final Uint8List? qrBytes;
+  final String? qrCaption;
   final double widthDots;
 
   @override
@@ -73,6 +82,11 @@ class LabSampleLabel extends StatelessWidget {
               textDirection: TextDirection.ltr,
               child: Text(DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()), style: const TextStyle(color: black, fontSize: 16)),
             ),
+            if (qrBytes != null) ...[
+              const SizedBox(height: 10),
+              Image.memory(qrBytes!, width: widthDots * 0.55, height: widthDots * 0.55, filterQuality: FilterQuality.none),
+              if (qrCaption != null) Text(qrCaption!, style: const TextStyle(color: black, fontSize: 16)),
+            ],
           ],
         ),
       ),

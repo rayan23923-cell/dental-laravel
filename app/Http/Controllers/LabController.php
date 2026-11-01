@@ -181,9 +181,19 @@ class LabController extends Controller
     {
         $this->authorizeLab($request);
 
+        // The patient's QR (2026-11-01, by request): scanning the sheet when
+        // the result is ready opens the patient to pick the result and pay.
+        $qr = (new PngWriter())->write(new QrCode(
+            data: QrCodeFactory::payload('patient_registration', $patientRegistration->id),
+            errorCorrectionLevel: ErrorCorrectionLevel::Medium,
+            size: 300,
+            margin: 10,
+        ));
+
         return view('print.lab-sample', [
             'settings' => ClinicSetting::current(),
             'registration' => $patientRegistration->load('service'),
+            'qrDataUri' => $qr->getDataUri(),
             'autoprint' => $request->boolean('autoprint'),
         ]);
     }

@@ -258,6 +258,16 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
     final t = ref.read(translationsProvider);
     final r = _state.registration;
     try {
+      Uint8List? qrBytes;
+      try {
+        qrBytes = Uint8List.fromList(
+            await ref.read(apiClientProvider).getBytes(PatientRegistrationRepository.labQrPath(r.id)));
+      } catch (_) {
+        qrBytes = null;
+      }
+      if (!mounted) return;
+      await precacheTicketImages(context, [qrBytes]);
+      if (!mounted) return;
       final printerSettings = canPrintTickets ? await ref.read(printerSettingsProvider.future) : null;
       if (!mounted) return;
       final pngBytes = await renderWidgetToPng(
@@ -267,6 +277,8 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
           title: t['screening.sampleTitle']!,
           circleText: t['screening.sampleCircle']!,
           subtitle: r.serviceName,
+          qrBytes: qrBytes,
+          qrCaption: t['screening.sampleQrCaption']!,
           widthDots: printerSettings?.dotsPerLine ?? 576,
         ),
       );

@@ -46,6 +46,7 @@ class LabAndBulkDeleteTest extends TestCase
         $this->actingAs($this->admin())->get("/lab/{$a->id}/sample?autoprint=1")->assertOk()
             ->assertSee('Ali Hassan')
             ->assertSee('هنا توضع العينات')
+            ->assertSee('data:image/png;base64', false)
             ->assertSee('window.print()', false);
     }
 
