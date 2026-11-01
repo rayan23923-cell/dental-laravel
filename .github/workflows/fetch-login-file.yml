@@ -1,0 +1,59 @@
+name: Fetch a login file (encrypted)
+
+# Run by hand (2026-11-01, by request: print login cards for the 4th and
+# 5th stage doctors). Copies one login file from the hosting
+# (storage/app/bulk-logins, see App\Services\BulkCredentials) into a
+# one-day artifact, encrypted for the RSA public key given, so only the
+# holder of the private key can read the passwords. The file never
+# appears in the log.
+on:
+  workflow_dispatch:
+    inputs:
+      file:
+        description: Login file name, e.g. doctors-logins-20261101-022939.csv
+        required: true
+      public_key:
+        description: RSA public key (PEM), base64 on one line
+        required: true
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the file name
+        env:
+          FILE: ${{ inputs.file }}
+        run: |
+          printf '%s' "$FILE" | grep -Eq '^[A-Za-z0-9._-]+\.csv$' || { echo "Bad file name"; exit 1; }
+
+      - name: Set up SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/vps_key
+          chmod 600 ~/.ssh/vps_key
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Copy and encrypt
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          FILE: ${{ inputs.file }}
+          PUBLIC_KEY: ${{ inputs.public_key }}
+        run: |
+          umask 077
+          mkdir -p out
+          printf '%s' "$PUBLIC_KEY" | base64 -d > pub.pem
+          ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" "sudo docker exec dental-app cat storage/app/bulk-logins/$FILE" > plain.csv
+          echo "Rows: $(($(wc -l < plain.csv) - 1))"
+          openssl rand -hex 32 > key.txt
+          openssl enc -aes-256-cbc -pbkdf2 -salt -in plain.csv -out out/file.csv.enc -pass file:key.txt
+          openssl pkeyutl -encrypt -pubin -inkey pub.pem -pkeyopt rsa_padding_mode:oaep -in key.txt -out out/key.bin
+          shred -u plain.csv key.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: login-file-encrypted
+          path: out/
+          retention-days: 1
