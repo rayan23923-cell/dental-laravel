@@ -17,6 +17,7 @@ class SendDoctorCredentials extends Command
         {--stage=* : Stage id, or part of its name (e.g. الرابعة)}
         {--login-url= : Link in the email (default: this server\'s login page)}
         {--alt-url=* : Other addresses of the server listed in the email, e.g. https://192.168.68.52}
+        {--save-file : Keep the login file on this server (downloadable on /users/bulk-credentials)}
         {--dry-run : Only show who would get an email}';
 
     protected $description = 'Reset the passwords of the doctors in the given stages and email them their login details';
@@ -50,6 +51,12 @@ class SendDoctorCredentials extends Command
         $mail = BulkCredentials::links($this->option('login-url'), (array) $this->option('alt-url'));
         ['reset' => $reset, 'no_email' => $noEmail] = BulkCredentials::resetDoctors($stages->pluck('id')->all(), $mail, $dry);
 
+        foreach (BulkCredentials::stageSummary()->whereIn('id', $stages->pluck('id')) as $s) {
+            $this->line("  {$s['name']} ({$s['education_type']}): {$s['with_email']} of {$s['doctors']} doctors have an email");
+        }
+        if (! $dry && $reset && $this->option('save-file')) {
+            $this->info('Login file saved: '.BulkCredentials::saveLoginFile($reset, 'doctors-logins'));
+        }
         $this->info(($dry ? '[dry run] would email ' : 'Reset and queued emails for ').count($reset).' doctors.');
         if ($reset) {
             $this->table(['name', 'username', 'email'], array_map(fn ($r) => [$r['name'], $r['username'], $r['email']], $reset));

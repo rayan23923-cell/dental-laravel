@@ -8,6 +8,7 @@ use App\Models\EducationType;
 use App\Models\QueuedEmail;
 use App\Models\Stage;
 use App\Models\User;
+use App\Services\BulkCredentials;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
@@ -68,7 +69,19 @@ class TeacherAccountsCommandTest extends TestCase
         $this->artisan('doctors:send-credentials', ['--stage' => ['الرابعة', 'الخامسة'], '--dry-run' => true])->assertSuccessful();
         $this->assertSame(0, QueuedEmail::count());
 
-        $this->artisan('doctors:send-credentials', ['--stage' => ['الرابعة', 'الخامسة']] + self::LINKS)->assertSuccessful();
+        array_map('unlink', glob(BulkCredentials::filesDir().'/*.csv') ?: []);
+        $this->artisan('doctors:send-credentials', ['--stage' => ['الرابعة', 'الخامسة'], '--save-file' => true] + self::LINKS)->assertSuccessful();
+        $files = BulkCredentials::loginFiles();
+        $this->assertCount(1, $files);
+        $saved = file_get_contents(BulkCredentials::filesDir().'/'.$files[0]['name']);
+        $this->assertStringContainsString('a@example.com', $saved);
+        $this->assertStringNotContainsString('c@example.com', $saved);
+
+        $this->actingAs(User::factory()->create(['role' => 'super_admin']));
+        $this->get('/users/bulk-credentials/files/'.$files[0]['name'])->assertOk();
+        $this->get('/users/bulk-credentials/files/..%2F.env')->assertNotFound();
+        $this->delete('/users/bulk-credentials/files/'.$files[0]['name'])->assertRedirect();
+        $this->assertCount(0, BulkCredentials::loginFiles());
 
         $this->assertEqualsCanonicalizing(['a@example.com', 'b@example.com'], QueuedEmail::pluck('recipient_email')->all());
         $mail = QueuedEmail::where('recipient_email', 'a@example.com')->first();

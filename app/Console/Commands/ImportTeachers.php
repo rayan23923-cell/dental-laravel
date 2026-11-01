@@ -17,6 +17,7 @@ class ImportTeachers extends Command
         {--login-url= : Link in the email (default: this server\'s login page)}
         {--alt-url=* : Other addresses of the server listed in the email, e.g. https://192.168.68.52}
         {--no-email : Create the accounts without queueing emails}
+        {--save-file : Keep the login file on this server (downloadable on /users/bulk-credentials)}
         {--dry-run : Only show what would be done}';
 
     protected $description = 'Create teaching-staff (تدريسي) accounts from a CSV of names and emails and email them their login details';
@@ -34,6 +35,9 @@ class ImportTeachers extends Command
         $mail = $this->option('no-email') ? null : BulkCredentials::links($this->option('login-url'), (array) $this->option('alt-url'));
         ['created' => $created, 'skipped' => $skipped] = BulkCredentials::importTeachers(self::readCsv($file), $mail, $dry);
 
+        if (! $dry && $created && $this->option('save-file')) {
+            $this->info('Login file saved: '.BulkCredentials::saveLoginFile($created, 'teachers-logins'));
+        }
         $this->info(($dry ? '[dry run] would create ' : 'Created ').count($created).' teacher accounts'.($dry || $mail === null ? '' : ' and queued their emails').'.');
         if ($created) {
             $this->table(['name', 'username', 'email'], array_map(fn ($r) => [$r['name'], $r['username'], $r['email']], $created));
