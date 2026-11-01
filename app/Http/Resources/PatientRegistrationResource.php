@@ -32,6 +32,9 @@ class PatientRegistrationResource extends JsonResource
             'discount_stage' => $this->discount_stage,
             'discount_workplace' => $this->discount_workplace,
             'discount_person_name' => $this->discount_person_name,
+            // Care code (2026-11-01): the visit is free; see App\Support\SupportCodes.
+            'supported' => $this->support_code_id !== null,
+            'support_code' => $this->support_code_id ? \App\Models\SupportCode::whereKey($this->support_code_id)->value('code') : null,
             // What this patient pays for the service: its price, less the
             // student discount when eligible.
             // Once paid, the amounts recorded with the payment (2026-11-01, by
@@ -91,6 +94,10 @@ class PatientRegistrationResource extends JsonResource
     {
         if (! $this->service) {
             return [null, null];
+        }
+
+        if ($this->support_code_id) {
+            return [0.0, $this->service->price !== null ? (float) $this->service->price : null];
         }
 
         if ($this->resource->exists && ($recorded = StudentDiscount::recorded($this->resource, \App\Models\Payment::TYPE_SERVICE))) {

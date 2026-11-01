@@ -14,7 +14,8 @@ import TextInput from '@/Components/TextInput.vue';
 import ChatAction from '@/Components/ChatList/ChatAction.vue';
 import ChatAddButton from '@/Components/ChatList/ChatAddButton.vue';
 import ExcelTransferButtons from '@/Components/ExcelTransferButtons.vue';
-import { Head, router, useForm, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
+import Icon from '@/Components/Icon.vue';
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -22,6 +23,8 @@ const { t } = useI18n();
 const props = defineProps({
     services: Array,
     lab: { type: Object, default: () => ({}) },
+    // Care cards (2026-11-01, by request): on/off here, the codes on their own page.
+    supportCodes: { type: Object, default: () => ({ enabled: false, counts: {}, canManage: false }) },
 });
 
 const page = usePage();
@@ -65,6 +68,10 @@ const labForm = useForm({
 });
 const submitLab = () => {
     labForm.put(route('register-settings.lab'), { preserveScroll: true });
+};
+
+const toggleSupportCodes = (event) => {
+    router.put(route('register-settings.support-codes'), { support_codes_enabled: event.target.checked }, { preserveScroll: true });
 };
 </script>
 
@@ -174,6 +181,26 @@ const submitLab = () => {
                         </div>
                         <PrimaryButton class="rounded-full" :disabled="labForm.processing">{{ t('profile.save') }}</PrimaryButton>
                     </form>
+                </div>
+
+                <!-- Care cards (2026-11-01, by request) -->
+                <div class="overflow-hidden rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
+                    <h3 class="mb-1 flex items-center gap-2 font-semibold text-gray-800">
+                        <Icon name="volunteer_activism" class="text-teal-600" />{{ t('patientReg.supportSettingsHeading') }}
+                    </h3>
+                    <p class="mb-4 text-sm text-gray-500">{{ t('patientReg.supportSettingsDesc') }}</p>
+                    <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 px-4 py-3">
+                        <input type="checkbox" :checked="supportCodes.enabled" class="h-5 w-5 rounded border-gray-300 text-teal-600 focus:ring-teal-500" @change="toggleSupportCodes" />
+                        <span class="text-sm font-medium text-gray-800">{{ t('patientReg.supportSettingsToggle') }}</span>
+                    </label>
+                    <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                        <span class="text-sm text-gray-600">
+                            {{ t('patientReg.supportSettingsCounts', { active: supportCodes.counts?.active ?? 0, used: supportCodes.counts?.used ?? 0, disabled: supportCodes.counts?.disabled ?? 0 }) }}
+                        </span>
+                        <Link v-if="supportCodes.canManage" :href="route('support-codes.index')" class="inline-flex items-center gap-1 rounded-full bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700">
+                            <Icon name="style" />{{ t('patientReg.supportManage') }}
+                        </Link>
+                    </div>
                 </div>
             </div>
         </div>

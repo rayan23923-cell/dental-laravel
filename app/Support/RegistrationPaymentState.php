@@ -58,6 +58,8 @@ class RegistrationPaymentState
                 $lab->isNotEmpty() ? (float) $lab->sum('amount') : (float) ($labFee ?? 0),
                 $labFull,
             ),
+            // Free with a care code (2026-11-01): no service or lab fee.
+            'supported' => $registration->support_code_id !== null,
             'lab_validity_days' => LabFeeGate::validityDays(),
             'previous_screening' => $previous ? [
                 'id' => $previous->id,

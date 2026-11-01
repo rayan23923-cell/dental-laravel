@@ -37,7 +37,8 @@
         "lab": "المختبر",
         "offlineLicenses": "رموز النسخة الأوفلاين",
         "bulkCredentials": "بيانات الدخول الجماعية",
-        "users": "إدارة المستخدمين"
+        "users": "إدارة المستخدمين",
+        "supportCodes": "بطاقات الرعاية"
     },
     "auth": {
         "pageTitle": "تسجيل الدخول",
@@ -348,7 +349,20 @@
         "savePrice": "حفظ",
         "discountStudentName": "اسم الطالب",
         "discountEmployeeName": "اسم الموظف",
-        "discountStagePick": "اختر المرحلة"
+        "discountStagePick": "اختر المرحلة",
+        "supportCare": "مشمول بالرعاية (بطاقة رعاية)",
+        "supportCareHint": "أدخل رمز البطاقة المكوّن من 5 أرقام — تصبح أجور الخدمة والمختبر صفرًا.",
+        "supportCodeLabel": "رمز الرعاية",
+        "supportCodeCheck": "تحقق",
+        "supportCodeValid": "الرمز صالح — الخدمة والمختبر بدون أجور.",
+        "supportFree": "بدون أجور — مشمول بالرعاية",
+        "supportLabFree": "فحص المختبر: بدون أجور",
+        "supportSettingsHeading": "بطاقات الرعاية (العلاج المجاني)",
+        "supportSettingsDesc": "أكواد من 5 أرقام تُطبع على بطاقات وتوزَّع؛ تُدخل عند تسجيل المريض فتصبح أجور الخدمة والمختبر صفرًا. كل رمز يُستخدم مرة واحدة.",
+        "supportSettingsToggle": "تفعيل خيار بطاقات الرعاية عند التسجيل",
+        "supportSettingsCounts": "فعّالة: {active} · مستخدمة: {used} · موقوفة: {disabled}",
+        "supportManage": "إدارة الأكواد وطباعة البطاقات",
+        "supportedChip": "رعاية"
     },
     "appointments": {
         "newAppointment": "موعد جديد",
@@ -1567,5 +1581,40 @@
         "today": "اليوم",
         "week": "هذا الأسبوع",
         "month": "هذا الشهر"
+    },
+    "supportCodes": {
+        "title": "بطاقات الرعاية",
+        "intro": "ولّد أكوادًا من 5 أرقام واطبعها بطاقات للقص والتوزيع. يُدخل الرمز عند تسجيل المريض فتكون أجور الخدمة والمختبر صفرًا، ويُستخدم الرمز مرة واحدة فقط.",
+        "disabledFeature": "الخاصية غير مفعلة حاليًا في إعدادات التسجيل، فلن يظهر خيار الرعاية عند التسجيل.",
+        "openSettings": "إعدادات التسجيل",
+        "generateHeading": "توليد أكواد جديدة",
+        "count": "عدد الأكواد",
+        "note": "ملاحظة (اختياري)",
+        "notePlaceholder": "مثال: دفعة تشرين الثاني",
+        "generate": "توليد",
+        "all": "الكل",
+        "active": "فعّالة",
+        "used": "مستخدمة",
+        "disabled": "موقوفة",
+        "search": "بحث برمز",
+        "batch": "الدفعة",
+        "allBatches": "كل الدفعات",
+        "batchOption": "دفعة {batch} — {active} فعّالة من {total}",
+        "code": "الرمز",
+        "status": "الحالة",
+        "patient": "المريض",
+        "createdAt": "تاريخ التوليد",
+        "usedAt": "تاريخ الاستخدام",
+        "printSelected": "طباعة المحدد ({n})",
+        "printBatch": "طباعة بطاقات الدفعة",
+        "printActive": "طباعة كل الفعّالة",
+        "disableSelected": "إيقاف المحدد",
+        "enableSelected": "تفعيل المحدد",
+        "disableBatch": "إيقاف الدفعة كاملة",
+        "disableBatchConfirm": "إيقاف كل الأكواد غير المستخدمة في الدفعة {batch}؟",
+        "disableConfirm": "إيقاف {n} رمز؟ لن يمكن استخدامها حتى تُفعَّل من جديد.",
+        "disable": "إيقاف",
+        "enable": "تفعيل",
+        "empty": "لا توجد أكواد بعد."
     }
 }

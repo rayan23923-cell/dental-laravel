@@ -103,6 +103,9 @@ const primaryLinks = computed(() => [
     ...(!isAdmin.value && navCan.value.waiting_screen ? [{ label: t('nav.waitingScreenSettings'), icon: 'tv', href: route('waiting-screen-settings.edit'), active: route().current('waiting-screen-settings.*') }] : []),
     // Bulk login details follow their own permission (2026-11-01).
     ...(!isAdmin.value && navCan.value.bulk_credentials ? [{ label: t('nav.bulkCredentials'), icon: 'group_add', href: route('bulk-credentials.index'), active: route().current('bulk-credentials.*') }] : []),
+    // Care cards follow their own permission (2026-11-01); a top-level link
+    // for admins too, by request, not only inside "الإعدادات".
+    ...(navCan.value.support_codes ? [{ label: t('nav.supportCodes'), icon: 'volunteer_activism', href: route('support-codes.index'), active: route().current('support-codes.*') }] : []),
 ]);
 
 // "إدارة المرضى" — always visible (patients/patient-registrations are

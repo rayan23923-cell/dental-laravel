@@ -66,11 +66,21 @@ class PaymentController extends Controller
         $query = $this->filteredQuery($request, $sources);
         $stats = new PaymentStats(null, $sources);
 
+        $payments = (clone $query)->with(['appointment', 'patientRegistration.service'])->latest('paid_at')->get();
+        $source = $request->string('source')->toString() ?: null;
+
         return response()->json([
             'data' => [
-                'payments' => PaymentResource::collection(
-                    (clone $query)->with(['appointment', 'patientRegistration.service'])->latest('paid_at')->get()
-                )->resolve(),
+                'payments' => PaymentResource::collection($payments)->resolve(),
+                // The report's last page (2026-11-01, by request): care-code
+                // patients and the student/employee discount's beneficiaries.
+                'supported' => \App\Support\SupportCodes::reportRowsFor([
+                    'from' => $request->string('from')->toString() ?: null,
+                    'to' => $request->string('to')->toString() ?: null,
+                    'search' => $request->string('search')->toString(),
+                    'source' => $source,
+                ], $sources),
+                'discounted' => \App\Support\SupportCodes::discountRows($payments),
                 'periods' => $stats->periods(),
                 'daily' => $stats->daily(),
                 'monthly' => $stats->monthly(),
@@ -140,6 +150,12 @@ class PaymentController extends Controller
             } catch (PatientScreeningException $e) {
                 return response()->json(['message' => $e->getMessage()], 422);
             }
+        }
+
+        // Free with a care code (2026-11-01): nothing is charged to that patient.
+        if (! empty($validated['patient_registration_id'])
+            && PatientRegistration::whereKey($validated['patient_registration_id'])->whereNotNull('support_code_id')->exists()) {
+            return response()->json(['message' => 'هذا المريض '.\App\Support\SupportCodes::LABEL.'، فلا أجور عليه.'], 422);
         }
 
         // Lab fee: always the configured amount, once per registration.

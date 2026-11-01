@@ -58,6 +58,8 @@ class PatientRegistration extends Model
         'discount_workplace',
         // The student's / employee's name (2026-11-01).
         'discount_person_name',
+        // Care code that made the visit free (2026-11-01), see App\Support\SupportCodes.
+        'support_code_id',
     ];
 
     protected function casts(): array
@@ -66,6 +68,17 @@ class PatientRegistration extends Model
             'created_at' => 'datetime',
             'discount_eligible' => 'boolean',
         ];
+    }
+
+    public function supportCode(): BelongsTo
+    {
+        return $this->belongsTo(SupportCode::class);
+    }
+
+    /** True when a care code made this visit free (2026-11-01). */
+    public function isSupported(): bool
+    {
+        return $this->support_code_id !== null;
     }
 
     public function service(): BelongsTo

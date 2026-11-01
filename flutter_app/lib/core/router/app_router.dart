@@ -25,6 +25,7 @@ import '../../features/patient_registration/presentation/patient_registration_li
 import '../../features/patient_registration/presentation/patient_registration_payment_screen.dart';
 import '../../features/patient_registration/presentation/patient_registration_screening_screen.dart';
 import '../../features/patient_registration/presentation/register_settings_screen.dart';
+import '../../features/patient_registration/presentation/support_codes_screen.dart';
 import '../../features/permissions_admin/presentation/permission_edit_screen.dart';
 import '../../features/permissions_admin/presentation/permission_user_list_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
@@ -202,6 +203,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/records/patient-registrations/settings',
         builder: (context, state) => const RegisterSettingsScreen(),
+      ),
+      // Care cards (2026-11-01, by request).
+      GoRoute(
+        path: '/records/patient-registrations/support-codes',
+        builder: (context, state) => const SupportCodesScreen(),
       ),
       GoRoute(
         path: '/records/patient-registrations/scan',

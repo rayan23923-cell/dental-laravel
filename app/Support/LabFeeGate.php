@@ -43,6 +43,14 @@ class LabFeeGate
         // Less the student discount when the patient is eligible (2026-10-25).
         $fee = StudentDiscount::labFee($registration);
 
+        // Free with a care code (2026-11-01): nothing is booked against the
+        // lab; the code keeps the fee that was not charged for the report.
+        if ($registration->support_code_id && ! self::previousScreening($registration)) {
+            SupportCodes::noteLabWaived($registration);
+
+            return null;
+        }
+
         if ($fee === null || $fee <= 0 || self::previousScreening($registration)) {
             return null;
         }

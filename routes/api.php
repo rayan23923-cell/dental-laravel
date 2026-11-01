@@ -269,6 +269,13 @@ Route::name('api.')->prefix('v1')->group(function () {
         // clinic settings' admin gate.
         Route::put('/register-settings/lab', [ClinicSettingController::class, 'updateLab'])
             ->middleware('permission:register_settings,edit');
+        // Care codes (2026-11-01, by request): on/off, the codes, and the desk's check.
+        Route::put('/register-settings/support-codes', [ClinicSettingController::class, 'updateSupportCodes'])
+            ->middleware('permission:register_settings,edit');
+        Route::get('/support-codes', [\App\Http\Controllers\Api\SupportCodeController::class, 'index'])->middleware('permission:support_codes,view');
+        Route::post('/support-codes', [\App\Http\Controllers\Api\SupportCodeController::class, 'store'])->middleware('permission:support_codes,generate');
+        Route::post('/support-codes/status', [\App\Http\Controllers\Api\SupportCodeController::class, 'status'])->middleware('permission:support_codes,disable');
+        Route::post('/support-codes/check', [\App\Http\Controllers\Api\SupportCodeController::class, 'check'])->middleware('permission:patients,create');
 
         Route::get('/education-types', [LookupController::class, 'educationTypes']);
         Route::post('/education-types', [LookupController::class, 'storeEducationType'])->middleware('role:super_admin,admin');

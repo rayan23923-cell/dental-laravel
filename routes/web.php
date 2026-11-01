@@ -463,6 +463,13 @@ Route::middleware('auth')->group(function () {
             ->name('doctors.cards');
     });
 
+    // Care codes, "بطاقات الرعاية" (2026-11-01, by request): see App\Support\SupportCodes.
+    Route::get('/support-codes', [\App\Http\Controllers\SupportCodeController::class, 'index'])->middleware('permission:support_codes,view')->name('support-codes.index');
+    Route::get('/support-codes/cards', [\App\Http\Controllers\SupportCodeController::class, 'cards'])->middleware('permission:support_codes,generate')->name('support-codes.cards');
+    Route::post('/support-codes', [\App\Http\Controllers\SupportCodeController::class, 'store'])->middleware('permission:support_codes,generate')->name('support-codes.store');
+    Route::post('/support-codes/status', [\App\Http\Controllers\SupportCodeController::class, 'status'])->middleware('permission:support_codes,disable')->name('support-codes.status');
+    Route::post('/support-codes/check', [\App\Http\Controllers\SupportCodeController::class, 'check'])->middleware('permission:patients,create')->name('support-codes.check');
+
     // Bulk accounts and login emails (2026-10-31, by request): teachers
     // from a list and new passwords for whole stages, made and emailed on
     // the hosting; on the offline server the same logins are saved from the
@@ -699,6 +706,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/register-services-export', [ExcelTransferController::class, 'exportServices'])->name('register-services.export');
         Route::post('/register-services-import', [ExcelTransferController::class, 'importServices'])->name('register-services.import');
         Route::put('/register-settings/lab', [RegisterSettingsController::class, 'updateLab'])->name('register-settings.lab');
+        Route::put('/register-settings/support-codes', [RegisterSettingsController::class, 'updateSupportCodes'])->name('register-settings.support-codes');
         Route::put('/tasks/{task}/register-days', [RegisterSettingsController::class, 'updateTaskDays'])->name('tasks.register-days.update');
     });
 

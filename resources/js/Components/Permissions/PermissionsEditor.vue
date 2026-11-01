@@ -148,6 +148,7 @@ const moduleIcons = {
     register_settings: ['tune', 'bg-yellow-700'],
     waiting_screen: ['tv', 'bg-sky-700'],
     bulk_credentials: ['group_add', 'bg-cyan-700'],
+    support_codes: ['volunteer_activism', 'bg-teal-700'],
 };
 const iconOf = (module) => moduleIcons[module.key]?.[0] ?? 'shield';
 const toneOf = (module) => moduleIcons[module.key]?.[1] ?? 'bg-slate-500';

@@ -59,6 +59,8 @@ class ClinicSetting extends Model
         'lab_validity_days',
         // Student discount on the lab fee (2026-10-25), see App\Support\StudentDiscount.
         'lab_student_discount_percent',
+        // Care codes on/off (2026-11-01), see App\Support\SupportCodes.
+        'support_codes_enabled',
         'groups_enabled',
         // "إعدادات النماذج" (2026-10-22), see App\Support\FormSettings.
         'electronic_forms_enabled',
@@ -117,6 +119,7 @@ class ClinicSetting extends Model
             'step_add_enabled' => 'boolean',
             'steps_enabled' => 'boolean',
             'task_cancel_enabled' => 'boolean',
+            'support_codes_enabled' => 'boolean',
         ];
     }
 

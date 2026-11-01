@@ -222,6 +222,10 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
             if (reusedFrom != null) ...[
               (t['screening.paymentStatus']!, t['screening.exemptPrevious']!),
               (t['screening.previousCheckedAt']!, _formatDate(reusedFrom.checkedAt)),
+            ] else if (state.registration.supported) ...[
+              // Free with a care card (2026-11-01, by request).
+              (t['screening.paymentStatus']!, '0'),
+              (t['screening.statusLabel']!, t['patientRegFlutter.supportedLabel']!),
             ] else if (state.labPaid) ...[
               // Student/employee discount (2026-10-25, by request).
               ...discountAmountRows(
@@ -380,8 +384,10 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '${t['screening.paymentStatus']!}: ${_state.labPaid ? t['screening.paid']! : _feeDue ? t['screening.feeWithResult']! : t['screening.unpaid']!}'
-                    '${(_state.labFee ?? 0) > 0 ? ' (${NumberFormat('#,##0.##').format(_state.labFee)})' : ''}',
+                    _state.registration.supported
+                        ? '${t['screening.paymentStatus']!}: ${t['patientRegFlutter.supportedLabel']!}'
+                        : '${t['screening.paymentStatus']!}: ${_state.labPaid ? t['screening.paid']! : _feeDue ? t['screening.feeWithResult']! : t['screening.unpaid']!}'
+                            '${(_state.labFee ?? 0) > 0 ? ' (${NumberFormat('#,##0.##').format(_state.labFee)})' : ''}',
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),

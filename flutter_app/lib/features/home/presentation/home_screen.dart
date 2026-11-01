@@ -121,6 +121,10 @@ class _StaffDashboard extends ConsumerWidget {
     // The lab's / ticket desk's own payments are named for them (2026-10-26).
     final paymentsShortcut = _Shortcut(
         staffPaymentSources(ref)?.length == 1 ? t[paymentsTitleKey(staffPaymentSources(ref))]! : t['labels.payments']!, Icons.payments_outlined, () => context.push('/records/payments'), Colors.orange, '/records/payments');
+    // Care cards (2026-11-01, by request): a home shortcut for whoever has
+    // the permission (filtered below like the others).
+    final careShortcut = _Shortcut(t['supportCodes.title']!, Icons.volunteer_activism_outlined,
+        () => context.push('/records/patient-registrations/support-codes'), Colors.teal, '/records/patient-registrations/support-codes');
     // Roles with a home of their own (2026-10-18, by request): the lab, the
     // ticket desk and the accountant see their own panels and shortcuts
     // instead of the admin dashboard.
@@ -133,11 +137,11 @@ class _StaffDashboard extends ConsumerWidget {
     // The lab and the ticket desk also see their own income (2026-10-26),
     // when given it (the shortcuts below are filtered by permission).
     final shortcuts = role == 'reception'
-        ? [registerShortcut, paymentsShortcut]
+        ? [registerShortcut, paymentsShortcut, careShortcut]
         : role == 'lab'
-            ? [labShortcut, paymentsShortcut]
+            ? [labShortcut, paymentsShortcut, careShortcut]
             : role == 'accountant'
-                ? [paymentsShortcut]
+                ? [paymentsShortcut, careShortcut]
             : [
       registerShortcut,
       // Appointments hidden for now (2026-10-13, by request), as on the web.
@@ -155,6 +159,7 @@ class _StaffDashboard extends ConsumerWidget {
       // (2026-08-26) so "المختبر" is a first-class shortcut like every
       // other daily action here.
       labShortcut,
+      careShortcut,
       // "عرض تقدم الأطباء", as on the web dashboard: the doctors list,
       // where each doctor's progress opens.
       if (dashboard?.canDoctors ?? false)

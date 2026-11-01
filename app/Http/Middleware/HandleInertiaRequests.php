@@ -88,6 +88,7 @@ class HandleInertiaRequests extends Middleware
                 'waiting_screen' => $perm->can('waiting_screen', 'view'),
                 'waiting_screen_pair' => $perm->can('waiting_screen', 'pair'),
                 'bulk_credentials' => $perm->can('bulk_credentials', 'view'),
+                'support_codes' => $perm->can('support_codes', 'view'),
             ] : [],
             // Groups on/off from clinic settings — see ClinicSetting::groupsEnabled().
             'groupsEnabled' => fn () => ClinicSetting::groupsEnabled(),

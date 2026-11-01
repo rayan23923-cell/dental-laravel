@@ -167,6 +167,7 @@ class PatientRegistrationRepository {
     String? discountStage,
     String? discountWorkplace,
     String? discountPersonName,
+    String? supportCode,
   }) async {
     // No `register_day_id` since 2026-10-12 — registration is by service
     // only (the server column is nullable now). No amount either: the
@@ -185,6 +186,8 @@ class PatientRegistrationRepository {
       if (discountEligible && discountWorkplace != null) 'discount_workplace': discountWorkplace,
       // The student's / employee's name (2026-11-01).
       if (discountEligible && discountPersonName != null) 'discount_person_name': discountPersonName,
+      // Care card (2026-11-01): the 5-digit code makes the service and the lab free.
+      if (supportCode != null && supportCode.isNotEmpty) 'support_code': supportCode,
     }) as Map<String, dynamic>;
     return PatientRegistration.fromJson(data['data'] as Map<String, dynamic>);
   }

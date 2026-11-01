@@ -105,7 +105,7 @@ class Payment {
 /// filters plus the same overview as `/payments/stats` — the data of the
 /// web `print/payments-report` page.
 class PaymentReport {
-  const PaymentReport({required this.payments, required this.stats});
+  const PaymentReport({required this.payments, required this.stats, this.supported = const [], this.discounted = const []});
 
   factory PaymentReport.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>;
@@ -114,9 +114,91 @@ class PaymentReport {
           .map((e) => Payment.fromJson(e as Map<String, dynamic>))
           .toList(),
       stats: PaymentStats.fromJson(json),
+      supported: ((data['supported'] as List<dynamic>?) ?? const [])
+          .map((e) => SupportedReportRow.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      discounted: ((data['discounted'] as List<dynamic>?) ?? const [])
+          .map((e) => DiscountedReportRow.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 
   final List<Payment> payments;
   final PaymentStats stats;
+
+  /// The report's last page (2026-11-01, by request): patients treated free
+  /// with a care card, and the student/employee discount's beneficiaries.
+  /// Empty from older servers.
+  final List<SupportedReportRow> supported;
+  final List<DiscountedReportRow> discounted;
+}
+
+double? _num(Object? v) => v == null ? null : double.tryParse(v.toString());
+
+/// One care-card patient on the report's last page (2026-11-01).
+class SupportedReportRow {
+  const SupportedReportRow({
+    required this.name,
+    this.phone,
+    this.service,
+    required this.code,
+    this.waivedService,
+    this.waivedLab,
+    required this.waivedTotal,
+    this.usedAt,
+  });
+
+  factory SupportedReportRow.fromJson(Map<String, dynamic> json) => SupportedReportRow(
+        name: json['name'] as String? ?? '—',
+        phone: json['phone'] as String?,
+        service: json['service'] as String?,
+        code: json['code'] as String? ?? '',
+        waivedService: _num(json['waived_service']),
+        waivedLab: _num(json['waived_lab']),
+        waivedTotal: _num(json['waived_total']) ?? 0,
+        usedAt: json['used_at'] as String?,
+      );
+
+  final String name;
+  final String? phone;
+  final String? service;
+  final String code;
+  final double? waivedService;
+  final double? waivedLab;
+  final double waivedTotal;
+  final String? usedAt;
+}
+
+/// One discounted payment on the report's last page (2026-11-01).
+class DiscountedReportRow {
+  const DiscountedReportRow({
+    required this.name,
+    required this.who,
+    required this.source,
+    this.full,
+    this.percent,
+    required this.paid,
+    this.saved,
+    this.paidAt,
+  });
+
+  factory DiscountedReportRow.fromJson(Map<String, dynamic> json) => DiscountedReportRow(
+        name: json['name'] as String? ?? '—',
+        who: json['who'] as String? ?? '',
+        source: json['source'] as String? ?? 'registration',
+        full: _num(json['full']),
+        percent: json['percent']?.toString(),
+        paid: _num(json['paid']) ?? 0,
+        saved: _num(json['saved']),
+        paidAt: json['paid_at'] as String?,
+      );
+
+  final String name;
+  final String who;
+  final String source;
+  final double? full;
+  final String? percent;
+  final double paid;
+  final double? saved;
+  final String? paidAt;
 }

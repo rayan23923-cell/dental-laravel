@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' hide TextDirection;
+
+import '../../../core/auth/staff_access.dart';
 
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
@@ -58,6 +61,10 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
   bool _labLoading = true;
   bool _savingLab = false;
 
+  /// Care cards on/off (2026-11-01, by request).
+  bool _supportEnabled = false;
+  bool _savingSupport = false;
+
   @override
   void initState() {
     super.initState();
@@ -96,6 +103,7 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
       _labFeeController.text = settings.labFee == null ? '' : _plainAmount(settings.labFee!);
       _labValidityController.text = '${settings.labValidityDays}';
       _labDiscountController.text = _plainAmount(settings.labStudentDiscountPercent);
+      _supportEnabled = settings.supportCodesEnabled;
     } catch (e) {
       _showError(e, 'common.loadFailed');
     } finally {
@@ -131,6 +139,24 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
       _showError(e, 'profile.saveFailed');
     } finally {
       if (mounted) setState(() => _savingLab = false);
+    }
+  }
+
+  Future<void> _toggleSupport(bool enabled) async {
+    setState(() {
+      _savingSupport = true;
+      _supportEnabled = enabled;
+    });
+    try {
+      final settings = await ref.read(clinicSettingsRepositoryProvider).updateSupportCodes(enabled);
+      if (mounted) setState(() => _supportEnabled = settings.supportCodesEnabled);
+      ref.invalidate(clinicSettingsProvider);
+      _showMessage('registerSettings.saved');
+    } catch (e) {
+      if (mounted) setState(() => _supportEnabled = !enabled);
+      _showError(e, 'profile.saveFailed');
+    } finally {
+      if (mounted) setState(() => _savingSupport = false);
     }
   }
 
@@ -326,6 +352,31 @@ class _RegisterSettingsScreenState extends ConsumerState<RegisterSettingsScreen>
                   ? const SizedBox(height: 16, width: 16, child: TgSpinner(strokeWidth: 2))
                   : Text(t['profile.saveChanges']!),
             ),
+            // Care cards (2026-11-01, by request): free treatment by a 5-digit code.
+            const SizedBox(height: 24),
+            const Divider(),
+            const SizedBox(height: 8),
+            Text(t['supportCodes.settingsHeading']!, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(t['supportCodes.settingsDesc']!, style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 8),
+            Card(
+              margin: EdgeInsets.zero,
+              child: SwitchListTile(
+                secondary: const Icon(Icons.volunteer_activism_outlined),
+                title: Text(t['supportCodes.settingsToggle']!),
+                value: _supportEnabled,
+                onChanged: _savingSupport ? null : _toggleSupport,
+              ),
+            ),
+            if (staffCan(ref, 'support_codes', 'view')) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () => context.push('/records/patient-registrations/support-codes'),
+                icon: const Icon(Icons.style_outlined),
+                label: Text(t['supportCodes.manage']!),
+              ),
+            ],
           ],
         ],
       ),
