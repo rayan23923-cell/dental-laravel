@@ -182,6 +182,7 @@ class LabController extends Controller
         $this->authorizeLab($request);
 
         return view('print.lab-sample', [
+            'settings' => ClinicSetting::current(),
             'registration' => $patientRegistration->load('service'),
             'autoprint' => $request->boolean('autoprint'),
         ]);
