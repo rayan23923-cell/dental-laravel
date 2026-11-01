@@ -36,6 +36,7 @@
         "closeMenu": "Close menu",
         "lab": "Lab",
         "offlineLicenses": "Offline codes",
+        "bulkCredentials": "Bulk login details",
         "users": "Users"
     },
     "auth": {

@@ -101,6 +101,8 @@ const primaryLinks = computed(() => [
     ...(navCan.value.payments ? [{ label: paymentsTitle(navCan.value.payments_scope), icon: 'payments', href: route('payments.index'), active: route().current('payments.*') }] : []),
     ...(!isAdmin.value && navCan.value.register_settings ? [{ label: t('nav.registrationSettings'), icon: 'tune', href: route('patient-registrations.settings'), active: route().current('patient-registrations.settings') }] : []),
     ...(!isAdmin.value && navCan.value.waiting_screen ? [{ label: t('nav.waitingScreenSettings'), icon: 'tv', href: route('waiting-screen-settings.edit'), active: route().current('waiting-screen-settings.*') }] : []),
+    // Bulk login details follow their own permission (2026-11-01).
+    ...(!isAdmin.value && navCan.value.bulk_credentials ? [{ label: t('nav.bulkCredentials'), icon: 'group_add', href: route('bulk-credentials.index'), active: route().current('bulk-credentials.*') }] : []),
 ]);
 
 // "إدارة المرضى" — always visible (patients/patient-registrations are
@@ -146,6 +148,8 @@ const settingsLinks = computed(() => [
     // Users management (2026-10-21, by request). Permissions and department
     // roles left the menu (2026-10-22, by request): both open from here.
     { label: t('nav.users'), icon: 'manage_accounts', href: route('users.index'), active: route().current('users.*') || route().current('permissions.*') || route().current('department-roles.*') },
+    // Bulk login details (2026-11-01, by request): its own menu link and permission.
+    ...(navCan.value.bulk_credentials ? [{ label: t('nav.bulkCredentials'), icon: 'group_add', href: route('bulk-credentials.index'), active: route().current('bulk-credentials.*') }] : []),
     { label: t('nav.sendBroadcast'), icon: 'campaign', href: route('admin-broadcast.create'), active: route().current('admin-broadcast.*') },
     { label: t('nav.activityLog'), icon: 'history', href: route('activity-logs.index'), active: route().current('activity-logs.*') },
     { label: t('nav.backup'), icon: 'database', href: route('backup.index'), active: route().current('backup.*') },

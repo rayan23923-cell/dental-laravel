@@ -105,6 +105,13 @@ class TeacherAccountsCommandTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => 'admin']))
             ->post('/users/bulk-credentials/doctors', ['stage_ids' => [1], 'send_email' => true])->assertForbidden();
 
+        // Its own permission (2026-11-01): view alone opens the page, not the actions.
+        $staff = User::factory()->create(['role' => 'accountant']);
+        \App\Models\UserPermission::create(['user_id' => $staff->id, 'module' => 'bulk_credentials', 'permission' => 'view', 'granted' => true]);
+        $this->actingAs($staff)->get('/users/bulk-credentials')->assertOk();
+        $this->post('/users/bulk-credentials/doctors', ['stage_ids' => [1], 'send_email' => true])->assertForbidden();
+        $this->post('/users/bulk-credentials/apply', [])->assertForbidden();
+
         $this->actingAs($admin);
         $sheet = UploadedFile::fake()->createWithContent('teachers.csv', "\u{FEFF}الاسم,الايميل\nسارة علي,sara@tu.edu.iq\n");
         $teachers = $this->post('/users/bulk-credentials/teachers', ['file' => $sheet, 'send_email' => '1', 'login_url' => 'https://clinic.lan/login', 'alt_url' => 'https://192.168.68.52/login', 'wifi_name' => 'Clinic WiFi'])

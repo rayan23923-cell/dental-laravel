@@ -77,7 +77,7 @@ const filtered = computed(() => {
                         <Icon name="account_tree" />
                     </Link>
                     <Link
-                        v-if="page.props.auth?.user?.role === 'super_admin'"
+                        v-if="page.props.navCan?.bulk_credentials"
                         :href="route('bulk-credentials.index')"
                         :title="t('bulkCredentials.navLink')"
                         class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200"
