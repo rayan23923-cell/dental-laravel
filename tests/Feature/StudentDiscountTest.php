@@ -77,6 +77,7 @@ class StudentDiscountTest extends TestCase
         $this->actingAs($admin)->post('/patient-registrations', [
             'name' => 'Huda', 'phone' => '0773', 'service_id' => $service->id,
             'discount_eligible' => true, 'discount_type' => 'employee', 'discount_workplace' => 'Pharmacy', 'discount_stage' => 'Fifth',
+            'discount_person_name' => 'Huda Ali',
         ])->assertRedirect();
         $this->actingAs($admin)->post('/patient-registrations', [
             'name' => 'Zaid', 'phone' => '0774', 'service_id' => $service->id,
@@ -84,13 +85,15 @@ class StudentDiscountTest extends TestCase
         ])->assertRedirect();
         $this->actingAs($admin)->post('/patient-registrations', [
             'name' => 'Noor', 'phone' => '0775', 'service_id' => $service->id,
-            'discount_eligible' => false, 'discount_type' => 'employee', 'discount_workplace' => 'Lab',
+            'discount_eligible' => false, 'discount_type' => 'employee', 'discount_workplace' => 'Lab', 'discount_person_name' => 'X',
         ])->assertRedirect();
 
         $huda = PatientRegistration::firstWhere('name', 'Huda');
         $this->assertSame('employee', $huda->discount_type);
         $this->assertSame('Pharmacy', $huda->discount_workplace);
         $this->assertNull($huda->discount_stage);
+        $this->assertSame('Huda Ali', $huda->discount_person_name);
+        $this->assertSame('موظف · Huda Ali · Pharmacy', \App\Support\StudentDiscount::whoLabel($huda));
         $this->assertEquals(10000, Payment::where('patient_registration_id', $huda->id)->value('amount'));
 
         $zaid = PatientRegistration::firstWhere('name', 'Zaid');
@@ -100,6 +103,7 @@ class StudentDiscountTest extends TestCase
         $noor = PatientRegistration::firstWhere('name', 'Noor');
         $this->assertNull($noor->discount_type);
         $this->assertNull($noor->discount_workplace);
+        $this->assertNull($noor->discount_person_name);
         $this->assertEquals(20000, Payment::where('patient_registration_id', $noor->id)->value('amount'));
 
         $this->actingAs($admin)->post('/patient-registrations', [

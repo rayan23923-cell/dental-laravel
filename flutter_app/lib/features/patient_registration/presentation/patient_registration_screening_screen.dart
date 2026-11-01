@@ -58,7 +58,29 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
     // the slip prints only once staff pick سليم / غير سليم (or tap reuse).
   }
 
+  /// Asks whether the lab fee was received before the result is saved and
+  /// the paid slip prints (2026-11-01, by request). Saying no saves nothing.
+  Future<bool> _askFeeReceived() async {
+    final t = ref.read(translationsProvider);
+    final amount = NumberFormat('#,##0.##').format(_state.labFee ?? 0);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.payments_outlined),
+        title: Text(t['screening.feeConfirmTitle']!),
+        content: Text(trf(t['screening.feeConfirmBody']!, {'amount': amount})),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(t['screening.feeConfirmNo']!)),
+          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(t['screening.feeConfirmYes']!)),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
   Future<void> _confirm(String status) async {
+    if (_feeDue && !await _askFeeReceived()) return;
+    if (!mounted) return;
     setState(() => _submitting = true);
     final t = ref.read(translationsProvider);
     try {

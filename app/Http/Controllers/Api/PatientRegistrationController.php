@@ -132,6 +132,8 @@ class PatientRegistrationController extends Controller
             'discount_type' => ['nullable', Rule::in(StudentDiscount::TYPES)],
             'discount_stage' => ['nullable', 'string', 'max:100'],
             'discount_workplace' => ['nullable', 'string', 'max:255'],
+            // The student's / employee's name (2026-11-01).
+            'discount_person_name' => ['nullable', 'string', 'max:255'],
         ]);
         $validated = StudentDiscount::normalize($validated);
 

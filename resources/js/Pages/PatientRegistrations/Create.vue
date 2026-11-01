@@ -29,6 +29,7 @@ const form = useForm({
     discount_type: 'student',
     discount_stage: '',
     discount_workplace: '',
+    discount_person_name: '',
 });
 
 // Registration is name + phone + a priced service (2026-10-12). Services
@@ -261,12 +262,25 @@ const submit = () => {
                                 </div>
                                 <InputError class="mt-2" :message="form.errors.discount_type" />
                             </div>
+                            <!-- The student's / employee's name (2026-11-01, by request). -->
+                            <div>
+                                <InputLabel
+                                    for="discount_person_name"
+                                    :value="t(form.discount_type === 'employee' ? 'patientReg.discountEmployeeName' : 'patientReg.discountStudentName')"
+                                />
+                                <TextInput id="discount_person_name" v-model="form.discount_person_name" type="text" class="mt-1 block w-full rounded-xl" />
+                                <InputError class="mt-2" :message="form.errors.discount_person_name" />
+                            </div>
                             <div v-if="form.discount_type === 'student'">
                                 <InputLabel for="discount_stage" :value="t('patientReg.discountStageLabel')" />
-                                <TextInput id="discount_stage" v-model="form.discount_stage" type="text" list="discount_stage_names" class="mt-1 block w-full rounded-xl" />
-                                <datalist id="discount_stage_names">
-                                    <option v-for="name in stageNames" :key="name" :value="name" />
-                                </datalist>
+                                <select
+                                    id="discount_stage"
+                                    v-model="form.discount_stage"
+                                    class="mt-1 block w-full rounded-xl border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                >
+                                    <option value="">{{ t('patientReg.discountStagePick') }}</option>
+                                    <option v-for="name in stageNames" :key="name" :value="name">{{ name }}</option>
+                                </select>
                                 <InputError class="mt-2" :message="form.errors.discount_stage" />
                             </div>
                             <div v-else>

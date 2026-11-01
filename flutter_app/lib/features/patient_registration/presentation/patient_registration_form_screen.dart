@@ -63,8 +63,13 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
   /// Students and employees are both eligible (2026-10-25); the stage or
   /// the workplace is optional.
   String _discountType = 'student';
-  final _discountStageController = TextEditingController();
   final _discountWorkplaceController = TextEditingController();
+
+  /// The student's / employee's name, and the student's stage picked from
+  /// a list of five (2026-11-01, by request).
+  final _discountPersonController = TextEditingController();
+  String? _discountStage;
+  static const _stages = ['المرحلة الأولى', 'المرحلة الثانية', 'المرحلة الثالثة', 'المرحلة الرابعة', 'المرحلة الخامسة'];
 
   /// Services as one swiping row, or wrapped in rows below each other
   /// (2026-10-18, by request); remembered on this device.
@@ -96,7 +101,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
-    _discountStageController.dispose();
+    _discountPersonController.dispose();
     _discountWorkplaceController.dispose();
     super.dispose();
   }
@@ -117,9 +122,9 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
             taskId: _taskId,
             discountEligible: _discountEligible,
             discountType: _discountType,
-            discountStage: _discountType == 'student' && _discountStageController.text.trim().isNotEmpty
-                ? _discountStageController.text.trim()
-                : null,
+            discountStage: _discountType == 'student' ? _discountStage : null,
+            discountPersonName:
+                _discountPersonController.text.trim().isNotEmpty ? _discountPersonController.text.trim() : null,
             discountWorkplace: _discountType == 'employee' && _discountWorkplaceController.text.trim().isNotEmpty
                 ? _discountWorkplaceController.text.trim()
                 : null,
@@ -394,13 +399,29 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                                 onSelectionChanged: (v) => setState(() => _discountType = v.first),
                               ),
                               const SizedBox(height: 12),
+                              TextField(
+                                controller: _discountPersonController,
+                                textInputAction: TextInputAction.next,
+                                decoration: InputDecoration(
+                                  labelText: t[_discountType == 'employee'
+                                      ? 'patientRegFlutter.discountEmployeeName'
+                                      : 'patientRegFlutter.discountStudentName']!,
+                                  border: const OutlineInputBorder(),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
                               if (_discountType == 'student')
-                                TextField(
-                                  controller: _discountStageController,
+                                DropdownButtonFormField<String>(
+                                  initialValue: _discountStage,
+                                  isExpanded: true,
                                   decoration: InputDecoration(
                                     labelText: t['patientRegFlutter.discountStageLabel']!,
                                     border: const OutlineInputBorder(),
                                   ),
+                                  items: [
+                                    for (final s in _stages) DropdownMenuItem(value: s, child: Text(s)),
+                                  ],
+                                  onChanged: (v) => setState(() => _discountStage = v),
                                 )
                               else
                                 TextField(

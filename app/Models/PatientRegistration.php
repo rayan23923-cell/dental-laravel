@@ -56,6 +56,8 @@ class PatientRegistration extends Model
         'discount_type',
         'discount_stage',
         'discount_workplace',
+        // The student's / employee's name (2026-11-01).
+        'discount_person_name',
     ];
 
     protected function casts(): array

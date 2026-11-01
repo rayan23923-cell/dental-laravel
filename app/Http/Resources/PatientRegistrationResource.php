@@ -31,6 +31,7 @@ class PatientRegistrationResource extends JsonResource
             'discount_type' => $this->discount_type,
             'discount_stage' => $this->discount_stage,
             'discount_workplace' => $this->discount_workplace,
+            'discount_person_name' => $this->discount_person_name,
             // What this patient pays for the service: its price, less the
             // student discount when eligible.
             'service_fee' => $this->whenLoaded('service', fn () => $this->service

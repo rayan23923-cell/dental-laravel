@@ -345,7 +345,10 @@
         "servicesPricesHeading": "Services and prices",
         "labSettingsHeading": "Lab settings",
         "labSettingsDesc": "The test is paid in advance. A patient (same phone) with a clear test within the validity period needs no new test or payment, only the slip is printed. Set 0 to turn this off.",
-        "savePrice": "Save"
+        "savePrice": "Save",
+        "discountStudentName": "Student's name",
+        "discountEmployeeName": "Employee's name",
+        "discountStagePick": "Choose the stage"
     },
     "appointments": {
         "newAppointment": "New Appointment",
@@ -1159,7 +1162,10 @@
         "orScreenAgain": "Or record a new test result:",
         "matchedByName": "Found by name only: {name} ({phone}). Make sure it is the same patient first.",
         "matchedByPhone": "Found by phone number: {name} ({phone}).",
-        "autoReused": "Clear: valid earlier test, no new test needed. The slip was printed."
+        "autoReused": "Clear: valid earlier test, no new test needed. The slip was printed.",
+        "feeConfirmQuestion": "Did you receive the lab fee ({amount}) from the patient? The payment is recorded and the slip prints.",
+        "feeConfirmYes": "Yes, received",
+        "feeConfirmNo": "No, cancel"
     },
     "roles": {
         "super_admin": "Super admin",

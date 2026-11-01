@@ -144,7 +144,15 @@ const reuse = async () => {
     }
 };
 
-const record = async (status) => {
+// Asked before a fee-due result is saved (2026-11-01, by request): "did you
+// receive the lab fee?" Yes records the payment and prints; no saves nothing.
+const feePendingStatus = ref(null);
+const record = async (status, { feeConfirmed = false } = {}) => {
+    if (feeDue(selected.value) && !feeConfirmed) {
+        feePendingStatus.value = status;
+        return;
+    }
+    feePendingStatus.value = null;
     submitting.value = true;
     resultError.value = '';
     try {
@@ -203,7 +211,7 @@ const record = async (status) => {
                         :tone="statusTone(r.screening_status)"
                         :icon="statusIcon(r.screening_status)"
                         class="cursor-pointer hover:bg-gray-50"
-                        @click="selected = r"
+                        @click="selected = r; feePendingStatus = null"
                     >
                         <template #meta>
                             <ChatChip :icon="statusIcon(r.screening_status)" :tone="statusTone(r.screening_status)">{{ statusLabel(r.screening_status) }}</ChatChip>
@@ -232,7 +240,7 @@ const record = async (status) => {
         </Modal>
 
         <!-- Result -->
-        <Modal :show="!!selected" @close="selected = null">
+        <Modal :show="!!selected" @close="selected = null; feePendingStatus = null">
             <div v-if="selected" class="flex flex-col gap-4 p-4 sm:p-6">
                 <div class="flex items-center gap-3">
                     <div
@@ -310,6 +318,28 @@ const record = async (status) => {
                             <Icon name="cancel" class="ml-1" />{{ t('patientReg.screeningFlagged') }}
                             <span v-if="feeDue(selected)" class="block text-xs font-normal opacity-90">{{ t('lab.payAndPrint') }}</span>
                         </button>
+                    </div>
+                    <div v-if="feePendingStatus" class="flex flex-col gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+                        <span class="font-semibold">
+                            <Icon name="payments" class="ml-1" />{{ t('lab.feeConfirmQuestion', { amount: labFeeText(selected) }) }}
+                        </span>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button
+                                type="button"
+                                :disabled="submitting"
+                                @click="record(feePendingStatus, { feeConfirmed: true })"
+                                class="rounded-xl bg-green-700 px-4 py-2 font-semibold text-white hover:bg-green-800 disabled:opacity-50"
+                            >
+                                {{ t('lab.feeConfirmYes') }}
+                            </button>
+                            <button
+                                type="button"
+                                @click="feePendingStatus = null"
+                                class="rounded-xl border border-gray-300 bg-white px-4 py-2 font-semibold text-gray-700 hover:bg-gray-50"
+                            >
+                                {{ t('lab.feeConfirmNo') }}
+                            </button>
+                        </div>
                     </div>
                 </template>
                 <p v-else-if="!canConfirm" class="text-sm text-gray-500">{{ t('lab.noConfirmPermission') }}</p>
