@@ -14,6 +14,7 @@ class ClinicSettings {
     this.labStudentDiscountPercent = 50,
     this.groupsEnabled = true,
     this.currency,
+    this.supportCodesEnabled = false,
   });
 
   factory ClinicSettings.fromJson(Map<String, dynamic> json) => ClinicSettings(
@@ -29,6 +30,7 @@ class ClinicSettings {
         labStudentDiscountPercent: double.tryParse('${json['lab_student_discount_percent'] ?? ''}') ?? 50,
         groupsEnabled: json['groups_enabled'] as bool? ?? true,
         currency: json['clinic_currency'] as String?,
+        supportCodesEnabled: json['support_codes_enabled'] == true || json['support_codes_enabled'] == 1,
       );
 
   final String? theme;
@@ -61,6 +63,10 @@ class ClinicSettings {
   /// The clinic's currency label (e.g. "دينار عراقي"), shown after amounts
   /// the way the web's payments page does (2026-10-17). Null = none.
   final String? currency;
+
+  /// Care cards on/off (2026-11-01, by request): the registration form
+  /// offers "مشمول بالرعاية" with a 5-digit code only when true.
+  final bool supportCodesEnabled;
 
   /// Same precedence as `print.layout.blade.php`'s letterhead: the
   /// university logo if one's uploaded, the clinic logo otherwise — used

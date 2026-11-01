@@ -134,7 +134,11 @@ class TicketWidget extends StatelessWidget {
               ('الهاتف', registration.phone),
               ('الخدمة', registration.serviceName ?? '—'),
               if (registration.registerDayName != null) ('اليوم', registration.registerDayName!),
-              if (showPaid && (registration.servicePrice ?? 0) > 0) ...[
+              // Free with a care card (2026-11-01, by request).
+              if (showPaid && registration.supported) ...[
+                ('المبلغ', '0'),
+                ('الحالة', 'مشمول بالرعاية'),
+              ] else if (showPaid && (registration.servicePrice ?? 0) > 0) ...[
                 // Student/employee discount (2026-10-25, by request).
                 ...discountAmountRows(
                   registration.discount,

@@ -45,6 +45,10 @@ Future<Uint8List> buildLabResultPdf({
     if (r.screeningReusedFrom != null) ...[
       ('أجور المختبر', 'معفى — فحص سابق صالح'),
       ('تاريخ الفحص السابق', date(r.screeningReusedFromCheckedAt, 'yyyy-MM-dd')),
+    ] else if (r.supported) ...[
+      // Free with a care card (2026-11-01, by request).
+      ('أجور المختبر', '0 $currency'.trim()),
+      ('الحالة', 'مشمول بالرعاية'),
     ] else if (state.labPaid) ...[
       // Student/employee discount (2026-10-25, by request).
       ...discountAmountRows(

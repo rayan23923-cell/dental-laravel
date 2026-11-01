@@ -27,4 +27,11 @@ class ClinicSettingsRepository {
     }) as Map<String, dynamic>;
     return ClinicSettings.fromJson(data);
   }
+
+  /// Care cards on/off from the registration settings (2026-11-01).
+  Future<ClinicSettings> updateSupportCodes(bool enabled) async {
+    final data = await _client.putJson('/register-settings/support-codes', body: {'support_codes_enabled': enabled})
+        as Map<String, dynamic>;
+    return ClinicSettings.fromJson(data);
+  }
 }

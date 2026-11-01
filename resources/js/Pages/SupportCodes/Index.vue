@@ -84,7 +84,7 @@ const fmt = (d) => (d ? new Date(d).toLocaleString('en-GB', { dateStyle: 'short'
         <template #header>
             <div class="flex items-center justify-between gap-3">
                 <h2 class="flex items-center gap-2 text-xl font-semibold leading-tight text-gray-800">
-                    <Icon name="volunteer_activism" class="text-teal-700" />{{ t('supportCodes.title') }}
+                    <Icon name="volunteer_activism" class="text-teal-600" />{{ t('supportCodes.title') }}
                 </h2>
                 <ChatAddButton v-if="can.settings" :label="t('supportCodes.openSettings')" icon="tune" secondary :href="route('patient-registrations.settings')" />
             </div>
@@ -156,7 +156,7 @@ const fmt = (d) => (d ? new Date(d).toLocaleString('en-GB', { dateStyle: 'short'
                                 <a v-else-if="currentBatch" :href="cardsUrl({ batch: currentBatch.batch })" target="_blank" class="inline-flex items-center gap-1 rounded-full bg-teal-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-teal-700">
                                     <Icon name="print" />{{ t('supportCodes.printBatch') }}
                                 </a>
-                                <a v-else :href="cardsUrl({})" target="_blank" class="inline-flex items-center gap-1 rounded-full border border-teal-600 px-3 py-1.5 text-sm font-semibold text-teal-700 hover:bg-teal-50">
+                                <a v-else :href="cardsUrl({})" target="_blank" class="inline-flex items-center gap-1 rounded-full border border-teal-600 px-3 py-1.5 text-sm font-semibold text-teal-600 hover:bg-teal-500/10">
                                     <Icon name="print" />{{ t('supportCodes.printActive') }}
                                 </a>
                             </template>
@@ -188,7 +188,7 @@ const fmt = (d) => (d ? new Date(d).toLocaleString('en-GB', { dateStyle: 'short'
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100">
-                                <tr v-for="c in codes.data" :key="c.id" :class="selected.includes(c.id) ? 'bg-teal-50/50' : ''">
+                                <tr v-for="c in codes.data" :key="c.id" :class="selected.includes(c.id) ? 'bg-teal-500/10' : ''">
                                     <td class="px-4 py-2">
                                         <input v-if="c.status !== 'used'" v-model="selected" type="checkbox" :value="c.id" class="rounded border-gray-300 text-teal-600" />
                                     </td>

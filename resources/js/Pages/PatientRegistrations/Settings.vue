@@ -186,7 +186,7 @@ const toggleSupportCodes = (event) => {
                 <!-- Care cards (2026-11-01, by request) -->
                 <div class="overflow-hidden rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
                     <h3 class="mb-1 flex items-center gap-2 font-semibold text-gray-800">
-                        <Icon name="volunteer_activism" class="text-teal-700" />{{ t('patientReg.supportSettingsHeading') }}
+                        <Icon name="volunteer_activism" class="text-teal-600" />{{ t('patientReg.supportSettingsHeading') }}
                     </h3>
                     <p class="mb-4 text-sm text-gray-500">{{ t('patientReg.supportSettingsDesc') }}</p>
                     <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 px-4 py-3">

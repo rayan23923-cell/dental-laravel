@@ -273,12 +273,12 @@ const submit = () => {
 
                         <!-- Care card (2026-11-01, by request): neutral wording on purpose. -->
                         <div v-if="supportCodesEnabled" class="space-y-3">
-                            <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 px-4 py-3" :class="supportCare ? 'border-teal-500 bg-teal-50/60' : ''">
+                            <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 px-4 py-3" :class="supportCare ? 'border-teal-500 bg-teal-500/10' : ''">
                                 <input v-model="supportCare" type="checkbox" class="h-5 w-5 rounded border-gray-300 text-teal-600 focus:ring-teal-500" />
-                                <Icon name="volunteer_activism" class="text-teal-700" />
+                                <Icon name="volunteer_activism" class="text-teal-600" />
                                 <span class="text-sm font-medium text-gray-800">{{ t('patientReg.supportCare') }}</span>
                             </label>
-                            <div v-if="supportCare" class="rounded-xl bg-teal-50/60 p-4">
+                            <div v-if="supportCare" class="rounded-xl bg-teal-500/10 p-4">
                                 <InputLabel for="support_code" :value="t('patientReg.supportCodeLabel')" />
                                 <div class="mt-1 flex gap-2">
                                     <TextInput
@@ -293,12 +293,12 @@ const submit = () => {
                                         class="block w-40 rounded-xl text-center font-mono text-xl tracking-[0.4em]"
                                         required
                                     />
-                                    <button type="button" class="rounded-full border border-teal-600 px-4 text-sm font-semibold text-teal-700 hover:bg-teal-100" @click="checkCode">
+                                    <button type="button" class="rounded-full border border-teal-600 px-4 text-sm font-semibold text-teal-600 hover:bg-teal-500/10" @click="checkCode">
                                         {{ t('patientReg.supportCodeCheck') }}
                                     </button>
                                 </div>
                                 <p class="mt-2 text-xs text-gray-600">{{ t('patientReg.supportCareHint') }}</p>
-                                <p v-if="codeCheck.state === 'ok'" class="mt-2 flex items-center gap-1 text-sm font-semibold text-teal-700"><Icon name="check_circle" />{{ codeCheck.message }}</p>
+                                <p v-if="codeCheck.state === 'ok'" class="mt-2 flex items-center gap-1 text-sm font-semibold text-teal-600"><Icon name="check_circle" />{{ codeCheck.message }}</p>
                                 <p v-else-if="codeCheck.state === 'bad'" class="mt-2 flex items-center gap-1 text-sm font-semibold text-red-600"><Icon name="error" />{{ codeCheck.message }}</p>
                                 <InputError class="mt-2" :message="form.errors.support_code" />
                             </div>
@@ -376,16 +376,16 @@ const submit = () => {
                                 <span dir="ltr" class="text-lg font-bold text-gray-900">{{ formatPrice(amountDue) }}</span>
                             </div>
                         </div>
-                        <div v-else-if="selectedService && supportCare" class="space-y-1 rounded-xl bg-teal-50 px-4 py-3 text-sm">
+                        <div v-else-if="selectedService && supportCare" class="space-y-1 rounded-xl bg-teal-500/10 px-4 py-3 text-sm">
                             <div class="flex items-center justify-between">
                                 <span class="text-gray-600">{{ t('patientReg.amountFull') }}</span>
                                 <span dir="ltr" class="text-gray-500 line-through">{{ formatPrice(selectedService.price) }}</span>
                             </div>
-                            <div class="flex items-center justify-between border-t border-teal-200 pt-1">
-                                <span class="font-semibold text-teal-800">{{ t('patientReg.supportFree') }}</span>
-                                <span dir="ltr" class="text-lg font-bold text-teal-800">{{ formatPrice(0) }}</span>
+                            <div class="flex items-center justify-between border-t border-teal-500/30 pt-1">
+                                <span class="font-semibold text-teal-600">{{ t('patientReg.supportFree') }}</span>
+                                <span dir="ltr" class="text-lg font-bold text-teal-600">{{ formatPrice(0) }}</span>
                             </div>
-                            <div class="text-xs text-teal-700">{{ t('patientReg.supportLabFree') }}</div>
+                            <div class="text-xs text-teal-600">{{ t('patientReg.supportLabFree') }}</div>
                         </div>
                         <div v-else-if="selectedService" class="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
                             <span class="text-sm text-gray-600">{{ t('patientReg.amountDue') }}</span>

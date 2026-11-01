@@ -289,6 +289,111 @@ Future<Uint8List> buildPaymentsReportPdf({
               ),
           ],
         ),
+        // Last page (2026-11-01, by request): care-card patients (not in the
+        // totals above) and the student/employee discount's beneficiaries.
+        if (report.supported.isNotEmpty || report.discounted.isNotEmpty) pw.NewPage(),
+        if (report.supported.isNotEmpty) ...[
+          pw.Text('المستفيدون من الرعاية (${report.supported.length})', style: bold(12)),
+          pw.Text('بلا أجور عبر بطاقات الرعاية — غير محسوبة في مجموع المدفوعات.', style: reg(9, PdfColors.grey700)),
+          pw.SizedBox(height: 4),
+          pw.Table(
+            border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+            columnWidths: const {
+              0: pw.FlexColumnWidth(0.5),
+              1: pw.FlexColumnWidth(2.0),
+              2: pw.FlexColumnWidth(1.4),
+              3: pw.FlexColumnWidth(1.4),
+              4: pw.FlexColumnWidth(0.9),
+              5: pw.FlexColumnWidth(1.1),
+              6: pw.FlexColumnWidth(1.1),
+              7: pw.FlexColumnWidth(1.2),
+              8: pw.FlexColumnWidth(1.5),
+            },
+            children: [
+              pw.TableRow(
+                repeat: true,
+                decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+                children: [
+                  for (final h in ['#', 'المريض', 'الهاتف', 'الخدمة', 'رمز الرعاية', 'أجور الخدمة', 'أجور المختبر', 'المجموع غير المستوفى', 'التاريخ'])
+                    cell(h, header: true),
+                ],
+              ),
+              for (final (i, r) in report.supported.indexed)
+                pw.TableRow(children: [
+                  cell('${i + 1}'),
+                  cell(r.name),
+                  cell(r.phone ?? '—'),
+                  cell(r.service ?? '—'),
+                  cell(r.code),
+                  cell(r.waivedService == null ? '—' : _money(r.waivedService!)),
+                  cell(r.waivedLab == null ? '—' : _money(r.waivedLab!)),
+                  cell(_money(r.waivedTotal), header: true),
+                  cell(r.usedAt ?? '—'),
+                ]),
+              pw.TableRow(
+                decoration: const pw.BoxDecoration(color: PdfColors.grey100),
+                children: [
+                  cell(''),
+                  cell('المجموع', header: true),
+                  for (var i = 0; i < 5; i++) cell(''),
+                  cell('${_money(report.supported.fold<double>(0, (s, r) => s + r.waivedTotal))} $currency', header: true),
+                  cell(''),
+                ],
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 14),
+        ],
+        if (report.discounted.isNotEmpty) ...[
+          pw.Text('المشمولون بالتخفيض (${report.discounted.length})', style: bold(12)),
+          pw.SizedBox(height: 4),
+          pw.Table(
+            border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+            columnWidths: const {
+              0: pw.FlexColumnWidth(0.5),
+              1: pw.FlexColumnWidth(1.8),
+              2: pw.FlexColumnWidth(2.0),
+              3: pw.FlexColumnWidth(1.1),
+              4: pw.FlexColumnWidth(1.0),
+              5: pw.FlexColumnWidth(0.8),
+              6: pw.FlexColumnWidth(1.1),
+              7: pw.FlexColumnWidth(1.0),
+              8: pw.FlexColumnWidth(1.5),
+            },
+            children: [
+              pw.TableRow(
+                repeat: true,
+                decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+                children: [
+                  for (final h in ['#', 'المريض', 'المشمول', 'المصدر', 'المبلغ', 'التخفيض', 'المبلغ بعد التخفيض', 'مقدار التخفيض', 'التاريخ'])
+                    cell(h, header: true),
+                ],
+              ),
+              for (final (i, r) in report.discounted.indexed)
+                pw.TableRow(children: [
+                  cell('${i + 1}'),
+                  cell(r.name),
+                  cell(r.who),
+                  cell(_sourceLabels[r.source] ?? r.source),
+                  cell(r.full == null ? '—' : _money(r.full!)),
+                  cell(r.percent == null ? '—' : '${r.percent}%'),
+                  cell(_money(r.paid), header: true),
+                  cell(r.saved == null ? '—' : _money(r.saved!)),
+                  cell(r.paidAt ?? '—'),
+                ]),
+              pw.TableRow(
+                decoration: const pw.BoxDecoration(color: PdfColors.grey100),
+                children: [
+                  cell(''),
+                  cell('مجموع التخفيض', header: true),
+                  for (var i = 0; i < 5; i++) cell(''),
+                  cell('${_money(report.discounted.fold<double>(0, (s, r) => s + (r.saved ?? 0)))} $currency', header: true),
+                  cell(''),
+                ],
+              ),
+            ],
+          ),
+        ],
       ],
     ),
   );

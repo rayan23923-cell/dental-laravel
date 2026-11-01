@@ -20,6 +20,7 @@ import '../../printing/presentation/ticket_renderer.dart';
 import '../../printing/presentation/ticket_widget.dart';
 import '../../records/domain/payment.dart';
 import '../data/patient_registration_repository.dart';
+import '../data/support_codes_repository.dart';
 import '../domain/service.dart';
 import 'live_registrations.dart';
 import 'patient_registration_providers.dart';
@@ -69,6 +70,15 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
   /// a list of five (2026-11-01, by request).
   final _discountPersonController = TextEditingController();
   String? _discountStage;
+
+  /// Care card (2026-11-01, by request): "مشمول بالرعاية" with the card's
+  /// 5-digit code makes the service and the lab test free. Offered only
+  /// when switched on in the registration settings.
+  bool _supportCare = false;
+  final _supportCodeController = TextEditingController();
+  ({bool? ok, String message}) _codeCheck = (ok: null, message: '');
+
+  String get _supportCode => _supportCodeController.text.trim();
   static const _stages = ['المرحلة الأولى', 'المرحلة الثانية', 'المرحلة الثالثة', 'المرحلة الرابعة', 'المرحلة الخامسة'];
 
   /// Services as one swiping row, or wrapped in rows below each other
@@ -103,12 +113,51 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
     _phoneController.dispose();
     _discountPersonController.dispose();
     _discountWorkplaceController.dispose();
+    _supportCodeController.dispose();
     super.dispose();
+  }
+
+  /// Arabic-Indic digits typed on a phone keyboard become ASCII.
+  static String _asciiDigits(String v) {
+    const ar = '٠١٢٣٤٥٦٧٨٩', fa = '۰۱۲۳۴۵۶۷۸۹';
+    final b = StringBuffer();
+    for (final ch in v.split('')) {
+      final i = ar.contains(ch) ? ar.indexOf(ch) : fa.indexOf(ch);
+      if (i >= 0) {
+        b.write(i);
+      } else if (RegExp(r'\d').hasMatch(ch)) {
+        b.write(ch);
+      }
+    }
+    final s = b.toString();
+    return s.length > 5 ? s.substring(0, 5) : s;
+  }
+
+  void _onCodeChanged(String v) {
+    final clean = _asciiDigits(v);
+    if (clean != v) {
+      _supportCodeController.value = TextEditingValue(text: clean, selection: TextSelection.collapsed(offset: clean.length));
+    }
+    setState(() => _codeCheck = (ok: null, message: ''));
+    if (clean.length == 5) _checkCode();
+  }
+
+  Future<void> _checkCode() async {
+    final code = _supportCode;
+    if (code.length != 5) return;
+    try {
+      final message = await ref.read(supportCodesRepositoryProvider).check(code);
+      if (mounted && _supportCode == code) setState(() => _codeCheck = (ok: true, message: message));
+    } catch (e) {
+      final message = e is ValidationException ? (e.firstError('support_code') ?? e.message) : (e is ApiException ? e.userMessage : '$e');
+      if (mounted && _supportCode == code) setState(() => _codeCheck = (ok: false, message: message));
+    }
   }
 
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? true)) return;
     if (_serviceId == null) return;
+    if (_supportCare && _supportCode.length != 5) return;
     setState(() => _submitting = true);
     final t = ref.read(translationsProvider);
 
@@ -120,7 +169,8 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
             phone: _phoneController.text.trim(),
             serviceId: _serviceId!,
             taskId: _taskId,
-            discountEligible: _discountEligible,
+            discountEligible: _supportCare ? false : _discountEligible,
+            supportCode: _supportCare ? _supportCode : null,
             discountType: _discountType,
             discountStage: _discountType == 'student' ? _discountStage : null,
             discountPersonName:
@@ -212,6 +262,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
     final servicesAsync = ref.watch(servicesProvider);
     final t = ref.watch(translationsProvider);
     final currency = ref.watch(clinicSettingsProvider).valueOrNull?.currency;
+    final supportEnabled = ref.watch(clinicSettingsProvider).valueOrNull?.supportCodesEnabled ?? false;
 
     return Scaffold(
       appBar: AppBar(title: Text(t['patientRegFlutter.newRegistrationTitle']!)),
@@ -354,7 +405,83 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                     // "التشخيص" picker removed from registration (2026-10-11, by
                     // request); registrations are saved with no task.
                     const SizedBox(height: 16),
-                    Card(
+                    // Care card (2026-11-01, by request): neutral wording on purpose.
+                    if (supportEnabled) ...[
+                      Card(
+                        margin: EdgeInsets.zero,
+                        color: _supportCare ? Colors.teal.withValues(alpha: 0.08) : null,
+                        child: SwitchListTile(
+                          secondary: const Icon(Icons.volunteer_activism_outlined),
+                          title: Text(t['patientRegFlutter.supportCare']!),
+                          subtitle: Text(t['patientRegFlutter.supportCareHint']!),
+                          value: _supportCare,
+                          onChanged: (v) => setState(() {
+                            _supportCare = v;
+                            if (v) _discountEligible = false;
+                            if (!v) _supportCodeController.clear();
+                            _codeCheck = (ok: null, message: '');
+                          }),
+                        ),
+                      ),
+                      if (_supportCare) ...[
+                        const SizedBox(height: 8),
+                        Card(
+                          margin: EdgeInsets.zero,
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                TextFormField(
+                                  controller: _supportCodeController,
+                                  keyboardType: TextInputType.number,
+                                  textDirection: TextDirection.ltr,
+                                  textAlign: TextAlign.center,
+                                  maxLength: 5,
+                                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 8),
+                                  decoration: InputDecoration(
+                                    labelText: t['patientRegFlutter.supportCodeLabel']!,
+                                    counterText: '',
+                                    border: const OutlineInputBorder(),
+                                    suffixIcon: IconButton(
+                                      icon: const Icon(Icons.check_circle_outline),
+                                      tooltip: t['patientRegFlutter.supportCodeCheck']!,
+                                      onPressed: _checkCode,
+                                    ),
+                                  ),
+                                  onChanged: _onCodeChanged,
+                                  validator: (v) => _supportCare && _asciiDigits(v ?? '').length != 5
+                                      ? t['patientRegFlutter.supportCodeLength']!
+                                      : null,
+                                ),
+                                if (_codeCheck.ok != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8),
+                                    child: Row(
+                                      children: [
+                                        Icon(_codeCheck.ok! ? Icons.check_circle : Icons.error_outline,
+                                            size: 18, color: _codeCheck.ok! ? Colors.teal.shade700 : scheme.error),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            _codeCheck.message,
+                                            style: TextStyle(
+                                              color: _codeCheck.ok! ? Colors.teal.shade700 : scheme.error,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                    ],
+                    if (!_supportCare) Card(
                       margin: EdgeInsets.zero,
                       child: SwitchListTile(
                         secondary: const Icon(Icons.school_outlined),
@@ -373,7 +500,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                         onChanged: (v) => setState(() => _discountEligible = v),
                       ),
                     ),
-                    if (_discountEligible) ...[
+                    if (_discountEligible && !_supportCare) ...[
                       const SizedBox(height: 8),
                       Card(
                         margin: EdgeInsets.zero,
@@ -456,12 +583,20 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                                   Text(
                                     selected == null
                                         ? '—'
-                                        : formatMoney(selected.priceFor(eligible: _discountEligible)!, currency),
+                                        : _supportCare
+                                            ? formatMoney(0, currency)
+                                            : formatMoney(selected.priceFor(eligible: _discountEligible)!, currency),
                                     style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                                   ),
                                   // The amount before the discount and the percentage
                                   // (2026-10-25, by request: "1000, خصم 50%, 500").
-                                  if (selected != null && _discountEligible && (selected.price ?? 0) > 0)
+                                  // Free with a care card (2026-11-01).
+                                  if (selected != null && _supportCare)
+                                    Text(
+                                      t['patientRegFlutter.supportFree']!,
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.teal.shade700, fontWeight: FontWeight.w600),
+                                    ),
+                                  if (selected != null && !_supportCare && _discountEligible && (selected.price ?? 0) > 0)
                                     Text(
                                       t['patientRegFlutter.discountBreakdown']!
                                           .replaceAll('{full}', formatMoney(selected.price!, currency))
@@ -480,7 +615,9 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                                 // The theme's minimum size is full width, which a Row
                                 // can't give: the card came out empty and tall (2026-10-21).
                                 style: FilledButton.styleFrom(minimumSize: const Size(0, 52)),
-                                onPressed: _submitting || _serviceId == null ? null : _submit,
+                                onPressed: _submitting || _serviceId == null || (_supportCare && _supportCode.length != 5)
+                                    ? null
+                                    : _submit,
                                 icon: _submitting
                                     ? const SizedBox(height: 20, width: 20, child: TgSpinner(strokeWidth: 2))
                                     : const Icon(Icons.how_to_reg),

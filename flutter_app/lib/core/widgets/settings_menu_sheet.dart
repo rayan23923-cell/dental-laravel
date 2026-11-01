@@ -24,6 +24,8 @@ List<_SettingsItem> _settingsItems(Map<String, String> t) => [
       _SettingsItem(t['settingsMenu.clinicSettings']!, Icons.settings_outlined, '/admin/clinic-settings'),
       // Services and prices (2026-10-21), the web's "إعدادات التسجيل".
       _SettingsItem(t['registerSettings.title']!, Icons.tune, '/records/patient-registrations/settings'),
+      // Care cards (2026-11-01, by request), by their own permission.
+      _SettingsItem(t['supportCodes.title']!, Icons.volunteer_activism_outlined, '/records/patient-registrations/support-codes'),
       // The waiting screen (2026-10-24, by request), by its own permission.
       _SettingsItem(t['waitingScreenSettings.title']!, Icons.tv_outlined, '/admin/waiting-screen-settings'),
       _SettingsItem(t['waitingScreenPairing.title']!, Icons.connected_tv_outlined, '/admin/waiting-screen/pair'),

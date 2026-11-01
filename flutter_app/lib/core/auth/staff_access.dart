@@ -37,6 +37,8 @@ bool staffCanOpen(StaffAccount account, String route) {
     '/admin/waiting-screen/pair' => can('waiting_screen', 'pair'),
     // Services, prices and the lab fee, as on the web's admin menu (2026-10-21).
     '/records/patient-registrations/settings' => can('register_settings'),
+    // Care cards' own permission (2026-11-01, by request).
+    '/records/patient-registrations/support-codes' => can('support_codes'),
     // A permission since 2026-10-18 (by request), so the lab or the
     // ticket desk can be given the printer without the rest of settings.
     '/admin/printer-settings' => can('printer_settings'),
@@ -97,6 +99,7 @@ const adminRoutes = [
   '/admin/case-sheet-types',
   '/admin/clinic-settings',
   '/records/patient-registrations/settings',
+  '/records/patient-registrations/support-codes',
   '/admin/users',
   '/admin/activity-log',
   '/admin/backup',

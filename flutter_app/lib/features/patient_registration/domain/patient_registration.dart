@@ -24,6 +24,8 @@ class PatientRegistration {
     this.discountWorkplace,
     this.discountLine,
     this.discount,
+    this.supported = false,
+    this.supportCode,
     required this.registerDayName,
     required this.createdAt,
     required this.taskId,
@@ -69,6 +71,8 @@ class PatientRegistration {
       discountWorkplace: json['discount_workplace'] as String?,
       discountLine: json['discount_line'] as String?,
       discount: DiscountBreakdown.fromJson(json['discount']),
+      supported: json['supported'] == true,
+      supportCode: json['support_code'] as String?,
       registerDayName: day?['name'] as String?,
       createdAt: json['created_at'] as String?,
       taskId: json['task_id'] as int?,
@@ -88,6 +92,10 @@ class PatientRegistration {
 
   final int id;
   final String name;
+
+  /// Free with a care card (2026-11-01): no service or lab fee.
+  final bool supported;
+  final String? supportCode;
   final String phone;
   final int? age;
   final String? sex;
