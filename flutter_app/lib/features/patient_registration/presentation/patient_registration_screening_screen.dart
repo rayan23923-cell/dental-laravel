@@ -511,6 +511,18 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
               style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
             ),
           ],
+          // A recorded result is final (2026-11-01, by request): only a
+          // patient still waiting for the test gets the result buttons.
+          if (r.screeningStatus != 'pending') ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Icon(Icons.lock_outline, color: Colors.grey.shade700),
+                const SizedBox(width: 8),
+                Expanded(child: Text(t['screening.resultLocked']!, style: TextStyle(color: Colors.grey.shade800))),
+              ],
+            ),
+          ] else ...[
           const SizedBox(height: 24),
           Text(t['screening.labResultHeading']!, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
@@ -539,6 +551,7 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
               ),
             ],
           ),
+          ],
         ],
       ),
     );
