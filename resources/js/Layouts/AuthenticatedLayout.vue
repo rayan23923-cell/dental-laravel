@@ -103,6 +103,8 @@ const primaryLinks = computed(() => [
     ...(!isAdmin.value && navCan.value.waiting_screen ? [{ label: t('nav.waitingScreenSettings'), icon: 'tv', href: route('waiting-screen-settings.edit'), active: route().current('waiting-screen-settings.*') }] : []),
     // Bulk login details follow their own permission (2026-11-01).
     ...(!isAdmin.value && navCan.value.bulk_credentials ? [{ label: t('nav.bulkCredentials'), icon: 'group_add', href: route('bulk-credentials.index'), active: route().current('bulk-credentials.*') }] : []),
+    // Care cards follow their own permission (2026-11-01).
+    ...(!isAdmin.value && navCan.value.support_codes ? [{ label: t('nav.supportCodes'), icon: 'volunteer_activism', href: route('support-codes.index'), active: route().current('support-codes.*') }] : []),
 ]);
 
 // "إدارة المرضى" — always visible (patients/patient-registrations are
@@ -145,6 +147,8 @@ const settingsLinks = computed(() => [
     ...(navCan.value.waiting_screen ? [{ label: t('nav.waitingScreenSettings'), icon: 'tv', href: route('waiting-screen-settings.edit'), active: route().current('waiting-screen-settings.*') }] : []),
     ...(navCan.value.waiting_screen_pair ? [{ label: t('nav.pairWaitingScreen'), icon: 'qr_code_scanner', href: route('waiting-screen-pairing.create'), active: route().current('waiting-screen-pairing.*') }] : []),
     ...(navCan.value.register_settings ? [{ label: t('nav.registrationSettings'), icon: 'tune', href: route('patient-registrations.settings'), active: route().current('patient-registrations.settings') || route().current('register-days.*') || route().current('register-services.*') }] : []),
+    // Care cards (2026-11-01, by request).
+    ...(navCan.value.support_codes ? [{ label: t('nav.supportCodes'), icon: 'volunteer_activism', href: route('support-codes.index'), active: route().current('support-codes.*') }] : []),
     // Users management (2026-10-21, by request). Permissions and department
     // roles left the menu (2026-10-22, by request): both open from here.
     { label: t('nav.users'), icon: 'manage_accounts', href: route('users.index'), active: route().current('users.*') || route().current('permissions.*') || route().current('department-roles.*') },

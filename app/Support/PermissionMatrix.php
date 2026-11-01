@@ -122,6 +122,13 @@ class PermissionMatrix
                 'name' => 'إعدادات تسجيل الخدمات وتسعيرها',
                 'permissions' => ['view' => 'عرض', 'edit' => 'تعديل الخدمات والأسعار'],
             ],
+            // Care codes, "بطاقات الرعاية" (2026-11-01, by request): one-time
+            // codes that make a visit free. Typing one at registration only
+            // needs patients.create; see App\Support\SupportCodes.
+            'support_codes' => [
+                'name' => 'بطاقات الرعاية (العلاج المجاني)',
+                'permissions' => ['view' => 'عرض الأكواد', 'generate' => 'توليد الأكواد وطباعة البطاقات', 'disable' => 'إيقاف الأكواد وتفعيلها'],
+            ],
             // The waiting screen (2026-10-24, by request): its settings and
             // pairing a TV, instead of the general settings and any account.
             'waiting_screen' => [

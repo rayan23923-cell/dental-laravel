@@ -70,11 +70,19 @@ class PaymentController extends Controller
         $query = $this->filteredQuery($request, $sources);
         $stats = new PaymentStats(null, $sources);
 
+        $filters = $this->filters($request, $sources);
+        $payments = (clone $query)->with(['appointment', 'patientRegistration.service'])->latest('paid_at')->get();
+        $settings = ClinicSetting::current();
+
         return view('print.payments-report', [
-            'settings' => ClinicSetting::current(),
-            'filters' => $this->filters($request, $sources),
+            'settings' => $settings,
+            'filters' => $filters,
             'scope' => $sources,
-            'payments' => (clone $query)->with(['appointment', 'patientRegistration.service'])->latest('paid_at')->get(),
+            'payments' => $payments,
+            // Last page (2026-11-01, by request): who was treated free with a
+            // care code, and who got the student/employee discount.
+            'supported' => \App\Support\SupportCodes::reportRowsFor($filters, $sources),
+            'discounted' => \App\Support\SupportCodes::discountRows($payments, $settings),
             'filteredTotal' => (float) (clone $query)->sum('amount'),
             'bySource' => PaymentStats::bySource($query, $sources),
             'periods' => $stats->periods(),
@@ -206,6 +214,9 @@ class PaymentController extends Controller
 
         // Less the student discount when the patient is eligible (2026-10-25).
         $fee = StudentDiscount::labFee(PatientRegistration::find($validated['patient_registration_id']));
+        if (PatientRegistration::whereKey($validated['patient_registration_id'])->whereNotNull('support_code_id')->exists()) {
+            return response()->json(['message' => 'هذا المريض '.\App\Support\SupportCodes::LABEL.'، فلا أجور عليه.'], 422);
+        }
         if ($fee === null) {
             return response()->json(['message' => 'لم تُحدَّد أجور المختبر في الإعدادات.'], 422);
         }

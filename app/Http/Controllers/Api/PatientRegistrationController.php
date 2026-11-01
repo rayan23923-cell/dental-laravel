@@ -15,6 +15,7 @@ use App\Services\PermissionManager;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -134,7 +135,18 @@ class PatientRegistrationController extends Controller
             'discount_workplace' => ['nullable', 'string', 'max:255'],
             // The student's / employee's name (2026-11-01).
             'discount_person_name' => ['nullable', 'string', 'max:255'],
+            // Care code (2026-11-01, by request): the card's 5 digits make
+            // the service and the lab test free; see App\Support\SupportCodes.
+            'support_code' => ['nullable', 'string', 'max:20'],
         ]);
+        $supportCode = filled($validated['support_code'] ?? null)
+            ? \App\Support\SupportCodes::lookup($validated['support_code'], $request->user())
+            : null;
+        unset($validated['support_code']);
+        if ($supportCode) {
+            // Free care and the student discount do not go together.
+            $validated['discount_eligible'] = false;
+        }
         $validated = StudentDiscount::normalize($validated);
 
         // Payment is mandatory and fixed by the service's price (2026-10-12,
@@ -142,13 +154,15 @@ class PatientRegistrationController extends Controller
         // `amount_paid` an older app build still sends is ignored. A
         // service without a price cannot be registered until one is set.
         // An eligible student pays the service's price less its discount.
-        $price = StudentDiscount::servicePrice(Service::findOrFail($validated['service_id']), $validated['discount_eligible']);
+        $service = Service::findOrFail($validated['service_id']);
+        $price = StudentDiscount::servicePrice($service, $validated['discount_eligible']);
         if ($price === null) {
             throw ValidationException::withMessages([
                 'service_id' => 'هذه الخدمة بلا سعر — حدّد سعرها في إعدادات التسجيل أولاً.',
             ]);
         }
-        $amountPaid = (float) $price;
+        // Nothing is charged with a care code (2026-11-01).
+        $amountPaid = $supportCode ? 0.0 : (float) $price;
 
         // The original enforces this server-side too
         // (`patient_register.php:76-89`, checking the selected service
@@ -158,19 +172,29 @@ class PatientRegistrationController extends Controller
         // Registration is by service only now (2026-10-12): no day check.
         // A day an older app build still sends is stored as before.
 
-        $registration = PatientRegistration::create($validated);
+        $registration = DB::transaction(function () use ($validated, $supportCode, $service, $amountPaid, $request) {
+            $registration = PatientRegistration::create($validated);
 
-        // The ticket desk takes the service's price at registration, before
-        // any lab screening, so it is recorded here directly rather than
-        // through PatientScreeningGate.
-        if ($amountPaid > 0) {
-            Payment::create([
-                'patient_registration_id' => $registration->id,
-                'amount' => $amountPaid,
-                'paid_at' => now(),
-                'type' => Payment::TYPE_SERVICE,
-            ]);
-        }
+            // The card is used once; marked inside this transaction so a
+            // code another desk used a moment ago rolls the registration back.
+            if ($supportCode) {
+                \App\Support\SupportCodes::redeem($supportCode, $registration, $service, $request->user());
+            }
+
+            // The ticket desk takes the service's price at registration, before
+            // any lab screening, so it is recorded here directly rather than
+            // through PatientScreeningGate.
+            if ($amountPaid > 0) {
+                Payment::create([
+                    'patient_registration_id' => $registration->id,
+                    'amount' => $amountPaid,
+                    'paid_at' => now(),
+                    'type' => Payment::TYPE_SERVICE,
+                ]);
+            }
+
+            return $registration;
+        });
 
         // `fresh()`, not `load()` — `screening_status` is a DB-level
         // default (`'pending'`) never passed to `create()`, so the

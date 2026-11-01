@@ -128,6 +128,69 @@
         @endif
     </table>
 
+    {{-- Last page (2026-11-01, by request): the patients treated free with a
+         care code (not in the totals above) and the student/employee
+         discount's beneficiaries. --}}
+    @if (($supported ?? []) !== [] || ($discounted ?? []) !== [])
+        <div style="break-before: page; page-break-before: always;"></div>
+        @if (($supported ?? []) !== [])
+            @php($waivedTotal = array_sum(array_column($supported, 'waived_total')))
+            <h3 class="section">المستفيدون من الرعاية ({{ count($supported) }})</h3>
+            <p class="muted" style="margin:0 0 6px">بلا أجور عبر بطاقات الرعاية — غير محسوبة في مجموع المدفوعات.</p>
+            <table class="report-table">
+                <thead>
+                    <tr><th>#</th><th>المريض</th><th>الهاتف</th><th>الخدمة</th><th>رمز الرعاية</th><th>أجور الخدمة</th><th>أجور المختبر</th><th>المجموع غير المستوفى</th><th>التاريخ</th></tr>
+                </thead>
+                <tbody>
+                    @foreach ($supported as $i => $r)
+                        <tr>
+                            <td>{{ $i + 1 }}</td>
+                            <td>{{ $r['name'] ?? '—' }}</td>
+                            <td dir="ltr" style="text-align:left">{{ $r['phone'] ?? '—' }}</td>
+                            <td>{{ $r['service'] ?? '—' }}</td>
+                            <td dir="ltr" style="text-align:center">{{ $r['code'] }}</td>
+                            <td>{{ $r['waived_service'] !== null ? $money($r['waived_service']) : '—' }}</td>
+                            <td>{{ $r['waived_lab'] !== null ? $money($r['waived_lab']) : '—' }}</td>
+                            <td><strong>{{ $money($r['waived_total']) }}</strong></td>
+                            <td dir="ltr" style="text-align:left">{{ $r['used_at'] }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+                <tfoot>
+                    <tr><th colspan="7">المجموع</th><th>{{ $money($waivedTotal) }} {{ $currency }}</th><th></th></tr>
+                </tfoot>
+            </table>
+        @endif
+
+        @if (($discounted ?? []) !== [])
+            @php($savedTotal = array_sum(array_map(fn ($r) => (float) ($r['saved'] ?? 0), $discounted)))
+            <h3 class="section">المشمولون بالتخفيض ({{ count($discounted) }})</h3>
+            <table class="report-table">
+                <thead>
+                    <tr><th>#</th><th>المريض</th><th>المشمول</th><th>المصدر</th><th>المبلغ</th><th>التخفيض</th><th>المبلغ بعد التخفيض</th><th>مقدار التخفيض</th><th>التاريخ</th></tr>
+                </thead>
+                <tbody>
+                    @foreach ($discounted as $i => $r)
+                        <tr>
+                            <td>{{ $i + 1 }}</td>
+                            <td>{{ $r['name'] }}</td>
+                            <td>{{ $r['who'] }}</td>
+                            <td>{{ $sourceLabels[$r['source']] }}</td>
+                            <td>{{ $r['full'] !== null ? $money($r['full']) : '—' }}</td>
+                            <td>{{ $r['percent'] !== null ? $r['percent'].'%' : '—' }}</td>
+                            <td><strong>{{ $money($r['paid']) }}</strong></td>
+                            <td>{{ $r['saved'] !== null ? $money($r['saved']) : '—' }}</td>
+                            <td dir="ltr" style="text-align:left">{{ $r['paid_at'] }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+                <tfoot>
+                    <tr><th colspan="7">مجموع التخفيض</th><th>{{ $money($savedTotal) }} {{ $currency }}</th><th></th></tr>
+                </tfoot>
+            </table>
+        @endif
+    @endif
+
     @if ($autoprint)
         <script>window.addEventListener('load', () => setTimeout(() => window.print(), 300));</script>
     @endif

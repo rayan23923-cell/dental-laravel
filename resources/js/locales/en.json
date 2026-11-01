@@ -37,7 +37,8 @@
         "lab": "Lab",
         "offlineLicenses": "Offline codes",
         "bulkCredentials": "Bulk login details",
-        "users": "Users"
+        "users": "Users",
+        "supportCodes": "Care cards"
     },
     "auth": {
         "pageTitle": "Sign In",
@@ -348,7 +349,20 @@
         "savePrice": "Save",
         "discountStudentName": "Student's name",
         "discountEmployeeName": "Employee's name",
-        "discountStagePick": "Choose the stage"
+        "discountStagePick": "Choose the stage",
+        "supportCare": "Covered by care (care card)",
+        "supportCareHint": "Enter the card's 5-digit code — the service and lab fees become zero.",
+        "supportCodeLabel": "Care code",
+        "supportCodeCheck": "Check",
+        "supportCodeValid": "Valid code — no service or lab fee.",
+        "supportFree": "No fee — covered by care",
+        "supportLabFree": "Lab test: no fee",
+        "supportSettingsHeading": "Care cards (free treatment)",
+        "supportSettingsDesc": "5-digit codes printed on cards and handed out; entered at registration so the service and lab fees are zero. Each code works once.",
+        "supportSettingsToggle": "Offer care cards at registration",
+        "supportSettingsCounts": "Active: {active} · Used: {used} · Stopped: {disabled}",
+        "supportManage": "Manage codes and print cards",
+        "supportedChip": "Care"
     },
     "appointments": {
         "newAppointment": "New Appointment",
@@ -1567,5 +1581,40 @@
         "today": "Today",
         "week": "This week",
         "month": "This month"
+    },
+    "supportCodes": {
+        "title": "Care cards",
+        "intro": "Generate 5-digit codes and print them as cards to cut and hand out. A code entered at registration makes the service and lab fees zero, and works once only.",
+        "disabledFeature": "The feature is off in the registration settings, so the care option does not show at registration.",
+        "openSettings": "Registration settings",
+        "generateHeading": "Generate new codes",
+        "count": "Number of codes",
+        "note": "Note (optional)",
+        "notePlaceholder": "e.g. November batch",
+        "generate": "Generate",
+        "all": "All",
+        "active": "Active",
+        "used": "Used",
+        "disabled": "Stopped",
+        "search": "Search by code",
+        "batch": "Batch",
+        "allBatches": "All batches",
+        "batchOption": "Batch {batch} — {active} active of {total}",
+        "code": "Code",
+        "status": "Status",
+        "patient": "Patient",
+        "createdAt": "Generated",
+        "usedAt": "Used",
+        "printSelected": "Print selected ({n})",
+        "printBatch": "Print batch cards",
+        "printActive": "Print all active",
+        "disableSelected": "Stop selected",
+        "enableSelected": "Start selected",
+        "disableBatch": "Stop whole batch",
+        "disableBatchConfirm": "Stop every unused code in batch {batch}?",
+        "disableConfirm": "Stop {n} codes? They cannot be used until started again.",
+        "disable": "Stop",
+        "enable": "Start",
+        "empty": "No codes yet."
     }
 }

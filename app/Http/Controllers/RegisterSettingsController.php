@@ -36,6 +36,12 @@ class RegisterSettingsController extends Controller
             // Lab screening price and how long a clear result stays valid
             // (2026-10-12) — also editable in clinic settings.
             'lab' => ClinicSetting::current()->only(['lab_fee', 'lab_validity_days', 'lab_student_discount_percent', 'clinic_currency']),
+            // Care codes (2026-11-01, by request): on/off here, the codes on their own page.
+            'supportCodes' => [
+                'enabled' => \App\Support\SupportCodes::enabled(),
+                'counts' => \App\Support\SupportCodes::counts(),
+                'canManage' => (new \App\Services\PermissionManager(request()->user()))->can('support_codes', 'view'),
+            ],
         ]);
     }
 
@@ -120,6 +126,16 @@ class RegisterSettingsController extends Controller
         ClinicSetting::current()->update($validated);
 
         return back()->with('success', 'تم حفظ إعدادات المختبر.');
+    }
+
+    /** Care codes on/off (2026-11-01, by request). */
+    public function updateSupportCodes(Request $request): RedirectResponse
+    {
+        $validated = $request->validate(['support_codes_enabled' => ['required', 'boolean']]);
+
+        ClinicSetting::current()->update($validated);
+
+        return back()->with('success', $validated['support_codes_enabled'] ? 'تم تفعيل بطاقات الرعاية.' : 'تم إلغاء تفعيل بطاقات الرعاية.');
     }
 
     /** See `Api\TaskRegisterDaysController::update()`'s docblock. */

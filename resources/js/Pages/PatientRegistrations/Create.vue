@@ -7,6 +7,7 @@ import TextInput from '@/Components/TextInput.vue';
 import Icon from '@/Components/Icon.vue';
 import ChatAddButton from '@/Components/ChatList/ChatAddButton.vue';
 import { Head, useForm } from '@inertiajs/vue3';
+import axios from 'axios';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -15,6 +16,8 @@ const props = defineProps({
     services: Array,
     currency: String,
     stageNames: { type: Array, default: () => [] },
+    // Care cards (2026-11-01): the option shows only when switched on.
+    supportCodesEnabled: { type: Boolean, default: false },
 });
 
 const form = useForm({
@@ -30,7 +33,39 @@ const form = useForm({
     discount_stage: '',
     discount_workplace: '',
     discount_person_name: '',
+    // Care code (2026-11-01, by request): the card's 5 digits make the
+    // service and the lab test free; sent only while the option is ticked.
+    support_code: '',
 });
+
+const supportCare = ref(false);
+const codeCheck = ref({ state: null, message: '' });
+const toAsciiDigits = (v) => String(v ?? '').replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/\D/g, '').slice(0, 5);
+watch(supportCare, (on) => {
+    // Free care and the discount do not go together.
+    if (on) form.discount_eligible = false;
+    else form.support_code = '';
+    codeCheck.value = { state: null, message: '' };
+});
+watch(() => form.discount_eligible, (on) => {
+    if (on) supportCare.value = false;
+});
+watch(() => form.support_code, (v) => {
+    const clean = toAsciiDigits(v);
+    if (clean !== v) form.support_code = clean;
+    codeCheck.value = { state: null, message: '' };
+    if (clean.length === 5) checkCode();
+});
+const checkCode = async () => {
+    if (form.support_code.length !== 5) return;
+    codeCheck.value = { state: 'checking', message: '' };
+    try {
+        await axios.post(route('support-codes.check'), { code: form.support_code });
+        codeCheck.value = { state: 'ok', message: t('patientReg.supportCodeValid') };
+    } catch (e) {
+        codeCheck.value = { state: 'bad', message: e.response?.data?.errors?.support_code?.[0] ?? e.response?.data?.message ?? '' };
+    }
+};
 
 // Registration is name + phone + a priced service (2026-10-12). Services
 // are picked from a horizontal row of cards (2026-10-18, by request) that
@@ -52,6 +87,7 @@ const amountDue = computed(() => {
     const service = selectedService.value;
     if (!service || !isPriced(service)) return null;
     const price = Number(service.price);
+    if (supportCare.value) return 0;
     if (!form.discount_eligible) return price;
     const percent = Math.min(100, Math.max(0, discountPercent(service)));
     return Math.round(price * (100 - percent)) / 100;
@@ -124,7 +160,8 @@ onMounted(() => {
 watch(filteredServices, () => nextTick(updateArrows));
 
 const submit = () => {
-    form.post(route('patient-registrations.store'));
+    form.transform((data) => ({ ...data, support_code: supportCare.value ? data.support_code : '' }))
+        .post(route('patient-registrations.store'));
 };
 </script>
 
@@ -234,6 +271,39 @@ const submit = () => {
                             <p v-if="services.length === 0" class="mt-2 text-sm text-amber-600">{{ t('patientReg.noServicesYet') }}</p>
                         </div>
 
+                        <!-- Care card (2026-11-01, by request): neutral wording on purpose. -->
+                        <div v-if="supportCodesEnabled" class="space-y-3">
+                            <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 px-4 py-3" :class="supportCare ? 'border-teal-500 bg-teal-50/60' : ''">
+                                <input v-model="supportCare" type="checkbox" class="h-5 w-5 rounded border-gray-300 text-teal-600 focus:ring-teal-500" />
+                                <Icon name="volunteer_activism" class="text-teal-700" />
+                                <span class="text-sm font-medium text-gray-800">{{ t('patientReg.supportCare') }}</span>
+                            </label>
+                            <div v-if="supportCare" class="rounded-xl bg-teal-50/60 p-4">
+                                <InputLabel for="support_code" :value="t('patientReg.supportCodeLabel')" />
+                                <div class="mt-1 flex gap-2">
+                                    <TextInput
+                                        id="support_code"
+                                        v-model="form.support_code"
+                                        type="text"
+                                        inputmode="numeric"
+                                        maxlength="5"
+                                        autocomplete="off"
+                                        dir="ltr"
+                                        placeholder="•••••"
+                                        class="block w-40 rounded-xl text-center font-mono text-xl tracking-[0.4em]"
+                                        required
+                                    />
+                                    <button type="button" class="rounded-full border border-teal-600 px-4 text-sm font-semibold text-teal-700 hover:bg-teal-100" @click="checkCode">
+                                        {{ t('patientReg.supportCodeCheck') }}
+                                    </button>
+                                </div>
+                                <p class="mt-2 text-xs text-gray-600">{{ t('patientReg.supportCareHint') }}</p>
+                                <p v-if="codeCheck.state === 'ok'" class="mt-2 flex items-center gap-1 text-sm font-semibold text-teal-700"><Icon name="check_circle" />{{ codeCheck.message }}</p>
+                                <p v-else-if="codeCheck.state === 'bad'" class="mt-2 flex items-center gap-1 text-sm font-semibold text-red-600"><Icon name="error" />{{ codeCheck.message }}</p>
+                                <InputError class="mt-2" :message="form.errors.support_code" />
+                            </div>
+                        </div>
+
                         <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 px-4 py-3">
                             <input v-model="form.discount_eligible" type="checkbox" class="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
                             <span class="text-sm font-medium text-gray-800">{{ t('patientReg.discountEligible') }}</span>
@@ -306,13 +376,24 @@ const submit = () => {
                                 <span dir="ltr" class="text-lg font-bold text-gray-900">{{ formatPrice(amountDue) }}</span>
                             </div>
                         </div>
+                        <div v-else-if="selectedService && supportCare" class="space-y-1 rounded-xl bg-teal-50 px-4 py-3 text-sm">
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-600">{{ t('patientReg.amountFull') }}</span>
+                                <span dir="ltr" class="text-gray-500 line-through">{{ formatPrice(selectedService.price) }}</span>
+                            </div>
+                            <div class="flex items-center justify-between border-t border-teal-200 pt-1">
+                                <span class="font-semibold text-teal-800">{{ t('patientReg.supportFree') }}</span>
+                                <span dir="ltr" class="text-lg font-bold text-teal-800">{{ formatPrice(0) }}</span>
+                            </div>
+                            <div class="text-xs text-teal-700">{{ t('patientReg.supportLabFree') }}</div>
+                        </div>
                         <div v-else-if="selectedService" class="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
                             <span class="text-sm text-gray-600">{{ t('patientReg.amountDue') }}</span>
                             <span dir="ltr" class="text-lg font-bold text-gray-900">{{ formatPrice(amountDue) }}</span>
                         </div>
 
                         <div class="flex justify-end">
-                            <PrimaryButton class="rounded-full" :disabled="form.processing || !selectedService">{{ t('patientReg.submitRegistration') }}</PrimaryButton>
+                            <PrimaryButton class="rounded-full" :disabled="form.processing || !selectedService || (supportCare && form.support_code.length !== 5)">{{ t('patientReg.submitRegistration') }}</PrimaryButton>
                         </div>
                     </form>
                 </div>

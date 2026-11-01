@@ -49,7 +49,11 @@
                 @php($recorded = \App\Support\StudentDiscount::recorded($registration, \App\Models\Payment::TYPE_SERVICE))
                 @php($paid = (float) ($recorded[0] ?? ($registration->service_paid ?: $registration->service?->price)))
                 @php($fullAtTime = $recorded ? $recorded[1] : ($registration->service?->price !== null ? (float) $registration->service->price : null))
-                @if ($paid > 0)
+                @if ($registration->support_code_id)
+                    {{-- Free with a care code (2026-11-01, by request). --}}
+                    <tr><th>المبلغ</th><td>0 {{ $settings->clinic_currency }}</td></tr>
+                    <tr><th>الحالة</th><td><strong>{{ \App\Support\SupportCodes::LABEL }}</strong></td></tr>
+                @elseif ($paid > 0)
                     {{-- Student/employee discount (2026-10-25, by request). --}}
                     @include('print.partials.amount-rows', ['full' => $fullAtTime, 'label' => 'المبلغ المدفوع', 'currency' => $settings->clinic_currency])
                     <tr><th>الحالة</th><td><strong>مدفوع</strong></td></tr>

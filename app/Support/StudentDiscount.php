@@ -76,6 +76,11 @@ class StudentDiscount
             return null;
         }
 
+        // A care code makes the lab test free too (2026-11-01, by request).
+        if ($registration?->support_code_id) {
+            return 0.0;
+        }
+
         return $registration?->discount_eligible
             ? self::apply((float) $settings->lab_fee, self::percent($settings->lab_student_discount_percent))
             : (float) $settings->lab_fee;

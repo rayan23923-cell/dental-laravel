@@ -45,6 +45,16 @@ class ClinicSettingController extends Controller
         return $this->show($request);
     }
 
+    /** Care codes on/off from the registration settings screen (2026-11-01). */
+    public function updateSupportCodes(Request $request): JsonResponse
+    {
+        $validated = $request->validate(['support_codes_enabled' => ['required', 'boolean']]);
+
+        ClinicSetting::current()->update($validated);
+
+        return $this->show($request);
+    }
+
     public function update(Request $request): JsonResponse
     {
         $validated = $request->validate([

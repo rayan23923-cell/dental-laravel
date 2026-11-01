@@ -57,6 +57,10 @@
                 @if ($registration->screeningReusedFrom)
                     <tr><th>أجور المختبر</th><td>معفى — فحص سابق صالح</td></tr>
                     <tr><th>تاريخ الفحص السابق</th><td dir="ltr" style="text-align:left">{{ \Illuminate\Support\Carbon::parse($registration->screeningReusedFrom->screening_checked_at)->format('Y-m-d') }}</td></tr>
+                @elseif ($registration->support_code_id)
+                    {{-- Free with a care code (2026-11-01, by request). --}}
+                    <tr><th>أجور المختبر</th><td>0 {{ $settings->clinic_currency }}</td></tr>
+                    <tr><th>الحالة</th><td><strong>{{ \App\Support\SupportCodes::LABEL }}</strong></td></tr>
                 @else
                     {{-- The fee is taken when the result is recorded, so this
                          one slip is also the payment receipt (2026-10-12). --}}
