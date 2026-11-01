@@ -15,7 +15,7 @@ use Illuminate\Support\Collection;
  * nothing to pay.
  *
  * A clear result stays valid for `lab_validity_days` (2026-10-12): the same
- * patient (same phone) registering again inside that window is not screened
+ * patient (same name) registering again inside that window is not screened
  * or charged again; the lab reuses the earlier result instead.
  */
 class LabFeeGate
@@ -67,11 +67,10 @@ class LabFeeGate
      * Batched form for a page of registrations: registration id => the
      * earlier registration whose result it can reuse.
      *
-     * Matches on the phone or the full name (2026-10-12, by request), so a
-     * patient who comes back with another number, or whose number was
-     * typed differently, is still found. Each match carries `matched_by`
-     * ('phone' or 'name'); a phone match wins over a name match, since
-     * two different patients can share a name.
+     * Matches on the full name only (2026-11-01, by request; it used to
+     * try the phone first), so a patient who comes back with another
+     * number is still found. Names are compared after normalisation.
+     * Each match carries `matched_by` = 'name'.
      *
      * @param  Collection<int, PatientRegistration>  $registrations
      * @return Collection<int, PatientRegistration>
@@ -96,18 +95,12 @@ class LabFeeGate
         $result = collect();
         foreach ($registrations as $registration) {
             $others = $earlier->where('id', '!=', $registration->id);
-            $phone = self::normalizePhone($registration->phone);
             $name = self::normalizeName($registration->name);
 
-            $match = $phone !== '' ? $others->first(fn ($e) => self::normalizePhone($e->phone) === $phone) : null;
-            $by = 'phone';
-            if (! $match && $name !== '') {
-                $match = $others->first(fn ($e) => self::normalizeName($e->name) === $name);
-                $by = 'name';
-            }
+            $match = $name !== '' ? $others->first(fn ($e) => self::normalizeName($e->name) === $name) : null;
 
             if ($match) {
-                $result->put($registration->id, (clone $match)->setAttribute('matched_by', $by));
+                $result->put($registration->id, (clone $match)->setAttribute('matched_by', 'name'));
             }
         }
 

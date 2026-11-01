@@ -80,7 +80,7 @@ class ApiLabPaymentsReportAndArchiveTest extends TestCase
 
         $this->getJson('/api/v1/lab')->assertOk()
             ->assertJsonPath('data.0.id', $again->id)
-            ->assertJsonPath('data.0.previous_screening.matched_by', 'phone');
+            ->assertJsonPath('data.0.previous_screening.matched_by', 'name');
     }
 
     public function test_lab_scan_show_and_qr_need_only_a_screening_permission(): void

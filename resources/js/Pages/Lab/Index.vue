@@ -106,14 +106,9 @@ const onDecoded = async (text) => {
     try {
         const { data } = await axios.post(route('lab.scan'), { payload: text });
         closeScanner();
+        // Opening a patient never prints by itself (2026-11-01, by request):
+        // the slip prints only once staff pick a result (or reuse one).
         selected.value = data.data;
-        autoReused.value = false;
-        // A valid earlier test found by phone (2026-10-12, by request): no
-        // new test, the clear slip prints straight away. A name-only match
-        // waits for staff to confirm it is the same patient.
-        if (props.canConfirm && canReuse(data.data) && data.data.previous_screening.matched_by === 'phone') {
-            await reuse({ silent: true });
-        }
     } catch (e) {
         scanError.value = e?.response?.data?.message ?? t('payments.qrReadFailed');
     }
@@ -133,20 +128,14 @@ const resultError = ref('');
 // request).
 const printSlip = (id) => printInFrame(route('lab.print', { patientRegistration: id, autoprint: 1 }));
 
-const autoReused = ref(false);
-const reuse = async ({ silent = false } = {}) => {
+const reuse = async () => {
     submitting.value = true;
     resultError.value = '';
     try {
         const id = selected.value.id;
-        const { data } = await axios.post(route('lab.reuse', id));
+        await axios.post(route('lab.reuse', id));
         printSlip(id);
-        if (silent) {
-            selected.value = { ...selected.value, ...data.data };
-            autoReused.value = true;
-        } else {
-            selected.value = null;
-        }
+        selected.value = null;
         router.reload({ only: ['registrations', 'counts'] });
     } catch (e) {
         resultError.value = e?.response?.data?.message ?? t('lab.recordFailed');
@@ -214,7 +203,7 @@ const record = async (status) => {
                         :tone="statusTone(r.screening_status)"
                         :icon="statusIcon(r.screening_status)"
                         class="cursor-pointer hover:bg-gray-50"
-                        @click="selected = r; autoReused = false"
+                        @click="selected = r"
                     >
                         <template #meta>
                             <ChatChip :icon="statusIcon(r.screening_status)" :tone="statusTone(r.screening_status)">{{ statusLabel(r.screening_status) }}</ChatChip>
@@ -243,7 +232,7 @@ const record = async (status) => {
         </Modal>
 
         <!-- Result -->
-        <Modal :show="!!selected" @close="selected = null; autoReused = false">
+        <Modal :show="!!selected" @close="selected = null">
             <div v-if="selected" class="flex flex-col gap-4 p-4 sm:p-6">
                 <div class="flex items-center gap-3">
                     <div
@@ -257,10 +246,6 @@ const record = async (status) => {
                         <p class="text-sm text-gray-500" dir="ltr" style="text-align: right">{{ selected.phone }}</p>
                         <p class="text-xs text-gray-400">{{ placeAndDay(selected) }}</p>
                     </div>
-                </div>
-
-                <div v-if="autoReused" class="rounded-xl bg-green-600 p-4 text-center text-base font-semibold text-white">
-                    <Icon name="verified" class="ml-1" />{{ t('lab.autoReused') }}
                 </div>
 
                 <div v-if="canReuse(selected)" class="flex flex-col gap-3 rounded-xl bg-green-50 p-3 text-sm text-green-800">
@@ -303,7 +288,7 @@ const record = async (status) => {
 
                 <div v-if="resultError" class="rounded-xl bg-red-50 p-3 text-sm text-red-700">{{ resultError }}</div>
 
-                <template v-if="canConfirm && !autoReused">
+                <template v-if="canConfirm">
                     <h4 v-if="canReuse(selected)" class="text-xs text-gray-500">{{ t('lab.orScreenAgain') }}</h4>
                     <h4 v-else class="text-sm font-medium text-gray-700">{{ t('lab.resultHeading') }}</h4>
                     <div class="grid grid-cols-2 gap-3">

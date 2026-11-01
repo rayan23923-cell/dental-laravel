@@ -54,15 +54,8 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
   void initState() {
     super.initState();
     _state = widget.initial;
-    // A valid earlier test found by phone (2026-10-12, by request): no new
-    // test, the clear slip prints straight away. A name-only match waits
-    // for staff to confirm it is the same patient.
-    final previous = _state.previousScreening;
-    if (previous != null && previous.matchedByPhone && _state.registration.screeningStatus == 'pending') {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _reusePrevious();
-      });
-    }
+    // Opening a patient never prints by itself (2026-11-01, by request):
+    // the slip prints only once staff pick سليم / غير سليم (or tap reuse).
   }
 
   Future<void> _confirm(String status) async {

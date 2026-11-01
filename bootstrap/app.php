@@ -17,6 +17,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // Wi-Fi connectivity checks on the offline network (2026-10-12).
         $middleware->prepend(\App\Http\Middleware\AnswerConnectivityChecks::class);
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+        // Offline server opened by IP: logo/upload links on that IP too (2026-11-01).
+        $middleware->prepend(\App\Http\Middleware\UseRequestHostForFilesOnIp::class);
 
         $middleware->web(append: [
             \App\Http\Middleware\EnsureOfflineActivated::class,
@@ -39,5 +41,18 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Errors during an in-app (Inertia) visit open our own error page
+        // (2026-11-01, by request) instead of the framework's page in a
+        // pop-up. Full page loads get resources/views/errors/page.blade.php.
+        $exceptions->respond(function (\Symfony\Component\HttpFoundation\Response $response, \Throwable $e, \Illuminate\Http\Request $request) {
+            $status = $response->getStatusCode();
+
+            if ($request->header('X-Inertia') && ! config('app.debug') && in_array($status, [403, 404, 405, 419, 429, 500, 503], true)) {
+                return \Inertia\Inertia::render('Error', ['status' => $status])
+                    ->toResponse($request)
+                    ->setStatusCode($status);
+            }
+
+            return $response;
+        });
     })->create();
