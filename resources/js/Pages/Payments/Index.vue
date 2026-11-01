@@ -8,6 +8,7 @@ import ChatSearch from '@/Components/ChatList/ChatSearch.vue';
 import ChatPager from '@/Components/ChatList/ChatPager.vue';
 import BarChart from '@/Components/BarChart.vue';
 import Icon from '@/Components/Icon.vue';
+import PeriodChips from '@/Components/PeriodChips.vue';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -76,6 +77,12 @@ const from = ref(props.filters.from ?? '');
 const to = ref(props.filters.to ?? '');
 const source = ref(props.filters.source ?? '');
 
+// Today / this week / this month (2026-11-01, by request).
+const setPeriod = (range) => {
+    from.value = range.from;
+    to.value = range.to;
+    applyFilters();
+};
 const applyFilters = () => {
     router.get(
         route('payments.index'),
@@ -164,6 +171,7 @@ const destroy = (payment) => {
                 <ChatSearch v-model="search" :placeholder="t('payments.searchPlaceholder')" @submit="applyFilters" />
 
                 <!-- Filters: paid_at range + source -->
+                <PeriodChips :from="from" :to="to" @change="setPeriod" />
                 <div class="flex flex-wrap items-center gap-2">
                     <label class="flex items-center gap-1 rounded-full bg-white py-0.5 ps-3 text-xs text-gray-500 shadow-sm ring-1 ring-gray-200">
                         {{ t('payments.fromDate') }}

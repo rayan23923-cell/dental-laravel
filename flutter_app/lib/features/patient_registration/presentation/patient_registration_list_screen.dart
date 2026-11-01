@@ -29,6 +29,7 @@ import '../domain/patient_registration.dart';
 import 'live_registrations.dart';
 import 'patient_registration_providers.dart';
 import '../../../core/widgets/tg_spinner.dart';
+import '../../../core/widgets/period_chips.dart';
 
 /// "سجل تسجيل المرضى" — mirrors `PatientRegistrations/Index.vue`,
 /// including its search + day/service filters (the repository/provider
@@ -392,6 +393,16 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                     if (_hasFilters)
                       IconButton(icon: const Icon(Icons.filter_alt_off_outlined), tooltip: t['patientRegFlutter.clearFilters']!, onPressed: _clearFilters),
                   ],
+                ),
+                const SizedBox(height: 8),
+                // Today / this week / this month (2026-11-01, by request).
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: PeriodChips(
+                    from: _range?.start,
+                    to: _range?.end,
+                    onChanged: (r) => setState(() => _range = r),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Theme(
