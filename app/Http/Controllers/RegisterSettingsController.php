@@ -6,7 +6,9 @@ use App\Models\ClinicSetting;
 use App\Models\RegisterDay;
 use App\Models\Service;
 use App\Models\Task;
+use App\Services\PermissionManager;
 use App\Support\StudentDiscount;
+use App\Support\SupportCodes;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -38,9 +40,9 @@ class RegisterSettingsController extends Controller
             'lab' => ClinicSetting::current()->only(['lab_fee', 'lab_validity_days', 'lab_student_discount_percent', 'clinic_currency']),
             // Care codes (2026-11-01, by request): on/off here, the codes on their own page.
             'supportCodes' => [
-                'enabled' => \App\Support\SupportCodes::enabled(),
-                'counts' => \App\Support\SupportCodes::counts(),
-                'canManage' => (new \App\Services\PermissionManager(request()->user()))->can('support_codes', 'view'),
+                'enabled' => SupportCodes::enabled(),
+                'counts' => SupportCodes::counts(),
+                'canManage' => (new PermissionManager(request()->user()))->can('support_codes', 'view'),
             ],
         ]);
     }
@@ -133,7 +135,7 @@ class RegisterSettingsController extends Controller
     {
         $validated = $request->validate(['support_codes_enabled' => ['required', 'boolean']]);
 
-        ClinicSetting::current()->update($validated);
+        SupportCodes::setEnabled((bool) $validated['support_codes_enabled']);
 
         return back()->with('success', $validated['support_codes_enabled'] ? 'تم تفعيل بطاقات الرعاية.' : 'تم إلغاء تفعيل بطاقات الرعاية.');
     }

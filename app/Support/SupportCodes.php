@@ -8,6 +8,7 @@ use App\Models\Payment;
 use App\Models\Service;
 use App\Models\SupportCode;
 use App\Models\User;
+use App\Services\ActivityLogger;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
@@ -37,6 +38,9 @@ class SupportCodes
     public const MAX_WRONG = 10;
 
     public const LOCK_SECONDS = 600;
+
+    /** Module name in the activity log ("سجل النشاطات"). */
+    public const LOG_MODULE = 'SupportCode';
 
     public const LABEL = 'مشمول بالرعاية';
 
@@ -89,8 +93,11 @@ class SupportCodes
                 ];
             }
             SupportCode::insert($rows);
+            $codes = SupportCode::where('batch', $batch)->orderBy('id')->get();
+            ActivityLogger::log('create', self::LOG_MODULE, "توليد {$count} بطاقة رعاية (الدفعة {$batch})", $codes->first()?->id,
+                ['batch' => $batch, 'count' => $count, 'note' => $rows[0]['note']]);
 
-            return SupportCode::where('batch', $batch)->orderBy('id')->get();
+            return $codes;
         });
     }
 
@@ -104,14 +111,30 @@ class SupportCodes
             return 0;
         }
 
-        return SupportCode::query()
+        $query = SupportCode::query()
             ->whereNull('used_at')
             ->where(fn ($q) => $q->when($ids !== [], fn ($q) => $q->whereIn('id', $ids))
                 ->when($batch !== null, fn ($q) => $q->orWhere('batch', $batch)))
-            ->when($disabled, fn ($q) => $q->whereNull('disabled_at'), fn ($q) => $q->whereNotNull('disabled_at'))
-            ->update($disabled
-                ? ['disabled_at' => now(), 'disabled_by' => $user?->id, 'updated_at' => now()]
-                : ['disabled_at' => null, 'disabled_by' => null, 'updated_at' => now()]);
+            ->when($disabled, fn ($q) => $q->whereNull('disabled_at'), fn ($q) => $q->whereNotNull('disabled_at'));
+        $codes = (clone $query)->orderBy('id')->pluck('code')->all();
+        $changed = $query->update($disabled
+            ? ['disabled_at' => now(), 'disabled_by' => $user?->id, 'updated_at' => now()]
+            : ['disabled_at' => null, 'disabled_by' => null, 'updated_at' => now()]);
+
+        if ($changed > 0) {
+            ActivityLogger::log('update', self::LOG_MODULE,
+                ($disabled ? 'إيقاف' : 'إعادة تفعيل')." {$changed} بطاقة رعاية".($batch !== null ? " (الدفعة {$batch})" : ''),
+                null, ['disabled' => $disabled, 'batch' => $batch, 'codes' => $codes]);
+        }
+
+        return $changed;
+    }
+
+    /** Switches the feature on or off from the registration settings, logging who did it. */
+    public static function setEnabled(bool $enabled): void
+    {
+        ClinicSetting::current()->update(['support_codes_enabled' => $enabled]);
+        ActivityLogger::log('update', self::LOG_MODULE, $enabled ? 'تفعيل بطاقات الرعاية' : 'إلغاء تفعيل بطاقات الرعاية', null, ['support_codes_enabled' => $enabled]);
     }
 
     /** Why [$code] cannot be used, or null when it can. */
@@ -173,6 +196,8 @@ class SupportCodes
             'waived_service' => $service->price !== null ? (float) $service->price : null,
         ]);
         $registration->forceFill(['support_code_id' => $fresh->id])->save();
+        ActivityLogger::log('update', self::LOG_MODULE, "استخدام بطاقة الرعاية {$fresh->code} للمراجع \"{$registration->name}\"", $fresh->id,
+            ['code' => $fresh->code, 'patient_registration_id' => $registration->id, 'patient' => $registration->name, 'service' => $service->name, 'waived_service' => $fresh->waived_service]);
     }
 
     /** Records the lab fee a cared-for patient did not pay, when the result is recorded. */
@@ -180,7 +205,11 @@ class SupportCodes
     {
         $fee = ClinicSetting::current()->lab_fee;
         if ($registration->support_code_id && $fee !== null) {
-            SupportCode::whereKey($registration->support_code_id)->whereNull('waived_lab')->update(['waived_lab' => (float) $fee]);
+            $changed = SupportCode::whereKey($registration->support_code_id)->whereNull('waived_lab')->update(['waived_lab' => (float) $fee]);
+            if ($changed > 0) {
+                ActivityLogger::log('update', self::LOG_MODULE, "فحص مختبر مجاني (رعاية) للمراجع \"{$registration->name}\"", $registration->support_code_id,
+                    ['patient_registration_id' => $registration->id, 'waived_lab' => (float) $fee]);
+            }
         }
     }
 

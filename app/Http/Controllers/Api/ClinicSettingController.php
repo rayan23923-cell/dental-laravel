@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\ClinicSetting;
 use App\Models\User;
 use App\Services\PermissionManager;
+use App\Support\FormSettings;
+use App\Support\SupportCodes;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -50,7 +52,7 @@ class ClinicSettingController extends Controller
     {
         $validated = $request->validate(['support_codes_enabled' => ['required', 'boolean']]);
 
-        ClinicSetting::current()->update($validated);
+        SupportCodes::setEnabled((bool) $validated['support_codes_enabled']);
 
         return $this->show($request);
     }
@@ -71,7 +73,7 @@ class ClinicSettingController extends Controller
             'lab_student_discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'groups_enabled' => ['sometimes', 'boolean'],
             // Forms and task switches for the whole system (2026-10-22).
-            ...\App\Support\FormSettings::generalRules(),
+            ...FormSettings::generalRules(),
             'clinic_timezone' => ['nullable', 'string', 'max:64'],
             'base_url' => ['nullable', 'string', 'max:255'],
             'university_name' => ['nullable', 'string', 'max:255'],
@@ -112,7 +114,7 @@ class ClinicSettingController extends Controller
             $validated['university_logo'] = $request->file('university_logo')->store('clinic', 'public');
         }
 
-        \App\Support\FormSettings::ensureAFormIsOn($validated);
+        FormSettings::ensureAFormIsOn($validated);
         $settings->update($validated);
 
         return response()->json($this->payload($settings->fresh(), $request));

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ActivityLog;
 use App\Models\ClinicSetting;
 use App\Models\PatientRegistration;
 use App\Models\Payment;
@@ -11,6 +12,7 @@ use App\Models\User;
 use App\Models\UserPermission;
 use App\Support\SupportCodes;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -149,7 +151,7 @@ class SupportCodesTest extends TestCase
 
         UserPermission::create(['user_id' => $user->id, 'module' => 'support_codes', 'permission' => 'view', 'granted' => true]);
         UserPermission::create(['user_id' => $user->id, 'module' => 'support_codes', 'permission' => 'generate', 'granted' => true]);
-        \Illuminate\Support\Facades\Cache::flush();
+        Cache::flush();
 
         $this->actingAs($user)->get('/support-codes')->assertOk();
         $this->actingAs($user)->post('/support-codes', ['count' => 3])->assertRedirect();
@@ -175,5 +177,32 @@ class SupportCodesTest extends TestCase
         $this->actingAs($admin)->get('/payments/report')->assertOk()
             ->assertSeeInOrder(['المدفوعات', 'المستفيدون من الرعاية (1)', 'Free Patient', $code->code, 'المشمولون بالتخفيض (1)', 'Student Patient', '50%'])
             ->assertSee('30,000');
+    }
+
+    public function test_every_step_is_written_to_the_activity_log(): void
+    {
+        $service = Service::create(['name' => 'Filling', 'price' => 20000]);
+        $admin = $this->admin();
+        ClinicSetting::current()->update(['lab_fee' => 8000]);
+
+        $this->actingAs($admin)->put('/register-settings/support-codes', ['support_codes_enabled' => true]);
+        $this->actingAs($admin)->post('/support-codes', ['count' => 3]);
+        [$a, $b] = SupportCode::orderBy('id')->take(2)->get()->all();
+        $this->actingAs($admin)->post('/support-codes/status', ['ids' => [$b->id], 'disabled' => true]);
+        $this->actingAs($admin)->post('/support-codes/status', ['ids' => [$b->id], 'disabled' => false]);
+        $this->actingAs($admin)->post('/patient-registrations', ['name' => 'Ali', 'phone' => '0770', 'service_id' => $service->id, 'support_code' => $a->code]);
+        $ali = PatientRegistration::firstWhere('name', 'Ali');
+        $this->actingAs($admin)->postJson("/patient-registrations/{$ali->id}/screening", ['screening_status' => 'clear'])->assertOk();
+
+        $logs = ActivityLog::where('module', SupportCodes::LOG_MODULE)->orderBy('id')->pluck('description')->all();
+        $this->assertSame([
+            'تفعيل بطاقات الرعاية',
+            'توليد 3 بطاقة رعاية (الدفعة 1)',
+            'إيقاف 1 بطاقة رعاية',
+            'إعادة تفعيل 1 بطاقة رعاية',
+            "استخدام بطاقة الرعاية {$a->code} للمراجع \"Ali\"",
+            'فحص مختبر مجاني (رعاية) للمراجع "Ali"',
+        ], $logs);
+        $this->assertTrue(ActivityLog::where('module', SupportCodes::LOG_MODULE)->get()->every(fn ($l) => $l->user_id === $admin->id));
     }
 }
