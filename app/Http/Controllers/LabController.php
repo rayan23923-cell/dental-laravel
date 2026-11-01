@@ -173,6 +173,32 @@ class LabController extends Controller
     }
 
     /**
+     * "بدء الفحص" (2026-11-01, by request): the patient's name with a large
+     * "هنا توضع العينات" circle, printed when the lab starts the test so the
+     * samples are placed on it and never mixed up between patients.
+     */
+    public function sample(Request $request, PatientRegistration $patientRegistration): View
+    {
+        $this->authorizeLab($request);
+
+        // The patient's QR (2026-11-01, by request): scanning the sheet when
+        // the result is ready opens the patient to pick the result and pay.
+        $qr = (new PngWriter())->write(new QrCode(
+            data: QrCodeFactory::payload('patient_registration', $patientRegistration->id),
+            errorCorrectionLevel: ErrorCorrectionLevel::Medium,
+            size: 300,
+            margin: 10,
+        ));
+
+        return view('print.lab-sample', [
+            'settings' => ClinicSetting::current(),
+            'registration' => $patientRegistration->load('service'),
+            'qrDataUri' => $qr->getDataUri(),
+            'autoprint' => $request->boolean('autoprint'),
+        ]);
+    }
+
+    /**
      * Either screening permission opens the lab: the dashboard's lab card
      * is shown on `confirm`, so `view` alone must not be required.
      */

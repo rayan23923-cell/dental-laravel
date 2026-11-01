@@ -345,7 +345,10 @@
         "servicesPricesHeading": "Services and prices",
         "labSettingsHeading": "Lab settings",
         "labSettingsDesc": "The test is paid in advance. A patient (same phone) with a clear test within the validity period needs no new test or payment, only the slip is printed. Set 0 to turn this off.",
-        "savePrice": "Save"
+        "savePrice": "Save",
+        "discountStudentName": "Student's name",
+        "discountEmployeeName": "Employee's name",
+        "discountStagePick": "Choose the stage"
     },
     "appointments": {
         "newAppointment": "New Appointment",
@@ -1159,7 +1162,12 @@
         "orScreenAgain": "Or record a new test result:",
         "matchedByName": "Found by name only: {name} ({phone}). Make sure it is the same patient first.",
         "matchedByPhone": "Found by phone number: {name} ({phone}).",
-        "autoReused": "Clear: valid earlier test, no new test needed. The slip was printed."
+        "autoReused": "Clear: valid earlier test, no new test needed. The slip was printed.",
+        "feeConfirmQuestion": "Did you receive the lab fee ({amount}) from the patient? The payment is recorded and the slip prints.",
+        "feeConfirmYes": "Yes, received",
+        "feeConfirmNo": "No, cancel",
+        "startTest": "Start test",
+        "startTestHint": "Prints the patient's name and a \"place the samples here\" circle"
     },
     "roles": {
         "super_admin": "Super admin",
@@ -1527,5 +1535,30 @@
         "deleteFile": "Delete",
         "deleteFileConfirm": "Delete this file from the server?",
         "printCards": "Print login cards (A4)"
+    },
+    "errors": {
+        "title403": "Access denied",
+        "text403": "You do not have permission to open this page.",
+        "title404": "Page not found",
+        "text404": "The page you are looking for does not exist or has moved.",
+        "title405": "Method not allowed",
+        "text405": "This link cannot be opened this way. Go back and try again from inside the system.",
+        "title419": "Session expired",
+        "text419": "This page has expired. Refresh it and try again.",
+        "title429": "Too many requests",
+        "text429": "Too many requests in a short time. Wait a moment and try again.",
+        "title500": "Server error",
+        "text500": "Something went wrong. Please try again shortly.",
+        "title503": "Temporarily unavailable",
+        "text503": "The system is being maintained or updated. Please try again shortly.",
+        "goBack": "Go back",
+        "home": "Home",
+        "refresh": "Refresh"
+    },
+    "connection": {
+        "offline": "No network connection. Check the Wi-Fi or cable.",
+        "serverDown": "Cannot reach the server. Retrying...",
+        "restored": "Connection restored",
+        "retry": "Retry"
     }
 }

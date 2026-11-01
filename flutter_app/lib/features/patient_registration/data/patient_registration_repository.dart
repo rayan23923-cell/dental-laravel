@@ -166,6 +166,7 @@ class PatientRegistrationRepository {
     String? discountType,
     String? discountStage,
     String? discountWorkplace,
+    String? discountPersonName,
   }) async {
     // No `register_day_id` since 2026-10-12 — registration is by service
     // only (the server column is nullable now). No amount either: the
@@ -182,6 +183,8 @@ class PatientRegistrationRepository {
       if (discountEligible) 'discount_type': discountType ?? 'student',
       if (discountEligible && discountStage != null) 'discount_stage': discountStage,
       if (discountEligible && discountWorkplace != null) 'discount_workplace': discountWorkplace,
+      // The student's / employee's name (2026-11-01).
+      if (discountEligible && discountPersonName != null) 'discount_person_name': discountPersonName,
     }) as Map<String, dynamic>;
     return PatientRegistration.fromJson(data['data'] as Map<String, dynamic>);
   }

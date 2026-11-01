@@ -409,6 +409,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/lab', [LabController::class, 'index'])->name('lab.index');
         Route::post('/lab/scan', [LabController::class, 'scan'])->name('lab.scan');
         Route::get('/lab/{patientRegistration}/print', [LabController::class, 'print'])->name('lab.print');
+        Route::get('/lab/{patientRegistration}/sample', [LabController::class, 'sample'])->name('lab.sample');
         Route::post('/lab/{patientRegistration}/reuse', [LabController::class, 'reuse'])->name('lab.reuse');
     });
 

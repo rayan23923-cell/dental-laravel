@@ -20,6 +20,9 @@ class StudentDiscount
     /** Who can be eligible (2026-10-25): students and employees, same percentages. */
     public const TYPES = ['student', 'employee'];
 
+    /** The stages a student picks from (2026-11-01, by request: five by default). */
+    public const STAGES = ['المرحلة الأولى', 'المرحلة الثانية', 'المرحلة الثالثة', 'المرحلة الرابعة', 'المرحلة الخامسة'];
+
     /**
      * The registration's discount fields made consistent: not eligible
      * clears them all; eligible defaults to a student, and keeps only the
@@ -31,12 +34,14 @@ class StudentDiscount
         $type = $eligible ? (($validated['discount_type'] ?? null) ?: 'student') : null;
         $stage = trim((string) ($validated['discount_stage'] ?? ''));
         $workplace = trim((string) ($validated['discount_workplace'] ?? ''));
+        $person = trim((string) ($validated['discount_person_name'] ?? ''));
 
         return array_merge($validated, [
             'discount_eligible' => $eligible,
             'discount_type' => $type,
             'discount_stage' => $type === 'student' && $stage !== '' ? $stage : null,
             'discount_workplace' => $type === 'employee' && $workplace !== '' ? $workplace : null,
+            'discount_person_name' => $type !== null && $person !== '' ? $person : null,
         ]);
     }
 
@@ -81,13 +86,13 @@ class StudentDiscount
         return $value === null ? self::DEFAULT_PERCENT : (float) $value;
     }
 
-    /** "طالب · المرحلة الرابعة" / "موظف · الصيدلية" — who the discount is for. */
+    /** "طالب · أحمد علي · المرحلة الرابعة" / "موظف · سارة · الصيدلية" — who the discount is for. */
     public static function whoLabel(PatientRegistration $registration): string
     {
         $employee = $registration->discount_type === 'employee';
         $detail = $employee ? $registration->discount_workplace : $registration->discount_stage;
 
-        return implode(' · ', array_filter([$employee ? 'موظف' : 'طالب', $detail]));
+        return implode(' · ', array_filter([$employee ? 'موظف' : 'طالب', $registration->discount_person_name, $detail]));
     }
 
     /**

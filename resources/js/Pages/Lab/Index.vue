@@ -12,6 +12,7 @@ import Modal from '@/Components/Modal.vue';
 import ChatListCard from '@/Components/ChatList/ChatListCard.vue';
 import ChatListRow from '@/Components/ChatList/ChatListRow.vue';
 import ChatChip from '@/Components/ChatList/ChatChip.vue';
+import ChatAction from '@/Components/ChatList/ChatAction.vue';
 import ChatSearch from '@/Components/ChatList/ChatSearch.vue';
 import ChatAddButton from '@/Components/ChatList/ChatAddButton.vue';
 import ChatPager from '@/Components/ChatList/ChatPager.vue';
@@ -106,14 +107,9 @@ const onDecoded = async (text) => {
     try {
         const { data } = await axios.post(route('lab.scan'), { payload: text });
         closeScanner();
+        // Opening a patient never prints by itself (2026-11-01, by request):
+        // the slip prints only once staff pick a result (or reuse one).
         selected.value = data.data;
-        autoReused.value = false;
-        // A valid earlier test found by phone (2026-10-12, by request): no
-        // new test, the clear slip prints straight away. A name-only match
-        // waits for staff to confirm it is the same patient.
-        if (props.canConfirm && canReuse(data.data) && data.data.previous_screening.matched_by === 'phone') {
-            await reuse({ silent: true });
-        }
     } catch (e) {
         scanError.value = e?.response?.data?.message ?? t('payments.qrReadFailed');
     }
@@ -132,21 +128,18 @@ const resultError = ref('');
 // straight away, in a hidden frame rather than a new tab (2026-10-18, by
 // request).
 const printSlip = (id) => printInFrame(route('lab.print', { patientRegistration: id, autoprint: 1 }));
+// "بدء الفحص" (2026-11-01, by request): prints the patient's name with a big
+// "هنا توضع العينات" circle, so samples sit under the right name.
+const startTest = (id) => printInFrame(route('lab.sample', { patientRegistration: id, autoprint: 1 }));
 
-const autoReused = ref(false);
-const reuse = async ({ silent = false } = {}) => {
+const reuse = async () => {
     submitting.value = true;
     resultError.value = '';
     try {
         const id = selected.value.id;
-        const { data } = await axios.post(route('lab.reuse', id));
+        await axios.post(route('lab.reuse', id));
         printSlip(id);
-        if (silent) {
-            selected.value = { ...selected.value, ...data.data };
-            autoReused.value = true;
-        } else {
-            selected.value = null;
-        }
+        selected.value = null;
         router.reload({ only: ['registrations', 'counts'] });
     } catch (e) {
         resultError.value = e?.response?.data?.message ?? t('lab.recordFailed');
@@ -155,7 +148,15 @@ const reuse = async ({ silent = false } = {}) => {
     }
 };
 
-const record = async (status) => {
+// Asked before a fee-due result is saved (2026-11-01, by request): "did you
+// receive the lab fee?" Yes records the payment and prints; no saves nothing.
+const feePendingStatus = ref(null);
+const record = async (status, { feeConfirmed = false } = {}) => {
+    if (feeDue(selected.value) && !feeConfirmed) {
+        feePendingStatus.value = status;
+        return;
+    }
+    feePendingStatus.value = null;
     submitting.value = true;
     resultError.value = '';
     try {
@@ -214,7 +215,7 @@ const record = async (status) => {
                         :tone="statusTone(r.screening_status)"
                         :icon="statusIcon(r.screening_status)"
                         class="cursor-pointer hover:bg-gray-50"
-                        @click="selected = r; autoReused = false"
+                        @click="selected = r; feePendingStatus = null"
                     >
                         <template #meta>
                             <ChatChip :icon="statusIcon(r.screening_status)" :tone="statusTone(r.screening_status)">{{ statusLabel(r.screening_status) }}</ChatChip>
@@ -222,6 +223,14 @@ const record = async (status) => {
                             <ChatChip v-else :icon="isPaid(r) ? 'paid' : 'money_off'" :tone="isPaid(r) ? 'sky' : 'gray'">{{ isPaid(r) ? t('lab.paid') : t('lab.unpaid') }}</ChatChip>
                             <ChatChip icon="location_on">{{ placeAndDay(r) }}</ChatChip>
                             <ChatChip icon="schedule">{{ fmtDate(r.created_at) }}</ChatChip>
+                        </template>
+                        <template #actions>
+                            <ChatAction
+                                v-if="r.screening_status === 'pending'"
+                                icon="science"
+                                :label="t('lab.startTest')"
+                                @click="(e) => { e?.stopPropagation(); startTest(r.id); }"
+                            />
                         </template>
                     </ChatListRow>
                     <template #footer>
@@ -243,7 +252,7 @@ const record = async (status) => {
         </Modal>
 
         <!-- Result -->
-        <Modal :show="!!selected" @close="selected = null; autoReused = false">
+        <Modal :show="!!selected" @close="selected = null; feePendingStatus = null">
             <div v-if="selected" class="flex flex-col gap-4 p-4 sm:p-6">
                 <div class="flex items-center gap-3">
                     <div
@@ -257,10 +266,6 @@ const record = async (status) => {
                         <p class="text-sm text-gray-500" dir="ltr" style="text-align: right">{{ selected.phone }}</p>
                         <p class="text-xs text-gray-400">{{ placeAndDay(selected) }}</p>
                     </div>
-                </div>
-
-                <div v-if="autoReused" class="rounded-xl bg-green-600 p-4 text-center text-base font-semibold text-white">
-                    <Icon name="verified" class="ml-1" />{{ t('lab.autoReused') }}
                 </div>
 
                 <div v-if="canReuse(selected)" class="flex flex-col gap-3 rounded-xl bg-green-50 p-3 text-sm text-green-800">
@@ -303,7 +308,17 @@ const record = async (status) => {
 
                 <div v-if="resultError" class="rounded-xl bg-red-50 p-3 text-sm text-red-700">{{ resultError }}</div>
 
-                <template v-if="canConfirm && !autoReused">
+                <button
+                    v-if="selected.screening_status === 'pending'"
+                    type="button"
+                    @click="startTest(selected.id)"
+                    class="rounded-xl border-2 border-indigo-300 bg-indigo-50 px-4 py-3 text-sm font-semibold text-indigo-800 hover:bg-indigo-100"
+                >
+                    <Icon name="science" class="ml-1" />{{ t('lab.startTest') }}
+                    <span class="block text-xs font-normal opacity-80">{{ t('lab.startTestHint') }}</span>
+                </button>
+
+                <template v-if="canConfirm">
                     <h4 v-if="canReuse(selected)" class="text-xs text-gray-500">{{ t('lab.orScreenAgain') }}</h4>
                     <h4 v-else class="text-sm font-medium text-gray-700">{{ t('lab.resultHeading') }}</h4>
                     <div class="grid grid-cols-2 gap-3">
@@ -325,6 +340,28 @@ const record = async (status) => {
                             <Icon name="cancel" class="ml-1" />{{ t('patientReg.screeningFlagged') }}
                             <span v-if="feeDue(selected)" class="block text-xs font-normal opacity-90">{{ t('lab.payAndPrint') }}</span>
                         </button>
+                    </div>
+                    <div v-if="feePendingStatus" class="flex flex-col gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+                        <span class="font-semibold">
+                            <Icon name="payments" class="ml-1" />{{ t('lab.feeConfirmQuestion', { amount: labFeeText(selected) }) }}
+                        </span>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button
+                                type="button"
+                                :disabled="submitting"
+                                @click="record(feePendingStatus, { feeConfirmed: true })"
+                                class="rounded-xl bg-green-700 px-4 py-2 font-semibold text-white hover:bg-green-800 disabled:opacity-50"
+                            >
+                                {{ t('lab.feeConfirmYes') }}
+                            </button>
+                            <button
+                                type="button"
+                                @click="feePendingStatus = null"
+                                class="rounded-xl border border-gray-300 bg-white px-4 py-2 font-semibold text-gray-700 hover:bg-gray-50"
+                            >
+                                {{ t('lab.feeConfirmNo') }}
+                            </button>
+                        </div>
                     </div>
                 </template>
                 <p v-else-if="!canConfirm" class="text-sm text-gray-500">{{ t('lab.noConfirmPermission') }}</p>

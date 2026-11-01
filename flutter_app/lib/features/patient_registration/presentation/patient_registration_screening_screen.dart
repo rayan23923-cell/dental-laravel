@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' hide TextDirection;
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../../core/platform/platform_support.dart';
@@ -21,6 +23,7 @@ import '../data/patient_registration_repository.dart';
 import '../domain/discount_breakdown.dart';
 import '../domain/registration_payment_state.dart';
 import 'lab_result_pdf.dart';
+import 'lab_sample_label.dart';
 
 /// The lab/reception infectious-disease screening confirmation screen —
 /// reached after scanning a registration's ticket QR (the exact same QR
@@ -54,18 +57,33 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
   void initState() {
     super.initState();
     _state = widget.initial;
-    // A valid earlier test found by phone (2026-10-12, by request): no new
-    // test, the clear slip prints straight away. A name-only match waits
-    // for staff to confirm it is the same patient.
-    final previous = _state.previousScreening;
-    if (previous != null && previous.matchedByPhone && _state.registration.screeningStatus == 'pending') {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _reusePrevious();
-      });
-    }
+    // Opening a patient never prints by itself (2026-11-01, by request):
+    // the slip prints only once staff pick سليم / غير سليم (or tap reuse).
+  }
+
+  /// Asks whether the lab fee was received before the result is saved and
+  /// the paid slip prints (2026-11-01, by request). Saying no saves nothing.
+  Future<bool> _askFeeReceived() async {
+    final t = ref.read(translationsProvider);
+    final amount = NumberFormat('#,##0.##').format(_state.labFee ?? 0);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.payments_outlined),
+        title: Text(t['screening.feeConfirmTitle']!),
+        content: Text(trf(t['screening.feeConfirmBody']!, {'amount': amount})),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(t['screening.feeConfirmNo']!)),
+          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(t['screening.feeConfirmYes']!)),
+        ],
+      ),
+    );
+    return ok == true;
   }
 
   Future<void> _confirm(String status) async {
+    if (_feeDue && !await _askFeeReceived()) return;
+    if (!mounted) return;
     setState(() => _submitting = true);
     final t = ref.read(translationsProvider);
     try {
@@ -230,6 +248,64 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
       );
     } catch (e) {
       if (mounted) showPrinterErrorSnackBar(context, t['screening.resultPrintFailed']!, error: e);
+    }
+  }
+
+  /// "بدء الفحص" (2026-11-01, by request): prints the patient's name with a
+  /// large "هنا توضع العينات" circle for the samples. Thermal printer when
+  /// there is one, otherwise the same picture through the print dialog.
+  Future<void> _printSampleLabel() async {
+    final t = ref.read(translationsProvider);
+    final r = _state.registration;
+    try {
+      Uint8List? qrBytes;
+      try {
+        qrBytes = Uint8List.fromList(
+            await ref.read(apiClientProvider).getBytes(PatientRegistrationRepository.labQrPath(r.id)));
+      } catch (_) {
+        qrBytes = null;
+      }
+      if (!mounted) return;
+      await precacheTicketImages(context, [qrBytes]);
+      if (!mounted) return;
+      final printerSettings = canPrintTickets ? await ref.read(printerSettingsProvider.future) : null;
+      if (!mounted) return;
+      final pngBytes = await renderWidgetToPng(
+        context,
+        LabSampleLabel(
+          patientName: r.name,
+          title: t['screening.sampleTitle']!,
+          circleText: t['screening.sampleCircle']!,
+          subtitle: r.serviceName,
+          qrBytes: qrBytes,
+          qrCaption: t['screening.sampleQrCaption']!,
+          widthDots: printerSettings?.dotsPerLine ?? 576,
+        ),
+      );
+      if (!mounted) return;
+      if (canPrintTickets) {
+        await showTicketPrintAnimation<void>(
+          context: context,
+          ticketPngBytes: pngBytes,
+          task: () => ref.read(posPrinterServiceProvider).printTicket(pngBytes),
+        );
+      } else {
+        await Printing.layoutPdf(
+          name: '${t['screening.sampleTitle']!} - ${r.name}.pdf',
+          onLayout: (format) async {
+            final doc = pw.Document();
+            final image = pw.MemoryImage(pngBytes);
+            doc.addPage(pw.Page(
+              pageFormat: PdfPageFormat.roll80,
+              margin: const pw.EdgeInsets.all(4),
+              build: (_) => pw.Center(child: pw.Image(image)),
+            ));
+            return doc.save();
+          },
+        );
+      }
+    } catch (e) {
+      if (mounted) showPrinterErrorSnackBar(context, t['screening.samplePrintFailed']!, error: e);
     }
   }
 
@@ -423,6 +499,16 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
               onPressed: _reusing || _submitting ? null : _reusePrevious,
               icon: const Icon(Icons.print_outlined),
               label: Text(t['screening.reusePrevious']!),
+            ),
+          ],
+          // Start the test: print the samples sheet (2026-11-01, by request).
+          if (r.screeningStatus == 'pending') ...[
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: _submitting || _reusing ? null : _printSampleLabel,
+              icon: const Icon(Icons.science_outlined),
+              label: Text(t['screening.startTest']!),
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
             ),
           ],
           const SizedBox(height: 24),

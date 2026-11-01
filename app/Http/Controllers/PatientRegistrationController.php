@@ -151,8 +151,8 @@ class PatientRegistrationController extends Controller
         return Inertia::render('PatientRegistrations/Create', [
             'services' => Service::orderBy('name')->get(['id', 'name', 'price', 'student_discount_percent']),
             'currency' => \App\Models\ClinicSetting::current()->clinic_currency,
-            // Suggestions for an eligible student's stage (2026-10-25); any text is accepted.
-            'stageNames' => \App\Models\Stage::query()->distinct()->orderBy('name')->pluck('name'),
+            // An eligible student's stage is picked from these (2026-11-01, by request: 5 by default).
+            'stageNames' => StudentDiscount::STAGES,
         ]);
     }
 
@@ -181,6 +181,8 @@ class PatientRegistrationController extends Controller
             'discount_type' => ['nullable', Rule::in(StudentDiscount::TYPES)],
             'discount_stage' => ['nullable', 'string', 'max:100'],
             'discount_workplace' => ['nullable', 'string', 'max:255'],
+            // The student's / employee's name (2026-11-01).
+            'discount_person_name' => ['nullable', 'string', 'max:255'],
         ]);
         $validated = StudentDiscount::normalize($validated);
 

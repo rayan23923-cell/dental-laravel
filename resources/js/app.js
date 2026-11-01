@@ -6,6 +6,7 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 import { createI18nInstance } from './i18n';
+import ConnectionStatus from './Components/ConnectionStatus.vue';
 import { installNumericInputs } from './numericInputs';
 
 // The clinic's name from its settings, rendered by app.blade.php; never the framework's "Laravel".
@@ -24,7 +25,8 @@ createInertiaApp({
         // `props.initialPage.props.locale` — the same value ResolveLocale
         // resolved server-side and app.blade.php already rendered
         // `<html lang>` with (see i18n.js's own doc comment).
-        return createApp({ render: () => h(App, props) })
+        // ConnectionStatus: the network / server bar on every page (2026-11-01).
+        return createApp({ render: () => [h(App, props), h(ConnectionStatus)] })
             .use(plugin)
             .use(ZiggyVue)
             .use(createI18nInstance(props.initialPage.props.locale))
