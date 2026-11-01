@@ -1,0 +1,51 @@
+name: VPS diagnose (read-only)
+
+# Run by hand to look at the hosting without changing it (2026-11-01):
+# HTTP status of some paths, the routes matching a filter, a folder
+# listing (names, sizes, owners only) and the last errors of the app log.
+on:
+  workflow_dispatch:
+    inputs:
+      paths:
+        description: Paths to request, space separated
+        default: /users/bulk-credentials
+      route_filter:
+        description: route:list --path filter
+        default: bulk-credentials
+      folder:
+        description: Folder under storage/app to list
+        default: bulk-logins
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: HTTP status
+        env:
+          PATHS: ${{ inputs.paths }}
+        run: |
+          for p in $PATHS; do
+            curl -s -o /dev/null -w "$p -> %{http_code} %{redirect_url}\n" "https://dental.azoclinic.duckdns.org$p"
+          done
+
+      - name: Set up SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/vps_key
+          chmod 600 ~/.ssh/vps_key
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Inside the app
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          FILTER: ${{ inputs.route_filter }}
+          FOLDER: ${{ inputs.folder }}
+        run: |
+          FILTER=$(printf '%s' "$FILTER" | tr -cd 'A-Za-z0-9/._-')
+          FOLDER=$(printf '%s' "$FOLDER" | tr -cd 'A-Za-z0-9._-')
+          ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" "sudo docker exec dental-app php artisan route:list --path='$FILTER'" || true
+          ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" "sudo docker exec dental-app ls -la storage/app storage/app/'$FOLDER'" || true
+          ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" "sudo docker exec dental-app sh -c 'grep -E \"\\.(ERROR|CRITICAL)\" storage/logs/laravel.log | tail -n 15 | cut -c1-400'" || true
