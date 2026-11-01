@@ -1517,6 +1517,11 @@
         "applyHelp": "Upload the file downloaded on the hosting: missing teachers are created, and accounts with the same username (teacher or doctor) get the same password. No emails are sent. Delete the file afterwards: it holds passwords.",
         "applyButton": "Save accounts",
         "applyConfirm": "Save the accounts and passwords from this file on this server?",
-        "applyResult": "{created} accounts created, {updated} passwords updated."
+        "applyResult": "{created} accounts created, {updated} passwords updated.",
+        "filesTitle": "Saved login files",
+        "filesHelp": "A copy of every login file is kept here. Download it for the clinic server, then delete it: it holds passwords.",
+        "downloadFile": "Download",
+        "deleteFile": "Delete",
+        "deleteFileConfirm": "Delete this file from the server?"
     }
 }

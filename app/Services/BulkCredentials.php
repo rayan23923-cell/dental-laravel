@@ -194,6 +194,62 @@ class BulkCredentials
         return ['created' => $created, 'updated' => $updated, 'skipped' => $skipped];
     }
 
+    /** Where login files are kept on this server (super admins download them from the page). */
+    public static function filesDir(): string
+    {
+        return storage_path('app/bulk-logins');
+    }
+
+    /**
+     * Saves login details as a CSV (UTF-8 with BOM, opens in Excel) under
+     * filesDir(), so they can be taken to the offline server later.
+     *
+     * @param  list<array<string, string>>  $rows  keyed by CREDENTIAL_COLUMNS
+     * @return string the file name
+     */
+    public static function saveLoginFile(array $rows, string $prefix): string
+    {
+        $dir = self::filesDir();
+        if (! is_dir($dir)) {
+            mkdir($dir, 0700, true);
+        }
+        $name = $prefix.'-'.now()->format('Ymd-His').'.csv';
+        $handle = fopen($dir.'/'.$name, 'w');
+        fwrite($handle, "\u{FEFF}");
+        fputcsv($handle, self::CREDENTIAL_COLUMNS);
+        foreach ($rows as $row) {
+            fputcsv($handle, array_map(fn ($c) => $row[$c] ?? '', self::CREDENTIAL_COLUMNS));
+        }
+        fclose($handle);
+        @chmod($dir.'/'.$name, 0600);
+
+        return $name;
+    }
+
+    /** @return list<array{name: string, size: int, modified: string}> newest first */
+    public static function loginFiles(): array
+    {
+        $files = glob(self::filesDir().'/*.csv') ?: [];
+        usort($files, fn ($a, $b) => filemtime($b) <=> filemtime($a));
+
+        return array_map(fn ($f) => [
+            'name' => basename($f),
+            'size' => filesize($f),
+            'modified' => date(DATE_ATOM, filemtime($f)),
+        ], $files);
+    }
+
+    /** A login file's path, or null when $name is not one of them. */
+    public static function loginFilePath(string $name): ?string
+    {
+        if (! preg_match('/^[A-Za-z0-9._-]+\.csv$/', $name)) {
+            return null;
+        }
+        $path = self::filesDir().'/'.$name;
+
+        return is_file($path) ? $path : null;
+    }
+
     /** Stages with how many of their doctors have an email, for the page. */
     public static function stageSummary(): Collection
     {

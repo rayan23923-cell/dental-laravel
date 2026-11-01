@@ -9,7 +9,7 @@
  */
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Icon from '@/Components/Icon.vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -18,7 +18,13 @@ const props = defineProps({
     stages: { type: Array, default: () => [] },
     mailConfigured: { type: Boolean, default: false },
     defaults: { type: Object, default: () => ({}) },
+    files: { type: Array, default: () => [] },
 });
+
+const removeFile = (f) => {
+    if (!window.confirm(t('bulkCredentials.deleteFileConfirm'))) return;
+    router.delete(route('bulk-credentials.destroy', f.name), { preserveScroll: true });
+};
 
 const input = 'block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500';
 const links = reactive({ login_url: props.defaults.login_url ?? '', alt_url: props.defaults.alt_url ?? '' });
@@ -61,6 +67,7 @@ const run = async (kind, url, body, confirmText) => {
         const { data } = await window.axios.post(url, body);
         result.value = { kind, ...data };
         if (data.credentials?.length) downloadCredentials(data.credentials, kind === 'teachers' ? 'teachers-logins' : 'doctors-logins');
+        if (kind !== 'apply') router.reload({ only: ['files', 'stages'] });
     } catch (e) {
         error.value = errorText(e);
     } finally {
@@ -173,6 +180,19 @@ const applyLogins = () => {
                     <button type="button" class="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" :disabled="!stageIds.length || !!busy" @click="resetDoctors">
                         <Icon name="lock_reset" />{{ busy === 'doctors' ? t('bulkCredentials.working') : t('bulkCredentials.doctorsButton', { count: selectedDoctors }) }}
                     </button>
+                </section>
+
+                <!-- Login files kept on this server -->
+                <section v-if="files.length" class="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+                    <h3 class="flex items-center gap-2 font-semibold text-gray-800"><Icon name="folder_zip" />{{ t('bulkCredentials.filesTitle') }}</h3>
+                    <p class="text-sm text-gray-600">{{ t('bulkCredentials.filesHelp') }}</p>
+                    <ul class="divide-y divide-gray-100">
+                        <li v-for="f in files" :key="f.name" class="flex items-center gap-2 py-2 text-sm">
+                            <span class="min-w-0 flex-1 truncate" dir="ltr">{{ f.name }}</span>
+                            <a :href="route('bulk-credentials.download', f.name)" download class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200" :title="t('bulkCredentials.downloadFile')"><Icon name="download" /></a>
+                            <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-red-50 text-red-600 hover:bg-red-100" :title="t('bulkCredentials.deleteFile')" @click="removeFile(f)"><Icon name="delete" /></button>
+                        </li>
+                    </ul>
                 </section>
 
                 <!-- Offline server: save a login file's accounts and passwords -->

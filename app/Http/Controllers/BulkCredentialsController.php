@@ -6,11 +6,13 @@ use App\Models\ClinicSetting;
 use App\Services\BulkCredentials;
 use App\Support\ExcelTransfer;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Bulk accounts and login emails, super admins only (2026-10-31, by
@@ -31,7 +33,24 @@ class BulkCredentialsController extends Controller
             'stages' => BulkCredentials::stageSummary(),
             'mailConfigured' => (bool) ClinicSetting::query()->find(1)?->mailConfigured(),
             'defaults' => ['login_url' => self::DEFAULT_LOGIN_URL, 'alt_url' => self::DEFAULT_ALT_URL],
+            'files' => BulkCredentials::loginFiles(),
         ]);
+    }
+
+    /** A login file kept on this server (made here, or by the GitHub workflow). */
+    public function download(string $name): BinaryFileResponse
+    {
+        $path = BulkCredentials::loginFilePath($name) ?? abort(404);
+
+        return response()->download($path, $name, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    public function destroy(string $name): RedirectResponse
+    {
+        $path = BulkCredentials::loginFilePath($name) ?? abort(404);
+        unlink($path);
+
+        return back();
     }
 
     public function teachers(Request $request): JsonResponse
@@ -44,6 +63,9 @@ class BulkCredentialsController extends Controller
 
         $rows = array_map(fn ($r) => self::nameAndEmail($r), $this->readRows($request->file('file')));
         $result = BulkCredentials::importTeachers($rows, $this->mail($data));
+        if ($result['created']) {
+            BulkCredentials::saveLoginFile($result['created'], 'teachers-logins');
+        }
 
         return response()->json([
             'credentials' => $result['created'],
@@ -62,6 +84,9 @@ class BulkCredentialsController extends Controller
         ]);
 
         $result = BulkCredentials::resetDoctors($data['stage_ids'], $this->mail($data));
+        if ($result['reset']) {
+            BulkCredentials::saveLoginFile($result['reset'], 'doctors-logins');
+        }
 
         return response()->json([
             'credentials' => $result['reset'],
