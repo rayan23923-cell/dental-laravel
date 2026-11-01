@@ -6,6 +6,9 @@ use App\Models\ClinicSetting;
 use App\Models\Doctor;
 use App\Services\BulkCredentials;
 use App\Support\ExcelTransfer;
+use Endroid\QrCode\ErrorCorrectionLevel;
+use Endroid\QrCode\QrCode;
+use Endroid\QrCode\Writer\PngWriter;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -71,6 +74,9 @@ class BulkCredentialsController extends Controller
             'title' => $setting?->clinic_name ?: config('app.name'),
             'loginUrl' => 'https://clinic.lan',
             'altUrl' => 'https://192.168.68.52',
+            // Scanned with the phone camera on the clinic Wi-Fi: opens the login page by the server IP.
+            'qr' => (new PngWriter)->write(new QrCode(data: self::DEFAULT_ALT_URL, errorCorrectionLevel: ErrorCorrectionLevel::Medium, size: 240, margin: 12))->getDataUri(),
+            'qrUrl' => self::DEFAULT_ALT_URL,
             // The page's field as it is now (?wifi=), else the name saved here.
             'wifiName' => mb_substr(trim((string) $request->query('wifi', BulkCredentials::wifiName())), 0, 64),
         ]);
