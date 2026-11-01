@@ -1,0 +1,71 @@
+name: VPS SSL for university subdomain
+
+# clinic.cden.tu.edu.iq (Namecheap Standard SSL 36579703), 2026-11-01.
+# Step "csr": DNS check, create the private key + CSR on the VPS (key never
+# leaves the server), print the CSR and the current Caddy setup (read-only).
+on:
+  push:
+    branches: [claude/project-thread-lmfvvj]
+    paths: [.github/workflows/vps-ssl.yml]
+  workflow_dispatch:
+
+env:
+  DOMAIN: clinic.cden.tu.edu.iq
+
+jobs:
+  ssl:
+    runs-on: ubuntu-latest
+    steps:
+      - name: DNS
+        run: |
+          for h in "$DOMAIN" cden.tu.edu.iq; do
+            echo "== $h"; dig +short A "$h" @8.8.8.8; dig +short CNAME "$h" @8.8.8.8
+          done
+          echo "== HTTP"; curl -sS -m 10 -o /dev/null -w '%{http_code} %{remote_ip}\n' "http://$DOMAIN/" || true
+
+      - name: Set up SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/vps_key
+          chmod 600 ~/.ssh/vps_key
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Key + CSR on the VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" "DOMAIN=$DOMAIN bash -s" <<'SH'
+          set -e
+          D=~/ssl/$DOMAIN
+          mkdir -p "$D"; chmod 700 "$D"; cd "$D"
+          if [ ! -f clinic.key ]; then
+            openssl req -new -newkey rsa:2048 -nodes -keyout clinic.key -out clinic.csr \
+              -subj "/C=IQ/ST=Salah ad Din/L=Tikrit/O=Tikrit University/OU=College of Dentistry/CN=$DOMAIN" 2>/dev/null
+            echo "new key + CSR created"
+          else
+            echo "existing key + CSR kept"
+          fi
+          chmod 600 clinic.key
+          cat clinic.csr
+          openssl req -in clinic.csr -noout -subject
+          SH
+
+      - name: Caddy setup (read-only)
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" 'bash -s' <<'SH'
+          sudo docker ps --format '{{.Names}}\t{{.Image}}\t{{.Ports}}'
+          echo "== caddy service"; systemctl is-active caddy 2>/dev/null || true
+          for c in $(sudo docker ps --format '{{.Names}}' | grep -i caddy); do
+            echo "== mounts of $c"; sudo docker inspect -f '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}' "$c"
+          done
+          for f in /etc/caddy/Caddyfile $(sudo find / -xdev -name Caddyfile -not -path '*/proc/*' 2>/dev/null | head -5); do
+            [ -f "$f" ] || continue
+            echo "===== $f"; sudo grep -vE '\$2[aby]\$' "$f"
+          done | awk '!seen[$0]++ || /^=====/'
+          SH
