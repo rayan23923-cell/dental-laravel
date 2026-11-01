@@ -27,6 +27,7 @@ import '../../../clinic_settings/presentation/clinic_settings_providers.dart';
 import 'payment_stats_overview.dart';
 import 'payments_pdf.dart';
 import '../../../../core/widgets/tg_spinner.dart';
+import '../../../../core/widgets/period_chips.dart';
 
 class PaymentListScreen extends ConsumerStatefulWidget {
   const PaymentListScreen({super.key});
@@ -161,6 +162,21 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
               controller: _searchController,
               hintText: t['recordsHub.searchPersonHint']!,
               onSubmitted: (v) => setState(() => _search = v.trim().isEmpty ? null : v.trim()),
+            ),
+          ),
+          // Today / this week / this month (2026-11-01, by request).
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: PeriodChips(
+                from: _from,
+                to: _to,
+                onChanged: (r) => setState(() {
+                  _from = r?.start;
+                  _to = r?.end;
+                }),
+              ),
             ),
           ),
           Expanded(

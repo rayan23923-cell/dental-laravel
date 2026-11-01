@@ -8,6 +8,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Modal from '@/Components/Modal.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import Icon from '@/Components/Icon.vue';
+import PeriodChips from '@/Components/PeriodChips.vue';
 import ChatListCard from '@/Components/ChatList/ChatListCard.vue';
 import ChatListRow from '@/Components/ChatList/ChatListRow.vue';
 import ChatChip from '@/Components/ChatList/ChatChip.vue';
@@ -78,6 +79,12 @@ const runSearch = () => {
     searchTimer = setTimeout(applyFilters, 300);
 };
 
+// Today / this week / this month (2026-11-01, by request).
+const setPeriod = (range) => {
+    from.value = range.from;
+    to.value = range.to;
+    applyFilters();
+};
 const hasFilters = computed(() => !!(search.value || from.value || to.value || serviceId.value));
 
 const clearFilters = () => {
@@ -219,6 +226,7 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
                 <ChatSearch v-model="search" :placeholder="t('patientReg.searchPlaceholder')" @update:model-value="runSearch" @submit="applyFilters" />
 
                 <!-- Filters (date range, service) + archive all -->
+                <PeriodChips :from="from" :to="to" @change="setPeriod" />
                 <div class="flex flex-wrap items-center gap-2">
                     <label class="flex items-center gap-1 rounded-full bg-white py-0.5 ps-3 text-xs text-gray-500 shadow-sm ring-1 ring-gray-200">
                         {{ t('payments.fromDate') }}

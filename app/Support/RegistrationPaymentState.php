@@ -25,6 +25,10 @@ class RegistrationPaymentState
         // A still-valid earlier clear result (same phone) the lab can reuse
         // instead of screening and charging again (2026-10-12).
         $previous = $registration->screening_status === 'pending' ? LabFeeGate::previousScreening($registration) : null;
+        // The lab fee's full price as recorded with the payment (2026-11-01), else today's.
+        $labFull = $lab->isNotEmpty() && $lab->every(fn ($p) => $p->full_amount !== null)
+            ? (float) $lab->sum('full_amount')
+            : ($settings->lab_fee !== null ? (float) $settings->lab_fee : null);
 
         return [
             'registration' => $registrationData,
@@ -45,14 +49,14 @@ class RegistrationPaymentState
             'lab_discount_line' => StudentDiscount::printLine(
                 $registration,
                 $lab->isNotEmpty() ? (float) $lab->sum('amount') : (float) ($labFee ?? 0),
-                $settings->lab_fee !== null ? (float) $settings->lab_fee : null,
+                $labFull,
                 (string) $settings->clinic_currency,
             ),
             // The same as separate amounts for the slip's rows (2026-10-25).
             'lab_discount' => StudentDiscount::breakdown(
                 $registration,
                 $lab->isNotEmpty() ? (float) $lab->sum('amount') : (float) ($labFee ?? 0),
-                $settings->lab_fee !== null ? (float) $settings->lab_fee : null,
+                $labFull,
             ),
             'lab_validity_days' => LabFeeGate::validityDays(),
             'previous_screening' => $previous ? [

@@ -16,16 +16,25 @@ trait LogsActivity
 {
     public static function bootLogsActivity(): void
     {
+        // A model with activitySnapshot() (Payment, 2026-11-01) also keeps
+        // what the record held, and an update its values before, so a
+        // printed log still says what was added, changed or deleted.
         static::created(function ($model) {
-            ActivityLogger::log('create', class_basename($model), static::activityLabel($model).' created', $model->getKey());
+            ActivityLogger::log('create', class_basename($model), static::activityLabel($model).' created', $model->getKey(),
+                method_exists($model, 'activitySnapshot') ? ['snapshot' => $model->activitySnapshot()] : null);
         });
 
         static::updated(function ($model) {
-            ActivityLogger::log('update', class_basename($model), static::activityLabel($model).' updated', $model->getKey(), $model->getChanges());
+            $changes = $model->getChanges();
+            $data = method_exists($model, 'activitySnapshot')
+                ? ['changes' => $changes, 'before' => array_intersect_key($model->getOriginal(), $changes), 'snapshot' => $model->activitySnapshot()]
+                : $changes;
+            ActivityLogger::log('update', class_basename($model), static::activityLabel($model).' updated', $model->getKey(), $data);
         });
 
         static::deleted(function ($model) {
-            ActivityLogger::log('delete', class_basename($model), static::activityLabel($model).' deleted', $model->getKey());
+            ActivityLogger::log('delete', class_basename($model), static::activityLabel($model).' deleted', $model->getKey(),
+                method_exists($model, 'activitySnapshot') ? ['snapshot' => $model->activitySnapshot()] : null);
         });
     }
 

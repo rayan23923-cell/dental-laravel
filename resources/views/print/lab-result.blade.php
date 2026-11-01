@@ -62,7 +62,7 @@
                          one slip is also the payment receipt (2026-10-12). --}}
                     @if ($registration->lab_paid)
                         {{-- Student/employee discount (2026-10-25, by request). --}}
-                        @include('print.partials.amount-rows', ['paid' => (float) $registration->lab_fee_paid, 'full' => $settings->lab_fee !== null ? (float) $settings->lab_fee : null, 'label' => 'أجور المختبر', 'fullLabel' => 'أجور المختبر', 'currency' => $settings->clinic_currency])
+                        @include('print.partials.amount-rows', ['paid' => (float) $registration->lab_fee_paid, 'full' => \App\Support\StudentDiscount::recorded($registration, \App\Models\Payment::TYPE_LAB)[1] ?? ($settings->lab_fee !== null ? (float) $settings->lab_fee : null), 'label' => 'أجور المختبر', 'fullLabel' => 'أجور المختبر', 'currency' => $settings->clinic_currency])
                         <tr><th>الحالة</th><td><strong>مدفوع</strong></td></tr>
                     @endif
                 @endif

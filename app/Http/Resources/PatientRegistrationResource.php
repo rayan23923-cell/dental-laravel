@@ -34,27 +34,18 @@ class PatientRegistrationResource extends JsonResource
             'discount_person_name' => $this->discount_person_name,
             // What this patient pays for the service: its price, less the
             // student discount when eligible.
-            'service_fee' => $this->whenLoaded('service', fn () => $this->service
-                ? StudentDiscount::servicePrice($this->service, (bool) $this->discount_eligible)
-                : null),
+            // Once paid, the amounts recorded with the payment (2026-11-01, by
+            // request: the price of the day, not today's price).
+            'service_fee' => $this->whenLoaded('service', fn () => $this->servicePaidAndFull()[0]),
             // What the ticket prints about the discount (2026-10-25), e.g.
             // "طالب · المرحلة الرابعة — خصم 50% من 20,000".
-            'discount_line' => $this->whenLoaded('service', fn () => $this->service && $this->service->price !== null
-                ? StudentDiscount::printLine(
-                    $this->resource,
-                    (float) StudentDiscount::servicePrice($this->service, (bool) $this->discount_eligible),
-                    (float) $this->service->price,
-                    (string) \App\Models\ClinicSetting::current()->clinic_currency,
-                )
+            'discount_line' => $this->whenLoaded('service', fn () => ($pf = $this->servicePaidAndFull())[1] !== null
+                ? StudentDiscount::printLine($this->resource, (float) $pf[0], (float) $pf[1], (string) \App\Models\ClinicSetting::current()->clinic_currency)
                 : null),
             // The same as separate amounts for the ticket's rows (2026-10-25):
             // {who, percent, full, paid}.
-            'discount' => $this->whenLoaded('service', fn () => $this->service && $this->service->price !== null
-                ? StudentDiscount::breakdown(
-                    $this->resource,
-                    (float) StudentDiscount::servicePrice($this->service, (bool) $this->discount_eligible),
-                    (float) $this->service->price,
-                )
+            'discount' => $this->whenLoaded('service', fn () => ($pf = $this->servicePaidAndFull())[1] !== null
+                ? StudentDiscount::breakdown($this->resource, (float) $pf[0], (float) $pf[1])
                 : null),
             'screening_status' => $this->screening_status,
             'screening_reused_from' => $this->screening_reused_from,
@@ -87,6 +78,28 @@ class PatientRegistrationResource extends JsonResource
                 'education_type_name' => $this->task->stage?->educationType?->name,
             ] : null),
             'created_at' => $this->created_at,
+        ];
+    }
+
+    /**
+     * [what the patient pays, the undiscounted price] for the service: from
+     * the recorded payment once paid (2026-11-01), else today's price.
+     *
+     * @return array{0: ?float, 1: ?float}
+     */
+    private function servicePaidAndFull(): array
+    {
+        if (! $this->service) {
+            return [null, null];
+        }
+
+        if ($this->resource->exists && ($recorded = StudentDiscount::recorded($this->resource, \App\Models\Payment::TYPE_SERVICE))) {
+            return $recorded;
+        }
+
+        return [
+            StudentDiscount::servicePrice($this->service, (bool) $this->discount_eligible),
+            $this->service->price !== null ? (float) $this->service->price : null,
         ];
     }
 }

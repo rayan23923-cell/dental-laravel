@@ -8,6 +8,7 @@ import ChatSearch from '@/Components/ChatList/ChatSearch.vue';
 import ChatPager from '@/Components/ChatList/ChatPager.vue';
 import BarChart from '@/Components/BarChart.vue';
 import Icon from '@/Components/Icon.vue';
+import PeriodChips from '@/Components/PeriodChips.vue';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -46,6 +47,9 @@ const sourceLabel = (s) => ({ registration: t('payments.registrationSource'), la
 const sourceMax = computed(() => Math.max(1, ...props.bySource.map((s) => s.total)));
 const hasFilters = computed(() => !!(props.filters.search || props.filters.from || props.filters.to || (props.filters.source && sourceOptions.value.length > 1)));
 
+const activityUrl = computed(() =>
+    route('payments.activity', { from: props.filters.from || undefined, to: props.filters.to || undefined, autoprint: 1 }),
+);
 // Printable report with the same filters; the browser's print dialog
 // also saves it as PDF.
 const reportUrl = computed(() =>
@@ -73,6 +77,12 @@ const from = ref(props.filters.from ?? '');
 const to = ref(props.filters.to ?? '');
 const source = ref(props.filters.source ?? '');
 
+// Today / this week / this month (2026-11-01, by request).
+const setPeriod = (range) => {
+    from.value = range.from;
+    to.value = range.to;
+    applyFilters();
+};
 const applyFilters = () => {
     router.get(
         route('payments.index'),
@@ -111,6 +121,16 @@ const destroy = (payment) => {
             <div class="flex items-center justify-between gap-3">
                 <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ title }}</h2>
                 <div class="flex items-center gap-2">
+                    <!-- Who added / changed / deleted payments, printed (2026-11-01, by request). -->
+                    <a
+                        v-if="can.activity"
+                        :href="activityUrl"
+                        target="_blank"
+                        :title="t('payments.printActivity')"
+                        class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    >
+                        <Icon name="history" :label="t('payments.printActivity')" />
+                    </a>
                     <a
                         v-if="can.export"
                         :href="reportUrl"
@@ -151,6 +171,7 @@ const destroy = (payment) => {
                 <ChatSearch v-model="search" :placeholder="t('payments.searchPlaceholder')" @submit="applyFilters" />
 
                 <!-- Filters: paid_at range + source -->
+                <PeriodChips :from="from" :to="to" @change="setPeriod" />
                 <div class="flex flex-wrap items-center gap-2">
                     <label class="flex items-center gap-1 rounded-full bg-white py-0.5 ps-3 text-xs text-gray-500 shadow-sm ring-1 ring-gray-200">
                         {{ t('payments.fromDate') }}
