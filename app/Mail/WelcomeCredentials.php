@@ -26,6 +26,8 @@ class WelcomeCredentials extends Mailable
         public ?string $loginUrl = null,
         /** Other addresses of the same server, e.g. its LAN IP. */
         public array $altUrls = [],
+        /** The clinic Wi-Fi to join before opening those links. */
+        public ?string $wifiName = null,
     ) {}
 
     public function envelope(): Envelope
@@ -41,6 +43,7 @@ class WelcomeCredentials extends Mailable
                 'clinicName' => $this->clinicName(),
                 'loginUrl' => $this->loginUrl ?: route('login'),
                 'altUrls' => $this->altUrls,
+                'wifiName' => $this->wifiName,
             ],
         );
     }

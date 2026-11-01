@@ -34,7 +34,7 @@ class BulkCredentialsController extends Controller
         return Inertia::render('Users/BulkCredentials', [
             'stages' => BulkCredentials::stageSummary(),
             'mailConfigured' => (bool) ClinicSetting::query()->find(1)?->mailConfigured(),
-            'defaults' => ['login_url' => self::DEFAULT_LOGIN_URL, 'alt_url' => self::DEFAULT_ALT_URL],
+            'defaults' => ['login_url' => self::DEFAULT_LOGIN_URL, 'alt_url' => self::DEFAULT_ALT_URL, 'wifi_name' => BulkCredentials::wifiName()],
             'files' => BulkCredentials::loginFiles(),
         ]);
     }
@@ -51,7 +51,7 @@ class BulkCredentialsController extends Controller
      * A login file as cards to print on A4 (10 per page, cut along the
      * dashed lines) and hand out (2026-11-01, by request).
      */
-    public function cards(string $name): View
+    public function cards(Request $request, string $name): View
     {
         $path = BulkCredentials::loginFilePath($name) ?? abort(404);
         $rows = $this->csvRows($path);
@@ -71,6 +71,8 @@ class BulkCredentialsController extends Controller
             'title' => $setting?->clinic_name ?: config('app.name'),
             'loginUrl' => 'https://clinic.lan',
             'altUrl' => 'https://192.168.68.52',
+            // The page's field as it is now (?wifi=), else the name saved here.
+            'wifiName' => mb_substr(trim((string) $request->query('wifi', BulkCredentials::wifiName())), 0, 64),
         ]);
     }
 
@@ -142,12 +144,17 @@ class BulkCredentialsController extends Controller
         return [
             'login_url' => ['nullable', 'url', 'max:255'],
             'alt_url' => ['nullable', 'url', 'max:255'],
+            'wifi_name' => ['nullable', 'string', 'max:64'],
         ];
     }
 
     private function mail(array $data): ?array
     {
-        return $data['send_email'] ? BulkCredentials::links($data['login_url'] ?? null, [$data['alt_url'] ?? '']) : null;
+        if (array_key_exists('wifi_name', $data)) {
+            BulkCredentials::saveWifiName($data['wifi_name']);
+        }
+
+        return $data['send_email'] ? BulkCredentials::links($data['login_url'] ?? null, [$data['alt_url'] ?? ''], $data['wifi_name'] ?? null) : null;
     }
 
     /**

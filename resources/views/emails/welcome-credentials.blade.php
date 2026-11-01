@@ -31,6 +31,9 @@
                 <p style="margin:24px 0;text-align:center;">
                     <a href="{{ $loginUrl }}" style="display:inline-block;background:#0095f6;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:15px;">تسجيل الدخول</a>
                 </p>
+                @if (! empty($wifiName))
+                    <p style="margin:0 0 6px;font-size:14px;">اسم شبكة الواي فاي: <strong dir="auto">{{ $wifiName }}</strong></p>
+                @endif
                 @if (! empty($altUrls))
                     <p style="margin:0 0 6px;font-size:14px;">رابط النظام: <a href="{{ $loginUrl }}" style="direction:ltr;unicode-bidi:embed;">{{ $loginUrl }}</a></p>
                     @foreach ($altUrls as $alt)

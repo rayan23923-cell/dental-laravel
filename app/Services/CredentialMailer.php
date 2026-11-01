@@ -67,8 +67,8 @@ class CredentialMailer
     /**
      * @param  'doctor'|'user'  $accountType
      * @param  bool  $reset  an admin set a new password on an existing account
-     * @param  array{login_url?: string, alt_urls?: list<string>}  $links  where to sign in, when
-     *                                                                     not this server's own login page (e.g. https://clinic.lan and its IP)
+     * @param  array{login_url?: string, alt_urls?: list<string>, wifi_name?: string}  $links  where to sign in, when
+     *                                                                                         not this server's own login page (e.g. https://clinic.lan and its IP)
      */
     public static function queueWelcome(string $accountType, ?string $email, string $name, string $username, string $plainPassword, bool $reset = false, array $links = []): bool
     {
@@ -90,6 +90,7 @@ class CredentialMailer
                 'reset' => $reset,
                 'login_url' => $links['login_url'] ?? null,
                 'alt_urls' => array_values($links['alt_urls'] ?? []),
+                'wifi_name' => $links['wifi_name'] ?? null,
             ],
             'status' => QueuedEmail::STATUS_PENDING,
         ]);

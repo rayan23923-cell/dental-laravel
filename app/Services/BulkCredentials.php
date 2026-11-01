@@ -29,7 +29,7 @@ class BulkCredentials
 
     /**
      * @param  iterable<array{0: string, 1: string}>  $rows  name, email
-     * @param  array{login_url?: ?string, alt_urls?: list<string>}|null  $mail  null = don't queue emails here
+     * @param  array{login_url?: ?string, alt_urls?: list<string>, wifi_name?: ?string}|null  $mail  null = don't queue emails here
      * @return array{created: list<array<string, string>>, skipped: list<array{name: string, email: string, reason: string}>}
      */
     public static function importTeachers(iterable $rows, ?array $mail, bool $dryRun = false): array
@@ -88,7 +88,7 @@ class BulkCredentials
      * New numeric passwords for the doctors of $stageIds who have a real
      * email; their old password and app sessions stop working.
      *
-     * @param  array{login_url?: ?string, alt_urls?: list<string>}|null  $mail  null = don't queue emails here
+     * @param  array{login_url?: ?string, alt_urls?: list<string>, wifi_name?: ?string}|null  $mail  null = don't queue emails here
      * @return array{reset: list<array<string, string>>, no_email: list<array{name: string, username: string}>}
      */
     public static function resetDoctors(array $stageIds, ?array $mail, bool $dryRun = false): array
@@ -291,13 +291,35 @@ class BulkCredentials
 
     /**
      * @param  list<string>  $altUrls
-     * @return array{login_url?: string, alt_urls?: list<string>}
+     * @return array{login_url?: string, alt_urls?: list<string>, wifi_name?: string}
      */
-    public static function links(?string $loginUrl, array $altUrls): array
+    public static function links(?string $loginUrl, array $altUrls, ?string $wifiName = null): array
     {
         return array_filter([
             'login_url' => trim((string) $loginUrl) ?: null,
             'alt_urls' => array_values(array_filter(array_map(fn ($u) => trim((string) $u), $altUrls))),
+            'wifi_name' => trim((string) $wifiName) ?: null,
         ]);
+    }
+
+    /**
+     * The clinic Wi-Fi name shown in the login emails and on the cards
+     * (2026-11-01, by request), remembered on this server for next time.
+     */
+    public static function wifiName(): string
+    {
+        $path = storage_path('app/bulk-credentials.json');
+        $data = is_file($path) ? json_decode((string) file_get_contents($path), true) : null;
+
+        return is_array($data) ? trim((string) ($data['wifi_name'] ?? '')) : '';
+    }
+
+    public static function saveWifiName(?string $name): void
+    {
+        $name = trim((string) $name);
+        if ($name === self::wifiName()) {
+            return;
+        }
+        file_put_contents(storage_path('app/bulk-credentials.json'), json_encode(['wifi_name' => $name], JSON_UNESCAPED_UNICODE));
     }
 }

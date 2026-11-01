@@ -27,7 +27,7 @@ const removeFile = (f) => {
 };
 
 const input = 'block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500';
-const links = reactive({ login_url: props.defaults.login_url ?? '', alt_url: props.defaults.alt_url ?? '' });
+const links = reactive({ login_url: props.defaults.login_url ?? '', alt_url: props.defaults.alt_url ?? '', wifi_name: props.defaults.wifi_name ?? '' });
 const sendEmail = ref(props.mailConfigured);
 
 const teachersFile = ref(null);
@@ -78,6 +78,7 @@ const run = async (kind, url, body, confirmText) => {
 const withLinks = (fd) => {
     fd.append('login_url', links.login_url);
     fd.append('alt_url', links.alt_url);
+    fd.append('wifi_name', links.wifi_name);
     return fd;
 };
 
@@ -150,6 +151,10 @@ const applyLogins = () => {
                     <label class="block text-sm text-gray-700">{{ t('bulkCredentials.altUrl') }}
                         <input v-model="links.alt_url" type="url" dir="ltr" :class="input" class="mt-1" />
                     </label>
+                    <label class="block text-sm text-gray-700">{{ t('bulkCredentials.wifiName') }}
+                        <input v-model="links.wifi_name" type="text" dir="auto" maxlength="64" :class="input" class="mt-1" />
+                        <span class="mt-1 block text-xs text-gray-500">{{ t('bulkCredentials.wifiHelp') }}</span>
+                    </label>
                     <label class="flex items-start gap-2 pt-1 text-sm" :class="{ 'opacity-50': !mailConfigured }">
                         <input v-model="sendEmail" type="checkbox" class="mt-0.5 rounded" :disabled="!mailConfigured" />
                         <span>{{ t('bulkCredentials.sendEmail') }}<span v-if="!mailConfigured" class="block text-xs text-gray-500">{{ t('bulkCredentials.noMail') }}</span></span>
@@ -189,7 +194,7 @@ const applyLogins = () => {
                     <ul class="divide-y divide-gray-100">
                         <li v-for="f in files" :key="f.name" class="flex items-center gap-2 py-2 text-sm">
                             <span class="min-w-0 flex-1 truncate" dir="ltr">{{ f.name }}</span>
-                            <a :href="route('bulk-credentials.cards', f.name)" target="_blank" class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-indigo-50 text-indigo-700 hover:bg-indigo-100" :title="t('bulkCredentials.printCards')"><Icon name="print" /></a>
+                            <a :href="route('bulk-credentials.cards', { name: f.name, wifi: links.wifi_name })" target="_blank" class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-indigo-50 text-indigo-700 hover:bg-indigo-100" :title="t('bulkCredentials.printCards')"><Icon name="print" /></a>
                             <a :href="route('bulk-credentials.download', f.name)" download class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200" :title="t('bulkCredentials.downloadFile')"><Icon name="download" /></a>
                             <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-red-50 text-red-600 hover:bg-red-100" :title="t('bulkCredentials.deleteFile')" @click="removeFile(f)"><Icon name="delete" /></button>
                         </li>

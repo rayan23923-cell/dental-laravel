@@ -24,6 +24,7 @@
         .k { color: #555; width: 25mm; }
         .v { direction: ltr; text-align: left; font-family: Consolas, "DejaVu Sans Mono", monospace; font-size: 10pt; }
         .pw { font-weight: bold; font-size: 13pt; letter-spacing: .6mm; }
+        .wifi { font-weight: bold; }
         .note { font-size: 7.5pt; color: #666; margin-top: auto; line-height: 1.35; }
         @media print { body { background: #fff; } .bar { display: none; } .page { margin: 0; } }
     </style>
@@ -44,6 +45,9 @@
                         <tr><td class="k">كلمة المرور</td><td class="v pw">{{ $c['password'] }}</td></tr>
                         <tr><td class="k">رابط النظام</td><td class="v">{{ $loginUrl }}</td></tr>
                         <tr><td class="k">أو بالآيبي</td><td class="v">{{ $altUrl }}</td></tr>
+                        @if ($wifiName !== '')
+                            <tr><td class="k">شبكة الواي فاي</td><td class="v wifi" dir="auto">{{ $wifiName }}</td></tr>
+                        @endif
                     </table>
                     <div class="note">يعمل فقط عند الاتصال بشبكة (واي فاي) عيادة المستشفى التعليمي. يُفضّل تغيير كلمة المرور بعد أول دخول.</div>
                 </div>

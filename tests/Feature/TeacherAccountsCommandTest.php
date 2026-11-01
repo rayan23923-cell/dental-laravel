@@ -80,6 +80,7 @@ class TeacherAccountsCommandTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => 'super_admin']));
         $this->get('/users/bulk-credentials/files/'.$files[0]['name'])->assertOk();
         $this->get('/users/bulk-credentials/files/'.$files[0]['name'].'/cards')->assertOk()->assertSee('الرابعة')->assertSee('https://192.168.68.52');
+        $this->get('/users/bulk-credentials/files/'.$files[0]['name'].'/cards?wifi=Hospital-5G')->assertOk()->assertSee('Hospital-5G');
         $this->get('/users/bulk-credentials/files/..%2F.env')->assertNotFound();
         $this->delete('/users/bulk-credentials/files/'.$files[0]['name'])->assertRedirect();
         $this->assertCount(0, BulkCredentials::loginFiles());
@@ -106,12 +107,18 @@ class TeacherAccountsCommandTest extends TestCase
 
         $this->actingAs($admin);
         $sheet = UploadedFile::fake()->createWithContent('teachers.csv', "\u{FEFF}الاسم,الايميل\nسارة علي,sara@tu.edu.iq\n");
-        $teachers = $this->post('/users/bulk-credentials/teachers', ['file' => $sheet, 'send_email' => '1', 'login_url' => 'https://clinic.lan/login', 'alt_url' => 'https://192.168.68.52/login'])
+        $teachers = $this->post('/users/bulk-credentials/teachers', ['file' => $sheet, 'send_email' => '1', 'login_url' => 'https://clinic.lan/login', 'alt_url' => 'https://192.168.68.52/login', 'wifi_name' => 'Clinic WiFi'])
             ->assertOk()->assertJsonPath('count', 1)->json('credentials');
         $doctors = $this->post('/users/bulk-credentials/doctors', ['stage_ids' => [1], 'send_email' => true, 'login_url' => 'https://clinic.lan/login'])
             ->assertOk()->assertJsonPath('count', 1)->json('credentials');
         $this->assertSame(2, QueuedEmail::count());
         $this->assertSame('sara', $teachers[0]['username']);
+        // The Wi-Fi name goes into the email and is remembered for the page and the cards.
+        $this->assertSame('Clinic WiFi', QueuedEmail::where('recipient_email', 'sara@tu.edu.iq')->first()->payload['wifi_name']);
+        $this->assertSame('Clinic WiFi', BulkCredentials::wifiName());
+        $p = QueuedEmail::where('recipient_email', 'sara@tu.edu.iq')->first()->payload;
+        $this->assertStringContainsString('Clinic WiFi', (new WelcomeCredentials($p['name'], $p['username'], $p['password'], 'user', false, $p['login_url'], $p['alt_urls'], $p['wifi_name']))->render());
+        @unlink(storage_path('app/bulk-credentials.json'));
         $this->assertTrue(Hash::check($doctors[0]['password'], $doctor->refresh()->password));
 
         // The offline server: same logins from the downloaded file, no emails.
