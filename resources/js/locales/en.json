@@ -1497,7 +1497,7 @@
         "altUrl": "Alternative link (optional)",
         "noMail": "Mail settings are not configured on this server.",
         "teachersTitle": "Add teaching staff",
-        "teachersHelp": "An Excel or CSV file with a name column and an email column. Username = part before @, password = 8 random digits, role teacher with no departments or permissions. Existing emails are skipped.",
+        "teachersHelp": "An Excel or CSV file with a name column and an email column. Username = part before {'@'}, password = 8 random digits, role teacher with no departments or permissions. Existing emails are skipped.",
         "teachersButton": "Create accounts",
         "teachersConfirm": "Create teaching-staff accounts from this file?",
         "doctorsTitle": "New passwords for whole stages",

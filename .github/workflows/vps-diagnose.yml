@@ -15,6 +15,9 @@ on:
       folder:
         description: Folder under storage/app to list
         default: bulk-logins
+      status_filter:
+        description: HTTP statuses to show from the web server log (regex, e.g. 40[45])
+        default: '40[345]'
 
 jobs:
   diagnose:
@@ -43,9 +46,13 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
           FILTER: ${{ inputs.route_filter }}
           FOLDER: ${{ inputs.folder }}
+          STATUS: ${{ inputs.status_filter }}
         run: |
           FILTER=$(printf '%s' "$FILTER" | tr -cd 'A-Za-z0-9/._-')
           FOLDER=$(printf '%s' "$FOLDER" | tr -cd 'A-Za-z0-9._-')
+          STATUS=$(printf '%s' "$STATUS" | tr -cd '0-9[]|-')
           ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" "sudo docker exec dental-app php artisan route:list --path='$FILTER'" || true
           ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" "sudo docker exec dental-app ls -la storage/app storage/app/'$FOLDER'" || true
           ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" "sudo docker exec dental-app sh -c 'grep -E \"\\.(ERROR|CRITICAL)\" storage/logs/laravel.log | tail -n 15 | cut -c1-400'" || true
+          # Recent requests with those statuses: time, method, path (no query string, no IPs), status.
+          ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" "sudo docker logs --since 6h dental-web 2>&1 | awk '\$9 ~ /^($STATUS)\$/ {print \$4, \$6, \$7, \$9}' | sed 's/?[^ ]*//' | tail -n 40" || true
