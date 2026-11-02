@@ -136,7 +136,9 @@ class WaitingScreenController extends Controller
         // One lab list (2026-11-02, by request): each patient keeps their
         // place, amber "بانتظار الفحص" turning green "النتيجة جاهزة" once the
         // result is recorded, until "استلام النتيجة".
+        // Collected ("استلام النتيجة", allowed at any time) leaves the screen.
         $lab = PatientRegistration::query()
+            ->whereNull('lab_result_received_at')
             ->where(fn ($q) => $q
                 ->where(fn ($w) => $w->where('screening_status', 'pending')
                     ->whereNotNull('lab_sample_printed_at')

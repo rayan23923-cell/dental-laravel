@@ -98,9 +98,6 @@ class PatientRegistration extends Model
      */
     public function markLabResultReceived(): bool
     {
-        if ($this->screening_status === 'pending') {
-            return false;
-        }
         if ($this->lab_result_received_at === null) {
             $this->forceFill(['lab_result_received_at' => now()])->save();
         }
