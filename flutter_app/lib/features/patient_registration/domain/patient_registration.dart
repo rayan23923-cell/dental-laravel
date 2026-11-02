@@ -37,6 +37,8 @@ class PatientRegistration {
     this.screeningCheckedByName,
     this.screeningReusedFrom,
     this.screeningReusedFromCheckedAt,
+    this.labSamplePrintedAt,
+    this.labResultReceivedAt,
   });
 
   factory PatientRegistration.fromJson(Map<String, dynamic> json) {
@@ -87,6 +89,8 @@ class PatientRegistration {
       screeningCheckedByName: (json['screening_checked_by'] as Map<String, dynamic>?)?['full_name'] as String?,
       screeningReusedFrom: json['screening_reused_from'] as int?,
       screeningReusedFromCheckedAt: json['screening_reused_from_checked_at'] as String?,
+      labSamplePrintedAt: json['lab_sample_printed_at'] as String?,
+      labResultReceivedAt: json['lab_result_received_at'] as String?,
     );
   }
 
@@ -142,6 +146,13 @@ class PatientRegistration {
   /// that earlier test's date.
   final int? screeningReusedFrom;
   final String? screeningReusedFromCheckedAt;
+
+  /// Waiting screen (2026-11-02): when the samples sheet was printed, and
+  /// when the patient collected the result ("تم استلام النتيجة").
+  final String? labSamplePrintedAt;
+  final String? labResultReceivedAt;
+
+  bool get isLabResultReceived => labResultReceivedAt != null;
 
   bool get isScreeningClear => screeningStatus == 'clear';
   bool get isScreened => screeningStatus != 'pending';

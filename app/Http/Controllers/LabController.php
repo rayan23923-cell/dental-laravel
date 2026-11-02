@@ -122,9 +122,34 @@ class LabController extends Controller
             'screening_checked_by' => $request->user()->id,
             'screening_checked_at' => now(),
             'screening_reused_from' => $previous->id,
+            // Printed straight away for the patient at the desk (2026-11-02).
+            'lab_result_received_at' => now(),
         ]);
 
         return response()->json(['data' => $patientRegistration->fresh()]);
+    }
+
+    /**
+     * "تم استلام النتيجة" (2026-11-02, by request): the patient collected
+     * the recorded result, so they leave the waiting screen's "النتيجة
+     * جاهزة للاستلام".
+     */
+    public function received(Request $request, PatientRegistration $patientRegistration): JsonResponse
+    {
+        $permissions = $this->authorizeLab($request);
+        abort_unless($permissions->can('patient_screening', 'confirm'), 403);
+
+        if (! LabFeeGate::receive($patientRegistration)) {
+            return response()->json(['message' => 'لم تُسجَّل نتيجة هذا المريض بعد.'], 422);
+        }
+
+        $patientRegistration->refresh();
+
+        return response()->json(['data' => [
+            'id' => $patientRegistration->id,
+            'lab_result_received_at' => $patientRegistration->lab_result_received_at,
+            'lab_paid' => $patientRegistration->payments()->where('type', Payment::TYPE_LAB)->exists(),
+        ]]);
     }
 
     /** Adds `previous_screening` (id + date) to each registration that can reuse one. */
@@ -184,6 +209,9 @@ class LabController extends Controller
     public function sample(Request $request, PatientRegistration $patientRegistration): View
     {
         $this->authorizeLab($request);
+
+        // Shown on the waiting screen as "بانتظار الفحص" (2026-11-02).
+        $patientRegistration->markLabSamplePrinted();
 
         // The patient's QR (2026-11-01, by request): scanning the sheet when
         // the result is ready opens the patient to pick the result and pay.

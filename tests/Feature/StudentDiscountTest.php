@@ -66,6 +66,7 @@ class StudentDiscountTest extends TestCase
         $this->getJson('/api/v1/lab')->assertOk()->assertJsonPath('data.0.lab_fee_due', 6000);
 
         $this->postJson("/api/v1/patient-registrations/{$id}/screening", ['screening_status' => 'clear'])->assertOk();
+        $this->postJson("/api/v1/lab/{$id}/result-received")->assertOk();
         $this->assertEquals(6000, Payment::where('patient_registration_id', $id)->where('type', 'lab')->value('amount'));
     }
 
@@ -121,6 +122,7 @@ class StudentDiscountTest extends TestCase
             ->assertCreated()->assertJsonPath('data.discount_eligible', false)->json('data.id');
 
         $this->postJson("/api/v1/patient-registrations/{$id}/screening", ['screening_status' => 'flagged'])->assertOk();
+        $this->postJson("/api/v1/lab/{$id}/result-received")->assertOk();
         $this->assertEquals(8000, Payment::where('patient_registration_id', $id)->where('type', 'lab')->value('amount'));
     }
 
@@ -152,7 +154,8 @@ class StudentDiscountTest extends TestCase
                 ->etc());
 
         Sanctum::actingAs($admin);
-        $this->postJson("/api/v1/patient-registrations/{$huda->id}/screening", ['screening_status' => 'clear'])->assertOk()
+        $this->postJson("/api/v1/patient-registrations/{$huda->id}/screening", ['screening_status' => 'clear'])->assertOk();
+        $this->postJson("/api/v1/lab/{$huda->id}/result-received")->assertOk()
             ->assertJsonPath('data.lab_discount_line', fn ($v) => str_contains($v, 'خصم 25% من 8,000'))
             ->assertJsonPath('data.lab_discount.percent', '25')
             ->assertJsonPath('data.lab_discount.paid', fn ($v) => (float) $v === 6000.0);

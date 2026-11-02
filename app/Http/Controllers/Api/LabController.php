@@ -134,6 +134,39 @@ class LabController extends Controller
         );
     }
 
+    /**
+     * The app printed the samples sheet ("بدء الفحص", 2026-11-02): the
+     * patient shows on the waiting screen as "بانتظار الفحص" until the
+     * result is recorded. Same as opening the web `lab.sample` sheet.
+     */
+    public function samplePrinted(Request $request, PatientRegistration $patientRegistration): JsonResponse
+    {
+        $this->authorizeLab($request);
+
+        $patientRegistration->markLabSamplePrinted();
+
+        return response()->json([
+            'lab_sample_printed_at' => $patientRegistration->lab_sample_printed_at?->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * "تم استلام النتيجة" (2026-11-02, by request): the patient collected
+     * the recorded result, so they leave the waiting screen. Answers with
+     * the refreshed lab state, like `show`.
+     */
+    public function resultReceived(Request $request, PatientRegistration $patientRegistration): JsonResponse
+    {
+        $permissions = $this->authorizeLab($request);
+        abort_unless($permissions->can('patient_screening', 'confirm'), 403);
+
+        if (! LabFeeGate::receive($patientRegistration)) {
+            return response()->json(['message' => 'لم تُسجَّل نتيجة هذا المريض بعد.'], 422);
+        }
+
+        return $this->stateResponse($patientRegistration->load(self::RELATIONS));
+    }
+
     private function stateResponse(PatientRegistration $registration): JsonResponse
     {
         return response()->json([

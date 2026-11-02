@@ -21,6 +21,10 @@ const logoUrl = ref(null);
 const stageName = ref(null);
 const groupName = ref(null);
 const appointments = ref([]);
+// "بانتظار الفحص" (2026-11-02): samples sheet printed, result still pending.
+// Lab patients (2026-11-02): samples sheet printed ('waiting') or result
+// recorded and not yet collected ('ready').
+const labPatients = ref([]);
 const patientsPerPage = ref(8);
 const rotationSeconds = ref(12);
 const currentPage = ref(0);
@@ -47,6 +51,13 @@ const pages = computed(() => {
     }
     return chunks.length ? chunks : [[]];
 });
+
+// One lab list (2026-11-02, by request): a card stays in place and turns
+// from amber "بانتظار الفحص" to green "النتيجة جاهزة".
+const labCounts = computed(() => ({
+    ready: labPatients.value.filter((p) => p.status === 'ready').length,
+    waiting: labPatients.value.filter((p) => p.status !== 'ready').length,
+}));
 
 const currentPageItems = computed(() => pages.value[currentPage.value] ?? []);
 
@@ -99,6 +110,7 @@ const load = async () => {
     stageName.value = data.stage_name;
     groupName.value = data.group_name;
     appointments.value = data.appointments;
+    labPatients.value = data.lab ?? [];
     patientsPerPage.value = data.patients_per_page;
     rotationSeconds.value = data.rotation_seconds;
 
@@ -186,12 +198,50 @@ onBeforeUnmount(() => {
             </header>
 
             <main class="mx-auto w-full max-w-7xl flex-1 px-8 py-10">
-                <div v-if="appointments.length === 0" class="py-32 text-center text-2xl text-ig-gray">
+                <!-- Lab (2026-11-02): amber while waiting for the test, green once the result is ready. -->
+                <section
+                    v-if="labPatients.length"
+                    class="mb-8 rounded-2xl border border-ig-border-light bg-white/60 p-6 shadow-sm dark:border-ig-border-dark dark:bg-ig-black/40"
+                >
+                    <div class="mb-4 flex flex-wrap items-center gap-3">
+                        <h2 class="text-2xl font-bold sm:text-3xl">{{ t('waitingScreen.labHeading') }}</h2>
+                        <span v-if="labCounts.ready" class="rounded-full bg-emerald-500 px-3 py-0.5 text-base font-bold text-white">
+                            {{ t('waitingScreen.labReadyBadge') }} · {{ labCounts.ready }}
+                        </span>
+                        <span v-if="labCounts.waiting" class="rounded-full bg-amber-500 px-3 py-0.5 text-base font-bold text-white">
+                            {{ t('waitingScreen.labWaitingHeading') }} · {{ labCounts.waiting }}
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                        <div
+                            v-for="(item, i) in labPatients"
+                            :key="'lab-' + i + '-' + item.patient_name"
+                            class="flex items-center justify-between gap-3 rounded-xl border-2 px-5 py-4 shadow-sm transition-colors duration-700"
+                            :class="item.status === 'ready'
+                                ? 'border-emerald-400 bg-emerald-500 text-white'
+                                : 'border-amber-300 bg-amber-50 text-ig-near-black dark:border-amber-500/60 dark:bg-amber-500/10 dark:text-ig-off-white'"
+                        >
+                            <span class="min-w-0 truncate text-xl font-semibold sm:text-2xl">{{ item.patient_name }}</span>
+                            <span
+                                class="flex shrink-0 items-center gap-2 rounded-full px-3 py-1 text-base font-bold"
+                                :class="item.status === 'ready' ? 'bg-white/25 text-white' : 'bg-amber-500 text-white'"
+                            >
+                                <span v-if="item.status === 'ready'" class="relative flex h-2.5 w-2.5">
+                                    <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+                                    <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
+                                </span>
+                                {{ item.status === 'ready' ? t('waitingScreen.labReadyBadge') : t('waitingScreen.labWaitingHeading') }}
+                            </span>
+                        </div>
+                    </div>
+                </section>
+
+                <div v-if="appointments.length === 0 && labPatients.length === 0" class="py-32 text-center text-2xl text-ig-gray">
                     {{ t('waitingScreen.empty') }}
                 </div>
 
                 <transition-group
-                    v-else
+                    v-else-if="appointments.length"
                     name="waiting-screen-page"
                     tag="div"
                     class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3"

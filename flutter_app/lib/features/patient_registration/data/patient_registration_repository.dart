@@ -157,6 +157,19 @@ class PatientRegistrationRepository {
   /// `/patient-registrations/{id}/qr`).
   static String labQrPath(int registrationId) => '/lab/$registrationId/qr';
 
+  /// The samples sheet was printed ("بدء الفحص", 2026-11-02): the patient
+  /// shows on the waiting screen as "بانتظار الفحص" until the result.
+  Future<void> labSamplePrinted(int registrationId) async {
+    await _client.postJson('/lab/$registrationId/sample-printed', body: const {});
+  }
+
+  /// "تم استلام النتيجة" (2026-11-02, by request): the patient collected
+  /// the result, so they leave the waiting screen's "النتيجة جاهزة للاستلام".
+  Future<RegistrationPaymentState> labResultReceived(int registrationId) async {
+    final data = await _client.postJson('/lab/$registrationId/result-received', body: const {}) as Map<String, dynamic>;
+    return RegistrationPaymentState.fromJson(data);
+  }
+
   Future<PatientRegistration> create({
     required String name,
     required String phone,

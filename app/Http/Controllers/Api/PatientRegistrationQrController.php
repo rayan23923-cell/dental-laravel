@@ -126,15 +126,15 @@ class PatientRegistrationQrController extends Controller
             'screening_status' => ['required', Rule::in(['clear', 'flagged'])],
         ]);
 
-        // The lab fee is taken with the result (2026-10-12), so the lab
-        // prints one paid slip; see LabFeeGate::chargeIfDue(). A recorded
-        // result cannot be changed (2026-11-01, by request).
+        // Recording the result no longer takes the fee or prints
+        // (2026-11-02, by request): the patient comes in for "استلام
+        // النتيجة", which takes the fee and prints the paid slip; see
+        // LabFeeGate::receive(). A recorded result cannot be changed
+        // (2026-11-01, by request).
         $recorded = DB::transaction(function () use ($patientRegistration, $validated, $request) {
             if (! LabFeeGate::isPending($patientRegistration, true)) {
                 return false;
             }
-
-            LabFeeGate::chargeIfDue($patientRegistration);
 
             $patientRegistration->update([
                 'screening_status' => $validated['screening_status'],
@@ -172,6 +172,8 @@ class PatientRegistrationQrController extends Controller
             'screening_checked_by' => $request->user()->id,
             'screening_checked_at' => now(),
             'screening_reused_from' => $previous->id,
+            // Printed straight away for the patient at the desk (2026-11-02).
+            'lab_result_received_at' => now(),
         ]);
 
         return $this->stateResponse($patientRegistration->fresh(self::RELATIONS));
