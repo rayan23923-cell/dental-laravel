@@ -126,24 +126,6 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
     });
   }
 
-  Future<bool> _confirm(String message) async {
-    final t = ref.read(translationsProvider);
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(MaterialLocalizations.of(context).cancelButtonLabel),
-          ),
-          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: Text(t['common.ok']!)),
-        ],
-      ),
-    );
-    return ok ?? false;
-  }
-
   Future<void> _run(Future<void> Function() action, String doneMessage, String failedKey) async {
     final t = ref.read(translationsProvider);
     setState(() => _busy = true);
@@ -171,11 +153,53 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
     final t = ref.read(translationsProvider);
     final ids = _selected.toList();
     if (ids.isEmpty) return;
-    if (!await _confirm(trf(t['patientRegFlutter.archiveSelectedConfirm']!, {'n': ids.length}))) return;
+    final scope = await _askArchiveScope(ids.length);
+    if (scope == null) return;
     await _run(
-      () => ref.read(patientRegistrationRepositoryProvider).archiveMany(ids),
+      () => ref.read(patientRegistrationRepositoryProvider).archiveMany(ids, scope: scope),
       trf(t['patientRegFlutter.archivedDone']!, {'n': ids.length}),
       'patientRegFlutter.archiveFailed',
+    );
+  }
+
+  /// Archive from where (2026-11-02, by request): the patients list, the
+  /// lab list, or both. Null when cancelled.
+  Future<String?> _askArchiveScope(int n) {
+    final t = ref.read(translationsProvider);
+    Widget option(String scope, IconData icon, Color color) => Card(
+          color: color.withValues(alpha: 0.08),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: color.withValues(alpha: 0.4)),
+          ),
+          child: ListTile(
+            leading: Icon(icon, color: color),
+            title: Text(t['patientRegFlutter.archiveFrom.$scope']!, style: const TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: Text(t['patientRegFlutter.archiveFromDesc.$scope']!),
+            onTap: () => Navigator.of(context).pop(scope),
+          ),
+        );
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(trf(t['patientRegFlutter.archiveFromTitle']!, {'n': n})),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(t['patientRegFlutter.archiveFromHint']!),
+              const SizedBox(height: 12),
+              option('patients', Icons.groups_outlined, Colors.blue.shade700),
+              option('lab', Icons.science_outlined, Colors.green.shade700),
+              option('both', Icons.inventory_2_outlined, Colors.red.shade700),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(MaterialLocalizations.of(ctx).cancelButtonLabel)),
+        ],
+      ),
     );
   }
 
@@ -194,10 +218,12 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
   Future<void> _archiveAll(int total) async {
     final t = ref.read(translationsProvider);
     if (total == 0) return;
-    if (!await _confirm(trf(t['patientRegFlutter.archiveAllConfirm']!, {'n': total}))) return;
+    final scope = await _askArchiveScope(total);
+    if (scope == null) return;
     final f = _filter;
     await _run(
       () => ref.read(patientRegistrationRepositoryProvider).archiveAll(
+            scope: scope,
             search: f.search,
             from: f.from,
             to: f.to,

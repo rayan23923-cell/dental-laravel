@@ -362,7 +362,19 @@
         "supportSettingsToggle": "Offer care cards at registration",
         "supportSettingsCounts": "Active: {active} · Used: {used} · Stopped: {disabled}",
         "supportManage": "Manage codes and print cards",
-        "supportedChip": "Care"
+        "supportedChip": "Care",
+        "archiveFromTitle": "Archive {n} patient(s) — from where?",
+        "archiveFromHint": "Payments are kept; restore from the Archive tab.",
+        "archiveFrom": {
+            "patients": "From patients",
+            "lab": "From the lab",
+            "both": "From both"
+        },
+        "archiveFromDesc": {
+            "patients": "Hidden from the patients list, stays in the lab",
+            "lab": "Hidden from the lab list and waiting screen, stays in patients",
+            "both": "Hidden from patients and the lab"
+        }
     },
     "appointments": {
         "newAppointment": "New Appointment",

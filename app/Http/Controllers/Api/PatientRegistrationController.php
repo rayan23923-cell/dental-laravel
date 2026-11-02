@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PatientRegistrationResource;
 use App\Models\PatientRegistration;
+use App\Support\RegistrationArchive;
 use App\Models\Payment;
 use App\Models\RegisterDay;
 use App\Models\Service;
@@ -63,7 +64,11 @@ class PatientRegistrationController extends Controller
     private function filteredQuery(Request $request): Builder
     {
         return PatientRegistration::query()
-            ->when($request->boolean('archived'), fn ($q) => $q->onlyTrashed())
+            ->when(
+                $request->boolean('archived'),
+                fn ($q) => RegistrationArchive::archived($q),
+                fn ($q) => RegistrationArchive::currentRegistry($q),
+            )
             ->when($request->string('search')->toString(), function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
@@ -88,13 +93,15 @@ class PatientRegistrationController extends Controller
             'all' => ['sometimes', 'boolean'],
             'ids' => ['required_without:all', 'array'],
             'ids.*' => ['integer'],
+            // From the patients list, the lab list, or both (2026-11-02).
+            'scope' => ['sometimes', 'in:'.implode(',', RegistrationArchive::SCOPES)],
         ]);
 
         $query = ($validated['all'] ?? false)
             ? $this->filteredQuery($request)
             : PatientRegistration::whereIn('id', $validated['ids']);
 
-        $count = $query->delete();
+        $count = RegistrationArchive::archive($query, $validated['scope'] ?? 'both');
 
         return response()->json(['count' => $count, 'message' => "تمت أرشفة {$count} تسجيل."]);
     }
@@ -107,7 +114,7 @@ class PatientRegistrationController extends Controller
             'ids.*' => ['integer'],
         ]);
 
-        $count = PatientRegistration::onlyTrashed()->whereIn('id', $validated['ids'])->restore();
+        $count = RegistrationArchive::restore($validated['ids']);
 
         return response()->json(['count' => $count, 'message' => "تمت استعادة {$count} تسجيل."]);
     }

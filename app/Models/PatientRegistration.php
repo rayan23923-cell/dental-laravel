@@ -75,6 +75,8 @@ class PatientRegistration extends Model
             'discount_eligible' => 'boolean',
             'lab_sample_printed_at' => 'datetime',
             'lab_result_received_at' => 'datetime',
+            'registry_archived_at' => 'datetime',
+            'lab_archived_at' => 'datetime',
         ];
     }
 

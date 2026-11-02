@@ -44,6 +44,7 @@ class LabController extends Controller
         $settings = ClinicSetting::current();
 
         $registrations = PatientRegistration::with(['service:id,name', 'registerDay:id,name', 'screeningCheckedBy:id,full_name'])
+            ->whereNull('lab_archived_at')
             ->withExists(['payments as lab_paid' => fn ($q) => $q->where('type', Payment::TYPE_LAB)])
             ->when($status !== 'all', fn ($q) => $q->where('screening_status', $status))
             ->when($search !== '', function ($query) use ($search) {
@@ -59,7 +60,7 @@ class LabController extends Controller
 
         return Inertia::render('Lab/Index', [
             'registrations' => $registrations,
-            'counts' => PatientRegistration::selectRaw('screening_status, count(*) as total')
+            'counts' => PatientRegistration::whereNull('lab_archived_at')->selectRaw('screening_status, count(*) as total')
                 ->groupBy('screening_status')
                 ->pluck('total', 'screening_status'),
             'filters' => ['status' => $status, 'search' => $search],

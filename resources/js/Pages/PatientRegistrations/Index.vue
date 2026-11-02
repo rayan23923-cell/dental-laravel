@@ -109,15 +109,27 @@ const currentFilters = () => ({
     ...(to.value ? { to: to.value } : {}),
     ...(serviceId.value ? { service_id: serviceId.value } : {}),
 });
+// Archiving asks where from (2026-11-02, by request): the patients list,
+// the lab list, or both (both = the full archive, payments kept).
+const archiveAsk = ref(null); // { ids } or { all, n }
 const destroySelected = () => {
     if (!selected.value.length) return;
-    if (confirm(t('patientReg.deleteSelectedConfirm', { n: selected.value.length }))) {
-        router.delete(route('patient-registrations.destroy-many'), {
-            data: { ids: selected.value },
-            preserveScroll: true,
-            onSuccess: () => (selected.value = []),
-        });
-    }
+    archiveAsk.value = { ids: [...selected.value], n: selected.value.length };
+};
+const archiveScopeOf = (r) => {
+    if (r.deleted_at || (r.registry_archived_at && r.lab_archived_at)) return 'both';
+    if (r.registry_archived_at) return 'patients';
+    return r.lab_archived_at ? 'lab' : null;
+};
+const confirmArchive = (scope) => {
+    const ask = archiveAsk.value;
+    if (!ask) return;
+    archiveAsk.value = null;
+    router.delete(route('patient-registrations.destroy-many'), {
+        data: ask.all ? { all: true, scope, ...currentFilters() } : { ids: ask.ids, scope },
+        preserveScroll: true,
+        onSuccess: () => (selected.value = []),
+    });
 };
 const restoreSelected = () => {
     if (!selected.value.length) return;
@@ -129,13 +141,7 @@ const restoreSelected = () => {
 const destroyAll = () => {
     const n = props.registrations.total;
     if (!n) return;
-    if (confirm(t('patientReg.deleteAllConfirm', { n }))) {
-        router.delete(route('patient-registrations.destroy-many'), {
-            data: { all: true, ...currentFilters() },
-            preserveScroll: true,
-            onSuccess: () => (selected.value = []),
-        });
-    }
+    archiveAsk.value = { all: true, n };
 };
 
 // The desk-payment QR, viewable on screen as well as on the printed
@@ -278,6 +284,7 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
                             </ChatChip>
                             <ChatChip icon="schedule">{{ fmtDate(r.created_at) }}</ChatChip>
                             <ChatChip :icon="screeningIcon(r.screening_status)" :tone="screeningTone(r.screening_status)">{{ screeningLabel(r.screening_status) }}</ChatChip>
+                            <ChatChip v-if="archiveScopeOf(r)" icon="inventory_2" tone="amber">{{ t('patientReg.archivedFrom.' + archiveScopeOf(r)) }}</ChatChip>
                         </template>
                         <template #actions>
                             <ChatAction icon="qr_code_2" :label="t('patientReg.paymentCodeCol')" @click="qrRegistration = r" />
@@ -291,6 +298,29 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
                 </ChatListCard>
             </div>
         </div>
+
+        <!-- Archive: from where (2026-11-02, by request) -->
+        <Modal :show="!!archiveAsk" max-width="md" @close="archiveAsk = null">
+            <div v-if="archiveAsk" class="flex flex-col gap-3 p-6">
+                <h3 class="flex items-center gap-2 text-lg font-semibold text-gray-800">
+                    <Icon name="inventory_2" />{{ t('patientReg.archiveFromTitle', { n: archiveAsk.n }) }}
+                </h3>
+                <p class="text-sm text-gray-500">{{ t('patientReg.archiveFromHint') }}</p>
+                <button type="button" @click="confirmArchive('patients')" class="flex items-center gap-3 rounded-xl border-2 border-sky-200 bg-sky-50 px-4 py-3 text-start font-semibold text-sky-900 hover:bg-sky-100">
+                    <Icon name="groups" />
+                    <span>{{ t('patientReg.archiveFrom.patients') }}<span class="block text-xs font-normal opacity-80">{{ t('patientReg.archiveFromDesc.patients') }}</span></span>
+                </button>
+                <button type="button" @click="confirmArchive('lab')" class="flex items-center gap-3 rounded-xl border-2 border-emerald-200 bg-emerald-50 px-4 py-3 text-start font-semibold text-emerald-900 hover:bg-emerald-100">
+                    <Icon name="science" />
+                    <span>{{ t('patientReg.archiveFrom.lab') }}<span class="block text-xs font-normal opacity-80">{{ t('patientReg.archiveFromDesc.lab') }}</span></span>
+                </button>
+                <button type="button" @click="confirmArchive('both')" class="flex items-center gap-3 rounded-xl border-2 border-red-200 bg-red-50 px-4 py-3 text-start font-semibold text-red-900 hover:bg-red-100">
+                    <Icon name="inventory_2" />
+                    <span>{{ t('patientReg.archiveFrom.both') }}<span class="block text-xs font-normal opacity-80">{{ t('patientReg.archiveFromDesc.both') }}</span></span>
+                </button>
+                <SecondaryButton class="justify-center" @click="archiveAsk = null">{{ t('common.cancel') }}</SecondaryButton>
+            </div>
+        </Modal>
 
         <Modal :show="!!qrRegistration" @close="qrRegistration = null">
             <div class="flex flex-col items-center gap-4 p-6" v-if="qrRegistration">
