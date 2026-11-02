@@ -8,11 +8,14 @@ name: Flutter apps (Android, iOS, Windows)
 # update themselves. Android and Windows are also built a second time as
 # the "offline" apps (2026-10-18, by request): the same app, but a fresh
 # install starts on the clinic's offline server (clinic.lan) instead of
-# the cloud; the offline package carries these.
+# the cloud; the offline package carries these. The waiting-screen TV app
+# (tv_app/, 2026-11-02, by request) is a separate small native Android app
+# built here too and published next to them.
 on:
   push:
     paths:
       - 'flutter_app/**'
+      - 'tv_app/**'
       - '.github/workflows/flutter-apps.yml'
   workflow_dispatch:
 
@@ -197,8 +200,49 @@ jobs:
             DentalClinicApp-windows-setup.exe
             DentalClinicApp-offline-windows-setup.exe
 
+  # The Android TV waiting-screen app (2026-11-02, by request): native, no
+  # Flutter, signed with the same key as the phone app.
+  android_tv:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tv_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Signing key (the phone app's, kept on the VPS)
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        if: env.VPS_HOST != ''
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/vps_key
+          chmod 600 ~/.ssh/vps_key
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          vps() { ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" "$@"; }
+          if vps "test -s ~/android-signing/release.jks"; then
+            vps "cat ~/android-signing/release.jks" > "$RUNNER_TEMP/release.jks"
+            pass=$(vps "cat ~/android-signing/password")
+            echo "::add-mask::$pass"
+            echo "TV_KEYSTORE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+            echo "TV_KEYSTORE_PASSWORD=$pass" >> "$GITHUB_ENV"
+          fi
+      - run: gradle assembleRelease --no-daemon -PversionCode=${{ github.run_number }} -PversionName=$APP_VERSION
+      - run: cp app/build/outputs/apk/release/app-release.apk ../DentalClinicTV-android-tv.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-tv
+          path: DentalClinicTV-android-tv.apk
+
   release:
-    needs: [android, ios, windows]
+    needs: [android, ios, windows, android_tv]
     if: always() && !cancelled()
     runs-on: ubuntu-latest
     defaults:
@@ -225,7 +269,7 @@ jobs:
   # Windows app's update check (api/v1/desktop/version) sees the new version.
   # A platform whose build failed keeps its previous entry in releases.json.
   publish:
-    needs: [android, ios, windows]
+    needs: [android, ios, windows, android_tv]
     if: always() && !cancelled() && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     defaults:
@@ -268,6 +312,10 @@ jobs:
             cp dist/DentalClinicApp-offline-android.apk out/DentalClinicApp-offline-$V.apk
             (cd out && zip -q DentalClinicApp-offline-$V.zip DentalClinicApp-offline-$V.apk)
             add android_offline DentalClinicApp-offline-$V.apk "$SITE/DentalClinicApp-offline-$V.zip"
+          fi
+          if [ -f dist/DentalClinicTV-android-tv.apk ]; then
+            cp dist/DentalClinicTV-android-tv.apk out/DentalClinicTV-$V.apk
+            add android_tv DentalClinicTV-$V.apk ""
           fi
           if [ -f dist/DentalClinicApp-ios-unsigned.ipa ]; then
             cp dist/DentalClinicApp-ios-unsigned.ipa out/DentalClinicApp-$V.ipa

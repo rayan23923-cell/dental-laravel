@@ -14,13 +14,14 @@ use Illuminate\Http\Request;
  * the check must succeed before a user has ever logged in.
  *
  * `/app/version?platform=android|ios` (2026-10-17) serves the phone builds
- * the same way, for the in-app updater on Android.
+ * the same way, for the in-app updater on Android, and `android_tv`
+ * (2026-11-02) the waiting-screen TV app.
  */
 class DesktopReleaseController extends Controller
 {
     public function __invoke(Request $request): JsonResponse
     {
-        $platform = in_array($request->query('platform'), ['android', 'ios'], true) ? $request->query('platform') : 'windows';
+        $platform = in_array($request->query('platform'), ['android', 'ios', 'android_tv'], true) ? $request->query('platform') : 'windows';
 
         return response()->json(AppReleases::for($platform));
     }

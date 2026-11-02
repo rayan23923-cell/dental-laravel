@@ -85,7 +85,7 @@ class LabAndBulkDeleteTest extends TestCase
         $this->actingAs($admin)->get('/lab')->assertInertia(fn ($p) => $p->where('registrations.data.0.lab_paid', true));
     }
 
-    public function test_handing_over_a_lab_result_charges_the_fee_once_and_prints_it_paid(): void
+    public function test_recording_a_lab_result_charges_the_fee_once_and_prints_it_paid(): void
     {
         \App\Models\ClinicSetting::current(); // first call creates the row
         \App\Models\ClinicSetting::current()->update(['lab_fee' => 5000]);
@@ -96,11 +96,6 @@ class LabAndBulkDeleteTest extends TestCase
         $this->actingAs($admin)->postJson("/patient-registrations/{$a->id}/screening", ['screening_status' => 'flagged'])
             ->assertOk();
         $this->assertSame('flagged', $a->fresh()->screening_status);
-        // Recording the result takes nothing (2026-11-02, by request): the
-        // fee is taken when the patient collects it ("استلام النتيجة").
-        $this->assertDatabaseMissing('payments', ['patient_registration_id' => $a->id]);
-        $this->actingAs($admin)->postJson("/lab/{$a->id}/received")->assertOk()->assertJsonPath('data.lab_paid', true);
-        $this->actingAs($admin)->postJson("/lab/{$a->id}/received")->assertOk();
         // A recorded result is final (2026-11-01, by request): no change, no second charge.
         $this->actingAs($admin)->postJson("/patient-registrations/{$a->id}/screening", ['screening_status' => 'clear'])
             ->assertStatus(422)->assertJsonPath('message', \App\Support\LabFeeGate::ALREADY_RECORDED);
@@ -113,8 +108,6 @@ class LabAndBulkDeleteTest extends TestCase
 
         $this->actingAs($admin)->postJson("/api/v1/patient-registrations/{$b->id}/screening", ['screening_status' => 'clear'])
             ->assertOk();
-        $this->actingAs($admin)->postJson("/api/v1/lab/{$b->id}/result-received")->assertOk()
-            ->assertJsonPath('data.lab_paid', true);
         $this->assertDatabaseHas('payments', ['patient_registration_id' => $b->id, 'type' => 'lab', 'amount' => 5000]);
 
         $this->actingAs($admin)->get("/lab/{$a->id}/print")->assertOk()
@@ -220,7 +213,6 @@ class LabAndBulkDeleteTest extends TestCase
         // Older than the validity window: screen and pay as usual.
         $this->actingAs($admin)->postJson("/lab/{$other->id}/reuse")->assertStatus(422);
         $this->actingAs($admin)->postJson("/patient-registrations/{$other->id}/screening", ['screening_status' => 'clear'])->assertOk();
-        $this->actingAs($admin)->postJson("/lab/{$other->id}/received")->assertOk();
         $this->assertDatabaseHas('payments', ['patient_registration_id' => $other->id, 'type' => 'lab']);
 
         // A reused result does not extend the window for the next visit.

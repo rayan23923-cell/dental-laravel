@@ -8,12 +8,11 @@ use App\Models\Payment;
 use Illuminate\Support\Collection;
 
 /**
- * The lab fee is paid when the patient collects the result (2026-11-02, by
- * request; it used to be taken as the result was recorded): the lab picks
- * "سليم" or "غير سليم" without printing, the patient shows on the waiting
- * screen as "النتيجة جاهزة للاستلام", and "استلام النتيجة" (`receive()`)
- * books the fee and prints one slip that is already paid. When no fee is
- * configured there is nothing to pay.
+ * The lab fee is paid when the result is recorded (2026-10-12, by request):
+ * the lab picks "سليم" or "غير سليم" and prints one slip that is already
+ * paid, instead of a separate payment receipt first. `chargeIfDue()` books
+ * the fee as the result is saved. When no fee is configured there is
+ * nothing to pay.
  *
  * A clear result stays valid for `lab_validity_days` (2026-10-12): the same
  * patient (same name) registering again inside that window is not screened
@@ -75,25 +74,17 @@ class LabFeeGate
     }
 
     /**
-     * "استلام النتيجة" (2026-11-02, by request): takes the fee when due and
-     * marks the result collected. False while the result is still pending.
+     * "استلام النتيجة" (2026-11-02, by request): the patient collected the
+     * already paid and printed result, so they leave the waiting screen.
+     * Nothing is charged here. False while the result is still pending.
      */
-    public static function receive(PatientRegistration $registration, ?string $paidBy = null): bool
+    public static function receive(PatientRegistration $registration): bool
     {
-        return \Illuminate\Support\Facades\DB::transaction(function () use ($registration, $paidBy) {
-            if (self::isPending($registration, true)) {
-                return false;
-            }
+        if (self::isPending($registration)) {
+            return false;
+        }
 
-            // A reused earlier result was never screened here: nothing to pay.
-            if ($registration->screening_reused_from === null) {
-                self::chargeIfDue($registration, $paidBy);
-            }
-
-            $registration->refresh()->markLabResultReceived();
-
-            return true;
-        });
+        return $registration->refresh()->markLabResultReceived();
     }
 
     /** Days a clear result stays valid; 0 turns reuse off. */

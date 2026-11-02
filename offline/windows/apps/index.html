@@ -47,12 +47,23 @@
       على https://clinic.lan بعد تثبيت الشهادة من <a href="/setup">صفحة الإعداد</a>.</p>
   </div>
 
+  <div class="card" id="android_tv">
+    <h2>شاشة الانتظار للتلفاز (Android TV)</h2>
+    <p><a class="btn" href="#">تنزيل تطبيق التلفاز (APK)</a></p>
+    <p class="muted ver"></p>
+    <ol>
+      <li>نزّله على التلفاز (من متصفح التلفاز على http://clinic.lan/apps أو بفلاشة USB) وافتحه بمدير الملفات.</li>
+      <li>عند أول تشغيل اختر «سيرفر العيادة (clinic.lan)» ثم اربط الشاشة بالرمز من التطبيق.</li>
+      <li>من زر القائمة في الريموت اختر «السماح بالتشغيل التلقائي» ليفتح وحده عند تشغيل التلفاز.</li>
+    </ol>
+  </div>
+
   <p class="muted" id="none" hidden>لا توجد تطبيقات في هذه النسخة من الخادم.</p>
 </main>
 <script>
   fetch('releases.json', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (rel) {
     var any = false;
-    ['android', 'windows', 'ios'].forEach(function (p) {
+    ['android', 'windows', 'ios', 'android_tv'].forEach(function (p) {
       var card = document.getElementById(p), r = rel[p];
       if (!r || !r.url) { card.classList.add('hidden'); return; }
       any = true;

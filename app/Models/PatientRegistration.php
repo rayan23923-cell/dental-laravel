@@ -94,8 +94,7 @@ class PatientRegistration extends Model
      * "استلام النتيجة" (2026-11-02, by request): once a result is
      * recorded, the lab marks it handed to the patient, which takes them
      * off the waiting screen's "النتيجة جاهزة للاستلام". Returns false
-     * while the result is still pending. The fee is taken by
-     * `LabFeeGate::receive()`, which calls this.
+     * while the result is still pending.
      */
     public function markLabResultReceived(): bool
     {

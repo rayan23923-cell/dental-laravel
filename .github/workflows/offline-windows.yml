@@ -262,7 +262,8 @@ jobs:
           curl -fsSL --retry 3 "$SITE/releases.json" -o rel.json
           echo '{}' > $OUT/releases.json
           # The "offline" Android/Windows builds start on this server (see flutter-apps.yml).
-          for p in windows android ios; do
+          # android_tv: the waiting-screen TV app (2026-11-02), the same build.
+          for p in windows android ios android_tv; do
             src=$p
             [ -n "$(jq -r --arg p ${p}_offline '.[$p].url // empty' rel.json)" ] && src=${p}_offline
             url=$(jq -r --arg p $src '.[$p].url // empty' rel.json)

@@ -18,13 +18,35 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((keys) =>
-            Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
+            Promise.all(keys.filter((key) => key !== CACHE_NAME && key !== WAITING_SCREEN_CACHE).map((key) => caches.delete(key)))
         ).then(() => self.clients.claim())
     );
 });
 
+// The one exception (2026-11-02, by request): the waiting-screen page on an
+// unattended TV. Its HTML holds no patient data (the list comes from
+// /api/v1/waiting-screen), so a copy is kept and served when the server
+// cannot be reached; the page then keeps retrying by itself instead of the
+// browser's "no connection" error that needs someone to press reload.
+const WAITING_SCREEN_CACHE = 'dental-clinic-waiting-screen-v1';
+
 self.addEventListener('fetch', (event) => {
     const { request } = event;
+
+    if (request.method === 'GET' && request.mode === 'navigate' && new URL(request.url).pathname.endsWith('/waiting-screen')) {
+        event.respondWith(
+            fetch(request)
+                .then((response) => {
+                    if (response.ok) {
+                        const copy = response.clone();
+                        caches.open(WAITING_SCREEN_CACHE).then((cache) => cache.put(request, copy));
+                    }
+                    return response;
+                })
+                .catch(() => caches.open(WAITING_SCREEN_CACHE).then((cache) => cache.match(request)).then((cached) => cached || Response.error())),
+        );
+        return;
+    }
 
     if (request.method !== 'GET' || !request.url.includes('/build/')) {
         // No `respondWith` — falls straight through to the network,

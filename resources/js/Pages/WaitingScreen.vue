@@ -21,14 +21,49 @@ const logoUrl = ref(null);
 const stageName = ref(null);
 const groupName = ref(null);
 const appointments = ref([]);
-// "بانتظار الفحص" (2026-11-02): samples sheet printed, result still pending.
 // Lab patients (2026-11-02): samples sheet printed ('waiting') or result
 // recorded and not yet collected ('ready').
 const labPatients = ref([]);
 const patientsPerPage = ref(8);
 const rotationSeconds = ref(12);
 const currentPage = ref(0);
-const now = ref(new Date());
+// The clock follows the server's time (2026-11-02, by request): a TV's own
+// clock is often wrong or never set. `serverOffset` is server minus TV, in
+// ms, from every reply; the TV clock is only used until the first one.
+let serverOffset = 0;
+// …and its time zone, so a TV set to another zone still shows clinic time.
+const serverTimezone = ref(null);
+const tzOption = () => {
+    if (!serverTimezone.value) return {};
+    try {
+        Intl.DateTimeFormat('en', { timeZone: serverTimezone.value });
+        return { timeZone: serverTimezone.value };
+    } catch {
+        return {};
+    }
+};
+const serverNow = () => new Date(Date.now() + serverOffset);
+const now = ref(serverNow());
+
+// Unattended TV (2026-11-02, by request): the screen keeps showing the last
+// list while the network is down, retries on its own (sooner when the
+// browser says it is back online) and shows a small "reconnecting" badge.
+const connectionLost = ref(false);
+let failingSince = null;
+
+// The logo as a path on this same server (2026-11-02, by request): an
+// absolute link may point at https://clinic.lan while the TV opened the
+// page over http (or by IP), and then the logo never loads.
+const sameOriginPath = (url) => {
+    if (!url) return null;
+    try {
+        const parsed = new URL(url, window.location.href);
+        return parsed.pathname.startsWith('/storage/') ? parsed.pathname + parsed.search : parsed.href;
+    } catch {
+        return url;
+    }
+};
+const logoFailed = ref(false);
 
 let dataTimer = null;
 let clockTimer = null;
@@ -62,10 +97,10 @@ const labCounts = computed(() => ({
 const currentPageItems = computed(() => pages.value[currentPage.value] ?? []);
 
 const timeString = computed(() =>
-    now.value.toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' }),
+    now.value.toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit', ...tzOption() }),
 );
 const dateString = computed(() =>
-    now.value.toLocaleDateString('ar-IQ', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+    now.value.toLocaleDateString('ar-IQ', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', ...tzOption() }),
 );
 
 // Called after every 4s data refresh, so it must be a no-op when nothing
@@ -85,10 +120,41 @@ const scheduleRotation = () => {
     }, seconds * 1000);
 };
 
+let loading = false;
 const load = async () => {
-    const { data } = await window.axios.get('/api/v1/waiting-screen', {
-        params: pairingToken.value ? { token: pairingToken.value } : {},
-    });
+    if (loading) return;
+    loading = true;
+    let data;
+    try {
+        ({ data } = await window.axios.get('/api/v1/waiting-screen', {
+            params: pairingToken.value ? { token: pairingToken.value } : {},
+            timeout: 10000,
+        }));
+    } catch {
+        connectionLost.value = true;
+        failingSince ??= Date.now();
+        return;
+    } finally {
+        loading = false;
+    }
+
+    if (connectionLost.value) {
+        connectionLost.value = false;
+        logoFailed.value = false;
+        // Down for over a minute: the server may have been updated
+        // meanwhile, so reload once to pick up the new page as well.
+        if (failingSince && Date.now() - failingSince > 60_000) {
+            window.location.reload();
+            return;
+        }
+    }
+    failingSince = null;
+
+    if (data.server_time) {
+        serverOffset = Number(data.server_time) - Date.now();
+        serverTimezone.value = data.timezone ?? null;
+        now.value = serverNow();
+    }
 
     // The server always echoes back the token it actually used — it
     // issues a fresh one whenever ours was missing/unknown/stale, so this
@@ -106,7 +172,7 @@ const load = async () => {
     }
 
     clinicName.value = data.clinic_name;
-    logoUrl.value = data.logo_url;
+    logoUrl.value = sameOriginPath(data.logo_url);
     stageName.value = data.stage_name;
     groupName.value = data.group_name;
     appointments.value = data.appointments;
@@ -131,15 +197,52 @@ const rePair = () => {
 // the data refetch also doubles as the pairing-status poll — fast (4s)
 // while unpaired so scanning the QR feels instant, backed off to 30s once
 // paired since it's then just catching new/edited appointments.
+// Keeps the TV from dimming or sleeping while the page is open, where the
+// browser supports it (re-taken whenever the page becomes visible again).
+let wakeLock = null;
+const keepAwake = async () => {
+    try {
+        if ('wakeLock' in navigator && document.visibilityState === 'visible') {
+            wakeLock = await navigator.wakeLock.request('screen');
+        }
+    } catch {
+        wakeLock = null;
+    }
+};
+const onVisible = () => {
+    if (document.visibilityState === 'visible') {
+        keepAwake();
+        load();
+    }
+};
+// Full screen with the first press of the remote (browsers only allow it
+// after a key press or tap).
+const goFullscreen = () => {
+    const el = document.documentElement;
+    if (!document.fullscreenElement && el.requestFullscreen) {
+        el.requestFullscreen().catch(() => {});
+    }
+};
+
 onMounted(() => {
     load();
     dataTimer = setInterval(load, 4000);
     clockTimer = setInterval(() => {
-        now.value = new Date();
+        now.value = serverNow();
     }, 1000);
+    keepAwake();
+    window.addEventListener('online', load);
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('keydown', goFullscreen);
+    window.addEventListener('click', goFullscreen);
 });
 
 onBeforeUnmount(() => {
+    window.removeEventListener('online', load);
+    document.removeEventListener('visibilitychange', onVisible);
+    window.removeEventListener('keydown', goFullscreen);
+    window.removeEventListener('click', goFullscreen);
+    wakeLock?.release?.().catch(() => {});
     if (dataTimer) clearInterval(dataTimer);
     if (clockTimer) clearInterval(clockTimer);
     if (rotateTimer) clearInterval(rotateTimer);
@@ -177,8 +280,9 @@ onBeforeUnmount(() => {
                 <div class="mx-auto flex max-w-7xl items-center justify-between">
                     <div class="flex items-center gap-4">
                         <img
-                            v-if="logoUrl"
+                            v-if="logoUrl && !logoFailed"
                             :src="logoUrl"
+                            @error="logoFailed = true"
                             alt=""
                             class="h-16 w-16 shrink-0 rounded-full border-4 border-white/70 bg-white object-cover"
                         />
@@ -281,7 +385,16 @@ onBeforeUnmount(() => {
         </template>
 
         <div v-else class="flex flex-1 items-center justify-center text-2xl text-ig-gray">
-            {{ t('waitingScreen.loading') }}
+            {{ connectionLost ? t('waitingScreen.reconnecting') : t('waitingScreen.loading') }}
+        </div>
+
+        <!-- Network down: the last list stays up while it retries by itself. -->
+        <div
+            v-if="connectionLost"
+            class="fixed bottom-4 left-4 flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-base font-semibold text-white shadow-lg"
+        >
+            <span class="h-2.5 w-2.5 animate-pulse rounded-full bg-white" />
+            {{ t('waitingScreen.reconnecting') }}
         </div>
     </div>
 </template>
