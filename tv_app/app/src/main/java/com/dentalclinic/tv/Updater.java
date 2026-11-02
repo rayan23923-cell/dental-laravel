@@ -44,7 +44,11 @@ final class Updater {
                     if (manual) toast(activity, activity.getString(R.string.update_latest, current));
                     return;
                 }
+                // Built for API 22 (auto-start, see build.gradle): Android does
+                // not track this permission for such apps, so the installer
+                // itself asks if needed.
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                        && activity.getApplicationInfo().targetSdkVersion >= Build.VERSION_CODES.O
                         && !activity.getPackageManager().canRequestPackageInstalls()) {
                     activity.runOnUiThread(() -> {
                         Toast.makeText(activity, R.string.update_allow, Toast.LENGTH_LONG).show();
