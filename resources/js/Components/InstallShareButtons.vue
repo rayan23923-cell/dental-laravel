@@ -105,7 +105,23 @@ const tileClass = 'flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm f
                     <p>{{ t('installApp.desktop1') }}</p>
                 </div>
             </template>
-            <p v-if="!secure" class="rounded-xl bg-amber-50 p-3 text-xs text-amber-900">{{ t('installApp.httpNote') }}</p>
+            <!-- The clinic network without its certificate on this device
+                 (2026-11-02): the browser can only add a shortcut, so give
+                 the two ways that work. Only happens on the offline server,
+                 which serves /setup and /apps. -->
+            <div v-if="installState.certUntrusted" class="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+                <p class="mb-1 font-semibold">{{ t('installApp.certTitle') }}</p>
+                <p class="mb-2">{{ t('installApp.certBody') }}</p>
+                <div class="flex flex-col gap-2 sm:flex-row">
+                    <a href="/apps/" class="flex flex-1 items-center justify-center gap-1 rounded-xl bg-emerald-600 px-3 py-2 font-semibold text-white hover:bg-emerald-700">
+                        <Icon name="android" size="text-[18px]" />{{ t('installApp.certApp') }}
+                    </a>
+                    <a href="/setup/cert.html" class="flex flex-1 items-center justify-center gap-1 rounded-xl border border-amber-300 bg-white px-3 py-2 font-semibold text-amber-900 hover:bg-amber-100">
+                        <Icon name="verified_user" size="text-[18px]" />{{ t('installApp.certInstall') }}
+                    </a>
+                </div>
+            </div>
+            <p v-else-if="!secure" class="rounded-xl bg-amber-50 p-3 text-xs text-amber-900">{{ t('installApp.httpNote') }}</p>
             <button type="button" class="rounded-xl border border-gray-300 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-50" @click="help = false">
                 {{ t('common.close') }}
             </button>
