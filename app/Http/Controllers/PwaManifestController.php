@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\ClinicSetting;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * Web-app manifest for "Add to Home Screen" / installable-PWA support.
@@ -39,9 +38,12 @@ class PwaManifestController extends Controller
         return response()->json([
             'name' => $name,
             'short_name' => $name,
-            'start_url' => url('/'),
-            'scope' => url('/'),
-            'id' => url('/'),
+            // Relative to this manifest (2026-11-02): the offline server is
+            // opened by name or IP, http or https, so an absolute APP_URL
+            // here pointed at another origin and the install ignored it.
+            'start_url' => './',
+            'scope' => './',
+            'id' => './',
             'display' => 'standalone',
             'theme_color' => '#0095F6',
             'background_color' => '#FFFFFF',
@@ -62,21 +64,13 @@ class PwaManifestController extends Controller
      */
     private function icons(ClinicSetting $settings): array
     {
-        $logoUrl = $settings->logoUrl();
-        if (! $logoUrl) {
-            return [
-                ['src' => asset('icons/icon-192.png'), 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any'],
-                ['src' => asset('icons/icon-512.png'), 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any'],
-                ['src' => asset('icons/icon-512-maskable.png'), 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'maskable'],
-            ];
-        }
-
-        $type = Storage::disk('public')->mimeType($settings->clinic_logo) ?: 'image/png';
-
+        // Square PNGs made from the uploaded logo (BrandIcon), on this
+        // origin, at the sizes they claim (2026-11-02: the raw upload was
+        // not shown on install). Without a logo they are the tooth icons.
         return [
-            ['src' => $logoUrl, 'sizes' => '192x192', 'type' => $type, 'purpose' => 'any'],
-            ['src' => $logoUrl, 'sizes' => '512x512', 'type' => $type, 'purpose' => 'any'],
-            ['src' => $logoUrl, 'sizes' => '512x512', 'type' => $type, 'purpose' => 'maskable'],
+            ['src' => 'brand-icon/192.png', 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any'],
+            ['src' => 'brand-icon/512.png', 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any'],
+            ['src' => 'brand-icon/512.png?maskable=1', 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'maskable'],
         ];
     }
 }

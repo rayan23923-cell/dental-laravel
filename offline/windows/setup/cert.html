@@ -5,12 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>شهادة الأمان</title>
 <link rel="stylesheet" href="/setup/style.css">
+<link rel="icon" type="image/png" href="/brand-icon/32.png">
 </head>
 <body>
 <!-- Certificate and its steps, apart from the Wi-Fi page (2026-11-02, by request). -->
 <header>
   <a class="back" href="/setup">‹ رجوع إلى التسهيلات</a>
-  <div class="logo"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg></div>
+  <div class="logo" id="logo"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg></div>
+  <p class="clinic" id="clinic"></p>
   <h1>شهادة الأمان</h1>
   <p>اختيارية · مرة واحدة لكل جهاز</p>
 </header>
@@ -54,6 +56,17 @@
   var a = document.getElementById('secure');
   a.href = 'https://' + location.hostname + '/';
   document.getElementById('secure-text').textContent = 'https://' + location.hostname;
+</script>
+<script>
+  // The clinic's own logo and name from its settings (2026-11-02, by request).
+  fetch('/brand.json', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (b) {
+    if (b.name) document.getElementById('clinic').textContent = b.name;
+    if (!b.logo) return;
+    var img = new Image();
+    img.alt = '';
+    img.onload = function () { var box = document.getElementById('logo'); box.innerHTML = ''; box.appendChild(img); box.classList.add('has-img'); };
+    img.src = b.logo;
+  }).catch(function () {});
 </script>
 </body>
 </html>

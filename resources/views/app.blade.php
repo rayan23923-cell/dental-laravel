@@ -49,7 +49,18 @@
              same tooth-artwork fallback) rather than hardcoded separately. -->
         <link rel="manifest" href="{{ route('pwa.manifest') }}">
         <meta name="theme-color" content="#0095F6">
-        <link rel="apple-touch-icon" href="{{ \App\Models\ClinicSetting::current()->logoUrl() ?: asset('icons/icon-192.png') }}">
+        {{-- Icons and share preview from the uploaded logo, on this origin (2026-11-02). --}}
+        @php $brandBase = request()->getSchemeAndHttpHost().request()->getBaseUrl(); @endphp
+        <link rel="apple-touch-icon" href="{{ $brandBase }}/brand-icon/180.png">
+        <link rel="icon" type="image/png" sizes="32x32" href="{{ $brandBase }}/brand-icon/32.png">
+        <link rel="icon" type="image/png" sizes="192x192" href="{{ $brandBase }}/brand-icon/192.png">
+        <meta property="og:title" content="{{ $appTitle }}">
+        <meta property="og:site_name" content="{{ $appTitle }}">
+        <meta property="og:type" content="website">
+        <meta property="og:image" content="{{ $brandBase }}/brand-icon/512.png">
+        <meta property="og:image:width" content="512">
+        <meta property="og:image:height" content="512">
+        <meta name="twitter:card" content="summary">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-title" content="{{ $appTitle }}">
 
