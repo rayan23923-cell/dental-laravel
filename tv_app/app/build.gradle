@@ -1,0 +1,45 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Version and signing come from the workflow (-PversionCode=…); local
+// builds fall back to a debug-signed 1.0.
+def vCode = (project.findProperty('versionCode') ?: '1').toString().toInteger()
+def vName = (project.findProperty('versionName') ?: '1.0').toString()
+
+android {
+    namespace 'com.dentalclinic.tv'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.dentalclinic.tv'
+        minSdk 23
+        targetSdk 34
+        versionCode vCode
+        versionName vName
+    }
+
+    signingConfigs {
+        release {
+            def store = System.getenv('TV_KEYSTORE')
+            if (store) {
+                storeFile file(store)
+                storePassword System.getenv('TV_KEYSTORE_PASSWORD')
+                keyAlias 'dental'
+                keyPassword System.getenv('TV_KEYSTORE_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig System.getenv('TV_KEYSTORE') ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

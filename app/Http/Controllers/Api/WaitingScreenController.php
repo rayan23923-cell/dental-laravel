@@ -70,6 +70,9 @@ class WaitingScreenController extends Controller
             return response()->json([
                 'paired' => false,
                 'token' => $pairing->token,
+                // The screen's clock follows the server (2026-11-02).
+                'server_time' => now()->getTimestampMs(),
+                'timezone' => ClinicSetting::current()->clinic_timezone ?: 'Asia/Baghdad',
                 // The YouTube-TV-style alternative to scanning — see
                 // WaitingScreenPairing's own docblock.
                 'code' => $pairing->code,
@@ -167,6 +170,10 @@ class WaitingScreenController extends Controller
         return response()->json([
             'paired' => true,
             'token' => $pairing->token,
+            // The screen's clock follows the server (2026-11-02, by request):
+            // a TV's own clock is often wrong.
+            'server_time' => now()->getTimestampMs(),
+            'timezone' => ClinicSetting::current()->clinic_timezone ?: 'Asia/Baghdad',
             'clinic_name' => $clinic->clinic_name,
             'logo_url' => $clinic->logoUrl(),
             'stage_name' => $pairing->stage?->name,

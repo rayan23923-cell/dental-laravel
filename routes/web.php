@@ -162,6 +162,7 @@ Route::get('/download', function () {
         'ios' => $releases['ios'],
         'androidOffline' => $releases['android_offline'] ?? null,
         'windowsOffline' => $releases['windows_offline'] ?? null,
+        'androidTv' => $releases['android_tv'] ?? null,
     ]);
 })->name('download');
 

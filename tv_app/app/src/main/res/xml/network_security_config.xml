@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The clinic's offline server is reached over plain http (clinic.lan or
+     its IP), so cleartext is allowed; the hosting stays on https. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

@@ -1077,6 +1077,7 @@
         "save": "Save Settings"
     },
     "waitingScreen": {
+        "reconnecting": "Connection lost — reconnecting automatically…",
         "title": "Waiting Screen",
         "loading": "Loading…",
         "empty": "No registered patients or appointments for today.",
