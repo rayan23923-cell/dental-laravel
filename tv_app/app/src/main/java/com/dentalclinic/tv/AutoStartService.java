@@ -38,6 +38,7 @@ public class AutoStartService extends Service {
     private long watchUntil;
     private long watchSettleAt;
     private boolean notified;
+    private int attempts;
 
     /**
      * The adhan TV app's way (2026-11-02, by request): the TV's own home
@@ -54,6 +55,9 @@ public class AutoStartService extends Service {
             if (MainActivity.visible) {
                 if (now >= watchSettleAt) return;
             } else {
+                if (++attempts <= 3 || attempts % 10 == 0) {
+                    Diag.log(AutoStartService.this, "bring to front #" + attempts);
+                }
                 bringToFront(AutoStartService.this);
                 if (!notified && !MainActivity.canOpenFromBackground(AutoStartService.this)) {
                     notified = true;
@@ -69,6 +73,7 @@ public class AutoStartService extends Service {
         watchUntil = Math.max(watchUntil, now + duration);
         watchSettleAt = now + settle;
         notified = false;
+        attempts = 0;
         handler.removeCallbacks(watcher);
         handler.postDelayed(watcher, 300);
     }
@@ -124,8 +129,9 @@ public class AutoStartService extends Service {
     public static void bringToFront(Context context) {
         try {
             context.startActivity(launchIntent(context));
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException e) {
             // Not allowed right now; the watch tries again in a second.
+            Diag.log(context, "front failed: " + e.getClass().getSimpleName());
         }
     }
 
@@ -173,6 +179,7 @@ public class AutoStartService extends Service {
         wakeReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
+                Diag.log(context, "wake " + intent.getAction());
                 // Woken from standby: the TV's home screen shows up for a
                 // while; keep coming back for 20 s.
                 if (MainActivity.autostartEnabled(context)) watch(20_000, 0);
@@ -214,6 +221,7 @@ public class AutoStartService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        Diag.log(this, "service start" + (intent != null && intent.getBooleanExtra(EXTRA_BOOT, false) ? " (boot)" : ""));
         if (!MainActivity.autostartEnabled(this)) {
             stopSelf();
             return START_NOT_STICKY;

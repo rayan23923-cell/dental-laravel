@@ -22,6 +22,7 @@
     <string name="autostart_channel">التشغيل التلقائي</string>
     <string name="autostart_running">تفتح شاشة الانتظار تلقائيًا عند تشغيل التلفاز</string>
     <string name="menu_exit">خروج</string>
+    <string name="menu_diag">سجل التشغيل التلقائي</string>
     <string name="accessibility_label">التشغيل التلقائي لشاشة الانتظار</string>
     <string name="accessibility_description">يفتح شاشة الانتظار تلقائيًا عند تشغيل التلفاز وبعد انقطاع الكهرباء. لا يقرأ أي شيء من الشاشة.</string>
     <string name="menu_accessibility_on">التشغيل التلقائي عبر إمكانية الوصول: مفعّل ✓</string>

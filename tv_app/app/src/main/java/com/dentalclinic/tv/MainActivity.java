@@ -455,6 +455,12 @@ public class MainActivity extends Activity {
         actions.add(this::openAccessibilitySettings);
         items.add(getString(homeMode() ? R.string.menu_home_off : R.string.menu_home_on));
         actions.add(() -> setHomeMode(!homeMode()));
+        items.add(getString(R.string.menu_diag));
+        actions.add(() -> new AlertDialog.Builder(this)
+                .setTitle(R.string.menu_diag)
+                .setMessage(Diag.report(this))
+                .setPositiveButton(android.R.string.ok, null)
+                .show());
         items.add(getString(R.string.menu_update));
         actions.add(() -> checkForUpdate(true));
         // As the home screen, "exit" would only reopen it: open the TV's own home instead.
@@ -520,6 +526,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (!visible) Diag.log(this, "screen shown");
         visible = true;
         // Opened (maybe by the full-screen notification): drop that notification.
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
