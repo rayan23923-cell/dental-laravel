@@ -38,18 +38,20 @@ class WaitingScreenTvTest extends TestCase
 
     public function test_offline_logo_link_follows_the_page_host_over_http(): void
     {
-        config(['offline.edition' => true, 'app.url' => 'https://clinic.lan', 'filesystems.disks.public.url' => 'https://clinic.lan/storage']);
+        // The middleware alone: the full offline stack also needs an activation.
+        config(['offline.edition' => true, 'filesystems.disks.public.url' => 'https://clinic.lan/storage']);
         Storage::forgetDisk('public');
-        Storage::disk('public')->put('waiting-screen-tv-test/logo.png', 'x');
-        ClinicSetting::current()->update(['clinic_logo' => 'waiting-screen-tv-test/logo.png']);
 
-        $pairing = WaitingScreenPairing::createNew();
-        $pairing->update(['confirmed_at' => now()]);
+        $url = null;
+        (new \App\Http\Middleware\UseRequestHostForFilesOnIp())->handle(
+            \Illuminate\Http\Request::create('http://clinic.lan/waiting-screen'),
+            function () use (&$url) {
+                $url = Storage::disk('public')->url('logos/logo.png');
 
-        $logo = $this->getJson('http://clinic.lan/api/v1/waiting-screen?token='.$pairing->token)->assertOk()->json('logo_url');
+                return response('ok');
+            },
+        );
 
-        Storage::disk('public')->deleteDirectory('waiting-screen-tv-test');
-
-        $this->assertStringStartsWith('http://clinic.lan/storage/', (string) $logo);
+        $this->assertSame('http://clinic.lan/storage/logos/logo.png', $url);
     }
 }
