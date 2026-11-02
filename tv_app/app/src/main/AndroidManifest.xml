@@ -79,6 +79,21 @@
                 android:value="Opens the clinic waiting screen whenever the TV is switched on (kiosk display)." />
         </service>
 
+        <!-- Auto-start where "display over other apps" is greyed out: switched
+             on once in the TV's accessibility settings (AutoStartAccessibility). -->
+        <service
+            android:name=".AutoStartAccessibility"
+            android:exported="true"
+            android:label="@string/accessibility_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/autostart_accessibility" />
+        </service>
+
         <receiver
             android:name=".BootReceiver"
             android:exported="true">
