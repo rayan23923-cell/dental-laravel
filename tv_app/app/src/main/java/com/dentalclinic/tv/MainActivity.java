@@ -57,7 +57,7 @@ public class MainActivity extends Activity {
     private static final String PREFS = "tv";
     private static final String KEY_SERVER = "server";
     private static final String KEY_AUTOSTART = "autostart";
-    private static final String KEY_ASKED_OVERLAY = "asked_overlay";
+    private static final String KEY_ASKED_OVERLAY = "asked_autostart_v2"; // v2: asks again to offer accessibility
     private static final String CLINIC_SERVER = "http://clinic.lan";
     private static final String HOSTING_SERVER = "https://dental.azoclinic.duckdns.org";
     private static final int[] RETRY_SECONDS = {3, 5, 10, 20, 30};
@@ -147,7 +147,20 @@ public class MainActivity extends Activity {
     }
 
     static boolean canOpenFromBackground(Context context) {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || Settings.canDrawOverlays(context);
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || Settings.canDrawOverlays(context)
+                || AutoStartAccessibility.isEnabled(context);
+    }
+
+    /** Opens the TV's accessibility settings to switch on AutoStartAccessibility. */
+    private void openAccessibilitySettings() {
+        Toast.makeText(this, R.string.accessibility_steps, Toast.LENGTH_LONG).show();
+        try {
+            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+        } catch (ActivityNotFoundException e) {
+            try {
+                startActivity(new Intent(Settings.ACTION_SETTINGS));
+            } catch (ActivityNotFoundException ignored) { }
+        }
     }
 
     private boolean canOpenFromBackground() {
@@ -215,8 +228,8 @@ public class MainActivity extends Activity {
         new AlertDialog.Builder(this)
                 .setTitle(R.string.autostart_title)
                 .setMessage(R.string.autostart_explain)
-                .setPositiveButton(R.string.autostart_go, (d, w) -> openOverlaySettings())
-                .setNeutralButton(R.string.menu_home_on, (d, w) -> setHomeMode(true))
+                .setPositiveButton(R.string.menu_accessibility_off, (d, w) -> openAccessibilitySettings())
+                .setNeutralButton(R.string.autostart_go, (d, w) -> openOverlaySettings())
                 .setNegativeButton(R.string.autostart_later, null)
                 .show();
     }
@@ -430,6 +443,9 @@ public class MainActivity extends Activity {
                     : getString(R.string.menu_autostart_permission));
             actions.add(this::toggleAutostart);
         }
+        items.add(getString(AutoStartAccessibility.isEnabled(this)
+                ? R.string.menu_accessibility_on : R.string.menu_accessibility_off));
+        actions.add(this::openAccessibilitySettings);
         items.add(getString(homeMode() ? R.string.menu_home_off : R.string.menu_home_on));
         actions.add(() -> setHomeMode(!homeMode()));
         items.add(getString(R.string.menu_update));
@@ -450,7 +466,7 @@ public class MainActivity extends Activity {
     private void toggleAutostart() {
         boolean on = autostartEnabled(this);
         if (on && !canOpenFromBackground()) {
-            openOverlaySettings();
+            openAccessibilitySettings();
             return;
         }
         prefs().edit().putBoolean(KEY_AUTOSTART, !on).apply();
@@ -462,7 +478,7 @@ public class MainActivity extends Activity {
             if (canOpenFromBackground()) {
                 Toast.makeText(this, R.string.autostart_ok, Toast.LENGTH_LONG).show();
             } else {
-                openOverlaySettings();
+                openAccessibilitySettings();
             }
         }
     }
