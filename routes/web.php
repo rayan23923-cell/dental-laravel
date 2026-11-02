@@ -111,6 +111,11 @@ Route::get('/', function () {
 // icons it references), see PwaManifestController's own doc comment for
 // why this is a route rather than a static public/manifest.json.
 Route::get('/manifest.webmanifest', [PwaManifestController::class, 'show'])->name('pwa.manifest');
+// The uploaded logo as square PNG icons (install, share, tab) and the
+// name + logo for the offline Wi-Fi pages (2026-11-02, by request).
+Route::get('/brand-icon/{size}.png', [\App\Http\Controllers\BrandIconController::class, 'show'])
+    ->whereNumber('size')->name('brand.icon');
+Route::get('/brand.json', [\App\Http\Controllers\BrandIconController::class, 'brand'])->name('brand.json');
 
 // Plain Blade, not Inertia — a one-off legal page needs no JS bundle at
 // all. Added 2026-09-02 specifically to give Google Play Console's "App
@@ -389,6 +394,9 @@ Route::middleware('auth')->group(function () {
             ->middleware('permission:patients,delete')->name('patient-registrations.destroy-many');
         Route::post('/patient-registrations-restore', [PatientRegistrationController::class, 'restoreMany'])
             ->middleware('permission:patients,delete')->name('patient-registrations.restore-many');
+        // Permanent delete from the archive, with the user's password (2026-11-02).
+        Route::delete('/patient-registrations-purge', [PatientRegistrationController::class, 'purgeMany'])
+            ->middleware(['permission:patients,delete', 'throttle:10,1'])->name('patient-registrations.purge-many');
         Route::get('/patient-registrations/{patientRegistration}/qr', [PatientRegistrationController::class, 'qr'])
             ->middleware('permission:patients,view')->name('patient-registrations.qr');
         // Reprint an already-registered patient's ticket — same gate as

@@ -218,6 +218,9 @@ Route::name('api.')->prefix('v1')->group(function () {
             ->middleware('permission:patients,delete');
         Route::post('/patient-registrations-restore', [PatientRegistrationController::class, 'restoreMany'])
             ->middleware('permission:patients,delete');
+        // Permanent delete from the archive, with the user's password (2026-11-02).
+        Route::delete('/patient-registrations-purge', [PatientRegistrationController::class, 'purgeMany'])
+            ->middleware(['permission:patients,delete', 'throttle:10,1']);
 
         // Ticket QR: printed on the thermal ticket, scanned at the
         // payment desk. `scan`/`status` return the registration plus its

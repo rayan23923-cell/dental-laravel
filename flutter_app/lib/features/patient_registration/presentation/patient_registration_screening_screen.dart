@@ -532,7 +532,8 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
             ),
           ],
           // Start the test: print the samples sheet (2026-11-01, by request),
-          // and beside it "استلام النتيجة" (2026-11-02, by request).
+          // and beside it "استلام النتيجة", active at any time like the
+          // samples-sheet button (2026-11-02, by request).
           const SizedBox(height: 16),
           Row(
             children: [
@@ -547,9 +548,10 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: !r.isScreened || r.isLabResultReceived || _submitting || _reusing ? null : _markReceived,
+                  onPressed: r.isLabResultReceived || _submitting || _reusing ? null : _markReceived,
                   style: FilledButton.styleFrom(
                     backgroundColor: Colors.green.shade700,
+                    foregroundColor: Colors.white,
                     minimumSize: const Size.fromHeight(56),
                   ),
                   icon: Icon(r.isLabResultReceived ? Icons.how_to_reg : Icons.how_to_reg_outlined),

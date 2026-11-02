@@ -402,9 +402,13 @@ jobs:
           $ca = Invoke-WebRequest -Uri "http://${ip}:8080/ca.crt" -UseBasicParsing -TimeoutSec 30
           if ($ca.StatusCode -ne 200 -or $ca.RawContentLength -lt 300) { throw 'Certificate download failed.' }
           $setup = Invoke-WebRequest -Uri "http://${ip}:8080/setup" -UseBasicParsing -TimeoutSec 30
-          if ($setup.Content -notmatch 'ca.crt') { throw 'Setup page failed.' }
+          if ($setup.Content -notmatch 'cert.html') { throw 'Setup page failed.' }
+          $cert = Invoke-WebRequest -Uri "http://${ip}:8080/setup/cert.html" -UseBasicParsing -TimeoutSec 30
+          if ($cert.Content -notmatch 'ca.crt') { throw 'Certificate page failed.' }
+          $css = curl.exe -s -o NUL -w '%{http_code}' --max-time 30 "http://${ip}:8080/setup/style.css"
+          if ($css -ne '200') { throw "Setup stylesheet failed ($css)." }
           $localSetup = curl.exe -s --max-time 30 http://127.0.0.1:8080/setup
-          if (($localSetup -join "`n") -notmatch 'ca.crt') { throw 'The setup page is not served on this computer (panel button).' }
+          if (($localSetup -join "`n") -notmatch 'cert.html') { throw 'The setup page is not served on this computer (panel button).' }
           Write-Host 'Client program for the other computers:'
           $cv = (curl.exe -s --max-time 30 "http://${ip}:8080/client/version.json") -join '' | ConvertFrom-Json
           Write-Host "client build $($cv.build)"
@@ -420,6 +424,8 @@ jobs:
           $apk = curl.exe -s -o NUL -w '%{http_code} %{size_download}' --max-time 120 "http://${ip}:8080$($rel.android.url)"
           Write-Host "android $($rel.android.version): $apk"
           if ($apk -notmatch '^200 [1-9]\d{6,}') { throw "The Android app is not served, got $apk" }
+          $apkType = curl.exe -s -o NUL -w '%{content_type}' --max-time 120 "http://${ip}:8080$($rel.android.url)"
+          if ($apkType -ne 'application/vnd.android.package-archive') { throw "The Android app is served as $apkType (browsers save it as .zip)" }
           $apage = curl.exe -s -o NUL -w '%{http_code}' --max-time 30 "http://${ip}:8080/apps/"
           if ($apage -ne '200') { throw "The apps page is not served, got $apage" }
 

@@ -136,7 +136,8 @@ const startTest = (id) => printInFrame(route('lab.sample', { patientRegistration
 // button. The result was already paid and printed when it was recorded;
 // this only marks it collected, which takes the patient off the waiting
 // screen's green "النتيجة جاهزة".
-const canMarkReceived = (r) => !!r && r.screening_status !== 'pending' && !r.lab_result_received_at;
+// Active at any time, like the samples-sheet button (2026-11-02, by request).
+const canMarkReceived = (r) => !!r && !r.lab_result_received_at;
 const receiving = ref(false);
 const markReceived = async (r) => {
     receiving.value = true;
@@ -184,7 +185,11 @@ const record = async (status, { feeConfirmed = false } = {}) => {
         const id = selected.value.id;
         await axios.post(route('patient-registrations.screening', id), { screening_status: status });
         printSlip(id);
-        selected.value = null;
+        // The window stays open on the saved result (2026-11-02), so
+        // "استلام النتيجة" is ready when the patient comes for it.
+        if (selected.value?.id === id) {
+            selected.value = { ...selected.value, screening_status: status, screening_checked_at: new Date().toISOString(), lab_paid: isPaid(selected.value) || feeDue(selected.value) };
+        }
         router.reload({ only: ['registrations', 'counts'] });
     } catch (e) {
         resultError.value = e?.response?.data?.message ?? t('lab.recordFailed');
@@ -337,7 +342,8 @@ const record = async (status, { feeConfirmed = false } = {}) => {
 
                 <div v-if="resultError" class="rounded-xl bg-red-50 p-3 text-sm text-red-700">{{ resultError }}</div>
 
-                <!-- The samples sheet, and beside it "استلام النتيجة" (2026-11-02, by request). -->
+                <!-- The samples sheet, and beside it "استلام النتيجة", active at any
+                     time (2026-11-02, by request). -->
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <button
                         type="button"
@@ -349,21 +355,19 @@ const record = async (status, { feeConfirmed = false } = {}) => {
                         <span class="block text-xs font-normal opacity-80">{{ t('lab.startTestHint') }}</span>
                     </button>
                     <button
-                        v-if="canConfirm"
+                        v-if="canConfirm && !selected.lab_result_received_at"
                         type="button"
-                        :disabled="receiving || !canMarkReceived(selected)"
+                        :disabled="receiving"
                         @click="markReceived(selected)"
-                        class="rounded-xl border-2 border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
+                        class="rounded-xl border-2 border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
                     >
-                        <Icon name="how_to_reg" class="ml-1" />{{ selected.lab_result_received_at ? t('lab.resultReceivedDone') : t('lab.resultReceived') }}
-                        <span class="block text-xs font-normal opacity-80">{{
-                            selected.lab_result_received_at
-                                ? fmtDate(selected.lab_result_received_at)
-                                : selected.screening_status === 'pending'
-                                  ? t('lab.resultReceivedAfterResult')
-                                  : t('lab.resultReceivedHint')
-                        }}</span>
+                        <Icon name="how_to_reg" class="ml-1" />{{ t('lab.resultReceived') }}
+                        <span class="block text-xs font-normal opacity-80">{{ t('lab.resultReceivedHint') }}</span>
                     </button>
+                    <div v-else-if="selected.lab_result_received_at" class="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+                        <Icon name="how_to_reg" class="ml-1" />{{ t('lab.resultReceivedDone') }}
+                        <span class="block text-xs font-normal opacity-80">{{ fmtDate(selected.lab_result_received_at) }}</span>
+                    </div>
                 </div>
 
                 <!-- A recorded result is final (2026-11-01, by request). -->

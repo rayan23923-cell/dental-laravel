@@ -8,6 +8,7 @@ import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 import { createI18nInstance } from './i18n';
 import ConnectionStatus from './Components/ConnectionStatus.vue';
 import { installNumericInputs } from './numericInputs';
+import './installPrompt';
 
 // The clinic's name from its settings, rendered by app.blade.php; never the framework's "Laravel".
 const appName = document.querySelector('meta[name="app-name"]')?.content || import.meta.env.VITE_APP_NAME || 'Dental Clinic';

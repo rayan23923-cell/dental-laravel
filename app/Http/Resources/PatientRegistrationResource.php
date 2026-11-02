@@ -60,6 +60,8 @@ class PatientRegistrationResource extends JsonResource
             // result handed to the patient ("تم استلام النتيجة").
             'lab_sample_printed_at' => $this->lab_sample_printed_at?->toIso8601String(),
             'lab_result_received_at' => $this->lab_result_received_at?->toIso8601String(),
+            // Archived from the patients list, the lab list, or both (2026-11-02).
+            'archive_scope' => \App\Support\RegistrationArchive::scopeOf($this->resource),
             'screening_checked_by' => $this->whenLoaded('screeningCheckedBy', fn () => $this->screeningCheckedBy ? [
                 'id' => $this->screeningCheckedBy->id,
                 'full_name' => $this->screeningCheckedBy->full_name,

@@ -109,15 +109,27 @@ const currentFilters = () => ({
     ...(to.value ? { to: to.value } : {}),
     ...(serviceId.value ? { service_id: serviceId.value } : {}),
 });
+// Archiving asks where from (2026-11-02, by request): the patients list,
+// the lab list, or both (both = the full archive, payments kept).
+const archiveAsk = ref(null); // { ids } or { all, n }
 const destroySelected = () => {
     if (!selected.value.length) return;
-    if (confirm(t('patientReg.deleteSelectedConfirm', { n: selected.value.length }))) {
-        router.delete(route('patient-registrations.destroy-many'), {
-            data: { ids: selected.value },
-            preserveScroll: true,
-            onSuccess: () => (selected.value = []),
-        });
-    }
+    archiveAsk.value = { ids: [...selected.value], n: selected.value.length };
+};
+const archiveScopeOf = (r) => {
+    if (r.deleted_at || (r.registry_archived_at && r.lab_archived_at)) return 'both';
+    if (r.registry_archived_at) return 'patients';
+    return r.lab_archived_at ? 'lab' : null;
+};
+const confirmArchive = (scope) => {
+    const ask = archiveAsk.value;
+    if (!ask) return;
+    archiveAsk.value = null;
+    router.delete(route('patient-registrations.destroy-many'), {
+        data: ask.all ? { all: true, scope, ...currentFilters() } : { ids: ask.ids, scope },
+        preserveScroll: true,
+        onSuccess: () => (selected.value = []),
+    });
 };
 const restoreSelected = () => {
     if (!selected.value.length) return;
@@ -126,16 +138,40 @@ const restoreSelected = () => {
         onSuccess: () => (selected.value = []),
     });
 };
+// Permanent delete from the archive (2026-11-02, by request): asks for the
+// user's own password; payments go with the registration.
+const purgeAsk = ref(null); // { ids, n } or { all, n }
+const purgePassword = ref('');
+const purgeError = ref('');
+const purgeBusy = ref(false);
+const openPurge = (all) => {
+    purgePassword.value = '';
+    purgeError.value = '';
+    purgeAsk.value = all ? { all: true, n: props.registrations.total } : { ids: [...selected.value], n: selected.value.length };
+};
+const confirmPurge = () => {
+    const ask = purgeAsk.value;
+    if (!ask || !purgePassword.value) return;
+    purgeBusy.value = true;
+    purgeError.value = '';
+    router.delete(route('patient-registrations.purge-many'), {
+        data: ask.all ? { all: true, password: purgePassword.value, ...currentFilters() } : { ids: ask.ids, password: purgePassword.value },
+        preserveScroll: true,
+        onSuccess: () => {
+            purgeAsk.value = null;
+            selected.value = [];
+        },
+        onError: (errors) => (purgeError.value = errors.password ?? Object.values(errors)[0] ?? t('patientReg.purgeFailed')),
+        onFinish: () => {
+            purgeBusy.value = false;
+            purgePassword.value = '';
+        },
+    });
+};
 const destroyAll = () => {
     const n = props.registrations.total;
     if (!n) return;
-    if (confirm(t('patientReg.deleteAllConfirm', { n }))) {
-        router.delete(route('patient-registrations.destroy-many'), {
-            data: { all: true, ...currentFilters() },
-            preserveScroll: true,
-            onSuccess: () => (selected.value = []),
-        });
-    }
+    archiveAsk.value = { all: true, n };
 };
 
 // The desk-payment QR, viewable on screen as well as on the printed
@@ -244,6 +280,9 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
                     <div v-if="!archived && can.archive && registrations.total" class="ms-auto flex items-center">
                         <ChatAction icon="inventory_2" :label="hasFilters ? t('patientReg.deleteAllFiltered') : t('patientReg.deleteAll')" danger @click="destroyAll" />
                     </div>
+                    <div v-if="archived && can.archive && registrations.total" class="ms-auto flex items-center">
+                        <ChatAction icon="delete_forever" :label="t('patientReg.purgeAll')" danger @click="openPurge(true)" />
+                    </div>
                 </div>
 
                 <!-- Bulk bar -->
@@ -251,6 +290,7 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
                     <span class="text-sm font-medium text-amber-900">{{ t('doctorsAdmin.selectedCount', { n: selected.length }) }}</span>
                     <div v-if="can.archive" class="flex items-center">
                         <ChatAction v-if="archived" icon="unarchive" :label="t('patientReg.restoreSelected')" @click="restoreSelected" />
+                        <ChatAction v-if="archived" icon="delete_forever" :label="t('patientReg.purgeSelected')" danger @click="openPurge(false)" />
                         <ChatAction v-else icon="inventory_2" :label="t('patientReg.archiveSelected')" danger @click="destroySelected" />
                     </div>
                 </div>
@@ -278,6 +318,7 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
                             </ChatChip>
                             <ChatChip icon="schedule">{{ fmtDate(r.created_at) }}</ChatChip>
                             <ChatChip :icon="screeningIcon(r.screening_status)" :tone="screeningTone(r.screening_status)">{{ screeningLabel(r.screening_status) }}</ChatChip>
+                            <ChatChip v-if="archiveScopeOf(r)" icon="inventory_2" tone="amber">{{ t('patientReg.archivedFrom.' + archiveScopeOf(r)) }}</ChatChip>
                         </template>
                         <template #actions>
                             <ChatAction icon="qr_code_2" :label="t('patientReg.paymentCodeCol')" @click="qrRegistration = r" />
@@ -291,6 +332,55 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
                 </ChatListCard>
             </div>
         </div>
+
+        <!-- Archive: from where (2026-11-02, by request) -->
+        <Modal :show="!!archiveAsk" max-width="md" @close="archiveAsk = null">
+            <div v-if="archiveAsk" class="flex flex-col gap-3 p-6">
+                <h3 class="flex items-center gap-2 text-lg font-semibold text-gray-800">
+                    <Icon name="inventory_2" />{{ t('patientReg.archiveFromTitle', { n: archiveAsk.n }) }}
+                </h3>
+                <p class="text-sm text-gray-500">{{ t('patientReg.archiveFromHint') }}</p>
+                <button type="button" @click="confirmArchive('patients')" class="flex items-center gap-3 rounded-xl border-2 border-sky-200 bg-sky-50 px-4 py-3 text-start font-semibold text-sky-900 hover:bg-sky-100">
+                    <Icon name="groups" />
+                    <span>{{ t('patientReg.archiveFrom.patients') }}<span class="block text-xs font-normal opacity-80">{{ t('patientReg.archiveFromDesc.patients') }}</span></span>
+                </button>
+                <button type="button" @click="confirmArchive('lab')" class="flex items-center gap-3 rounded-xl border-2 border-emerald-200 bg-emerald-50 px-4 py-3 text-start font-semibold text-emerald-900 hover:bg-emerald-100">
+                    <Icon name="science" />
+                    <span>{{ t('patientReg.archiveFrom.lab') }}<span class="block text-xs font-normal opacity-80">{{ t('patientReg.archiveFromDesc.lab') }}</span></span>
+                </button>
+                <button type="button" @click="confirmArchive('both')" class="flex items-center gap-3 rounded-xl border-2 border-red-200 bg-red-50 px-4 py-3 text-start font-semibold text-red-900 hover:bg-red-100">
+                    <Icon name="inventory_2" />
+                    <span>{{ t('patientReg.archiveFrom.both') }}<span class="block text-xs font-normal opacity-80">{{ t('patientReg.archiveFromDesc.both') }}</span></span>
+                </button>
+                <SecondaryButton class="justify-center" @click="archiveAsk = null">{{ t('common.cancel') }}</SecondaryButton>
+            </div>
+        </Modal>
+
+        <!-- Permanent delete, behind the user's password (2026-11-02, by request) -->
+        <Modal :show="!!purgeAsk" max-width="md" @close="purgeAsk = null">
+            <form v-if="purgeAsk" class="flex flex-col gap-3 p-6" @submit.prevent="confirmPurge">
+                <h3 class="flex items-center gap-2 text-lg font-semibold text-red-700">
+                    <Icon name="delete_forever" />{{ t('patientReg.purgeTitle', { n: purgeAsk.n }) }}
+                </h3>
+                <p class="rounded-xl bg-red-50 p-3 text-sm text-red-800">{{ t('patientReg.purgeWarning') }}</p>
+                <label class="text-sm font-medium text-gray-700" for="purge-password">{{ t('patientReg.purgePassword') }}</label>
+                <input
+                    id="purge-password"
+                    v-model="purgePassword"
+                    type="password"
+                    autocomplete="current-password"
+                    autofocus
+                    class="rounded-xl border-gray-300 focus:border-red-500 focus:ring-red-500"
+                />
+                <p v-if="purgeError" class="text-sm text-red-600">{{ purgeError }}</p>
+                <div class="grid grid-cols-2 gap-3">
+                    <button type="submit" :disabled="purgeBusy || !purgePassword" class="rounded-xl bg-red-700 px-4 py-2.5 font-semibold text-white hover:bg-red-800 disabled:opacity-50">
+                        {{ t('patientReg.purgeConfirm') }}
+                    </button>
+                    <SecondaryButton class="justify-center" @click="purgeAsk = null">{{ t('common.cancel') }}</SecondaryButton>
+                </div>
+            </form>
+        </Modal>
 
         <Modal :show="!!qrRegistration" @close="qrRegistration = null">
             <div class="flex flex-col items-center gap-4 p-6" v-if="qrRegistration">

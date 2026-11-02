@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PatientRegistration;
+use App\Support\RegistrationArchive;
 use App\Models\Payment;
 use App\Models\Service;
 use App\Models\Task;
@@ -66,7 +67,11 @@ class PatientRegistrationController extends Controller
     {
         return PatientRegistration::query()
             // The archive tab (2026-10-12) lists deleted (archived) patients.
-            ->when($request->boolean('archived'), fn ($q) => $q->onlyTrashed())
+            ->when(
+                $request->boolean('archived'),
+                fn ($q) => RegistrationArchive::archived($q),
+                fn ($q) => RegistrationArchive::currentRegistry($q),
+            )
             ->when($request->string('search')->toString(), function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
@@ -91,13 +96,15 @@ class PatientRegistrationController extends Controller
             'all' => ['sometimes', 'boolean'],
             'ids' => ['required_without:all', 'array'],
             'ids.*' => ['integer'],
+            // From the patients list, the lab list, or both (2026-11-02).
+            'scope' => ['sometimes', 'in:'.implode(',', RegistrationArchive::SCOPES)],
         ]);
 
         $query = ($validated['all'] ?? false)
             ? $this->filteredQuery($request)
             : PatientRegistration::whereIn('id', $validated['ids']);
 
-        $count = $query->delete();
+        $count = RegistrationArchive::archive($query, $validated['scope'] ?? 'both');
 
         return back()->with('success', "تمت أرشفة {$count} تسجيل.");
     }
@@ -110,9 +117,33 @@ class PatientRegistrationController extends Controller
             'ids.*' => ['integer'],
         ]);
 
-        $count = PatientRegistration::onlyTrashed()->whereIn('id', $validated['ids'])->restore();
+        $count = RegistrationArchive::restore($validated['ids']);
 
         return back()->with('success', "تمت استعادة {$count} تسجيل.");
+    }
+
+    /**
+     * Permanent delete from the archive tab (2026-11-02, by request): the
+     * ticked archived registrations, or all archived ones matching the
+     * filters; needs the signed-in user's password.
+     */
+    public function purgeMany(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'all' => ['sometimes', 'boolean'],
+            'ids' => ['required_without:all', 'array'],
+            'ids.*' => ['integer'],
+            'password' => ['required', 'string', 'current_password'],
+        ], ['password.current_password' => 'كلمة السر غير صحيحة.']);
+
+        $request->merge(['archived' => 1]);
+        $query = ($validated['all'] ?? false)
+            ? $this->filteredQuery($request)
+            : RegistrationArchive::archived(PatientRegistration::query())->whereIn('id', $validated['ids']);
+
+        $count = RegistrationArchive::purge($query);
+
+        return back()->with('success', "تم حذف {$count} تسجيل نهائيًا.");
     }
 
     /**

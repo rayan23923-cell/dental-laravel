@@ -78,12 +78,10 @@ class LabFeeGate
      * already paid and printed result, so they leave the waiting screen.
      * Nothing is charged here. False while the result is still pending.
      */
+    // Always allowed (2026-11-02, by request: the button stays active like
+    // the samples-sheet button); it never charges or records a result.
     public static function receive(PatientRegistration $registration): bool
     {
-        if (self::isPending($registration)) {
-            return false;
-        }
-
         return $registration->refresh()->markLabResultReceived();
     }
 

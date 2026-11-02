@@ -115,15 +115,23 @@ class PatientRegistrationRepository {
 
   /// Bulk archive (soft delete — payments are kept), the web
   /// `destroy-many`.
-  Future<void> archiveMany(List<int> ids) =>
-      _client.deleteJson('/patient-registrations-bulk', body: {'ids': ids});
+  /// [scope] (2026-11-02): 'patients', 'lab' or 'both' — which list the
+  /// patients leave.
+  Future<void> archiveMany(List<int> ids, {String scope = 'both'}) =>
+      _client.deleteJson('/patient-registrations-bulk', body: {'ids': ids, 'scope': scope});
 
   /// Archives every registration matching the filters ("أرشفة الكل").
-  Future<void> archiveAll({String? search, String? from, String? to, int? serviceId}) =>
+  Future<void> archiveAll({String? search, String? from, String? to, int? serviceId, String scope = 'both'}) =>
       _client.deleteJson('/patient-registrations-bulk', body: {
         'all': true,
+        'scope': scope,
         ..._filterQuery(search: search, from: from, to: to, serviceId: serviceId),
       });
+
+  /// Permanent delete of archived registrations (2026-11-02), needs the
+  /// signed-in user's password.
+  Future<void> purgeMany(List<int> ids, String password) =>
+      _client.deleteJson('/patient-registrations-purge', body: {'ids': ids, 'password': password});
 
   /// Brings archived registrations back, the web `restore-many`.
   Future<void> restoreMany(List<int> ids) =>

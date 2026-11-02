@@ -41,9 +41,6 @@ class WaitingScreenLabWaitingTest extends TestCase
         $app->markLabSamplePrinted();
 
         Sanctum::actingAs($admin);
-        // Nothing to collect while the result is pending.
-        $this->postJson("/api/v1/lab/{$app->id}/result-received")->assertStatus(422);
-        $this->postJson("/lab/{$web->id}/received")->assertStatus(422);
 
         $this->postJson("/api/v1/patient-registrations/{$web->id}/screening", ['screening_status' => 'clear'])->assertOk();
         $this->postJson("/api/v1/patient-registrations/{$app->id}/screening", ['screening_status' => 'flagged'])->assertOk();
@@ -57,6 +54,23 @@ class WaitingScreenLabWaitingTest extends TestCase
 
         $this->assertSame([], $this->labWaiting('lab_ready'));
         $this->assertNotNull($app->fresh()->lab_result_received_at);
+    }
+
+    public function test_result_can_be_collected_before_it_is_recorded(): void
+    {
+        $admin = User::factory()->create(['role' => 'super_admin']);
+        $web = $this->registration('مريض الويب');
+        $app = $this->registration('مريض التطبيق');
+        $web->markLabSamplePrinted();
+        $app->markLabSamplePrinted();
+
+        Sanctum::actingAs($admin);
+        $this->actingAs($admin)->postJson("/lab/{$web->id}/received")->assertOk();
+        $this->postJson("/api/v1/lab/{$app->id}/result-received")->assertOk();
+
+        $this->assertSame([], $this->labWaiting());
+        $this->assertSame('pending', $web->fresh()->screening_status);
+        $this->assertNotNull($web->fresh()->lab_result_received_at);
     }
 
     public function test_printed_samples_sheet_shows_until_the_result_is_recorded(): void

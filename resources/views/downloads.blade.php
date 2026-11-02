@@ -73,6 +73,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>تحميل التطبيق — {{ $clinicName }}</title>
+    @php $brandBase = request()->getSchemeAndHttpHost().request()->getBaseUrl(); @endphp
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ $brandBase }}/brand-icon/32.png">
+    <link rel="apple-touch-icon" href="{{ $brandBase }}/brand-icon/180.png">
+    <meta property="og:title" content="تحميل التطبيق — {{ $clinicName }}">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="{{ $brandBase }}/brand-icon/512.png">
+    <meta name="twitter:card" content="summary">
     <style>
         :root {
             --bg: #ffffff;
