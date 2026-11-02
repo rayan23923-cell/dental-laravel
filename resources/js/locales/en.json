@@ -1090,7 +1090,8 @@
         "labWaitingHeading": "Waiting for lab test",
         "labReadyHeading": "Result ready to collect",
         "labReadyBadge": "Result ready",
-        "labHeading": "Lab"
+        "labHeading": "Lab",
+        "labEmpty": "No lab patients right now."
     },
     "waitingScreenPairing": {
         "title": "Pair Waiting Screen",

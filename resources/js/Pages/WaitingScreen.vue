@@ -78,11 +78,14 @@ const qrUrl = computed(() =>
 // WaitingScreenSettings/Edit.vue) rather than one long scrolling list —
 // a waiting-room TV is read from across a room, so each page needs to
 // stay large-print and glanceable.
+// The screen shows the lab only (2026-11-02, by request), so the pages
+// rotate through the lab list; its cards are smaller, hence 12 a page.
+const LAB_PER_PAGE = 12;
 const pages = computed(() => {
-    const size = patientsPerPage.value || 8;
+    const size = LAB_PER_PAGE;
     const chunks = [];
-    for (let i = 0; i < appointments.value.length; i += size) {
-        chunks.push(appointments.value.slice(i, i + size));
+    for (let i = 0; i < labPatients.value.length; i += size) {
+        chunks.push(labPatients.value.slice(i, i + size));
     }
     return chunks.length ? chunks : [[]];
 });
@@ -305,7 +308,7 @@ onBeforeUnmount(() => {
                 <!-- Lab (2026-11-02): amber while waiting for the test, green once the result is ready. -->
                 <section
                     v-if="labPatients.length"
-                    class="mb-8 rounded-2xl border border-ig-border-light bg-white/60 p-6 shadow-sm dark:border-ig-border-dark dark:bg-ig-black/40"
+                    class="rounded-2xl border border-ig-border-light bg-white/60 p-6 shadow-sm dark:border-ig-border-dark dark:bg-ig-black/40"
                 >
                     <div class="mb-4 flex flex-wrap items-center gap-3">
                         <h2 class="text-2xl font-bold sm:text-3xl">{{ t('waitingScreen.labHeading') }}</h2>
@@ -318,8 +321,8 @@ onBeforeUnmount(() => {
                     </div>
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         <div
-                            v-for="(item, i) in labPatients"
-                            :key="'lab-' + i + '-' + item.patient_name"
+                            v-for="(item, i) in currentPageItems"
+                            :key="'lab-' + currentPage + '-' + i + '-' + item.patient_name"
                             class="flex items-center justify-between gap-3 rounded-xl border-2 px-5 py-4 shadow-sm transition-colors duration-700"
                             :class="item.status === 'ready'
                                 ? 'border-emerald-400 bg-emerald-500 text-white'
@@ -340,30 +343,9 @@ onBeforeUnmount(() => {
                     </div>
                 </section>
 
-                <div v-if="appointments.length === 0 && labPatients.length === 0" class="py-32 text-center text-2xl text-ig-gray">
-                    {{ t('waitingScreen.empty') }}
+                <div v-else class="py-32 text-center text-2xl text-ig-gray">
+                    {{ t('waitingScreen.labEmpty') }}
                 </div>
-
-                <transition-group
-                    v-else-if="appointments.length"
-                    name="waiting-screen-page"
-                    tag="div"
-                    class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3"
-                >
-                    <div
-                        v-for="item in currentPageItems"
-                        :key="currentPage + '-' + item.patient_name + '-' + (item.doctor_name ?? '')"
-                        class="rounded-2xl border border-ig-border-light bg-white p-6 shadow-sm dark:border-ig-border-dark dark:bg-ig-black"
-                    >
-                        <div class="text-xl font-semibold sm:text-2xl">{{ item.patient_name }}</div>
-                        <div class="mt-3 flex items-center gap-2">
-                            <span class="h-2 w-2 shrink-0 rounded-full" :class="item.doctor_name ? 'bg-ig-blue' : 'bg-ig-gray'" />
-                            <span class="text-base text-ig-gray sm:text-lg" :class="item.doctor_name && 'text-ig-blue dark:text-ig-blue'">
-                                {{ item.doctor_name ?? t('waitingScreen.unassigned') }}
-                            </span>
-                        </div>
-                    </div>
-                </transition-group>
             </main>
 
             <footer class="flex flex-col items-center gap-2 pb-8">
