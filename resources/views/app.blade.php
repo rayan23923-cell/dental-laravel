@@ -127,6 +127,16 @@
                 window.addEventListener('load', () => {
                     navigator.serviceWorker.register('{{ asset('sw.js') }}', {
                         scope: '{{ asset('/') }}',
+                    }).catch(function (e) {
+                        // Opened past a certificate warning (the clinic
+                        // network's https without its certificate on this
+                        // device, 2026-11-02): the browser refuses the
+                        // worker and the install, so "تثبيت التطبيق" can
+                        // say why (resources/js/installPrompt.js).
+                        if (/ssl|certificate/i.test(String((e && e.message) || e))) {
+                            window.__certUntrusted = true;
+                            window.dispatchEvent(new Event('cert-untrusted'));
+                        }
                     });
                 });
             }

@@ -1659,6 +1659,10 @@
         "android2": "Choose “Install app” or “Add to Home screen”.",
         "desktopTitle": "Computer (Chrome or Edge)",
         "desktop1": "Click the install icon in the address bar, or browser menu ⋮ → “Install”.",
-        "httpNote": "On the clinic network without https it is added as a shortcut only. For a full install, install the clinic certificate and open the system over https, or download the clinic app from the apps page."
+        "httpNote": "On the clinic network without https it is added as a shortcut only. For a full install, install the clinic certificate and open the system over https, or download the clinic app from the apps page.",
+        "certTitle": "This device doesn't trust the connection",
+        "certBody": "The system was opened past a security warning (the red mark next to the address), so Chrome refuses to install it and offers only a shortcut. Best: install the clinic's Android app, which works on the clinic network without internet. Or install the clinic certificate on this device once, then reopen the page.",
+        "certApp": "Android app",
+        "certInstall": "Install clinic certificate"
     }
 }
