@@ -3,75 +3,63 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>تجهيز الجهاز</title>
-<style>
-  :root { --bg:#f6f7fb; --card:#fff; --text:#1f2937; --muted:#6b7280; --accent:#4f46e5; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#111827; --card:#1f2937; --text:#f3f4f6; --muted:#9ca3af; --accent:#818cf8; } }
-  body { margin:0; font-family: system-ui, Tahoma, sans-serif; background:var(--bg); color:var(--text); line-height:1.7; }
-  main { max-width:640px; margin:0 auto; padding:24px 16px; }
-  .card { background:var(--card); border-radius:12px; padding:16px 20px; margin-bottom:16px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
-  h1 { font-size:1.4rem; } h2 { font-size:1.1rem; margin-top:0; }
-  .btn { display:inline-block; background:var(--accent); color:#fff; text-decoration:none; padding:12px 20px; border-radius:8px; font-weight:600; }
-  ol { padding-inline-start:20px; } .muted { color:var(--muted); font-size:.9rem; }
-</style>
+<title>تسهيلات العيادة</title>
+<link rel="stylesheet" href="/setup/style.css">
 </head>
 <body>
+<!-- The page a phone shows on joining the clinic Wi-Fi (2026-11-02 redesign, by
+     request): everything opens over plain http first, so no certificate warning;
+     the certificate and its steps are on their own page (/setup/cert.html). -->
+<header>
+  <div class="logo"><svg viewBox="0 0 24 24"><path d="M7.5 2C4.46 2 2.5 4.6 2.5 7.6c0 2.2.9 3.5 1.6 5.1.7 1.7.9 4.1 1.4 6.4.4 1.8 1 2.9 2 2.9 1.4 0 1.7-1.9 2.1-3.9.3-1.6.7-3.1 2.4-3.1s2.1 1.5 2.4 3.1c.4 2 .7 3.9 2.1 3.9 1 0 1.6-1.1 2-2.9.5-2.3.7-4.7 1.4-6.4.7-1.6 1.6-2.9 1.6-5.1C21.5 4.6 19.54 2 16.5 2c-1.9 0-3 1-4.5 1S9.4 2 7.5 2z"/></svg></div>
+  <h1>تسهيلات العيادة</h1>
+  <p>أنت متصل بشبكة العيادة · يعمل بدون إنترنت</p>
+</header>
 <main>
-  <h1>تجهيز الجهاز لنظام العيادة</h1>
   <div class="card">
-    <p>إذا كانت شهادة العيادة مثبتة على هذا الجهاز فافتح النظام مباشرة:</p>
-    <p><a class="btn" href="/" id="open">فتح النظام</a></p>
-    <p class="muted">إذا ظهرت هذه الصفحة عند الاتصال بالواي فاي، فاضغط الزر، أو افتح المتصفح على العنوان أدناه.</p>
+    <a class="primary" data-path="/" href="/">
+      <svg viewBox="0 0 24 24"><path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z"/></svg>
+      فتح النظام
+    </a>
+    <p class="hint">إذا ظهرت هذه الصفحة عند الاتصال بالواي فاي فاضغط الزر، أو افتح المتصفح على <b id="addr">clinic.lan</b></p>
   </div>
-  <div class="card">
-    <p>مرة واحدة لكل جهاز: نزّل شهادة العيادة وثبّتها، ليعمل النظام عبر HTTPS وتعمل كاميرا مسح QR.</p>
-    <p><a class="btn" href="/ca.crt">تنزيل شهادة العيادة</a></p>
-  </div>
-  <div class="card">
-    <h2>حواسيب ويندوز الأخرى: برنامج العيادة</h2>
-    <p>بدل المتصفح: يفتح النظام ويطبع التكت والوصولات مباشرة دون نافذة (USB، شبكة، بلوتوث)،
-      ويحفظ تسجيل الدخول، ويثبّت الشهادة بنفسه.</p>
-    <p><a class="btn" href="/client/">تنزيل برنامج العيادة</a></p>
-  </div>
-  <div class="card">
-    <h2>تطبيقات أندرويد وآيفون وويندوز</h2>
-    <p>تعمل على هذه الشبكة بدون إنترنت: اختر في شاشة الدخول «سيرفر العيادة على الشبكة».</p>
-    <p><a class="btn" href="/apps/">تنزيل التطبيقات</a></p>
-  </div>
-  <div class="card">
-    <h2>أندرويد</h2>
-    <ol>
-      <li>نزّل الشهادة من الزر أعلاه.</li>
-      <li>الإعدادات ← الأمان (أو الأمان والخصوصية) ← إعدادات أمان أخرى ← تثبيت من مساحة التخزين ← <b>شهادة CA</b>.</li>
-      <li>اختر الملف <b>clinic-ca.crt</b> ووافق.</li>
-    </ol>
-  </div>
-  <div class="card">
-    <h2>آيفون وآيباد</h2>
-    <ol>
-      <li>افتح هذه الصفحة في <b>Safari</b> ونزّل الشهادة، ثم اختر «سماح».</li>
-      <li>الإعدادات ← «تم تنزيل ملف التعريف» ← تثبيت.</li>
-      <li>الإعدادات ← عام ← حول ← إعدادات الثقة بالشهادات ← فعّل الثقة الكاملة للشهادة.</li>
-    </ol>
-  </div>
-  <div class="card">
-    <h2>حاسوب ويندوز</h2>
-    <ol>
-      <li>نزّل الشهادة وافتحها ← تثبيت الشهادة ← الجهاز المحلي.</li>
-      <li>اختر «وضع كل الشهادات في المخزن التالي» ← <b>Trusted Root Certification Authorities</b> ← إنهاء.</li>
-      <li>أعد فتح المتصفح.</li>
-    </ol>
-  </div>
-  <div class="card">
-    <p>بعد التثبيت افتح النظام: <a href="/" id="go">https://clinic.lan</a></p>
-    <p class="muted">الشهادة خاصة بنظام العيادة على هذه الشبكة فقط.</p>
+
+  <h2>اختصارات سريعة</h2>
+  <div class="grid">
+    <a class="tile" data-path="/patient-registrations" href="/patient-registrations">
+      <span class="ic c2"><svg viewBox="0 0 24 24"><path d="M22 10V6c0-1.11-.9-2-2-2H4c-1.1 0-1.99.89-1.99 2v4c1.1 0 1.99.9 1.99 2s-.89 2-2 2v4c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2v-4c-1.1 0-2-.9-2-2s.9-2 2-2zm-9 7.5h-2v-2h2v2zm0-4.5h-2v-2h2v2zm0-4.5h-2v-2h2v2z"/></svg></span>
+      التذاكر<small>تسجيل المرضى</small>
+    </a>
+    <a class="tile" data-path="/lab" href="/lab">
+      <span class="ic c1"><svg viewBox="0 0 24 24"><path d="M7 2v2h1v14c0 2.21 1.79 4 4 4s4-1.79 4-4V4h1V2H7zm4 14c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm2-4c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm1-5h-4V4h4v3z"/></svg></span>
+      المختبر<small>النتائج والعينات</small>
+    </a>
+    <a class="tile" data-path="/waiting-screen" href="/waiting-screen">
+      <span class="ic c3"><svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z"/></svg></span>
+      شاشة الانتظار<small>للتلفاز أو شاشة كبيرة</small>
+    </a>
+    <a class="tile" href="/apps/">
+      <span class="ic c4"><svg viewBox="0 0 24 24"><path d="M16 1H8C6.34 1 5 2.34 5 4v16c0 1.66 1.34 3 3 3h8c1.66 0 3-1.34 3-3V4c0-1.66-1.34-3-3-3zm-2 20h-4v-1h4v1zm3.25-3H6.75V4h10.5v14z"/></svg></span>
+      التطبيقات<small>أندرويد · آيفون · ويندوز · تلفاز</small>
+    </a>
+    <a class="tile" href="/client/">
+      <span class="ic c5"><svg viewBox="0 0 24 24"><path d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/></svg></span>
+      برنامج الحواسيب<small>طباعة مباشرة للتكت</small>
+    </a>
+    <a class="tile" href="/setup/cert.html">
+      <span class="ic c6"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg></span>
+      شهادة الأمان<small>لكاميرا مسح QR (اختياري)</small>
+    </a>
   </div>
 </main>
+<footer>نظام العيادة يعمل على هذه الشبكة فقط</footer>
 <script>
-  var a = document.getElementById('go');
-  a.href = 'https://' + location.host + '/';
-  a.textContent = a.href;
-  document.getElementById('open').href = a.href;
+  // Plain http on whatever address (and port) this page came from.
+  var base = 'http://' + location.host;
+  document.getElementById('addr').textContent = location.host;
+  Array.prototype.forEach.call(document.querySelectorAll('[data-path]'), function (a) {
+    a.href = base + a.getAttribute('data-path');
+  });
 </script>
 </body>
 </html>

@@ -149,6 +149,14 @@ $ca = "$fwd/caddy-data/caddy/pki/authorities/local"
 	handle /setup {
 		root * "$fwd/setup"
 		rewrite * /index.html
+		header Cache-Control no-cache
+		file_server
+	}
+	# The Wi-Fi page's stylesheet and the separate certificate page
+	# (2026-11-02, by request).
+	handle /setup/* {
+		root * "$fwd"
+		header Cache-Control no-cache
 		file_server
 	}
 	handle /client {

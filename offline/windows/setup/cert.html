@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>شهادة الأمان</title>
+<link rel="stylesheet" href="/setup/style.css">
+</head>
+<body>
+<!-- Certificate and its steps, apart from the Wi-Fi page (2026-11-02, by request). -->
+<header>
+  <a class="back" href="/setup">‹ رجوع إلى التسهيلات</a>
+  <div class="logo"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg></div>
+  <h1>شهادة الأمان</h1>
+  <p>اختيارية · مرة واحدة لكل جهاز</p>
+</header>
+<main>
+  <div class="card">
+    <p style="margin-top:0">النظام يعمل بدونها. تحتاجها فقط لاستعمال <b>كاميرا مسح QR</b> من المتصفح، لأنها تتطلب الاتصال الآمن (https).</p>
+    <a class="btn" href="/ca.crt"><svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>تنزيل شهادة العيادة</a>
+  </div>
+  <div class="card steps">
+    <h3>أندرويد</h3>
+    <ol>
+      <li>نزّل الشهادة من الزر أعلاه.</li>
+      <li>الإعدادات ← الأمان (أو الأمان والخصوصية) ← إعدادات أمان أخرى ← تثبيت من مساحة التخزين ← <b>شهادة CA</b>.</li>
+      <li>اختر الملف <b>clinic-ca.crt</b> ووافق.</li>
+    </ol>
+  </div>
+  <div class="card steps">
+    <h3>آيفون وآيباد</h3>
+    <ol>
+      <li>افتح هذه الصفحة في <b>Safari</b> ونزّل الشهادة، ثم اختر «سماح».</li>
+      <li>الإعدادات ← «تم تنزيل ملف التعريف» ← تثبيت.</li>
+      <li>الإعدادات ← عام ← حول ← إعدادات الثقة بالشهادات ← فعّل الثقة الكاملة للشهادة.</li>
+    </ol>
+  </div>
+  <div class="card steps">
+    <h3>حاسوب ويندوز</h3>
+    <ol>
+      <li>نزّل الشهادة وافتحها ← تثبيت الشهادة ← الجهاز المحلي.</li>
+      <li>اختر «وضع كل الشهادات في المخزن التالي» ← <b>Trusted Root Certification Authorities</b> ← إنهاء.</li>
+      <li>أعد فتح المتصفح.</li>
+    </ol>
+    <p class="muted">برنامج العيادة للحواسيب يثبّت الشهادة بنفسه.</p>
+  </div>
+  <div class="card">
+    <p style="margin-top:0">بعد التثبيت افتح النظام بالاتصال الآمن:</p>
+    <a class="btn" id="secure" href="/"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg><span id="secure-text">https://clinic.lan</span></a>
+  </div>
+</main>
+<footer>الشهادة خاصة بنظام العيادة على هذه الشبكة فقط</footer>
+<script>
+  var a = document.getElementById('secure');
+  a.href = 'https://' + location.hostname + '/';
+  document.getElementById('secure-text').textContent = 'https://' + location.hostname;
+</script>
+</body>
+</html>
