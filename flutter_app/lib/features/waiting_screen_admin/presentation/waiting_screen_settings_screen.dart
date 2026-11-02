@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
-import '../../clinic_settings/presentation/clinic_settings_providers.dart';
 import '../data/waiting_screen_admin_repository.dart';
 import '../../../core/widgets/tg_spinner.dart';
 
@@ -15,9 +14,8 @@ final waitingScreenSettingsProvider = FutureProvider.autoDispose<WaitingScreenSe
 });
 
 /// "إعدادات شاشة الانتظار" (2026-10-17) — the web's
-/// `WaitingScreenSettings/Edit.vue`: which group the public screen shows,
-/// how many patients per page, how often it turns the page. Each TV's
-/// stage is chosen when pairing it ([WaitingScreenPairScreen]).
+/// `WaitingScreenSettings/Edit.vue`: how many patients per page and how
+/// often it turns the page. The screen shows the lab only (no stages).
 class WaitingScreenSettingsScreen extends ConsumerStatefulWidget {
   const WaitingScreenSettingsScreen({super.key});
 
@@ -29,7 +27,6 @@ class _WaitingScreenSettingsScreenState extends ConsumerState<WaitingScreenSetti
   final _formKey = GlobalKey<FormState>();
   final _perPage = TextEditingController();
   final _rotation = TextEditingController();
-  int? _groupId;
   bool _seeded = false;
   bool _saving = false;
 
@@ -43,7 +40,6 @@ class _WaitingScreenSettingsScreenState extends ConsumerState<WaitingScreenSetti
   void _seed(WaitingScreenSettingsPage page) {
     if (_seeded) return;
     _seeded = true;
-    _groupId = page.settings.groupId;
     _perPage.text = '${page.settings.patientsPerPage}';
     _rotation.text = '${page.settings.rotationSeconds}';
   }
@@ -54,7 +50,7 @@ class _WaitingScreenSettingsScreenState extends ConsumerState<WaitingScreenSetti
     setState(() => _saving = true);
     try {
       await ref.read(waitingScreenAdminRepositoryProvider).save(
-            groupId: _groupId,
+            groupId: null,
             patientsPerPage: int.parse(_perPage.text.trim()),
             rotationSeconds: int.parse(_rotation.text.trim()),
           );
@@ -84,7 +80,6 @@ class _WaitingScreenSettingsScreenState extends ConsumerState<WaitingScreenSetti
   Widget build(BuildContext context) {
     final t = ref.watch(translationsProvider);
     final pageAsync = ref.watch(waitingScreenSettingsProvider);
-    final groupsEnabled = ref.watch(groupsEnabledProvider);
     final screenUrl = '${AppConfig.baseUrl.replaceFirst(RegExp(r'/api/v1/?$'), '')}/waiting-screen';
 
     return Scaffold(
@@ -100,33 +95,7 @@ class _WaitingScreenSettingsScreenState extends ConsumerState<WaitingScreenSetti
               padding: const EdgeInsets.all(16),
               children: [
                 Text(t['waitingScreenSettings.description']!, style: Theme.of(context).textTheme.bodyMedium),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(t['waitingScreenSettings.stageMovedNote']!, style: const TextStyle(fontSize: 13)),
-                ),
                 const SizedBox(height: 16),
-                if (groupsEnabled) ...[
-                  DropdownButtonFormField<int?>(
-                    initialValue: page.groups.any((g) => g.id == _groupId) ? _groupId : null,
-                    isExpanded: true,
-                    decoration: InputDecoration(labelText: t['waitingScreenSettings.groupLabel'], border: const OutlineInputBorder()),
-                    items: [
-                      DropdownMenuItem<int?>(value: null, child: Text(t['waitingScreenSettings.allGroups']!)),
-                      for (final g in page.groups)
-                        DropdownMenuItem<int?>(
-                          value: g.id,
-                          child: Text(g.stageName == null ? g.name : '${g.name} — ${g.stageName}', overflow: TextOverflow.ellipsis),
-                        ),
-                    ],
-                    onChanged: (v) => setState(() => _groupId = v),
-                  ),
-                  const SizedBox(height: 12),
-                ],
                 TextFormField(
                   controller: _perPage,
                   keyboardType: TextInputType.number,

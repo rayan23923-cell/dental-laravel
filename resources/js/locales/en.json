@@ -1087,9 +1087,6 @@
         "title": "Waiting Screen Settings",
         "heading": "Waiting Screen",
         "description": "These settings control what the public waiting screen shows — the screen itself has no controls.",
-        "stageMovedNote": "Each waiting screen has its own stage, chosen from the app when scanning the QR code shown on that screen — not from here.",
-        "groupLabel": "Group",
-        "allGroups": "All Groups",
         "patientsPerPageLabel": "Patients shown per page",
         "rotationSecondsLabel": "Page rotation interval (seconds)",
         "openScreen": "Open Waiting Screen",
@@ -1115,10 +1112,8 @@
     "waitingScreenPairing": {
         "title": "Pair Waiting Screen",
         "heading": "Pair Waiting Screen",
-        "description": "Enter the 4-digit code shown on the waiting screen, and choose which stage it should display.",
+        "description": "Enter the 4-digit code shown on the waiting screen to activate it. The screen shows the lab only.",
         "codeLabel": "Code",
-        "stageLabel": "Stage",
-        "allStages": "All Stages",
         "confirm": "Activate Screen"
     },
     "adminBroadcast": {
@@ -1185,7 +1180,7 @@
     },
     "lab": {
         "resultReceived": "Hand over result",
-        "resultReceivedHint": "When the patient collects it, they leave the waiting screen",
+        "resultReceivedHint": "Turns the patient green \"result ready\" on the waiting screen; they leave once the result is printed",
         "resultReceivedAfterResult": "Available once the result is recorded",
         "awaitingCollection": "Awaiting collection",
         "resultReceivedDone": "Result collected",

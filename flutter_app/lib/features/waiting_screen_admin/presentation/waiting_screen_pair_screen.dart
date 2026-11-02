@@ -2,19 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/data/lookup_repository.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/waiting_screen_admin_repository.dart';
 import '../../../core/widgets/tg_spinner.dart';
 
-final _pairingStagesProvider = FutureProvider.autoDispose<List<LookupItem>>((ref) {
-  return ref.watch(lookupRepositoryProvider).stages();
-});
-
 /// "ربط شاشة انتظار" (2026-10-17) — the web's `WaitingScreenPairing/Enter`:
-/// type the 4-digit code the TV shows, choose the stage it should display,
-/// and activate it. Open to any signed-in staff member, as on the web.
+/// type the 4-digit code the TV shows and activate it (the screen shows the
+/// lab only since 2026-11-02, so there is no stage to pick). Open to any signed-in staff member, as on the web.
 class WaitingScreenPairScreen extends ConsumerStatefulWidget {
   const WaitingScreenPairScreen({super.key});
 
@@ -24,7 +19,6 @@ class WaitingScreenPairScreen extends ConsumerStatefulWidget {
 
 class _WaitingScreenPairScreenState extends ConsumerState<WaitingScreenPairScreen> {
   final _code = TextEditingController();
-  int? _stageId;
   bool _submitting = false;
   String? _error;
 
@@ -41,7 +35,7 @@ class _WaitingScreenPairScreenState extends ConsumerState<WaitingScreenPairScree
       _error = null;
     });
     try {
-      await ref.read(waitingScreenAdminRepositoryProvider).pair(code: _code.text.trim(), stageId: _stageId);
+      await ref.read(waitingScreenAdminRepositoryProvider).pair(code: _code.text.trim(), stageId: null);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['waitingScreenPairing.success']!)));
       _code.clear();
@@ -60,7 +54,6 @@ class _WaitingScreenPairScreenState extends ConsumerState<WaitingScreenPairScree
   @override
   Widget build(BuildContext context) {
     final t = ref.watch(translationsProvider);
-    final stages = ref.watch(_pairingStagesProvider).valueOrNull ?? const <LookupItem>[];
     final ready = _code.text.trim().length == 4 && !_submitting;
 
     return Scaffold(
@@ -91,16 +84,6 @@ class _WaitingScreenPairScreenState extends ConsumerState<WaitingScreenPairScree
             onSubmitted: (_) => ready ? _confirm() : null,
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<int?>(
-            initialValue: _stageId,
-            isExpanded: true,
-            decoration: InputDecoration(labelText: t['waitingScreenPairing.stageLabel'], border: const OutlineInputBorder()),
-            items: [
-              DropdownMenuItem<int?>(value: null, child: Text(t['waitingScreenPairing.allStages']!)),
-              for (final s in stages) DropdownMenuItem<int?>(value: s.id, child: Text(s.name)),
-            ],
-            onChanged: (v) => setState(() => _stageId = v),
-          ),
           const SizedBox(height: 20),
           FilledButton.icon(
             onPressed: ready ? _confirm : null,

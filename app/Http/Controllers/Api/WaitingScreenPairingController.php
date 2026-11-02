@@ -18,7 +18,7 @@ use Illuminate\Http\Response;
  *
  * This controller only has the two pieces the TV can't do itself: the QR
  * image (`qr()`, public — the TV has no login), and confirming a scanned
- * pairing with a chosen stage (`confirm()`, Sanctum-authenticated — only
+ * pairing (`confirm()`, Sanctum-authenticated — only
  * someone logged into the Flutter app can do this, which is the actual
  * privacy boundary: anyone can *see* the QR, but only a logged-in staff
  * member/doctor can resolve it into a live appointments feed).
@@ -58,22 +58,18 @@ class WaitingScreenPairingController extends Controller
     public function confirm(Request $request, string $token): JsonResponse
     {
         $this->authorizePairing($request);
-        $validated = $request->validate([
-            'stage_id' => ['nullable', 'exists:stages,id'],
-        ]);
-
         $pairing = WaitingScreenPairing::where('token', $token)->firstOrFail();
 
         abort_if($pairing->isStale(), 410, 'انتهت صلاحية هذا الرمز — أعد فتح الشاشة وامسح الرمز الجديد.');
 
         $pairing->update([
-            'stage_id' => $validated['stage_id'] ?? null,
+            'stage_id' => null, // lab-only screen since 2026-11-02: no stages
             'confirmed_at' => now(),
         ]);
 
         return response()->json([
             'data' => [
-                'stage_name' => $pairing->stage?->name,
+                'stage_name' => null,
             ],
         ]);
     }

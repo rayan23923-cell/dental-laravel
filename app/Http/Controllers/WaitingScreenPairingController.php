@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Stage;
 use App\Models\WaitingScreenPairing;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,16 +23,13 @@ class WaitingScreenPairingController extends Controller
 {
     public function create(): Response
     {
-        return Inertia::render('WaitingScreenPairing/Enter', [
-            'stages' => Stage::orderBy('name')->get(['id', 'name']),
-        ]);
+        return Inertia::render('WaitingScreenPairing/Enter');
     }
 
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'code' => ['required', 'digits:4'],
-            'stage_id' => ['nullable', 'exists:stages,id'],
         ]);
 
         $pairing = WaitingScreenPairing::findPendingByCode($validated['code']);
@@ -45,7 +41,7 @@ class WaitingScreenPairingController extends Controller
         }
 
         $pairing->update([
-            'stage_id' => $validated['stage_id'] ?? null,
+            'stage_id' => null, // lab-only screen since 2026-11-02: no stages
             'confirmed_at' => now(),
         ]);
 

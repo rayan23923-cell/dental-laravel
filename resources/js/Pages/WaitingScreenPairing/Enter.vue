@@ -9,15 +9,10 @@ import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
-defineProps({
-    stages: Array,
-});
-
 const page = usePage();
 
 const form = useForm({
     code: '',
-    stage_id: '',
 });
 
 const submit = () => {
@@ -70,18 +65,6 @@ const submit = () => {
                             <InputError class="mt-2" :message="form.errors.code" />
                         </div>
 
-                        <div>
-                            <InputLabel for="stage_id" :value="t('waitingScreenPairing.stageLabel')" />
-                            <select
-                                id="stage_id"
-                                v-model="form.stage_id"
-                                class="mt-1 block w-full rounded-xl border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                            >
-                                <option value="">{{ t('waitingScreenPairing.allStages') }}</option>
-                                <option v-for="s in stages" :key="s.id" :value="s.id">{{ s.name }}</option>
-                            </select>
-                            <InputError class="mt-2" :message="form.errors.stage_id" />
-                        </div>
 
                         <div class="flex justify-end">
                             <PrimaryButton class="gap-1 rounded-full" :disabled="form.processing"><Icon name="link" size="text-[18px]" />{{ t('waitingScreenPairing.confirm') }}</PrimaryButton>

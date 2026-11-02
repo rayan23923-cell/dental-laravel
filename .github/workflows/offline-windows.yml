@@ -509,6 +509,30 @@ jobs:
           if (-not (Get-ChildItem "$backups\*_before-restore.zip")) { throw 'The data was not saved before restoring.' }
           Pop-Location
 
+          Write-Host 'Clinic logo for install / share / Wi-Fi pages (2026-11-02)'
+          $man = (curl.exe -s --max-time 30 "http://${ip}:8080/manifest.webmanifest") -join '' | ConvertFrom-Json
+          if ($man.icons[0].src -ne 'brand-icon/192.png' -or $man.start_url -ne './') { throw 'manifest.webmanifest is wrong.' }
+          $tooth = curl.exe -s -o C:\icon-tooth.png -w '%{http_code} %{content_type}' --max-time 30 "http://${ip}:8080/brand-icon/192.png"
+          if ($tooth -ne '200 image/png') { throw "brand-icon without a logo failed: $tooth" }
+          New-Item -ItemType Directory -Force C:\DentalClinicOffline\app\storage\app\public\logos | Out-Null
+          Add-Type -AssemblyName System.Drawing
+          $bmp = New-Object System.Drawing.Bitmap 300, 150
+          $g = [System.Drawing.Graphics]::FromImage($bmp); $g.Clear([System.Drawing.Color]::DarkBlue); $g.Dispose()
+          $bmp.Save('C:\DentalClinicOffline\app\storage\app\public\logos\ci-logo.jpg', [System.Drawing.Imaging.ImageFormat]::Jpeg); $bmp.Dispose()
+          mariadb @db -e "update dental.clinic_settings set clinic_logo='logos/ci-logo.jpg' where id=1"
+          $brand = (curl.exe -s --max-time 30 "http://${ip}:8080/brand.json") -join '' | ConvertFrom-Json
+          if ($brand.logo -ne '/brand-icon/192.png') { throw "brand.json has no logo: $($brand | ConvertTo-Json -Compress)" }
+          foreach ($size in 32, 180, 192, 512) {
+            $out = "C:\icon-$size.png"
+            $r = curl.exe -s -o $out -w '%{http_code} %{content_type}' --max-time 60 "http://${ip}:8080/brand-icon/$size.png"
+            if ($r -ne '200 image/png') { throw "brand-icon/$size.png failed: $r" }
+            $img = [System.Drawing.Image]::FromFile($out)
+            $w = $img.Width; $h = $img.Height; $img.Dispose()
+            if ($w -ne $size -or $h -ne $size) { throw "brand-icon/$size.png is ${w}x$h" }
+          }
+          if ((Get-FileHash C:\icon-192.png).Hash -eq (Get-FileHash C:\icon-tooth.png).Hash) { throw 'brand-icon still sends the tooth after a logo was set.' }
+          Write-Host 'logo icons OK (32/180/192/512 from the uploaded logo)'
+
           Write-Host 'Stop: everything must exit and the database shut down cleanly'
           Start-Process -FilePath C:\DentalClinicOffline\DentalClinic.exe -ArgumentList '--stop' -Wait
           $left = Get-Process php-cgi,php,caddy,coredns,mariadbd,DentalClinic -ErrorAction SilentlyContinue

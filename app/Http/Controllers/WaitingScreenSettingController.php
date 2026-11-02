@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Group;
 use App\Models\WaitingScreenSetting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,11 +13,9 @@ use Inertia\Response;
  * (`/waiting-screen`, `Api\WaitingScreenController`). Mirrors
  * `ClinicSettingController`'s singleton edit/update shape.
  *
- * No `stage_id` here (2026-09-09 follow-up) — which stage a given TV shows
- * is now chosen from the Flutter app when pairing that specific screen
- * (`WaitingScreenPairingController::confirm()`), not a single global
- * setting here. `group_id` stays here: the app pairing flow only ever
- * asked for stage selection, not group.
+ * No stages or groups (2026-11-02, by request): the screen shows the lab
+ * only, so the page only edits the display-tuning fields. `group_id` is
+ * still accepted for old app builds but no longer used by the screen.
  */
 class WaitingScreenSettingController extends Controller
 {
@@ -26,7 +23,6 @@ class WaitingScreenSettingController extends Controller
     {
         return Inertia::render('WaitingScreenSettings/Edit', [
             'settings' => WaitingScreenSetting::current(),
-            'groups' => Group::orderBy('name')->with('stage:id,name')->get(['id', 'name', 'stage_id']),
         ]);
     }
 

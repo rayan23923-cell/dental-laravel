@@ -21,34 +21,29 @@ use Illuminate\Http\Request;
  * Privacy gate (2026-09-09 follow-up, by request): this endpoint refuses
  * to return any patient data at all until the caller presents a `token`
  * for a *confirmed* `WaitingScreenPairing` — i.e. until a staff member has
- * scanned this TV's QR code from the Flutter app and picked a stage there
+ * scanned this TV's QR code from the Flutter app and confirmed it there
  * (`WaitingScreenPairingController::confirm()`). Without one (missing,
  * unknown, or still-pending token), it creates/reuses a pairing row and
  * hands back just its token so the page can render that pairing's QR —
  * see `WaitingScreenPairing::isStale()`'s docblock for why a *confirmed*
  * pairing never expires here even though `expires_at` exists.
  *
- * The confirmed pairing's own `stage_id` decides which stage to show
- * (nullable = every stage) — this replaces `WaitingScreenSetting::stage_id`
- * as the stage filter's source now that stage selection moved into the
- * app. `WaitingScreenSetting` still supplies `group_id` (unchanged, still
- * admin-configured — the app flow only ever asked for stage selection)
- * plus the display-tuning fields (`patients_per_page`/`rotation_seconds`).
+ * No stages or groups (2026-11-02, by request): the screen shows the lab
+ * only, so nothing here is filtered by stage or group and the pairing no
+ * longer carries one. `WaitingScreenSetting` supplies the display-tuning
+ * fields (`patients_per_page`/`rotation_seconds`).
  *
  * Registered patients (2026-10-22, by request): besides today's
  * appointments, the screen also lists every patient registered at the
  * desk today (`PatientRegistration`, `patients_simple`) in registration
  * order, with the doctor once one has started their case sheet. A
  * registration already shown through one of today's appointments is not
- * listed twice. The stage filter matches the registration's task stage or
- * its doctor's stage; the group filter only hides a registration whose
- * doctor is outside the group, since an unassigned patient has no group.
+ * listed twice.
  *
  * "بانتظار الفحص" (2026-11-02, by request): patients whose lab samples
  * sheet was printed today ("بدء الفحص") and whose result is still pending
  * are listed separately in `lab_waiting`, in print order, and drop off as
- * soon as the result is recorded. The lab serves every stage, so this
- * list is not stage- or group-filtered.
+ * soon as the result is recorded.
  *
  * "النتيجة جاهزة للاستلام" (2026-11-02, by request): a patient whose
  * result was recorded today shows in `lab_ready` (the result itself is
@@ -81,19 +76,9 @@ class WaitingScreenController extends Controller
 
         $settings = WaitingScreenSetting::current();
         $clinic = ClinicSetting::current();
-        // Groups turned off in clinic settings: no group filter, no group name.
-        $groupId = ClinicSetting::groupsEnabled() ? $settings->group_id : null;
 
         $appointments = Appointment::with('caseSheetDoctor')
             ->whereDate('appointment_date', today())
-            ->when($pairing->stage_id, fn ($q, $stageId) => $q->whereHas(
-                'caseSheetDoctor',
-                fn ($dq) => $dq->where('stage_id', $stageId)
-            ))
-            ->when($groupId, fn ($q, $groupId) => $q->whereHas(
-                'caseSheetDoctor.groups',
-                fn ($gq) => $gq->where('groups.id', $groupId)
-            ))
             ->orderBy('appointment_date')
             ->get();
 
@@ -104,7 +89,7 @@ class WaitingScreenController extends Controller
             'taskInstances' => fn ($q) => $q->whereIn('status', ['assigned', 'completed'])
                 ->whereNotNull('doctor_id')
                 ->latest('assigned_date')
-                ->with('doctor.groups'),
+                ->with('doctor'),
         ])
             ->whereDate('created_at', today())
             ->whereNotIn('id', $shownRegistrationIds)
@@ -114,13 +99,7 @@ class WaitingScreenController extends Controller
             ->map(fn (PatientRegistration $registration) => [
                 'registration' => $registration,
                 'doctor' => $registration->taskInstances->first()?->doctor,
-            ])
-            ->filter(fn ($row) => ! $pairing->stage_id
-                || $row['registration']->task?->stage_id == $pairing->stage_id
-                || $row['doctor']?->stage_id == $pairing->stage_id)
-            ->filter(fn ($row) => ! $groupId
-                || ! $row['doctor']
-                || $row['doctor']->groups->contains('id', $groupId));
+            ]);
 
         $appointments = $appointments
             ->map(fn (Appointment $appointment) => [
@@ -133,33 +112,26 @@ class WaitingScreenController extends Controller
             ]))
             ->values();
 
-        // One lab list (2026-11-02, by request): each patient keeps their
-        // place, amber "بانتظار الفحص" turning green "النتيجة جاهزة" once the
-        // result is recorded, until "استلام النتيجة".
-        // Collected ("استلام النتيجة", allowed at any time) leaves the screen.
+        // One lab list (2026-11-02, by request): amber "بانتظار الفحص" once
+        // the samples sheet is printed, green "النتيجة جاهزة" once staff
+        // press "استلام النتيجة"; the patient leaves when the result is
+        // recorded and printed (سليم/غير سليم), i.e. handed over.
         $lab = PatientRegistration::query()
-            ->whereNull('lab_result_received_at')
             ->whereNull('lab_archived_at')
+            ->where('screening_status', 'pending')
             ->where(fn ($q) => $q
-                ->where(fn ($w) => $w->where('screening_status', 'pending')
-                    ->whereNotNull('lab_sample_printed_at')
-                    ->whereDate('lab_sample_printed_at', today()))
-                ->orWhere(fn ($w) => $w->whereIn('screening_status', ['clear', 'flagged'])
-                    ->whereNull('lab_result_received_at')
-                    ->whereDate('screening_checked_at', today())))
-            ->get(['id', 'name', 'screening_status', 'screening_checked_at', 'lab_sample_printed_at'])
+                ->where(fn ($w) => $w->whereNotNull('lab_sample_printed_at')->whereDate('lab_sample_printed_at', today()))
+                ->orWhere(fn ($w) => $w->whereNotNull('lab_result_received_at')->whereDate('lab_result_received_at', today())))
+            ->get(['id', 'name', 'screening_status', 'lab_result_received_at', 'lab_sample_printed_at'])
             ->map(function (PatientRegistration $registration) {
-                $ready = $registration->screening_status !== 'pending';
-                $checkedAt = $registration->screening_checked_at
-                    ? \Illuminate\Support\Carbon::parse($registration->screening_checked_at)
-                    : null;
-                $stamp = $registration->lab_sample_printed_at ?? $checkedAt;
+                $ready = $registration->lab_result_received_at !== null;
+                $stamp = $registration->lab_sample_printed_at ?? $registration->lab_result_received_at;
 
                 return [
                     'id' => $registration->id,
                     'patient_name' => $registration->name,
                     'status' => $ready ? 'ready' : 'waiting',
-                    'since' => ($ready ? $checkedAt : $registration->lab_sample_printed_at)?->format('H:i'),
+                    'since' => ($ready ? $registration->lab_result_received_at : $registration->lab_sample_printed_at)?->format('H:i'),
                     'order' => $stamp?->getTimestamp() ?? 0,
                 ];
             })
@@ -179,8 +151,9 @@ class WaitingScreenController extends Controller
             'timezone' => ClinicSetting::current()->clinic_timezone ?: 'Asia/Baghdad',
             'clinic_name' => $clinic->clinic_name,
             'logo_url' => $clinic->logoUrl(),
-            'stage_name' => $pairing->stage?->name,
-            'group_name' => $groupId ? $settings->group?->name : null,
+            // Lab-only screen (2026-11-02): no stage or group heading.
+            'stage_name' => null,
+            'group_name' => null,
             'patients_per_page' => $settings->patients_per_page,
             'rotation_seconds' => $settings->rotation_seconds,
             'date' => today()->toDateString(),
