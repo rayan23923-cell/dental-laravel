@@ -122,6 +122,8 @@ class LabController extends Controller
             'screening_checked_by' => $request->user()->id,
             'screening_checked_at' => now(),
             'screening_reused_from' => $previous->id,
+            // Printed straight away for the patient at the desk (2026-11-02).
+            'lab_result_received_at' => now(),
         ]);
 
         return response()->json(['data' => $patientRegistration->fresh()]);
@@ -134,15 +136,19 @@ class LabController extends Controller
      */
     public function received(Request $request, PatientRegistration $patientRegistration): JsonResponse
     {
-        $this->authorizeLab($request);
+        $permissions = $this->authorizeLab($request);
+        abort_unless($permissions->can('patient_screening', 'confirm'), 403);
 
-        if (! $patientRegistration->markLabResultReceived()) {
+        if (! LabFeeGate::receive($patientRegistration)) {
             return response()->json(['message' => 'لم تُسجَّل نتيجة هذا المريض بعد.'], 422);
         }
+
+        $patientRegistration->refresh();
 
         return response()->json(['data' => [
             'id' => $patientRegistration->id,
             'lab_result_received_at' => $patientRegistration->lab_result_received_at,
+            'lab_paid' => $patientRegistration->payments()->where('type', Payment::TYPE_LAB)->exists(),
         ]]);
     }
 

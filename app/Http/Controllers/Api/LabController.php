@@ -157,9 +157,10 @@ class LabController extends Controller
      */
     public function resultReceived(Request $request, PatientRegistration $patientRegistration): JsonResponse
     {
-        $this->authorizeLab($request);
+        $permissions = $this->authorizeLab($request);
+        abort_unless($permissions->can('patient_screening', 'confirm'), 403);
 
-        if (! $patientRegistration->markLabResultReceived()) {
+        if (! LabFeeGate::receive($patientRegistration)) {
             return response()->json(['message' => 'لم تُسجَّل نتيجة هذا المريض بعد.'], 422);
         }
 

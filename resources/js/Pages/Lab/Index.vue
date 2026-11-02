@@ -83,7 +83,8 @@ const labDiscountText = (r) => {
 // A clear result from the last `validityDays` (same phone) is reused
 // instead: no new screening and nothing to pay (LabFeeGate).
 const canReuse = (r) => r.screening_status === 'pending' && !!r.previous_screening;
-const feeDue = (r) => hasLabFee.value && feeOf(r) > 0 && !isPaid(r) && !canReuse(r);
+// Taken at "استلام النتيجة" (2026-11-02); a reused result costs nothing.
+const feeDue = (r) => hasLabFee.value && feeOf(r) > 0 && !isPaid(r) && !canReuse(r) && !r.screening_reused_from;
 const placeAndDay = (r) => [r.service?.name ?? '—', r.register_day?.name].filter(Boolean).join(' · ');
 const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
 
@@ -132,17 +133,30 @@ const printSlip = (id) => printInFrame(route('lab.print', { patientRegistration:
 // "هنا توضع العينات" circle, so samples sit under the right name.
 const startTest = (id) => printInFrame(route('lab.sample', { patientRegistration: id, autoprint: 1 }));
 
-// "تم استلام النتيجة" (2026-11-02, by request): the patient collected the
-// result, so they leave the waiting screen's "النتيجة جاهزة للاستلام".
+// "استلام النتيجة" (2026-11-02, by request): the patient comes in for the
+// result; the lab fee is taken then (asked first) and the paid slip prints,
+// and they leave the waiting screen's "النتيجة جاهزة للاستلام".
 const canMarkReceived = (r) => !!r && r.screening_status !== 'pending' && !r.lab_result_received_at;
 const receiving = ref(false);
-const markReceived = async (r) => {
+const receiveFeeAsk = ref(false);
+const markReceived = async (r, { feeConfirmed = false } = {}) => {
+    if (feeDue(r) && !feeConfirmed) {
+        selected.value = r;
+        receiveFeeAsk.value = true;
+        return;
+    }
+    receiveFeeAsk.value = false;
     receiving.value = true;
     resultError.value = '';
     try {
         const { data } = await axios.post(route('lab.received', r.id));
         r.lab_result_received_at = data.data.lab_result_received_at;
-        if (selected.value?.id === r.id) selected.value.lab_result_received_at = data.data.lab_result_received_at;
+        r.lab_paid = data.data.lab_paid;
+        if (selected.value?.id === r.id) {
+            selected.value.lab_result_received_at = data.data.lab_result_received_at;
+            selected.value.lab_paid = data.data.lab_paid;
+        }
+        printSlip(r.id);
         router.reload({ only: ['registrations', 'counts'] });
     } catch (e) {
         resultError.value = e?.response?.data?.message ?? t('lab.resultReceivedFailed');
@@ -167,22 +181,23 @@ const reuse = async () => {
     }
 };
 
-// Asked before a fee-due result is saved (2026-11-01, by request): "did you
-// receive the lab fee?" Yes records the payment and prints; no saves nothing.
+// Recording the result neither prints nor takes the fee (2026-11-02, by
+// request): the patient shows as "النتيجة جاهزة للاستلام" and comes in for
+// "استلام النتيجة", which asks about the fee and prints the paid slip.
 const feePendingStatus = ref(null);
-const record = async (status, { feeConfirmed = false } = {}) => {
-    if (feeDue(selected.value) && !feeConfirmed) {
-        feePendingStatus.value = status;
-        return;
-    }
-    feePendingStatus.value = null;
+const record = async (status) => {
     submitting.value = true;
     resultError.value = '';
     try {
         const id = selected.value.id;
-        await axios.post(route('patient-registrations.screening', id), { screening_status: status });
-        printSlip(id);
-        selected.value = null;
+        const { data } = await axios.post(route('patient-registrations.screening', id), { screening_status: status });
+        const saved = data?.data?.registration ?? {};
+        selected.value = {
+            ...selected.value,
+            screening_status: status,
+            screening_checked_at: saved.screening_checked_at ?? new Date().toISOString(),
+            lab_result_received_at: null,
+        };
         router.reload({ only: ['registrations', 'counts'] });
     } catch (e) {
         resultError.value = e?.response?.data?.message ?? t('lab.recordFailed');
@@ -234,7 +249,7 @@ const record = async (status, { feeConfirmed = false } = {}) => {
                         :tone="statusTone(r.screening_status)"
                         :icon="statusIcon(r.screening_status)"
                         class="cursor-pointer hover:bg-gray-50"
-                        @click="selected = r; feePendingStatus = null"
+                        @click="selected = r; feePendingStatus = null; receiveFeeAsk = false"
                     >
                         <template #meta>
                             <ChatChip :icon="statusIcon(r.screening_status)" :tone="statusTone(r.screening_status)">{{ statusLabel(r.screening_status) }}</ChatChip>
@@ -252,7 +267,7 @@ const record = async (status, { feeConfirmed = false } = {}) => {
                                 @click="(e) => { e?.stopPropagation(); startTest(r.id); }"
                             />
                             <ChatAction
-                                v-else-if="canMarkReceived(r)"
+                                v-else-if="canConfirm && canMarkReceived(r)"
                                 icon="how_to_reg"
                                 :label="t('lab.resultReceived')"
                                 @click="(e) => { e?.stopPropagation(); markReceived(r); }"
@@ -278,7 +293,7 @@ const record = async (status, { feeConfirmed = false } = {}) => {
         </Modal>
 
         <!-- Result -->
-        <Modal :show="!!selected" @close="selected = null; feePendingStatus = null">
+        <Modal :show="!!selected" @close="selected = null; feePendingStatus = null; receiveFeeAsk = false">
             <div v-if="selected" class="flex flex-col gap-4 p-4 sm:p-6">
                 <div class="flex items-center gap-3">
                     <div
@@ -359,7 +374,6 @@ const record = async (status, { feeConfirmed = false } = {}) => {
                             class="rounded-xl bg-green-700 px-4 py-3 text-sm font-semibold text-white hover:bg-green-800 disabled:opacity-50"
                         >
                             <Icon name="check_circle" class="ml-1" />{{ t('patientReg.screeningClear') }}
-                            <span v-if="feeDue(selected)" class="block text-xs font-normal opacity-90">{{ t('lab.payAndPrint') }}</span>
                         </button>
                         <button
                             type="button"
@@ -368,44 +382,43 @@ const record = async (status, { feeConfirmed = false } = {}) => {
                             class="rounded-xl bg-red-700 px-4 py-3 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-50"
                         >
                             <Icon name="cancel" class="ml-1" />{{ t('patientReg.screeningFlagged') }}
-                            <span v-if="feeDue(selected)" class="block text-xs font-normal opacity-90">{{ t('lab.payAndPrint') }}</span>
                         </button>
-                    </div>
-                    <div v-if="feePendingStatus" class="flex flex-col gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-                        <span class="font-semibold">
-                            <Icon name="payments" class="ml-1" />{{ t('lab.feeConfirmQuestion', { amount: labFeeText(selected) }) }}
-                        </span>
-                        <div class="grid grid-cols-2 gap-3">
-                            <button
-                                type="button"
-                                :disabled="submitting"
-                                @click="record(feePendingStatus, { feeConfirmed: true })"
-                                class="rounded-xl bg-green-700 px-4 py-2 font-semibold text-white hover:bg-green-800 disabled:opacity-50"
-                            >
-                                {{ t('lab.feeConfirmYes') }}
-                            </button>
-                            <button
-                                type="button"
-                                @click="feePendingStatus = null"
-                                class="rounded-xl border border-gray-300 bg-white px-4 py-2 font-semibold text-gray-700 hover:bg-gray-50"
-                            >
-                                {{ t('lab.feeConfirmNo') }}
-                            </button>
-                        </div>
                     </div>
                 </template>
                 <p v-else-if="!canConfirm && selected.screening_status === 'pending'" class="text-sm text-gray-500">{{ t('lab.noConfirmPermission') }}</p>
 
                 <button
-                    v-if="canMarkReceived(selected)"
+                    v-if="canConfirm && canMarkReceived(selected)"
                     type="button"
-                    :disabled="receiving"
+                    :disabled="receiving || receiveFeeAsk"
                     @click="markReceived(selected)"
                     class="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
                 >
                     <Icon name="how_to_reg" class="ml-1" />{{ t('lab.resultReceived') }}
                     <span class="block text-xs font-normal opacity-90">{{ t('lab.resultReceivedHint') }}</span>
                 </button>
+                <div v-if="receiveFeeAsk && canMarkReceived(selected)" class="flex flex-col gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+                    <span class="font-semibold">
+                        <Icon name="payments" class="ml-1" />{{ t('lab.feeConfirmQuestion', { amount: labFeeText(selected) }) }}
+                    </span>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button
+                            type="button"
+                            :disabled="receiving"
+                            @click="markReceived(selected, { feeConfirmed: true })"
+                            class="rounded-xl bg-green-700 px-4 py-2 font-semibold text-white hover:bg-green-800 disabled:opacity-50"
+                        >
+                            {{ t('lab.feeConfirmYes') }}
+                        </button>
+                        <button
+                            type="button"
+                            @click="receiveFeeAsk = false"
+                            class="rounded-xl border border-gray-300 bg-white px-4 py-2 font-semibold text-gray-700 hover:bg-gray-50"
+                        >
+                            {{ t('lab.feeConfirmNo') }}
+                        </button>
+                    </div>
+                </div>
                 <p
                     v-else-if="selected.lab_result_received_at"
                     class="rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-800"

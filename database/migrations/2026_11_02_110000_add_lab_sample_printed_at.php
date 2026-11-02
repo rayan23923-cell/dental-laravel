@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -24,6 +25,12 @@ return new class extends Migration
             Schema::table('patients_simple', function (Blueprint $table) {
                 $table->dateTime('lab_result_received_at')->nullable();
             });
+
+            // Results recorded before this change were paid and printed
+            // with the result, so they count as collected already.
+            DB::table('patients_simple')
+                ->where('screening_status', '!=', 'pending')
+                ->update(['lab_result_received_at' => DB::raw('COALESCE(screening_checked_at, CURRENT_TIMESTAMP)')]);
         }
     }
 

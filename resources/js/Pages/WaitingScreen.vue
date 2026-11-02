@@ -22,9 +22,9 @@ const stageName = ref(null);
 const groupName = ref(null);
 const appointments = ref([]);
 // "بانتظار الفحص" (2026-11-02): samples sheet printed, result still pending.
-const labWaiting = ref([]);
-// "النتيجة جاهزة للاستلام" (2026-11-02): result recorded, not yet collected.
-const labReady = ref([]);
+// Lab patients (2026-11-02): samples sheet printed ('waiting') or result
+// recorded and not yet collected ('ready').
+const labPatients = ref([]);
 const patientsPerPage = ref(8);
 const rotationSeconds = ref(12);
 const currentPage = ref(0);
@@ -52,28 +52,12 @@ const pages = computed(() => {
     return chunks.length ? chunks : [[]];
 });
 
-const labSections = computed(() =>
-    [
-        {
-            key: 'ready',
-            title: t('waitingScreen.labReadyHeading'),
-            items: labReady.value,
-            box: 'border-emerald-300 bg-emerald-50 dark:border-emerald-500/60 dark:bg-emerald-500/10',
-            heading: 'text-emerald-800 dark:text-emerald-300',
-            ping: 'bg-emerald-400',
-            dot: 'bg-emerald-500',
-        },
-        {
-            key: 'waiting',
-            title: t('waitingScreen.labWaitingHeading'),
-            items: labWaiting.value,
-            box: 'border-amber-300 bg-amber-50 dark:border-amber-500/60 dark:bg-amber-500/10',
-            heading: 'text-amber-800 dark:text-amber-300',
-            ping: 'bg-amber-400',
-            dot: 'bg-amber-500',
-        },
-    ].filter((section) => section.items.length),
-);
+// One lab list (2026-11-02, by request): a card stays in place and turns
+// from amber "بانتظار الفحص" to green "النتيجة جاهزة".
+const labCounts = computed(() => ({
+    ready: labPatients.value.filter((p) => p.status === 'ready').length,
+    waiting: labPatients.value.filter((p) => p.status !== 'ready').length,
+}));
 
 const currentPageItems = computed(() => pages.value[currentPage.value] ?? []);
 
@@ -126,8 +110,7 @@ const load = async () => {
     stageName.value = data.stage_name;
     groupName.value = data.group_name;
     appointments.value = data.appointments;
-    labWaiting.value = data.lab_waiting ?? [];
-    labReady.value = data.lab_ready ?? [];
+    labPatients.value = data.lab ?? [];
     patientsPerPage.value = data.patients_per_page;
     rotationSeconds.value = data.rotation_seconds;
 
@@ -215,42 +198,45 @@ onBeforeUnmount(() => {
             </header>
 
             <main class="mx-auto w-full max-w-7xl flex-1 px-8 py-10">
-                <!-- Lab (2026-11-02): waiting for the test, then result ready to collect. -->
-                <div
-                    v-if="labSections.length"
-                    class="mb-8 grid grid-cols-1 gap-5"
-                    :class="labSections.length > 1 && 'lg:grid-cols-2'"
+                <!-- Lab (2026-11-02): amber while waiting for the test, green once the result is ready. -->
+                <section
+                    v-if="labPatients.length"
+                    class="mb-8 rounded-2xl border border-ig-border-light bg-white/60 p-6 shadow-sm dark:border-ig-border-dark dark:bg-ig-black/40"
                 >
-                    <section
-                        v-for="section in labSections"
-                        :key="section.key"
-                        class="rounded-2xl border-2 p-6 shadow-sm"
-                        :class="section.box"
-                    >
-                        <div class="mb-4 flex items-center gap-3">
-                            <span class="relative flex h-3 w-3">
-                                <span class="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" :class="section.ping" />
-                                <span class="relative inline-flex h-3 w-3 rounded-full" :class="section.dot" />
-                            </span>
-                            <h2 class="text-2xl font-bold sm:text-3xl" :class="section.heading">{{ section.title }}</h2>
-                            <span class="rounded-full px-3 py-0.5 text-lg font-bold text-white tabular-nums" :class="section.dot">
-                                {{ section.items.length }}
-                            </span>
-                        </div>
-                        <div class="flex flex-wrap gap-3">
-                            <div
-                                v-for="(item, i) in section.items"
-                                :key="section.key + '-' + i + '-' + item.patient_name"
-                                class="flex items-baseline gap-3 rounded-xl bg-white px-5 py-3 shadow-sm dark:bg-ig-black"
+                    <div class="mb-4 flex flex-wrap items-center gap-3">
+                        <h2 class="text-2xl font-bold sm:text-3xl">{{ t('waitingScreen.labHeading') }}</h2>
+                        <span v-if="labCounts.ready" class="rounded-full bg-emerald-500 px-3 py-0.5 text-base font-bold text-white">
+                            {{ t('waitingScreen.labReadyBadge') }} · {{ labCounts.ready }}
+                        </span>
+                        <span v-if="labCounts.waiting" class="rounded-full bg-amber-500 px-3 py-0.5 text-base font-bold text-white">
+                            {{ t('waitingScreen.labWaitingHeading') }} · {{ labCounts.waiting }}
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                        <div
+                            v-for="(item, i) in labPatients"
+                            :key="'lab-' + i + '-' + item.patient_name"
+                            class="flex items-center justify-between gap-3 rounded-xl border-2 px-5 py-4 shadow-sm transition-colors duration-700"
+                            :class="item.status === 'ready'
+                                ? 'border-emerald-400 bg-emerald-500 text-white'
+                                : 'border-amber-300 bg-amber-50 text-ig-near-black dark:border-amber-500/60 dark:bg-amber-500/10 dark:text-ig-off-white'"
+                        >
+                            <span class="min-w-0 truncate text-xl font-semibold sm:text-2xl">{{ item.patient_name }}</span>
+                            <span
+                                class="flex shrink-0 items-center gap-2 rounded-full px-3 py-1 text-base font-bold"
+                                :class="item.status === 'ready' ? 'bg-white/25 text-white' : 'bg-amber-500 text-white'"
                             >
-                                <span class="text-xl font-semibold sm:text-2xl">{{ item.patient_name }}</span>
-                                <span v-if="item.since" class="text-base text-ig-gray tabular-nums">{{ item.since }}</span>
-                            </div>
+                                <span v-if="item.status === 'ready'" class="relative flex h-2.5 w-2.5">
+                                    <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+                                    <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
+                                </span>
+                                {{ item.status === 'ready' ? t('waitingScreen.labReadyBadge') : t('waitingScreen.labWaitingHeading') }}
+                            </span>
                         </div>
-                    </section>
-                </div>
+                    </div>
+                </section>
 
-                <div v-if="appointments.length === 0 && labSections.length === 0" class="py-32 text-center text-2xl text-ig-gray">
+                <div v-if="appointments.length === 0 && labPatients.length === 0" class="py-32 text-center text-2xl text-ig-gray">
                     {{ t('waitingScreen.empty') }}
                 </div>
 

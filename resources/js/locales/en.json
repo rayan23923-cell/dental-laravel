@@ -1087,7 +1087,9 @@
         "codeCaption": "Or enter this code:",
         "rePair": "Re-pair to a different stage",
         "labWaitingHeading": "Waiting for lab test",
-        "labReadyHeading": "Result ready to collect"
+        "labReadyHeading": "Result ready to collect",
+        "labReadyBadge": "Result ready",
+        "labHeading": "Lab"
     },
     "waitingScreenPairing": {
         "title": "Pair Waiting Screen",
@@ -1161,8 +1163,8 @@
         "backAction": "Back"
     },
     "lab": {
-        "resultReceived": "Result collected",
-        "resultReceivedHint": "The patient leaves the waiting screen",
+        "resultReceived": "Hand over result",
+        "resultReceivedHint": "When the patient comes in: take the fee and print the result",
         "resultReceivedDone": "Result collected",
         "resultReceivedFailed": "Could not record that the result was collected",
         "all": "All",
@@ -1175,7 +1177,7 @@
         "printResult": "Print Result",
         "paid": "Lab fee paid",
         "unpaid": "Lab fee unpaid",
-        "feeWithResult": "The lab fee is taken when the result is recorded",
+        "feeWithResult": "The lab fee is taken when the result is handed over",
         "payAndPrint": "Take the fee and print the slip",
         "previousValidBadge": "Valid earlier test",
         "previousValid": "Has a clear test from {date} (valid {days} days): no new test or payment needed.",

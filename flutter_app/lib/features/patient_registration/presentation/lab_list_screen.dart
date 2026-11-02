@@ -211,9 +211,12 @@ class _LabListScreenState extends ConsumerState<LabListScreen> with LiveRegistra
             icon: row.labPaid ? Icons.paid_outlined : Icons.money_off,
             color: row.labPaid ? Colors.lightBlue.shade700 : Colors.blueGrey,
           ),
-        // "ادفع واطبع" (pay and print): the fee is taken with the result.
-        if (!row.canReuse && !row.labPaid && (page.labFee ?? 0) > 0 && r.screeningStatus == 'pending')
-          ChatChip(label: t['lab.payAndPrint']!, icon: Icons.print_outlined, color: Colors.orange.shade800),
+        // Result recorded, waiting for the patient to collect it and pay
+        // (2026-11-02, by request).
+        if (r.isScreened && !r.isLabResultReceived)
+          ChatChip(label: t['screening.awaitingCollection']!, icon: Icons.how_to_reg_outlined, color: Colors.orange.shade800)
+        else if (r.isLabResultReceived)
+          ChatChip(label: t['screening.resultReceivedDone']!, icon: Icons.how_to_reg, color: Colors.green.shade700),
         ChatChip(label: place, icon: Icons.location_on_outlined, color: Colors.indigo),
         ChatChip(label: _date(r.createdAt), icon: Icons.schedule, color: Colors.blueGrey),
       ],

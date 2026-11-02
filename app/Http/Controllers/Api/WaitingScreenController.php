@@ -50,9 +50,10 @@ use Illuminate\Http\Request;
  * soon as the result is recorded. The lab serves every stage, so this
  * list is not stage- or group-filtered.
  *
- * "النتيجة جاهزة للاستلام" (2026-11-02, by request): once the result of
- * such a patient is recorded they move to `lab_ready` (the result itself
- * is never shown), until the lab taps "تم استلام النتيجة".
+ * "النتيجة جاهزة للاستلام" (2026-11-02, by request): a patient whose
+ * result was recorded today shows in `lab_ready` (the result itself is
+ * never shown) until they come in for "استلام النتيجة", which takes the
+ * fee and prints the slip. A reused result is collected at once.
  */
 class WaitingScreenController extends Controller
 {
@@ -129,34 +130,39 @@ class WaitingScreenController extends Controller
             ]))
             ->values();
 
-        $labWaiting = PatientRegistration::query()
-            ->where('screening_status', 'pending')
-            ->whereNotNull('lab_sample_printed_at')
-            ->whereDate('lab_sample_printed_at', today())
-            ->orderBy('lab_sample_printed_at')
-            ->orderBy('id')
-            ->get(['id', 'name', 'lab_sample_printed_at'])
-            ->map(fn (PatientRegistration $registration) => [
-                'patient_name' => $registration->name,
-                'since' => $registration->lab_sample_printed_at?->format('H:i'),
-            ])
+        // One lab list (2026-11-02, by request): each patient keeps their
+        // place, amber "بانتظار الفحص" turning green "النتيجة جاهزة" once the
+        // result is recorded, until "استلام النتيجة".
+        $lab = PatientRegistration::query()
+            ->where(fn ($q) => $q
+                ->where(fn ($w) => $w->where('screening_status', 'pending')
+                    ->whereNotNull('lab_sample_printed_at')
+                    ->whereDate('lab_sample_printed_at', today()))
+                ->orWhere(fn ($w) => $w->whereIn('screening_status', ['clear', 'flagged'])
+                    ->whereNull('lab_result_received_at')
+                    ->whereDate('screening_checked_at', today())))
+            ->get(['id', 'name', 'screening_status', 'screening_checked_at', 'lab_sample_printed_at'])
+            ->map(function (PatientRegistration $registration) {
+                $ready = $registration->screening_status !== 'pending';
+                $checkedAt = $registration->screening_checked_at
+                    ? \Illuminate\Support\Carbon::parse($registration->screening_checked_at)
+                    : null;
+                $stamp = $registration->lab_sample_printed_at ?? $checkedAt;
+
+                return [
+                    'id' => $registration->id,
+                    'patient_name' => $registration->name,
+                    'status' => $ready ? 'ready' : 'waiting',
+                    'since' => ($ready ? $checkedAt : $registration->lab_sample_printed_at)?->format('H:i'),
+                    'order' => $stamp?->getTimestamp() ?? 0,
+                ];
+            })
+            ->sortBy([['order', 'asc'], ['id', 'asc']])
             ->values();
 
-        $labReady = PatientRegistration::query()
-            ->whereIn('screening_status', ['clear', 'flagged'])
-            ->whereNotNull('lab_sample_printed_at')
-            ->whereNull('lab_result_received_at')
-            ->whereDate('screening_checked_at', today())
-            ->orderBy('screening_checked_at')
-            ->orderBy('id')
-            ->get(['id', 'name', 'screening_checked_at'])
-            ->map(fn (PatientRegistration $registration) => [
-                'patient_name' => $registration->name,
-                'since' => $registration->screening_checked_at
-                    ? \Illuminate\Support\Carbon::parse($registration->screening_checked_at)->format('H:i')
-                    : null,
-            ])
-            ->values();
+        $labRow = fn ($row) => ['patient_name' => $row['patient_name'], 'status' => $row['status'], 'since' => $row['since']];
+        $labWaiting = $lab->where('status', 'waiting')->map($labRow)->values();
+        $labReady = $lab->where('status', 'ready')->map($labRow)->values();
 
         return response()->json([
             'paired' => true,
@@ -169,6 +175,7 @@ class WaitingScreenController extends Controller
             'rotation_seconds' => $settings->rotation_seconds,
             'date' => today()->toDateString(),
             'appointments' => $appointments,
+            'lab' => $lab->map($labRow)->values(),
             'lab_waiting' => $labWaiting,
             'lab_ready' => $labReady,
         ]);
