@@ -1185,7 +1185,7 @@
     },
     "lab": {
         "resultReceived": "استلام النتيجة",
-        "resultReceivedHint": "عند تسليم النتيجة للمريض، يختفي من شاشة الانتظار",
+        "resultReceivedHint": "يتحول المريض للأخضر «النتيجة جاهزة» بشاشة الانتظار، ويختفي بعد طباعة النتيجة",
         "resultReceivedAfterResult": "يتفعّل بعد تسجيل النتيجة",
         "awaitingCollection": "بانتظار الاستلام",
         "resultReceivedDone": "استلم النتيجة",

@@ -1185,7 +1185,7 @@
     },
     "lab": {
         "resultReceived": "Hand over result",
-        "resultReceivedHint": "When the patient collects it, they leave the waiting screen",
+        "resultReceivedHint": "Turns the patient green \"result ready\" on the waiting screen; they leave once the result is printed",
         "resultReceivedAfterResult": "Available once the result is recorded",
         "awaitingCollection": "Awaiting collection",
         "resultReceivedDone": "Result collected",

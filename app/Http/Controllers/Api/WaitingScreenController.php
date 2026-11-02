@@ -133,33 +133,26 @@ class WaitingScreenController extends Controller
             ]))
             ->values();
 
-        // One lab list (2026-11-02, by request): each patient keeps their
-        // place, amber "بانتظار الفحص" turning green "النتيجة جاهزة" once the
-        // result is recorded, until "استلام النتيجة".
-        // Collected ("استلام النتيجة", allowed at any time) leaves the screen.
+        // One lab list (2026-11-02, by request): amber "بانتظار الفحص" once
+        // the samples sheet is printed, green "النتيجة جاهزة" once staff
+        // press "استلام النتيجة"; the patient leaves when the result is
+        // recorded and printed (سليم/غير سليم), i.e. handed over.
         $lab = PatientRegistration::query()
-            ->whereNull('lab_result_received_at')
             ->whereNull('lab_archived_at')
+            ->where('screening_status', 'pending')
             ->where(fn ($q) => $q
-                ->where(fn ($w) => $w->where('screening_status', 'pending')
-                    ->whereNotNull('lab_sample_printed_at')
-                    ->whereDate('lab_sample_printed_at', today()))
-                ->orWhere(fn ($w) => $w->whereIn('screening_status', ['clear', 'flagged'])
-                    ->whereNull('lab_result_received_at')
-                    ->whereDate('screening_checked_at', today())))
-            ->get(['id', 'name', 'screening_status', 'screening_checked_at', 'lab_sample_printed_at'])
+                ->where(fn ($w) => $w->whereNotNull('lab_sample_printed_at')->whereDate('lab_sample_printed_at', today()))
+                ->orWhere(fn ($w) => $w->whereNotNull('lab_result_received_at')->whereDate('lab_result_received_at', today())))
+            ->get(['id', 'name', 'screening_status', 'lab_result_received_at', 'lab_sample_printed_at'])
             ->map(function (PatientRegistration $registration) {
-                $ready = $registration->screening_status !== 'pending';
-                $checkedAt = $registration->screening_checked_at
-                    ? \Illuminate\Support\Carbon::parse($registration->screening_checked_at)
-                    : null;
-                $stamp = $registration->lab_sample_printed_at ?? $checkedAt;
+                $ready = $registration->lab_result_received_at !== null;
+                $stamp = $registration->lab_sample_printed_at ?? $registration->lab_result_received_at;
 
                 return [
                     'id' => $registration->id,
                     'patient_name' => $registration->name,
                     'status' => $ready ? 'ready' : 'waiting',
-                    'since' => ($ready ? $checkedAt : $registration->lab_sample_printed_at)?->format('H:i'),
+                    'since' => ($ready ? $registration->lab_result_received_at : $registration->lab_sample_printed_at)?->format('H:i'),
                     'order' => $stamp?->getTimestamp() ?? 0,
                 ];
             })
