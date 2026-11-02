@@ -49,6 +49,7 @@ final class Diag {
         StringBuilder sb = new StringBuilder();
         sb.append("Android ").append(Build.VERSION.RELEASE).append(" (API ").append(Build.VERSION.SDK_INT).append(")\n");
         sb.append(Build.MANUFACTURER).append(' ').append(Build.MODEL).append('\n');
+        sb.append("target: ").append(context.getApplicationInfo().targetSdkVersion).append('\n');
         sb.append("overlay: ").append(Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(context)).append('\n');
         sb.append("accessibility: ").append(AutoStartAccessibility.isEnabled(context)).append('\n');
         sb.append("battery exempt: ").append(SystemLinks.batteryExempt(context)).append('\n');
