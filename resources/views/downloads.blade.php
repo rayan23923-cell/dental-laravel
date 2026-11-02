@@ -55,14 +55,25 @@
     if (! empty($windowsOffline['url'])) {
         $apps[] = ['section' => 'offline', 'icon' => 'windows', 'tone' => 'teal', 'title' => 'ويندوز أوفلاين', 'sub' => $offlineNote, 'release' => $windowsOffline, 'button' => 'تثبيت', 'steps' => $offlineSteps($windowsSteps)];
     }
-    // The waiting-screen TV app (2026-11-02, by request), separate from the apps above.
+    // The waiting-screen TV app (2026-11-02, by request), separate from the apps
+    // above; the offline build opens clinic.lan straight away.
+    $tvSteps = [
+        'نزّل ملف APK على التلفاز (بمتصفح التلفاز أو بفلاشة USB) وافتحه بمدير الملفات، واسمح بتثبيت التطبيقات غير المعروفة.',
+        'اربط الشاشة بالرمز الظاهر عليها من التطبيق أو من صفحة «ربط شاشة انتظار».',
+        'من زر القائمة (أو الرجوع) في الريموت اختر «السماح بالتشغيل التلقائي» ليفتح التطبيق وحده عند تشغيل التلفاز.',
+        'يعيد الاتصال بنفسه عند انقطاع الشبكة، ويبقي الشاشة مضاءة، ويحدّث نفسه.',
+    ];
     if (! empty($androidTv['url'])) {
-        $apps[] = ['section' => 'online', 'icon' => 'tv', 'tone' => 'teal', 'title' => 'شاشة الانتظار للتلفاز', 'sub' => 'تلفاز أندرويد (Android TV) 6 فأحدث', 'release' => $androidTv, 'button' => 'تنزيل', 'steps' => [
-            'نزّل ملف APK على التلفاز (بمتصفح التلفاز أو بفلاشة USB) وافتحه بمدير الملفات، واسمح بتثبيت التطبيقات غير المعروفة.',
-            'عند أول تشغيل اختر السيرفر: سيرفر العيادة (clinic.lan) أو الاستضافة أو عنوان IP، ثم اربط الشاشة بالرمز من التطبيق.',
-            'من زر القائمة (أو الرجوع) في الريموت اختر «السماح بالتشغيل التلقائي» ليفتح التطبيق وحده عند تشغيل التلفاز.',
-            'يعيد الاتصال بنفسه عند انقطاع الشبكة، ويبقي الشاشة مضاءة.',
-        ]];
+        $apps[] = ['section' => 'online', 'icon' => 'tv', 'tone' => 'teal', 'title' => 'شاشة الانتظار للتلفاز', 'sub' => 'تلفاز أندرويد (Android TV) 6 فأحدث', 'release' => $androidTv, 'button' => 'تنزيل', 'steps' => array_merge(
+            [$tvSteps[0], 'عند أول تشغيل اختر السيرفر: الاستضافة أو سيرفر العيادة (clinic.lan) أو عنوان IP.'],
+            array_slice($tvSteps, 1),
+        )];
+    }
+    if (! empty($androidTvOffline['url'])) {
+        $apps[] = ['section' => 'offline', 'icon' => 'tv', 'tone' => 'teal', 'title' => 'شاشة الانتظار للتلفاز أوفلاين', 'sub' => 'يفتح مباشرة على سيرفر العيادة (clinic.lan) بدون إنترنت', 'release' => $androidTvOffline, 'button' => 'تنزيل', 'steps' => array_merge(
+            [$tvSteps[0], 'يفتح مباشرة على سيرفر العيادة http://clinic.lan (يمكن تغييره من زر القائمة ← تغيير السيرفر). يُنزَّل أيضًا من <code>http://clinic.lan/apps</code>.'],
+            array_slice($tvSteps, 1),
+        )];
     }
 
     $mb = fn ($bytes) => $bytes ? (round($bytes / 1048576, $bytes < 10485760 ? 1 : 0).' م.ب') : null;

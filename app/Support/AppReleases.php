@@ -19,8 +19,8 @@ class AppReleases
         $published = is_file($path) ? json_decode((string) file_get_contents($path), true) : null;
 
         // *_offline: the same apps built to start on the clinic's offline server.
-        // android_tv: the separate waiting-screen TV app (2026-11-02).
-        foreach (['windows', 'android', 'ios', 'windows_offline', 'android_offline', 'android_tv'] as $platform) {
+        // android_tv: the separate waiting-screen TV app (2026-11-02), and its offline build.
+        foreach (['windows', 'android', 'ios', 'windows_offline', 'android_offline', 'android_tv', 'android_tv_offline'] as $platform) {
             if (is_array($published[$platform] ?? null)) {
                 $releases[$platform] = array_merge($releases[$platform] ?? [], $published[$platform]);
             }

@@ -12,6 +12,8 @@ It only shows the clinic's waiting screen (`/waiting-screen`) full screen:
   (`/api/v1/app/version?platform=android_tv`, else the offline server's `/apps/releases.json`),
   downloads a newer APK and opens the install confirmation; it reopens by itself after.
   MENU → "التحقق من التحديث" checks right away.
+- An offline build (`-PdefaultServer=http://clinic.lan`, published as `android_tv_offline`) opens
+  the clinic server straight away; the offline package ships it in `apps/`.
 - Plain `http://` works (clinic.lan or an IP), so the logo and pictures load too.
 
 Built by `.github/workflows/flutter-apps.yml` (job `android_tv`), signed with the same

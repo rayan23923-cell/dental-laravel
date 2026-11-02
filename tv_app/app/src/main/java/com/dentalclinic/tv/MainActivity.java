@@ -151,8 +151,9 @@ public class MainActivity extends Activity {
         return getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
+    /** The chosen server, else the build's own (the offline build: clinic.lan). */
     private String server() {
-        return prefs().getString(KEY_SERVER, "");
+        return prefs().getString(KEY_SERVER, getString(R.string.default_server));
     }
 
     private void saveServer(String value) {

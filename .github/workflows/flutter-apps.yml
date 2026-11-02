@@ -236,10 +236,15 @@ jobs:
           fi
       - run: gradle assembleRelease --no-daemon -PversionCode=${{ github.run_number }} -PversionName=$APP_VERSION
       - run: cp app/build/outputs/apk/release/app-release.apk ../DentalClinicTV-android-tv.apk
+      # The offline TV build: opens http://clinic.lan straight away.
+      - run: gradle assembleRelease --no-daemon -PversionCode=${{ github.run_number }} -PversionName=$APP_VERSION -PdefaultServer=http://clinic.lan
+      - run: cp app/build/outputs/apk/release/app-release.apk ../DentalClinicTV-offline-android-tv.apk
       - uses: actions/upload-artifact@v4
         with:
           name: android-tv
-          path: DentalClinicTV-android-tv.apk
+          path: |
+            DentalClinicTV-android-tv.apk
+            DentalClinicTV-offline-android-tv.apk
 
   release:
     needs: [android, ios, windows, android_tv]
@@ -316,6 +321,10 @@ jobs:
           if [ -f dist/DentalClinicTV-android-tv.apk ]; then
             cp dist/DentalClinicTV-android-tv.apk out/DentalClinicTV-$V.apk
             add android_tv DentalClinicTV-$V.apk ""
+          fi
+          if [ -f dist/DentalClinicTV-offline-android-tv.apk ]; then
+            cp dist/DentalClinicTV-offline-android-tv.apk out/DentalClinicTV-offline-$V.apk
+            add android_tv_offline DentalClinicTV-offline-$V.apk ""
           fi
           if [ -f dist/DentalClinicApp-ios-unsigned.ipa ]; then
             cp dist/DentalClinicApp-ios-unsigned.ipa out/DentalClinicApp-$V.ipa

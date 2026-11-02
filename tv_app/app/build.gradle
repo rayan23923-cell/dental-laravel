@@ -6,6 +6,9 @@ plugins {
 // builds fall back to a debug-signed 1.0.
 def vCode = (project.findProperty('versionCode') ?: '1').toString().toInteger()
 def vName = (project.findProperty('versionName') ?: '1.0').toString()
+// The offline build (2026-11-02, by request) starts on the clinic's offline
+// server without asking: -PdefaultServer=http://clinic.lan.
+def defaultServer = (project.findProperty('defaultServer') ?: '').toString()
 
 android {
     namespace 'com.dentalclinic.tv'
@@ -17,6 +20,7 @@ android {
         targetSdk 34
         versionCode vCode
         versionName vName
+        resValue 'string', 'default_server', defaultServer
     }
 
     signingConfigs {
