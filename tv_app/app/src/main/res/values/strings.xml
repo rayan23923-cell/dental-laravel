@@ -23,6 +23,11 @@
     <string name="autostart_running">تفتح شاشة الانتظار تلقائيًا عند تشغيل التلفاز</string>
     <string name="menu_exit">خروج</string>
     <string name="menu_diag">سجل التشغيل التلقائي</string>
+    <string name="menu_autostart_manager">إدارة التشغيل التلقائي في التلفاز (مثل تطبيق الأذان)</string>
+    <string name="menu_battery">استثناء من توفير الطاقة</string>
+    <string name="menu_battery_ok">مستثنى من توفير الطاقة ✓</string>
+    <string name="autostart_manager_hint">فعّل «شاشة الانتظار» في هذه القائمة كما هو مفعّل تطبيق الأذان، ثم ارجع.</string>
+    <string name="screen_missing">هذه الشاشة غير موجودة في نظام هذا التلفاز</string>
     <string name="accessibility_label">التشغيل التلقائي لشاشة الانتظار</string>
     <string name="accessibility_description">يفتح شاشة الانتظار تلقائيًا عند تشغيل التلفاز وبعد انقطاع الكهرباء. لا يقرأ أي شيء من الشاشة.</string>
     <string name="menu_accessibility_on">التشغيل التلقائي عبر إمكانية الوصول: مفعّل ✓</string>

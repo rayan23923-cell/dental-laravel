@@ -51,6 +51,7 @@ final class Diag {
         sb.append(Build.MANUFACTURER).append(' ').append(Build.MODEL).append('\n');
         sb.append("overlay: ").append(Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(context)).append('\n');
         sb.append("accessibility: ").append(AutoStartAccessibility.isEnabled(context)).append('\n');
+        sb.append("battery exempt: ").append(SystemLinks.batteryExempt(context)).append('\n');
         sb.append("autostart: ").append(MainActivity.autostartEnabled(context)).append("\n\n");
         String log = "";
         try {

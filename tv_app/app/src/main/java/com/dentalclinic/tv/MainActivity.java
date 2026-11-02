@@ -455,6 +455,10 @@ public class MainActivity extends Activity {
         actions.add(this::openAccessibilitySettings);
         items.add(getString(homeMode() ? R.string.menu_home_off : R.string.menu_home_on));
         actions.add(() -> setHomeMode(!homeMode()));
+        items.add(getString(R.string.menu_autostart_manager));
+        actions.add(() -> SystemLinks.openAutostart(this));
+        items.add(getString(SystemLinks.batteryExempt(this) ? R.string.menu_battery_ok : R.string.menu_battery));
+        actions.add(() -> SystemLinks.requestBatteryExempt(this));
         items.add(getString(R.string.menu_diag));
         actions.add(() -> new AlertDialog.Builder(this)
                 .setTitle(R.string.menu_diag)
