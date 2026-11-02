@@ -144,6 +144,26 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
     }
   }
 
+  /// "تم استلام النتيجة" (2026-11-02, by request): takes the patient off
+  /// the waiting screen's "النتيجة جاهزة للاستلام".
+  Future<void> _markReceived() async {
+    setState(() => _submitting = true);
+    final t = ref.read(translationsProvider);
+    try {
+      final updated = await ref.read(patientRegistrationRepositoryProvider).labResultReceived(_state.registration.id);
+      if (!mounted) return;
+      setState(() => _state = updated);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['screening.resultReceivedDone']!)));
+    } catch (e) {
+      if (mounted) {
+        final message = e is ApiException ? e.userMessage : t['screening.resultReceivedFailed']!;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
   /// "2026-10-01" from the API's `checked_at` (ISO or "Y-m-d H:i:s").
   static String _formatDate(String? raw) {
     final parsed = raw == null ? null : DateTime.tryParse(raw);
@@ -531,6 +551,30 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
                 Expanded(child: Text(t['screening.resultLocked']!, style: TextStyle(color: Colors.grey.shade800))),
               ],
             ),
+            const SizedBox(height: 16),
+            if (r.isLabResultReceived)
+              Row(
+                children: [
+                  Icon(Icons.how_to_reg, color: Colors.green.shade700),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${t['screening.resultReceivedDone']!} · ${_formatDateTime(r.labResultReceivedAt) ?? ''}',
+                      style: TextStyle(color: Colors.green.shade900, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              )
+            else
+              FilledButton.icon(
+                onPressed: _submitting || _reusing ? null : _markReceived,
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.green.shade700,
+                  minimumSize: const Size.fromHeight(48),
+                ),
+                icon: const Icon(Icons.how_to_reg),
+                label: Text(t['screening.resultReceived']!),
+              ),
           ] else ...[
           const SizedBox(height: 24),
           Text(t['screening.labResultHeading']!, style: Theme.of(context).textTheme.titleMedium),

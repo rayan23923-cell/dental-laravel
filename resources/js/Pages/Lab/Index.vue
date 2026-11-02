@@ -132,6 +132,25 @@ const printSlip = (id) => printInFrame(route('lab.print', { patientRegistration:
 // "هنا توضع العينات" circle, so samples sit under the right name.
 const startTest = (id) => printInFrame(route('lab.sample', { patientRegistration: id, autoprint: 1 }));
 
+// "تم استلام النتيجة" (2026-11-02, by request): the patient collected the
+// result, so they leave the waiting screen's "النتيجة جاهزة للاستلام".
+const canMarkReceived = (r) => !!r && r.screening_status !== 'pending' && !r.lab_result_received_at;
+const receiving = ref(false);
+const markReceived = async (r) => {
+    receiving.value = true;
+    resultError.value = '';
+    try {
+        const { data } = await axios.post(route('lab.received', r.id));
+        r.lab_result_received_at = data.data.lab_result_received_at;
+        if (selected.value?.id === r.id) selected.value.lab_result_received_at = data.data.lab_result_received_at;
+        router.reload({ only: ['registrations', 'counts'] });
+    } catch (e) {
+        resultError.value = e?.response?.data?.message ?? t('lab.resultReceivedFailed');
+    } finally {
+        receiving.value = false;
+    }
+};
+
 const reuse = async () => {
     submitting.value = true;
     resultError.value = '';
@@ -221,6 +240,7 @@ const record = async (status, { feeConfirmed = false } = {}) => {
                             <ChatChip :icon="statusIcon(r.screening_status)" :tone="statusTone(r.screening_status)">{{ statusLabel(r.screening_status) }}</ChatChip>
                             <ChatChip v-if="canReuse(r)" icon="verified" tone="emerald">{{ t('lab.previousValidBadge') }}</ChatChip>
                             <ChatChip v-else :icon="isPaid(r) ? 'paid' : 'money_off'" :tone="isPaid(r) ? 'sky' : 'gray'">{{ isPaid(r) ? t('lab.paid') : t('lab.unpaid') }}</ChatChip>
+                            <ChatChip v-if="r.lab_result_received_at" icon="how_to_reg" tone="emerald">{{ t('lab.resultReceivedDone') }}</ChatChip>
                             <ChatChip icon="location_on">{{ placeAndDay(r) }}</ChatChip>
                             <ChatChip icon="schedule">{{ fmtDate(r.created_at) }}</ChatChip>
                         </template>
@@ -230,6 +250,12 @@ const record = async (status, { feeConfirmed = false } = {}) => {
                                 icon="science"
                                 :label="t('lab.startTest')"
                                 @click="(e) => { e?.stopPropagation(); startTest(r.id); }"
+                            />
+                            <ChatAction
+                                v-else-if="canMarkReceived(r)"
+                                icon="how_to_reg"
+                                :label="t('lab.resultReceived')"
+                                @click="(e) => { e?.stopPropagation(); markReceived(r); }"
                             />
                         </template>
                     </ChatListRow>
@@ -369,6 +395,23 @@ const record = async (status, { feeConfirmed = false } = {}) => {
                     </div>
                 </template>
                 <p v-else-if="!canConfirm && selected.screening_status === 'pending'" class="text-sm text-gray-500">{{ t('lab.noConfirmPermission') }}</p>
+
+                <button
+                    v-if="canMarkReceived(selected)"
+                    type="button"
+                    :disabled="receiving"
+                    @click="markReceived(selected)"
+                    class="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                    <Icon name="how_to_reg" class="ml-1" />{{ t('lab.resultReceived') }}
+                    <span class="block text-xs font-normal opacity-90">{{ t('lab.resultReceivedHint') }}</span>
+                </button>
+                <p
+                    v-else-if="selected.lab_result_received_at"
+                    class="rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-800"
+                >
+                    <Icon name="how_to_reg" class="ml-1" />{{ t('lab.resultReceivedDone') }} · {{ fmtDate(selected.lab_result_received_at) }}
+                </p>
 
                 <button
                     v-if="selected.screening_status !== 'pending'"

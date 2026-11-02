@@ -56,6 +56,10 @@ class PatientRegistrationResource extends JsonResource
             // date of the earlier test a reused result came from — what
             // the web lab page and its printed slip show.
             'screening_checked_at' => $this->screening_checked_at,
+            // Waiting screen (2026-11-02): samples sheet printed, and the
+            // result handed to the patient ("تم استلام النتيجة").
+            'lab_sample_printed_at' => $this->lab_sample_printed_at?->toIso8601String(),
+            'lab_result_received_at' => $this->lab_result_received_at?->toIso8601String(),
             'screening_checked_by' => $this->whenLoaded('screeningCheckedBy', fn () => $this->screeningCheckedBy ? [
                 'id' => $this->screeningCheckedBy->id,
                 'full_name' => $this->screeningCheckedBy->full_name,

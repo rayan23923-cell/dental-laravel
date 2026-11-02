@@ -22,14 +22,41 @@ class WaitingScreenLabWaitingTest extends TestCase
         return PatientRegistration::create(['name' => $name, 'phone' => '0770', 'screening_status' => 'pending']);
     }
 
-    private function labWaiting(): array
+    private function labWaiting(string $key = 'lab_waiting'): array
     {
         $pairing = WaitingScreenPairing::createNew();
         $pairing->update(['confirmed_at' => now()]);
 
         return collect($this->getJson('/api/v1/waiting-screen?token='.$pairing->token)
             ->assertOk()
-            ->json('lab_waiting'))->pluck('patient_name')->all();
+            ->json($key))->pluck('patient_name')->all();
+    }
+
+    public function test_result_ready_shows_until_the_patient_collects_it(): void
+    {
+        $admin = User::factory()->create(['role' => 'super_admin']);
+        $web = $this->registration('مريض الويب');
+        $app = $this->registration('مريض التطبيق');
+        $web->markLabSamplePrinted();
+        $app->markLabSamplePrinted();
+
+        Sanctum::actingAs($admin);
+        // Nothing to collect while the result is pending.
+        $this->postJson("/api/v1/lab/{$app->id}/result-received")->assertStatus(422);
+        $this->postJson("/lab/{$web->id}/received")->assertStatus(422);
+
+        $this->postJson("/api/v1/patient-registrations/{$web->id}/screening", ['screening_status' => 'clear'])->assertOk();
+        $this->postJson("/api/v1/patient-registrations/{$app->id}/screening", ['screening_status' => 'flagged'])->assertOk();
+        $this->assertSame([], $this->labWaiting());
+        $this->assertSame(['مريض الويب', 'مريض التطبيق'], $this->labWaiting('lab_ready'));
+
+        $this->actingAs($admin)->postJson("/lab/{$web->id}/received")->assertOk();
+        $this->postJson("/api/v1/lab/{$app->id}/result-received")
+            ->assertOk()
+            ->assertJsonPath('data.registration.id', $app->id);
+
+        $this->assertSame([], $this->labWaiting('lab_ready'));
+        $this->assertNotNull($app->fresh()->lab_result_received_at);
     }
 
     public function test_printed_samples_sheet_shows_until_the_result_is_recorded(): void

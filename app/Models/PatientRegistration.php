@@ -63,6 +63,9 @@ class PatientRegistration extends Model
         // Samples sheet printed (2026-11-02): shown on the waiting screen
         // as "بانتظار الفحص" until the result is recorded.
         'lab_sample_printed_at',
+        // The patient collected the result (2026-11-02): leaves the
+        // waiting screen's "النتيجة جاهزة للاستلام".
+        'lab_result_received_at',
     ];
 
     protected function casts(): array
@@ -71,6 +74,7 @@ class PatientRegistration extends Model
             'created_at' => 'datetime',
             'discount_eligible' => 'boolean',
             'lab_sample_printed_at' => 'datetime',
+            'lab_result_received_at' => 'datetime',
         ];
     }
 
@@ -84,6 +88,24 @@ class PatientRegistration extends Model
         if ($this->screening_status === 'pending' && $this->lab_sample_printed_at === null) {
             $this->forceFill(['lab_sample_printed_at' => now()])->save();
         }
+    }
+
+    /**
+     * "تم استلام النتيجة" (2026-11-02, by request): once a result is
+     * recorded, the lab marks it handed to the patient, which takes them
+     * off the waiting screen's "النتيجة جاهزة للاستلام". Returns false
+     * while the result is still pending.
+     */
+    public function markLabResultReceived(): bool
+    {
+        if ($this->screening_status === 'pending') {
+            return false;
+        }
+        if ($this->lab_result_received_at === null) {
+            $this->forceFill(['lab_result_received_at' => now()])->save();
+        }
+
+        return true;
     }
 
     public function supportCode(): BelongsTo

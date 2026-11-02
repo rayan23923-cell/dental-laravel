@@ -49,6 +49,10 @@ use Illuminate\Http\Request;
  * are listed separately in `lab_waiting`, in print order, and drop off as
  * soon as the result is recorded. The lab serves every stage, so this
  * list is not stage- or group-filtered.
+ *
+ * "النتيجة جاهزة للاستلام" (2026-11-02, by request): once the result of
+ * such a patient is recorded they move to `lab_ready` (the result itself
+ * is never shown), until the lab taps "تم استلام النتيجة".
  */
 class WaitingScreenController extends Controller
 {
@@ -138,6 +142,22 @@ class WaitingScreenController extends Controller
             ])
             ->values();
 
+        $labReady = PatientRegistration::query()
+            ->whereIn('screening_status', ['clear', 'flagged'])
+            ->whereNotNull('lab_sample_printed_at')
+            ->whereNull('lab_result_received_at')
+            ->whereDate('screening_checked_at', today())
+            ->orderBy('screening_checked_at')
+            ->orderBy('id')
+            ->get(['id', 'name', 'screening_checked_at'])
+            ->map(fn (PatientRegistration $registration) => [
+                'patient_name' => $registration->name,
+                'since' => $registration->screening_checked_at
+                    ? \Illuminate\Support\Carbon::parse($registration->screening_checked_at)->format('H:i')
+                    : null,
+            ])
+            ->values();
+
         return response()->json([
             'paired' => true,
             'token' => $pairing->token,
@@ -150,6 +170,7 @@ class WaitingScreenController extends Controller
             'date' => today()->toDateString(),
             'appointments' => $appointments,
             'lab_waiting' => $labWaiting,
+            'lab_ready' => $labReady,
         ]);
     }
 }

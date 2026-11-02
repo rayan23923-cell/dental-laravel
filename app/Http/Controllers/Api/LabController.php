@@ -150,6 +150,22 @@ class LabController extends Controller
         ]);
     }
 
+    /**
+     * "تم استلام النتيجة" (2026-11-02, by request): the patient collected
+     * the recorded result, so they leave the waiting screen. Answers with
+     * the refreshed lab state, like `show`.
+     */
+    public function resultReceived(Request $request, PatientRegistration $patientRegistration): JsonResponse
+    {
+        $this->authorizeLab($request);
+
+        if (! $patientRegistration->markLabResultReceived()) {
+            return response()->json(['message' => 'لم تُسجَّل نتيجة هذا المريض بعد.'], 422);
+        }
+
+        return $this->stateResponse($patientRegistration->load(self::RELATIONS));
+    }
+
     private function stateResponse(PatientRegistration $registration): JsonResponse
     {
         return response()->json([

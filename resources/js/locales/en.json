@@ -1086,7 +1086,8 @@
         "scanToPairSubtext": "Scan the QR code from the app, or open \"Pair Waiting Screen\" in the system or the app and enter the code shown below this QR.",
         "codeCaption": "Or enter this code:",
         "rePair": "Re-pair to a different stage",
-        "labWaitingHeading": "Waiting for lab test"
+        "labWaitingHeading": "Waiting for lab test",
+        "labReadyHeading": "Result ready to collect"
     },
     "waitingScreenPairing": {
         "title": "Pair Waiting Screen",
@@ -1160,6 +1161,10 @@
         "backAction": "Back"
     },
     "lab": {
+        "resultReceived": "Result collected",
+        "resultReceivedHint": "The patient leaves the waiting screen",
+        "resultReceivedDone": "Result collected",
+        "resultReceivedFailed": "Could not record that the result was collected",
         "all": "All",
         "scanTicket": "Scan Patient Code",
         "recordFailed": "Couldn't save the result, try again.",

@@ -411,6 +411,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/lab/{patientRegistration}/print', [LabController::class, 'print'])->name('lab.print');
         Route::get('/lab/{patientRegistration}/sample', [LabController::class, 'sample'])->name('lab.sample');
         Route::post('/lab/{patientRegistration}/reuse', [LabController::class, 'reuse'])->name('lab.reuse');
+        Route::post('/lab/{patientRegistration}/received', [LabController::class, 'received'])->name('lab.received');
     });
 
     Route::middleware('role:super_admin,admin,editor')->group(function () {

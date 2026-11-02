@@ -1086,7 +1086,8 @@
         "scanToPairSubtext": "امسح رمز QR من التطبيق، أو افتح صفحة \"ربط شاشة انتظار\" في النظام أو التطبيق وأدخل الكود الظاهر أسفل هذا الرمز.",
         "codeCaption": "أو أدخل هذا الكود:",
         "rePair": "إعادة الربط بمرحلة أخرى",
-        "labWaitingHeading": "بانتظار الفحص"
+        "labWaitingHeading": "بانتظار الفحص",
+        "labReadyHeading": "النتيجة جاهزة للاستلام"
     },
     "waitingScreenPairing": {
         "title": "ربط شاشة انتظار",
@@ -1160,6 +1161,10 @@
         "backAction": "رجوع"
     },
     "lab": {
+        "resultReceived": "تم استلام النتيجة",
+        "resultReceivedHint": "يختفي المريض من شاشة الانتظار",
+        "resultReceivedDone": "استلم النتيجة",
+        "resultReceivedFailed": "تعذّر تسجيل استلام النتيجة",
         "all": "الكل",
         "scanTicket": "مسح رمز المريض",
         "recordFailed": "تعذر حفظ النتيجة، حاول مرة أخرى.",

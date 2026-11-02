@@ -127,6 +127,25 @@ class LabController extends Controller
         return response()->json(['data' => $patientRegistration->fresh()]);
     }
 
+    /**
+     * "تم استلام النتيجة" (2026-11-02, by request): the patient collected
+     * the recorded result, so they leave the waiting screen's "النتيجة
+     * جاهزة للاستلام".
+     */
+    public function received(Request $request, PatientRegistration $patientRegistration): JsonResponse
+    {
+        $this->authorizeLab($request);
+
+        if (! $patientRegistration->markLabResultReceived()) {
+            return response()->json(['message' => 'لم تُسجَّل نتيجة هذا المريض بعد.'], 422);
+        }
+
+        return response()->json(['data' => [
+            'id' => $patientRegistration->id,
+            'lab_result_received_at' => $patientRegistration->lab_result_received_at,
+        ]]);
+    }
+
     /** Adds `previous_screening` (id + date) to each registration that can reuse one. */
     private function attachPreviousScreenings($registrations): void
     {
