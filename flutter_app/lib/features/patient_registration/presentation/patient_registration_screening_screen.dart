@@ -51,12 +51,8 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
   /// "سليم" or "غير سليم" records it and prints one paid slip (see the
   /// server's `LabFeeGate::chargeIfDue`). Nothing is due when an earlier
   /// clear result is still valid.
-  /// Taken at "استلام النتيجة" (2026-11-02); a reused result costs nothing.
   bool get _feeDue =>
-      (_state.labFee ?? 0) > 0 &&
-      !_state.labPaid &&
-      _state.previousScreening == null &&
-      _state.registration.screeningReusedFrom == null;
+      (_state.labFee ?? 0) > 0 && !_state.labPaid && _state.previousScreening == null;
 
   @override
   void initState() {
@@ -86,10 +82,9 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
     return ok == true;
   }
 
-  /// Recording the result neither prints nor takes the fee (2026-11-02, by
-  /// request): the patient shows on the waiting screen as "النتيجة جاهزة
-  /// للاستلام" and comes in for [_markReceived], which does both.
   Future<void> _confirm(String status) async {
+    if (_feeDue && !await _askFeeReceived()) return;
+    if (!mounted) return;
     setState(() => _submitting = true);
     final t = ref.read(translationsProvider);
     try {
@@ -100,6 +95,16 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(status == 'clear' ? t['screening.markedClear']! : t['screening.markedFlagged']!),
       ));
+      // Saving a result prints the lab slip (2026-10-11, by request) —
+      // same POS-printer path and mobile-only gate as the registration
+      // ticket. A print failure never undoes the saved result.
+      if (canPrintTickets) {
+        await _printSlip(updated);
+      } else {
+        // No thermal printer here: the full-page result, as the web
+        // lab page opens after saving (2026-10-17).
+        await _printPdf(updated);
+      }
     } catch (e) {
       if (mounted) {
         final message = e is ApiException ? e.userMessage : t['screening.recordFailed']!;
@@ -139,14 +144,10 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
     }
   }
 
-  /// "تم استلام النتيجة" (2026-11-02, by request): takes the patient off
-  /// the waiting screen's "النتيجة جاهزة للاستلام".
-  /// Asks about the fee first when one is due, then prints the paid slip
-  /// (thermal printer, else the full-page result). A print failure never
-  /// undoes the recorded hand-over.
+  /// "استلام النتيجة" (2026-11-02, by request), beside the samples-sheet
+  /// button: the result was paid and printed when recorded; this only
+  /// takes the patient off the waiting screen's "النتيجة جاهزة".
   Future<void> _markReceived() async {
-    if (_feeDue && !await _askFeeReceived()) return;
-    if (!mounted) return;
     setState(() => _submitting = true);
     final t = ref.read(translationsProvider);
     try {
@@ -154,11 +155,6 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
       if (!mounted) return;
       setState(() => _state = updated);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['screening.resultReceivedDone']!)));
-      if (canPrintTickets) {
-        await _printSlip(updated);
-      } else {
-        await _printPdf(updated);
-      }
     } catch (e) {
       if (mounted) {
         final message = e is ApiException ? e.userMessage : t['screening.resultReceivedFailed']!;
@@ -535,16 +531,36 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
               label: Text(t['screening.reusePrevious']!),
             ),
           ],
-          // Start the test: print the samples sheet (2026-11-01, by request).
-          if (r.screeningStatus == 'pending') ...[
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: _submitting || _reusing ? null : _printSampleLabel,
-              icon: const Icon(Icons.science_outlined),
-              label: Text(t['screening.startTest']!),
-              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-            ),
-          ],
+          // Start the test: print the samples sheet (2026-11-01, by request),
+          // and beside it "استلام النتيجة" (2026-11-02, by request).
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: r.screeningStatus != 'pending' || _submitting || _reusing ? null : _printSampleLabel,
+                  icon: const Icon(Icons.science_outlined),
+                  label: Text(t['screening.startTest']!, textAlign: TextAlign.center),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: !r.isScreened || r.isLabResultReceived || _submitting || _reusing ? null : _markReceived,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.green.shade700,
+                    minimumSize: const Size.fromHeight(56),
+                  ),
+                  icon: Icon(r.isLabResultReceived ? Icons.how_to_reg : Icons.how_to_reg_outlined),
+                  label: Text(
+                    r.isLabResultReceived ? t['screening.resultReceivedDone']! : t['screening.resultReceived']!,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ],
+          ),
           // A recorded result is final (2026-11-01, by request): only a
           // patient still waiting for the test gets the result buttons.
           if (r.screeningStatus != 'pending') ...[
@@ -556,34 +572,14 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
                 Expanded(child: Text(t['screening.resultLocked']!, style: TextStyle(color: Colors.grey.shade800))),
               ],
             ),
-            const SizedBox(height: 16),
-            if (r.isLabResultReceived)
-              Row(
-                children: [
-                  Icon(Icons.how_to_reg, color: Colors.green.shade700),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '${t['screening.resultReceivedDone']!} · ${_formatDateTime(r.labResultReceivedAt) ?? ''}',
-                      style: TextStyle(color: Colors.green.shade900, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ],
-              )
-            else
-              FilledButton.icon(
-                onPressed: _submitting || _reusing ? null : _markReceived,
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.green.shade700,
-                  minimumSize: const Size.fromHeight(48),
-                ),
-                icon: const Icon(Icons.how_to_reg),
-                label: Text(t['screening.resultReceived']!),
-              ),
           ] else ...[
           const SizedBox(height: 24),
           Text(t['screening.labResultHeading']!, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
+          if (_feeDue) ...[
+            Text(t['screening.payAndPrintHint']!, style: TextStyle(color: Colors.amber.shade900)),
+            const SizedBox(height: 12),
+          ],
           Row(
             children: [
               Expanded(

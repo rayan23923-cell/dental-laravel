@@ -70,7 +70,6 @@ class SupportCodesTest extends TestCase
 
         // The lab records the result without charging; the fee is kept on the code.
         $this->actingAs($admin)->postJson("/patient-registrations/{$ali->id}/screening", ['screening_status' => 'clear'])->assertOk();
-        $this->actingAs($admin)->postJson("/lab/{$ali->id}/received")->assertOk();
         $this->assertSame(0, Payment::count());
         $this->assertEquals(8000, $code->fresh()->waived_lab);
 
@@ -108,7 +107,6 @@ class SupportCodesTest extends TestCase
         $this->postJson('/api/v1/payments', ['patient_registration_id' => $id, 'type' => 'lab', 'amount' => 1])->assertStatus(422);
 
         $this->postJson("/api/v1/patient-registrations/{$id}/screening", ['screening_status' => 'flagged'])->assertOk();
-        $this->postJson("/api/v1/lab/{$id}/result-received")->assertOk();
         $this->assertSame(0, Payment::count());
 
         $report = $this->getJson('/api/v1/payments/report')->assertOk()->json('data');
@@ -195,7 +193,6 @@ class SupportCodesTest extends TestCase
         $this->actingAs($admin)->post('/patient-registrations', ['name' => 'Ali', 'phone' => '0770', 'service_id' => $service->id, 'support_code' => $a->code]);
         $ali = PatientRegistration::firstWhere('name', 'Ali');
         $this->actingAs($admin)->postJson("/patient-registrations/{$ali->id}/screening", ['screening_status' => 'clear'])->assertOk();
-        $this->actingAs($admin)->postJson("/lab/{$ali->id}/received")->assertOk();
 
         $logs = ActivityLog::where('module', SupportCodes::LOG_MODULE)->orderBy('id')->pluck('description')->all();
         $this->assertSame([

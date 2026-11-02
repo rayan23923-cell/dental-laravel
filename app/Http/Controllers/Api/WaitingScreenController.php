@@ -52,8 +52,8 @@ use Illuminate\Http\Request;
  *
  * "النتيجة جاهزة للاستلام" (2026-11-02, by request): a patient whose
  * result was recorded today shows in `lab_ready` (the result itself is
- * never shown) until they come in for "استلام النتيجة", which takes the
- * fee and prints the slip. A reused result is collected at once.
+ * never shown) until the lab taps "استلام النتيجة" when they collect it.
+ * A reused result is collected at once.
  */
 class WaitingScreenController extends Controller
 {
