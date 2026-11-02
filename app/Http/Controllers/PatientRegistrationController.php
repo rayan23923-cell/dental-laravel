@@ -123,6 +123,30 @@ class PatientRegistrationController extends Controller
     }
 
     /**
+     * Permanent delete from the archive tab (2026-11-02, by request): the
+     * ticked archived registrations, or all archived ones matching the
+     * filters; needs the signed-in user's password.
+     */
+    public function purgeMany(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'all' => ['sometimes', 'boolean'],
+            'ids' => ['required_without:all', 'array'],
+            'ids.*' => ['integer'],
+            'password' => ['required', 'string', 'current_password'],
+        ], ['password.current_password' => 'كلمة السر غير صحيحة.']);
+
+        $request->merge(['archived' => 1]);
+        $query = ($validated['all'] ?? false)
+            ? $this->filteredQuery($request)
+            : RegistrationArchive::archived(PatientRegistration::query())->whereIn('id', $validated['ids']);
+
+        $count = RegistrationArchive::purge($query);
+
+        return back()->with('success', "تم حذف {$count} تسجيل نهائيًا.");
+    }
+
+    /**
      * Lightweight autocomplete for the payment form's "ابحث عن مريض"
      * field (2026-08-26) — `Payments/Create.vue` previously loaded every
      * registration into one giant `<select>`, unusable once the table has

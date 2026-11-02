@@ -203,6 +203,51 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
     );
   }
 
+  /// Permanent delete from the archive (2026-11-02, by request), behind
+  /// the user's own password.
+  Future<void> _purgeSelected() async {
+    final t = ref.read(translationsProvider);
+    final ids = _selected.toList();
+    if (ids.isEmpty) return;
+    final controller = TextEditingController();
+    final password = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(trf(t['patientRegFlutter.purgeTitle']!, {'n': ids.length})),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(t['patientRegFlutter.purgeWarning']!, style: TextStyle(color: Colors.red.shade800)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              obscureText: true,
+              autofocus: true,
+              decoration: InputDecoration(labelText: t['patientRegFlutter.purgePassword']!),
+              onSubmitted: (v) => Navigator.of(ctx).pop(v),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(MaterialLocalizations.of(ctx).cancelButtonLabel)),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+            onPressed: () => Navigator.of(ctx).pop(controller.text),
+            child: Text(t['patientRegFlutter.purgeSelected']!),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (password == null || password.isEmpty) return;
+    await _run(
+      () => ref.read(patientRegistrationRepositoryProvider).purgeMany(ids, password),
+      trf(t['patientRegFlutter.purgedDone']!, {'n': ids.length}),
+      'patientRegFlutter.purgeFailed',
+    );
+  }
+
   Future<void> _restoreSelected() async {
     final t = ref.read(translationsProvider);
     final ids = _selected.toList();
@@ -353,8 +398,16 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                           onPressed: _busy || _selected.isEmpty ? null : _restoreSelected,
                           icon: const Icon(Icons.unarchive_outlined),
                           label: Text(t['patientRegFlutter.restoreSelected']!),
-                        )
-                      else
+                        ),
+                      if (_archived) ...[
+                        const SizedBox(width: 4),
+                        IconButton.filled(
+                          style: IconButton.styleFrom(backgroundColor: Colors.red.shade700),
+                          tooltip: t['patientRegFlutter.purgeSelected']!,
+                          onPressed: _busy || _selected.isEmpty ? null : _purgeSelected,
+                          icon: const Icon(Icons.delete_forever_outlined),
+                        ),
+                      ] else
                         FilledButton.icon(
                           style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700, minimumSize: const Size(64, 40)),
                           onPressed: _busy || _selected.isEmpty ? null : _archiveSelected,

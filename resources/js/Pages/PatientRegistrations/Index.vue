@@ -138,6 +138,36 @@ const restoreSelected = () => {
         onSuccess: () => (selected.value = []),
     });
 };
+// Permanent delete from the archive (2026-11-02, by request): asks for the
+// user's own password; payments go with the registration.
+const purgeAsk = ref(null); // { ids, n } or { all, n }
+const purgePassword = ref('');
+const purgeError = ref('');
+const purgeBusy = ref(false);
+const openPurge = (all) => {
+    purgePassword.value = '';
+    purgeError.value = '';
+    purgeAsk.value = all ? { all: true, n: props.registrations.total } : { ids: [...selected.value], n: selected.value.length };
+};
+const confirmPurge = () => {
+    const ask = purgeAsk.value;
+    if (!ask || !purgePassword.value) return;
+    purgeBusy.value = true;
+    purgeError.value = '';
+    router.delete(route('patient-registrations.purge-many'), {
+        data: ask.all ? { all: true, password: purgePassword.value, ...currentFilters() } : { ids: ask.ids, password: purgePassword.value },
+        preserveScroll: true,
+        onSuccess: () => {
+            purgeAsk.value = null;
+            selected.value = [];
+        },
+        onError: (errors) => (purgeError.value = errors.password ?? Object.values(errors)[0] ?? t('patientReg.purgeFailed')),
+        onFinish: () => {
+            purgeBusy.value = false;
+            purgePassword.value = '';
+        },
+    });
+};
 const destroyAll = () => {
     const n = props.registrations.total;
     if (!n) return;
@@ -250,6 +280,9 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
                     <div v-if="!archived && can.archive && registrations.total" class="ms-auto flex items-center">
                         <ChatAction icon="inventory_2" :label="hasFilters ? t('patientReg.deleteAllFiltered') : t('patientReg.deleteAll')" danger @click="destroyAll" />
                     </div>
+                    <div v-if="archived && can.archive && registrations.total" class="ms-auto flex items-center">
+                        <ChatAction icon="delete_forever" :label="t('patientReg.purgeAll')" danger @click="openPurge(true)" />
+                    </div>
                 </div>
 
                 <!-- Bulk bar -->
@@ -257,6 +290,7 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
                     <span class="text-sm font-medium text-amber-900">{{ t('doctorsAdmin.selectedCount', { n: selected.length }) }}</span>
                     <div v-if="can.archive" class="flex items-center">
                         <ChatAction v-if="archived" icon="unarchive" :label="t('patientReg.restoreSelected')" @click="restoreSelected" />
+                        <ChatAction v-if="archived" icon="delete_forever" :label="t('patientReg.purgeSelected')" danger @click="openPurge(false)" />
                         <ChatAction v-else icon="inventory_2" :label="t('patientReg.archiveSelected')" danger @click="destroySelected" />
                     </div>
                 </div>
@@ -320,6 +354,32 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
                 </button>
                 <SecondaryButton class="justify-center" @click="archiveAsk = null">{{ t('common.cancel') }}</SecondaryButton>
             </div>
+        </Modal>
+
+        <!-- Permanent delete, behind the user's password (2026-11-02, by request) -->
+        <Modal :show="!!purgeAsk" max-width="md" @close="purgeAsk = null">
+            <form v-if="purgeAsk" class="flex flex-col gap-3 p-6" @submit.prevent="confirmPurge">
+                <h3 class="flex items-center gap-2 text-lg font-semibold text-red-700">
+                    <Icon name="delete_forever" />{{ t('patientReg.purgeTitle', { n: purgeAsk.n }) }}
+                </h3>
+                <p class="rounded-xl bg-red-50 p-3 text-sm text-red-800">{{ t('patientReg.purgeWarning') }}</p>
+                <label class="text-sm font-medium text-gray-700" for="purge-password">{{ t('patientReg.purgePassword') }}</label>
+                <input
+                    id="purge-password"
+                    v-model="purgePassword"
+                    type="password"
+                    autocomplete="current-password"
+                    autofocus
+                    class="rounded-xl border-gray-300 focus:border-red-500 focus:ring-red-500"
+                />
+                <p v-if="purgeError" class="text-sm text-red-600">{{ purgeError }}</p>
+                <div class="grid grid-cols-2 gap-3">
+                    <button type="submit" :disabled="purgeBusy || !purgePassword" class="rounded-xl bg-red-700 px-4 py-2.5 font-semibold text-white hover:bg-red-800 disabled:opacity-50">
+                        {{ t('patientReg.purgeConfirm') }}
+                    </button>
+                    <SecondaryButton class="justify-center" @click="purgeAsk = null">{{ t('common.cancel') }}</SecondaryButton>
+                </div>
+            </form>
         </Modal>
 
         <Modal :show="!!qrRegistration" @close="qrRegistration = null">

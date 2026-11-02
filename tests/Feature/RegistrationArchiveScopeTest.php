@@ -63,4 +63,24 @@ class RegistrationArchiveScopeTest extends TestCase
         Sanctum::actingAs($admin);
         $this->deleteJson('/api/v1/patient-registrations-bulk', ['ids' => [$p->id], 'scope' => 'everything'])->assertStatus(422);
     }
+
+    public function test_permanent_delete_needs_password_and_only_archived(): void
+    {
+        $admin = User::factory()->create(['role' => 'super_admin', 'password' => bcrypt('secret-pass')]);
+        $archived = $this->registration('archived');
+        $live = $this->registration('live');
+        \App\Models\Payment::create(['patient_registration_id' => $archived->id, 'amount' => 5000, 'paid_at' => now(), 'type' => 'lab']);
+        $archived->delete();
+
+        $this->actingAs($admin)->deleteJson('/patient-registrations-purge', ['ids' => [$archived->id], 'password' => 'wrong'])
+            ->assertStatus(422)->assertJsonValidationErrors('password');
+        $this->assertSoftDeleted('patients_simple', ['id' => $archived->id]);
+
+        $this->actingAs($admin)->delete('/patient-registrations-purge', ['ids' => [$archived->id, $live->id], 'password' => 'secret-pass'])
+            ->assertRedirect();
+        $this->assertDatabaseMissing('patients_simple', ['id' => $archived->id]);
+        $this->assertDatabaseMissing('payments', ['patient_registration_id' => $archived->id]);
+        // Not archived: untouched.
+        $this->assertDatabaseHas('patients_simple', ['id' => $live->id, 'deleted_at' => null]);
+    }
 }

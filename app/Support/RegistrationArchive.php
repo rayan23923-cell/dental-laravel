@@ -4,6 +4,8 @@ namespace App\Support;
 
 use App\Models\PatientRegistration;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Where an archived patient disappears from (2026-11-02, by request):
@@ -56,6 +58,32 @@ class RegistrationArchive
                 ->orWhereNotNull('registry_archived_at')
                 ->orWhereNotNull('lab_archived_at'))
             ->update(['deleted_at' => null, 'registry_archived_at' => null, 'lab_archived_at' => null]);
+    }
+
+    /**
+     * Permanent delete from the archive (2026-11-02, by request, behind the
+     * user's password): only already-archived registrations, with their
+     * payments; appointments, tasks and care codes just lose the link.
+     */
+    public static function purge(Builder $archivedQuery): int
+    {
+        $ids = (clone $archivedQuery)->pluck('id')->all();
+        if ($ids === []) {
+            return 0;
+        }
+
+        return DB::transaction(function () use ($ids) {
+            foreach (array_chunk($ids, 500) as $chunk) {
+                DB::table('payments')->whereIn('patient_registration_id', $chunk)->delete();
+                foreach (['appointments', 'task_instances', 'support_codes'] as $table) {
+                    if (Schema::hasTable($table) && Schema::hasColumn($table, 'patient_registration_id')) {
+                        DB::table($table)->whereIn('patient_registration_id', $chunk)->update(['patient_registration_id' => null]);
+                    }
+                }
+            }
+
+            return PatientRegistration::withTrashed()->whereIn('id', $ids)->forceDelete();
+        });
     }
 
     /** 'both' | 'patients' | 'lab' | null, for the archive tab's label. */

@@ -119,6 +119,30 @@ class PatientRegistrationController extends Controller
         return response()->json(['count' => $count, 'message' => "تمت استعادة {$count} تسجيل."]);
     }
 
+    /**
+     * Permanent delete from the archive tab (2026-11-02, by request): the
+     * ticked archived registrations, or all archived ones matching the
+     * filters; needs the signed-in user's password.
+     */
+    public function purgeMany(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'all' => ['sometimes', 'boolean'],
+            'ids' => ['required_without:all', 'array'],
+            'ids.*' => ['integer'],
+            'password' => ['required', 'string', 'current_password'],
+        ], ['password.current_password' => 'كلمة السر غير صحيحة.']);
+
+        $request->merge(['archived' => 1]);
+        $query = ($validated['all'] ?? false)
+            ? $this->filteredQuery($request)
+            : RegistrationArchive::archived(PatientRegistration::query())->whereIn('id', $validated['ids']);
+
+        $count = RegistrationArchive::purge($query);
+
+        return response()->json(['count' => $count, 'message' => "تم حذف {$count} تسجيل نهائيًا."]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         if ($request->input('task_id') === '') {

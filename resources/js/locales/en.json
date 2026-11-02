@@ -374,7 +374,14 @@
             "patients": "Hidden from the patients list, stays in the lab",
             "lab": "Hidden from the lab list and waiting screen, stays in patients",
             "both": "Hidden from patients and the lab"
-        }
+        },
+        "purgeSelected": "Delete permanently",
+        "purgeAll": "Delete whole archive permanently",
+        "purgeTitle": "Permanently delete {n} registration(s)",
+        "purgeWarning": "The patient and their payments are removed for good from patients, the lab and reports. This cannot be undone.",
+        "purgePassword": "Enter your account password to confirm",
+        "purgeConfirm": "Delete permanently",
+        "purgeFailed": "Could not delete."
     },
     "appointments": {
         "newAppointment": "New Appointment",
