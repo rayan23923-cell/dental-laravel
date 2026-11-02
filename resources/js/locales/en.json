@@ -1085,7 +1085,8 @@
         "scanToPairHeading": "Scan the code or enter it to activate this screen",
         "scanToPairSubtext": "Scan the QR code from the app, or open \"Pair Waiting Screen\" in the system or the app and enter the code shown below this QR.",
         "codeCaption": "Or enter this code:",
-        "rePair": "Re-pair to a different stage"
+        "rePair": "Re-pair to a different stage",
+        "labWaitingHeading": "Waiting for lab test"
     },
     "waitingScreenPairing": {
         "title": "Pair Waiting Screen",

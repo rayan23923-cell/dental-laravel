@@ -185,6 +185,9 @@ class LabController extends Controller
     {
         $this->authorizeLab($request);
 
+        // Shown on the waiting screen as "بانتظار الفحص" (2026-11-02).
+        $patientRegistration->markLabSamplePrinted();
+
         // The patient's QR (2026-11-01, by request): scanning the sheet when
         // the result is ready opens the patient to pick the result and pay.
         $qr = (new PngWriter())->write(new QrCode(

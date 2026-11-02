@@ -157,6 +157,12 @@ class PatientRegistrationRepository {
   /// `/patient-registrations/{id}/qr`).
   static String labQrPath(int registrationId) => '/lab/$registrationId/qr';
 
+  /// The samples sheet was printed ("بدء الفحص", 2026-11-02): the patient
+  /// shows on the waiting screen as "بانتظار الفحص" until the result.
+  Future<void> labSamplePrinted(int registrationId) async {
+    await _client.postJson('/lab/$registrationId/sample-printed', body: const {});
+  }
+
   Future<PatientRegistration> create({
     required String name,
     required String phone,

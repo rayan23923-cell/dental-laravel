@@ -21,6 +21,8 @@ const logoUrl = ref(null);
 const stageName = ref(null);
 const groupName = ref(null);
 const appointments = ref([]);
+// "بانتظار الفحص" (2026-11-02): samples sheet printed, result still pending.
+const labWaiting = ref([]);
 const patientsPerPage = ref(8);
 const rotationSeconds = ref(12);
 const currentPage = ref(0);
@@ -99,6 +101,7 @@ const load = async () => {
     stageName.value = data.stage_name;
     groupName.value = data.group_name;
     appointments.value = data.appointments;
+    labWaiting.value = data.lab_waiting ?? [];
     patientsPerPage.value = data.patients_per_page;
     rotationSeconds.value = data.rotation_seconds;
 
@@ -186,12 +189,40 @@ onBeforeUnmount(() => {
             </header>
 
             <main class="mx-auto w-full max-w-7xl flex-1 px-8 py-10">
-                <div v-if="appointments.length === 0" class="py-32 text-center text-2xl text-ig-gray">
+                <section
+                    v-if="labWaiting.length"
+                    class="mb-8 rounded-2xl border-2 border-amber-300 bg-amber-50 p-6 shadow-sm dark:border-amber-500/60 dark:bg-amber-500/10"
+                >
+                    <div class="mb-4 flex items-center gap-3">
+                        <span class="relative flex h-3 w-3">
+                            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                            <span class="relative inline-flex h-3 w-3 rounded-full bg-amber-500" />
+                        </span>
+                        <h2 class="text-2xl font-bold text-amber-800 dark:text-amber-300 sm:text-3xl">
+                            {{ t('waitingScreen.labWaitingHeading') }}
+                        </h2>
+                        <span class="rounded-full bg-amber-500 px-3 py-0.5 text-lg font-bold text-white tabular-nums">
+                            {{ labWaiting.length }}
+                        </span>
+                    </div>
+                    <div class="flex flex-wrap gap-3">
+                        <div
+                            v-for="(item, i) in labWaiting"
+                            :key="'lab-' + i + '-' + item.patient_name"
+                            class="flex items-baseline gap-3 rounded-xl bg-white px-5 py-3 shadow-sm dark:bg-ig-black"
+                        >
+                            <span class="text-xl font-semibold sm:text-2xl">{{ item.patient_name }}</span>
+                            <span v-if="item.since" class="text-base text-ig-gray tabular-nums">{{ item.since }}</span>
+                        </div>
+                    </div>
+                </section>
+
+                <div v-if="appointments.length === 0 && labWaiting.length === 0" class="py-32 text-center text-2xl text-ig-gray">
                     {{ t('waitingScreen.empty') }}
                 </div>
 
                 <transition-group
-                    v-else
+                    v-else-if="appointments.length"
                     name="waiting-screen-page"
                     tag="div"
                     class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3"

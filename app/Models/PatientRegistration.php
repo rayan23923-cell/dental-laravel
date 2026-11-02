@@ -60,6 +60,9 @@ class PatientRegistration extends Model
         'discount_person_name',
         // Care code that made the visit free (2026-11-01), see App\Support\SupportCodes.
         'support_code_id',
+        // Samples sheet printed (2026-11-02): shown on the waiting screen
+        // as "بانتظار الفحص" until the result is recorded.
+        'lab_sample_printed_at',
     ];
 
     protected function casts(): array
@@ -67,7 +70,20 @@ class PatientRegistration extends Model
         return [
             'created_at' => 'datetime',
             'discount_eligible' => 'boolean',
+            'lab_sample_printed_at' => 'datetime',
         ];
+    }
+
+    /**
+     * "بدء الفحص" printed the samples sheet (2026-11-02): stamps the time
+     * once, while the result is still pending, so the waiting screen lists
+     * the patient under "بانتظار الفحص" until the result is recorded.
+     */
+    public function markLabSamplePrinted(): void
+    {
+        if ($this->screening_status === 'pending' && $this->lab_sample_printed_at === null) {
+            $this->forceFill(['lab_sample_printed_at' => now()])->save();
+        }
     }
 
     public function supportCode(): BelongsTo

@@ -43,6 +43,12 @@ use Illuminate\Http\Request;
  * listed twice. The stage filter matches the registration's task stage or
  * its doctor's stage; the group filter only hides a registration whose
  * doctor is outside the group, since an unassigned patient has no group.
+ *
+ * "بانتظار الفحص" (2026-11-02, by request): patients whose lab samples
+ * sheet was printed today ("بدء الفحص") and whose result is still pending
+ * are listed separately in `lab_waiting`, in print order, and drop off as
+ * soon as the result is recorded. The lab serves every stage, so this
+ * list is not stage- or group-filtered.
  */
 class WaitingScreenController extends Controller
 {
@@ -119,6 +125,19 @@ class WaitingScreenController extends Controller
             ]))
             ->values();
 
+        $labWaiting = PatientRegistration::query()
+            ->where('screening_status', 'pending')
+            ->whereNotNull('lab_sample_printed_at')
+            ->whereDate('lab_sample_printed_at', today())
+            ->orderBy('lab_sample_printed_at')
+            ->orderBy('id')
+            ->get(['id', 'name', 'lab_sample_printed_at'])
+            ->map(fn (PatientRegistration $registration) => [
+                'patient_name' => $registration->name,
+                'since' => $registration->lab_sample_printed_at?->format('H:i'),
+            ])
+            ->values();
+
         return response()->json([
             'paired' => true,
             'token' => $pairing->token,
@@ -130,6 +149,7 @@ class WaitingScreenController extends Controller
             'rotation_seconds' => $settings->rotation_seconds,
             'date' => today()->toDateString(),
             'appointments' => $appointments,
+            'lab_waiting' => $labWaiting,
         ]);
     }
 }

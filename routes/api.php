@@ -249,6 +249,8 @@ Route::name('api.')->prefix('v1')->group(function () {
         Route::post('/lab/scan', [LabController::class, 'scan']);
         Route::get('/lab/{patientRegistration}', [LabController::class, 'show']);
         Route::get('/lab/{patientRegistration}/qr', [LabController::class, 'qr']);
+        // Samples sheet printed in the app -> waiting screen (2026-11-02).
+        Route::post('/lab/{patientRegistration}/sample-printed', [LabController::class, 'samplePrinted']);
 
         Route::get('/register-days', [RegisterDayController::class, 'index']);
         Route::post('/register-days', [RegisterDayController::class, 'store'])->middleware('permission:register_settings,edit');

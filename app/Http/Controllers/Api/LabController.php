@@ -134,6 +134,22 @@ class LabController extends Controller
         );
     }
 
+    /**
+     * The app printed the samples sheet ("بدء الفحص", 2026-11-02): the
+     * patient shows on the waiting screen as "بانتظار الفحص" until the
+     * result is recorded. Same as opening the web `lab.sample` sheet.
+     */
+    public function samplePrinted(Request $request, PatientRegistration $patientRegistration): JsonResponse
+    {
+        $this->authorizeLab($request);
+
+        $patientRegistration->markLabSamplePrinted();
+
+        return response()->json([
+            'lab_sample_printed_at' => $patientRegistration->lab_sample_printed_at?->toIso8601String(),
+        ]);
+    }
+
     private function stateResponse(PatientRegistration $registration): JsonResponse
     {
         return response()->json([

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -261,6 +262,8 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
   Future<void> _printSampleLabel() async {
     final t = ref.read(translationsProvider);
     final r = _state.registration;
+    // Waiting screen "بانتظار الفحص" (2026-11-02); never blocks printing.
+    unawaited(ref.read(patientRegistrationRepositoryProvider).labSamplePrinted(r.id).catchError((_) {}));
     try {
       Uint8List? qrBytes;
       try {
