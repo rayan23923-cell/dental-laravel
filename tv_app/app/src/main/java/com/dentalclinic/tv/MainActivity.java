@@ -3,10 +3,14 @@ package com.dentalclinic.tv;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.NotificationManager;
 import android.content.ActivityNotFoundException;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.Network;
@@ -36,6 +40,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.net.InetAddress;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * The clinic's waiting screen on an Android TV (2026-11-02, by request): a
@@ -50,6 +56,8 @@ import java.net.InetAddress;
 public class MainActivity extends Activity {
     private static final String PREFS = "tv";
     private static final String KEY_SERVER = "server";
+    private static final String KEY_AUTOSTART = "autostart";
+    private static final String KEY_ASKED_OVERLAY = "asked_overlay";
     private static final String CLINIC_SERVER = "http://clinic.lan";
     private static final String HOSTING_SERVER = "https://dental.azoclinic.duckdns.org";
     private static final int[] RETRY_SECONDS = {3, 5, 10, 20, 30};
@@ -123,6 +131,101 @@ public class MainActivity extends Activity {
             chooseServer();
         } else {
             load();
+            askOverlayOnce();
+        }
+        AutoStartService.start(this);
+        // Android 13+: the full-screen notification fallback needs this.
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[] {"android.permission.POST_NOTIFICATIONS"}, 1);
+        }
+    }
+
+    /** Auto-start with the TV is on unless turned off from the menu. */
+    static boolean autostartEnabled(Context context) {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_AUTOSTART, true);
+    }
+
+    static boolean canOpenFromBackground(Context context) {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || Settings.canDrawOverlays(context);
+    }
+
+    private boolean canOpenFromBackground() {
+        return canOpenFromBackground(this) || homeMode();
+    }
+
+    // ---- Home screen mode (2026-11-02, by request) ------------------------
+    // Some TVs grey out "display over other apps". Then the surest way to
+    // open with the TV, as adhan TV apps do, is to be the TV's home screen:
+    // the TV shows it whenever it starts or wakes. Off until chosen.
+
+    private ComponentName homeAlias() {
+        return new ComponentName(this, getPackageName() + ".HomeAlias");
+    }
+
+    private boolean homeMode() {
+        return getPackageManager().getComponentEnabledSetting(homeAlias())
+                == PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
+    }
+
+    private void setHomeMode(boolean on) {
+        getPackageManager().setComponentEnabledSetting(homeAlias(),
+                on ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED : PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                PackageManager.DONT_KILL_APP);
+        if (on) {
+            // Let the user pick it as the home app ("Always").
+            try {
+                startActivity(new Intent(Settings.ACTION_HOME_SETTINGS));
+            } catch (ActivityNotFoundException e) {
+                Intent home = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                try { startActivity(home); } catch (ActivityNotFoundException ignored) { }
+            }
+            Toast.makeText(this, R.string.home_pick, Toast.LENGTH_LONG).show();
+        } else {
+            Toast.makeText(this, R.string.home_off_done, Toast.LENGTH_LONG).show();
+            openTvHome();
+        }
+    }
+
+    /** Opens the TV's own home screen (any home app but this one). */
+    private void openTvHome() {
+        Intent home = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
+        List<ResolveInfo> homes = getPackageManager().queryIntentActivities(home, 0);
+        for (ResolveInfo info : homes) {
+            if (info.activityInfo == null || getPackageName().equals(info.activityInfo.packageName)) continue;
+            Intent open = new Intent(home).setClassName(info.activityInfo.packageName, info.activityInfo.name)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try {
+                startActivity(open);
+                return;
+            } catch (ActivityNotFoundException ignored) { }
+        }
+        Toast.makeText(this, R.string.home_none, Toast.LENGTH_LONG).show();
+    }
+
+    /**
+     * Asks once, right after the server is chosen, for "display over other
+     * apps", which Android 10+ needs before the app may open itself when
+     * the TV is switched on.
+     */
+    private void askOverlayOnce() {
+        if (canOpenFromBackground() || !autostartEnabled(this) || prefs().getBoolean(KEY_ASKED_OVERLAY, false)) return;
+        prefs().edit().putBoolean(KEY_ASKED_OVERLAY, true).apply();
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.autostart_title)
+                .setMessage(R.string.autostart_explain)
+                .setPositiveButton(R.string.autostart_go, (d, w) -> openOverlaySettings())
+                .setNeutralButton(R.string.menu_home_on, (d, w) -> setHomeMode(true))
+                .setNegativeButton(R.string.autostart_later, null)
+                .show();
+    }
+
+    private void openOverlaySettings() {
+        try {
+            startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName())));
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, R.string.autostart_no_overlay, Toast.LENGTH_LONG).show();
         }
     }
 
@@ -164,6 +267,7 @@ public class MainActivity extends Activity {
         prefs().edit().putString(KEY_SERVER, v).apply();
         failures = 0;
         load();
+        askOverlayOnce();
     }
 
     private void load() {
@@ -314,35 +418,52 @@ public class MainActivity extends Activity {
     }
 
     private void showMenu() {
-        String[] items = {
-                getString(R.string.menu_reload),
-                getString(R.string.menu_server),
-                getString(R.string.menu_autostart),
-                getString(R.string.menu_update),
-                getString(R.string.menu_exit),
-        };
+        List<String> items = new ArrayList<>();
+        List<Runnable> actions = new ArrayList<>();
+        items.add(getString(R.string.menu_reload));
+        actions.add(() -> { failures = 0; load(); });
+        items.add(getString(R.string.menu_server));
+        actions.add(this::chooseServer);
+        if (!homeMode()) {
+            items.add(!autostartEnabled(this) ? getString(R.string.menu_autostart_off)
+                    : canOpenFromBackground() ? getString(R.string.menu_autostart_on)
+                    : getString(R.string.menu_autostart_permission));
+            actions.add(this::toggleAutostart);
+        }
+        items.add(getString(homeMode() ? R.string.menu_home_off : R.string.menu_home_on));
+        actions.add(() -> setHomeMode(!homeMode()));
+        items.add(getString(R.string.menu_update));
+        actions.add(() -> checkForUpdate(true));
+        // As the home screen, "exit" would only reopen it: open the TV's own home instead.
+        items.add(getString(homeMode() ? R.string.menu_tv_home : R.string.menu_exit));
+        actions.add(() -> { if (homeMode()) openTvHome(); else finish(); });
         new AlertDialog.Builder(this)
                 .setTitle(R.string.menu_title)
-                .setItems(items, (d, which) -> {
-                    if (which == 0) { failures = 0; load(); }
-                    else if (which == 1) chooseServer();
-                    else if (which == 2) allowAutostart();
-                    else if (which == 3) checkForUpdate(true);
-                    else finish();
-                })
+                .setItems(items.toArray(new String[0]), (d, which) -> actions.get(which).run())
                 .show();
     }
 
-    /** Android 10+ starts an app after boot only with "display over other apps". */
-    private void allowAutostart() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)) {
-            Toast.makeText(this, R.string.autostart_ok, Toast.LENGTH_LONG).show();
+    /**
+     * Menu item: grants the missing permission when auto-start is on but
+     * not allowed yet, otherwise turns auto-start on or off.
+     */
+    private void toggleAutostart() {
+        boolean on = autostartEnabled(this);
+        if (on && !canOpenFromBackground()) {
+            openOverlaySettings();
             return;
         }
-        try {
-            startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName())));
-        } catch (ActivityNotFoundException e) {
-            Toast.makeText(this, R.string.autostart_unavailable, Toast.LENGTH_LONG).show();
+        prefs().edit().putBoolean(KEY_AUTOSTART, !on).apply();
+        if (on) {
+            AutoStartService.stop(this);
+            Toast.makeText(this, R.string.autostart_off, Toast.LENGTH_LONG).show();
+        } else {
+            AutoStartService.start(this);
+            if (canOpenFromBackground()) {
+                Toast.makeText(this, R.string.autostart_ok, Toast.LENGTH_LONG).show();
+            } else {
+                openOverlaySettings();
+            }
         }
     }
 
@@ -376,6 +497,9 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        // Opened (maybe by the full-screen notification): drop that notification.
+        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm != null) nm.cancel(AutoStartService.OPEN_NOTIFICATION_ID);
         if (webView != null) webView.onResume();
         if (mainFrameFailed) { failures = 0; load(); }
     }
