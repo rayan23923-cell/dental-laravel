@@ -13,15 +13,8 @@ android {
 
     defaultConfig {
         applicationId 'com.dentalclinic.tv'
-        minSdk 22
-        // Auto-start like adhan TV apps (2026-11-02, by request): on TVs that
-        // lock "display over other apps" and accessibility settings, only an
-        // app built for Android 5.1 (API 22) gets that permission at install,
-        // which lets it open itself after boot and on every wake. Android
-        // 14+ refuses to install such apps; those TVs keep the other ways.
-        // Switching an installed copy from 34 to 22 needs one uninstall.
-        //noinspection ExpiredTargetSdkVersion
-        targetSdk 22
+        minSdk 23
+        targetSdk 34
         versionCode vCode
         versionName vName
     }
@@ -43,12 +36,6 @@ android {
             minifyEnabled false
             signingConfig System.getenv('TV_KEYSTORE') ? signingConfigs.release : signingConfigs.debug
         }
-    }
-
-    lint {
-        // ExpiredTargetSdkVersion is deliberate (see targetSdk above).
-        checkReleaseBuilds false
-        abortOnError false
     }
 
     compileOptions {
