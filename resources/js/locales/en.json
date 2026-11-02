@@ -1107,7 +1107,8 @@
         "labReadyHeading": "Result ready to collect",
         "labReadyBadge": "Result ready",
         "labHeading": "Lab",
-        "labEmpty": "No lab patients right now."
+        "labEmpty": "No lab patients right now.",
+        "enableSound": "Press to turn sound on"
     },
     "waitingScreenPairing": {
         "title": "Pair Waiting Screen",

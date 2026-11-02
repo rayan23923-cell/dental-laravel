@@ -138,7 +138,9 @@ class WaitingScreenController extends Controller
             ->sortBy([['order', 'asc'], ['id', 'asc']])
             ->values();
 
-        $labRow = fn ($row) => ['patient_name' => $row['patient_name'], 'status' => $row['status'], 'since' => $row['since']];
+        // `id` lets the screen tell a new card or a card that just turned green
+        // apart (glow + chime, 2026-11-02, by request).
+        $labRow = fn ($row) => ['id' => $row['id'], 'patient_name' => $row['patient_name'], 'status' => $row['status'], 'since' => $row['since']];
         $labWaiting = $lab->where('status', 'waiting')->map($labRow)->values();
         $labReady = $lab->where('status', 'ready')->map($labRow)->values();
 
