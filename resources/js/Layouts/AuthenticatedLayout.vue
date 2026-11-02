@@ -17,6 +17,7 @@ import { computed, ref } from 'vue';
 import BrandMark from '@/Components/BrandMark.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
+import InstallShareButtons from '@/Components/InstallShareButtons.vue';
 import PhoneScannerLink from '@/Components/PhoneScannerLink.vue';
 import NotificationBell from '@/Components/NotificationBell.vue';
 import Icon from '@/Components/Icon.vue';
@@ -288,6 +289,7 @@ const tileClass = (active) => [
                             </template>
                             <template #content>
                                 <DropdownLink :href="route('profile.edit')">{{ t('nav.profile') }}</DropdownLink>
+                                <InstallShareButtons />
                                 <DropdownLink :href="route('logout')" method="post" as="button">{{ t('nav.logout') }}</DropdownLink>
                             </template>
                         </Dropdown>
@@ -360,6 +362,7 @@ const tileClass = (active) => [
                             <Link :href="route('profile.edit')" :class="tileClass(route().current('profile.*'))">
                                 <Icon name="account_circle" size="text-[18px]" />{{ t('nav.profile') }}
                             </Link>
+                            <InstallShareButtons variant="wide" />
                             <Link :href="route('logout')" method="post" as="button" :class="[...tileClass(false), 'w-full']">
                                 <Icon name="logout" size="text-[18px]" />{{ t('nav.logout') }}
                             </Link>

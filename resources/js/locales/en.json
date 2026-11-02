@@ -1647,5 +1647,22 @@
         "disable": "Stop",
         "enable": "Start",
         "empty": "No codes yet."
+    },
+    "installApp": {
+        "install": "Install app",
+        "share": "Share link",
+        "copied": "Link copied",
+        "title": "Install the system as an app",
+        "intro": "Adds the system to the home screen with the clinic logo; it opens like an app.",
+        "iosTitle": "iPhone and iPad (Safari)",
+        "ios1": "Open the site in Safari.",
+        "ios2": "Tap the Share button (square with an up arrow).",
+        "ios3": "Choose “Add to Home Screen”, then “Add”.",
+        "androidTitle": "Android (Chrome)",
+        "android1": "Tap the browser menu ⋮ at the top.",
+        "android2": "Choose “Install app” or “Add to Home screen”.",
+        "desktopTitle": "Computer (Chrome or Edge)",
+        "desktop1": "Click the install icon in the address bar, or browser menu ⋮ → “Install”.",
+        "httpNote": "On the clinic network without https it is added as a shortcut only. For a full install, install the clinic certificate and open the system over https, or download the clinic app from the apps page."
     }
 }
