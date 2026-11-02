@@ -531,36 +531,47 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
               label: Text(t['screening.reusePrevious']!),
             ),
           ],
-          // Start the test: print the samples sheet (2026-11-01, by request),
-          // and beside it "استلام النتيجة" (2026-11-02, by request).
+          // While the test runs only the samples sheet shows (2026-11-01);
+          // once the result is saved "استلام النتيجة" takes its place
+          // (2026-11-02: a greyed-out receive button before the result
+          // confused staff).
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: r.screeningStatus != 'pending' || _submitting || _reusing ? null : _printSampleLabel,
-                  icon: const Icon(Icons.science_outlined),
-                  label: Text(t['screening.startTest']!, textAlign: TextAlign.center),
-                  style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-                ),
+          if (r.screeningStatus == 'pending')
+            OutlinedButton.icon(
+              onPressed: _submitting || _reusing ? null : _printSampleLabel,
+              icon: const Icon(Icons.science_outlined),
+              label: Text(t['screening.startTest']!, textAlign: TextAlign.center),
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+            )
+          else if (!r.isLabResultReceived)
+            FilledButton.icon(
+              onPressed: _submitting || _reusing ? null : _markReceived,
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.green.shade700,
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(64),
+                textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: !r.isScreened || r.isLabResultReceived || _submitting || _reusing ? null : _markReceived,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.green.shade700,
-                    minimumSize: const Size.fromHeight(56),
+              icon: const Icon(Icons.how_to_reg),
+              label: Text(t['screening.resultReceived']!, textAlign: TextAlign.center),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(12)),
+              child: Row(
+                children: [
+                  Icon(Icons.how_to_reg, color: Colors.green.shade800),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      t['screening.resultReceivedDone']!,
+                      style: TextStyle(color: Colors.green.shade900, fontWeight: FontWeight.w600),
+                    ),
                   ),
-                  icon: Icon(r.isLabResultReceived ? Icons.how_to_reg : Icons.how_to_reg_outlined),
-                  label: Text(
-                    r.isLabResultReceived ? t['screening.resultReceivedDone']! : t['screening.resultReceived']!,
-                    textAlign: TextAlign.center,
-                  ),
-                ),
+                ],
               ),
-            ],
-          ),
+            ),
           // A recorded result is final (2026-11-01, by request): only a
           // patient still waiting for the test gets the result buttons.
           if (r.screeningStatus != 'pending') ...[

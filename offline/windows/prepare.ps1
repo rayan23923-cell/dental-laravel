@@ -165,6 +165,18 @@ $ca = "$fwd/caddy-data/caddy/pki/authorities/local"
 	handle /apps/* {
 		root * "$fwd"
 		header Cache-Control no-cache
+		# An .apk starts like a zip, so without its own type Windows'
+		# Caddy sent application/zip and TV/phone browsers saved it as
+		# .zip that would not install (2026-11-02). Same for the others.
+		@apk path *.apk
+		header @apk Content-Type application/vnd.android.package-archive
+		header @apk Content-Disposition attachment
+		@ipa path *.ipa
+		header @ipa Content-Type application/octet-stream
+		header @ipa Content-Disposition attachment
+		@exe path *.exe
+		header @exe Content-Type application/vnd.microsoft.portable-executable
+		header @exe Content-Disposition attachment
 		file_server
 	}
 }
