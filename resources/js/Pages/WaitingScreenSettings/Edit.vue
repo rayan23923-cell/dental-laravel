@@ -11,13 +11,13 @@ import { useI18n } from 'vue-i18n';
 const { t } = useI18n();
 const props = defineProps({
     settings: Object,
-    groups: Array,
 });
 
 const page = usePage();
 
 const form = useForm({
-    group_id: props.settings.group_id ?? '',
+    // Lab-only screen (2026-11-02, by request): no stage or group filter.
+    group_id: null,
     patients_per_page: props.settings.patients_per_page ?? 8,
     rotation_seconds: props.settings.rotation_seconds ?? 12,
 });
@@ -62,26 +62,8 @@ const submit = () => {
                         <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-cyan-500 text-white"><Icon name="tv" size="text-[22px]" /></span>
                         <p class="pt-2 text-sm text-gray-500">{{ t('waitingScreenSettings.description') }}</p>
                     </div>
-                    <p class="mb-6 rounded-xl bg-indigo-50 p-3 text-sm text-indigo-700">
-                        {{ t('waitingScreenSettings.stageMovedNote') }}
-                    </p>
 
                     <form @submit.prevent="submit" class="space-y-6">
-                        <div v-if="$page.props.groupsEnabled !== false">
-                            <InputLabel for="group_id" :value="t('waitingScreenSettings.groupLabel')" />
-                            <select
-                                id="group_id"
-                                v-model="form.group_id"
-                                class="mt-1 block w-full rounded-xl border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                            >
-                                <option value="">{{ t('waitingScreenSettings.allGroups') }}</option>
-                                <option v-for="g in groups" :key="g.id" :value="g.id">
-                                    {{ g.name }}<template v-if="g.stage"> — {{ g.stage.name }}</template>
-                                </option>
-                            </select>
-                            <InputError class="mt-2" :message="form.errors.group_id" />
-                        </div>
-
                         <div>
                             <InputLabel for="patients_per_page" :value="t('waitingScreenSettings.patientsPerPageLabel')" />
                             <TextInput

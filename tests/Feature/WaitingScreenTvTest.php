@@ -3,6 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\ClinicSetting;
+use App\Models\EducationType;
+use App\Models\Stage;
+use App\Models\User;
 use App\Models\WaitingScreenPairing;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -29,6 +32,27 @@ class WaitingScreenTvTest extends TestCase
 
         // Unpaired screens get it too (their QR page shows the clock).
         $this->getJson('/api/v1/waiting-screen')->assertOk()->assertJsonStructure(['server_time', 'timezone']);
+    }
+
+    public function test_pairing_ignores_stages_since_the_screen_is_lab_only(): void
+    {
+        EducationType::create(['id' => 1, 'name' => 'صباحي']);
+        $stage = Stage::create(['name' => 'الرابعة', 'education_type_id' => 1]);
+        $pairing = WaitingScreenPairing::createNew();
+
+        $this->actingAs(User::factory()->create(['role' => 'super_admin']))
+            ->post('/waiting-screen/pair', ['code' => $pairing->code, 'stage_id' => $stage->id])
+            ->assertSessionHasNoErrors();
+
+        $pairing->refresh();
+        $this->assertNotNull($pairing->confirmed_at);
+        $this->assertNull($pairing->stage_id);
+
+        $this->getJson('/api/v1/waiting-screen?token='.$pairing->token)
+            ->assertOk()
+            ->assertJsonPath('paired', true)
+            ->assertJsonPath('stage_name', null)
+            ->assertJsonPath('group_name', null);
     }
 
     public function test_the_tv_app_version_is_served_for_its_updater(): void

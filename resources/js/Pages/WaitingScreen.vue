@@ -18,8 +18,6 @@ const pairingCode = ref(null);
 
 const clinicName = ref('');
 const logoUrl = ref(null);
-const stageName = ref(null);
-const groupName = ref(null);
 const appointments = ref([]);
 // Lab patients (2026-11-02): samples sheet printed ('waiting') or result
 // recorded and not yet collected ('ready').
@@ -176,8 +174,6 @@ const load = async () => {
 
     clinicName.value = data.clinic_name;
     logoUrl.value = sameOriginPath(data.logo_url);
-    stageName.value = data.stage_name;
-    groupName.value = data.group_name;
     appointments.value = data.appointments;
     labPatients.value = data.lab ?? [];
     patientsPerPage.value = data.patients_per_page;
@@ -291,9 +287,6 @@ onBeforeUnmount(() => {
                         />
                         <div>
                             <div class="text-2xl font-bold leading-tight sm:text-3xl">{{ clinicName }}</div>
-                            <div v-if="stageName || groupName" class="mt-1 text-sm text-white/90 sm:text-base">
-                                {{ [stageName, groupName].filter(Boolean).join(' · ') }}
-                            </div>
                         </div>
                     </div>
 
