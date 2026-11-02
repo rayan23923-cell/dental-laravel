@@ -143,8 +143,15 @@ public class MainActivity extends Activity {
 
     /** Auto-start with the TV is on unless turned off from the menu. */
     static boolean autostartEnabled(Context context) {
-        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_AUTOSTART, true);
+        try {
+            return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_AUTOSTART, true);
+        } catch (RuntimeException e) {
+            return true; // early in boot the app's storage is still locked
+        }
     }
+
+    /** True while the waiting screen is in front; the boot watch stops pulling once it holds. */
+    static volatile boolean visible;
 
     static boolean canOpenFromBackground(Context context) {
         return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || Settings.canDrawOverlays(context)
@@ -513,6 +520,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        visible = true;
         // Opened (maybe by the full-screen notification): drop that notification.
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm != null) nm.cancel(AutoStartService.OPEN_NOTIFICATION_ID);
@@ -522,6 +530,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onPause() {
+        visible = false;
         if (webView != null) webView.onPause();
         super.onPause();
     }
