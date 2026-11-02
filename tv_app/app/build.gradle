@@ -14,7 +14,11 @@ android {
     defaultConfig {
         applicationId 'com.dentalclinic.tv'
         minSdk 23
-        targetSdk 34
+        // 28 like the adhan app (rayan23923-cell/azan_tv), which opens itself
+        // after power-on on the clinic's Android 12 HiSilicon TV while this
+        // app on 34 did not, with the same boot code and no special
+        // permission. Keep it at 28 (2026-11-02, by request).
+        targetSdk 28
         versionCode vCode
         versionName vName
     }
@@ -36,6 +40,12 @@ android {
             minifyEnabled false
             signingConfig System.getenv('TV_KEYSTORE') ? signingConfigs.release : signingConfigs.debug
         }
+    }
+
+    // targetSdk 28 is "expired" for Google Play only; the TV app is not on Play.
+    lint {
+        checkReleaseBuilds false
+        disable 'ExpiredTargetSdkVersion', 'OldTargetApi'
     }
 
     compileOptions {
