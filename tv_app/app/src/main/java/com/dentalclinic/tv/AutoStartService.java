@@ -31,14 +31,74 @@ public class AutoStartService extends Service {
     private static final int NOTIFICATION_ID = 7;
     static final int OPEN_NOTIFICATION_ID = 8;
 
+    static final String EXTRA_BOOT = "boot";
+
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private final Runnable open = () -> openScreen(this);
     private BroadcastReceiver wakeReceiver;
+    private long watchUntil;
+    private long watchSettleAt;
+    private boolean notified;
+
+    /**
+     * The adhan TV app's way (2026-11-02, by request): the TV's own home
+     * screen comes up late in boot (and after a wake) and covers an app that
+     * opened once, so for a while keep bringing the waiting screen back
+     * every second until it holds the screen; stop early once it has held
+     * it past the settle time, so someone opening another app is left alone.
+     */
+    private final Runnable watcher = new Runnable() {
+        @Override
+        public void run() {
+            long now = System.currentTimeMillis();
+            if (now > watchUntil) return;
+            if (MainActivity.visible) {
+                if (now >= watchSettleAt) return;
+            } else {
+                bringToFront(AutoStartService.this);
+                if (!notified && !MainActivity.canOpenFromBackground(AutoStartService.this)) {
+                    notified = true;
+                    openByNotification(AutoStartService.this, launchIntent(AutoStartService.this));
+                }
+            }
+            handler.postDelayed(this, 1000);
+        }
+    };
+
+    private void watch(long duration, long settle) {
+        long now = System.currentTimeMillis();
+        watchUntil = Math.max(watchUntil, now + duration);
+        watchSettleAt = now + settle;
+        notified = false;
+        handler.removeCallbacks(watcher);
+        handler.postDelayed(watcher, 300);
+    }
+
+    /** How long the TV's own home screen keeps coming up after power-on: slower TVs take longer. */
+    static long settleMs(Context context) {
+        try {
+            android.app.ActivityManager.MemoryInfo mi = new android.app.ActivityManager.MemoryInfo();
+            ((android.app.ActivityManager) context.getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(mi);
+            long mb = mi.totalMem / (1024 * 1024);
+            int cores = Runtime.getRuntime().availableProcessors();
+            if (mb > 2600 && cores >= 4) return 10_000;
+            if (mb > 1600) return 20_000;
+        } catch (RuntimeException ignored) {
+        }
+        return 45_000;
+    }
 
     /** Starts the service if auto-start is on; safe to call any time. */
     public static void start(Context context) {
+        start(context, new Intent(context, AutoStartService.class));
+    }
+
+    /** After boot: the service keeps bringing the screen back while the TV finishes starting. */
+    public static void startAfterBoot(Context context) {
+        start(context, new Intent(context, AutoStartService.class).putExtra(EXTRA_BOOT, true));
+    }
+
+    private static void start(Context context, Intent intent) {
         if (!MainActivity.autostartEnabled(context)) return;
-        Intent intent = new Intent(context, AutoStartService.class);
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent);
@@ -54,17 +114,18 @@ public class AutoStartService extends Service {
         context.stopService(new Intent(context, AutoStartService.class));
     }
 
-    /** Brings the waiting screen to the front (no-op if it already is). */
-    public static void openScreen(Context context) {
+    private static Intent launchIntent(Context context) {
         Intent launch = new Intent(context, MainActivity.class);
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+        return launch;
+    }
+
+    /** Brings the waiting screen to the front (no-op if it already is). */
+    public static void bringToFront(Context context) {
         try {
-            context.startActivity(launch);
+            context.startActivity(launchIntent(context));
         } catch (RuntimeException ignored) {
-            // Blocked; the full-screen notification below still tries.
-        }
-        if (!MainActivity.canOpenFromBackground(context)) {
-            openByNotification(context, launch);
+            // Not allowed right now; the watch tries again in a second.
         }
     }
 
@@ -112,10 +173,9 @@ public class AutoStartService extends Service {
         wakeReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                // Give the TV a moment to finish waking (and its own home
-                // screen to appear) before coming to the front.
-                handler.removeCallbacks(open);
-                handler.postDelayed(open, 2500);
+                // Woken from standby: the TV's home screen shows up for a
+                // while; keep coming back for 20 s.
+                if (MainActivity.autostartEnabled(context)) watch(20_000, 0);
             }
         };
         IntentFilter filter = new IntentFilter();
@@ -157,6 +217,10 @@ public class AutoStartService extends Service {
         if (!MainActivity.autostartEnabled(this)) {
             stopSelf();
             return START_NOT_STICKY;
+        }
+        if (intent != null && intent.getBooleanExtra(EXTRA_BOOT, false)) {
+            long settle = settleMs(this);
+            watch(Math.max(settle, 10_000) * 2, settle);
         }
         return START_STICKY;
     }
