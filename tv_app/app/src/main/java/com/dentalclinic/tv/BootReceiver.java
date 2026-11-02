@@ -21,6 +21,7 @@ public class BootReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();
+        Diag.log(context, "broadcast " + action);
         try {
             if (Intent.ACTION_LOCKED_BOOT_COMPLETED.equals(action)) {
                 // Storage is still locked: touch no preferences here.
