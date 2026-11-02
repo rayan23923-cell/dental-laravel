@@ -82,6 +82,20 @@ class WaitingScreenLabWaitingTest extends TestCase
         $this->assertSame(['مريض التطبيق'], $this->labWaiting());
     }
 
+    public function test_lab_cards_carry_the_registration_id_for_the_glow(): void
+    {
+        $patient = $this->registration('مريض جديد');
+        $patient->markLabSamplePrinted();
+
+        $pairing = WaitingScreenPairing::createNew();
+        $pairing->update(['confirmed_at' => now()]);
+
+        $this->getJson('/api/v1/waiting-screen?token='.$pairing->token)
+            ->assertOk()
+            ->assertJsonPath('lab.0.id', $patient->id)
+            ->assertJsonPath('lab.0.status', 'waiting');
+    }
+
     public function test_yesterdays_printed_sheet_is_not_shown(): void
     {
         $old = $this->registration('مريض الأمس');

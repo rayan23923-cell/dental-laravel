@@ -97,6 +97,96 @@ const labCounts = computed(() => ({
 
 const currentPageItems = computed(() => pages.value[currentPage.value] ?? []);
 
+// Glow + chime (2026-11-02, by request): a patient who just appeared (samples
+// sheet printed) glows amber with one tone; a card that just turned green
+// ("استلام النتيجة") glows green with a different, brighter tone. The glow
+// lasts HIGHLIGHT_MS; the first load after opening the page only records
+// what is there, so a reload never rings for everyone.
+const HIGHLIGHT_MS = 20_000;
+const highlights = ref({}); // id -> 'new' | 'ready'
+const highlightTimers = new Map();
+let knownStatuses = null; // id -> status from the previous reply
+const highlightOf = (item) => (item.id != null ? highlights.value[item.id] : null);
+
+const setHighlight = (id, kind) => {
+    highlights.value = { ...highlights.value, [id]: kind };
+    clearTimeout(highlightTimers.get(id));
+    highlightTimers.set(id, setTimeout(() => {
+        const next = { ...highlights.value };
+        delete next[id];
+        highlights.value = next;
+        highlightTimers.delete(id);
+    }, HIGHLIGHT_MS));
+};
+
+// Tones are made in the browser (Web Audio), so there are no sound files to
+// serve offline. Browsers keep audio muted until the first key press or tap
+// on the page; the TV app allows it from the start.
+let audioCtx = null;
+const soundBlocked = ref(false);
+const ensureAudio = () => {
+    try {
+        audioCtx ??= new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+    } catch {
+        audioCtx = null;
+    }
+    soundBlocked.value = !audioCtx || audioCtx.state !== 'running';
+    return audioCtx;
+};
+const playNotes = (notes, type) => {
+    const ctx = ensureAudio();
+    if (!ctx || ctx.state !== 'running') return;
+    const start = ctx.currentTime + 0.05;
+    notes.forEach(([freq, at, length]) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, start + at);
+        gain.gain.exponentialRampToValueAtTime(0.35, start + at + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + at + length);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(start + at);
+        osc.stop(start + at + length + 0.05);
+    });
+};
+// New patient: a soft two-note "ding-dong".
+const chimeNew = () => playNotes([[659.25, 0, 0.6], [523.25, 0.35, 0.9]], 'sine');
+// Result ready: a bright rising three-note chime, clearly different.
+const chimeReady = () => playNotes([[523.25, 0, 0.35], [659.25, 0.15, 0.35], [783.99, 0.3, 0.35], [1046.5, 0.45, 0.9]], 'triangle');
+
+const noticeChanges = (list) => {
+    const statuses = new Map(list.filter((p) => p.id != null).map((p) => [p.id, p.status]));
+    if (knownStatuses === null) {
+        knownStatuses = statuses;
+        return;
+    }
+    let newest = null;
+    let anyNew = false;
+    let anyReady = false;
+    statuses.forEach((status, id) => {
+        const before = knownStatuses.get(id);
+        if (status === 'ready' && before !== 'ready') {
+            setHighlight(id, 'ready');
+            anyReady = true;
+            newest = id;
+        } else if (before === undefined) {
+            setHighlight(id, 'new');
+            anyNew = true;
+            newest = id;
+        }
+    });
+    knownStatuses = statuses;
+    if (anyReady) chimeReady();
+    else if (anyNew) chimeNew();
+    // Show the page that holds the latest change.
+    if (newest !== null) {
+        const index = list.findIndex((p) => p.id === newest);
+        if (index >= 0) currentPage.value = Math.floor(index / LAB_PER_PAGE);
+    }
+};
+
 const timeString = computed(() =>
     now.value.toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit', ...tzOption() }),
 );
@@ -176,6 +266,7 @@ const load = async () => {
     logoUrl.value = sameOriginPath(data.logo_url);
     appointments.value = data.appointments;
     labPatients.value = data.lab ?? [];
+    noticeChanges(labPatients.value);
     patientsPerPage.value = data.patients_per_page;
     rotationSeconds.value = data.rotation_seconds;
 
@@ -217,6 +308,7 @@ const onVisible = () => {
 // Full screen with the first press of the remote (browsers only allow it
 // after a key press or tap).
 const goFullscreen = () => {
+    ensureAudio();
     const el = document.documentElement;
     if (!document.fullscreenElement && el.requestFullscreen) {
         el.requestFullscreen().catch(() => {});
@@ -230,6 +322,7 @@ onMounted(() => {
         now.value = serverNow();
     }, 1000);
     keepAwake();
+    ensureAudio();
     window.addEventListener('online', load);
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('keydown', goFullscreen);
@@ -245,6 +338,8 @@ onBeforeUnmount(() => {
     if (dataTimer) clearInterval(dataTimer);
     if (clockTimer) clearInterval(clockTimer);
     if (rotateTimer) clearInterval(rotateTimer);
+    highlightTimers.forEach((timer) => clearTimeout(timer));
+    audioCtx?.close?.().catch(() => {});
 });
 </script>
 
@@ -315,11 +410,15 @@ onBeforeUnmount(() => {
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         <div
                             v-for="(item, i) in currentPageItems"
-                            :key="'lab-' + currentPage + '-' + i + '-' + item.patient_name"
+                            :key="'lab-' + (item.id ?? currentPage + '-' + i + '-' + item.patient_name)"
                             class="flex items-center justify-between gap-3 rounded-xl border-2 px-5 py-4 shadow-sm transition-colors duration-700"
-                            :class="item.status === 'ready'
-                                ? 'border-emerald-400 bg-emerald-500 text-white'
-                                : 'border-amber-300 bg-amber-50 text-ig-near-black dark:border-amber-500/60 dark:bg-amber-500/10 dark:text-ig-off-white'"
+                            :class="[
+                                item.status === 'ready'
+                                    ? 'border-emerald-400 bg-emerald-500 text-white'
+                                    : 'border-amber-300 bg-amber-50 text-ig-near-black dark:border-amber-500/60 dark:bg-amber-500/10 dark:text-ig-off-white',
+                                highlightOf(item) === 'ready' ? 'lab-glow-ready' : '',
+                                highlightOf(item) === 'new' ? 'lab-glow-new' : '',
+                            ]"
                         >
                             <span class="min-w-0 truncate text-xl font-semibold sm:text-2xl">{{ item.patient_name }}</span>
                             <span
@@ -363,6 +462,16 @@ onBeforeUnmount(() => {
             {{ connectionLost ? t('waitingScreen.reconnecting') : t('waitingScreen.loading') }}
         </div>
 
+        <!-- Sound is muted by the browser until the first key press or tap. -->
+        <button
+            v-if="paired === true && soundBlocked"
+            type="button"
+            @click="ensureAudio"
+            class="fixed bottom-4 right-4 flex items-center gap-2 rounded-full bg-ig-near-black/80 px-4 py-2 text-base font-semibold text-white shadow-lg"
+        >
+            🔇 {{ t('waitingScreen.enableSound') }}
+        </button>
+
         <!-- Network down: the last list stays up while it retries by itself. -->
         <div
             v-if="connectionLost"
@@ -375,6 +484,26 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/* New patient: amber glow; result ready: green glow (2026-11-02). */
+.lab-glow-new {
+    animation: lab-pop 0.6s ease-out, lab-glow-new 1.4s ease-in-out infinite;
+}
+.lab-glow-ready {
+    animation: lab-pop 0.6s ease-out, lab-glow-ready 1.1s ease-in-out infinite;
+}
+@keyframes lab-pop {
+    0% { transform: scale(0.9); }
+    60% { transform: scale(1.06); }
+    100% { transform: scale(1); }
+}
+@keyframes lab-glow-new {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.85), 0 0 12px 2px rgba(245, 158, 11, 0.5); }
+    50% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0.25), 0 0 32px 10px rgba(245, 158, 11, 0.6); }
+}
+@keyframes lab-glow-ready {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.9), 0 0 14px 3px rgba(16, 185, 129, 0.55); }
+    50% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0.25), 0 0 40px 14px rgba(16, 185, 129, 0.7); }
+}
 .waiting-screen-page-enter-active,
 .waiting-screen-page-leave-active {
     transition: opacity 0.4s ease;

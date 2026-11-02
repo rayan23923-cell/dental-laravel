@@ -1107,7 +1107,8 @@
         "labReadyHeading": "النتيجة جاهزة للاستلام",
         "labReadyBadge": "النتيجة جاهزة",
         "labHeading": "المختبر",
-        "labEmpty": "لا يوجد مرضى في المختبر الآن."
+        "labEmpty": "لا يوجد مرضى في المختبر الآن.",
+        "enableSound": "اضغط لتفعيل الصوت"
     },
     "waitingScreenPairing": {
         "title": "ربط شاشة انتظار",
