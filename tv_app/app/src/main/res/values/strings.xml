@@ -13,6 +13,11 @@
     <string name="menu_server">تغيير السيرفر</string>
     <string name="menu_autostart">السماح بالتشغيل التلقائي عند تشغيل التلفاز</string>
     <string name="menu_exit">خروج</string>
+    <string name="menu_update">التحقق من التحديث</string>
+    <string name="update_latest">التطبيق على آخر نسخة (%1$s)</string>
+    <string name="update_downloading">جارٍ تنزيل تحديث شاشة الانتظار %1$s …</string>
+    <string name="update_failed">تعذّر التحديث، سيُعاد المحاولة لاحقًا</string>
+    <string name="update_allow">اسمح لشاشة الانتظار بتثبيت التحديثات ثم ارجع</string>
     <string name="connecting">جارٍ الاتصال بـ %1$s …</string>
     <string name="retrying">تعذّر الاتصال بـ %1$s\nإعادة المحاولة تلقائيًا خلال %2$d ثانية</string>
     <string name="autostart_ok">التشغيل التلقائي مفعّل</string>

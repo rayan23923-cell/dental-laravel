@@ -53,6 +53,7 @@ public class MainActivity extends Activity {
     private static final String CLINIC_SERVER = "http://clinic.lan";
     private static final String HOSTING_SERVER = "https://dental.azoclinic.duckdns.org";
     private static final int[] RETRY_SECONDS = {3, 5, 10, 20, 30};
+    private static final long UPDATE_EVERY_MS = 6 * 60 * 60 * 1000L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private FrameLayout root;
@@ -62,6 +63,15 @@ public class MainActivity extends Activity {
     private boolean mainFrameFailed = false;
     private int countdown = 0;
     private ConnectivityManager.NetworkCallback networkCallback;
+    private TextView updateBadge;
+
+    private final Runnable updateCheck = new Runnable() {
+        @Override
+        public void run() {
+            checkForUpdate(false);
+            handler.postDelayed(this, UPDATE_EVERY_MS);
+        }
+    };
 
     private final Runnable retryTick = new Runnable() {
         @Override
@@ -93,8 +103,21 @@ public class MainActivity extends Activity {
         createWebView();
         root.addView(overlay, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        updateBadge = new TextView(this);
+        updateBadge.setTextColor(Color.WHITE);
+        updateBadge.setTextSize(16);
+        updateBadge.setBackgroundColor(Color.parseColor("#CC0E7C86"));
+        updateBadge.setPadding(24, 12, 24, 12);
+        updateBadge.setVisibility(View.GONE);
+        FrameLayout.LayoutParams badgeParams = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM | Gravity.START);
+        badgeParams.setMargins(24, 24, 24, 24);
+        root.addView(updateBadge, badgeParams);
         hideSystemUi();
         watchNetwork();
+        // First check a minute after start, then every 6 hours.
+        handler.postDelayed(updateCheck, 60_000);
 
         if (server().isEmpty()) {
             chooseServer();
@@ -149,6 +172,18 @@ public class MainActivity extends Activity {
         mainFrameFailed = false;
         showOverlay(getString(R.string.connecting, server()));
         webView.loadUrl(server() + "/waiting-screen");
+    }
+
+    private void checkForUpdate(boolean manual) {
+        if (server().isEmpty()) return;
+        Updater.check(this, server(), manual, text -> {
+            if (text == null) {
+                updateBadge.setVisibility(View.GONE);
+            } else {
+                updateBadge.setText(text);
+                updateBadge.setVisibility(View.VISIBLE);
+            }
+        });
     }
 
     private void scheduleRetry() {
@@ -283,6 +318,7 @@ public class MainActivity extends Activity {
                 getString(R.string.menu_reload),
                 getString(R.string.menu_server),
                 getString(R.string.menu_autostart),
+                getString(R.string.menu_update),
                 getString(R.string.menu_exit),
         };
         new AlertDialog.Builder(this)
@@ -291,6 +327,7 @@ public class MainActivity extends Activity {
                     if (which == 0) { failures = 0; load(); }
                     else if (which == 1) chooseServer();
                     else if (which == 2) allowAutostart();
+                    else if (which == 3) checkForUpdate(true);
                     else finish();
                 })
                 .show();

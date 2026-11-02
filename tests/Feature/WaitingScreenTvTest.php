@@ -31,6 +31,11 @@ class WaitingScreenTvTest extends TestCase
         $this->getJson('/api/v1/waiting-screen')->assertOk()->assertJsonStructure(['server_time', 'timezone']);
     }
 
+    public function test_the_tv_app_version_is_served_for_its_updater(): void
+    {
+        $this->getJson('/api/v1/app/version?platform=android_tv')->assertOk();
+    }
+
     public function test_offline_logo_link_follows_the_page_host_over_http(): void
     {
         config(['offline.edition' => true, 'app.url' => 'https://clinic.lan', 'filesystems.disks.public.url' => 'https://clinic.lan/storage']);
