@@ -11,7 +11,16 @@
     <string name="menu_title">إعدادات شاشة الانتظار</string>
     <string name="menu_reload">إعادة التحميل</string>
     <string name="menu_server">تغيير السيرفر</string>
-    <string name="menu_autostart">السماح بالتشغيل التلقائي عند تشغيل التلفاز</string>
+    <string name="menu_autostart_on">التشغيل التلقائي عند فتح التلفاز: مفعّل ✓ (اضغط للإيقاف)</string>
+    <string name="menu_autostart_off">التشغيل التلقائي عند فتح التلفاز: متوقف (اضغط للتفعيل)</string>
+    <string name="menu_autostart_permission">التشغيل التلقائي يحتاج إذنًا واحدًا (اضغط لمنحه)</string>
+    <string name="autostart_title">التشغيل التلقائي مع التلفاز</string>
+    <string name="autostart_explain">حتى تفتح شاشة الانتظار وحدها كلما شُغّل التلفاز (مثل تطبيقات الأذان)، اسمح لها في الصفحة التالية بـ «العرض فوق التطبيقات الأخرى» ثم ارجع.</string>
+    <string name="autostart_go">فتح الإعدادات</string>
+    <string name="autostart_later">لاحقًا</string>
+    <string name="autostart_off">تم إيقاف التشغيل التلقائي</string>
+    <string name="autostart_channel">التشغيل التلقائي</string>
+    <string name="autostart_running">تفتح شاشة الانتظار تلقائيًا عند تشغيل التلفاز</string>
     <string name="menu_exit">خروج</string>
     <string name="menu_update">التحقق من التحديث</string>
     <string name="update_latest">التطبيق على آخر نسخة (%1$s)</string>

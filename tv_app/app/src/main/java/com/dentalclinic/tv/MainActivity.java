@@ -50,6 +50,8 @@ import java.net.InetAddress;
 public class MainActivity extends Activity {
     private static final String PREFS = "tv";
     private static final String KEY_SERVER = "server";
+    private static final String KEY_AUTOSTART = "autostart";
+    private static final String KEY_ASKED_OVERLAY = "asked_overlay";
     private static final String CLINIC_SERVER = "http://clinic.lan";
     private static final String HOSTING_SERVER = "https://dental.azoclinic.duckdns.org";
     private static final int[] RETRY_SECONDS = {3, 5, 10, 20, 30};
@@ -123,6 +125,41 @@ public class MainActivity extends Activity {
             chooseServer();
         } else {
             load();
+            askOverlayOnce();
+        }
+        AutoStartService.start(this);
+    }
+
+    /** Auto-start with the TV is on unless turned off from the menu. */
+    static boolean autostartEnabled(Context context) {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_AUTOSTART, true);
+    }
+
+    private boolean canOpenFromBackground() {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || Settings.canDrawOverlays(this);
+    }
+
+    /**
+     * Asks once, right after the server is chosen, for "display over other
+     * apps", which Android 10+ needs before the app may open itself when
+     * the TV is switched on.
+     */
+    private void askOverlayOnce() {
+        if (canOpenFromBackground() || !autostartEnabled(this) || prefs().getBoolean(KEY_ASKED_OVERLAY, false)) return;
+        prefs().edit().putBoolean(KEY_ASKED_OVERLAY, true).apply();
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.autostart_title)
+                .setMessage(R.string.autostart_explain)
+                .setPositiveButton(R.string.autostart_go, (d, w) -> openOverlaySettings())
+                .setNegativeButton(R.string.autostart_later, null)
+                .show();
+    }
+
+    private void openOverlaySettings() {
+        try {
+            startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName())));
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, R.string.autostart_unavailable, Toast.LENGTH_LONG).show();
         }
     }
 
@@ -164,6 +201,7 @@ public class MainActivity extends Activity {
         prefs().edit().putString(KEY_SERVER, v).apply();
         failures = 0;
         load();
+        askOverlayOnce();
     }
 
     private void load() {
@@ -317,7 +355,9 @@ public class MainActivity extends Activity {
         String[] items = {
                 getString(R.string.menu_reload),
                 getString(R.string.menu_server),
-                getString(R.string.menu_autostart),
+                !autostartEnabled(this) ? getString(R.string.menu_autostart_off)
+                        : canOpenFromBackground() ? getString(R.string.menu_autostart_on)
+                        : getString(R.string.menu_autostart_permission),
                 getString(R.string.menu_update),
                 getString(R.string.menu_exit),
         };
@@ -326,23 +366,34 @@ public class MainActivity extends Activity {
                 .setItems(items, (d, which) -> {
                     if (which == 0) { failures = 0; load(); }
                     else if (which == 1) chooseServer();
-                    else if (which == 2) allowAutostart();
+                    else if (which == 2) toggleAutostart();
                     else if (which == 3) checkForUpdate(true);
                     else finish();
                 })
                 .show();
     }
 
-    /** Android 10+ starts an app after boot only with "display over other apps". */
-    private void allowAutostart() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)) {
-            Toast.makeText(this, R.string.autostart_ok, Toast.LENGTH_LONG).show();
+    /**
+     * Menu item: grants the missing permission when auto-start is on but
+     * not allowed yet, otherwise turns auto-start on or off.
+     */
+    private void toggleAutostart() {
+        boolean on = autostartEnabled(this);
+        if (on && !canOpenFromBackground()) {
+            openOverlaySettings();
             return;
         }
-        try {
-            startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName())));
-        } catch (ActivityNotFoundException e) {
-            Toast.makeText(this, R.string.autostart_unavailable, Toast.LENGTH_LONG).show();
+        prefs().edit().putBoolean(KEY_AUTOSTART, !on).apply();
+        if (on) {
+            AutoStartService.stop(this);
+            Toast.makeText(this, R.string.autostart_off, Toast.LENGTH_LONG).show();
+        } else {
+            AutoStartService.start(this);
+            if (canOpenFromBackground()) {
+                Toast.makeText(this, R.string.autostart_ok, Toast.LENGTH_LONG).show();
+            } else {
+                openOverlaySettings();
+            }
         }
     }
 
