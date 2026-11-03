@@ -18,6 +18,11 @@ on:
       - 'tv_app/**'
       - '.github/workflows/flutter-apps.yml'
   workflow_dispatch:
+    inputs:
+      tv_only:
+        description: Build and publish only the TV waiting-screen app (hosting only, no offline rebuild)
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -35,7 +40,11 @@ defaults:
     working-directory: flutter_app
 
 jobs:
+  # TV-only runs (2026-11-03, by request): dispatch with tv_only, or a
+  # push whose commit message contains [tv-only], builds and publishes
+  # just the TV app on the hosting and skips the offline package rebuild.
   android:
+    if: ${{ !(inputs.tv_only || contains(github.event.head_commit.message, '[tv-only]')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -115,6 +124,7 @@ jobs:
           status: completed
 
   ios:
+    if: ${{ !(inputs.tv_only || contains(github.event.head_commit.message, '[tv-only]')) }}
     # Unsigned .ipa (no Apple Developer account) — install with AltStore /
     # Sideloadly, which sign it with the user's own Apple ID.
     runs-on: macos-latest
@@ -148,6 +158,7 @@ jobs:
           path: DentalClinicApp-ios-unsigned.ipa
 
   windows:
+    if: ${{ !(inputs.tv_only || contains(github.event.head_commit.message, '[tv-only]')) }}
     runs-on: windows-latest
     env:
       # The runner's CMake 4 refuses firebase_cpp_sdk_windows'
@@ -344,7 +355,7 @@ jobs:
       # The offline package carries the apps too (apps/ on the clinic
       # server), so rebuild it with the new versions.
       - name: Rebuild the offline package with the new apps
-        if: env.VPS_HOST != ''
+        if: env.VPS_HOST != '' && !(inputs.tv_only || contains(github.event.head_commit.message, '[tv-only]'))
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run offline-windows.yml --repo "${{ github.repository }}" --ref main
