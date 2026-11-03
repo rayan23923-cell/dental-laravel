@@ -9,6 +9,10 @@ import '../../../core/network/api_exception.dart';
 import '../data/waiting_screen_admin_repository.dart';
 import '../../../core/widgets/tg_spinner.dart';
 
+final pairedScreensProvider = FutureProvider.autoDispose<List<PairedScreen>>((ref) {
+  return ref.watch(waitingScreenAdminRepositoryProvider).screens();
+});
+
 final waitingScreenSettingsProvider = FutureProvider.autoDispose<WaitingScreenSettingsPage>((ref) {
   return ref.watch(waitingScreenAdminRepositoryProvider).fetch();
 });
@@ -125,6 +129,8 @@ class _WaitingScreenSettingsScreenState extends ConsumerState<WaitingScreenSetti
                   icon: const Icon(Icons.connected_tv_outlined),
                   label: Text(t['waitingScreenPairing.title']!),
                 ),
+                const SizedBox(height: 24),
+                const _PairedScreens(),
                 const SizedBox(height: 20),
                 Text(t['waitingScreenSettings.screenAddress']!, style: Theme.of(context).textTheme.bodySmall),
                 SelectableText(screenUrl, textDirection: TextDirection.ltr),
@@ -133,6 +139,190 @@ class _WaitingScreenSettingsScreenState extends ConsumerState<WaitingScreenSetti
           );
         },
       ),
+    );
+  }
+}
+
+/// Paired TVs and their remote control (2026-11-03, by request) — the
+/// web's "الشاشات المربوطة" section.
+class _PairedScreens extends ConsumerStatefulWidget {
+  const _PairedScreens();
+
+  @override
+  ConsumerState<_PairedScreens> createState() => _PairedScreensState();
+}
+
+class _PairedScreensState extends ConsumerState<_PairedScreens> {
+  Future<void> _run(Future<void> Function() action, {bool sent = true}) async {
+    final t = ref.read(translationsProvider);
+    try {
+      await action();
+      ref.invalidate(pairedScreensProvider);
+      if (mounted && sent) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['waitingScreenSettings.sent']!)));
+      }
+    } catch (e) {
+      if (mounted) {
+        final message = e is ApiException ? e.userMessage : t['waitingScreenSettings.saveFailed']!;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    }
+  }
+
+  Future<void> _rename(PairedScreen screen, String current) async {
+    final t = ref.read(translationsProvider);
+    final controller = TextEditingController(text: current);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t['waitingScreenSettings.renamePrompt']!),
+        content: TextField(controller: controller, autofocus: true),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(t['nav.cancel']!)),
+          FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: Text(t['waitingScreenSettings.save']!)),
+        ],
+      ),
+    );
+    if (name == null) return;
+    await _run(() => ref.read(waitingScreenAdminRepositoryProvider).rename(screen.id, name), sent: false);
+  }
+
+  Future<void> _unpair(PairedScreen screen) async {
+    final t = ref.read(translationsProvider);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: Text(t['waitingScreenSettings.unpairConfirm']!),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(t['nav.cancel']!)),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(t['waitingScreenSettings.unpair']!)),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await _run(() => ref.read(waitingScreenAdminRepositoryProvider).unpair(screen.id), sent: false);
+  }
+
+  String _minutes(int m) {
+    final t = ref.read(translationsProvider);
+    return m == 0 ? t['waitingScreenSettings.never']! : trf(t['waitingScreenSettings.minutes']!, {'n': '$m'});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ref.watch(translationsProvider);
+    final repo = ref.read(waitingScreenAdminRepositoryProvider);
+    final screensAsync = ref.watch(pairedScreensProvider);
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(child: Text(t['waitingScreenSettings.screensHeading']!, style: theme.textTheme.titleMedium)),
+            IconButton(onPressed: () => ref.invalidate(pairedScreensProvider), icon: const Icon(Icons.refresh)),
+          ],
+        ),
+        Text(t['waitingScreenSettings.screensHint']!, style: theme.textTheme.bodySmall),
+        const SizedBox(height: 8),
+        screensAsync.when(
+          loading: () => const Padding(padding: EdgeInsets.all(16), child: Center(child: TgSpinner())),
+          error: (e, _) => Text(e is ApiException ? e.userMessage : t['waitingScreenSettings.loadFailed']!),
+          data: (screens) {
+            if (screens.isEmpty) return Text(t['waitingScreenSettings.noScreens']!);
+            return Column(
+              children: [
+                for (var i = 0; i < screens.length; i++)
+                  Builder(builder: (context) {
+                    final screen = screens[i];
+                    final name = screen.name ?? trf(t['waitingScreenSettings.screenUnnamed']!, {'n': '${i + 1}'});
+                    final seen = screen.lastSeenAt == null
+                        ? t['waitingScreenSettings.neverSeen']!
+                        : trf(t['waitingScreenSettings.lastSeen']!, {'time': MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(screen.lastSeenAt!))});
+                    final kind = screen.tvApp
+                        ? trf(t['waitingScreenSettings.tvApp']!, {'version': screen.version ?? ''})
+                        : t['waitingScreenSettings.browser']!;
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.circle, size: 10, color: screen.online ? Colors.green : Colors.grey),
+                                const SizedBox(width: 8),
+                                Expanded(child: Text(name, style: theme.textTheme.titleSmall)),
+                                IconButton(onPressed: () => _rename(screen, name), icon: const Icon(Icons.edit_outlined)),
+                                IconButton(onPressed: () => _unpair(screen), icon: const Icon(Icons.link_off, color: Colors.red)),
+                              ],
+                            ),
+                            Text('${screen.online ? t['waitingScreenSettings.online'] : t['waitingScreenSettings.offline']} · $seen · $kind',
+                                style: theme.textTheme.bodySmall),
+                            if (screen.tvApp && screen.overlay == false)
+                              Text(t['waitingScreenSettings.overlayOff']!, style: theme.textTheme.bodySmall?.copyWith(color: Colors.orange)),
+                            if (screen.pending.isNotEmpty)
+                              Text(t['waitingScreenSettings.pendingShort']!, style: theme.textTheme.bodySmall?.copyWith(color: Colors.blue)),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                OutlinedButton.icon(
+                                  onPressed: () => _run(() => repo.command(screen.id, 'reload')),
+                                  icon: const Icon(Icons.refresh),
+                                  label: Text(t['waitingScreenSettings.reload']!),
+                                ),
+                                if (screen.tvApp)
+                                  OutlinedButton.icon(
+                                    onPressed: () => _run(() => repo.command(screen.id, 'check_update')),
+                                    icon: const Icon(Icons.system_update_outlined),
+                                    label: Text(t['waitingScreenSettings.checkUpdate']!),
+                                  ),
+                              ],
+                            ),
+                            if (screen.tvApp) ...[
+                              SwitchListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(t['waitingScreenSettings.openOnBoot']!),
+                                value: screen.openOnBoot ?? false,
+                                onChanged: (v) => _run(() => repo.command(screen.id, 'open_on_boot', v)),
+                              ),
+                              SwitchListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(t['waitingScreenSettings.openOnWake']!),
+                                value: screen.openOnWake ?? false,
+                                onChanged: (v) => _run(() => repo.command(screen.id, 'open_on_wake', v)),
+                              ),
+                              Row(
+                                children: [
+                                  Expanded(child: Text(t['waitingScreenSettings.returnMinutes']!)),
+                                  DropdownButton<int>(
+                                    value: pairedScreenReturnMinutes.contains(screen.returnMinutes) ? screen.returnMinutes : null,
+                                    hint: Text(t['waitingScreenSettings.unknown']!),
+                                    items: [
+                                      for (final m in pairedScreenReturnMinutes) DropdownMenuItem(value: m, child: Text(_minutes(m))),
+                                    ],
+                                    onChanged: (m) {
+                                      if (m != null) _run(() => repo.command(screen.id, 'return_minutes', m));
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ] else
+                              Text(t['waitingScreenSettings.needsTvApp']!, style: theme.textTheme.bodySmall),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+              ],
+            );
+          },
+        ),
+      ],
     );
   }
 }
