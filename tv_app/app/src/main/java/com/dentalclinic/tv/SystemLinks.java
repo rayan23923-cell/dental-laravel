@@ -84,4 +84,21 @@ final class SystemLinks {
                 new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
                 appDetails(a));
     }
+
+    // ---- "use as home screen": a HOME alias that is off unless turned on ----
+
+    static ComponentName homeAlias(Context c) {
+        return new ComponentName(c, c.getPackageName() + ".HomeAlias");
+    }
+
+    static boolean homeEnabled(Context c) {
+        return c.getPackageManager().getComponentEnabledSetting(homeAlias(c))
+                == PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
+    }
+
+    static void setHomeEnabled(Context c, boolean on) {
+        c.getPackageManager().setComponentEnabledSetting(homeAlias(c),
+                on ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED : PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                PackageManager.DONT_KILL_APP);
+    }
 }

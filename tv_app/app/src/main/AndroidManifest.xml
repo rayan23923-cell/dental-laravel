@@ -62,6 +62,11 @@
             </intent-filter>
         </activity-alias>
 
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:screenOrientation="landscape" />
+
         <service
             android:name=".AutoStartService"
             android:directBootAware="true"

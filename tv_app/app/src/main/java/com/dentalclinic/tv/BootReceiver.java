@@ -28,8 +28,9 @@ public class BootReceiver extends BroadcastReceiver {
                 AutoStartService.startAfterBoot(context);
                 return;
             }
-            if (!MainActivity.autostartEnabled(context)) return;
+            if (!MainActivity.anyAutoOpen(context)) return;
             if (ACTION_LAUNCH.equals(action)) {
+                if (!MainActivity.autostartEnabled(context)) return;
                 if (!MainActivity.visible) AutoStartService.bringToFront(context);
                 return;
             }
@@ -41,7 +42,7 @@ public class BootReceiver extends BroadcastReceiver {
                     || ((Intent.ACTION_TIME_CHANGED.equals(action)
                             || Intent.ACTION_TIMEZONE_CHANGED.equals(action))
                         && android.os.SystemClock.elapsedRealtime() < 180_000);
-            if (boot) {
+            if (boot && MainActivity.autostartEnabled(context)) {
                 AutoStartService.startAfterBoot(context);
                 AutoStartService.bringToFront(context);
                 long settle = AutoStartService.settleMs(context);
