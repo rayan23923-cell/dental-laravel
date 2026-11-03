@@ -10,7 +10,6 @@ use App\Models\TaskInstance;
 use App\Models\WaitingScreenPairing;
 use App\Models\WaitingScreenSetting;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
 
 /**
@@ -130,12 +129,7 @@ class WaitingScreenController extends Controller
             // started or collected since midnight in the clinic's time zone
             // (the app clock is UTC), so the list empties at 12 at night;
             // 'all' lists every patient still pending.
-            ->when(($settings->lab_scope ?: 'today') !== 'all', function ($q) {
-                $start = Carbon::now(ClinicSetting::current()->clinic_timezone ?: 'Asia/Baghdad')->startOfDay()->utc();
-                $q->where(fn ($w) => $w
-                    ->where('lab_sample_printed_at', '>=', $start)
-                    ->orWhere('lab_result_received_at', '>=', $start));
-            })
+            ->tap(fn ($q) => WaitingScreenSetting::applyLabScope($q, ['lab_sample_printed_at', 'lab_result_received_at']))
             ->get(['id', 'name', 'screening_status', 'lab_result_received_at', 'lab_sample_printed_at'])
             ->map(function (PatientRegistration $registration) {
                 $ready = $registration->lab_result_received_at !== null;

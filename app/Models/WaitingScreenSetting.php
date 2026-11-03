@@ -39,6 +39,32 @@ class WaitingScreenSetting extends Model
         return $this->belongsTo(Group::class);
     }
 
+    /** Midnight today in the clinic's time zone, as UTC (the app clock). */
+    public static function clinicDayStart(): \Illuminate\Support\Carbon
+    {
+        return \Illuminate\Support\Carbon::now(ClinicSetting::current()->clinic_timezone ?: 'Asia/Baghdad')->startOfDay()->utc();
+    }
+
+    /**
+     * With 'today' (2026-11-03, by request), keeps lab rows where any of
+     * [columns] falls on today (clinic time), so the waiting screen empties
+     * at 12 at night. The app clock is UTC, so a plain whereDate(today())
+     * would switch days at 3 am Baghdad time.
+     */
+    public static function applyLabScope($query, array $columns)
+    {
+        if ((static::current()->lab_scope ?: 'today') === 'all') {
+            return $query;
+        }
+        $start = static::clinicDayStart();
+
+        return $query->where(function ($w) use ($columns, $start) {
+            foreach ($columns as $column) {
+                $w->orWhere($column, '>=', $start);
+            }
+        });
+    }
+
     public static function current(): self
     {
         return static::firstOrCreate(['id' => 1], [
