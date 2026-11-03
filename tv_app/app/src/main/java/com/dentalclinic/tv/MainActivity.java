@@ -3,7 +3,6 @@ package com.dentalclinic.tv;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.NotificationManager;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
@@ -97,7 +96,15 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        // Window flags as in the adhan app.
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+                | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                | WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD);
+        if (Build.VERSION.SDK_INT >= 27) {
+            setShowWhenLocked(true);
+            setTurnScreenOn(true);
+        }
 
         root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
@@ -134,11 +141,13 @@ public class MainActivity extends Activity {
             askOverlayOnce();
         }
         AutoStartService.start(this);
-        // Android 13+: the full-screen notification fallback needs this.
-        if (Build.VERSION.SDK_INT >= 33
-                && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[] {"android.permission.POST_NOTIFICATIONS"}, 1);
-        }
+        // Same start-up permissions as the adhan app (azan_tv MainActivity).
+        ArrayList<String> ask = new ArrayList<>();
+        if (checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)
+            ask.add(android.Manifest.permission.READ_EXTERNAL_STORAGE);
+        if (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
+            ask.add(android.Manifest.permission.ACCESS_FINE_LOCATION);
+        if (!ask.isEmpty()) requestPermissions(ask.toArray(new String[0]), 1);
     }
 
     /** Auto-start with the TV is on unless turned off from the menu. */
@@ -154,20 +163,7 @@ public class MainActivity extends Activity {
     static volatile boolean visible;
 
     static boolean canOpenFromBackground(Context context) {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || Settings.canDrawOverlays(context)
-                || AutoStartAccessibility.isEnabled(context);
-    }
-
-    /** Opens the TV's accessibility settings to switch on AutoStartAccessibility. */
-    private void openAccessibilitySettings() {
-        Toast.makeText(this, R.string.accessibility_steps, Toast.LENGTH_LONG).show();
-        try {
-            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
-        } catch (ActivityNotFoundException e) {
-            try {
-                startActivity(new Intent(Settings.ACTION_SETTINGS));
-            } catch (ActivityNotFoundException ignored) { }
-        }
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || Settings.canDrawOverlays(context);
     }
 
     private boolean canOpenFromBackground() {
@@ -450,9 +446,6 @@ public class MainActivity extends Activity {
                     : getString(R.string.menu_autostart_permission));
             actions.add(this::toggleAutostart);
         }
-        items.add(getString(AutoStartAccessibility.isEnabled(this)
-                ? R.string.menu_accessibility_on : R.string.menu_accessibility_off));
-        actions.add(this::openAccessibilitySettings);
         items.add(getString(homeMode() ? R.string.menu_home_off : R.string.menu_home_on));
         actions.add(() -> setHomeMode(!homeMode()));
         items.add(getString(AdminReceiver.active(this) ? R.string.menu_admin_on : R.string.menu_admin));
@@ -534,9 +527,6 @@ public class MainActivity extends Activity {
         super.onResume();
         if (!visible) Diag.log(this, "screen shown");
         visible = true;
-        // Opened (maybe by the full-screen notification): drop that notification.
-        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        if (nm != null) nm.cancel(AutoStartService.OPEN_NOTIFICATION_ID);
         if (webView != null) webView.onResume();
         if (mainFrameFailed) { failures = 0; load(); }
     }

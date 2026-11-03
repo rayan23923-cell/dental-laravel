@@ -52,7 +52,6 @@ final class Diag {
         sb.append(Build.MANUFACTURER).append(' ').append(Build.MODEL).append('\n');
         sb.append("target: ").append(context.getApplicationInfo().targetSdkVersion).append('\n');
         sb.append("overlay: ").append(Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(context)).append('\n');
-        sb.append("accessibility: ").append(AutoStartAccessibility.isEnabled(context)).append('\n');
         sb.append("device admin: ").append(AdminReceiver.active(context)).append('\n');
         sb.append("booted: ").append(new SimpleDateFormat("dd/MM HH:mm:ss", Locale.US)
                 .format(new Date(System.currentTimeMillis() - android.os.SystemClock.elapsedRealtime()))).append('\n');
