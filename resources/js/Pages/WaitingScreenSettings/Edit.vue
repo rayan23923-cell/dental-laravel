@@ -59,6 +59,8 @@ const form = useForm({
     group_id: null,
     patients_per_page: props.settings.patients_per_page ?? 8,
     rotation_seconds: props.settings.rotation_seconds ?? 12,
+    // Lab filter (2026-11-03, by request): today's only or all pending.
+    lab_scope: props.settings.lab_scope || 'today',
 });
 
 const submit = () => {
@@ -103,6 +105,25 @@ const submit = () => {
                     </div>
 
                     <form @submit.prevent="submit" class="space-y-6">
+                        <div>
+                            <InputLabel :value="t('waitingScreenSettings.labScopeLabel')" />
+                            <div class="mt-2 grid gap-2 sm:grid-cols-2">
+                                <label
+                                    v-for="opt in ['today', 'all']"
+                                    :key="opt"
+                                    class="flex cursor-pointer items-start gap-3 rounded-xl p-3 ring-1 transition"
+                                    :class="form.lab_scope === opt ? 'bg-sky-50 ring-sky-400' : 'ring-gray-200 hover:bg-gray-50'"
+                                >
+                                    <input v-model="form.lab_scope" type="radio" name="lab_scope" :value="opt" class="mt-1 text-sky-600 focus:ring-sky-500" />
+                                    <span>
+                                        <span class="block text-sm font-medium text-gray-800">{{ t(`waitingScreenSettings.labScope_${opt}`) }}</span>
+                                        <span class="block text-xs text-gray-500">{{ t(`waitingScreenSettings.labScope_${opt}_hint`) }}</span>
+                                    </span>
+                                </label>
+                            </div>
+                            <InputError class="mt-2" :message="form.errors.lab_scope" />
+                        </div>
+
                         <div>
                             <InputLabel for="patients_per_page" :value="t('waitingScreenSettings.patientsPerPageLabel')" />
                             <TextInput

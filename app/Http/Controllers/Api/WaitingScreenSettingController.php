@@ -37,6 +37,8 @@ class WaitingScreenSettingController extends Controller
             'group_id' => ['nullable', 'exists:groups,id'],
             'patients_per_page' => ['required', 'integer', 'min:1', 'max:50'],
             'rotation_seconds' => ['required', 'integer', 'min:3', 'max:300'],
+            // Optional so older app builds that don't send it keep working.
+            'lab_scope' => ['sometimes', 'string', 'in:'.implode(',', WaitingScreenSetting::LAB_SCOPES)],
         ]);
 
         WaitingScreenSetting::current()->update($validated);
@@ -52,6 +54,7 @@ class WaitingScreenSettingController extends Controller
             'group_id' => $settings->group_id,
             'patients_per_page' => $settings->patients_per_page,
             'rotation_seconds' => $settings->rotation_seconds,
+            'lab_scope' => $settings->lab_scope ?: 'today',
         ];
     }
 }

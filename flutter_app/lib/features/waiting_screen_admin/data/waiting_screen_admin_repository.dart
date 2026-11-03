@@ -8,18 +8,22 @@ final waitingScreenAdminRepositoryProvider = Provider<WaitingScreenAdminReposito
 
 /// `/waiting-screen-settings` (`Api\WaitingScreenSettingController`).
 class WaitingScreenSettings {
-  const WaitingScreenSettings({required this.groupId, required this.patientsPerPage, required this.rotationSeconds});
+  const WaitingScreenSettings({required this.groupId, required this.patientsPerPage, required this.rotationSeconds, this.labScope = 'today'});
 
   factory WaitingScreenSettings.fromJson(Map<String, dynamic> json) => WaitingScreenSettings(
         groupId: json['group_id'] as int?,
         patientsPerPage: (json['patients_per_page'] as num?)?.toInt() ?? 8,
         rotationSeconds: (json['rotation_seconds'] as num?)?.toInt() ?? 10,
+        labScope: json['lab_scope'] == 'all' ? 'all' : 'today',
       );
 
   /// Null shows every group.
   final int? groupId;
   final int patientsPerPage;
   final int rotationSeconds;
+
+  /// 'today' (list empties at midnight) or 'all' pending (2026-11-03).
+  final String labScope;
 }
 
 class WaitingScreenGroup {
@@ -104,11 +108,12 @@ class WaitingScreenAdminRepository {
     );
   }
 
-  Future<WaitingScreenSettings> save({required int? groupId, required int patientsPerPage, required int rotationSeconds}) async {
+  Future<WaitingScreenSettings> save({required int? groupId, required int patientsPerPage, required int rotationSeconds, required String labScope}) async {
     final data = await _client.putJson('/waiting-screen-settings', body: {
       'group_id': groupId,
       'patients_per_page': patientsPerPage,
       'rotation_seconds': rotationSeconds,
+      'lab_scope': labScope,
     }) as Map<String, dynamic>;
     return WaitingScreenSettings.fromJson((data['data'] as Map<String, dynamic>)['settings'] as Map<String, dynamic>);
   }

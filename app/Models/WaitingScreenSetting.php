@@ -15,7 +15,11 @@ class WaitingScreenSetting extends Model
         'group_id',
         'patients_per_page',
         'rotation_seconds',
+        'lab_scope',
     ];
+
+    /** Lab list on the screen (2026-11-03): today's only (empties at midnight clinic time) or all pending. */
+    public const LAB_SCOPES = ['today', 'all'];
 
     protected function casts(): array
     {
@@ -40,6 +44,7 @@ class WaitingScreenSetting extends Model
         return static::firstOrCreate(['id' => 1], [
             'patients_per_page' => 8,
             'rotation_seconds' => 12,
+            'lab_scope' => 'today',
         ]);
     }
 }
