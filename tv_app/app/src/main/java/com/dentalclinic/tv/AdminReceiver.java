@@ -29,10 +29,12 @@ public class AdminReceiver extends DeviceAdminReceiver {
         }
     }
 
-    static void request(Activity a) {
+    static boolean request(Activity a) {
         Intent i = new Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
                 .putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, name(a))
                 .putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, a.getString(R.string.admin_explain));
-        SystemLinks.openFirst(a, i, SystemLinks.appDetails(a));
+        if (SystemLinks.open(a, i)) return true;
+        SystemLinks.openFirst(a, SystemLinks.appDetails(a));
+        return false; // this TV has no device-admin screen
     }
 }

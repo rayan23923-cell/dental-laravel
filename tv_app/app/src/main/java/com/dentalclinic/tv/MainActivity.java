@@ -4,7 +4,6 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -53,12 +52,14 @@ import java.util.List;
  * offline server works as http://clinic.lan or by its IP.
  */
 public class MainActivity extends Activity {
-    private static final String PREFS = "tv";
-    private static final String KEY_SERVER = "server";
+    static final String PREFS = "tv";
+    static final String KEY_SERVER = "server";
     private static final String KEY_AUTOSTART = "autostart";
-    private static final String KEY_ASKED_OVERLAY = "asked_autostart_v3"; // v3: asks again now that target 28 lets the TV grant overlay
-    private static final String CLINIC_SERVER = "http://clinic.lan";
-    private static final String HOSTING_SERVER = "https://dental.azoclinic.duckdns.org";
+    private static final String KEY_WAKE = "open_on_wake";
+    private static final int REQUEST_SETTINGS = 3;
+    private static final int REQUEST_SETUP = 4;
+    static final String CLINIC_SERVER = "http://clinic.lan";
+    static final String HOSTING_SERVER = "https://dental.azoclinic.duckdns.org";
     private static final int[] RETRY_SECONDS = {3, 5, 10, 20, 30};
     private static final long UPDATE_EVERY_MS = 6 * 60 * 60 * 1000L;
 
@@ -134,11 +135,12 @@ public class MainActivity extends Activity {
         // First check a minute after start, then every 6 hours.
         handler.postDelayed(updateCheck, 60_000);
 
-        if (server().isEmpty()) {
-            chooseServer();
+        // First run (2026-11-03, by request): a setup wizard that cannot be
+        // skipped until the server is chosen and auto-start is allowed.
+        if (!SetupActivity.done(this) || server().isEmpty()) {
+            startActivityForResult(new Intent(this, SetupActivity.class), REQUEST_SETUP);
         } else {
             load();
-            askOverlayOnce();
         }
         AutoStartService.start(this);
         // Same start-up permissions as the adhan app (azan_tv MainActivity).
@@ -159,6 +161,28 @@ public class MainActivity extends Activity {
         }
     }
 
+    static void setAutostartEnabled(Context context, boolean on) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_AUTOSTART, on).apply();
+    }
+
+    /** Opening again when the TV comes back from standby (settings); on unless turned off. */
+    static boolean wakeEnabled(Context context) {
+        try {
+            return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_WAKE, true);
+        } catch (RuntimeException e) {
+            return true;
+        }
+    }
+
+    static void setWakeEnabled(Context context, boolean on) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_WAKE, on).apply();
+    }
+
+    /** The background service is needed while either kind of auto-open is on. */
+    static boolean anyAutoOpen(Context context) {
+        return autostartEnabled(context) || wakeEnabled(context);
+    }
+
     /** True while the waiting screen is in front; the boot watch stops pulling once it holds. */
     static volatile boolean visible;
 
@@ -175,33 +199,8 @@ public class MainActivity extends Activity {
     // open with the TV, as adhan TV apps do, is to be the TV's home screen:
     // the TV shows it whenever it starts or wakes. Off until chosen.
 
-    private ComponentName homeAlias() {
-        return new ComponentName(this, getPackageName() + ".HomeAlias");
-    }
-
     private boolean homeMode() {
-        return getPackageManager().getComponentEnabledSetting(homeAlias())
-                == PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
-    }
-
-    private void setHomeMode(boolean on) {
-        getPackageManager().setComponentEnabledSetting(homeAlias(),
-                on ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED : PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                PackageManager.DONT_KILL_APP);
-        if (on) {
-            // Let the user pick it as the home app ("Always").
-            try {
-                startActivity(new Intent(Settings.ACTION_HOME_SETTINGS));
-            } catch (ActivityNotFoundException e) {
-                Intent home = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                try { startActivity(home); } catch (ActivityNotFoundException ignored) { }
-            }
-            Toast.makeText(this, R.string.home_pick, Toast.LENGTH_LONG).show();
-        } else {
-            Toast.makeText(this, R.string.home_off_done, Toast.LENGTH_LONG).show();
-            openTvHome();
-        }
+        return SystemLinks.homeEnabled(this);
     }
 
     /** Opens the TV's own home screen (any home app but this one). */
@@ -218,31 +217,6 @@ public class MainActivity extends Activity {
             } catch (ActivityNotFoundException ignored) { }
         }
         Toast.makeText(this, R.string.home_none, Toast.LENGTH_LONG).show();
-    }
-
-    /**
-     * Asks once, right after the server is chosen, for "display over other
-     * apps", which Android 10+ needs before the app may open itself when
-     * the TV is switched on.
-     */
-    private void askOverlayOnce() {
-        if (canOpenFromBackground() || !autostartEnabled(this) || prefs().getBoolean(KEY_ASKED_OVERLAY, false)) return;
-        prefs().edit().putBoolean(KEY_ASKED_OVERLAY, true).apply();
-        new AlertDialog.Builder(this)
-                .setTitle(R.string.autostart_title)
-                .setMessage(R.string.autostart_explain)
-                .setPositiveButton(R.string.autostart_go, (d, w) -> openOverlaySettings())
-                .setNegativeButton(R.string.autostart_later, null)
-                .show();
-    }
-
-    /** Same order as the adhan app: this app's page, the full list, the app's details. */
-    private void openOverlaySettings() {
-        Toast.makeText(this, R.string.overlay_steps, Toast.LENGTH_LONG).show();
-        SystemLinks.openFirst(this,
-                new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName())),
-                new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION),
-                SystemLinks.appDetails(this));
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -274,16 +248,22 @@ public class MainActivity extends Activity {
         return prefs().getString(KEY_SERVER, "");
     }
 
-    private void saveServer(String value) {
-        String v = value.trim();
-        if (v.isEmpty()) return;
+    /** "clinic.lan/" or "http://x/waiting-screen" → "http://clinic.lan", "http://x"; "" when empty. */
+    static String normalizeServer(String value) {
+        String v = value == null ? "" : value.trim();
+        if (v.isEmpty()) return "";
         if (!v.startsWith("http://") && !v.startsWith("https://")) v = "http://" + v;
         while (v.endsWith("/")) v = v.substring(0, v.length() - 1);
         if (v.endsWith("/waiting-screen")) v = v.substring(0, v.length() - "/waiting-screen".length());
+        return v;
+    }
+
+    private void saveServer(String value) {
+        String v = normalizeServer(value);
+        if (v.isEmpty()) return;
         prefs().edit().putString(KEY_SERVER, v).apply();
         failures = 0;
         load();
-        askOverlayOnce();
     }
 
     private void load() {
@@ -433,66 +413,30 @@ public class MainActivity extends Activity {
                 .show();
     }
 
+    /** MENU/BACK opens the settings page (SettingsActivity, 2026-11-03). */
     private void showMenu() {
-        List<String> items = new ArrayList<>();
-        List<Runnable> actions = new ArrayList<>();
-        items.add(getString(R.string.menu_reload));
-        actions.add(() -> { failures = 0; load(); });
-        items.add(getString(R.string.menu_server));
-        actions.add(this::chooseServer);
-        if (!homeMode()) {
-            items.add(!autostartEnabled(this) ? getString(R.string.menu_autostart_off)
-                    : canOpenFromBackground() ? getString(R.string.menu_autostart_on)
-                    : getString(R.string.menu_autostart_permission));
-            actions.add(this::toggleAutostart);
-        }
-        items.add(getString(homeMode() ? R.string.menu_home_off : R.string.menu_home_on));
-        actions.add(() -> setHomeMode(!homeMode()));
-        items.add(getString(AdminReceiver.active(this) ? R.string.menu_admin_on : R.string.menu_admin));
-        actions.add(() -> AdminReceiver.request(this));
-        items.add(getString(R.string.menu_autostart_manager));
-        actions.add(() -> SystemLinks.openAutostart(this));
-        items.add(getString(SystemLinks.batteryExempt(this) ? R.string.menu_battery_ok : R.string.menu_battery));
-        actions.add(() -> SystemLinks.requestBatteryExempt(this));
-        items.add(getString(R.string.menu_diag));
-        actions.add(() -> new AlertDialog.Builder(this)
-                .setTitle(R.string.menu_diag)
-                .setMessage(Diag.report(this))
-                .setPositiveButton(android.R.string.ok, null)
-                .show());
-        items.add(getString(R.string.menu_update));
-        actions.add(() -> checkForUpdate(true));
-        // As the home screen, "exit" would only reopen it: open the TV's own home instead.
-        items.add(getString(homeMode() ? R.string.menu_tv_home : R.string.menu_exit));
-        actions.add(() -> { if (homeMode()) openTvHome(); else finish(); });
-        new AlertDialog.Builder(this)
-                .setTitle(R.string.menu_title)
-                .setItems(items.toArray(new String[0]), (d, which) -> actions.get(which).run())
-                .show();
+        Intent i = new Intent(this, SettingsActivity.class).putExtra(SettingsActivity.EXTRA_SERVER, server());
+        startActivityForResult(i, REQUEST_SETTINGS);
     }
 
-    /**
-     * Menu item: grants the missing permission when auto-start is on but
-     * not allowed yet, otherwise turns auto-start on or off.
-     */
-    private void toggleAutostart() {
-        boolean on = autostartEnabled(this);
-        if (on && !canOpenFromBackground()) {
-            openOverlaySettings();
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_SETUP) {
+            if (SetupActivity.done(this) && !server().isEmpty()) {
+                failures = 0;
+                load();
+            } else {
+                finish(); // left the wizard without finishing it
+            }
             return;
         }
-        prefs().edit().putBoolean(KEY_AUTOSTART, !on).apply();
-        if (on) {
-            AutoStartService.stop(this);
-            Toast.makeText(this, R.string.autostart_off, Toast.LENGTH_LONG).show();
-        } else {
-            AutoStartService.start(this);
-            if (canOpenFromBackground()) {
-                Toast.makeText(this, R.string.autostart_ok, Toast.LENGTH_LONG).show();
-            } else {
-                openOverlaySettings();
-            }
-        }
+        if (requestCode != REQUEST_SETTINGS || resultCode != RESULT_OK || data == null) return;
+        String action = data.getStringExtra(SettingsActivity.EXTRA_ACTION);
+        if (SettingsActivity.ACTION_RELOAD.equals(action)) { failures = 0; load(); }
+        else if (SettingsActivity.ACTION_SERVER.equals(action)) chooseServer();
+        else if (SettingsActivity.ACTION_UPDATE.equals(action)) checkForUpdate(true);
+        else if (SettingsActivity.ACTION_EXIT.equals(action)) { if (homeMode()) openTvHome(); else finish(); }
     }
 
     @Override
@@ -527,6 +471,7 @@ public class MainActivity extends Activity {
         super.onResume();
         if (!visible) Diag.log(this, "screen shown");
         visible = true;
+        AutoStartService.markShown(this);
         if (webView != null) webView.onResume();
         if (mainFrameFailed) { failures = 0; load(); }
     }

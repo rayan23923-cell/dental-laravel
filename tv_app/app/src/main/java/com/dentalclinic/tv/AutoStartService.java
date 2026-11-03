@@ -68,8 +68,56 @@ public class AutoStartService extends Service {
         handler.postDelayed(watcher, 300);
     }
 
+    /** Kept in device storage: read early in boot, before the user's storage unlocks. */
+    private static android.content.SharedPreferences bootPrefs(Context c) {
+        Context d = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N ? c.createDeviceProtectedStorageContext() : c;
+        return d.getSharedPreferences("boot", MODE_PRIVATE);
+    }
+
+    /** Settings choice (SettingsActivity.SETTLE_SECONDS index); 0 = by the TV's memory. */
+    static int settleChoice(Context c) {
+        try {
+            int v = bootPrefs(c).getInt("settle", 0);
+            return v >= 0 && v < SettingsActivity.SETTLE_SECONDS.length ? v : 0;
+        } catch (RuntimeException e) {
+            return 0;
+        }
+    }
+
+    static void setSettleChoice(Context c, int v) {
+        bootPrefs(c).edit().putInt("settle", v).commit();
+    }
+
+    /** Uptime when the boot watch began; 0 when the app was not opened by a boot. */
+    static volatile long bootStart;
+    private static boolean shownMarked;
+
+    /** Called when the screen appears: remembers when and how long after power-on it opened by itself. */
+    static void markShown(Context c) {
+        if (bootStart == 0 || shownMarked) return;
+        shownMarked = true;
+        try {
+            bootPrefs(c).edit()
+                    .putLong("shownAt", System.currentTimeMillis())
+                    .putLong("shownAfter", android.os.SystemClock.elapsedRealtime() / 1000)
+                    .apply();
+        } catch (RuntimeException ignored) {
+        }
+    }
+
+    static long lastAutoOpenAt(Context c) {
+        try { return bootPrefs(c).getLong("shownAt", 0); } catch (RuntimeException e) { return 0; }
+    }
+
+    /** Seconds from power-on until the screen showed by itself. */
+    static long lastAutoOpenSeconds(Context c) {
+        try { return bootPrefs(c).getLong("shownAfter", 0); } catch (RuntimeException e) { return 0; }
+    }
+
     /** How long the TV's own home screen keeps coming up after power-on: slower TVs take longer. */
     static long settleMs(Context context) {
+        int s = SettingsActivity.SETTLE_SECONDS[settleChoice(context)];
+        if (s > 0) return s * 1000L;
         try {
             android.app.ActivityManager.MemoryInfo mi = new android.app.ActivityManager.MemoryInfo();
             ((android.app.ActivityManager) context.getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(mi);
@@ -89,11 +137,12 @@ public class AutoStartService extends Service {
 
     /** After boot: the service keeps bringing the screen back while the TV finishes starting. */
     public static void startAfterBoot(Context context) {
+        if (bootStart == 0) bootStart = android.os.SystemClock.elapsedRealtime();
         start(context, new Intent(context, AutoStartService.class).putExtra(EXTRA_BOOT, true));
     }
 
     private static void start(Context context, Intent intent) {
-        if (!MainActivity.autostartEnabled(context)) return;
+        if (!MainActivity.anyAutoOpen(context)) return;
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent);
@@ -135,7 +184,7 @@ public class AutoStartService extends Service {
                 Diag.log(context, "wake " + intent.getAction());
                 // Woken from standby: the TV's home screen shows up for a
                 // while; keep coming back for 20 s.
-                if (MainActivity.autostartEnabled(context)) watch(20_000, 0);
+                if (MainActivity.wakeEnabled(context)) watch(20_000, 0);
             }
         };
         IntentFilter filter = new IntentFilter();
@@ -171,11 +220,12 @@ public class AutoStartService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Diag.log(this, "service start" + (intent != null && intent.getBooleanExtra(EXTRA_BOOT, false) ? " (boot)" : ""));
-        if (!MainActivity.autostartEnabled(this)) {
+        if (!MainActivity.anyAutoOpen(this)) {
             stopSelf();
             return START_NOT_STICKY;
         }
-        if (intent != null && intent.getBooleanExtra(EXTRA_BOOT, false)) {
+        if (intent != null && intent.getBooleanExtra(EXTRA_BOOT, false) && MainActivity.autostartEnabled(this)) {
+            if (bootStart == 0) bootStart = android.os.SystemClock.elapsedRealtime();
             long settle = settleMs(this);
             watch(Math.max(settle, 10_000) * 2, settle);
         }
