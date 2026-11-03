@@ -129,7 +129,7 @@ class WaitingScreenLabWaitingTest extends TestCase
         $response = $this->actingAs($admin)->put('/waiting-screen-settings', [
             'patients_per_page' => 8, 'rotation_seconds' => 12, 'lab_scope' => 'all',
         ]);
-        $response->assertSessionHasNoErrors();
+        $response->assertSessionHasNoErrors()->assertSessionHas('success');
         $this->assertSame('all', \App\Models\WaitingScreenSetting::current()->lab_scope,
             'status '.$response->status().' to '.$response->headers->get('Location'));
 
