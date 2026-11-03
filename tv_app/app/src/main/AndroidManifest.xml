@@ -90,6 +90,9 @@
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="android.intent.action.REBOOT" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <!-- Switched off: put the waiting screen on top first. -->
+                <action android:name="android.intent.action.ACTION_SHUTDOWN" />
+                <action android:name="android.intent.action.QUICKBOOT_POWEROFF" />
                 <!-- Like the adhan app: a TV without a clock battery sets the
                      time from the network soon after power-on. -->
                 <action android:name="android.intent.action.TIME_SET" />
