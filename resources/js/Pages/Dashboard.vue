@@ -6,6 +6,7 @@
  * opening it in سجل المرضى, the latest payments, the latest doctors and
  * the per-education-type department/stage task section, loaded on demand.
  */
+import { diagnosisText } from '@/screeningDiagnosis';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import ChatListCard from '@/Components/ChatList/ChatListCard.vue';
 import ChatListRow from '@/Components/ChatList/ChatListRow.vue';
@@ -172,7 +173,7 @@ const loadTasksByDept = async (id) => {
                                 <template #meta>
                                     <ChatChip v-if="p.phone" icon="call">{{ p.phone }}</ChatChip>
                                     <ChatChip v-if="p.service" icon="medical_services" tone="sky">{{ p.service }}</ChatChip>
-                                    <ChatChip :icon="screeningIcon(p.screening_status)" :tone="screeningTone(p.screening_status)">{{ screeningLabel(p.screening_status) }}</ChatChip>
+                                    <ChatChip :icon="screeningIcon(p.screening_status)" :tone="screeningTone(p.screening_status)">{{ screeningLabel(p.screening_status) }}<template v-if="diagnosisText(p)"> — {{ diagnosisText(p) }}</template></ChatChip>
                                     <ChatChip icon="schedule">{{ fmtDate(p.created_at) }}</ChatChip>
                                 </template>
                             </ChatListRow>

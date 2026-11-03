@@ -1237,7 +1237,12 @@
         "feeConfirmNo": "لا، إلغاء",
         "startTest": "بدء الفحص",
         "startTestHint": "يطبع اسم المريض ودائرة \"هنا توضع العينات\"",
-        "resultLocked": "نتيجة الفحص مسجلة ولا يمكن تغييرها."
+        "resultLocked": "نتيجة الفحص مسجلة ولا يمكن تغييرها.",
+        "diagnosis": "التشخيص",
+        "diagnosisTitle": "اختر التشخيص",
+        "diagnosisHint": "اختر الفحص الموجب (واحد أو أكثر):",
+        "diagnosisConfirm": "تأكيد غير سليم",
+        "diagnosisCancel": "إلغاء"
     },
     "roles": {
         "super_admin": "مدير عام",

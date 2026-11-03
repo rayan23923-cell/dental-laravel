@@ -27,6 +27,7 @@ class Payment {
     this.type = 'service',
     this.patientRegistrationDeletedAt,
     this.serviceName,
+    this.screeningDiagnosisText,
     this.discountLine,
     this.discountLabel,
     this.discount,
@@ -52,6 +53,7 @@ class Payment {
         type: json['type'] as String? ?? 'service',
         patientRegistrationDeletedAt: (json['patient_registration'] as Map<String, dynamic>?)?['deleted_at'] as String?,
         serviceName: (json['patient_registration'] as Map<String, dynamic>?)?['service_name'] as String?,
+        screeningDiagnosisText: (json['patient_registration'] as Map<String, dynamic>?)?['screening_diagnosis_text'] as String?,
         discountLine: json['discount_line'] as String?,
         discountLabel: json['discount_label'] as String?,
         discount: DiscountBreakdown.fromJson(json['discount']),
@@ -78,6 +80,10 @@ class Payment {
   /// The registration's service — sent only by the payments report
   /// (`GET /payments/report`, 2026-10-17).
   final String? serviceName;
+
+  /// "غير سليم" diagnosis, e.g. "التهاب الكبد B، HIV" (2026-11-03); null
+  /// unless the patient's lab result is flagged.
+  final String? screeningDiagnosisText;
 
   /// Student/employee discount (2026-10-25): the receipt line, e.g.
   /// "طالب · المرحلة الرابعة — خصم 50% من 20,000", and the report's short

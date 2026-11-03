@@ -246,9 +246,11 @@ class PatientRegistrationRepository {
   /// Records the lab/reception infectious-disease screening result —
   /// `status` is `'clear'` or `'flagged'`. See `PatientScreeningGate` on
   /// the backend for what this then unblocks (payment, starting a task).
-  Future<RegistrationPaymentState> confirmScreening(int registrationId, String status) async {
+  /// [diagnoses] is what a 'flagged' result is: 'B' / 'C' / 'HIV' (2026-11-03).
+  Future<RegistrationPaymentState> confirmScreening(int registrationId, String status, {List<String> diagnoses = const []}) async {
     final data = await _client.postJson('/patient-registrations/$registrationId/screening', body: {
       'screening_status': status,
+      if (status == 'flagged') 'screening_diagnoses': diagnoses,
     }) as Map<String, dynamic>;
     return RegistrationPaymentState.fromJson(data);
   }

@@ -104,13 +104,14 @@ class DashboardController extends Controller
             // Only with the patients grant (2026-10-22), like payments below.
             'latestPatients' => ! $permissions->can('patients', 'view') ? [] : PatientRegistration::with('service:id,name')
                 ->latest('id')->limit(5)
-                ->get(['id', 'name', 'phone', 'service_id', 'screening_status', 'created_at'])
+                ->get(['id', 'name', 'phone', 'service_id', 'screening_status', 'screening_diagnoses', 'created_at'])
                 ->map(fn ($r) => [
                     'id' => $r->id,
                     'name' => $r->name,
                     'phone' => $r->phone,
                     'service' => $r->service?->name,
                     'screening_status' => $r->screening_status,
+                    'screening_diagnoses' => $r->screening_diagnoses,
                     'created_at' => $r->created_at,
                 ]),
             // Payments on the dashboard (2026-10-13, by request).

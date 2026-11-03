@@ -202,7 +202,14 @@ class _LabListScreenState extends ConsumerState<LabListScreen> with LiveRegistra
       icon: icon,
       subtitle: '\u2066${r.phone}\u2069',
       chips: [
-        ChatChip(label: _statusLabel(t, r.screeningStatus), icon: icon, color: color),
+        ChatChip(
+          // With the diagnosis of a "غير سليم" result (2026-11-03).
+          label: r.screeningStatus == 'flagged' && r.screeningDiagnosisText != null
+              ? '${_statusLabel(t, r.screeningStatus)} — ${r.screeningDiagnosisText}'
+              : _statusLabel(t, r.screeningStatus),
+          icon: icon,
+          color: color,
+        ),
         if (row.canReuse)
           ChatChip(label: t['lab.previousValidBadge']!, icon: Icons.verified_outlined, color: Colors.green.shade700)
         else

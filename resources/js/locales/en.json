@@ -1237,7 +1237,12 @@
         "feeConfirmNo": "No, cancel",
         "startTest": "Start test",
         "startTestHint": "Prints the patient's name and a \"place the samples here\" circle",
-        "resultLocked": "The result is recorded and cannot be changed."
+        "resultLocked": "The result is recorded and cannot be changed.",
+        "diagnosis": "Diagnosis",
+        "diagnosisTitle": "Choose the diagnosis",
+        "diagnosisHint": "Pick the positive test (one or more):",
+        "diagnosisConfirm": "Confirm flagged",
+        "diagnosisCancel": "Cancel"
     },
     "roles": {
         "super_admin": "Super admin",
