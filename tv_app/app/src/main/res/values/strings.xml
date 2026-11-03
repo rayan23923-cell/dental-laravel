@@ -15,13 +15,14 @@
     <string name="menu_autostart_off">التشغيل التلقائي عند فتح التلفاز: متوقف (اضغط للتفعيل)</string>
     <string name="menu_autostart_permission">التشغيل التلقائي يحتاج إذنًا واحدًا (اضغط لمنحه)</string>
     <string name="autostart_title">التشغيل التلقائي مع التلفاز</string>
-    <string name="autostart_explain">حتى تفتح شاشة الانتظار وحدها كلما شُغّل التلفاز وبعد انقطاع الكهرباء (مثل تطبيقات الأذان): اختر «تفعيل التشغيل التلقائي المضمون» ثم فعّل «التشغيل التلقائي لشاشة الانتظار» في إعدادات إمكانية الوصول. أو «فتح الإعدادات» للسماح بالعرض فوق التطبيقات إذا كان متاحًا في تلفازك.</string>
+    <string name="autostart_explain">حتى تفتح شاشة الانتظار وحدها كلما شُغّل التلفاز وبعد انقطاع الكهرباء (مثل تطبيق الأذان): اضغط «فتح الإعدادات» ثم فعّل «الظهور فوق التطبيقات» لشاشة الانتظار وارجع بزر الرجوع.</string>
     <string name="autostart_go">فتح الإعدادات</string>
     <string name="autostart_later">لاحقًا</string>
     <string name="autostart_off">تم إيقاف التشغيل التلقائي</string>
     <string name="autostart_channel">التشغيل التلقائي</string>
     <string name="autostart_running">تفتح شاشة الانتظار تلقائيًا عند تشغيل التلفاز</string>
     <string name="menu_exit">خروج</string>
+    <string name="overlay_steps">فعّل «الظهور فوق التطبيقات» لشاشة الانتظار ثم ارجع بزر الرجوع.</string>
     <string name="menu_admin">تفعيل صلاحية مدير الجهاز (مثل تطبيق الأذان)</string>
     <string name="menu_admin_on">صلاحية مدير الجهاز مفعّلة ✓</string>
     <string name="admin_explain">حتى لا يوقف التلفاز شاشة الانتظار وتفتح وحدها عند تشغيله، مثل تطبيق الأذان. لا يقفل التطبيق ولا يمسح أي شيء.</string>
