@@ -208,6 +208,7 @@ public class SetupActivity extends Activity {
                         render();
                     }
                 });
+                skipAction(1);
                 statusFor(1);
                 break;
             case 2:
@@ -219,6 +220,7 @@ public class SetupActivity extends Activity {
                         render();
                     }
                 });
+                skipAction(2);
                 statusFor(2);
                 break;
             case 3:
@@ -230,6 +232,7 @@ public class SetupActivity extends Activity {
                         render();
                     }
                 });
+                skipAction(3);
                 statusFor(3);
                 break;
             default:
@@ -242,6 +245,18 @@ public class SetupActivity extends Activity {
         View first = actions.getChildCount() > 0 ? actions.getChildAt(0) : next;
         if (stepDone(step) && step != 0) first = next;
         first.requestFocus();
+    }
+
+    /**
+     * Some TVs never show these system screens (2026-11-03, by request):
+     * the permission steps can be skipped; the server step cannot.
+     */
+    private void skipAction(int s) {
+        if (stepDone(s)) return;
+        action(getString(R.string.setup_skip), () -> {
+            unavailable[s] = true;
+            go(s + 1);
+        });
     }
 
     private void statusFor(int s) {

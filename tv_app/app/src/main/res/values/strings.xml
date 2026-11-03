@@ -102,7 +102,8 @@
     <string name="setup_next">التالي</string>
     <string name="setup_back">السابق</string>
     <string name="setup_start">ابدأ شاشة الانتظار</string>
-    <string name="setup_need_step">أكمل هذه الخطوة أولاً، ثم اضغط «التالي».</string>
+    <string name="setup_need_step">أكمل هذه الخطوة أولاً، أو اضغط «تخطي هذه الخطوة».</string>
+    <string name="setup_skip">تخطي هذه الخطوة</string>
     <string name="setup_open_settings">فتح الإعدادات</string>
     <string name="setup_step_ok">تم التفعيل</string>
     <string name="setup_step_missing">غير مفعّل بعد</string>
