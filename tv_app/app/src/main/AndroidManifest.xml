@@ -10,6 +10,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <!-- The rest as in the adhan app's manifest (azan_tv, 2026-11-03, by request). -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />

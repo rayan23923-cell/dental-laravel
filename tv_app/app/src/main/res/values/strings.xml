@@ -43,6 +43,12 @@
     <string name="update_latest">التطبيق على آخر نسخة (%1$s)</string>
     <string name="update_downloading">جارٍ تنزيل تحديث شاشة الانتظار %1$s …</string>
     <string name="update_failed">تعذّر التحديث، سيُعاد المحاولة لاحقًا</string>
+    <string name="update_available">تحديث جديد %1$s متوفر: الإعدادات ← فحص التحديث</string>
+    <string name="update_saved_title">تم تنزيل التحديث</string>
+    <string name="update_saved_message">حُفظ الملف في:\n%1$s\nباسم: %2$s\n\nافتح مدير الملفات، ثم مجلد Download، واضغط على الملف ثم «تثبيت».</string>
+    <string name="update_open_files">فتح مدير الملفات</string>
+    <string name="update_later">لاحقًا</string>
+    <string name="update_no_file_manager">لا يوجد مدير ملفات. ثبّت أي مدير ملفات من متجر التلفاز وافتح مجلد Download.</string>
     <string name="update_allow">اسمح لشاشة الانتظار بتثبيت التحديثات ثم ارجع</string>
     <string name="connecting">جارٍ الاتصال بـ %1$s …</string>
     <string name="retrying">تعذّر الاتصال بـ %1$s\nإعادة المحاولة تلقائيًا خلال %2$d ثانية</string>
