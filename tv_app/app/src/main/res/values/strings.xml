@@ -22,6 +22,9 @@
     <string name="autostart_channel">التشغيل التلقائي</string>
     <string name="autostart_running">تفتح شاشة الانتظار تلقائيًا عند تشغيل التلفاز</string>
     <string name="menu_exit">خروج</string>
+    <string name="menu_admin">تفعيل صلاحية مدير الجهاز (مثل تطبيق الأذان)</string>
+    <string name="menu_admin_on">صلاحية مدير الجهاز مفعّلة ✓</string>
+    <string name="admin_explain">حتى لا يوقف التلفاز شاشة الانتظار وتفتح وحدها عند تشغيله، مثل تطبيق الأذان. لا يقفل التطبيق ولا يمسح أي شيء.</string>
     <string name="menu_diag">سجل التشغيل التلقائي</string>
     <string name="menu_autostart_manager">إدارة التشغيل التلقائي في التلفاز (مثل تطبيق الأذان)</string>
     <string name="menu_battery">استثناء من توفير الطاقة</string>

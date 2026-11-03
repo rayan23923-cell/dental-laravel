@@ -455,6 +455,8 @@ public class MainActivity extends Activity {
         actions.add(this::openAccessibilitySettings);
         items.add(getString(homeMode() ? R.string.menu_home_off : R.string.menu_home_on));
         actions.add(() -> setHomeMode(!homeMode()));
+        items.add(getString(AdminReceiver.active(this) ? R.string.menu_admin_on : R.string.menu_admin));
+        actions.add(() -> AdminReceiver.request(this));
         items.add(getString(R.string.menu_autostart_manager));
         actions.add(() -> SystemLinks.openAutostart(this));
         items.add(getString(SystemLinks.batteryExempt(this) ? R.string.menu_battery_ok : R.string.menu_battery));
