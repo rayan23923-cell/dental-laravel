@@ -8,6 +8,7 @@ import '../../features/auth/presentation/auth_controller.dart';
 import '../../features/auth/presentation/auth_state.dart';
 import '../../features/notifications/presentation/notifications_providers.dart';
 import '../i18n/locale_controller.dart';
+import '../platform/device_perf.dart';
 import '../router/nav_destinations.dart';
 import '../theme/app_theme.dart';
 import 'server_status_indicator.dart';
@@ -243,7 +244,7 @@ class ProfileRow extends StatelessWidget {
       decoration: const BoxDecoration(gradient: InstagramColors.gradient, shape: BoxShape.circle),
       child: CircleAvatar(
         backgroundColor: theme.colorScheme.surface,
-        backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
+        backgroundImage: imageUrl != null ? DevicePerf.avatar(imageUrl) : null,
         child: imageUrl == null ? Text(name.isNotEmpty ? name[0] : '?', style: TextStyle(fontSize: card ? 22 : null)) : null,
       ),
     );

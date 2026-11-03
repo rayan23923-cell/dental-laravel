@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../platform/device_perf.dart';
 import '../theme/muted_colors.dart';
 
 /// Chat-list rows (2026-10-13, by request: the reference-data screens styled
@@ -52,7 +53,7 @@ class ChatListTile extends StatelessWidget {
                 radius: 24,
                 backgroundColor: color,
                 foregroundColor: Colors.white,
-                backgroundImage: imageUrl != null ? NetworkImage(imageUrl!) : null,
+                backgroundImage: imageUrl != null ? DevicePerf.avatar(imageUrl!) : null,
                 child: imageUrl != null
                     ? null
                     : icon != null

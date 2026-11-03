@@ -11,6 +11,7 @@ import '../../features/auth/presentation/auth_state.dart';
 import '../../features/notifications/presentation/notifications_providers.dart';
 import '../auth/staff_access.dart';
 import '../i18n/locale_controller.dart';
+import '../platform/device_perf.dart';
 import '../router/nav_destinations.dart';
 import '../theme/app_theme.dart';
 import '../updater/update_available.dart';
@@ -164,7 +165,7 @@ class _AccountButton extends ConsumerWidget {
                   decoration: const BoxDecoration(gradient: InstagramColors.gradient, shape: BoxShape.circle),
                   child: CircleAvatar(
                     backgroundColor: theme.colorScheme.surface,
-                    backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
+                    backgroundImage: imageUrl != null ? DevicePerf.avatar(imageUrl) : null,
                     child: imageUrl == null
                         ? Text(name.isNotEmpty ? name[0] : '?', style: const TextStyle(fontSize: 12))
                         : null,
@@ -250,13 +251,16 @@ class _TabBar extends ConsumerWidget {
         borderRadius: radius,
         // iPhone-style glass: a light, see-through tint over a strong blur
         // with a bright rim, no solid fill (2026-10-28).
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+        // Weak POS terminals (2026-11-03): no blur, a solid bar instead —
+        // re-blurring the page behind on every scroll frame made them lag.
+        child: _MaybeBlur(
+          sigma: 30,
           child: Container(
             height: height,
             padding: const EdgeInsets.all(5),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
+              color: DevicePerf.lowEnd ? theme.colorScheme.surface : null,
+              gradient: DevicePerf.lowEnd ? null : LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: dark
@@ -411,8 +415,8 @@ class _QuickActionsButton extends ConsumerWidget {
           ],
         ),
         child: ClipOval(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          child: _MaybeBlur(
+            sigma: 24,
             child: Material(
               color: theme.colorScheme.primary.withValues(alpha: 0.9),
               child: InkWell(
@@ -536,4 +540,16 @@ class _BarClearancePhysics extends ScrollPhysics {
   @override
   double applyPhysicsToUserOffset(ScrollMetrics position, double offset) =>
       super.applyPhysicsToUserOffset(_extended(position), offset);
+}
+
+/// The glass blur, skipped on weak devices (see [DevicePerf]).
+class _MaybeBlur extends StatelessWidget {
+  const _MaybeBlur({required this.sigma, required this.child});
+  final double sigma;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => DevicePerf.lowEnd
+      ? child
+      : BackdropFilter(filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma), child: child);
 }

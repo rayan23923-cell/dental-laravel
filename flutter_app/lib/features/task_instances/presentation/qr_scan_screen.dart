@@ -9,6 +9,7 @@ import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../patient_registration/data/patient_registration_repository.dart';
 import '../data/task_instance_repository.dart';
+import '../../../core/platform/device_perf.dart';
 import '../../../core/platform/platform_support.dart';
 import 'desktop_qr_scanner.dart';
 import 'task_instances_providers.dart';
@@ -68,8 +69,19 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
   String? _error;
   // Windows has no mobile_scanner camera (2026-10-12): DesktopQrScanner
   // is used there instead, so this controller is only made elsewhere.
-  final MobileScannerController? _controller =
-      isWindowsDesktop ? null : MobileScannerController(facing: _lastFacing);
+  //
+  // QR only (2026-11-03, slow camera on the Q2 POS terminal): every code
+  // the clinic prints is a QR, and asking ML Kit for one format instead of
+  // all ~13 makes each frame much cheaper. Weak devices also analyse a
+  // small 640x480 frame, plenty for a printed ticket at arm's length.
+  final MobileScannerController? _controller = isWindowsDesktop
+      ? null
+      : MobileScannerController(
+          facing: _lastFacing,
+          formats: const [BarcodeFormat.qrCode],
+          detectionSpeed: DetectionSpeed.normal,
+          cameraResolution: DevicePerf.lowEnd ? const Size(640, 480) : null,
+        );
 
   // The camera last switched to (2026-10-14), so the next scan opens on it.
   static CameraFacing _lastFacing = CameraFacing.back;

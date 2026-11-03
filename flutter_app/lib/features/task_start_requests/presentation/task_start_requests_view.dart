@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../../core/i18n/locale_controller.dart';
+import '../../../core/platform/device_perf.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/task_start_request_repository.dart';
 import '../domain/task_start_request.dart';
@@ -197,7 +198,7 @@ class _RequestCard extends ConsumerWidget {
           children: [
             CircleAvatar(
               radius: 22,
-              backgroundImage: r.doctorPhotoUrl != null ? NetworkImage(r.doctorPhotoUrl!) : null,
+              backgroundImage: r.doctorPhotoUrl != null ? DevicePerf.avatar(r.doctorPhotoUrl!) : null,
               child: r.doctorPhotoUrl == null ? Text(r.doctorName.trim().isEmpty ? '?' : r.doctorName.trim()[0]) : null,
             ),
             const SizedBox(width: 12),
