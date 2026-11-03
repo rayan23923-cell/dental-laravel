@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../platform/device_perf.dart';
+
 /// Instagram's real, well-known brand colours — not an approximation from
 /// a seed colour. `useMaterial3`'s `ColorScheme.fromSeed` was deliberately
 /// not used here: it derives a full tonal palette algorithmically, which
@@ -73,6 +75,14 @@ ThemeData _buildTheme({required bool dark}) {
 
   return ThemeData(
     useMaterial3: true,
+    // Weak POS terminals (2026-11-03): a light fade instead of the default
+    // zoom, which redraws both whole pages every frame of the transition.
+    // (Read lazily, after DevicePerf.init() in main.)
+    pageTransitionsTheme: DevicePerf.lowEnd
+        ? const PageTransitionsTheme(builders: {
+            TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+          })
+        : null,
     colorScheme: scheme,
     scaffoldBackgroundColor: background,
     dividerColor: border,

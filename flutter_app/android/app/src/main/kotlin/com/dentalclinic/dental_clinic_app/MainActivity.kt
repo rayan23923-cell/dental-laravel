@@ -9,5 +9,6 @@ class MainActivity : FlutterFragmentActivity() {
         super.configureFlutterEngine(flutterEngine)
         PosPrinterPlugin(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
         AppUpdatePlugin(this, flutterEngine.dartExecutor.binaryMessenger)
+        DevicePerfPlugin(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
     }
 }

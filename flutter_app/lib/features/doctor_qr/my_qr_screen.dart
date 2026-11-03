@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/i18n/locale_controller.dart';
+import '../../core/platform/device_perf.dart';
 import '../../core/theme/app_theme.dart';
 import '../auth/domain/auth_account.dart';
 import '../auth/presentation/auth_controller.dart';
@@ -107,7 +108,7 @@ class _Avatar extends StatelessWidget {
       decoration: const BoxDecoration(gradient: InstagramColors.gradient, shape: BoxShape.circle),
       child: CircleAvatar(
         backgroundColor: Theme.of(context).colorScheme.surface,
-        backgroundImage: url != null ? NetworkImage(url) : null,
+        backgroundImage: url != null ? DevicePerf.avatar(url, size: 240) : null,
         child: url == null ? Text(account.name.isNotEmpty ? account.name[0] : '?', style: const TextStyle(fontSize: 26)) : null,
       ),
     );

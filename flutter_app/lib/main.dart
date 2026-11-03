@@ -4,9 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
 import 'core/config/server_settings_controller.dart';
+import 'core/platform/device_perf.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Weak POS terminals get a lighter UI (2026-11-03).
+  await DevicePerf.init();
   // Cloud or the clinic's offline server, and its certificate — before
   // any request is made (2026-10-17).
   try {

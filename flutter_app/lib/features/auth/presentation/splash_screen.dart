@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/i18n/locale_controller.dart';
+import '../../../core/platform/device_perf.dart';
 import '../../../core/widgets/tg_spinner.dart';
 import 'auth_controller.dart';
 
@@ -29,12 +30,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     with TickerProviderStateMixin {
   late final AnimationController _intro = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1300),
+    // Shorter on weak POS terminals (2026-11-03), where it only delayed the app.
+    duration: Duration(milliseconds: DevicePerf.lowEnd ? 450 : 1300),
   )..forward().whenComplete(_maybeExit);
 
   late final AnimationController _exit = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 380),
+    duration: Duration(milliseconds: DevicePerf.lowEnd ? 180 : 380),
   );
 
   late final Animation<double> _logoScale = Tween(begin: 0.4, end: 1.0).animate(
@@ -104,6 +106,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
+                        if (!DevicePerf.lowEnd)
                         for (final delay in const [0.0, 0.3])
                           _Ripple(
                             progress: ((_ripple.value - delay) / (1 - delay)).clamp(0.0, 1.0),
