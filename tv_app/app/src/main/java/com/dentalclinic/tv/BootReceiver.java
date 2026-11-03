@@ -36,7 +36,11 @@ public class BootReceiver extends BroadcastReceiver {
             boolean boot = Intent.ACTION_BOOT_COMPLETED.equals(action)
                     || "android.intent.action.QUICKBOOT_POWERON".equals(action)
                     || "com.htc.intent.action.QUICKBOOT_POWERON".equals(action)
-                    || "android.intent.action.REBOOT".equals(action);
+                    || "android.intent.action.REBOOT".equals(action)
+                    // First minutes after power-on: the network clock arrives.
+                    || ((Intent.ACTION_TIME_CHANGED.equals(action)
+                            || Intent.ACTION_TIMEZONE_CHANGED.equals(action))
+                        && android.os.SystemClock.elapsedRealtime() < 180_000);
             if (boot) {
                 AutoStartService.startAfterBoot(context);
                 AutoStartService.bringToFront(context);

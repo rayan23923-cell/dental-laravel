@@ -40,7 +40,8 @@ final class Diag {
                 out.append(lines[i]).append('\n');
             }
             out.append(line);
-            p.edit().putString("log", out.toString()).apply();
+            // commit: the TV may stop the app right after a boot broadcast.
+            p.edit().putString("log", out.toString()).commit();
         } catch (RuntimeException ignored) {
         }
     }
@@ -52,6 +53,9 @@ final class Diag {
         sb.append("target: ").append(context.getApplicationInfo().targetSdkVersion).append('\n');
         sb.append("overlay: ").append(Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(context)).append('\n');
         sb.append("accessibility: ").append(AutoStartAccessibility.isEnabled(context)).append('\n');
+        sb.append("device admin: ").append(AdminReceiver.active(context)).append('\n');
+        sb.append("booted: ").append(new SimpleDateFormat("dd/MM HH:mm:ss", Locale.US)
+                .format(new Date(System.currentTimeMillis() - android.os.SystemClock.elapsedRealtime()))).append('\n');
         sb.append("battery exempt: ").append(SystemLinks.batteryExempt(context)).append('\n');
         sb.append("autostart: ").append(MainActivity.autostartEnabled(context)).append("\n\n");
         String log = "";
