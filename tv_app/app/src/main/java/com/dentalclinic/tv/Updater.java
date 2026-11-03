@@ -1,8 +1,12 @@
 package com.dentalclinic.tv;
 
 import android.app.Activity;
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
+import android.content.pm.PackageInstaller;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
@@ -13,6 +17,7 @@ import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -58,28 +63,57 @@ final class Updater {
                     return;
                 }
                 activity.runOnUiThread(() -> ui.status(activity.getString(R.string.update_downloading, release[0])));
-                File apk = ApkProvider.file(activity);
+                File dir = new File(activity.getCacheDir(), "updates");
+                //noinspection ResultOfMethodCallIgnored
+                dir.mkdirs();
+                File apk = new File(dir, "update.apk");
                 download(release[1], apk);
                 PackageInfo info = activity.getPackageManager().getPackageArchiveInfo(apk.getPath(), 0);
                 if (info == null || !activity.getPackageName().equals(info.packageName)) {
                     throw new IllegalStateException("bad apk");
                 }
-                activity.runOnUiThread(() -> {
-                    ui.status(null);
-                    Intent install = new Intent(Intent.ACTION_VIEW);
-                    install.setDataAndType(ApkProvider.URI, "application/vnd.android.package-archive");
-                    install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
-                    try {
-                        activity.startActivity(install);
-                    } catch (RuntimeException e) {
-                        Toast.makeText(activity, R.string.update_failed, Toast.LENGTH_LONG).show();
-                    }
-                });
+                activity.runOnUiThread(() -> ui.status(null));
+                install(activity, apk);
             } catch (Exception e) {
                 activity.runOnUiThread(() -> ui.status(null));
                 if (manual) toast(activity, activity.getString(R.string.update_failed));
             }
         }).start();
+    }
+
+    /**
+     * Hands the APK to Android's package installer, which shows its install
+     * screen: the adhan app's way (azan_tv Updater.install, 2026-11-03).
+     */
+    static void install(Context c, File apk) throws Exception {
+        PackageInstaller pi = c.getPackageManager().getPackageInstaller();
+        PackageInstaller.SessionParams p = new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
+        p.setAppPackageName(c.getPackageName());
+        int id = pi.createSession(p);
+        try (PackageInstaller.Session s = pi.openSession(id)) {
+            try (OutputStream out = s.openWrite("app.apk", 0, apk.length());
+                 InputStream in = new FileInputStream(apk)) {
+                byte[] buf = new byte[16384];
+                int n;
+                while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                s.fsync(out);
+            }
+            Intent done = new Intent(c, Result.class);
+            int flags = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 31 ? PendingIntent.FLAG_MUTABLE : 0);
+            s.commit(PendingIntent.getBroadcast(c, 7, done, flags).getIntentSender());
+        }
+    }
+
+    /** Android asks the person to confirm: open that screen. */
+    public static final class Result extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context c, Intent i) {
+            if (i.getIntExtra(PackageInstaller.EXTRA_STATUS, 0) != PackageInstaller.STATUS_PENDING_USER_ACTION) return;
+            Intent confirm = i.getParcelableExtra(Intent.EXTRA_INTENT);
+            if (confirm == null) return;
+            confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try { c.startActivity(confirm); } catch (RuntimeException ignored) { }
+        }
     }
 
     /** {version, absolute apk url} or null. */

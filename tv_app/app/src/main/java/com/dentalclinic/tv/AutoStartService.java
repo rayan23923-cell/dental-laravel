@@ -3,13 +3,11 @@ package com.dentalclinic.tv;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -27,9 +25,7 @@ import android.os.Looper;
  */
 public class AutoStartService extends Service {
     private static final String CHANNEL = "autostart";
-    private static final String CHANNEL_OPEN = "open_screen";
     private static final int NOTIFICATION_ID = 7;
-    static final int OPEN_NOTIFICATION_ID = 8;
 
     static final String EXTRA_BOOT = "boot";
 
@@ -37,7 +33,6 @@ public class AutoStartService extends Service {
     private BroadcastReceiver wakeReceiver;
     private long watchUntil;
     private long watchSettleAt;
-    private boolean notified;
     private int attempts;
 
     /**
@@ -59,10 +54,6 @@ public class AutoStartService extends Service {
                     Diag.log(AutoStartService.this, "bring to front #" + attempts);
                 }
                 bringToFront(AutoStartService.this);
-                if (!notified && !MainActivity.canOpenFromBackground(AutoStartService.this)) {
-                    notified = true;
-                    openByNotification(AutoStartService.this, launchIntent(AutoStartService.this));
-                }
             }
             handler.postDelayed(this, 1000);
         }
@@ -72,7 +63,6 @@ public class AutoStartService extends Service {
         long now = System.currentTimeMillis();
         watchUntil = Math.max(watchUntil, now + duration);
         watchSettleAt = now + settle;
-        notified = false;
         attempts = 0;
         handler.removeCallbacks(watcher);
         handler.postDelayed(watcher, 300);
@@ -135,43 +125,6 @@ public class AutoStartService extends Service {
         }
     }
 
-    /**
-     * Android 10+ silently ignores the call above without "display over
-     * other apps", which some TVs do not offer at all. A full-screen
-     * notification (the way alarm and adhan apps wake the screen) opens it
-     * instead; MainActivity removes it once it is showing.
-     */
-    private static void openByNotification(Context context, Intent launch) {
-        try {
-            NotificationManager nm = (NotificationManager) context.getSystemService(NOTIFICATION_SERVICE);
-            int flags = PendingIntent.FLAG_UPDATE_CURRENT
-                    | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0);
-            PendingIntent pending = PendingIntent.getActivity(context, 1, launch, flags);
-            Notification.Builder builder;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                NotificationChannel channel = new NotificationChannel(
-                        CHANNEL_OPEN, context.getString(R.string.autostart_open_channel), NotificationManager.IMPORTANCE_HIGH);
-                channel.setSound(null, null);
-                nm.createNotificationChannel(channel);
-                builder = new Notification.Builder(context, CHANNEL_OPEN);
-            } else {
-                builder = new Notification.Builder(context).setPriority(Notification.PRIORITY_MAX);
-            }
-            Notification notification = builder
-                    .setSmallIcon(R.drawable.ic_launcher)
-                    .setContentTitle(context.getString(R.string.app_name))
-                    .setContentText(context.getString(R.string.autostart_tap_to_open))
-                    .setCategory(Notification.CATEGORY_ALARM)
-                    .setContentIntent(pending)
-                    .setFullScreenIntent(pending, true)
-                    .setAutoCancel(true)
-                    .build();
-            nm.notify(OPEN_NOTIFICATION_ID, notification);
-        } catch (RuntimeException ignored) {
-            // Notifications blocked too: home screen mode is the way left.
-        }
-    }
-
     @Override
     public void onCreate() {
         super.onCreate();
@@ -212,11 +165,7 @@ public class AutoStartService extends Service {
                 .setContentText(getString(R.string.autostart_running))
                 .setOngoing(true)
                 .build();
-        if (Build.VERSION.SDK_INT >= 34) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
-        } else {
-            startForeground(NOTIFICATION_ID, notification);
-        }
+        startForeground(NOTIFICATION_ID, notification);
     }
 
     @Override

@@ -8,31 +8,13 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Stays running to reopen the screen whenever the TV wakes (AutoStartService). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
-    <!-- When a TV refuses "display over other apps": open via a full-screen notification. -->
-    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- The rest as in the adhan app's manifest (azan_tv, 2026-11-03, by request). -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
-    <!-- Finds the TV's own home screen when this app is the home screen. -->
-    <queries>
-        <!-- TV makers' auto-start managers (SystemLinks), visible on Android 11+. -->
-        <package android:name="com.tcl.guard" />
-        <package android:name="com.tcl.packageinstaller" />
-        <package android:name="com.miui.securitycenter" />
-        <package android:name="com.huawei.systemmanager" />
-        <package android:name="com.coloros.safecenter" />
-        <package android:name="com.oppo.safe" />
-        <package android:name="com.iqoo.secure" />
-        <package android:name="com.vivo.permissionmanager" />
-        <package android:name="com.letv.android.letvsafe" />
-        <package android:name="com.asus.mobilemanager" />
-        <package android:name="com.samsung.android.lool" />
-        <package android:name="com.android.settings" />
-        <intent>
-            <action android:name="android.intent.action.MAIN" />
-            <category android:name="android.intent.category.HOME" />
-        </intent>
-    </queries>
     <!-- Android 10+ only lets an app open itself after boot with this one. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- Self-update (2026-11-02): installs the newer APK from the server. -->
@@ -47,6 +29,7 @@
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
         android:networkSecurityConfig="@xml/network_security_config"
+        android:requestLegacyExternalStorage="true"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
         android:usesCleartextTraffic="true">
@@ -79,36 +62,12 @@
             </intent-filter>
         </activity-alias>
 
-        <provider
-            android:name=".ApkProvider"
-            android:authorities="com.dentalclinic.tv.apk"
-            android:exported="false"
-            android:grantUriPermissions="true" />
-
         <service
             android:name=".AutoStartService"
             android:directBootAware="true"
-            android:exported="false"
-            android:foregroundServiceType="specialUse">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Opens the clinic waiting screen whenever the TV is switched on (kiosk display)." />
-        </service>
+            android:exported="false" />
 
-        <!-- Auto-start where "display over other apps" is greyed out: switched
-             on once in the TV's accessibility settings (AutoStartAccessibility). -->
-        <service
-            android:name=".AutoStartAccessibility"
-            android:exported="true"
-            android:label="@string/accessibility_label"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/autostart_accessibility" />
-        </service>
+        <receiver android:name=".Updater$Result" android:exported="false" />
 
         <receiver
             android:name=".BootReceiver"
