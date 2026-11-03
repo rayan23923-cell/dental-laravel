@@ -228,9 +228,9 @@ public class SettingsActivity extends Activity {
         btn.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
         btn.setPadding((int) (26 * u), (int) (14 * u), (int) (26 * u), (int) (14 * u));
         StateListDrawable sl = new StateListDrawable();
-        sl.addState(new int[]{android.R.attr.state_focused}, panel(true));
-        sl.addState(new int[]{android.R.attr.state_pressed}, panel(true));
-        sl.addState(new int[]{}, panel(false));
+        sl.addState(new int[]{android.R.attr.state_focused}, panel(u, true));
+        sl.addState(new int[]{android.R.attr.state_pressed}, panel(u, true));
+        sl.addState(new int[]{}, panel(u, false));
         btn.setBackground(sl);
         btn.setStateListAnimator(null);
         btn.setOnFocusChangeListener((v, has) -> v.animate().scaleX(has ? 1.02f : 1f).scaleY(has ? 1.04f : 1f)
@@ -244,7 +244,7 @@ public class SettingsActivity extends Activity {
     }
 
     /** Frosted glass panel; the focused row glows in the clinic's teal. */
-    private Drawable panel(boolean focused) {
+    static Drawable panel(float u, boolean focused) {
         float r = 18 * u;
         GradientDrawable base = focused
                 ? new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{0xFF19B5B3, 0xFF0E8A8F, 0xFF0A6C72})

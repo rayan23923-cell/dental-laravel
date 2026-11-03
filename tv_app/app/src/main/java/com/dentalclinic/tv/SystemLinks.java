@@ -48,9 +48,11 @@ final class SystemLinks {
         }
     }
 
-    static void openFirst(Activity a, Intent... intents) {
-        for (Intent i : intents) if (i != null && open(a, i)) return;
+    /** Opens the first screen that exists; false (with a message) when this TV has none of them. */
+    static boolean openFirst(Activity a, Intent... intents) {
+        for (Intent i : intents) if (i != null && open(a, i)) return true;
         Toast.makeText(a, R.string.screen_missing, Toast.LENGTH_LONG).show();
+        return false;
     }
 
     static Intent appDetails(Context c) {
@@ -77,12 +79,12 @@ final class SystemLinks {
     }
 
     /** Asks to be left out of battery saving, so the TV does not stop the app in standby. */
-    static void requestBatteryExempt(Activity a) {
-        if (Build.VERSION.SDK_INT < 23) return;
-        openFirst(a,
-                new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + a.getPackageName())),
-                new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
-                appDetails(a));
+    static boolean requestBatteryExempt(Activity a) {
+        if (Build.VERSION.SDK_INT < 23) return true;
+        if (open(a, new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + a.getPackageName())))
+                || open(a, new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))) return true;
+        openFirst(a, appDetails(a));
+        return false; // this TV has no battery-saving screen
     }
 
     // ---- "use as home screen": a HOME alias that is off unless turned on ----

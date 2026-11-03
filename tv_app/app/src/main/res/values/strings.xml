@@ -87,4 +87,25 @@
     <string name="set_about">حول الجهاز</string>
     <string name="set_developer">خيارات المطوّر</string>
     <string name="set_back">رجوع إلى شاشة الانتظار</string>
+    <string name="setup_heading">إعداد شاشة الانتظار</string>
+    <string name="setup_counter">الخطوة %1$d من %2$d</string>
+    <string name="setup_next">التالي</string>
+    <string name="setup_back">السابق</string>
+    <string name="setup_start">ابدأ شاشة الانتظار</string>
+    <string name="setup_need_step">أكمل هذه الخطوة أولاً، ثم اضغط «التالي».</string>
+    <string name="setup_open_settings">فتح الإعدادات</string>
+    <string name="setup_step_ok">تم التفعيل</string>
+    <string name="setup_step_missing">غير مفعّل بعد</string>
+    <string name="setup_unavailable">هذه الشاشة غير موجودة في هذا التلفاز، يمكنك المتابعة</string>
+    <string name="setup_server_title">١. اختيار السيرفر</string>
+    <string name="setup_server_body">من أين تُعرض شاشة الانتظار؟ اختر سيرفر العيادة (بدون إنترنت) أو الاستضافة، أو اكتب عنواناً آخر.</string>
+    <string name="setup_server_none">لم يتم اختيار سيرفر</string>
+    <string name="setup_overlay_title">٢. الظهور فوق التطبيقات</string>
+    <string name="setup_overlay_body">حتى تفتح شاشة الانتظار وحدها عند تشغيل التلفاز وبعد انقطاع الكهرباء: اضغط «فتح الإعدادات»، فعّل «شاشة الانتظار»، ثم ارجع بزر الرجوع.</string>
+    <string name="setup_battery_title">٣. استثناء من توفير الطاقة</string>
+    <string name="setup_battery_body">حتى لا يوقف التلفاز التطبيق وهو في الخلفية: اضغط «فتح الإعدادات» ووافق، ثم ارجع.</string>
+    <string name="setup_admin_title">٤. صلاحية مدير الجهاز</string>
+    <string name="setup_admin_body">تمنع منظّف التلفاز من إيقاف التطبيق عند الإطفاء، حتى يصله إشعار التشغيل. لا تقفل ولا تمسح أي شيء. اضغط «فتح الإعدادات» ثم «تفعيل».</string>
+    <string name="setup_done_title">٥. جاهز</string>
+    <string name="setup_done_body">انتهى الإعداد. ستفتح شاشة الانتظار وحدها عند تشغيل التلفاز. يمكنك تغيير كل هذا لاحقاً من الإعدادات (زر القائمة أو الرجوع).</string>
 </resources>
