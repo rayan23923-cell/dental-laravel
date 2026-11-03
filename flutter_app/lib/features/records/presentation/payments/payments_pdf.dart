@@ -48,6 +48,8 @@ Future<Uint8List> buildPaymentReceiptPdf({
     ('رقم الوصل', '#${payment.id}'),
     ('اسم المريض', payment.personName),
     if (payment.patientRegistrationPhone != null) ('الهاتف', payment.patientRegistrationPhone!),
+    // Lab receipt of a "غير سليم" result: B / C / HIV (2026-11-03, by request).
+    if (isLab && payment.screeningDiagnosisText != null) ('نتيجة الفحص', 'غير سليم — ${payment.screeningDiagnosisText}'),
     // Student/employee discount (2026-10-25, by request).
     ...discountAmountRows(
       payment.discount,
@@ -262,7 +264,9 @@ Future<Uint8List> buildPaymentsReportPdf({
               pw.TableRow(children: [
                 cell('${p.id}'),
                 cell(p.isArchivedPatient ? '${p.personName} (مؤرشف)' : p.personName),
-                cell(_sourceLabels[p.source] ?? p.source),
+                cell(p.isLabFee && p.screeningDiagnosisText != null
+                    ? '${_sourceLabels[p.source] ?? p.source}\nغير سليم — ${p.screeningDiagnosisText}'
+                    : _sourceLabels[p.source] ?? p.source),
                 cell(p.serviceName ?? '—'),
                 // Student/employee discount (2026-10-25, by request): the
                 // amount, the discount and the amount after it.

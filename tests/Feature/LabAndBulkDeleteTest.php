@@ -58,6 +58,33 @@ class LabAndBulkDeleteTest extends TestCase
             ->assertOk()->assertSee('غير سليم')->assertDontSee('مدفوع')->assertSee('data:image/png;base64', false)->assertSee('window.print()', false);
     }
 
+    public function test_flagged_result_records_and_prints_the_diagnosis(): void
+    {
+        \App\Models\ClinicSetting::current();
+        \App\Models\ClinicSetting::current()->update(['lab_fee' => 5000]);
+        $a = $this->registration(['name' => 'Ali']);
+        $b = $this->registration(['name' => 'Sara']);
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->postJson("/patient-registrations/{$a->id}/screening", ['screening_status' => 'flagged', 'screening_diagnoses' => ['HIV', 'b', 'X']])
+            ->assertStatus(422);
+        $this->actingAs($admin)->postJson("/patient-registrations/{$a->id}/screening", ['screening_status' => 'flagged', 'screening_diagnoses' => ['HIV', 'B', 'B']])
+            ->assertOk();
+        $this->assertSame(['B', 'HIV'], $a->fresh()->screening_diagnoses);
+
+        $this->actingAs($admin)->get("/lab/{$a->id}/print")->assertOk()->assertSee('التشخيص: التهاب الكبد B، HIV');
+
+        $payment = \App\Models\Payment::where('patient_registration_id', $a->id)->firstOrFail();
+        $this->actingAs($admin)->get("/payments/{$payment->id}/receipt")->assertOk()->assertSee('غير سليم — التهاب الكبد B، HIV');
+
+        // The app: saved through the API and sent back with the registration.
+        $this->actingAs($admin)->postJson("/api/v1/patient-registrations/{$b->id}/screening", ['screening_status' => 'flagged', 'screening_diagnoses' => ['C']])
+            ->assertOk()->assertJsonPath('data.registration.screening_diagnoses', ['C'])
+            ->assertJsonPath('data.registration.screening_diagnosis_text', 'التهاب الكبد C');
+        $this->actingAs($admin)->getJson('/api/v1/lab?status=flagged')->assertOk()
+            ->assertJsonFragment(['screening_diagnosis_text' => 'التهاب الكبد C']);
+    }
+
     public function test_lab_fee_payment_skips_screening_gate_and_prints_receipt(): void
     {
         \App\Models\ClinicSetting::current(); // first call creates the row

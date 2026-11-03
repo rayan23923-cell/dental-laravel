@@ -30,6 +30,10 @@
                 <tr><th>اسم المريض</th><td>{{ $registration?->name ?? $payment->appointment?->full_name ?? '—' }}</td></tr>
                 @if ($registration)
                     <tr><th>الهاتف</th><td dir="ltr" style="text-align:left">{{ $registration->phone }}</td></tr>
+                    {{-- Lab receipt of a "غير سليم" result: B / C / HIV (2026-11-03, by request). --}}
+                    @if ($isLab && ($diagnosis = \App\Support\ScreeningDiagnosis::text($registration)))
+                        <tr><th>نتيجة الفحص</th><td><strong>غير سليم — {{ $diagnosis }}</strong></td></tr>
+                    @endif
                 @endif
                 {{-- Student/employee discount (2026-10-25, by request). --}}
                 @include('print.partials.amount-rows', ['paid' => (float) $payment->amount, 'paidText' => $amount, 'full' => $registration ? \App\Support\StudentDiscount::fullAmountFor($payment, $settings) : null, 'label' => 'المبلغ', 'currency' => $settings->clinic_currency])

@@ -25,6 +25,7 @@ import { useI18n } from 'vue-i18n';
 import axios from 'axios';
 import { printInFrame } from '@/printInFrame';
 import { useLiveRegistrations } from '@/Composables/useLiveRegistrations';
+import { DIAGNOSIS_CODES, DIAGNOSIS_LABELS, diagnosisText } from '@/screeningDiagnosis';
 
 const { t } = useI18n();
 const props = defineProps({
@@ -173,22 +174,48 @@ const reuse = async () => {
 // Asked before a fee-due result is saved (2026-11-01, by request): "did you
 // receive the lab fee?" Yes records the payment and prints; no saves nothing.
 const feePendingStatus = ref(null);
-const record = async (status, { feeConfirmed = false } = {}) => {
+// "غير سليم" asks which test was positive first (2026-11-03, by request):
+// B, C, HIV, one or more; printed on the slip and the receipt.
+const diagnosisPicking = ref(false);
+const pickedDiagnoses = ref([]);
+const toggleDiagnosis = (code) => {
+    pickedDiagnoses.value = pickedDiagnoses.value.includes(code)
+        ? pickedDiagnoses.value.filter((c) => c !== code)
+        : [...pickedDiagnoses.value, code];
+};
+const resetPrompts = () => {
+    feePendingStatus.value = null;
+    diagnosisPicking.value = false;
+    pickedDiagnoses.value = [];
+};
+const record = async (status, { feeConfirmed = false, diagnosed = false } = {}) => {
+    if (status === 'flagged' && !diagnosed) {
+        feePendingStatus.value = null;
+        pickedDiagnoses.value = [];
+        diagnosisPicking.value = true;
+        return;
+    }
+    if (status === 'clear') {
+        diagnosisPicking.value = false;
+        pickedDiagnoses.value = [];
+    }
     if (feeDue(selected.value) && !feeConfirmed) {
         feePendingStatus.value = status;
         return;
     }
     feePendingStatus.value = null;
+    diagnosisPicking.value = false;
+    const diagnoses = status === 'flagged' ? DIAGNOSIS_CODES.filter((c) => pickedDiagnoses.value.includes(c)) : [];
     submitting.value = true;
     resultError.value = '';
     try {
         const id = selected.value.id;
-        await axios.post(route('patient-registrations.screening', id), { screening_status: status });
+        await axios.post(route('patient-registrations.screening', id), { screening_status: status, screening_diagnoses: diagnoses });
         printSlip(id);
         // The window stays open on the saved result (2026-11-02), so
         // "استلام النتيجة" is ready when the patient comes for it.
         if (selected.value?.id === id) {
-            selected.value = { ...selected.value, screening_status: status, screening_checked_at: new Date().toISOString(), lab_paid: isPaid(selected.value) || feeDue(selected.value) };
+            selected.value = { ...selected.value, screening_status: status, screening_diagnoses: diagnoses, screening_checked_at: new Date().toISOString(), lab_paid: isPaid(selected.value) || feeDue(selected.value) };
         }
         router.reload({ only: ['registrations', 'counts'] });
     } catch (e) {
@@ -241,10 +268,10 @@ const record = async (status, { feeConfirmed = false } = {}) => {
                         :tone="statusTone(r.screening_status)"
                         :icon="statusIcon(r.screening_status)"
                         class="cursor-pointer hover:bg-gray-50"
-                        @click="selected = r; feePendingStatus = null"
+                        @click="selected = r; resetPrompts()"
                     >
                         <template #meta>
-                            <ChatChip :icon="statusIcon(r.screening_status)" :tone="statusTone(r.screening_status)">{{ statusLabel(r.screening_status) }}</ChatChip>
+                            <ChatChip :icon="statusIcon(r.screening_status)" :tone="statusTone(r.screening_status)">{{ statusLabel(r.screening_status) }}<template v-if="diagnosisText(r)"> — {{ diagnosisText(r) }}</template></ChatChip>
                             <ChatChip v-if="canReuse(r)" icon="verified" tone="emerald">{{ t('lab.previousValidBadge') }}</ChatChip>
                             <ChatChip v-else :icon="isPaid(r) ? 'paid' : 'money_off'" :tone="isPaid(r) ? 'sky' : 'gray'">{{ isPaid(r) ? t('lab.paid') : t('lab.unpaid') }}</ChatChip>
                             <ChatChip v-if="r.lab_result_received_at" icon="how_to_reg" tone="emerald">{{ t('lab.resultReceivedDone') }}</ChatChip>
@@ -286,7 +313,7 @@ const record = async (status, { feeConfirmed = false } = {}) => {
         </Modal>
 
         <!-- Result -->
-        <Modal :show="!!selected" @close="selected = null; feePendingStatus = null">
+        <Modal :show="!!selected" @close="selected = null; resetPrompts()">
             <div v-if="selected" class="flex flex-col gap-4 p-4 sm:p-6">
                 <div class="flex items-center gap-3">
                     <div
@@ -335,6 +362,7 @@ const record = async (status, { feeConfirmed = false } = {}) => {
 
                 <div class="rounded-xl p-3 text-sm font-semibold" :class="badgeClass(selected.screening_status)">
                     {{ t('lab.currentStatus') }} {{ statusLabel(selected.screening_status) }}
+                    <span v-if="diagnosisText(selected)" class="block">{{ t('lab.diagnosis') }}: {{ diagnosisText(selected) }}</span>
                     <span v-if="selected.screening_checked_by?.full_name" class="block text-xs font-normal opacity-80">
                         {{ selected.screening_checked_by.full_name }} · {{ fmtDate(selected.screening_checked_at) }}
                     </span>
@@ -397,6 +425,40 @@ const record = async (status, { feeConfirmed = false } = {}) => {
                             <span v-if="feeDue(selected)" class="block text-xs font-normal opacity-90">{{ t('lab.payAndPrint') }}</span>
                         </button>
                     </div>
+                    <div v-if="diagnosisPicking" class="flex flex-col gap-3 rounded-xl border-2 border-red-300 bg-red-50 p-4 text-sm text-red-900">
+                        <span class="font-semibold"><Icon name="coronavirus" class="ml-1" />{{ t('lab.diagnosisTitle') }}</span>
+                        <span>{{ t('lab.diagnosisHint') }}</span>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button
+                                v-for="code in DIAGNOSIS_CODES"
+                                :key="code"
+                                type="button"
+                                @click="toggleDiagnosis(code)"
+                                class="rounded-xl border-2 px-3 py-3 text-base font-bold transition"
+                                :class="pickedDiagnoses.includes(code) ? 'border-red-700 bg-red-700 text-white' : 'border-red-200 bg-white text-red-800 hover:bg-red-100'"
+                            >
+                                <Icon :name="pickedDiagnoses.includes(code) ? 'check_box' : 'check_box_outline_blank'" class="ml-1" />{{ code }}
+                                <span class="block text-xs font-normal opacity-90">{{ DIAGNOSIS_LABELS[code] }}</span>
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button
+                                type="button"
+                                :disabled="submitting || pickedDiagnoses.length === 0"
+                                @click="record('flagged', { diagnosed: true })"
+                                class="rounded-xl bg-red-700 px-4 py-2 font-semibold text-white hover:bg-red-800 disabled:opacity-50"
+                            >
+                                {{ t('lab.diagnosisConfirm') }}
+                            </button>
+                            <button
+                                type="button"
+                                @click="resetPrompts()"
+                                class="rounded-xl border border-gray-300 bg-white px-4 py-2 font-semibold text-gray-700 hover:bg-gray-50"
+                            >
+                                {{ t('lab.diagnosisCancel') }}
+                            </button>
+                        </div>
+                    </div>
                     <div v-if="feePendingStatus" class="flex flex-col gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
                         <span class="font-semibold">
                             <Icon name="payments" class="ml-1" />{{ t('lab.feeConfirmQuestion', { amount: labFeeText(selected) }) }}
@@ -405,7 +467,7 @@ const record = async (status, { feeConfirmed = false } = {}) => {
                             <button
                                 type="button"
                                 :disabled="submitting"
-                                @click="record(feePendingStatus, { feeConfirmed: true })"
+                                @click="record(feePendingStatus, { feeConfirmed: true, diagnosed: true })"
                                 class="rounded-xl bg-green-700 px-4 py-2 font-semibold text-white hover:bg-green-800 disabled:opacity-50"
                             >
                                 {{ t('lab.feeConfirmYes') }}

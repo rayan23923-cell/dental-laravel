@@ -38,6 +38,8 @@ Future<Uint8List> buildLabResultPdf({
 
   final currency = settings?.currency ?? '';
   final rows = <(String, String)>[
+    // The positive test(s) of a "غير سليم" result (2026-11-03, by request).
+    if (r.screeningStatus == 'flagged' && r.screeningDiagnosisText != null) ('التشخيص', r.screeningDiagnosisText!),
     ('اسم المريض', r.name),
     ('الهاتف', r.phone),
     ('الخدمة', r.serviceName ?? '—'),

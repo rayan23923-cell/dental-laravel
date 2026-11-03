@@ -82,14 +82,62 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
     return ok == true;
   }
 
+  /// "غير سليم" asks which test was positive first (2026-11-03, by
+  /// request): B, C, HIV, one or more. Null when cancelled.
+  Future<List<String>?> _askDiagnoses() async {
+    final t = ref.read(translationsProvider);
+    const codes = ['B', 'C', 'HIV'];
+    final picked = <String>{};
+    return showDialog<List<String>>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          icon: const Icon(Icons.coronavirus_outlined, color: Colors.red),
+          title: Text(t['screening.diagnosisTitle']!),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(t['screening.diagnosisHint']!),
+              const SizedBox(height: 8),
+              for (final code in codes)
+                CheckboxListTile(
+                  value: picked.contains(code),
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: Text(t['screening.diagnosis$code']!, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  onChanged: (v) => setDialogState(() => v == true ? picked.add(code) : picked.remove(code)),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(t['screening.diagnosisCancel']!)),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+              onPressed: picked.isEmpty ? null : () => Navigator.of(ctx).pop(codes.where(picked.contains).toList()),
+              child: Text(t['screening.diagnosisConfirm']!),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _confirm(String status) async {
+    var diagnoses = const <String>[];
+    if (status == 'flagged') {
+      final picked = await _askDiagnoses();
+      if (picked == null || picked.isEmpty || !mounted) return;
+      diagnoses = picked;
+    }
     if (_feeDue && !await _askFeeReceived()) return;
     if (!mounted) return;
     setState(() => _submitting = true);
     final t = ref.read(translationsProvider);
     try {
-      final updated =
-          await ref.read(patientRegistrationRepositoryProvider).confirmScreening(_state.registration.id, status);
+      final updated = await ref
+          .read(patientRegistrationRepositoryProvider)
+          .confirmScreening(_state.registration.id, status, diagnoses: diagnoses);
       if (!mounted) return;
       setState(() => _state = updated);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -241,6 +289,9 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
           headerSubtitle: headerSubtitle,
           resultBanner: '${t['screening.labResultHeading']!}: $result',
           extraRows: [
+            // The positive test(s) of a "غير سليم" result (2026-11-03, by request).
+            if (r.screeningStatus == 'flagged' && r.screeningDiagnosisText != null)
+              (t['screening.diagnosis']!, r.screeningDiagnosisText!),
             if (reusedFrom != null) ...[
               (t['screening.paymentStatus']!, t['screening.exemptPrevious']!),
               (t['screening.previousCheckedAt']!, _formatDate(reusedFrom.checkedAt)),
@@ -419,7 +470,7 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
             ),
           ),
           const SizedBox(height: 12),
-          _StatusBanner(status: r.screeningStatus),
+          _StatusBanner(status: r.screeningStatus, diagnosis: r.screeningDiagnosisText),
           // Result details for an already screened registration
           // (2026-10-17, as on the web lab page): who recorded it and
           // when, whether it was reused from an earlier test, and a
@@ -611,9 +662,12 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
 }
 
 class _StatusBanner extends ConsumerWidget {
-  const _StatusBanner({required this.status});
+  const _StatusBanner({required this.status, this.diagnosis});
 
   final String status;
+
+  /// "التهاب الكبد B، HIV" for a flagged result (2026-11-03).
+  final String? diagnosis;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -634,7 +688,12 @@ class _StatusBanner extends ConsumerWidget {
         children: [
           Icon(icon, color: color.shade700),
           const SizedBox(width: 8),
-          Expanded(child: Text(label, style: TextStyle(color: color.shade900, fontWeight: FontWeight.w600))),
+          Expanded(
+            child: Text(
+              status == 'flagged' && diagnosis != null ? '$label — ${t['screening.diagnosis']}: $diagnosis' : label,
+              style: TextStyle(color: color.shade900, fontWeight: FontWeight.w600),
+            ),
+          ),
         ],
       ),
     );

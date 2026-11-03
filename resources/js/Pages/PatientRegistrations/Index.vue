@@ -23,6 +23,7 @@ import { printInFrame } from '@/printInFrame';
 import { useI18n } from 'vue-i18n';
 import axios from 'axios';
 import { useLiveRegistrations } from '@/Composables/useLiveRegistrations';
+import { DIAGNOSIS_CODES, DIAGNOSIS_LABELS, diagnosisText } from '@/screeningDiagnosis';
 
 const { t } = useI18n();
 const props = defineProps({
@@ -199,16 +200,40 @@ const screeningBadgeClass = (status) =>
 const screeningTone = (status) => ({ clear: 'emerald', flagged: 'rose' }[status] ?? 'amber');
 const screeningIcon = (status) => ({ clear: 'verified_user', flagged: 'gpp_bad' }[status] ?? 'hourglass_top');
 
-const confirmScreening = async (status) => {
+// "غير سليم" asks which test was positive first (2026-11-03, by request).
+const diagnosisPicking = ref(false);
+const pickedDiagnoses = ref([]);
+const toggleDiagnosis = (code) => {
+    pickedDiagnoses.value = pickedDiagnoses.value.includes(code)
+        ? pickedDiagnoses.value.filter((c) => c !== code)
+        : [...pickedDiagnoses.value, code];
+};
+const closeScreening = () => {
+    screeningRegistration.value = null;
+    diagnosisPicking.value = false;
+    pickedDiagnoses.value = [];
+};
+
+const confirmScreening = async (status, { diagnosed = false } = {}) => {
+    if (status === 'flagged' && !diagnosed) {
+        pickedDiagnoses.value = [];
+        diagnosisPicking.value = true;
+        return;
+    }
+    const diagnoses = status === 'flagged' ? DIAGNOSIS_CODES.filter((c) => pickedDiagnoses.value.includes(c)) : [];
     screeningSubmitting.value = true;
     try {
         const { data } = await axios.post(route('patient-registrations.screening', screeningRegistration.value.id), {
             screening_status: status,
+            screening_diagnoses: diagnoses,
         });
         const updated = data.data.registration;
         const row = props.registrations.data.find((r) => r.id === updated.id);
-        if (row) row.screening_status = updated.screening_status;
-        screeningRegistration.value = null;
+        if (row) {
+            row.screening_status = updated.screening_status;
+            row.screening_diagnoses = updated.screening_diagnoses;
+        }
+        closeScreening();
     } finally {
         screeningSubmitting.value = false;
     }
@@ -317,7 +342,7 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
                                 {{ [t(r.discount_type === 'employee' ? 'patientReg.discountEmployee' : 'patientReg.discountStudent'), r.discount_person_name, r.discount_stage || r.discount_workplace].filter(Boolean).join(' · ') }}
                             </ChatChip>
                             <ChatChip icon="schedule">{{ fmtDate(r.created_at) }}</ChatChip>
-                            <ChatChip :icon="screeningIcon(r.screening_status)" :tone="screeningTone(r.screening_status)">{{ screeningLabel(r.screening_status) }}</ChatChip>
+                            <ChatChip :icon="screeningIcon(r.screening_status)" :tone="screeningTone(r.screening_status)">{{ screeningLabel(r.screening_status) }}<template v-if="diagnosisText(r)"> — {{ diagnosisText(r) }}</template></ChatChip>
                             <ChatChip v-if="archiveScopeOf(r)" icon="inventory_2" tone="amber">{{ t('patientReg.archivedFrom.' + archiveScopeOf(r)) }}</ChatChip>
                         </template>
                         <template #actions>
@@ -396,7 +421,7 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
         </Modal>
 
         <!-- Infectious-disease screening gate (2026-08-26) -->
-        <Modal :show="!!screeningRegistration" @close="screeningRegistration = null">
+        <Modal :show="!!screeningRegistration" @close="closeScreening()">
             <div class="flex flex-col gap-4 p-6" v-if="screeningRegistration">
                 <h3 class="text-lg font-semibold text-gray-800">{{ t('patientReg.screeningModalTitle', { name: screeningRegistration.name }) }}</h3>
                 <p class="text-sm text-gray-500">
@@ -404,6 +429,7 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
                     <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="screeningBadgeClass(screeningRegistration.screening_status)">
                         {{ screeningLabel(screeningRegistration.screening_status) }}
                     </span>
+                    <span v-if="diagnosisText(screeningRegistration)" class="mr-1 font-semibold text-red-800">{{ t('lab.diagnosis') }}: {{ diagnosisText(screeningRegistration) }}</span>
                 </p>
                 <!-- A recorded result is final (2026-11-01, by request). -->
                 <p v-if="screeningRegistration.screening_status !== 'pending'" class="rounded-xl bg-gray-50 p-3 text-sm text-gray-600">
@@ -427,7 +453,32 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
                         {{ t('patientReg.screeningFlagged') }}
                     </button>
                 </div>
-                <SecondaryButton @click="screeningRegistration = null">{{ t('common.close') }}</SecondaryButton>
+                <div v-if="diagnosisPicking && screeningRegistration.screening_status === 'pending'" class="flex flex-col gap-3 rounded-xl border-2 border-red-300 bg-red-50 p-4 text-sm text-red-900">
+                    <span class="font-semibold">{{ t('lab.diagnosisTitle') }}</span>
+                    <span>{{ t('lab.diagnosisHint') }}</span>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button
+                            v-for="code in DIAGNOSIS_CODES"
+                            :key="code"
+                            type="button"
+                            @click="toggleDiagnosis(code)"
+                            class="rounded-xl border-2 px-3 py-3 text-base font-bold transition"
+                            :class="pickedDiagnoses.includes(code) ? 'border-red-700 bg-red-700 text-white' : 'border-red-200 bg-white text-red-800 hover:bg-red-100'"
+                        >
+                            {{ code }}
+                            <span class="block text-xs font-normal opacity-90">{{ DIAGNOSIS_LABELS[code] }}</span>
+                        </button>
+                    </div>
+                    <button
+                        type="button"
+                        :disabled="screeningSubmitting || pickedDiagnoses.length === 0"
+                        @click="confirmScreening('flagged', { diagnosed: true })"
+                        class="rounded-xl bg-red-700 px-4 py-2 font-semibold text-white hover:bg-red-800 disabled:opacity-50"
+                    >
+                        {{ t('lab.diagnosisConfirm') }}
+                    </button>
+                </div>
+                <SecondaryButton @click="closeScreening()">{{ t('common.close') }}</SecondaryButton>
             </div>
         </Modal>
     </AuthenticatedLayout>

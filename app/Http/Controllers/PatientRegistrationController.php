@@ -365,6 +365,10 @@ class PatientRegistrationController extends Controller
     {
         $validated = $request->validate([
             'screening_status' => ['required', Rule::in(['clear', 'flagged'])],
+            // What a "غير سليم" result is: B / C / HIV (2026-11-03, by
+            // request). Optional here so an older app can still record.
+            'screening_diagnoses' => ['nullable', 'array'],
+            'screening_diagnoses.*' => ['string', Rule::in(\App\Support\ScreeningDiagnosis::CODES)],
         ]);
 
         // The lab fee is taken with the result (2026-10-12), so the lab
@@ -379,6 +383,9 @@ class PatientRegistrationController extends Controller
 
             $patientRegistration->update([
                 'screening_status' => $validated['screening_status'],
+                'screening_diagnoses' => $validated['screening_status'] === 'flagged'
+                    ? (\App\Support\ScreeningDiagnosis::normalize($validated['screening_diagnoses'] ?? null) ?: null)
+                    : null,
                 'screening_checked_by' => $request->user()->id,
                 'screening_checked_at' => now(),
             ]);

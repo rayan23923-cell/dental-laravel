@@ -39,6 +39,8 @@ class PatientRegistration {
     this.screeningReusedFromCheckedAt,
     this.labSamplePrintedAt,
     this.labResultReceivedAt,
+    this.screeningDiagnoses = const [],
+    this.screeningDiagnosisText,
   });
 
   factory PatientRegistration.fromJson(Map<String, dynamic> json) {
@@ -91,6 +93,8 @@ class PatientRegistration {
       screeningReusedFromCheckedAt: json['screening_reused_from_checked_at'] as String?,
       labSamplePrintedAt: json['lab_sample_printed_at'] as String?,
       labResultReceivedAt: json['lab_result_received_at'] as String?,
+      screeningDiagnoses: ((json['screening_diagnoses'] as List<dynamic>?) ?? const []).map((e) => e.toString()).toList(),
+      screeningDiagnosisText: json['screening_diagnosis_text'] as String?,
     );
   }
 
@@ -151,6 +155,11 @@ class PatientRegistration {
   /// when the patient collected the result ("تم استلام النتيجة").
   final String? labSamplePrintedAt;
   final String? labResultReceivedAt;
+
+  /// "غير سليم" diagnosis (2026-11-03, by request): codes 'B' / 'C' /
+  /// 'HIV' and the printed text, e.g. "التهاب الكبد B، HIV".
+  final List<String> screeningDiagnoses;
+  final String? screeningDiagnosisText;
 
   bool get isLabResultReceived => labResultReceivedAt != null;
 

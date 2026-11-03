@@ -83,6 +83,9 @@ class PaymentReceiptWidget extends StatelessWidget {
               ('رقم الوصل', '#${payment.id}'),
               ('اسم المريض', payment.personName),
               if (payment.patientRegistrationPhone != null) ('الهاتف', payment.patientRegistrationPhone!),
+              // Lab receipt of a "غير سليم" result: B / C / HIV (2026-11-03, by request).
+              if (payment.isLabFee && payment.screeningDiagnosisText != null)
+                ('نتيجة الفحص', 'غير سليم — ${payment.screeningDiagnosisText}'),
               // Student/employee discount (2026-10-25, by request).
               ...discountAmountRows(
                 payment.discount,

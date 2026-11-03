@@ -581,7 +581,7 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                         // fixed in academic_session_list_screen.dart).
                         subtitle: '\u2066${r.phone}\u2069',
                         chips: [
-                          _ScreeningBadge(status: r.screeningStatus),
+                          _ScreeningBadge(status: r.screeningStatus, diagnosis: r.screeningDiagnosisText),
                           if (r.serviceName != null)
                             ChatChip(label: r.serviceName!, icon: Icons.medical_services_outlined, color: Colors.indigo),
                         ],
@@ -727,9 +727,12 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
 /// (2026-08-26) — pure display; the actual gate is server-side
 /// (`PatientScreeningGate`).
 class _ScreeningBadge extends ConsumerWidget {
-  const _ScreeningBadge({required this.status});
+  const _ScreeningBadge({required this.status, this.diagnosis});
 
   final String status;
+
+  /// "التهاب الكبد B، HIV" for a flagged result (2026-11-03).
+  final String? diagnosis;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -740,7 +743,11 @@ class _ScreeningBadge extends ConsumerWidget {
       'flagged' => (Colors.red, Icons.coronavirus_outlined, t['patientRegFlutter.screeningFlagged']!),
       _ => (Colors.orange, Icons.hourglass_empty, t['patientRegFlutter.screeningPending']!),
     };
-    return ChatChip(label: label, icon: icon, color: color.shade700);
+    return ChatChip(
+      label: status == 'flagged' && diagnosis != null ? '$label — $diagnosis' : label,
+      icon: icon,
+      color: color.shade700,
+    );
   }
 }
 

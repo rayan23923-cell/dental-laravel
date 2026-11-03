@@ -50,6 +50,8 @@ class PatientRegistration extends Model
         'screening_checked_by',
         'screening_checked_at',
         'screening_reused_from',
+        // "غير سليم" diagnosis: B / C / HIV (2026-11-03), see App\Support\ScreeningDiagnosis.
+        'screening_diagnoses',
         // Student discount (2026-10-25), see App\Support\StudentDiscount.
         'discount_eligible',
         // 'student' (optional stage) or 'employee' (optional workplace).
@@ -73,6 +75,7 @@ class PatientRegistration extends Model
         return [
             'created_at' => 'datetime',
             'discount_eligible' => 'boolean',
+            'screening_diagnoses' => 'array',
             'lab_sample_printed_at' => 'datetime',
             'lab_result_received_at' => 'datetime',
             'registry_archived_at' => 'datetime',

@@ -44,6 +44,10 @@
 
         <div class="result" style="text-align:center; font-size:28px; font-weight:700; padding:14px; border-radius:8px; margin-bottom:16px; color:{{ $result['color'] }}; background:{{ $result['bg'] }}; border:2px solid {{ $result['color'] }};">
             {{ $result['label'] }}
+            {{-- The positive test(s): B / C / HIV (2026-11-03, by request). --}}
+            @if ($diagnosis = \App\Support\ScreeningDiagnosis::text($registration))
+                <div class="diagnosis" style="font-size:22px; margin-top:6px;">التشخيص: {{ $diagnosis }}</div>
+            @endif
         </div>
 
         <table style="margin:0 0 16px">

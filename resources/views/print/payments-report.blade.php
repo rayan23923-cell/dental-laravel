@@ -109,7 +109,13 @@
                         {{ $p->patientRegistration?->name ?? $p->appointment?->full_name ?? '—' }}
                         @if ($p->patientRegistration?->trashed()) <span class="muted">(مؤرشف)</span> @endif
                     </td>
-                    <td>{{ $sourceLabels[$source] }}</td>
+                    <td>
+                        {{ $sourceLabels[$source] }}
+                        {{-- "غير سليم" diagnosis: B / C / HIV (2026-11-03, by request). --}}
+                        @if ($source === 'lab' && $p->patientRegistration && ($diagnosis = \App\Support\ScreeningDiagnosis::text($p->patientRegistration)))
+                            <div class="muted">غير سليم — {{ $diagnosis }}</div>
+                        @endif
+                    </td>
                     <td>{{ $p->patientRegistration?->service?->name ?? '—' }}</td>
                     <td>{{ $money($discount['full'] ?? $p->amount) }}</td>
                     <td>{{ $discount ? trim(($discount['percent'] !== null ? $discount['percent'].'% · ' : '').$discount['who']) : '—' }}</td>

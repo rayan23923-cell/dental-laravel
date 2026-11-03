@@ -52,6 +52,9 @@ class PatientRegistrationResource extends JsonResource
                 : null),
             'screening_status' => $this->screening_status,
             'screening_reused_from' => $this->screening_reused_from,
+            // "غير سليم" diagnosis (2026-11-03): codes and the printed text.
+            'screening_diagnoses' => \App\Support\ScreeningDiagnosis::normalize($this->screening_diagnoses),
+            'screening_diagnosis_text' => \App\Support\ScreeningDiagnosis::text($this->resource),
             // Who recorded the lab result and when (2026-10-17), and the
             // date of the earlier test a reused result came from — what
             // the web lab page and its printed slip show.
