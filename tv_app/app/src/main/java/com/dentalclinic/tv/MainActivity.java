@@ -139,6 +139,7 @@ public class MainActivity extends Activity {
         // First run (2026-11-03, by request): a setup wizard that cannot be
         // skipped until the server is chosen and auto-start is allowed.
         if (!SetupActivity.done(this) || server().isEmpty()) {
+            ownScreen = true;
             startActivityForResult(new Intent(this, SetupActivity.class), REQUEST_SETUP);
         } else {
             load();
@@ -190,6 +191,8 @@ public class MainActivity extends Activity {
 
     /** True while the waiting screen is in front; the boot watch stops pulling once it holds. */
     static volatile boolean visible;
+    /** True while this app's own settings or setup screen covers the waiting screen. */
+    private boolean ownScreen;
 
     static boolean canOpenFromBackground(Context context) {
         return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || Settings.canDrawOverlays(context);
@@ -421,6 +424,7 @@ public class MainActivity extends Activity {
     /** MENU/BACK opens the settings page (SettingsActivity, 2026-11-03). */
     private void showMenu() {
         Intent i = new Intent(this, SettingsActivity.class).putExtra(SettingsActivity.EXTRA_SERVER, server());
+        ownScreen = true;
         startActivityForResult(i, REQUEST_SETTINGS);
     }
 
@@ -441,7 +445,11 @@ public class MainActivity extends Activity {
         if (SettingsActivity.ACTION_RELOAD.equals(action)) { failures = 0; load(); }
         else if (SettingsActivity.ACTION_SERVER.equals(action)) chooseServer();
         else if (SettingsActivity.ACTION_UPDATE.equals(action)) checkForUpdate(true);
-        else if (SettingsActivity.ACTION_EXIT.equals(action)) { if (homeMode()) openTvHome(); else finish(); }
+        else if (SettingsActivity.ACTION_EXIT.equals(action)) {
+            // Stay in the background rather than closing, so the TV still
+            // counts the waiting screen as its last app (2026-11-03).
+            if (homeMode()) openTvHome(); else moveTaskToBack(true);
+        }
     }
 
     @Override
@@ -476,9 +484,17 @@ public class MainActivity extends Activity {
         super.onResume();
         if (!visible) Diag.log(this, "screen shown");
         visible = true;
+        ownScreen = false;
+        AutoStartService.cancelReturn(this);
         AutoStartService.markShown(this);
         if (webView != null) webView.onResume();
         if (mainFrameFailed) { failures = 0; load(); }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (!ownScreen) AutoStartService.scheduleReturn(this);
     }
 
     @Override

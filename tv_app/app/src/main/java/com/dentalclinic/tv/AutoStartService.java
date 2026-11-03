@@ -76,6 +76,57 @@ public class AutoStartService extends Service {
         return d.getSharedPreferences("boot", MODE_PRIVATE);
     }
 
+    /** Minutes after leaving the app before it comes back by itself; 0 = never. */
+    static final int[] RETURN_MINUTES = {0, 1, 2, 5, 10, 30, 60};
+    private static final int RETURN_DEFAULT = 3; // 5 minutes
+
+    static int returnChoice(Context c) {
+        try {
+            int v = bootPrefs(c).getInt("return", RETURN_DEFAULT);
+            return v >= 0 && v < RETURN_MINUTES.length ? v : RETURN_DEFAULT;
+        } catch (RuntimeException e) {
+            return RETURN_DEFAULT;
+        }
+    }
+
+    static void setReturnChoice(Context c, int v) {
+        bootPrefs(c).edit().putInt("return", v).commit();
+    }
+
+    private static android.app.PendingIntent returnIntent(Context c) {
+        Intent i = new Intent(c, BootReceiver.class).setAction(BootReceiver.ACTION_RETURN);
+        int flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT
+                | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? android.app.PendingIntent.FLAG_IMMUTABLE : 0);
+        return android.app.PendingIntent.getBroadcast(c, 11, i, flags);
+    }
+
+    /**
+     * The TV reopens whatever app was on screen when it went off, and it
+     * stops this app once someone leaves it (2026-11-03): so after leaving,
+     * the waiting screen comes back by itself after the chosen minutes.
+     */
+    static void scheduleReturn(Context c) {
+        int minutes = RETURN_MINUTES[returnChoice(c)];
+        if (minutes <= 0 || !MainActivity.anyAutoOpen(c)) return;
+        android.app.AlarmManager am = (android.app.AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
+        long at = System.currentTimeMillis() + minutes * 60_000L;
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                am.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, at, returnIntent(c));
+            } else {
+                am.setExact(android.app.AlarmManager.RTC_WAKEUP, at, returnIntent(c));
+            }
+            Diag.log(c, "left the app: back in " + minutes + " min");
+        } catch (RuntimeException e) {
+            Diag.log(c, "return alarm failed: " + e.getClass().getSimpleName());
+        }
+    }
+
+    static void cancelReturn(Context c) {
+        android.app.AlarmManager am = (android.app.AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
+        am.cancel(returnIntent(c));
+    }
+
     /** Settings choice (SettingsActivity.SETTLE_SECONDS index); 0 = by the TV's memory. */
     static int settleChoice(Context c) {
         try {

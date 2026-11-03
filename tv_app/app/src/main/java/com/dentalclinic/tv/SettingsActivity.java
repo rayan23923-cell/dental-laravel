@@ -75,7 +75,15 @@ public class SettingsActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        AutoStartService.cancelReturn(this);
         build();
+    }
+
+    /** Left for the TV's own screens or its home: come back later like the waiting screen. */
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (!isFinishing()) AutoStartService.scheduleReturn(this);
     }
 
     private void build() {
@@ -106,6 +114,7 @@ public class SettingsActivity extends Activity {
             build();
         });
         row("settle", getString(R.string.set_settle, settleName(AutoStartService.settleChoice(this))), this::chooseSettle);
+        row("return", getString(R.string.set_return, returnName(AutoStartService.returnChoice(this))), this::chooseReturn);
         row("overlay", check(MainActivity.canOpenFromBackground(this)) + getString(R.string.set_overlay), () -> {
             android.widget.Toast.makeText(this, R.string.overlay_steps, android.widget.Toast.LENGTH_LONG).show();
             SystemLinks.openFirst(this,
@@ -287,6 +296,24 @@ public class SettingsActivity extends Activity {
                 .setTitle(R.string.set_settle_title)
                 .setSingleChoiceItems(names, AutoStartService.settleChoice(this), (d, which) -> {
                     AutoStartService.setSettleChoice(this, which);
+                    d.dismiss();
+                    build();
+                })
+                .show();
+    }
+
+    private String returnName(int choice) {
+        int m = AutoStartService.RETURN_MINUTES[choice];
+        return m == 0 ? getString(R.string.set_return_never) : getString(R.string.set_minutes, m);
+    }
+
+    private void chooseReturn() {
+        String[] names = new String[AutoStartService.RETURN_MINUTES.length];
+        for (int i = 0; i < names.length; i++) names[i] = returnName(i);
+        new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle(R.string.set_return_title)
+                .setSingleChoiceItems(names, AutoStartService.returnChoice(this), (d, which) -> {
+                    AutoStartService.setReturnChoice(this, which);
                     d.dismiss();
                     build();
                 })

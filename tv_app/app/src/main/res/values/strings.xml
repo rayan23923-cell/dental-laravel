@@ -63,6 +63,10 @@
     <string name="set_open_on_wake">فتح التطبيق عند الرجوع من الاستعداد</string>
     <string name="set_settle">مدة تثبيت التطبيق بالواجهة بعد التشغيل: %1$s</string>
     <string name="set_settle_title">مدة تثبيت التطبيق بالواجهة</string>
+    <string name="set_return">الرجوع لشاشة الانتظار بعد الخروج منها: %1$s</string>
+    <string name="set_return_title">الرجوع التلقائي بعد الخروج</string>
+    <string name="set_return_never">لا يرجع</string>
+    <string name="set_minutes">%1$d دقيقة</string>
     <string name="set_settle_auto">تلقائي حسب التلفاز</string>
     <string name="set_seconds">%1$d ثانية</string>
     <string name="set_overlay">صلاحية الظهور فوق التطبيقات (مطلوبة للفتح التلقائي)</string>

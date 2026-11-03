@@ -17,6 +17,7 @@ import android.os.Build;
  */
 public class BootReceiver extends BroadcastReceiver {
     static final String ACTION_LAUNCH = "com.dentalclinic.tv.LAUNCH";
+    static final String ACTION_RETURN = "com.dentalclinic.tv.RETURN";
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -32,6 +33,10 @@ public class BootReceiver extends BroadcastReceiver {
             if (Intent.ACTION_SHUTDOWN.equals(action)
                     || "android.intent.action.QUICKBOOT_POWEROFF".equals(action)) {
                 AutoStartService.putOnTopForPowerOn(context, "shutdown");
+                return;
+            }
+            if (ACTION_RETURN.equals(action)) {
+                if (!MainActivity.visible) AutoStartService.bringToFront(context);
                 return;
             }
             if (ACTION_LAUNCH.equals(action)) {
