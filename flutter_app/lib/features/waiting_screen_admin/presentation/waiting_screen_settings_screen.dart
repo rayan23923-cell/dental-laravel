@@ -31,6 +31,7 @@ class _WaitingScreenSettingsScreenState extends ConsumerState<WaitingScreenSetti
   final _formKey = GlobalKey<FormState>();
   final _perPage = TextEditingController();
   final _rotation = TextEditingController();
+  String _labScope = 'today';
   bool _seeded = false;
   bool _saving = false;
 
@@ -46,6 +47,7 @@ class _WaitingScreenSettingsScreenState extends ConsumerState<WaitingScreenSetti
     _seeded = true;
     _perPage.text = '${page.settings.patientsPerPage}';
     _rotation.text = '${page.settings.rotationSeconds}';
+    _labScope = page.settings.labScope;
   }
 
   Future<void> _save() async {
@@ -57,6 +59,7 @@ class _WaitingScreenSettingsScreenState extends ConsumerState<WaitingScreenSetti
             groupId: null,
             patientsPerPage: int.parse(_perPage.text.trim()),
             rotationSeconds: int.parse(_rotation.text.trim()),
+            labScope: _labScope,
           );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['waitingScreenSettings.saved']!)));
@@ -99,6 +102,20 @@ class _WaitingScreenSettingsScreenState extends ConsumerState<WaitingScreenSetti
               padding: const EdgeInsets.all(16),
               children: [
                 Text(t['waitingScreenSettings.description']!, style: Theme.of(context).textTheme.bodyMedium),
+                const SizedBox(height: 16),
+                // Lab filter (2026-11-03, by request): today's only or all pending.
+                Text(t['waitingScreenSettings.labScopeLabel']!, style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 8),
+                SegmentedButton<String>(
+                  segments: [
+                    ButtonSegment(value: 'today', icon: const Icon(Icons.today_outlined), label: Text(t['waitingScreenSettings.labScope_today']!)),
+                    ButtonSegment(value: 'all', icon: const Icon(Icons.groups_outlined), label: Text(t['waitingScreenSettings.labScope_all']!)),
+                  ],
+                  selected: {_labScope},
+                  onSelectionChanged: (v) => setState(() => _labScope = v.first),
+                ),
+                const SizedBox(height: 6),
+                Text(t['waitingScreenSettings.labScope_${_labScope}_hint']!, style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _perPage,

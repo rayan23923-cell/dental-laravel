@@ -103,4 +103,46 @@ class WaitingScreenLabWaitingTest extends TestCase
 
         $this->assertSame([], $this->labWaiting());
     }
+
+    public function test_lab_scope_today_starts_at_midnight_clinic_time_and_all_shows_every_pending(): void
+    {
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2026-11-03 09:00:00', 'UTC'));
+        \App\Models\ClinicSetting::current()->update(['clinic_timezone' => 'Asia/Baghdad']);
+
+        // 22:30 UTC yesterday = 01:30 today in Baghdad; 20:30 UTC = 23:30 yesterday there.
+        $this->registration('بعد منتصف الليل')->forceFill(['lab_sample_printed_at' => '2026-11-02 22:30:00'])->save();
+        $this->registration('قبل منتصف الليل')->forceFill(['lab_sample_printed_at' => '2026-11-02 20:30:00'])->save();
+        $this->registration('الأسبوع الماضي')->forceFill(['lab_sample_printed_at' => '2026-10-27 08:00:00'])->save();
+        $done = $this->registration('منتهي');
+        $done->forceFill(['lab_sample_printed_at' => '2026-11-01 08:00:00', 'screening_status' => 'clear'])->save();
+
+        $this->assertSame(['بعد منتصف الليل'], $this->labWaiting());
+
+        \App\Models\WaitingScreenSetting::current()->update(['lab_scope' => 'all']);
+        $this->assertSame(['الأسبوع الماضي', 'قبل منتصف الليل', 'بعد منتصف الليل'], $this->labWaiting());
+    }
+
+    public function test_lab_scope_is_saved_from_web_and_app(): void
+    {
+        $admin = User::factory()->create(['role' => 'super_admin']);
+
+        $response = $this->actingAs($admin)->put('/waiting-screen-settings', [
+            'patients_per_page' => 8, 'rotation_seconds' => 12, 'lab_scope' => 'all',
+        ]);
+        $response->assertSessionHasNoErrors()->assertRedirect();
+        $this->assertSame('all', \App\Models\WaitingScreenSetting::current()->lab_scope);
+
+        Sanctum::actingAs($admin);
+        $this->putJson('/api/v1/waiting-screen-settings', [
+            'patients_per_page' => 8, 'rotation_seconds' => 12, 'lab_scope' => 'today',
+        ])->assertOk()->assertJsonPath('data.settings.lab_scope', 'today');
+
+        $this->putJson('/api/v1/waiting-screen-settings', [
+            'patients_per_page' => 8, 'rotation_seconds' => 12, 'lab_scope' => 'week',
+        ])->assertStatus(422);
+
+        // Older app builds without the field keep the current choice.
+        $this->putJson('/api/v1/waiting-screen-settings', ['patients_per_page' => 8, 'rotation_seconds' => 12])
+            ->assertOk()->assertJsonPath('data.settings.lab_scope', 'today');
+    }
 }

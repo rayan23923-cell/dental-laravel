@@ -1117,7 +1117,12 @@
         "rename": "Rename",
         "renamePrompt": "Screen name",
         "unpair": "Unpair",
-        "unpairConfirm": "Unpair this screen? It will show its pairing code again."
+        "unpairConfirm": "Unpair this screen? It will show its pairing code again.",
+        "labScopeLabel": "Patients shown",
+        "labScope_today": "Today's patients only",
+        "labScope_today_hint": "The list clears every day at midnight and starts again.",
+        "labScope_all": "All patients",
+        "labScope_all_hint": "Shows every patient still waiting for a result, whatever the day."
     },
     "waitingScreen": {
         "reconnecting": "Connection lost — reconnecting automatically…",
