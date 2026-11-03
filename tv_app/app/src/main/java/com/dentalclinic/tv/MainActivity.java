@@ -148,6 +148,10 @@ public class MainActivity extends Activity {
         ArrayList<String> ask = new ArrayList<>();
         if (checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)
             ask.add(android.Manifest.permission.READ_EXTERNAL_STORAGE);
+        // Updates are saved to the Download folder when the TV will not let
+        // the app install them itself (2026-11-03).
+        if (checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)
+            ask.add(android.Manifest.permission.WRITE_EXTERNAL_STORAGE);
         if (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
             ask.add(android.Manifest.permission.ACCESS_FINE_LOCATION);
         if (!ask.isEmpty()) requestPermissions(ask.toArray(new String[0]), 1);

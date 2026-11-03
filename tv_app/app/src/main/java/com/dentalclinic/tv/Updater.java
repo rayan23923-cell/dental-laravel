@@ -51,14 +51,25 @@ final class Updater {
                 }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                         && !activity.getPackageManager().canRequestPackageInstalls()) {
+                    // The clinic TV never shows "allow installing updates"
+                    // for this app (2026-11-03). Automatic checks only say an
+                    // update exists; a check from settings downloads it to
+                    // the Download folder and opens the file manager, which
+                    // can install it.
+                    if (!manual) {
+                        activity.runOnUiThread(() -> {
+                            ui.status(activity.getString(R.string.update_available, release[0]));
+                            // A note, not a banner over the waiting screen.
+                            new android.os.Handler(android.os.Looper.getMainLooper())
+                                    .postDelayed(() -> ui.status(null), 30_000);
+                        });
+                        return;
+                    }
+                    activity.runOnUiThread(() -> ui.status(activity.getString(R.string.update_downloading, release[0])));
+                    File saved = downloadToFolder(activity, release);
                     activity.runOnUiThread(() -> {
-                        Toast.makeText(activity, R.string.update_allow, Toast.LENGTH_LONG).show();
-                        try {
-                            activity.startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                                    Uri.parse("package:" + activity.getPackageName())));
-                        } catch (RuntimeException ignored) {
-                            // No such settings screen on this TV.
-                        }
+                        ui.status(null);
+                        showSaved(activity, saved);
                     });
                     return;
                 }
@@ -114,6 +125,85 @@ final class Updater {
             confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             try { c.startActivity(confirm); } catch (RuntimeException ignored) { }
         }
+    }
+
+    /**
+     * Saves the update as Download/DentalClinicTV-<version>.apk (shared
+     * storage, where any file manager looks); falls back to the app's own
+     * external folder when writing there is not allowed.
+     */
+    private static File downloadToFolder(Activity activity, String[] release) throws Exception {
+        String name = "DentalClinicTV-" + release[0] + ".apk";
+        File dir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS);
+        boolean canWrite = Build.VERSION.SDK_INT < 23 || activity.checkSelfPermission(
+                android.Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
+        if (!canWrite || !(dir.isDirectory() || dir.mkdirs())) {
+            dir = activity.getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS);
+        }
+        if (dir == null) throw new IllegalStateException("no storage");
+        // Remove older copies so the folder holds only the newest update.
+        File[] old = dir.listFiles((d, n) -> n.startsWith("DentalClinicTV-") && n.endsWith(".apk"));
+        if (old != null) for (File f : old) //noinspection ResultOfMethodCallIgnored
+            f.delete();
+        File apk = new File(dir, name);
+        download(release[1], apk);
+        PackageInfo info = activity.getPackageManager().getPackageArchiveInfo(apk.getPath(), 0);
+        if (info == null || !activity.getPackageName().equals(info.packageName)) {
+            //noinspection ResultOfMethodCallIgnored
+            apk.delete();
+            throw new IllegalStateException("bad apk");
+        }
+        Diag.log(activity, "update saved " + apk.getPath());
+        return apk;
+    }
+
+    /** Tells where the file is, then opens a file manager on the Download folder. */
+    private static void showSaved(Activity activity, File apk) {
+        new android.app.AlertDialog.Builder(activity)
+                .setTitle(R.string.update_saved_title)
+                .setMessage(activity.getString(R.string.update_saved_message, apk.getParent(), apk.getName()))
+                .setPositiveButton(R.string.update_open_files, (d, w) -> {
+                    if (!openFileManager(activity)) {
+                        Toast.makeText(activity, R.string.update_no_file_manager, Toast.LENGTH_LONG).show();
+                    }
+                })
+                .setNegativeButton(R.string.update_later, null)
+                .show();
+    }
+
+    /** The first file manager that opens: the Download folder, the downloads list, then any app that looks like one. */
+    static boolean openFileManager(Activity activity) {
+        java.util.List<Intent> tries = new java.util.ArrayList<>();
+        Uri downloads = Uri.parse("content://com.android.externalstorage.documents/document/primary%3ADownload");
+        tries.add(new Intent(Intent.ACTION_VIEW).setDataAndType(downloads, "vnd.android.document/directory"));
+        tries.add(new Intent(android.app.DownloadManager.ACTION_VIEW_DOWNLOADS));
+        if (Build.VERSION.SDK_INT >= 29) {
+            tries.add(Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_FILES));
+        }
+        PackageManager pm = activity.getPackageManager();
+        String[] words = {"file", "explorer", "manager", "media", "ملفات", "文件"};
+        for (android.content.pm.ApplicationInfo app : pm.getInstalledApplications(0)) {
+            String pkg = app.packageName.toLowerCase(java.util.Locale.ROOT);
+            String label = String.valueOf(pm.getApplicationLabel(app)).toLowerCase(java.util.Locale.ROOT);
+            if (pkg.equals(activity.getPackageName())) continue;
+            boolean looks = false;
+            for (String w : words) if (pkg.contains(w) || label.contains(w)) { looks = true; break; }
+            if (!looks) continue;
+            Intent launch = pm.getLeanbackLaunchIntentForPackage(app.packageName);
+            if (launch == null) launch = pm.getLaunchIntentForPackage(app.packageName);
+            if (launch != null) tries.add(launch);
+        }
+        for (Intent i : tries) {
+            try {
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                activity.startActivity(i);
+                Diag.log(activity, "file manager " + (i.getComponent() != null ? i.getComponent().getPackageName() : i.getAction()));
+                return true;
+            } catch (RuntimeException ignored) {
+                // Not on this TV; try the next.
+            }
+        }
+        return false;
     }
 
     /** {version, absolute apk url} or null. */
