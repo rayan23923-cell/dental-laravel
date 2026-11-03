@@ -367,6 +367,12 @@ Route::middleware('auth')->group(function () {
         ->middleware('permission:waiting_screen,view')->name('waiting-screen-settings.edit');
     Route::put('/waiting-screen-settings', [WaitingScreenSettingController::class, 'update'])
         ->middleware('permission:waiting_screen,edit')->name('waiting-screen-settings.update');
+    // Controlling paired screens from the server (2026-11-03, by request).
+    Route::middleware('permission:waiting_screen,edit')->group(function () {
+        Route::post('/waiting-screen/screens/{pairing}/command', [\App\Http\Controllers\WaitingScreenRemoteController::class, 'command'])->name('waiting-screen-screens.command');
+        Route::patch('/waiting-screen/screens/{pairing}', [\App\Http\Controllers\WaitingScreenRemoteController::class, 'update'])->name('waiting-screen-screens.update');
+        Route::delete('/waiting-screen/screens/{pairing}', [\App\Http\Controllers\WaitingScreenRemoteController::class, 'destroy'])->name('waiting-screen-screens.destroy');
+    });
 
     // Ticket desk and lab (2026-10-12): also open to the `reception`
     // (موظف التذاكر) and `lab` (مختبري) roles, which reach nothing else.

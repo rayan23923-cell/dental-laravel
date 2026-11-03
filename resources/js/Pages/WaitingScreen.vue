@@ -211,14 +211,48 @@ const scheduleRotation = () => {
     }, seconds * 1000);
 };
 
+// Remote control (2026-11-03, by request): the TV app exposes window.TvApp
+// (info() and command()); the page reports it to the server every 30 s and
+// runs the commands staff send from the settings page.
+let deviceSentAt = 0;
+const deviceInfo = () => {
+    try {
+        if (window.TvApp?.info) return window.TvApp.info();
+    } catch {
+        // fall through
+    }
+    return JSON.stringify({ app: 'browser' });
+};
+const runCommands = (commands) => {
+    let reload = false;
+    for (const cmd of commands ?? []) {
+        if (cmd.type === 'reload') {
+            reload = true;
+        } else {
+            try {
+                window.TvApp?.command?.(JSON.stringify(cmd));
+            } catch {
+                // not the TV app
+            }
+        }
+    }
+    if (commands?.length) deviceSentAt = 0; // report the new state soon
+    if (reload) window.location.reload();
+};
+
 let loading = false;
 const load = async () => {
     if (loading) return;
     loading = true;
     let data;
     try {
+        const params = pairingToken.value ? { token: pairingToken.value } : {};
+        if (pairingToken.value && Date.now() - deviceSentAt > 30_000) {
+            params.device = deviceInfo();
+            deviceSentAt = Date.now();
+        }
         ({ data } = await window.axios.get('/api/v1/waiting-screen', {
-            params: pairingToken.value ? { token: pairingToken.value } : {},
+            params,
             timeout: 10000,
         }));
     } catch {
@@ -274,6 +308,7 @@ const load = async () => {
         currentPage.value = 0;
     }
     scheduleRotation();
+    runCommands(data.commands);
 };
 
 const rePair = () => {

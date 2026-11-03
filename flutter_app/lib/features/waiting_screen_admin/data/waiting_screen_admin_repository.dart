@@ -36,6 +36,51 @@ class WaitingScreenGroup {
   final String? stageName;
 }
 
+/// A paired TV (2026-11-03, by request), controlled from the server.
+class PairedScreen {
+  const PairedScreen({
+    required this.id,
+    this.name,
+    this.lastSeenAt,
+    required this.online,
+    required this.tvApp,
+    this.version,
+    this.openOnBoot,
+    this.openOnWake,
+    this.returnMinutes,
+    this.overlay,
+    required this.pending,
+  });
+
+  factory PairedScreen.fromJson(Map<String, dynamic> json) => PairedScreen(
+        id: json['id'] as int,
+        name: json['name'] as String?,
+        lastSeenAt: DateTime.tryParse(json['last_seen_at'] as String? ?? '')?.toLocal(),
+        online: json['online'] == true,
+        tvApp: json['tv_app'] == true,
+        version: json['version'] as String?,
+        openOnBoot: json['open_on_boot'] as bool?,
+        openOnWake: json['open_on_wake'] as bool?,
+        returnMinutes: (json['return_minutes'] as num?)?.toInt(),
+        overlay: json['overlay'] as bool?,
+        pending: [for (final p in (json['pending'] as List<dynamic>? ?? const [])) '$p'],
+      );
+
+  final int id;
+  final String? name;
+  final DateTime? lastSeenAt;
+  final bool online;
+  final bool tvApp;
+  final String? version;
+  final bool? openOnBoot;
+  final bool? openOnWake;
+  final int? returnMinutes;
+  final bool? overlay;
+  final List<String> pending;
+}
+
+const pairedScreenReturnMinutes = [0, 1, 2, 5, 10, 30, 60];
+
 class WaitingScreenSettingsPage {
   const WaitingScreenSettingsPage(this.settings, this.groups);
   final WaitingScreenSettings settings;
@@ -66,6 +111,25 @@ class WaitingScreenAdminRepository {
       'rotation_seconds': rotationSeconds,
     }) as Map<String, dynamic>;
     return WaitingScreenSettings.fromJson((data['data'] as Map<String, dynamic>)['settings'] as Map<String, dynamic>);
+  }
+
+  Future<List<PairedScreen>> screens() async {
+    final data = (await _client.getJson('/waiting-screen/screens') as Map<String, dynamic>)['data'] as List<dynamic>;
+    return [for (final s in data) PairedScreen.fromJson(s as Map<String, dynamic>)];
+  }
+
+  /// Queues a command the screen picks up within seconds (reload,
+  /// check_update, open_on_boot, open_on_wake, return_minutes).
+  Future<void> command(int id, String type, [Object? value]) async {
+    await _client.postJson('/waiting-screen/screens/$id/command', body: {'type': type, 'value': value});
+  }
+
+  Future<void> rename(int id, String name) async {
+    await _client.patchJson('/waiting-screen/screens/$id', body: {'name': name});
+  }
+
+  Future<void> unpair(int id) async {
+    await _client.deleteJson('/waiting-screen/screens/$id');
   }
 
   /// Activates the screen showing [code]; returns the stage name it now

@@ -244,6 +244,9 @@ public class MainActivity extends Activity {
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
         webView.setBackgroundColor(Color.BLACK);
         webView.setWebViewClient(new Client());
+        // Lets the waiting screen report this TV and pass on commands sent
+        // from the server (2026-11-03, by request). Only our server's page loads here.
+        webView.addJavascriptInterface(new TvBridge(this), "TvApp");
         root.addView(webView, 0, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
     }
@@ -280,6 +283,11 @@ public class MainActivity extends Activity {
         mainFrameFailed = false;
         showOverlay(getString(R.string.connecting, server()));
         webView.loadUrl(server() + "/waiting-screen");
+    }
+
+    /** "Check for update" sent from the server's settings page. */
+    void checkForUpdateFromServer() {
+        checkForUpdate(true);
     }
 
     private void checkForUpdate(boolean manual) {
