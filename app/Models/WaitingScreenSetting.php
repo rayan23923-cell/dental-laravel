@@ -9,6 +9,11 @@ class WaitingScreenSetting extends Model
 {
     public $timestamps = false;
 
+    // Single row with id 1 (tinyint, not auto-increment). Without this the
+    // model took lastInsertId (0) as its id after firstOrCreate, so a save
+    // in the same request as the create updated nothing.
+    public $incrementing = false;
+
     protected $fillable = [
         'id',
         'stage_id',
