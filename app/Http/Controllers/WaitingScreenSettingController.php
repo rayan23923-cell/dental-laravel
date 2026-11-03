@@ -23,6 +23,8 @@ class WaitingScreenSettingController extends Controller
     {
         return Inertia::render('WaitingScreenSettings/Edit', [
             'settings' => WaitingScreenSetting::current(),
+            'screens' => \App\Support\WaitingScreenRemote::screens(),
+            'returnMinutes' => \App\Models\WaitingScreenPairing::RETURN_MINUTES,
         ]);
     }
 

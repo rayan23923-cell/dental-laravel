@@ -74,6 +74,11 @@ class WaitingScreenController extends Controller
             ]);
         }
 
+        // Remote control (2026-11-03, by request): the screen reports what it
+        // is (TV app version and settings) and picks up queued commands.
+        $pairing->touchSeen($this->device($request));
+        $commands = $pairing->takeCommands();
+
         $settings = WaitingScreenSetting::current();
         $clinic = ClinicSetting::current();
 
@@ -163,6 +168,23 @@ class WaitingScreenController extends Controller
             'lab' => $lab->map($labRow)->values(),
             'lab_waiting' => $labWaiting,
             'lab_ready' => $labReady,
+            'commands' => $commands,
         ]);
+    }
+
+    /** The `device` JSON the screen sends, trimmed to known keys. */
+    private function device(Request $request): ?array
+    {
+        $raw = $request->input('device');
+        if (! is_string($raw) || $raw === '' || strlen($raw) > 2000) {
+            return null;
+        }
+        $data = json_decode($raw, true);
+        if (! is_array($data)) {
+            return null;
+        }
+        $keep = ['app', 'version', 'open_on_boot', 'open_on_wake', 'return_minutes', 'overlay', 'model', 'android'];
+
+        return array_intersect_key($data, array_flip($keep));
     }
 }

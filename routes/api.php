@@ -299,6 +299,14 @@ Route::name('api.')->prefix('v1')->group(function () {
             ->middleware('permission:waiting_screen,view');
         Route::put('/waiting-screen-settings', [WaitingScreenSettingController::class, 'update'])
             ->middleware('permission:waiting_screen,edit');
+        // Paired screens and their remote control (2026-11-03, by request).
+        Route::get('/waiting-screen/screens', [\App\Http\Controllers\Api\WaitingScreenRemoteController::class, 'index'])
+            ->middleware('permission:waiting_screen,view');
+        Route::middleware('permission:waiting_screen,edit')->group(function () {
+            Route::post('/waiting-screen/screens/{pairing}/command', [\App\Http\Controllers\Api\WaitingScreenRemoteController::class, 'command']);
+            Route::patch('/waiting-screen/screens/{pairing}', [\App\Http\Controllers\Api\WaitingScreenRemoteController::class, 'update']);
+            Route::delete('/waiting-screen/screens/{pairing}', [\App\Http\Controllers\Api\WaitingScreenRemoteController::class, 'destroy']);
+        });
 
         // Confirming a scanned waiting-screen pairing QR with a chosen
         // stage — the Flutter side of the privacy gate described in
