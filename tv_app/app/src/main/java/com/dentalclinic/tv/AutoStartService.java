@@ -28,6 +28,8 @@ public class AutoStartService extends Service {
     private static final int NOTIFICATION_ID = 7;
 
     static final String EXTRA_BOOT = "boot";
+    /** Put on top while the TV goes to standby or shuts down: must not turn the screen back on. */
+    static final String EXTRA_SLEEP = "sleep";
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private BroadcastReceiver wakeReceiver;
@@ -174,6 +176,22 @@ public class AutoStartService extends Service {
         }
     }
 
+    /**
+     * The user left the app for the TV's home screen and then switched the
+     * TV off (2026-11-03): the TV comes back to whatever was on top, so put
+     * the waiting screen on top while the screen goes off.
+     */
+    static void putOnTopForPowerOn(Context context, String why) {
+        if (MainActivity.visible) return;
+        if (!MainActivity.autostartEnabled(context) && !MainActivity.wakeEnabled(context)) return;
+        try {
+            context.startActivity(launchIntent(context).putExtra(EXTRA_SLEEP, true));
+            Diag.log(context, "on top before power-off (" + why + ")");
+        } catch (RuntimeException e) {
+            Diag.log(context, "on top before power-off failed: " + e.getClass().getSimpleName());
+        }
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -181,6 +199,11 @@ public class AutoStartService extends Service {
         wakeReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
+                if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
+                    handler.removeCallbacks(watcher);
+                    putOnTopForPowerOn(context, "screen off");
+                    return;
+                }
                 Diag.log(context, "wake " + intent.getAction());
                 // Woken from standby: the TV's home screen shows up for a
                 // while; keep coming back for 20 s.
@@ -189,6 +212,7 @@ public class AutoStartService extends Service {
         };
         IntentFilter filter = new IntentFilter();
         filter.addAction(Intent.ACTION_SCREEN_ON);
+        filter.addAction(Intent.ACTION_SCREEN_OFF);
         filter.addAction(Intent.ACTION_USER_PRESENT);
         filter.addAction(Intent.ACTION_DREAMING_STOPPED);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

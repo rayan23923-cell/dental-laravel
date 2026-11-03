@@ -29,6 +29,11 @@ public class BootReceiver extends BroadcastReceiver {
                 return;
             }
             if (!MainActivity.anyAutoOpen(context)) return;
+            if (Intent.ACTION_SHUTDOWN.equals(action)
+                    || "android.intent.action.QUICKBOOT_POWEROFF".equals(action)) {
+                AutoStartService.putOnTopForPowerOn(context, "shutdown");
+                return;
+            }
             if (ACTION_LAUNCH.equals(action)) {
                 if (!MainActivity.autostartEnabled(context)) return;
                 if (!MainActivity.visible) AutoStartService.bringToFront(context);

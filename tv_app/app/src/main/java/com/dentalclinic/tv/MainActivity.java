@@ -106,6 +106,7 @@ public class MainActivity extends Activity {
             setShowWhenLocked(true);
             setTurnScreenOn(true);
         }
+        applySleep(getIntent());
 
         root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
@@ -474,6 +475,24 @@ public class MainActivity extends Activity {
         AutoStartService.markShown(this);
         if (webView != null) webView.onResume();
         if (mainFrameFailed) { failures = 0; load(); }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        applySleep(intent);
+    }
+
+    /** Put on top as the TV goes off: do not switch the screen back on. */
+    private void applySleep(Intent intent) {
+        boolean sleep = intent != null && intent.getBooleanExtra(AutoStartService.EXTRA_SLEEP, false);
+        if (sleep) {
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
+        } else {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
+        }
+        if (Build.VERSION.SDK_INT >= 27) setTurnScreenOn(!sleep);
     }
 
     @Override
