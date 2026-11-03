@@ -126,9 +126,11 @@ class WaitingScreenLabWaitingTest extends TestCase
     {
         $admin = User::factory()->create(['role' => 'super_admin']);
 
+        $this->withoutExceptionHandling();
         $this->actingAs($admin)->put('/waiting-screen-settings', [
             'patients_per_page' => 8, 'rotation_seconds' => 12, 'lab_scope' => 'all',
-        ])->assertSessionHasNoErrors();
+        ])->assertSessionHasNoErrors()->assertRedirect();
+        $this->withExceptionHandling();
         $this->assertSame('all', \App\Models\WaitingScreenSetting::current()->lab_scope);
 
         Sanctum::actingAs($admin);
