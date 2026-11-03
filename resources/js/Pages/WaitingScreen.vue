@@ -348,7 +348,7 @@ onBeforeUnmount(() => {
 
     <div
         dir="rtl"
-        class="flex min-h-screen flex-col bg-ig-off-white text-ig-near-black dark:bg-ig-dark-surface dark:text-ig-off-white"
+        class="font-arabic-fixed flex min-h-screen flex-col bg-ig-off-white text-ig-near-black dark:bg-ig-dark-surface dark:text-ig-off-white"
     >
         <template v-if="paired === false">
             <div class="flex flex-1 flex-col items-center justify-center gap-6 px-8 py-12 text-center">

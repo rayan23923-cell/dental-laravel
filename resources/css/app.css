@@ -8,10 +8,20 @@
 @import '@fontsource/figtree/latin-400.css';
 @import '@fontsource/figtree/latin-500.css';
 @import '@fontsource/figtree/latin-600.css';
+/* Arabic font for the waiting screen (2026-11-03): the clinic TV's own
+   font drew a final ي without dots (سامي علي showed as سامى على). Arabic
+   subset only; downloaded only by pages that use .font-arabic-fixed. */
+@import '@fontsource/tajawal/arabic-400.css';
+@import '@fontsource/tajawal/arabic-500.css';
+@import '@fontsource/tajawal/arabic-700.css';
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.font-arabic-fixed {
+    font-family: 'Figtree', 'Tajawal', ui-sans-serif, system-ui, sans-serif;
+}
 
 @layer components {
     /* Base styling for the <Icon> component (Components/Icon.vue).
