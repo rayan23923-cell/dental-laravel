@@ -52,6 +52,8 @@ class PaymentController extends Controller
                 'range' => $range ? collect($range)->except(['daily', 'monthly'])->all() : null,
                 'filtered_total' => (float) (clone $query)->sum('amount'),
                 'by_source' => PaymentStats::bySource($query, $sources),
+                // Income by department from the patient's case sheet (2026-11-04).
+                'by_department' => \App\Support\CasePatientLinks::departmentTotals($query),
                 'scope' => $sources,
                 'currency' => ClinicSetting::current()->clinic_currency,
             ],
@@ -94,6 +96,8 @@ class PaymentController extends Controller
                 'range' => $range ? collect($range)->except(['daily', 'monthly'])->all() : null,
                 'filtered_total' => (float) (clone $query)->sum('amount'),
                 'by_source' => PaymentStats::bySource($query, $sources),
+                // Income by department from the patient's case sheet (2026-11-04).
+                'by_department' => \App\Support\CasePatientLinks::departmentTotals($query),
                 'scope' => $sources,
                 'currency' => ClinicSetting::current()->clinic_currency,
             ],

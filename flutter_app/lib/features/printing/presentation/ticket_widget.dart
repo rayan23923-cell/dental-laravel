@@ -163,6 +163,17 @@ class TicketWidget extends StatelessWidget {
                 style: const TextStyle(color: Colors.black, fontSize: 14),
               ),
             ],
+            // The code under the QR (2026-11-04, by request): typed by the
+            // doctor to link the patient when the camera can't be used.
+            if (registration.patientCode case final code? when code.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              const Text('رمز المريض للإدخال اليدوي', style: TextStyle(color: Colors.black, fontSize: 14)),
+              Text(
+                code,
+                textDirection: TextDirection.ltr,
+                style: const TextStyle(color: Colors.black, fontSize: 30, fontWeight: FontWeight.w800, letterSpacing: 6),
+              ),
+            ],
             const SizedBox(height: 12),
           ],
         ),

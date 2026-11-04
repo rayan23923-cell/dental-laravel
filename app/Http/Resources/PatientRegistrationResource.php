@@ -14,6 +14,8 @@ class PatientRegistrationResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'phone' => $this->phone,
+            // Printed under the QR, typed by the doctor (2026-11-04).
+            'patient_code' => $this->patient_code,
             // Added 2026-08-28 for the case-sheet QR-autofill feature — the
             // scan flow only ever exposed name/phone before, but the doctor
             // form fields (age/sex/address/occupation) reception already

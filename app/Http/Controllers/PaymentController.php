@@ -51,6 +51,8 @@ class PaymentController extends Controller
             'range' => $range ? collect($range)->except(['daily', 'monthly'])->all() : null,
             'filteredTotal' => (float) (clone $query)->sum('amount'),
             'bySource' => PaymentStats::bySource($query, $sources),
+            // Income by department from the patient's case sheet (2026-11-04).
+            'byDepartment' => \App\Support\CasePatientLinks::departmentTotals($query),
             'currency' => ClinicSetting::current()->clinic_currency,
             'can' => [
                 // The lab / tickets grants include printing their report.
@@ -91,6 +93,7 @@ class PaymentController extends Controller
             'discounted' => \App\Support\SupportCodes::discountRows($payments, $settings),
             'filteredTotal' => (float) (clone $query)->sum('amount'),
             'bySource' => PaymentStats::bySource($query, $sources),
+            'byDepartment' => \App\Support\CasePatientLinks::departmentTotals($query),
             'periods' => $stats->periods(),
             'daily' => $range['daily'] ?? $stats->daily(),
             'monthly' => $range['monthly'] ?? $stats->monthly(),

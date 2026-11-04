@@ -149,10 +149,63 @@ class _Overview extends StatelessWidget {
               ),
             ),
           ),
+          // By department: the case sheet the patient was linked to (2026-11-04).
+          if (stats.byDepartment.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Card(
+              margin: EdgeInsets.zero,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(t['payments.byDepartment']!, style: Theme.of(context).textTheme.titleSmall),
+                    Text(t['payments.byDepartmentHint']!, style: Theme.of(context).textTheme.bodySmall),
+                    for (final d in stats.byDepartment) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${d.name} · ${trf(t['payments.paymentsCount']!, {'n': d.count})}',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: d.key == 'unlinked' ? Theme.of(context).disabledColor : null,
+                                  ),
+                            ),
+                          ),
+                          Text(formatMoney(d.total, currency), style: Theme.of(context).textTheme.bodyMedium),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: _share(d.total, stats.byDepartment),
+                          minHeight: 6,
+                          color: d.key == 'lab'
+                              ? Colors.amber
+                              : d.key == 'unlinked'
+                                  ? Colors.grey
+                                  : Colors.teal,
+                          backgroundColor: Colors.grey.withValues(alpha: 0.15),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
+}
+
+/// [total] against the biggest department row, for the bars.
+double _share(double total, List<DepartmentTotal> rows) {
+  final max = rows.fold<double>(0, (m, r) => r.total > m ? r.total : m);
+  return max <= 0 ? 0 : (total / max).clamp(0, 1).toDouble();
 }
 
 class _StatCard extends StatelessWidget {

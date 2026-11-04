@@ -121,6 +121,19 @@
         </tbody>
     </table>
 
+    @if (! empty($byDepartment))
+        {{-- By department: the department of the case sheet the patient was linked to (2026-11-04). --}}
+        <h3 class="section">المدفوعات حسب الأقسام</h3>
+        <table class="sources">
+            <thead><tr><th>القسم</th><th>عدد الدفعات</th><th>المبلغ</th></tr></thead>
+            <tbody>
+                @foreach ($byDepartment as $d)
+                    <tr><td>{{ $d['name'] }}</td><td>{{ $d['count'] }}</td><td>{{ $money($d['total']) }} {{ $currency }}</td></tr>
+                @endforeach
+            </tbody>
+        </table>
+    @endif
+
     <h3 class="section">المدفوعات ({{ $payments->count() }})</h3>
     <table class="report-table">
         <thead>

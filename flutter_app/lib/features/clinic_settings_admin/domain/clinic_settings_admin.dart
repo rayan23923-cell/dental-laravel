@@ -1,5 +1,8 @@
 /// The general settings' forms and task progress switches (2026-10-22).
-const kTaskSwitchKeys = ['electronic_forms_enabled', 'paper_forms_enabled', 'show_grades_to_doctors', 'task_start_enabled', 'task_cancel_enabled', 'task_finish_enabled', 'task_lists_enabled', 'steps_enabled', 'grade_entry_enabled', 'step_add_enabled'];
+const kTaskSwitchKeys = ['electronic_forms_enabled', 'paper_forms_enabled', 'show_grades_to_doctors', 'task_start_enabled', 'task_cancel_enabled', 'task_finish_enabled', 'task_lists_enabled', 'steps_enabled', 'grade_entry_enabled', 'step_add_enabled', 'patient_link_required'];
+
+/// Off unless turned on (2026-11-04): linking the patient to the case sheet required.
+const kTaskSwitchesOffByDefault = {'patient_link_required'};
 
 /// `Api\ClinicSettingController::show()`'s response shape. `theme` is
 /// deliberately left out (the Flutter app uses a fixed theme, not the web
@@ -56,7 +59,7 @@ class ClinicSettingsAdmin {
         enableSms: json['enable_sms'] as bool? ?? false,
         enableEmail: json['enable_email'] as bool? ?? false,
         groupsEnabled: json['groups_enabled'] as bool? ?? true,
-        taskSwitches: {for (final key in kTaskSwitchKeys) key: json[key] as bool? ?? true},
+        taskSwitches: {for (final key in kTaskSwitchKeys) key: json[key] as bool? ?? !kTaskSwitchesOffByDefault.contains(key)},
         logoUrl: json['logo_url'] as String?,
         universityLogoUrl: json['university_logo_url'] as String?,
         mailHost: json['mail_host'] as String?,

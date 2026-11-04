@@ -69,6 +69,7 @@ class RegistrationPaymentState {
     this.labDiscount,
     this.labValidityDays = 0,
     this.previousScreening,
+    this.caseLink,
   });
 
   factory RegistrationPaymentState.fromJson(Map<String, dynamic> json) {
@@ -89,6 +90,7 @@ class RegistrationPaymentState {
       previousScreening: data['previous_screening'] == null
           ? null
           : PreviousScreening.fromJson(data['previous_screening'] as Map<String, dynamic>),
+      caseLink: data['link'] is Map<String, dynamic> ? CasePatientLink.fromJson(data['link'] as Map<String, dynamic>) : null,
     );
   }
 
@@ -118,4 +120,27 @@ class RegistrationPaymentState {
   /// reuse instead of a new test and lab fee (2026-10-12).
   final int labValidityDays;
   final PreviousScreening? previousScreening;
+
+  /// The case sheet's case this patient was just linked to (2026-11-04).
+  final CasePatientLink? caseLink;
+}
+
+/// A patient linked to a case sheet by QR or code (2026-11-04), see
+/// `App\Support\CasePatientLinks::toView()`.
+class CasePatientLink {
+  const CasePatientLink({required this.registrationId, required this.name, this.patientCode, this.method});
+
+  factory CasePatientLink.fromJson(Map<String, dynamic> json) => CasePatientLink(
+        registrationId: (json['id'] as num).toInt(),
+        name: json['name'] as String? ?? '',
+        patientCode: json['patient_code'] as String?,
+        method: json['method'] as String?,
+      );
+
+  final int registrationId;
+  final String name;
+  final String? patientCode;
+
+  /// 'qr' or 'code'.
+  final String? method;
 }

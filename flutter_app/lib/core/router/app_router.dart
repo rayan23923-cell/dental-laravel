@@ -151,8 +151,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       // QrScanScreen, not CaseSheetRecordListScreen.
       GoRoute(
         path: '/case-sheets/scan-patient',
-        builder: (context, state) =>
-            const QrScanScreen(mode: QrScanMode.caseSheetPatientAutofill),
+        builder: (context, state) {
+          // The sheet's case (2026-11-04): {'task_id': n} or {'task_instances_id': n}.
+          final extra = state.extra is Map ? state.extra as Map : const {};
+          return QrScanScreen(
+            mode: QrScanMode.caseSheetPatientAutofill,
+            caseTaskId: extra['task_id'] as int?,
+            caseTaskInstanceId: extra['task_instances_id'] as int?,
+          );
+        },
       ),
       GoRoute(
         path: '/case-sheets/:resource/new',

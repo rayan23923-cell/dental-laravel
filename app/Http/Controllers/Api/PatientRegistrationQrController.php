@@ -85,25 +85,31 @@ class PatientRegistrationQrController extends Controller
     {
         abort_unless($request->user() instanceof Doctor, 403);
 
-        $request->validate(['payload' => ['required', 'string']]);
-
-        $decoded = json_decode($request->string('payload'), true);
-
-        abort_if(
-            ! is_array($decoded) || ($decoded['type'] ?? null) !== 'patient_registration' || empty($decoded['id']),
-            422,
-            'رمز غير صالح — هذا ليس رمز تسجيل مريض.'
-        );
-
-        $registration = PatientRegistration::with(self::RELATIONS)->findOrFail($decoded['id']);
-
+        // QR or the typed code, checked and linked to the case
+        // (2026-11-04, see App\Support\CasePatientLinks).
         try {
-            PatientScreeningGate::ensureClear($registration);
-        } catch (PatientScreeningException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            [$registration, $link] = \App\Support\CasePatientLinks::scanForDoctor($request, $request->user());
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['message' => collect($e->errors())->flatten()->first()], 422);
         }
 
-        return $this->stateResponse($registration);
+        $registration->load(self::RELATIONS);
+        $response = $this->stateResponse($registration)->getData(true);
+        $response['data']['link'] = \App\Support\CasePatientLinks::toView($link?->load('registration'));
+
+        return response()->json($response);
+    }
+
+    /** The patient linked to the case a sheet is for (2026-11-04). */
+    public function caseLink(Request $request): JsonResponse
+    {
+        abort_unless($request->user() instanceof Doctor, 403);
+
+        return response()->json(['data' => \App\Support\CasePatientLinks::toView(\App\Support\CasePatientLinks::forCase(
+            $request->user()->id,
+            $request->integer('task_id') ?: null,
+            $request->integer('task_instances_id') ?: null,
+        ))]);
     }
 
     /** Same shape as scan(), for polling a known registration by id. */

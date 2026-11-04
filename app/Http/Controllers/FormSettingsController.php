@@ -56,6 +56,7 @@ class FormSettingsController extends Controller
             'supervisor_code_enabled' => $settings['supervisor_code_enabled'],
             'supervisor_code_actions' => $settings['supervisor_code_enabled'] ? self::codeActions($settings) : [],
             ...collect($settings)->only(FormSettings::SWITCHES)->all(),
+            'patient_link_required' => $settings['patient_link_required'],
         ]);
     }
 

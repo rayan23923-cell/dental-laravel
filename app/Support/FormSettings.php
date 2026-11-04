@@ -40,6 +40,9 @@ class FormSettings
             // Task progress switches for the whole system (2026-10-22,
             // by request, like the groups switch). On unless turned off.
             ...collect(self::SWITCHES)->mapWithKeys(fn ($column) => [$column => (bool) ($settings->{$column} ?? true)])->all(),
+            // Patient linked to the case sheet by QR or code before it is
+            // saved (2026-11-04, by request). Optional unless turned on.
+            'patient_link_required' => (bool) ($settings->patient_link_required ?? false),
             // Nothing picked yet means every action.
             'supervisor_code_actions' => is_array($actions) ? array_values(array_intersect(array_keys(self::ACTIONS), $actions)) : array_keys(self::ACTIONS),
         ];
@@ -65,6 +68,7 @@ class FormSettings
             'electronic_forms_enabled' => ['sometimes', 'boolean'],
             'paper_forms_enabled' => ['sometimes', 'boolean'],
             'show_grades_to_doctors' => ['sometimes', 'boolean'],
+            'patient_link_required' => ['sometimes', 'boolean'],
             ...collect(self::SWITCHES)->mapWithKeys(fn ($column) => [$column => ['sometimes', 'boolean']])->all(),
         ];
     }

@@ -26,6 +26,8 @@ const props = defineProps({
     range: { type: Object, default: null },
     filteredTotal: { type: Number, default: 0 },
     bySource: { type: Array, default: () => [] },
+    // Income by department from the patient's case sheet (2026-11-04).
+    byDepartment: { type: Array, default: () => [] },
     currency: { type: String, default: '' },
     // The payments permissions (2026-10-24): report and delete.
     can: { type: Object, default: () => ({ export: true, delete: true }) },
@@ -61,6 +63,7 @@ const dailyTitle = computed(() => (props.range ? t('payments.rangeDailyChart', {
 const monthlyTitle = computed(() => (props.range ? t('payments.rangeMonthlyChart') : t('payments.monthlyChart')));
 const sourceLabel = (s) => ({ registration: t('payments.registrationSource'), lab: t('payments.labFee'), appointment: t('payments.appointmentSource') })[s];
 const sourceMax = computed(() => Math.max(1, ...props.bySource.map((s) => s.total)));
+const departmentMax = computed(() => Math.max(1, ...props.byDepartment.map((d) => d.total)));
 const hasFilters = computed(() => !!(props.filters.search || props.filters.from || props.filters.to || (props.filters.source && sourceOptions.value.length > 1)));
 
 const activityUrl = computed(() =>
@@ -233,6 +236,27 @@ const destroy = (payment) => {
                                 <div class="h-2.5 rounded-full bg-gradient-to-l from-indigo-500 to-pink-500" :style="{ width: `${(s.total / sourceMax) * 100}%` }"></div>
                             </div>
                             <span class="text-gray-900">{{ plain(s.total) }} <span class="text-xs text-gray-500">({{ s.count }})</span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- By department: the department of the case sheet the patient was linked to (2026-11-04) -->
+                <div v-if="byDepartment.length" class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2">
+                        <span class="text-sm font-semibold text-gray-700">{{ t('payments.byDepartment') }}</span>
+                        <span class="text-xs text-gray-500">{{ t('payments.byDepartmentHint') }}</span>
+                    </div>
+                    <div class="mt-3 space-y-2">
+                        <div v-for="d in byDepartment" :key="d.key" class="grid grid-cols-[8rem_1fr_auto] items-center gap-3 text-sm">
+                            <span class="truncate text-gray-700" :class="{ 'text-gray-400': d.key === 'unlinked' }">{{ d.name }}</span>
+                            <div class="h-2.5 rounded-full bg-gray-100">
+                                <div
+                                    class="h-2.5 rounded-full"
+                                    :class="d.key === 'unlinked' ? 'bg-gray-300' : d.key === 'lab' ? 'bg-amber-400' : 'bg-gradient-to-l from-emerald-500 to-teal-500'"
+                                    :style="{ width: `${(d.total / departmentMax) * 100}%` }"
+                                ></div>
+                            </div>
+                            <span class="text-gray-900">{{ plain(d.total) }} <span class="text-xs text-gray-500">({{ d.count }})</span></span>
                         </div>
                     </div>
                 </div>

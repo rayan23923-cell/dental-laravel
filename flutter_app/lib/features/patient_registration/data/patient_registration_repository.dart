@@ -231,10 +231,27 @@ class PatientRegistrationRepository {
   /// response shape — also enforces `PatientScreeningGate` server-side,
   /// so a not-yet-screened-clear patient surfaces as a normal caught
   /// error here instead of a silent success.
-  Future<RegistrationPaymentState> scanForCaseSheet(String payload) async {
-    final data = await _client.postJson('/patient-registrations/scan-for-case-sheet', body: {'payload': payload})
-        as Map<String, dynamic>;
+  ///
+  /// 2026-11-04: [code] is the 6-digit code printed under the QR, for
+  /// whoever can't use the camera; with the sheet's case ([taskId] or
+  /// [taskInstanceId]) the server checks the lab result and that the
+  /// receipt wasn't used for another case, then links the patient to it.
+  Future<RegistrationPaymentState> scanForCaseSheet(String? payload, {String? code, int? taskId, int? taskInstanceId}) async {
+    final data = await _client.postJson('/patient-registrations/scan-for-case-sheet', body: {
+      if (code != null && code.isNotEmpty) 'code': code else 'payload': payload,
+      if (taskInstanceId != null) 'task_instances_id': taskInstanceId else if (taskId != null) 'task_id': taskId,
+    }) as Map<String, dynamic>;
     return RegistrationPaymentState.fromJson(data);
+  }
+
+  /// The patient linked to a case sheet's case (2026-11-04); null when
+  /// none yet, or on an older server.
+  Future<CasePatientLink?> caseLink({int? taskId, int? taskInstanceId}) async {
+    if (taskId == null && taskInstanceId == null) return null;
+    final query = taskInstanceId != null ? 'task_instances_id=$taskInstanceId' : 'task_id=$taskId';
+    final data = await _client.getJson('/case-patient-link?$query') as Map<String, dynamic>;
+    final link = data['data'];
+    return link is Map<String, dynamic> ? CasePatientLink.fromJson(link) : null;
   }
 
   /// Same response shape as [scan] — used to refresh payment state after

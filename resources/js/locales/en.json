@@ -485,7 +485,9 @@
         "labFeePaid": "Lab fee paid",
         "payLabFee": "Pay Lab Fee & Print Receipt",
         "labFeeFailed": "Couldn't record the lab fee payment.",
-        "printActivity": "Print payments activity log"
+        "printActivity": "Print payments activity log",
+        "byDepartment": "Payments by department",
+        "byDepartmentHint": "By the department of the case sheet the patient was linked to"
     },
     "doctorsAdmin": {
         "title": "Manage Doctors",
@@ -1236,7 +1238,13 @@
         "scanReadFailedMsg": "Couldn't read the code.",
         "linkedTaskPrefix": "This form is linked to task case #",
         "linkedTaskSuffix": "— it will be saved under it.",
-        "backAction": "Back"
+        "backAction": "Back",
+        "patientLinkTitle": "Link the patient to the case sheet",
+        "patientCodeLabel": "Or type the patient code printed under the QR",
+        "patientCodeSubmit": "Confirm code",
+        "patientLinked": "Linked patient",
+        "patientLinkRequired": "Linking the patient is required: scan the receipt QR or type its code before saving.",
+        "patientLinkButton": "Link patient (QR or code)"
     },
     "lab": {
         "resultReceived": "Hand over result",
@@ -1568,7 +1576,9 @@
         "steps_enabledHint": "When off, task steps are hidden and can't be signed.",
         "step_add_enabled": "Add a step",
         "step_add_enabledHint": "Add a new step with its name and grade to one case.",
-        "generalLink": "Paper and electronic forms, grades shown to students and the task progress switches are in the general settings"
+        "generalLink": "Paper and electronic forms, grades shown to students and the task progress switches are in the general settings",
+        "patient_link_required": "Linking the patient to the case sheet is required",
+        "patient_link_requiredHint": "When on, a new electronic case sheet can't be saved or its start requested until the patient is linked by scanning the receipt QR or typing its code."
     },
     "supervisorCode": {
         "addStepTitle": "Add a step with the supervisor code",

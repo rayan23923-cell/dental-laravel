@@ -15,6 +15,8 @@ import '../../auth/domain/auth_account.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../auth/presentation/auth_state.dart';
 import '../../clinic_settings/presentation/clinic_settings_providers.dart';
+import '../../form_settings/data/form_settings_repository.dart';
+import '../../patient_registration/data/patient_registration_repository.dart';
 import '../../patient_registration/domain/registration_payment_state.dart';
 import '../data/case_sheet_offline_store.dart';
 import '../data/case_sheet_record_repository.dart';
@@ -143,7 +145,7 @@ class CaseSheetFormScreen extends ConsumerWidget {
             IconButton(
               icon: const Icon(Icons.qr_code_scanner),
               tooltip: t['caseSheetForm.scanPatientTooltip'],
-              onPressed: () => _scanPatient(context),
+              onPressed: () => _scanPatient(context, ref, recordAsync.valueOrNull),
             ),
         ],
       ),
@@ -177,6 +179,12 @@ class CaseSheetFormScreen extends ConsumerWidget {
                 // the case from the route, or the one the saved sheet is
                 // linked to.
                 if (_linkedInstanceId(record) case final id?) TaskWorkPanel(key: ValueKey(id), taskInstanceId: id),
+                // The patient linked to this case (2026-11-04), or the
+                // reminder when linking is required.
+                if (!readonly && _caseOf(record) != null) _PatientLinkBanner(
+                  caseKey: _caseOf(record)!,
+                  onLink: () => _scanPatient(context, ref, record),
+                ),
                 DynamicSectionForm(
                   key: _formStateKey,
                   resource: resource,
@@ -198,6 +206,15 @@ class CaseSheetFormScreen extends ConsumerWidget {
         _ => const Center(child: TgSpinner()),
       },
     );
+  }
+
+  /// The sheet's case as (task id, task instance id), or null when the
+  /// sheet isn't for a task (2026-11-04).
+  (int?, int?)? _caseOf(Map<String, dynamic>? record) {
+    final instanceId = _linkedInstanceId(record ?? const {});
+    if (instanceId != null) return (null, instanceId);
+    final id = taskId ?? int.tryParse(record?['task_id']?.toString() ?? '');
+    return id != null ? (id, null) : null;
   }
 
   int? _linkedInstanceId(Map<String, dynamic> record) =>
@@ -319,9 +336,26 @@ class CaseSheetFormScreen extends ConsumerWidget {
   /// already use), then fills in whichever of this resource's mapped
   /// fields exist, one `setFieldIfBlank` call per field — never
   /// overwriting something already typed, per the user's own framing.
-  Future<void> _scanPatient(BuildContext context) async {
-    final state = await context.push<RegistrationPaymentState>('/case-sheets/scan-patient');
+  ///
+  /// 2026-11-04: a sheet for a task also links the patient to the case
+  /// (lab result and one-receipt-one-case checked on the server), and the
+  /// code printed under the QR can be typed instead of scanning.
+  Future<void> _scanPatient(BuildContext context, WidgetRef ref, Map<String, dynamic>? record) async {
+    final caseKey = _caseOf(record);
+    final state = await showModalBottomSheet<RegistrationPaymentState>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _PatientLinkSheet(caseKey: caseKey),
+    );
     if (state == null) return;
+    if (caseKey != null) ref.invalidate(caseSheetPatientLinkProvider(caseKey));
+    if (context.mounted && state.caseLink != null) {
+      final t = ref.read(translationsProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${t['caseSheetForm.patientLinkedMsg']!}: ${state.caseLink!.name}')),
+      );
+    }
 
     final map = kCaseSheetPatientFieldMap[resource];
     final formState = _formStateKey.currentState;
@@ -349,5 +383,171 @@ class CaseSheetFormScreen extends ConsumerWidget {
     if (map.sex != null && r.sex != null) formState.setFieldIfBlank(map.sex!, r.sex!);
     if (map.address != null && r.address != null) formState.setFieldIfBlank(map.address!, r.address!);
     if (map.occupation != null && r.occupation != null) formState.setFieldIfBlank(map.occupation!, r.occupation!);
+  }
+}
+
+
+/// The patient linked to this case, or the reminder when linking is
+/// required (2026-11-04).
+class _PatientLinkBanner extends ConsumerWidget {
+  const _PatientLinkBanner({required this.caseKey, required this.onLink});
+
+  final (int?, int?) caseKey;
+  final VoidCallback onLink;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider);
+    final link = ref.watch(caseSheetPatientLinkProvider(caseKey)).valueOrNull;
+    final required = ref.watch(myFormSettingsProvider).valueOrNull?.patientLinkRequired ?? false;
+    final scheme = Theme.of(context).colorScheme;
+
+    if (link != null) {
+      return Card(
+        margin: const EdgeInsets.only(bottom: 8),
+        color: Colors.green.withValues(alpha: 0.10),
+        child: ListTile(
+          leading: const Icon(Icons.how_to_reg, color: Colors.green),
+          title: Text('${t['caseSheetForm.patientLinked']!}: ${link.name}'),
+          subtitle: link.patientCode != null ? Text('#${link.patientCode}', textDirection: TextDirection.ltr) : null,
+          trailing: IconButton(
+            icon: const Icon(Icons.swap_horiz),
+            tooltip: t['caseSheetForm.patientLinkButton'],
+            onPressed: onLink,
+          ),
+        ),
+      );
+    }
+    if (!required) return const SizedBox.shrink();
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: Colors.amber.withValues(alpha: 0.15),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.qr_code_scanner, color: scheme.primary),
+                const SizedBox(width: 8),
+                Expanded(child: Text(t['caseSheetForm.patientLinkRequired']!)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            FilledButton.icon(
+              onPressed: onLink,
+              icon: const Icon(Icons.link),
+              label: Text(t['caseSheetForm.patientLinkButton']!),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// "ربط المريض": scan the receipt QR, or type the code printed under it
+/// for whoever can't use the camera (2026-11-04). Pops the resolved state.
+class _PatientLinkSheet extends ConsumerStatefulWidget {
+  const _PatientLinkSheet({required this.caseKey});
+
+  final (int?, int?)? caseKey;
+
+  @override
+  ConsumerState<_PatientLinkSheet> createState() => _PatientLinkSheetState();
+}
+
+class _PatientLinkSheetState extends ConsumerState<_PatientLinkSheet> {
+  final _code = TextEditingController();
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _code.dispose();
+    super.dispose();
+  }
+
+  Map<String, int> get _extra => {
+        if (widget.caseKey?.$2 != null) 'task_instances_id': widget.caseKey!.$2!,
+        if (widget.caseKey?.$2 == null && widget.caseKey?.$1 != null) 'task_id': widget.caseKey!.$1!,
+      };
+
+  Future<void> _scan() async {
+    final state = await context.push<RegistrationPaymentState>('/case-sheets/scan-patient', extra: _extra);
+    if (state != null && mounted) Navigator.of(context).pop(state);
+  }
+
+  Future<void> _submitCode() async {
+    final code = _code.text.trim();
+    if (code.isEmpty || _busy) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final state = await ref.read(patientRegistrationRepositoryProvider).scanForCaseSheet(
+            null,
+            code: code,
+            taskId: widget.caseKey?.$1,
+            taskInstanceId: widget.caseKey?.$2,
+          );
+      if (mounted) Navigator.of(context).pop(state);
+    } catch (e) {
+      if (!mounted) return;
+      final t = ref.read(translationsProvider);
+      setState(() => _error = e is ApiException ? e.userMessage : t['qrScan.unknownCode']!);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ref.watch(translationsProvider);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(t['caseSheetForm.patientLinkButton']!, style: Theme.of(context).textTheme.titleMedium, textAlign: TextAlign.center),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: _busy ? null : _scan,
+            icon: const Icon(Icons.qr_code_scanner),
+            label: Text(t['caseSheetForm.scanPatientTooltip']!),
+          ),
+          const SizedBox(height: 16),
+          Text(t['caseSheetForm.patientCodeLabel']!, textAlign: TextAlign.center),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _code,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            textDirection: TextDirection.ltr,
+            maxLength: 10,
+            style: const TextStyle(fontSize: 22, letterSpacing: 4, fontWeight: FontWeight.w700),
+            decoration: InputDecoration(
+              hintText: '123456',
+              counterText: '',
+              border: const OutlineInputBorder(),
+              errorText: _error,
+              errorMaxLines: 3,
+            ),
+            onSubmitted: (_) => _submitCode(),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: _busy ? null : _submitCode,
+            child: _busy
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : Text(t['caseSheetForm.patientCodeSubmit']!),
+          ),
+        ],
+      ),
+    );
   }
 }

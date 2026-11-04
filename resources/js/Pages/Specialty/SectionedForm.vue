@@ -24,7 +24,7 @@ import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import QrScanner from '@/Components/QrScanner.vue';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
-import { computed, nextTick, reactive, ref } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref } from 'vue';
 import Icon from '@/Components/Icon.vue';
 import { toGrade } from '@/numericGrade';
 import DateInput from '@/Components/DateInput.vue';
@@ -196,8 +196,42 @@ const showPatientScan = ref(false);
 const patientScannerRef = ref(null);
 const patientScanError = ref('');
 
+// Linking the patient to this case by QR or the typed code (2026-11-04,
+// by request): the server checks the lab result and that the receipt
+// wasn't used for another case, then keeps the link (CasePatientLinks).
+const patientCode = ref('');
+const patientCodeBusy = ref(false);
+const linkedPatient = ref(null);
+const caseContext = computed(() => {
+    const instanceId = props.record?.task_instances_id ?? props.taskInstanceId ?? null;
+    if (instanceId) return { task_instances_id: instanceId };
+    const taskId = props.record?.task_id ?? props.taskId ?? null;
+    return taskId ? { task_id: taskId } : {};
+});
+const hasCase = computed(() => Object.keys(caseContext.value).length > 0);
+const linkRequired = computed(() => !!page.props.taskSwitches?.patient_link_required);
+onMounted(async () => {
+    if (!isDoctor.value || !hasCase.value) return;
+    try {
+        const { data } = await axios.get(route('doctor.case-patient-link'), { params: caseContext.value });
+        linkedPatient.value = data.data;
+    } catch {
+        // Only informational; saving still checks on the server.
+    }
+});
+const submitPatientCode = async () => {
+    if (!patientCode.value.trim()) return;
+    patientCodeBusy.value = true;
+    try {
+        await onPatientDecoded(null, patientCode.value.trim());
+    } finally {
+        patientCodeBusy.value = false;
+    }
+};
+
 const openPatientScan = async () => {
     patientScanError.value = '';
+    patientCode.value = '';
     showPatientScan.value = true;
     await nextTick();
     patientScannerRef.value?.start();
@@ -205,7 +239,7 @@ const openPatientScan = async () => {
 
 // Only fills blank fields — never overwrites something the doctor already
 // typed, per the user's own framing of this feature.
-const onPatientDecoded = async (text) => {
+const onPatientDecoded = async (text, code = null) => {
     patientScanError.value = '';
     try {
         // Doctor-only route (2026-08-28) — this button only ever shows for
@@ -214,8 +248,13 @@ const onPatientDecoded = async (text) => {
         // outright (`EnsureUserHasPermission`'s `permission:patients,view`
         // gate). Also enforces `PatientScreeningGate` server-side — a
         // patient not yet screened clear can't be autofilled here either.
-        const { data } = await axios.post(route('patient-registrations.scan-for-case-sheet'), { payload: text });
+        const { data } = await axios.post(route('patient-registrations.scan-for-case-sheet'), {
+            ...(code ? { code } : { payload: text }),
+            ...caseContext.value,
+        });
         const r = data.data.registration;
+        if (data.data.link) linkedPatient.value = data.data.link;
+        delete form.errors.patient_link;
         const map = patientFieldMap.value;
         if (map) {
             // Advanced Periodontal Chart splits the patient's name into two
@@ -633,7 +672,7 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                         @click="openPatientScan"
                         class="inline-flex items-center rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
                     >
-                        <Icon name="qr_code_scanner" class="ml-1" />{{ t('specialtyForms.scanPatientAction') }}
+                        <Icon name="qr_code_scanner" class="ml-1" />{{ hasCase ? t('specialtyForms.patientLinkButton') : t('specialtyForms.scanPatientAction') }}
                     </button>
                     <Link :href="page.props.caseSheetBackUrl ?? route(`${resource}.index`)" class="text-sm text-indigo-600 hover:underline">{{ t('specialtyForms.backAction') }}</Link>
                 </div>
@@ -644,6 +683,23 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
             <div class="mx-auto max-w-6xl space-y-6 sm:px-6 lg:px-8">
                 <div v-if="page.props.flash?.success" class="rounded-md bg-green-50 p-4 text-sm text-green-700">
                     {{ page.props.flash.success }}
+                </div>
+
+                <!-- The patient linked to this case (2026-11-04), or the reminder when linking is required. -->
+                <div v-if="linkedPatient" class="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+                    <Icon name="how_to_reg" class="text-emerald-600" />
+                    <span>{{ t('specialtyForms.patientLinked') }}: <strong>{{ linkedPatient.name }}</strong></span>
+                    <span v-if="linkedPatient.patient_code" dir="ltr" class="font-mono text-xs text-emerald-700">#{{ linkedPatient.patient_code }}</span>
+                </div>
+                <div
+                    v-else-if="isDoctor && !readonly && hasCase && (linkRequired || form.errors.patient_link)"
+                    class="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
+                >
+                    <Icon name="qr_code_scanner" class="mt-0.5 text-amber-600" />
+                    <div class="flex-1">{{ form.errors.patient_link || t('specialtyForms.patientLinkRequired') }}</div>
+                    <button type="button" class="rounded-md bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700" @click="openPatientScan">
+                        {{ t('specialtyForms.patientLinkButton') }}
+                    </button>
                 </div>
 
                 <!-- "View Only Mode" — the original shows this banner to
@@ -1091,6 +1147,23 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
                 <div class="mt-4">
                     <QrScanner v-if="showPatientScan" ref="patientScannerRef" @decoded="onPatientDecoded" />
                 </div>
+                <!-- For whoever can't open the camera: the code printed under the QR (2026-11-04). -->
+                <form class="mt-4" @submit.prevent="submitPatientCode">
+                    <InputLabel for="patient_code" :value="t('specialtyForms.patientCodeLabel')" />
+                    <div class="mt-1 flex gap-2">
+                        <TextInput
+                            id="patient_code"
+                            v-model="patientCode"
+                            dir="ltr"
+                            inputmode="numeric"
+                            autocomplete="off"
+                            maxlength="10"
+                            class="block w-full text-center font-mono text-lg tracking-widest"
+                            placeholder="123456"
+                        />
+                        <PrimaryButton :disabled="patientCodeBusy || !patientCode.trim()">{{ t('specialtyForms.patientCodeSubmit') }}</PrimaryButton>
+                    </div>
+                </form>
                 <div v-if="patientScanError" class="mt-3 rounded-md bg-red-50 p-2 text-sm text-red-700">{{ patientScanError }}</div>
                 <div class="mt-6 flex justify-center">
                     <SecondaryButton @click="showPatientScan = false">{{ t('specialtyForms.closeAction') }}</SecondaryButton>

@@ -30,6 +30,10 @@
                 <tr><th>اسم المريض</th><td>{{ $registration?->name ?? $payment->appointment?->full_name ?? '—' }}</td></tr>
                 @if ($registration)
                     <tr><th>الهاتف</th><td dir="ltr" style="text-align:left">{{ $registration->phone }}</td></tr>
+                    @if ($registration->patient_code)
+                        {{-- Typed by the doctor to link the patient (2026-11-04). --}}
+                        <tr><th>رمز المريض</th><td dir="ltr" style="text-align:left; font-weight:800; letter-spacing:2px">{{ $registration->patient_code }}</td></tr>
+                    @endif
                     {{-- Lab receipt of a "غير سليم" result: B / C / HIV (2026-11-03, by request). --}}
                     @if ($isLab && ($diagnosis = \App\Support\ScreeningDiagnosis::text($registration)))
                         <tr><th>نتيجة الفحص</th><td><strong>غير سليم — {{ $diagnosis }}</strong></td></tr>
