@@ -184,6 +184,9 @@ class CaseSheetFormScreen extends ConsumerWidget {
                 if (!readonly && _caseOf(record) != null) _PatientLinkBanner(
                   caseKey: _caseOf(record)!,
                   onLink: () => _scanPatient(context, ref, record),
+                  onLinked: (link) {
+                    if (_locked(ref, record)) _fillLocked(link.name, link.phone);
+                  },
                 ),
                 DynamicSectionForm(
                   key: _formStateKey,
@@ -192,6 +195,7 @@ class CaseSheetFormScreen extends ConsumerWidget {
                   record: record,
                   readonly: readonly,
                   supervisorEditableFields: supervisorEditableFields,
+                  lockedFields: _locked(ref, record) ? _lockedKeys : const [],
                   t: t,
                   onStageField: isCreate
                       ? null
@@ -206,6 +210,33 @@ class CaseSheetFormScreen extends ConsumerWidget {
         _ => const Center(child: TgSpinner()),
       },
     );
+  }
+
+  /// Required linking (2026-11-04, by request): name and phone are locked
+  /// and filled from the linked patient; the server sets them too.
+  bool _locked(WidgetRef ref, Map<String, dynamic>? record) =>
+      !readonly &&
+      _caseOf(record) != null &&
+      (ref.watch(myFormSettingsProvider).valueOrNull?.patientLinkRequired ?? false);
+
+  List<String> get _lockedKeys {
+    if (resource == 'advanced-periodontal-charts') return const ['patient_first_name', 'patient_last_name'];
+    final map = kCaseSheetPatientFieldMap[resource];
+    return [if (map?.name != null) map!.name!, if (map?.phone != null) map!.phone!];
+  }
+
+  void _fillLocked(String name, String? phone) {
+    final form = _formStateKey.currentState;
+    if (form == null) return;
+    if (resource == 'advanced-periodontal-charts') {
+      final parts = name.trim().split(RegExp(r'\s+'));
+      form.setField('patient_first_name', parts.first);
+      form.setField('patient_last_name', parts.length > 1 ? parts.sublist(1).join(' ') : '');
+      return;
+    }
+    final map = kCaseSheetPatientFieldMap[resource];
+    if (map?.name != null && name.isNotEmpty) form.setField(map!.name!, name);
+    if (map?.phone != null && (phone ?? '').isNotEmpty) form.setField(map!.phone!, phone!);
   }
 
   /// The sheet's case as (task id, task instance id), or null when the
@@ -350,6 +381,9 @@ class CaseSheetFormScreen extends ConsumerWidget {
     );
     if (state == null) return;
     if (caseKey != null) ref.invalidate(caseSheetPatientLinkProvider(caseKey));
+    if (ref.read(myFormSettingsProvider).valueOrNull?.patientLinkRequired ?? false) {
+      _fillLocked(state.registration.name, state.registration.phone);
+    }
     if (context.mounted && state.caseLink != null) {
       final t = ref.read(translationsProvider);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -390,14 +424,21 @@ class CaseSheetFormScreen extends ConsumerWidget {
 /// The patient linked to this case, or the reminder when linking is
 /// required (2026-11-04).
 class _PatientLinkBanner extends ConsumerWidget {
-  const _PatientLinkBanner({required this.caseKey, required this.onLink});
+  const _PatientLinkBanner({required this.caseKey, required this.onLink, required this.onLinked});
 
   final (int?, int?) caseKey;
   final VoidCallback onLink;
 
+  /// The linked patient, once loaded: fills the locked name and phone.
+  final void Function(CasePatientLink link) onLinked;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider);
+    ref.listen(caseSheetPatientLinkProvider(caseKey), (_, next) {
+      final link = next.valueOrNull;
+      if (link != null) WidgetsBinding.instance.addPostFrameCallback((_) => onLinked(link));
+    });
     final link = ref.watch(caseSheetPatientLinkProvider(caseKey)).valueOrNull;
     final required = ref.watch(myFormSettingsProvider).valueOrNull?.patientLinkRequired ?? false;
     final scheme = Theme.of(context).colorScheme;

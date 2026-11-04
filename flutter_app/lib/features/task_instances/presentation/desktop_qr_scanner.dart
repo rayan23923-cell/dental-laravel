@@ -10,6 +10,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/platform/qr_image_decoder.dart';
 import '../../../core/network/api_exception.dart';
+import '../../auth/domain/auth_account.dart';
+import '../../auth/presentation/auth_controller.dart';
+import '../../auth/presentation/auth_state.dart';
 import '../../phone_scanner/phone_scanner_pairing.dart';
 import '../../../core/widgets/tg_spinner.dart';
 
@@ -55,7 +58,14 @@ class _DesktopQrScannerState extends ConsumerState<DesktopQrScanner> {
     _restorePhone();
   }
 
+  /// Not offered on the student (doctor) interface (2026-11-04, by request).
+  bool get _isDoctor {
+    final auth = ref.read(authControllerProvider).valueOrNull;
+    return auth is Authenticated && auth.account is DoctorAccount;
+  }
+
   Future<void> _restorePhone() async {
+    if (_isDoctor) return;
     final session = await ref.read(phoneScannerPairingProvider).saved();
     if (!mounted || session == null) return;
     _phone.value = session;
@@ -295,7 +305,7 @@ class _DesktopQrScannerState extends ConsumerState<DesktopQrScanner> {
         Expanded(
           child: ColoredBox(color: Colors.black, child: camera),
         ),
-        Padding(
+        if (!_isDoctor) Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
           child: ValueListenableBuilder<PhoneScannerSession?>(
             valueListenable: _phone,

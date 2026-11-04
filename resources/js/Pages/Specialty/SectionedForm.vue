@@ -210,11 +210,33 @@ const caseContext = computed(() => {
 });
 const hasCase = computed(() => Object.keys(caseContext.value).length > 0);
 const linkRequired = computed(() => !!page.props.taskSwitches?.patient_link_required);
+// Required linking (2026-11-04, by request): the patient's name and phone
+// are locked and come from the linked receipt (the server sets them too).
+const linkLocked = computed(() => isDoctor.value && !props.readonly && hasCase.value && linkRequired.value);
+const lockedKeys = computed(() => {
+    if (!linkLocked.value) return [];
+    if (props.resource === 'advanced-periodontal-charts') return ['patient_first_name', 'patient_last_name'];
+    const map = patientFieldMap.value ?? {};
+    return [map.name, map.phone].filter(Boolean);
+});
+const fillLocked = (r) => {
+    if (!linkLocked.value || !r) return;
+    const map = patientFieldMap.value ?? {};
+    if (props.resource === 'advanced-periodontal-charts') {
+        const parts = String(r.name ?? '').trim().split(/\s+/);
+        form.patient_first_name = parts[0] ?? '';
+        form.patient_last_name = parts.slice(1).join(' ');
+        return;
+    }
+    if (map.name && r.name) form[map.name] = r.name;
+    if (map.phone && r.phone) form[map.phone] = r.phone;
+};
 onMounted(async () => {
     if (!isDoctor.value || !hasCase.value) return;
     try {
         const { data } = await axios.get(route('doctor.case-patient-link'), { params: caseContext.value });
         linkedPatient.value = data.data;
+        fillLocked(data.data);
     } catch {
         // Only informational; saving still checks on the server.
     }
@@ -254,6 +276,7 @@ const onPatientDecoded = async (text, code = null) => {
         });
         const r = data.data.registration;
         if (data.data.link) linkedPatient.value = data.data.link;
+        fillLocked(r);
         delete form.errors.patient_link;
         const map = patientFieldMap.value;
         if (map) {
@@ -557,9 +580,10 @@ const widthClass = (field) =>
 // indices never collide with a real supervisor-field name, so this is
 // safe for every field shape the registry can describe.
 const fieldDisabled = (field) =>
-    props.supervisorFields.includes(field.key)
+    lockedKeys.value.includes(formKey(field)) ||
+    (props.supervisorFields.includes(field.key)
         ? !props.supervisorEditableFields.includes(field.key)
-        : props.readonly && !props.supervisorEditableFields.includes(field.key);
+        : props.readonly && !props.supervisorEditableFields.includes(field.key));
 
 // "يجب ان يملئ حقل الدرجة والتاريخ حتى يوقع" (2026-08-30) — a stage can't
 // be signed off until its own Grade and Date are filled in, so the

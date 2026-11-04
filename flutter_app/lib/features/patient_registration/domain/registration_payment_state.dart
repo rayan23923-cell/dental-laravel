@@ -132,17 +132,19 @@ class RegistrationPaymentState {
 /// A patient linked to a case sheet by QR or code (2026-11-04), see
 /// `App\Support\CasePatientLinks::toView()`.
 class CasePatientLink {
-  const CasePatientLink({required this.registrationId, required this.name, this.patientCode, this.method});
+  const CasePatientLink({required this.registrationId, required this.name, this.phone, this.patientCode, this.method});
 
   factory CasePatientLink.fromJson(Map<String, dynamic> json) => CasePatientLink(
         registrationId: (json['id'] as num).toInt(),
         name: json['name'] as String? ?? '',
+        phone: json['phone'] as String?,
         patientCode: json['patient_code'] as String?,
         method: json['method'] as String?,
       );
 
   final int registrationId;
   final String name;
+  final String? phone;
   final String? patientCode;
 
   /// 'qr' or 'code'.

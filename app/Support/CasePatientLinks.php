@@ -213,33 +213,41 @@ class CasePatientLinks
     }
 
     /**
-     * Saving a new case sheet when linking is required: the case must
-     * have a patient. Only a doctor's own sheet for a task is checked.
+     * Saving a case sheet when linking is required (2026-11-04, by
+     * request): a new sheet needs its patient linked, and the patient's
+     * name and phone always come from the linked registration (the
+     * fields are locked on the clients). Only a doctor's sheet for a task
+     * is checked. Returns $data with those fields set.
      *
      * @throws ValidationException
      */
-    public static function enforceOnCreate(array $data): void
+    public static function applyRequired(string $resource, array $data, ?\Illuminate\Database\Eloquent\Model $existing): array
     {
         if (! FormSettings::get()['patient_link_required']) {
-            return;
+            return $data;
         }
-        $doctorId = isset($data['doctor_id']) ? (int) $data['doctor_id'] : null;
-        $instanceId = ! empty($data['task_instances_id']) ? (int) $data['task_instances_id'] : null;
-        $taskId = ! empty($data['task_id']) ? (int) $data['task_id'] : null;
+        $doctorId = (int) ($data['doctor_id'] ?? $existing?->getAttribute('doctor_id')) ?: null;
+        $instanceId = (int) ($data['task_instances_id'] ?? $existing?->getAttribute('task_instances_id')) ?: null;
+        $taskId = (int) ($data['task_id'] ?? $existing?->getAttribute('task_id')) ?: null;
         if (! $instanceId && ! $taskId) {
-            return;
+            return $data;
         }
-        if ($instanceId) {
-            $instance = TaskInstance::find($instanceId);
-            if ($instance?->patient_registration_id) {
-                return;
+
+        $registration = self::forCase($doctorId, $taskId, $instanceId)?->registration;
+        if (! $registration && $instanceId) {
+            $registration = TaskInstance::find($instanceId)?->patientRegistration;
+        }
+        if (! $registration) {
+            if ($existing === null) {
+                throw ValidationException::withMessages([
+                    'patient_link' => 'يجب إدخال رمز المريض أو مسح الكيوار قبل الحفظ.',
+                ]);
             }
+
+            return $data;
         }
-        if (! self::forCase($doctorId, $taskId, $instanceId)) {
-            throw ValidationException::withMessages([
-                'patient_link' => 'اربط المريض بالنموذج أولاً: امسح كيوار الوصل أو اكتب الرمز المطبوع تحته.',
-            ]);
-        }
+
+        return [...$data, ...CaseSheetPatientFieldMap::lockedValues($resource, $registration)];
     }
 
     /** What the clients show for a linked patient. */
@@ -253,6 +261,7 @@ class CasePatientLinks
         return [
             'id' => $registration->id,
             'name' => $registration->name,
+            'phone' => $registration->phone,
             'patient_code' => $registration->patient_code,
             'method' => $link->method,
             'linked_at' => $link->updated_at?->toIso8601String(),

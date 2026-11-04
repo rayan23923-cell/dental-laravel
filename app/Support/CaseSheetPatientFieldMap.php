@@ -129,6 +129,29 @@ class CaseSheetPatientFieldMap
     }
 
     /**
+     * The name and phone columns a required patient link fills and locks
+     * (2026-11-04, by request): flat columns only — a grouped resource
+     * (prevention's `patient_data`) is locked on the client alone.
+     *
+     * @return array<string, string>
+     */
+    public static function lockedValues(string $resource, PatientRegistration $registration): array
+    {
+        if ($resource === 'advanced-periodontal-charts') {
+            return array_intersect_key(self::advancedPeriodontalPrefill($registration), array_flip(['patient_first_name', 'patient_last_name']));
+        }
+        $map = self::MAP[$resource] ?? null;
+        if (! $map || isset($map['group'])) {
+            return [];
+        }
+
+        return array_filter([
+            $map['name'] ?? null => (string) $registration->name,
+            $map['phone'] ?? null => (string) $registration->phone,
+        ], fn ($value, $column) => $column !== '' && $value !== '', ARRAY_FILTER_USE_BOTH);
+    }
+
+    /**
      * First word of the registration's name → `patient_first_name`, the
      * rest → `patient_last_name` — the reverse of what
      * `AdvancedPeriodontalChartController::resolvePatientId()` already

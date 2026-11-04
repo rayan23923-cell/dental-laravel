@@ -90,8 +90,13 @@ class DynamicSectionForm extends StatefulWidget {
     required this.onSubmit,
     required this.t,
     this.supervisorEditableFields = const [],
+    this.lockedFields = const [],
     this.onStageField,
   });
+
+  /// Form keys locked because they come from the linked patient
+  /// (2026-11-04: name and phone when linking is required).
+  final List<String> lockedFields;
 
   /// Saves one stage date/grade as soon as it changes (2026-10-15). Null on
   /// a brand-new sheet, which has no record to save to until its first save.
@@ -389,9 +394,11 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
   ///
   /// Grouped subkeys use `field.key` (not `formKey`) since that's the bare
   /// name the registry lists (e.g. Prevention's `senior_name`).
-  bool fieldDisabled(CaseSheetField field) => widget.schema.supervisorFields.contains(field.key)
-      ? !widget.supervisorEditableFields.contains(field.key)
-      : widget.readonly && !widget.supervisorEditableFields.contains(field.key);
+  bool fieldDisabled(CaseSheetField field) =>
+      widget.lockedFields.contains(field.formKey) ||
+      (widget.schema.supervisorFields.contains(field.key)
+          ? !widget.supervisorEditableFields.contains(field.key)
+          : widget.readonly && !widget.supervisorEditableFields.contains(field.key));
 
   /// Same two-reason logic as [fieldDisabled], for the stage-evaluation
   /// table's rows (Prosthodontics/Complete Denture) — these aren't
@@ -459,7 +466,12 @@ class DynamicSectionFormState extends State<DynamicSectionForm> {
     final current = _values[formKey];
     final isBlank = current == null || (current is String && current.isEmpty);
     if (!isBlank) return;
+    setField(formKey, value);
+  }
 
+  /// Sets a field whatever it holds (2026-11-04): the locked name and
+  /// phone always follow the linked patient.
+  void setField(String formKey, String value) {
     final controller = _controllers[formKey];
     if (controller != null) {
       // Setting .text already repaints this field; onChanged only fires
