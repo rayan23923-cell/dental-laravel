@@ -7,9 +7,8 @@
     <ul>
         @if($clinic->clinic_phone)<li>الهاتف: <a href="tel:{{ $clinic->clinic_phone }}" dir="ltr">{{ $clinic->clinic_phone }}</a></li>@endif
         @if($clinic->clinic_email)<li>البريد: <a href="mailto:{{ $clinic->clinic_email }}">{{ $clinic->clinic_email }}</a></li>@endif
-        @if($clinic->clinic_address)<li>العنوان: {{ $clinic->clinic_address }}</li>@endif
-        @unless($clinic->clinic_phone || $clinic->clinic_email || $clinic->clinic_address)
-            <li>مكتب إدارة العيادة في الكلية.</li>
+        @unless($clinic->clinic_phone || $clinic->clinic_email)
+            <li>مكتب إدارة العيادة.</li>
         @endunless
     </ul>
 
