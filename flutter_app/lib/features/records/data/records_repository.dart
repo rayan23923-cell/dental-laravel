@@ -74,12 +74,16 @@ class RecordsRepository {
   /// table has) and which of the two mutually-exclusive sources a payment
   /// settled; see `Api\PaymentController::index()`'s matching comment for
   /// why no doctor or paid/unpaid filter exists.
-  Future<Paginated<Payment>> listPayments({String? search, String? from, String? to, String? source}) async {
+  Future<Paginated<Payment>> listPayments({String? search, String? from, String? to, String? source, String? link, int? stageId, int? departmentId}) async {
     final data = await _client.getJson('/payments', query: {
       if (search != null && search.isNotEmpty) 'search': search,
       if (from != null && from.isNotEmpty) 'from': from,
       if (to != null && to.isNotEmpty) 'to': to,
       if (source != null && source.isNotEmpty) 'source': source,
+      // Link to case sheets, stage and department (2026-11-04, by request).
+      if (link != null) 'link': link,
+      if (stageId != null) 'stage_id': '$stageId',
+      if (departmentId != null) 'department_id': '$departmentId',
     }) as Map<String, dynamic>;
     return Paginated.fromJson(data, Payment.fromJson);
   }
@@ -98,12 +102,16 @@ class RecordsRepository {
   // more, and the API no longer routes `PUT /payments/{id}`.
 
   /// Income overview for the same filters as [listPayments] (2026-10-17).
-  Future<PaymentStats> fetchPaymentStats({String? search, String? from, String? to, String? source}) async {
+  Future<PaymentStats> fetchPaymentStats({String? search, String? from, String? to, String? source, String? link, int? stageId, int? departmentId}) async {
     final data = await _client.getJson('/payments/stats', query: {
       if (search != null && search.isNotEmpty) 'search': search,
       if (from != null && from.isNotEmpty) 'from': from,
       if (to != null && to.isNotEmpty) 'to': to,
       if (source != null && source.isNotEmpty) 'source': source,
+      // Link to case sheets, stage and department (2026-11-04, by request).
+      if (link != null) 'link': link,
+      if (stageId != null) 'stage_id': '$stageId',
+      if (departmentId != null) 'department_id': '$departmentId',
     }) as Map<String, dynamic>;
     return PaymentStats.fromJson(data);
   }
@@ -112,12 +120,16 @@ class RecordsRepository {
 
   /// Every payment for the same filters as [listPayments], with the
   /// overview — the payments report PDF's data (2026-10-17).
-  Future<PaymentReport> fetchPaymentReport({String? search, String? from, String? to, String? source}) async {
+  Future<PaymentReport> fetchPaymentReport({String? search, String? from, String? to, String? source, String? link, int? stageId, int? departmentId}) async {
     final data = await _client.getJson('/payments/report', query: {
       if (search != null && search.isNotEmpty) 'search': search,
       if (from != null) 'from': from,
       if (to != null) 'to': to,
       if (source != null) 'source': source,
+      // Link to case sheets, stage and department (2026-11-04, by request).
+      if (link != null) 'link': link,
+      if (stageId != null) 'stage_id': '$stageId',
+      if (departmentId != null) 'department_id': '$departmentId',
     }) as Map<String, dynamic>;
     return PaymentReport.fromJson(data);
   }

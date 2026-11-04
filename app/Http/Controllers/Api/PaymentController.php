@@ -54,6 +54,8 @@ class PaymentController extends Controller
                 'by_source' => PaymentStats::bySource($query, $sources),
                 // Income by department from the patient's case sheet (2026-11-04).
                 'by_department' => \App\Support\CasePatientLinks::departmentTotals($query),
+                // Counts per link status, stage and department (2026-11-04).
+                'link_facets' => \App\Support\CasePatientLinks::paymentFacets($this->filteredQuery($request, $sources, false), $request),
                 'scope' => $sources,
                 'currency' => ClinicSetting::current()->clinic_currency,
             ],
@@ -128,7 +130,7 @@ class PaymentController extends Controller
      * or the tickets' income only for the lab / ticket-desk grants
      * (2026-10-26, by request, see PaymentScope).
      */
-    private function filteredQuery(Request $request, ?array $sources): Builder
+    private function filteredQuery(Request $request, ?array $sources, bool $withLinkFilters = true): Builder
     {
         $search = $request->string('search')->toString();
 
@@ -158,7 +160,9 @@ class PaymentController extends Controller
                 'registration' => $q->whereNotNull('patient_registration_id')->where('type', '!=', Payment::TYPE_LAB),
                 'lab' => $q->where('type', Payment::TYPE_LAB),
                 default => $q,
-            });
+            })
+            // Link to case sheets, stage and department (2026-11-04, by request).
+            ->tap(fn ($q) => $withLinkFilters ? \App\Support\CasePatientLinks::filterPayments($q, $request) : $q);
     }
 
     public function show(Request $request, Payment $payment): JsonResponse

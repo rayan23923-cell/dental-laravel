@@ -135,6 +135,8 @@ Future<Uint8List> buildPaymentsReportPdf({
   String? to,
   String? source,
   String? title,
+  // The link filter in words (2026-11-04), e.g. «مربوط بنموذج · الحشوات».
+  String? linkFilter,
   PdfPageFormat format = PdfPageFormat.a4,
   pw.ImageProvider? logo,
 }) async {
@@ -149,6 +151,7 @@ Future<Uint8List> buildPaymentsReportPdf({
   final filterBits = [
     if (source != null) 'المصدر: ${_sourceLabels[source] ?? source}',
     if (search != null && search.isNotEmpty) 'بحث: $search',
+    if (linkFilter != null && linkFilter.isNotEmpty) 'الربط: $linkFilter',
   ];
   const periodLabels = {'today': 'اليوم', 'week': 'هذا الأسبوع', 'month': 'هذا الشهر', 'year': 'هذه السنة'};
   final periodRange = stats.range;

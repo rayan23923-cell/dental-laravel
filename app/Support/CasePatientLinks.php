@@ -219,6 +219,112 @@ class CasePatientLinks
     }
 
     /**
+     * The payments' link filters (2026-11-04, by request, as the patients
+     * list's): the payment's patient linked or not, refused attempts, and
+     * the linked case's stage and department. With a stage or department,
+     * only service payments count: lab fees stay on their own («المختبر»),
+     * as in {@see departmentTotals()}.
+     */
+    public static function filterPayments($query, \Illuminate\Http\Request $request, bool $withCase = true)
+    {
+        $col = 'payments.patient_registration_id';
+        $linked = fn ($sub) => $sub->select('patient_registration_id')->from('case_patient_links')->whereNotNull('patient_registration_id');
+        $attempts = fn (?string $reason) => fn ($sub) => $sub->select('patient_registration_id')->from('case_patient_link_attempts')
+            ->whereNotNull('patient_registration_id')
+            ->when($reason, fn ($q) => $q->where('reason', $reason));
+
+        $query->when($request->string('link')->toString(), fn ($q, $link) => match ($link) {
+            'linked' => $q->whereIn($col, $linked),
+            'unlinked' => $q->where(fn ($w) => $w->whereNull($col)->orWhereNotIn($col, $linked)),
+            'suspicious' => $q->whereIn($col, $attempts('already_used')),
+            'attempts' => $q->whereIn($col, $attempts(null)),
+            default => $q,
+        });
+
+        if (! $withCase) {
+            return $query;
+        }
+
+        return self::filterPaymentCase($query, $request->integer('department_id') ?: null, $request->integer('stage_id') ?: null);
+    }
+
+    private static function filterPaymentCase($query, ?int $departmentId, ?int $stageId)
+    {
+        if (! $departmentId && ! $stageId) {
+            return $query;
+        }
+
+        return $query->where('payments.type', '!=', \App\Models\Payment::TYPE_LAB)
+            ->whereIn('payments.patient_registration_id', function ($sub) use ($departmentId, $stageId) {
+                $sub->select('case_patient_links.patient_registration_id')
+                    ->from('case_patient_links')
+                    ->whereNotNull('case_patient_links.patient_registration_id')
+                    ->when($departmentId, fn ($q) => $q->where('case_patient_links.department_id', $departmentId))
+                    ->when($stageId, fn ($q) => $q
+                        ->join('tasks', 'tasks.id', '=', 'case_patient_links.task_id')
+                        ->where('tasks.stage_id', $stageId));
+            });
+    }
+
+    /**
+     * Payment counts per link status, stage and department for the
+     * payments page's chips (2026-11-04). $base has the page's other
+     * filters but no link filters.
+     */
+    public static function paymentFacets($base, \Illuminate\Http\Request $request): array
+    {
+        $departmentId = $request->integer('department_id') ?: null;
+        $stageId = $request->integer('stage_id') ?: null;
+        $count = fn (string $link) => self::filterPayments(clone $base, new \Illuminate\Http\Request(['link' => $link]), false)->count();
+
+        $statuses = [
+            'all' => (clone $base)->count(),
+            'linked' => $count('linked'),
+            'unlinked' => $count('unlinked'),
+            'suspicious' => $count('suspicious'),
+            'attempts' => $count('attempts'),
+        ];
+
+        // Payments per patient first (the payments query's own columns are
+        // unqualified, so no join), then each patient's case in PHP.
+        $rows = function ($q, string $key) {
+            $perPatient = (clone $q)->toBase()->reorder()
+                ->where('payments.type', '!=', \App\Models\Payment::TYPE_LAB)
+                ->whereNotNull('payments.patient_registration_id')
+                ->groupBy('payments.patient_registration_id')
+                ->selectRaw('payments.patient_registration_id as rid, count(*) as n')
+                ->pluck('n', 'rid');
+            $out = [];
+            foreach ($perPatient->keys()->chunk(1000) as $chunk) {
+                $cases = DB::table('case_patient_links')
+                    ->leftJoin('tasks', 'tasks.id', '=', 'case_patient_links.task_id')
+                    ->whereIn('case_patient_links.patient_registration_id', $chunk->all())
+                    ->get(['case_patient_links.patient_registration_id as rid', 'case_patient_links.department_id', 'tasks.stage_id']);
+                foreach ($cases as $case) {
+                    $id = $case->{$key};
+                    if ($id !== null) {
+                        $out[$id] = ($out[$id] ?? 0) + (int) $perPatient[$case->rid];
+                    }
+                }
+            }
+
+            return collect($out);
+        };
+
+        $stageRows = $rows(self::filterPaymentCase(clone $base, $departmentId, null), 'stage_id');
+        $departmentRows = $rows(self::filterPaymentCase(clone $base, null, $stageId), 'department_id');
+
+        $stageNames = \App\Models\Stage::withTrashed()->whereIn('id', $stageRows->keys())->orderBy('id')->pluck('name', 'id');
+        $departmentNames = \App\Models\Department::withTrashed()->whereIn('id', $departmentRows->keys())->orderBy('name')->pluck('name', 'id');
+
+        return [
+            'statuses' => $statuses,
+            'stages' => $stageNames->map(fn ($name, $id) => ['id' => (int) $id, 'name' => $name, 'count' => (int) $stageRows[$id]])->values()->all(),
+            'departments' => $departmentNames->map(fn ($name, $id) => ['id' => (int) $id, 'name' => $name, 'count' => (int) $departmentRows[$id]])->values()->all(),
+        ];
+    }
+
+    /**
      * Who the patient was linked to (doctor, task, department, when, how)
      * and every refused attempt, newest first: what staff see from the
      * patients list (2026-11-04, by request).

@@ -158,6 +158,44 @@ class CasePatientLinkTest extends TestCase
             ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $a->id);
     }
 
+    public function test_payments_filter_by_the_linked_department_and_stage(): void
+    {
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        $stage5 = \App\Models\Stage::create(['name' => 'المرحلة الخامسة', 'education_type_id' => 1]);
+        $surgery = Department::create(['name' => 'جراحة الفم']);
+        $extraction = Task::create([
+            'department_id' => $surgery->id, 'case_sheet_type_id' => 1, 'stage_id' => $stage5->id,
+            'title' => 'قلع', 'required_per_doctor' => 2, 'required_count' => 2,
+        ]);
+        DB::statement('SET FOREIGN_KEY_CHECKS=1');
+
+        $a = $this->patient();
+        $b = $this->patient();
+        $c = $this->patient();
+        CasePatientLinks::link($a, $this->doctor, $this->task->id, null, 'qr');
+        CasePatientLinks::link($b, $this->other, $extraction->id, null, 'code');
+        Payment::create(['patient_registration_id' => $a->id, 'amount' => 5000, 'paid_at' => now(), 'type' => Payment::TYPE_SERVICE]);
+        Payment::create(['patient_registration_id' => $b->id, 'amount' => 7000, 'paid_at' => now(), 'type' => Payment::TYPE_SERVICE]);
+        Payment::create(['patient_registration_id' => $b->id, 'amount' => 2000, 'paid_at' => now(), 'type' => Payment::TYPE_LAB]);
+        Payment::create(['patient_registration_id' => $c->id, 'amount' => 3000, 'paid_at' => now(), 'type' => Payment::TYPE_SERVICE]);
+
+        $token = User::factory()->create(['role' => 'super_admin'])->createToken('t')->plainTextToken;
+        $this->withToken($token)->getJson('/api/v1/payments/stats')
+            ->assertOk()
+            ->assertJsonPath('data.link_facets.statuses.all', 4)
+            ->assertJsonPath('data.link_facets.statuses.linked', 3)
+            ->assertJsonPath('data.link_facets.statuses.unlinked', 1)
+            ->assertJsonCount(2, 'data.link_facets.departments');
+
+        // A department: that department's service payments, not lab fees.
+        $this->withToken($token)->getJson('/api/v1/payments?department_id='.$surgery->id)
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.amount', fn ($v) => (float) $v === 7000.0);
+        $this->withToken($token)->getJson('/api/v1/payments/stats?stage_id='.$stage5->id)
+            ->assertOk()->assertJsonPath('data.filtered_total', fn ($v) => (float) $v === 7000.0);
+        $this->withToken($token)->getJson('/api/v1/payments?link=unlinked')
+            ->assertOk()->assertJsonCount(1, 'data');
+    }
+
     public function test_the_registration_form_suggests_earlier_patients_by_name_or_phone(): void
     {
         PatientRegistration::create(['name' => 'أحمد علي حسن', 'phone' => '07701234567', 'screening_status' => 'clear']);
