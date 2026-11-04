@@ -381,7 +381,25 @@
         "purgeWarning": "The patient and their payments are removed for good from patients, the lab and reports. This cannot be undone.",
         "purgePassword": "Enter your account password to confirm",
         "purgeConfirm": "Delete permanently",
-        "purgeFailed": "Could not delete."
+        "purgeFailed": "Could not delete.",
+        "archiveTitle": "Archive {n} patient(s)?",
+        "archiveConfirm": "Archive",
+        "purgeFromHint": "Delete from where?",
+        "purgeFrom": {
+            "patients": "From patients",
+            "lab": "From the lab",
+            "both": "From both"
+        },
+        "purgeFromDesc": {
+            "patients": "Removed from patients with its service payments; stays in the lab archive",
+            "lab": "Removed from the lab with its lab fees; stays in the patients archive",
+            "both": "The whole patient with all payments"
+        },
+        "purgeWarningFrom": {
+            "patients": "The patient is removed for good from the patients list with their ticket/service payments. This cannot be undone. The lab part stays archived.",
+            "lab": "The patient is removed for good from the lab with the lab fees. This cannot be undone. The patients part stays archived.",
+            "both": "The patient and their payments are removed for good from patients, the lab and reports. This cannot be undone."
+        }
     },
     "appointments": {
         "newAppointment": "New Appointment",
@@ -423,6 +441,15 @@
         "paymentsCount": "{n} payments",
         "dailyChart": "Daily income (last 30 days)",
         "monthlyChart": "Monthly income (this year)",
+        "rangeTotal": "Period total",
+        "rangeAverage": "Daily average",
+        "rangeBestDay": "Best day",
+        "rangePaidDays": "Days with payments",
+        "rangeDaysOf": "of {n} days",
+        "rangeNoBest": "None",
+        "rangeDailyChart": "Daily income from {from} to {to}",
+        "rangeMonthlyChart": "Monthly income for the period",
+        "rangeTooLong": "The period is longer than {n} days, so only the monthly chart is shown.",
         "filteredTotal": "Total of the results",
         "allTimeTotal": "Total of all payments",
         "printReport": "Print report / PDF",

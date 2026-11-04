@@ -567,6 +567,10 @@ Route::name('api.')->prefix('v1')->group(function () {
         // The payments report PDF's data (2026-10-17), the web payments.report.
         Route::get('/payments/report', [PaymentController::class, 'report'])
             ->middleware('permission:payments,'.\App\Support\PaymentScope::REPORT)->name('payments.report');
+        // The payments activity log PDF's data (2026-11-04), the web
+        // payments.activity: the full payments grant only.
+        Route::get('/payments/activity', [PaymentController::class, 'activity'])
+            ->middleware('permission:payments,view')->name('payments.activity');
         Route::apiResource('payments', PaymentController::class)->except(['update'])
             ->middlewareFor(['index', 'show'], 'permission:payments,'.\App\Support\PaymentScope::VIEW)
             ->middlewareFor('store', 'permission:payments,create')

@@ -8,6 +8,7 @@ class PaymentStats {
     required this.filteredTotal,
     required this.bySource,
     this.currency,
+    this.range,
   });
 
   factory PaymentStats.fromJson(Map<String, dynamic> json) {
@@ -27,6 +28,7 @@ class PaymentStats {
           .map((e) => SourceTotal.fromJson(e as Map<String, dynamic>))
           .toList(),
       currency: data['currency'] as String?,
+      range: data['range'] is Map<String, dynamic> ? PeriodRange.fromJson(data['range'] as Map<String, dynamic>) : null,
     );
   }
 
@@ -42,6 +44,50 @@ class PaymentStats {
   final double filteredTotal;
   final List<SourceTotal> bySource;
   final String? currency;
+
+  /// The filtered period's own figures (2026-11-04, by request): set when
+  /// the list has a date filter; [daily] and [monthly] then cover that
+  /// period only (empty when it is too long / within one month).
+  final PeriodRange? range;
+}
+
+class PeriodRange {
+  const PeriodRange({
+    required this.from,
+    required this.to,
+    required this.days,
+    required this.total,
+    required this.count,
+    required this.average,
+    required this.paidDays,
+    this.bestDate,
+    this.bestTotal,
+  });
+
+  factory PeriodRange.fromJson(Map<String, dynamic> json) {
+    final best = json['best'] as Map<String, dynamic>?;
+    return PeriodRange(
+      from: '${json['from'] ?? ''}',
+      to: '${json['to'] ?? ''}',
+      days: (json['days'] as num?)?.toInt() ?? 0,
+      total: _toDouble(json['total']),
+      count: (json['count'] as num?)?.toInt() ?? 0,
+      average: _toDouble(json['average']),
+      paidDays: (json['paid_days'] as num?)?.toInt() ?? 0,
+      bestDate: best?['date'] as String?,
+      bestTotal: best == null ? null : _toDouble(best['total']),
+    );
+  }
+
+  final String from;
+  final String to;
+  final int days;
+  final double total;
+  final int count;
+  final double average;
+  final int paidDays;
+  final String? bestDate;
+  final double? bestTotal;
 }
 
 class PeriodTotal {

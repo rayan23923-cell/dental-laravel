@@ -104,7 +104,9 @@ class PatientRegistrationController extends Controller
             ? $this->filteredQuery($request)
             : PatientRegistration::whereIn('id', $validated['ids']);
 
-        $count = RegistrationArchive::archive($query, $validated['scope'] ?? 'both');
+        $count = // Archiving is the plain archive again (2026-11-04, by request): the
+        // list choice moved to the permanent delete; an older app's scope is ignored.
+        RegistrationArchive::archive($query, 'both');
 
         return back()->with('success', "تمت أرشفة {$count} تسجيل.");
     }
@@ -134,6 +136,8 @@ class PatientRegistrationController extends Controller
             'ids' => ['required_without:all', 'array'],
             'ids.*' => ['integer'],
             'password' => ['required', 'string', 'current_password'],
+            // Delete from the patients list, the lab list, or both (2026-11-04).
+            'scope' => ['sometimes', 'in:'.implode(',', RegistrationArchive::SCOPES)],
         ], ['password.current_password' => 'كلمة السر غير صحيحة.']);
 
         $request->merge(['archived' => 1]);
@@ -141,7 +145,7 @@ class PatientRegistrationController extends Controller
             ? $this->filteredQuery($request)
             : RegistrationArchive::archived(PatientRegistration::query())->whereIn('id', $validated['ids']);
 
-        $count = RegistrationArchive::purge($query);
+        $count = RegistrationArchive::deleteFrom($query, $validated['scope'] ?? 'both');
 
         return back()->with('success', "تم حذف {$count} تسجيل نهائيًا.");
     }

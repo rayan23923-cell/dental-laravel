@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ActivityLog;
 use App\Models\ClinicSetting;
 use App\Models\Payment;
 use App\Models\PatientRegistration;
@@ -27,7 +26,10 @@ class PaymentController extends Controller
         // grants (2026-10-26, by request); null is every payment.
         $sources = PaymentScope::sources($request->user());
         $query = $this->filteredQuery($request, $sources);
-        $stats = new PaymentStats(null, $sources);
+        // The overview follows the page's filters (2026-11-04, by request):
+        // with a date range it shows that period only (see PaymentStats::range()).
+        $stats = new PaymentStats(null, $sources, $query);
+        $range = $stats->range($request->string('from')->toString() ?: null, $request->string('to')->toString() ?: null);
         $settings = ClinicSetting::current();
 
         return Inertia::render('Payments/Index', [
@@ -44,8 +46,9 @@ class PaymentController extends Controller
             'scope' => $sources,
             // Income overview (2026-10-12, by request).
             'periods' => $stats->periods(),
-            'daily' => $stats->daily(),
-            'monthly' => $stats->monthly(),
+            'daily' => $range['daily'] ?? $stats->daily(),
+            'monthly' => $range['monthly'] ?? $stats->monthly(),
+            'range' => $range ? collect($range)->except(['daily', 'monthly'])->all() : null,
             'filteredTotal' => (float) (clone $query)->sum('amount'),
             'bySource' => PaymentStats::bySource($query, $sources),
             'currency' => ClinicSetting::current()->clinic_currency,
@@ -68,7 +71,10 @@ class PaymentController extends Controller
     {
         $sources = PaymentScope::sources($request->user(), true);
         $query = $this->filteredQuery($request, $sources);
-        $stats = new PaymentStats(null, $sources);
+        // The overview follows the page's filters (2026-11-04, by request):
+        // with a date range it shows that period only (see PaymentStats::range()).
+        $stats = new PaymentStats(null, $sources, $query);
+        $range = $stats->range($request->string('from')->toString() ?: null, $request->string('to')->toString() ?: null);
 
         $filters = $this->filters($request, $sources);
         $payments = (clone $query)->with(['appointment', 'patientRegistration.service'])->latest('paid_at')->get();
@@ -86,8 +92,9 @@ class PaymentController extends Controller
             'filteredTotal' => (float) (clone $query)->sum('amount'),
             'bySource' => PaymentStats::bySource($query, $sources),
             'periods' => $stats->periods(),
-            'daily' => $stats->daily(),
-            'monthly' => $stats->monthly(),
+            'daily' => $range['daily'] ?? $stats->daily(),
+            'monthly' => $range['monthly'] ?? $stats->monthly(),
+            'range' => $range ? collect($range)->except(['daily', 'monthly'])->all() : null,
             'autoprint' => $request->boolean('autoprint'),
         ]);
     }
@@ -102,34 +109,7 @@ class PaymentController extends Controller
     {
         $from = $request->date('from');
         $to = $request->date('to');
-
-        $logs = ActivityLog::query()
-            ->where('module', 'Payment')
-            ->when($from, fn ($q) => $q->whereDate('created_at', '>=', $from))
-            ->when($to, fn ($q) => $q->whereDate('created_at', '<=', $to))
-            ->latest('created_at')
-            ->limit(2000)
-            ->get();
-
-        $current = Payment::with(['appointment', 'patientRegistration'])
-            ->whereIn('id', $logs->pluck('record_id')->filter()->unique())
-            ->get()->keyBy('id');
-
-        $rows = $logs->map(function (ActivityLog $log) use ($current) {
-            $data = $log->data ? json_decode($log->data, true) : null;
-            $snapshot = $data['snapshot'] ?? $current->get($log->record_id)?->activitySnapshot();
-
-            return [
-                'at' => $log->created_at,
-                'user' => $log->username,
-                'role' => $log->user_role,
-                'action' => $log->action,
-                'payment_id' => $log->record_id,
-                'snapshot' => $snapshot,
-                'before' => $data['before'] ?? null,
-                'changes' => $data['changes'] ?? ($log->action === 'update' && is_array($data) ? $data : null),
-            ];
-        });
+        $rows = \App\Support\PaymentActivity::rows($from, $to);
 
         return view('print.payments-activity', [
             'settings' => ClinicSetting::current(),
@@ -156,8 +136,8 @@ class PaymentController extends Controller
             // Filtering (2026-08-29) — see Api\PaymentController::index()'s
             // matching comment for why these two (date range + source) are
             // what's actually filterable on this table.
-            ->when($request->date('from'), fn ($q, $from) => $q->whereDate('paid_at', '>=', $from))
-            ->when($request->date('to'), fn ($q, $to) => $q->whereDate('paid_at', '<=', $to))
+            // By the clinic's day, Baghdad time (2026-11-04).
+            ->tap(fn ($q) => PaymentStats::applyDateRange($q, $request->string('from')->toString() ?: null, $request->string('to')->toString() ?: null))
             ->when($source, fn ($q) => match ($source) {
                 'appointment' => $q->whereNotNull('appointment_id'),
                 'registration' => $q->whereNotNull('patient_registration_id')->where('type', '!=', Payment::TYPE_LAB),

@@ -43,6 +43,7 @@ class _Overview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currency = stats.currency;
+    final range = stats.range;
     const periodKeys = {
       'today': 'payments.today',
       'week': 'payments.thisWeek',
@@ -69,25 +70,53 @@ class _Overview extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final entry in periodKeys.entries)
-                    SizedBox(
-                      width: width,
-                      child: _PeriodCard(
-                        label: t[entry.value]!,
-                        total: stats.periods[entry.key]?.total ?? 0,
-                        count: stats.periods[entry.key]?.count ?? 0,
-                        currency: currency,
-                        countTemplate: t['payments.paymentsCount']!,
+                  // With a date filter (2026-11-04, by request): the
+                  // filtered period's own figures, as on the web.
+                  if (range != null) ...[
+                    for (final card in [
+                      (t['payments.rangeTotal']!, formatMoney(range.total, currency), trf(t['payments.paymentsCount']!, {'n': range.count})),
+                      (t['payments.rangeAverage']!, formatMoney(range.average, currency), range.days > 1 ? trf(t['payments.rangeDaysOf']!, {'n': range.days}) : ''),
+                      (
+                        t['payments.rangeBestDay']!,
+                        range.bestTotal == null ? t['payments.rangeNoBest']! : formatMoney(range.bestTotal!, currency),
+                        range.bestDate ?? '—',
                       ),
-                    ),
+                      (t['payments.rangePaidDays']!, '${range.paidDays}', trf(t['payments.rangeDaysOf']!, {'n': range.days})),
+                    ])
+                      SizedBox(width: width, child: _StatCard(label: card.$1, value: card.$2, sub: card.$3)),
+                  ] else
+                    for (final entry in periodKeys.entries)
+                      SizedBox(
+                        width: width,
+                        child: _StatCard(
+                          label: t[entry.value]!,
+                          value: formatMoney(stats.periods[entry.key]?.total ?? 0, currency),
+                          sub: trf(t['payments.paymentsCount']!, {'n': stats.periods[entry.key]?.count ?? 0}),
+                        ),
+                      ),
                 ],
               );
             },
           ),
           const SizedBox(height: 12),
-          _BarChartCard(title: t['payments.dailyChart']!, points: stats.daily, currency: currency, labelEvery: 5),
-          const SizedBox(height: 8),
-          _BarChartCard(title: t['payments.monthlyChart']!, points: stats.monthly, currency: currency, labelEvery: 1),
+          if (stats.daily.isNotEmpty)
+            _BarChartCard(
+              title: range == null ? t['payments.dailyChart']! : trf(t['payments.rangeDailyChart']!, {'from': range.from, 'to': range.to}),
+              points: stats.daily,
+              currency: currency,
+              labelEvery: (stats.daily.length / 6).ceil(),
+            )
+          else if (range != null)
+            Text(t['payments.rangeTooLong']!, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
+          if (stats.monthly.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _BarChartCard(
+              title: range == null ? t['payments.monthlyChart']! : t['payments.rangeMonthlyChart']!,
+              points: stats.monthly,
+              currency: currency,
+              labelEvery: (stats.monthly.length / 12).ceil(),
+            ),
+          ],
           const SizedBox(height: 12),
           Card(
             margin: EdgeInsets.zero,
@@ -126,20 +155,12 @@ class _Overview extends StatelessWidget {
   }
 }
 
-class _PeriodCard extends StatelessWidget {
-  const _PeriodCard({
-    required this.label,
-    required this.total,
-    required this.count,
-    required this.currency,
-    required this.countTemplate,
-  });
+class _StatCard extends StatelessWidget {
+  const _StatCard({required this.label, required this.value, required this.sub});
 
   final String label;
-  final double total;
-  final int count;
-  final String? currency;
-  final String countTemplate;
+  final String value;
+  final String sub;
 
   @override
   Widget build(BuildContext context) {
@@ -156,9 +177,9 @@ class _PeriodCard extends StatelessWidget {
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: AlignmentDirectional.centerStart,
-              child: Text(formatMoney(total, currency), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              child: Text(value, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
             ),
-            Text(trf(countTemplate, {'n': count}), style: theme.textTheme.bodySmall),
+            Text(sub, style: theme.textTheme.bodySmall),
           ],
         ),
       ),

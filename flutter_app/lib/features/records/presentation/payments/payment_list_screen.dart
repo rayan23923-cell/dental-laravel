@@ -25,6 +25,7 @@ import '../../domain/payment.dart';
 import '../records_providers.dart';
 import '../../../clinic_settings/presentation/clinic_settings_providers.dart';
 import 'payment_stats_overview.dart';
+import 'payments_activity_pdf.dart';
 import 'payments_pdf.dart';
 import '../../../../core/widgets/tg_spinner.dart';
 import '../../../../core/widgets/period_chips.dart';
@@ -127,6 +128,40 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
     }
   }
 
+  bool _printingActivity = false;
+
+  /// The payments activity log as a PDF (2026-11-04, by request), the web
+  /// `payments.activity` page, for the list's date range.
+  Future<void> _printActivity() async {
+    final t = ref.read(translationsProvider);
+    final f = _filters;
+    setState(() => _printingActivity = true);
+    try {
+      final activity = await ref.read(recordsRepositoryProvider).fetchPaymentActivity(from: f.from, to: f.to);
+      final settings = await ref.read(clinicSettingsProvider.future);
+      final logo = await loadLetterheadLogo(ref, settings);
+      await Printing.layoutPdf(
+        name: '${t['payments.printActivity']!}.pdf',
+        onLayout: (format) => buildPaymentsActivityPdf(
+          rows: activity.rows,
+          settings: settings,
+          currency: activity.currency ?? settings?.currency,
+          from: f.from,
+          to: f.to,
+          format: format,
+          logo: logo,
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        final message = e is ApiException ? e.userMessage : '${t['payments.activityFailed']!} ($e)';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } finally {
+      if (mounted) setState(() => _printingActivity = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final paymentsAsync = ref.watch(paymentListProvider(_filters));
@@ -137,6 +172,16 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
       appBar: AppBar(
         title: Text(t[paymentsTitleKey(sources)]!),
         actions: [
+          // Who added / changed / deleted payments (2026-11-04, by request):
+          // the full payments grant only, as on the web.
+          if (sources == null)
+            IconButton(
+              icon: _printingActivity
+                  ? const SizedBox(width: 20, height: 20, child: TgSpinner(strokeWidth: 2))
+                  : const Icon(Icons.history),
+              tooltip: t['payments.printActivity']!,
+              onPressed: _printingActivity ? null : _printActivity,
+            ),
           // The lab / ticket desk grants include printing their report.
           if (staffPaymentSources(ref, report: true)?.isNotEmpty ?? true)
             IconButton(
