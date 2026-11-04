@@ -41,7 +41,8 @@ class PatientRegistrationController extends Controller
     public function index(Request $request): JsonResponse
     {
         $registrations = $this->filteredQuery($request)
-            ->with(['service', 'registerDay'])
+            ->with(['service', 'registerDay', ...\App\Support\CasePatientLinks::LIST_RELATIONS])
+            ->withCount(\App\Support\CasePatientLinks::attemptCounts())
             ->orderByDesc('created_at')
             ->paginate(15);
 
@@ -53,6 +54,20 @@ class PatientRegistrationController extends Controller
         return PatientRegistrationResource::collection($registrations)
             ->additional(['can' => ['archive' => $canArchive]])
             ->response();
+    }
+
+    /**
+     * Earlier patients matching the name or phone being typed on the
+     * registration form (2026-11-04, by request): App\Support\PreviousPatients.
+     */
+    public function previous(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'name' => ['nullable', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:40'],
+        ]);
+
+        return response()->json(['data' => \App\Support\PreviousPatients::suggest($validated['name'] ?? null, $validated['phone'] ?? null)]);
     }
 
     /**
@@ -79,7 +94,16 @@ class PatientRegistrationController extends Controller
             // Date range (2026-10-14), replacing the day filter in the apps.
             ->when($request->date('from'), fn ($q, $from) => $q->whereDate('created_at', '>=', $from))
             ->when($request->date('to'), fn ($q, $to) => $q->whereDate('created_at', '<=', $to))
-            ->when($request->integer('service_id'), fn ($q, $id) => $q->where('service_id', $id));
+            ->when($request->integer('service_id'), fn ($q, $id) => $q->where('service_id', $id))
+            // Linked to a case sheet or not, and refused link attempts
+            // (2026-11-04, by request, against stolen or forged receipts).
+            ->when($request->string('link')->toString(), fn ($q, $link) => match ($link) {
+                'linked' => $q->whereHas('caseLink'),
+                'unlinked' => $q->whereDoesntHave('caseLink'),
+                'suspicious' => $q->whereHas('linkAttempts', fn ($a) => $a->where('reason', 'already_used')),
+                'attempts' => $q->whereHas('linkAttempts'),
+                default => $q,
+            });
     }
 
     /**

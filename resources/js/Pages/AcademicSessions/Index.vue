@@ -1,4 +1,5 @@
 <script setup>
+import DateInput from '@/Components/DateInput.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import ChatListCard from '@/Components/ChatList/ChatListCard.vue';
 import ChatListRow from '@/Components/ChatList/ChatListRow.vue';
@@ -153,12 +154,12 @@ const destroy = (session) => {
                 <div class="mt-4 grid grid-cols-2 gap-4">
                     <div>
                         <InputLabel for="create-start" :value="t('academicSessionsAdmin.startDateLabel')" />
-                        <TextInput id="create-start" v-model="createForm.start_date" type="date" class="mt-1 block w-full" required />
+                        <DateInput id="create-start" v-model="createForm.start_date" class="mt-1" required />
                         <InputError class="mt-2" :message="createForm.errors.start_date" />
                     </div>
                     <div>
                         <InputLabel for="create-end" :value="t('academicSessionsAdmin.endDateLabel')" />
-                        <TextInput id="create-end" v-model="createForm.end_date" type="date" class="mt-1 block w-full" required />
+                        <DateInput id="create-end" v-model="createForm.end_date" class="mt-1" required />
                         <InputError class="mt-2" :message="createForm.errors.end_date" />
                     </div>
                 </div>
@@ -190,12 +191,12 @@ const destroy = (session) => {
                 <div class="mt-4 grid grid-cols-2 gap-4">
                     <div>
                         <InputLabel for="edit-start" :value="t('academicSessionsAdmin.startDateLabel')" />
-                        <TextInput id="edit-start" v-model="editForm.start_date" type="date" class="mt-1 block w-full" required />
+                        <DateInput id="edit-start" v-model="editForm.start_date" class="mt-1" required />
                         <InputError class="mt-2" :message="editForm.errors.start_date" />
                     </div>
                     <div>
                         <InputLabel for="edit-end" :value="t('academicSessionsAdmin.endDateLabel')" />
-                        <TextInput id="edit-end" v-model="editForm.end_date" type="date" class="mt-1 block w-full" required />
+                        <DateInput id="edit-end" v-model="editForm.end_date" class="mt-1" required />
                         <InputError class="mt-2" :message="editForm.errors.end_date" />
                     </div>
                 </div>

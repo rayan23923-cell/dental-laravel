@@ -1,4 +1,5 @@
 <script setup>
+import DateInput from '@/Components/DateInput.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
@@ -58,7 +59,7 @@ const paidTotal = (appointment) => appointment.payments.reduce((sum, p) => sum +
                 <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                     <div class="flex flex-wrap items-center gap-3 border-b border-gray-200 p-4">
                         <TextInput v-model="search" type="text" :placeholder="t('appointments.searchPlaceholder')" class="w-full max-w-sm" />
-                        <TextInput v-model="date" type="date" class="w-full max-w-[10rem]" />
+                        <DateInput v-model="date" class="max-w-[12rem]" />
                         <button
                             v-if="date"
                             type="button"

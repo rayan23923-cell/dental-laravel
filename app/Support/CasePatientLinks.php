@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\CasePatientLink;
+use App\Models\CasePatientLinkAttempt;
 use App\Models\Doctor;
 use App\Models\PatientRegistration;
 use App\Models\Task;
@@ -28,6 +29,23 @@ use Illuminate\Validation\ValidationException;
 class CasePatientLinks
 {
     public const CODE_LENGTH = 6;
+
+    /** What the patients lists load to show each patient's link (2026-11-04). */
+    public const LIST_RELATIONS = [
+        'caseLink:id,patient_registration_id,doctor_id,task_id,task_instance_id,department_id,method,created_at',
+        'caseLink.doctor:id,name',
+        'caseLink.task:id,title',
+        'caseLink.department:id,name',
+    ];
+
+    /** Refused attempts counted per patient: all, and other doctors' uses of a linked receipt. */
+    public static function attemptCounts(): array
+    {
+        return [
+            'linkAttempts as link_attempts_count',
+            'linkAttempts as suspicious_attempts_count' => fn ($q) => $q->where('reason', 'already_used'),
+        ];
+    }
 
     /**
      * The registration a scanned QR payload or a typed code points to.
@@ -65,23 +83,101 @@ class CasePatientLinks
      *
      * @throws ValidationException
      */
-    public static function ensureUsable(PatientRegistration $registration, ?int $doctorId, ?int $taskId, ?int $taskInstanceId): void
+    public static function ensureUsable(PatientRegistration $registration, ?int $doctorId, ?int $taskId, ?int $taskInstanceId, ?string $method = null): void
     {
         if ($registration->trashed()) {
             self::fail('هذا التسجيل مؤرشف ولا يمكن استخدامه.');
         }
         if ($registration->screening_status === 'flagged') {
+            self::recordAttempt($registration, $doctorId, $taskId, $taskInstanceId, 'flagged', $method, null);
             self::fail('المريض غير سليم حسب فحص المختبر، لا يمكن البدء بالمهمة.');
         }
         if ($registration->screening_status !== 'clear') {
+            self::recordAttempt($registration, $doctorId, $taskId, $taskInstanceId, 'pending', $method, null);
             self::fail('لم تظهر نتيجة فحص المختبر لهذا المريض بعد، لا يمكن البدء بالمهمة.');
         }
 
         $link = CasePatientLink::with(['doctor:id,name', 'task:id,title'])->where('patient_registration_id', $registration->id)->first();
         if ($link && ! self::sameCase($link, $doctorId, $taskId, $taskInstanceId)) {
+            self::recordAttempt($registration, $doctorId, $taskId, $taskInstanceId, 'already_used', $method, $link);
             $where = trim(($link->task?->title ? "«{$link->task->title}»" : '').($link->doctor?->name ? " لدى {$link->doctor->name}" : ''));
-            self::fail('هذا الوصل مستخدم مسبقاً لمريض في نموذج آخر'.($where !== '' ? " ({$where})" : '').'، ولا يمكن استخدامه مرة ثانية.');
+            self::fail('هذا الوصل مستخدم مسبقاً لمريض في نموذج آخر'.($where !== '' ? " ({$where})" : '').'، ولا يمكن استخدامه مرة ثانية. تم تسجيل هذه المحاولة.');
         }
+    }
+
+    /**
+     * Keeps a refused attempt by a doctor (2026-11-04, by request, against
+     * stolen or forged receipts), for staff to see with the patient's
+     * link ({@see history()}). Best effort: a failure here never hides
+     * the refusal itself.
+     */
+    private static function recordAttempt(PatientRegistration $registration, ?int $doctorId, ?int $taskId, ?int $taskInstanceId, string $reason, ?string $method, ?CasePatientLink $link): void
+    {
+        if (! $doctorId) {
+            return;
+        }
+        if (! $taskId && $taskInstanceId) {
+            $taskId = TaskInstance::whereKey($taskInstanceId)->value('task_id');
+        }
+        try {
+            CasePatientLinkAttempt::create([
+                'patient_registration_id' => $registration->id,
+                'doctor_id' => $doctorId,
+                'task_id' => $taskId,
+                'linked_doctor_id' => $link?->doctor_id,
+                'linked_task_id' => $link?->task_id,
+                'reason' => $reason,
+                'method' => $method,
+                'ip' => request()?->ip(),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * Who the patient was linked to (doctor, task, department, when, how)
+     * and every refused attempt, newest first: what staff see from the
+     * patients list (2026-11-04, by request).
+     */
+    public static function history(PatientRegistration $registration): array
+    {
+        $link = CasePatientLink::with(['doctor:id,name,username', 'task:id,title', 'department:id,name'])
+            ->where('patient_registration_id', $registration->id)->first();
+        $instance = $link?->task_instance_id ? TaskInstance::find($link->task_instance_id, ['id', 'status']) : null;
+        $attempts = CasePatientLinkAttempt::with(['doctor:id,name,username', 'task:id,title', 'linkedDoctor:id,name', 'linkedTask:id,title'])
+            ->where('patient_registration_id', $registration->id)
+            ->latest('id')->limit(100)->get();
+
+        return [
+            'registration' => [
+                'id' => $registration->id,
+                'name' => $registration->name,
+                'phone' => $registration->phone,
+                'patient_code' => $registration->patient_code,
+                'screening_status' => $registration->screening_status,
+            ],
+            'link' => $link ? [
+                'doctor' => $link->doctor ? ['id' => $link->doctor->id, 'name' => $link->doctor->name, 'username' => $link->doctor->username] : null,
+                'task' => $link->task?->title,
+                'department' => $link->department?->name,
+                'method' => $link->method,
+                'started' => $instance !== null,
+                'task_status' => $instance?->status,
+                'linked_at' => $link->created_at?->toIso8601String(),
+                'updated_at' => $link->updated_at?->toIso8601String(),
+            ] : null,
+            'attempts' => $attempts->map(fn (CasePatientLinkAttempt $a) => [
+                'id' => $a->id,
+                'reason' => $a->reason,
+                'doctor' => $a->doctor ? ['id' => $a->doctor->id, 'name' => $a->doctor->name, 'username' => $a->doctor->username] : null,
+                'task' => $a->task?->title,
+                'linked_doctor' => $a->linkedDoctor?->name,
+                'linked_task' => $a->linkedTask?->title,
+                'method' => $a->method,
+                'at' => $a->created_at?->toIso8601String(),
+            ])->values()->all(),
+        ];
     }
 
     /**
@@ -102,7 +198,7 @@ class CasePatientLinks
             self::fail('افتح النموذج من المهمة لربط المريض به.');
         }
 
-        self::ensureUsable($registration, $doctor->id, $task->id, $instance?->id);
+        self::ensureUsable($registration, $doctor->id, $task->id, $instance?->id, $method === 'code' ? 'code' : 'qr');
 
         return DB::transaction(function () use ($registration, $doctor, $task, $instance, $method) {
             self::caseQuery($doctor->id, $task->id, $instance?->id)
@@ -151,7 +247,7 @@ class CasePatientLinks
         $instanceId = $validated['task_instances_id'] ?? null;
 
         if (! $taskId && ! $instanceId) {
-            self::ensureUsable($registration, $doctor->id, null, null);
+            self::ensureUsable($registration, $doctor->id, null, null, filled($code) ? 'code' : 'qr');
 
             return [$registration, null];
         }

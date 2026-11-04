@@ -16,6 +16,18 @@ class PatientRegistrationResource extends JsonResource
             'phone' => $this->phone,
             // Printed under the QR, typed by the doctor (2026-11-04).
             'patient_code' => $this->patient_code,
+            // The case this patient was linked to and refused attempts
+            // (2026-11-04, by request, against stolen or forged receipts).
+            'case_link' => $this->whenLoaded('caseLink', fn () => $this->caseLink ? [
+                'doctor' => $this->caseLink->doctor?->name,
+                'task' => $this->caseLink->task?->title,
+                'department' => $this->caseLink->department?->name,
+                'method' => $this->caseLink->method,
+                'started' => $this->caseLink->task_instance_id !== null,
+                'linked_at' => $this->caseLink->created_at?->toIso8601String(),
+            ] : null),
+            'link_attempts_count' => $this->when(isset($this->link_attempts_count), fn () => (int) $this->link_attempts_count),
+            'suspicious_attempts_count' => $this->when(isset($this->suspicious_attempts_count), fn () => (int) $this->suspicious_attempts_count),
             // Added 2026-08-28 for the case-sheet QR-autofill feature — the
             // scan flow only ever exposed name/phone before, but the doctor
             // form fields (age/sex/address/occupation) reception already

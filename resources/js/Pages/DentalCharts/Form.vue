@@ -1,4 +1,5 @@
 <script setup>
+import DateInput from '@/Components/DateInput.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
@@ -121,7 +122,7 @@ const submit = () => {
                             </div>
                             <div>
                                 <InputLabel for="visit_date" :value="t('dentalCharts.visitDateCol')" />
-                                <TextInput id="visit_date" v-model="form.visit_date" type="date" class="mt-1 block w-full" />
+                                <DateInput id="visit_date" v-model="form.visit_date" class="mt-1" />
                             </div>
                         </div>
                     </div>
@@ -173,7 +174,7 @@ const submit = () => {
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <InputLabel for="treatment_plan_date" :value="t('dentalCharts.planDateLabel')" />
-                                <TextInput id="treatment_plan_date" v-model="form.treatment_plan_date" type="date" class="mt-1 block w-full" />
+                                <DateInput id="treatment_plan_date" v-model="form.treatment_plan_date" class="mt-1" />
                             </div>
                             <div>
                                 <InputLabel for="senior_doctor_name" :value="t('dentalCharts.seniorDoctorLabel')" />

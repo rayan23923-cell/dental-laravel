@@ -27,6 +27,7 @@ import '../../printing/presentation/ticket_widget.dart';
 import '../data/patient_registration_repository.dart';
 import '../domain/patient_registration.dart';
 import 'live_registrations.dart';
+import 'case_link_history_sheet.dart';
 import 'patient_registration_providers.dart';
 import '../../../core/widgets/tg_spinner.dart';
 import '../../../core/widgets/period_chips.dart';
@@ -57,6 +58,8 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
   String _search = '';
   DateTimeRange? _range;
   int? _serviceId;
+  // Linked to a case sheet / refused attempts (2026-11-04, by request).
+  String? _link;
   Timer? _debounce;
 
   // Archive tab and bulk archive / restore (2026-10-17), as the web
@@ -88,7 +91,7 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
         serviceId: _serviceId,
       );
 
-  bool get _hasFilters => _search.isNotEmpty || _range != null || _serviceId != null;
+  bool get _hasFilters => _search.isNotEmpty || _range != null || _serviceId != null || _link != null;
 
   Future<void> _pickRange() async {
     final now = DateTime.now();
@@ -101,7 +104,7 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
     if (picked != null) setState(() => _range = picked);
   }
 
-  PatientRegistrationPageQuery get _pageQuery => (filter: _filter, archived: !widget.pickMode && _archived);
+  PatientRegistrationPageQuery get _pageQuery => (filter: _filter, archived: !widget.pickMode && _archived, link: widget.pickMode ? null : _link);
 
   void _refresh() {
     ref.invalidate(patientRegistrationPageProvider);
@@ -297,6 +300,7 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
       _search = '';
       _range = null;
       _serviceId = null;
+      _link = null;
     });
   }
 
@@ -533,6 +537,31 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                     ],
                   ),
                 ),
+                if (!widget.pickMode) ...[
+                  const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (final (key, label, icon) in [
+                          ('linked', t['patientRegFlutter.linkFilterLinked']!, Icons.link),
+                          ('unlinked', t['patientRegFlutter.linkFilterUnlinked']!, Icons.link_off),
+                          ('suspicious', t['patientRegFlutter.linkFilterSuspicious']!, Icons.gpp_maybe_outlined),
+                          ('attempts', t['patientRegFlutter.linkFilterAttempts']!, Icons.block),
+                        ])
+                          Padding(
+                            padding: const EdgeInsetsDirectional.only(end: 6),
+                            child: FilterChip(
+                              avatar: Icon(icon, size: 16),
+                              label: Text(label),
+                              selected: _link == key,
+                              onSelected: (on) => setState(() => _link = on ? key : null),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -595,6 +624,24 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                           _ScreeningBadge(status: r.screeningStatus, diagnosis: r.screeningDiagnosisText),
                           if (r.serviceName != null)
                             ChatChip(label: r.serviceName!, icon: Icons.medical_services_outlined, color: Colors.indigo),
+                          if (r.caseLink != null)
+                            ChatChip(
+                              label: '${t['patientRegFlutter.linkedTo']!}: ${r.caseLink!.label}',
+                              icon: Icons.link,
+                              color: Colors.green.shade700,
+                            ),
+                          if (r.suspiciousAttemptsCount > 0)
+                            ChatChip(
+                              label: trf(t['patientRegFlutter.suspiciousChip']!, {'n': r.suspiciousAttemptsCount}),
+                              icon: Icons.gpp_maybe_outlined,
+                              color: Colors.red.shade700,
+                            )
+                          else if (r.linkAttemptsCount > 0)
+                            ChatChip(
+                              label: trf(t['patientRegFlutter.attemptsChip']!, {'n': r.linkAttemptsCount}),
+                              icon: Icons.block,
+                              color: Colors.orange.shade800,
+                            ),
                         ],
                         // Archived rows can't be opened (the payment
                         // screen is for current registrations); a tap
@@ -619,6 +666,11 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                                   icon: Icons.qr_code_2,
                                   tooltip: t['patientRegFlutter.paymentCodeTooltip']!,
                                   onPressed: () => _showQrDialog(context, r),
+                                ),
+                                ChatAction(
+                                  icon: r.suspiciousAttemptsCount > 0 ? Icons.gpp_maybe_outlined : Icons.manage_search,
+                                  tooltip: t['patientRegFlutter.linkHistory']!,
+                                  onPressed: () => showCaseLinkHistory(context, ref, r),
                                 ),
                               ],
                         ),

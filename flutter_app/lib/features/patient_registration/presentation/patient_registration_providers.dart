@@ -38,7 +38,7 @@ final patientRegistrationListProvider =
 
 /// The registry list screen's page (2026-10-17): the filters plus the
 /// archive tab, with the total and `can.archive` the bulk actions need.
-typedef PatientRegistrationPageQuery = ({PatientRegistrationFilter filter, bool archived});
+typedef PatientRegistrationPageQuery = ({PatientRegistrationFilter filter, bool archived, String? link});
 
 final patientRegistrationPageProvider =
     FutureProvider.autoDispose.family<PatientRegistrationPage, PatientRegistrationPageQuery>((ref, query) {
@@ -49,6 +49,7 @@ final patientRegistrationPageProvider =
         to: f.to,
         serviceId: f.serviceId,
         archived: query.archived,
+        link: query.link,
       );
 });
 

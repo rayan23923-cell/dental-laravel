@@ -391,6 +391,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/patient-registrations-stamp', RegistrationsStampController::class)->name('patient-registrations.stamp');
         Route::get('/patient-registrations', [PatientRegistrationController::class, 'index'])
             ->middleware('permission:patients,view')->name('patient-registrations.index');
+        // Who the patient was linked to + refused attempts (2026-11-04).
+        Route::get('/patient-registrations/{patientRegistration}/case-link-history', [PatientRegistrationController::class, 'caseLinkHistory'])
+            ->withTrashed()->middleware('permission:patients,view')->name('patient-registrations.case-link-history');
+        // "مسجّل سابقاً" suggestions on the registration form (2026-11-04).
+        Route::get('/patient-registrations/previous', [PatientRegistrationController::class, 'previous'])
+            ->middleware(['permission:patients,create', 'throttle:120,1'])->name('patient-registrations.previous');
         Route::get('/patient-registrations/create', [PatientRegistrationController::class, 'create'])
             ->middleware('permission:patients,create')->name('patient-registrations.create');
         // Autocomplete for Payments/Create.vue's "ابحث عن مريض" field

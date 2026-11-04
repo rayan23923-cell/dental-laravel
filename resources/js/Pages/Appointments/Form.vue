@@ -1,4 +1,5 @@
 <script setup>
+import DateInput from '@/Components/DateInput.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
@@ -124,7 +125,7 @@ const submit = () => {
 
                         <div>
                             <InputLabel for="appointment_date" :value="t('appointments.dateCol')" />
-                            <TextInput id="appointment_date" v-model="form.appointment_date" type="date" class="mt-1 block w-full" required />
+                            <DateInput id="appointment_date" v-model="form.appointment_date" class="mt-1" required />
                             <InputError class="mt-2" :message="form.errors.appointment_date" />
                         </div>
 
