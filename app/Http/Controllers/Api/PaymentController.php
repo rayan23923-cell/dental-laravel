@@ -39,13 +39,17 @@ class PaymentController extends Controller
     {
         $sources = PaymentScope::sources($request->user());
         $query = $this->filteredQuery($request, $sources);
-        $stats = new PaymentStats(null, $sources);
+        // The overview follows the page's filters (2026-11-04, by request):
+        // with a date range it shows that period only (see PaymentStats::range()).
+        $stats = new PaymentStats(null, $sources, $query);
+        $range = $stats->range($request->string('from')->toString() ?: null, $request->string('to')->toString() ?: null);
 
         return response()->json([
             'data' => [
                 'periods' => $stats->periods(),
-                'daily' => $stats->daily(),
-                'monthly' => $stats->monthly(),
+                'daily' => $range['daily'] ?? $stats->daily(),
+                'monthly' => $range['monthly'] ?? $stats->monthly(),
+                'range' => $range ? collect($range)->except(['daily', 'monthly'])->all() : null,
                 'filtered_total' => (float) (clone $query)->sum('amount'),
                 'by_source' => PaymentStats::bySource($query, $sources),
                 'scope' => $sources,
@@ -64,7 +68,10 @@ class PaymentController extends Controller
     {
         $sources = PaymentScope::sources($request->user(), true);
         $query = $this->filteredQuery($request, $sources);
-        $stats = new PaymentStats(null, $sources);
+        // The overview follows the page's filters (2026-11-04, by request):
+        // with a date range it shows that period only (see PaymentStats::range()).
+        $stats = new PaymentStats(null, $sources, $query);
+        $range = $stats->range($request->string('from')->toString() ?: null, $request->string('to')->toString() ?: null);
 
         $payments = (clone $query)->with(['appointment', 'patientRegistration.service'])->latest('paid_at')->get();
         $source = $request->string('source')->toString() ?: null;
@@ -82,13 +89,32 @@ class PaymentController extends Controller
                 ], $sources),
                 'discounted' => \App\Support\SupportCodes::discountRows($payments),
                 'periods' => $stats->periods(),
-                'daily' => $stats->daily(),
-                'monthly' => $stats->monthly(),
+                'daily' => $range['daily'] ?? $stats->daily(),
+                'monthly' => $range['monthly'] ?? $stats->monthly(),
+                'range' => $range ? collect($range)->except(['daily', 'monthly'])->all() : null,
                 'filtered_total' => (float) (clone $query)->sum('amount'),
                 'by_source' => PaymentStats::bySource($query, $sources),
                 'scope' => $sources,
                 'currency' => ClinicSetting::current()->clinic_currency,
             ],
+        ]);
+    }
+
+    /**
+     * The payments activity log for the app's PDF (2026-11-04, by request),
+     * the data of the web `print/payments-activity` page: who added,
+     * changed or deleted which payment and when, for the list's date range.
+     */
+    public function activity(Request $request): JsonResponse
+    {
+        $rows = \App\Support\PaymentActivity::rows($request->date('from'), $request->date('to'));
+
+        return response()->json([
+            'data' => $rows->map(fn (array $r) => [
+                ...$r,
+                'at' => $r['at']?->setTimezone(PaymentStats::TIMEZONE)->format('Y-m-d H:i'),
+            ])->values(),
+            'currency' => ClinicSetting::current()->clinic_currency,
         ]);
     }
 
@@ -121,8 +147,8 @@ class PaymentController extends Controller
             // link on `payments` to filter by, and no separate paid/unpaid
             // flag either; a `Payment` row already **is** a paid
             // transaction).
-            ->when($request->date('from'), fn ($q, $from) => $q->whereDate('paid_at', '>=', $from))
-            ->when($request->date('to'), fn ($q, $to) => $q->whereDate('paid_at', '<=', $to))
+            // By the clinic's day, Baghdad time (2026-11-04).
+            ->tap(fn ($q) => PaymentStats::applyDateRange($q, $request->string('from')->toString() ?: null, $request->string('to')->toString() ?: null))
             ->when($request->string('source')->toString(), fn ($q, $source) => match ($source) {
                 'appointment' => $q->whereNotNull('appointment_id'),
                 'registration' => $q->whereNotNull('patient_registration_id')->where('type', '!=', Payment::TYPE_LAB),

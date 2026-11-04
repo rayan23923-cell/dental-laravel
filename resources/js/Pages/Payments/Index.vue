@@ -21,6 +21,9 @@ const props = defineProps({
     periods: { type: Object, default: () => ({}) },
     daily: { type: Array, default: () => [] },
     monthly: { type: Array, default: () => [] },
+    // The filtered period's summary (2026-11-04, by request); null without
+    // a date filter. The charts then cover that period only.
+    range: { type: Object, default: null },
     filteredTotal: { type: Number, default: 0 },
     bySource: { type: Array, default: () => [] },
     currency: { type: String, default: '' },
@@ -43,6 +46,19 @@ const periodCards = computed(() => [
     { key: 'month', label: t('payments.thisMonth') },
     { key: 'year', label: t('payments.thisYear') },
 ]);
+// With a date filter (2026-11-04, by request): the period's own figures.
+const rangeCards = computed(() => {
+    const r = props.range;
+    if (!r) return [];
+    return [
+        { key: 'total', label: t('payments.rangeTotal'), value: plain(r.total), sub: `${props.currency} · ${t('payments.paymentsCount', { n: r.count })}` },
+        { key: 'average', label: t('payments.rangeAverage'), value: plain(r.average), sub: props.currency },
+        { key: 'best', label: t('payments.rangeBestDay'), value: r.best ? plain(r.best.total) : t('payments.rangeNoBest'), sub: r.best ? r.best.date : '—' },
+        { key: 'days', label: t('payments.rangePaidDays'), value: plain(r.paid_days), sub: t('payments.rangeDaysOf', { n: r.days }) },
+    ];
+});
+const dailyTitle = computed(() => (props.range ? t('payments.rangeDailyChart', { from: props.range.from, to: props.range.to }) : t('payments.dailyChart')));
+const monthlyTitle = computed(() => (props.range ? t('payments.rangeMonthlyChart') : t('payments.monthlyChart')));
 const sourceLabel = (s) => ({ registration: t('payments.registrationSource'), lab: t('payments.labFee'), appointment: t('payments.appointmentSource') })[s];
 const sourceMax = computed(() => Math.max(1, ...props.bySource.map((s) => s.total)));
 const hasFilters = computed(() => !!(props.filters.search || props.filters.from || props.filters.to || (props.filters.source && sourceOptions.value.length > 1)));
@@ -150,22 +166,32 @@ const destroy = (payment) => {
                     {{ page.props.flash.success }}
                 </div>
 
-                <!-- Income: today / week / month / year -->
+                <!-- Income: today / week / month / year, or the filtered period's own figures -->
                 <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <div v-for="c in periodCards" :key="c.key" class="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-gray-100">
-                        <div class="text-xs text-gray-500">{{ c.label }}</div>
-                        <div class="mt-1 text-xl font-bold text-gray-900" dir="ltr" style="text-align: right">{{ plain(periods[c.key]?.total ?? 0) }}</div>
-                        <div class="mt-0.5 text-[11px] text-gray-500">{{ currency }} · {{ t('payments.paymentsCount', { n: periods[c.key]?.count ?? 0 }) }}</div>
-                    </div>
+                    <template v-if="range">
+                        <div v-for="c in rangeCards" :key="c.key" class="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-gray-100">
+                            <div class="text-xs text-gray-500">{{ c.label }}</div>
+                            <div class="mt-1 text-xl font-bold text-gray-900" dir="ltr" style="text-align: right">{{ c.value }}</div>
+                            <div class="mt-0.5 text-[11px] text-gray-500" dir="auto">{{ c.sub }}</div>
+                        </div>
+                    </template>
+                    <template v-else>
+                        <div v-for="c in periodCards" :key="c.key" class="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-gray-100">
+                            <div class="text-xs text-gray-500">{{ c.label }}</div>
+                            <div class="mt-1 text-xl font-bold text-gray-900" dir="ltr" style="text-align: right">{{ plain(periods[c.key]?.total ?? 0) }}</div>
+                            <div class="mt-0.5 text-[11px] text-gray-500">{{ currency }} · {{ t('payments.paymentsCount', { n: periods[c.key]?.count ?? 0 }) }}</div>
+                        </div>
+                    </template>
                 </div>
 
-                <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
-                    <h3 class="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-800"><Icon name="bar_chart" size="text-[18px]" class="text-indigo-500" />{{ t('payments.dailyChart') }}</h3>
-                    <BarChart :data="daily" :format="plain" :aria-label="t('payments.dailyChart')" />
+                <div v-if="daily.length" class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+                    <h3 class="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-800"><Icon name="bar_chart" size="text-[18px]" class="text-indigo-500" />{{ dailyTitle }}</h3>
+                    <BarChart :data="daily" :format="plain" :aria-label="dailyTitle" />
                 </div>
-                <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
-                    <h3 class="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-800"><Icon name="calendar_month" size="text-[18px]" class="text-indigo-500" />{{ t('payments.monthlyChart') }}</h3>
-                    <BarChart :data="monthly" :format="plain" :aria-label="t('payments.monthlyChart')" />
+                <p v-else-if="range" class="text-center text-xs text-gray-500">{{ t('payments.rangeTooLong', { n: 92 }) }}</p>
+                <div v-if="monthly.length" class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+                    <h3 class="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-800"><Icon name="calendar_month" size="text-[18px]" class="text-indigo-500" />{{ monthlyTitle }}</h3>
+                    <BarChart :data="monthly" :format="plain" :aria-label="monthlyTitle" />
                 </div>
 
                 <ChatSearch v-model="search" :placeholder="t('payments.searchPlaceholder')" @submit="applyFilters" />

@@ -151,6 +151,18 @@ Future<Uint8List> buildPaymentsReportPdf({
     if (search != null && search.isNotEmpty) 'بحث: $search',
   ];
   const periodLabels = {'today': 'اليوم', 'week': 'هذا الأسبوع', 'month': 'هذا الشهر', 'year': 'هذه السنة'};
+  final periodRange = stats.range;
+  final List<(String, String, String)> cards = periodRange != null
+      ? [
+          ('مجموع الفترة', _money(periodRange.total), '$currency · ${periodRange.count} دفعة'),
+          ('المعدل اليومي', _money(periodRange.average), currency),
+          ('أعلى يوم', periodRange.bestTotal == null ? 'لا يوجد' : _money(periodRange.bestTotal!), periodRange.bestDate ?? '—'),
+          ('أيام فيها دفعات', '${periodRange.paidDays}', 'من ${periodRange.days} يوم'),
+        ]
+      : [
+          for (final entry in periodLabels.entries)
+            (entry.value, _money(stats.periods[entry.key]?.total ?? 0), '$currency · ${stats.periods[entry.key]?.count ?? 0} دفعة'),
+        ];
 
   pw.TextStyle reg(double size, [PdfColor? color]) => pw.TextStyle(font: letterhead.regular, fontSize: size, color: color);
   pw.TextStyle bold(double size) => pw.TextStyle(font: letterhead.bold, fontSize: size);
@@ -176,9 +188,11 @@ Future<Uint8List> buildPaymentsReportPdf({
         if (filterBits.isNotEmpty)
           pw.Center(child: pw.Text(filterBits.join(' · '), style: reg(10, PdfColors.grey700))),
         pw.SizedBox(height: 8),
+        // With a date filter (2026-11-04, by request) the cards and the
+        // charts cover the filtered period only, as on the web.
         pw.Row(
           children: [
-            for (final entry in periodLabels.entries) ...[
+            for (var i = 0; i < cards.length; i++) ...[
               pw.Expanded(
                 child: pw.Container(
                   padding: const pw.EdgeInsets.all(6),
@@ -189,29 +203,40 @@ Future<Uint8List> buildPaymentsReportPdf({
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      pw.Text(entry.value, style: reg(9, PdfColors.grey700)),
-                      pw.Text(_money(stats.periods[entry.key]?.total ?? 0), style: bold(14)),
-                      pw.Text('$currency · ${stats.periods[entry.key]?.count ?? 0} دفعة', style: reg(8, PdfColors.grey600)),
+                      pw.Text(cards[i].$1, style: reg(9, PdfColors.grey700)),
+                      pw.Text(cards[i].$2, style: bold(14)),
+                      pw.Text(cards[i].$3, style: reg(8, PdfColors.grey600)),
                     ],
                   ),
                 ),
               ),
-              if (entry.key != 'year') pw.SizedBox(width: 6),
+              if (i != cards.length - 1) pw.SizedBox(width: 6),
             ],
           ],
         ),
         pw.SizedBox(height: 12),
-        pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Expanded(child: _barChart('الوارد اليومي (آخر 30 يومًا)', stats.daily, letterhead)),
-            pw.SizedBox(width: 12),
-            pw.Expanded(child: _barChart('الوارد الشهري (هذه السنة)', stats.monthly, letterhead)),
-          ],
-        ),
+        if (stats.daily.isNotEmpty || stats.monthly.isNotEmpty)
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              if (stats.daily.isNotEmpty)
+                pw.Expanded(
+                  child: _barChart(
+                    periodRange == null ? 'الوارد اليومي (آخر 30 يومًا)' : 'الوارد اليومي من ${periodRange.from} إلى ${periodRange.to}',
+                    stats.daily,
+                    letterhead,
+                  ),
+                ),
+              if (stats.daily.isNotEmpty && stats.monthly.isNotEmpty) pw.SizedBox(width: 12),
+              if (stats.monthly.isNotEmpty)
+                pw.Expanded(
+                  child: _barChart(periodRange == null ? 'الوارد الشهري (هذه السنة)' : 'الوارد الشهري للفترة', stats.monthly, letterhead),
+                ),
+            ],
+          ),
         pw.SizedBox(height: 12),
         pw.Text(
-          '${filterBits.isNotEmpty ? 'مجموع نتائج البحث' : 'مجموع كل المدفوعات'}: ${_money(stats.filteredTotal)} $currency',
+          '${filterBits.isNotEmpty || periodRange != null ? 'مجموع نتائج البحث' : 'مجموع كل المدفوعات'}: ${_money(stats.filteredTotal)} $currency',
           style: bold(12),
         ),
         pw.SizedBox(height: 4),

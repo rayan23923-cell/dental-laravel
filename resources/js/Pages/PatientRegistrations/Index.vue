@@ -110,24 +110,28 @@ const currentFilters = () => ({
     ...(to.value ? { to: to.value } : {}),
     ...(serviceId.value ? { service_id: serviceId.value } : {}),
 });
-// Archiving asks where from (2026-11-02, by request): the patients list,
-// the lab list, or both (both = the full archive, payments kept).
+// Archiving is the plain archive again (2026-11-04, by request): payments
+// kept, restorable from the archive tab. "From where" moved to the
+// permanent delete there.
 const archiveAsk = ref(null); // { ids } or { all, n }
 const destroySelected = () => {
     if (!selected.value.length) return;
     archiveAsk.value = { ids: [...selected.value], n: selected.value.length };
 };
 const archiveScopeOf = (r) => {
+    // One part deleted for good (2026-11-04): only the other is archived.
+    if (r.registry_deleted_at) return 'lab';
+    if (r.lab_deleted_at) return 'patients';
     if (r.deleted_at || (r.registry_archived_at && r.lab_archived_at)) return 'both';
     if (r.registry_archived_at) return 'patients';
     return r.lab_archived_at ? 'lab' : null;
 };
-const confirmArchive = (scope) => {
+const confirmArchive = () => {
     const ask = archiveAsk.value;
     if (!ask) return;
     archiveAsk.value = null;
     router.delete(route('patient-registrations.destroy-many'), {
-        data: ask.all ? { all: true, scope, ...currentFilters() } : { ids: ask.ids, scope },
+        data: ask.all ? { all: true, ...currentFilters() } : { ids: ask.ids },
         preserveScroll: true,
         onSuccess: () => (selected.value = []),
     });
@@ -145,7 +149,10 @@ const purgeAsk = ref(null); // { ids, n } or { all, n }
 const purgePassword = ref('');
 const purgeError = ref('');
 const purgeBusy = ref(false);
+// From the patients list, the lab list, or both (2026-11-04, by request).
+const purgeScope = ref('both');
 const openPurge = (all) => {
+    purgeScope.value = 'both';
     purgePassword.value = '';
     purgeError.value = '';
     purgeAsk.value = all ? { all: true, n: props.registrations.total } : { ids: [...selected.value], n: selected.value.length };
@@ -156,7 +163,9 @@ const confirmPurge = () => {
     purgeBusy.value = true;
     purgeError.value = '';
     router.delete(route('patient-registrations.purge-many'), {
-        data: ask.all ? { all: true, password: purgePassword.value, ...currentFilters() } : { ids: ask.ids, password: purgePassword.value },
+        data: ask.all
+            ? { all: true, password: purgePassword.value, scope: purgeScope.value, ...currentFilters() }
+            : { ids: ask.ids, password: purgePassword.value, scope: purgeScope.value },
         preserveScroll: true,
         onSuccess: () => {
             purgeAsk.value = null;
@@ -358,26 +367,19 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
             </div>
         </div>
 
-        <!-- Archive: from where (2026-11-02, by request) -->
+        <!-- Archive (plain again, 2026-11-04, by request) -->
         <Modal :show="!!archiveAsk" max-width="md" @close="archiveAsk = null">
             <div v-if="archiveAsk" class="flex flex-col gap-3 p-6">
                 <h3 class="flex items-center gap-2 text-lg font-semibold text-gray-800">
-                    <Icon name="inventory_2" />{{ t('patientReg.archiveFromTitle', { n: archiveAsk.n }) }}
+                    <Icon name="inventory_2" />{{ t('patientReg.archiveTitle', { n: archiveAsk.n }) }}
                 </h3>
                 <p class="text-sm text-gray-500">{{ t('patientReg.archiveFromHint') }}</p>
-                <button type="button" @click="confirmArchive('patients')" class="flex items-center gap-3 rounded-xl border-2 border-sky-200 bg-sky-50 px-4 py-3 text-start font-semibold text-sky-900 hover:bg-sky-100">
-                    <Icon name="groups" />
-                    <span>{{ t('patientReg.archiveFrom.patients') }}<span class="block text-xs font-normal opacity-80">{{ t('patientReg.archiveFromDesc.patients') }}</span></span>
-                </button>
-                <button type="button" @click="confirmArchive('lab')" class="flex items-center gap-3 rounded-xl border-2 border-emerald-200 bg-emerald-50 px-4 py-3 text-start font-semibold text-emerald-900 hover:bg-emerald-100">
-                    <Icon name="science" />
-                    <span>{{ t('patientReg.archiveFrom.lab') }}<span class="block text-xs font-normal opacity-80">{{ t('patientReg.archiveFromDesc.lab') }}</span></span>
-                </button>
-                <button type="button" @click="confirmArchive('both')" class="flex items-center gap-3 rounded-xl border-2 border-red-200 bg-red-50 px-4 py-3 text-start font-semibold text-red-900 hover:bg-red-100">
-                    <Icon name="inventory_2" />
-                    <span>{{ t('patientReg.archiveFrom.both') }}<span class="block text-xs font-normal opacity-80">{{ t('patientReg.archiveFromDesc.both') }}</span></span>
-                </button>
-                <SecondaryButton class="justify-center" @click="archiveAsk = null">{{ t('common.cancel') }}</SecondaryButton>
+                <div class="grid grid-cols-2 gap-3">
+                    <button type="button" @click="confirmArchive" class="rounded-xl bg-amber-600 px-4 py-2.5 font-semibold text-white hover:bg-amber-700">
+                        {{ t('patientReg.archiveConfirm') }}
+                    </button>
+                    <SecondaryButton class="justify-center" @click="archiveAsk = null">{{ t('common.cancel') }}</SecondaryButton>
+                </div>
             </div>
         </Modal>
 
@@ -387,7 +389,23 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
                 <h3 class="flex items-center gap-2 text-lg font-semibold text-red-700">
                     <Icon name="delete_forever" />{{ t('patientReg.purgeTitle', { n: purgeAsk.n }) }}
                 </h3>
-                <p class="rounded-xl bg-red-50 p-3 text-sm text-red-800">{{ t('patientReg.purgeWarning') }}</p>
+                <!-- From where (2026-11-04, by request) -->
+                <p class="text-sm font-medium text-gray-700">{{ t('patientReg.purgeFromHint') }}</p>
+                <label
+                    v-for="opt in [
+                        { key: 'patients', icon: 'groups', tone: 'border-sky-300 bg-sky-50 text-sky-900' },
+                        { key: 'lab', icon: 'science', tone: 'border-emerald-300 bg-emerald-50 text-emerald-900' },
+                        { key: 'both', icon: 'delete_forever', tone: 'border-red-300 bg-red-50 text-red-900' },
+                    ]"
+                    :key="opt.key"
+                    class="flex cursor-pointer items-center gap-3 rounded-xl border-2 px-4 py-2.5 font-semibold"
+                    :class="purgeScope === opt.key ? opt.tone : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'"
+                >
+                    <input v-model="purgeScope" type="radio" name="purge-scope" :value="opt.key" class="text-red-600 focus:ring-red-500" />
+                    <Icon :name="opt.icon" />
+                    <span>{{ t('patientReg.purgeFrom.' + opt.key) }}<span class="block text-xs font-normal opacity-80">{{ t('patientReg.purgeFromDesc.' + opt.key) }}</span></span>
+                </label>
+                <p class="rounded-xl bg-red-50 p-3 text-sm text-red-800">{{ t('patientReg.purgeWarningFrom.' + purgeScope) }}</p>
                 <label class="text-sm font-medium text-gray-700" for="purge-password">{{ t('patientReg.purgePassword') }}</label>
                 <input
                     id="purge-password"

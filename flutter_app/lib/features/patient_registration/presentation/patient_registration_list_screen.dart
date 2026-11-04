@@ -153,54 +153,34 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
     final t = ref.read(translationsProvider);
     final ids = _selected.toList();
     if (ids.isEmpty) return;
-    final scope = await _askArchiveScope(ids.length);
-    if (scope == null) return;
+    if (!await _confirmArchive(trf(t['patientRegFlutter.archiveSelectedConfirm']!, {'n': ids.length}))) return;
     await _run(
-      () => ref.read(patientRegistrationRepositoryProvider).archiveMany(ids, scope: scope),
+      () => ref.read(patientRegistrationRepositoryProvider).archiveMany(ids),
       trf(t['patientRegFlutter.archivedDone']!, {'n': ids.length}),
       'patientRegFlutter.archiveFailed',
     );
   }
 
-  /// Archive from where (2026-11-02, by request): the patients list, the
-  /// lab list, or both. Null when cancelled.
-  Future<String?> _askArchiveScope(int n) {
+  /// Archiving is the plain archive again (2026-11-04, by request): payments
+  /// kept, restorable from the archive tab; "from where" moved to the
+  /// permanent delete there. False when cancelled.
+  Future<bool> _confirmArchive(String message) async {
     final t = ref.read(translationsProvider);
-    Widget option(String scope, IconData icon, Color color) => Card(
-          color: color.withValues(alpha: 0.08),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: color.withValues(alpha: 0.4)),
-          ),
-          child: ListTile(
-            leading: Icon(icon, color: color),
-            title: Text(t['patientRegFlutter.archiveFrom.$scope']!, style: const TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: Text(t['patientRegFlutter.archiveFromDesc.$scope']!),
-            onTap: () => Navigator.of(context).pop(scope),
-          ),
-        );
-    return showDialog<String>(
+    final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(trf(t['patientRegFlutter.archiveFromTitle']!, {'n': n})),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(t['patientRegFlutter.archiveFromHint']!),
-              const SizedBox(height: 12),
-              option('patients', Icons.groups_outlined, Colors.blue.shade700),
-              option('lab', Icons.science_outlined, Colors.green.shade700),
-              option('both', Icons.inventory_2_outlined, Colors.red.shade700),
-            ],
-          ),
-        ),
+        content: Text(message),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(MaterialLocalizations.of(ctx).cancelButtonLabel)),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(MaterialLocalizations.of(ctx).cancelButtonLabel)),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.amber.shade800),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(t['patientRegFlutter.archiveConfirmButton']!),
+          ),
         ],
       ),
     );
+    return ok ?? false;
   }
 
   /// Permanent delete from the archive (2026-11-02, by request), behind
@@ -210,39 +190,72 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
     final ids = _selected.toList();
     if (ids.isEmpty) return;
     final controller = TextEditingController();
+    // From the patients list, the lab list, or both (2026-11-04, by request).
+    var scope = 'both';
     final password = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(trf(t['patientRegFlutter.purgeTitle']!, {'n': ids.length})),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(t['patientRegFlutter.purgeWarning']!, style: TextStyle(color: Colors.red.shade800)),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              obscureText: true,
-              autofocus: true,
-              decoration: InputDecoration(labelText: t['patientRegFlutter.purgePassword']!),
-              onSubmitted: (v) => Navigator.of(ctx).pop(v),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          Widget option(String key, IconData icon, Color color) {
+            final selected = scope == key;
+            return Card(
+              margin: const EdgeInsets.only(bottom: 6),
+              color: selected ? color.withValues(alpha: 0.10) : null,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: selected ? color : Colors.grey.shade300, width: selected ? 2 : 1),
+              ),
+              child: ListTile(
+                dense: true,
+                leading: Icon(icon, color: color),
+                title: Text(t['patientRegFlutter.purgeFrom.$key']!, style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text(t['patientRegFlutter.purgeFromDesc.$key']!),
+                trailing: Icon(selected ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: selected ? color : Colors.grey),
+                onTap: () => setDialogState(() => scope = key),
+              ),
+            );
+          }
+
+          return AlertDialog(
+            title: Text(trf(t['patientRegFlutter.purgeTitle']!, {'n': ids.length})),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(t['patientRegFlutter.purgeFromHint']!, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  option('patients', Icons.groups_outlined, Colors.blue.shade700),
+                  option('lab', Icons.science_outlined, Colors.green.shade700),
+                  option('both', Icons.delete_forever_outlined, Colors.red.shade700),
+                  const SizedBox(height: 6),
+                  Text(t['patientRegFlutter.purgeWarningFrom.$scope']!, style: TextStyle(color: Colors.red.shade800)),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: controller,
+                    obscureText: true,
+                    decoration: InputDecoration(labelText: t['patientRegFlutter.purgePassword']!),
+                    onSubmitted: (v) => Navigator.of(ctx).pop(v),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(MaterialLocalizations.of(ctx).cancelButtonLabel)),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
-            onPressed: () => Navigator.of(ctx).pop(controller.text),
-            child: Text(t['patientRegFlutter.purgeSelected']!),
-          ),
-        ],
+            actions: [
+              TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(MaterialLocalizations.of(ctx).cancelButtonLabel)),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+                onPressed: () => Navigator.of(ctx).pop(controller.text),
+                child: Text(t['patientRegFlutter.purgeSelected']!),
+              ),
+            ],
+          );
+        },
       ),
     );
     controller.dispose();
     if (password == null || password.isEmpty) return;
     await _run(
-      () => ref.read(patientRegistrationRepositoryProvider).purgeMany(ids, password),
+      () => ref.read(patientRegistrationRepositoryProvider).purgeMany(ids, password, scope: scope),
       trf(t['patientRegFlutter.purgedDone']!, {'n': ids.length}),
       'patientRegFlutter.purgeFailed',
     );
@@ -263,12 +276,10 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
   Future<void> _archiveAll(int total) async {
     final t = ref.read(translationsProvider);
     if (total == 0) return;
-    final scope = await _askArchiveScope(total);
-    if (scope == null) return;
+    if (!await _confirmArchive(trf(t['patientRegFlutter.archiveAllConfirm']!, {'n': total}))) return;
     final f = _filter;
     await _run(
       () => ref.read(patientRegistrationRepositoryProvider).archiveAll(
-            scope: scope,
             search: f.search,
             from: f.from,
             to: f.to,

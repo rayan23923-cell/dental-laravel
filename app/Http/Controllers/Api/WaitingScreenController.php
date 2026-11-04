@@ -122,7 +122,7 @@ class WaitingScreenController extends Controller
         // press "استلام النتيجة"; the patient leaves when the result is
         // recorded and printed (سليم/غير سليم), i.e. handed over.
         $lab = PatientRegistration::query()
-            ->whereNull('lab_archived_at')
+            ->whereNull('lab_archived_at')->whereNull('lab_deleted_at')
             ->where('screening_status', 'pending')
             ->where(fn ($q) => $q->whereNotNull('lab_sample_printed_at')->orWhereNotNull('lab_result_received_at'))
             // Lab filter (2026-11-03, by request): 'today' keeps only patients

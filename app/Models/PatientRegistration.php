@@ -80,6 +80,8 @@ class PatientRegistration extends Model
             'lab_result_received_at' => 'datetime',
             'registry_archived_at' => 'datetime',
             'lab_archived_at' => 'datetime',
+            'registry_deleted_at' => 'datetime',
+            'lab_deleted_at' => 'datetime',
         ];
     }
 

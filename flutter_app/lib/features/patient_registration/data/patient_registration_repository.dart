@@ -130,8 +130,9 @@ class PatientRegistrationRepository {
 
   /// Permanent delete of archived registrations (2026-11-02), needs the
   /// signed-in user's password.
-  Future<void> purgeMany(List<int> ids, String password) =>
-      _client.deleteJson('/patient-registrations-purge', body: {'ids': ids, 'password': password});
+  /// [scope]: from the patients list, the lab list, or both (2026-11-04).
+  Future<void> purgeMany(List<int> ids, String password, {String scope = 'both'}) =>
+      _client.deleteJson('/patient-registrations-purge', body: {'ids': ids, 'password': password, 'scope': scope});
 
   /// Brings archived registrations back, the web `restore-many`.
   Future<void> restoreMany(List<int> ids) =>

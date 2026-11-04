@@ -54,10 +54,12 @@ class ApiPaymentsAndLabParityTest extends TestCase
             ->assertJsonCount(30, 'data.daily')
             ->assertJsonCount(12, 'data.monthly');
 
-        // The total follows the list's filters; the periods don't.
+        // The total and, since 2026-11-04 (by request), the overview follow
+        // the list's filters.
         $this->getJson('/api/v1/payments/stats?source=lab')->assertOk()
             ->assertJsonPath('data.filtered_total', 10000)
-            ->assertJsonPath('data.periods.today.total', 35000);
+            ->assertJsonPath('data.periods.today.total', 10000)
+            ->assertJsonPath('data.range', null);
 
         $this->getJson('/api/v1/payments?source=lab')->assertOk()
             ->assertJsonCount(1, 'data')

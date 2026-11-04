@@ -121,4 +121,17 @@ class RecordsRepository {
     }) as Map<String, dynamic>;
     return PaymentReport.fromJson(data);
   }
+
+  /// The payments activity log (2026-11-04), raw rows of
+  /// `GET /api/payments/activity` and the clinic's currency.
+  Future<({List<Map<String, dynamic>> rows, String? currency})> fetchPaymentActivity({String? from, String? to}) async {
+    final data = await _client.getJson('/payments/activity', query: {
+      if (from != null) 'from': from,
+      if (to != null) 'to': to,
+    }) as Map<String, dynamic>;
+    return (
+      rows: ((data['data'] as List<dynamic>?) ?? const []).map((e) => (e as Map).cast<String, dynamic>()).toList(),
+      currency: data['currency'] as String?,
+    );
+  }
 }

@@ -57,28 +57,61 @@
         <p class="muted" style="text-align:center; margin:0 0 12px">{{ implode(' · ', $filterBits) }}</p>
     @endif
 
+    {{-- With a date filter (2026-11-04, by request) the cards and charts
+         cover the filtered period only (PaymentStats::range()). --}}
     <div class="cards">
-        @foreach ($periodLabels as $key => $label)
+        @if ($range ?? null)
             <div class="card">
-                <div class="k">{{ $label }}</div>
-                <div class="v">{{ $money($periods[$key]['total']) }}</div>
-                <div class="n">{{ $currency }} · {{ $periods[$key]['count'] }} دفعة</div>
+                <div class="k">مجموع الفترة</div>
+                <div class="v">{{ $money($range['total']) }}</div>
+                <div class="n">{{ $currency }} · {{ $range['count'] }} دفعة</div>
             </div>
-        @endforeach
+            <div class="card">
+                <div class="k">المعدل اليومي</div>
+                <div class="v">{{ $money($range['average']) }}</div>
+                <div class="n">{{ $currency }}</div>
+            </div>
+            <div class="card">
+                <div class="k">أعلى يوم</div>
+                <div class="v">{{ $range['best'] ? $money($range['best']['total']) : 'لا يوجد' }}</div>
+                <div class="n" dir="ltr" style="text-align:right">{{ $range['best']['date'] ?? '—' }}</div>
+            </div>
+            <div class="card">
+                <div class="k">أيام فيها دفعات</div>
+                <div class="v">{{ $range['paid_days'] }}</div>
+                <div class="n">من {{ $range['days'] }} يوم</div>
+            </div>
+        @else
+            @foreach ($periodLabels as $key => $label)
+                <div class="card">
+                    <div class="k">{{ $label }}</div>
+                    <div class="v">{{ $money($periods[$key]['total']) }}</div>
+                    <div class="n">{{ $currency }} · {{ $periods[$key]['count'] }} دفعة</div>
+                </div>
+            @endforeach
+        @endif
     </div>
 
-    <div class="charts">
-        <div class="chart">
-            <h3>الوارد اليومي (آخر 30 يومًا)</h3>
-            @include('print.partials.bar-chart', ['data' => $daily, 'title' => 'الوارد اليومي'])
+    @php
+        $dailyTitle = ($range ?? null) ? 'الوارد اليومي من ' . $range['from'] . ' إلى ' . $range['to'] : 'الوارد اليومي (آخر 30 يومًا)';
+        $monthlyTitle = ($range ?? null) ? 'الوارد الشهري للفترة' : 'الوارد الشهري (هذه السنة)';
+        $charts = array_filter([
+            $daily !== [] ? ['title' => $dailyTitle, 'data' => $daily, 'short' => 'الوارد اليومي'] : null,
+            $monthly !== [] ? ['title' => $monthlyTitle, 'data' => $monthly, 'short' => 'الوارد الشهري'] : null,
+        ]);
+    @endphp
+    @if ($charts)
+        <div class="charts" @if (count($charts) === 1) style="grid-template-columns: 1fr" @endif>
+            @foreach ($charts as $chart)
+                <div class="chart">
+                    <h3><span dir="rtl">{{ $chart['title'] }}</span></h3>
+                    @include('print.partials.bar-chart', ['data' => $chart['data'], 'title' => $chart['short']])
+                </div>
+            @endforeach
         </div>
-        <div class="chart">
-            <h3>الوارد الشهري (هذه السنة)</h3>
-            @include('print.partials.bar-chart', ['data' => $monthly, 'title' => 'الوارد الشهري'])
-        </div>
-    </div>
+    @endif
 
-    <h3 class="section">{{ $filterBits ? 'مجموع نتائج البحث' : 'مجموع كل المدفوعات' }}: {{ $money($filteredTotal) }} {{ $currency }}</h3>
+    <h3 class="section">{{ ($filterBits || ($range ?? null)) ? 'مجموع نتائج البحث' : 'مجموع كل المدفوعات' }}: {{ $money($filteredTotal) }} {{ $currency }}</h3>
     <table class="sources">
         <thead><tr><th>المصدر</th><th>عدد الدفعات</th><th>المبلغ</th></tr></thead>
         <tbody>
