@@ -10,6 +10,7 @@ class PatientRegistration {
     required this.id,
     required this.name,
     required this.phone,
+    this.patientCode,
     required this.age,
     required this.sex,
     required this.address,
@@ -51,6 +52,7 @@ class PatientRegistration {
       id: json['id'] as int,
       name: json['name'] as String? ?? '',
       phone: json['phone'] as String? ?? '',
+      patientCode: json['patient_code'] as String?,
       // Added 2026-08-28 for case-sheet QR-autofill — reception already
       // captures these at registration time (`patients_simple.age/sex/
       // address/occupation`); see App\Support\CaseSheetPatientFieldMap.
@@ -105,6 +107,10 @@ class PatientRegistration {
   final bool supported;
   final String? supportCode;
   final String phone;
+
+  /// The 6-digit code printed under the ticket QR (2026-11-04), typed by
+  /// the doctor to link the patient when the camera can't be used.
+  final String? patientCode;
   final int? age;
   final String? sex;
   final String? address;

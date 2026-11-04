@@ -554,16 +554,18 @@ class _PatientRegistrationScreeningScreenState extends ConsumerState<PatientRegi
                           const SizedBox(height: 4),
                           Text(
                             trf(
-                              t[_state.previousScreening!.matchedByPhone
-                                  ? 'screening.matchedByPhone'
-                                  : 'screening.matchedByName']!,
+                              t[_state.previousScreening!.matchedByBoth
+                                  ? 'screening.matchedByBoth'
+                                  : _state.previousScreening!.matchedByPhone
+                                      ? 'screening.matchedByPhone'
+                                      : 'screening.matchedByName']!,
                               {
                                 'name': _state.previousScreening!.name!,
                                 'phone': _state.previousScreening!.phone ?? '',
                               },
                             ),
                             style: TextStyle(
-                              color: _state.previousScreening!.matchedByPhone
+                              color: _state.previousScreening!.matchedByBoth
                                   ? Colors.green.shade900
                                   : Colors.amber.shade900,
                             ),

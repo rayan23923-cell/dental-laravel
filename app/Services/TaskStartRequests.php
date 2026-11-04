@@ -40,6 +40,12 @@ class TaskStartRequests
         if ($formType === 'paper' && ! $photo) {
             throw ValidationException::withMessages(['photo' => 'أرفق صورة النموذج الورقي.']);
         }
+        // Patient linking required (2026-11-04): the electronic sheet
+        // must have its patient before the start is asked for.
+        if ($formType === 'electronic' && FormSettings::get()['patient_link_required']
+            && ! \App\Support\CasePatientLinks::forCase($doctor->id, $task->id, null)) {
+            throw ValidationException::withMessages(['task_id' => 'اربط المريض بالنموذج أولاً: امسح كيوار الوصل أو اكتب الرمز المطبوع تحته داخل النموذج.']);
+        }
 
         $request = self::record($doctor, $task, $formType, $photo, $notes);
 

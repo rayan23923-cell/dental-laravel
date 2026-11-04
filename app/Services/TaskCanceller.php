@@ -29,6 +29,7 @@ class TaskCanceller
 
         DB::transaction(function () use ($instance) {
             CaseSheetResolver::detachFrom($instance);
+            \App\Support\CasePatientLinks::detachInstance($instance);
             TaskStartRequest::where('task_instance_id', $instance->id)->update(['task_instance_id' => null]);
             // One by one so each photo's file is removed too.
             $instance->attachments->each->delete();

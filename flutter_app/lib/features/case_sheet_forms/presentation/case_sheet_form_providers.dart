@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/paginated.dart';
+import '../../patient_registration/data/patient_registration_repository.dart';
+import '../../patient_registration/domain/registration_payment_state.dart';
 import '../data/case_sheet_form_repository.dart';
 import '../data/case_sheet_record_repository.dart';
 import '../domain/case_sheet_form_schema.dart';
@@ -33,4 +35,16 @@ final caseSheetPatientPrefillProvider =
     FutureProvider.autoDispose.family<Map<String, dynamic>, int>((ref, taskInstanceId) async {
   final result = await ref.watch(caseSheetRecordRepositoryProvider).openFor(taskInstanceId);
   return result.patientPrefill;
+});
+
+/// The patient linked to a case sheet's case by QR or code (2026-11-04):
+/// (task id, task instance id). Null when none, offline or on an older
+/// server — only informational, saving is checked on the server.
+final caseSheetPatientLinkProvider =
+    FutureProvider.autoDispose.family<CasePatientLink?, (int?, int?)>((ref, args) async {
+  try {
+    return await ref.watch(patientRegistrationRepositoryProvider).caseLink(taskId: args.$1, taskInstanceId: args.$2);
+  } catch (_) {
+    return null;
+  }
 });

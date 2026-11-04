@@ -232,7 +232,10 @@ Route::name('api.')->prefix('v1')->group(function () {
         // rejects any Doctor principal outright; see
         // PatientRegistrationQrController::scanForCaseSheet()'s doc
         // comment.
-        Route::post('/patient-registrations/scan-for-case-sheet', [PatientRegistrationQrController::class, 'scanForCaseSheet']);
+        Route::post('/patient-registrations/scan-for-case-sheet', [PatientRegistrationQrController::class, 'scanForCaseSheet'])
+            ->middleware('throttle:30,1');
+        // The patient linked to a case sheet's case (2026-11-04).
+        Route::get('/case-patient-link', [PatientRegistrationQrController::class, 'caseLink']);
         Route::get('/patient-registrations/{patientRegistration}/qr', [PatientRegistrationQrController::class, 'show'])
             ->middleware('permission:patients,view');
         Route::get('/patient-registrations/{patientRegistration}/status', [PatientRegistrationQrController::class, 'status'])

@@ -77,6 +77,8 @@ class ClinicSetting extends Model
         'step_add_enabled',
         'steps_enabled',
         'task_cancel_enabled',
+        // Linking a patient to a case sheet required (2026-11-04).
+        'patient_link_required',
     ];
 
     /**
@@ -119,6 +121,7 @@ class ClinicSetting extends Model
             'step_add_enabled' => 'boolean',
             'steps_enabled' => 'boolean',
             'task_cancel_enabled' => 'boolean',
+            'patient_link_required' => 'boolean',
             'support_codes_enabled' => 'boolean',
         ];
     }

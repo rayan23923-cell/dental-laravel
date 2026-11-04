@@ -7,7 +7,9 @@ use App\Models\PatientRegistration;
 use App\Models\Task;
 use App\Models\TaskInstance;
 use App\Notifications\TaskAssigned;
+use App\Support\CasePatientLinks;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Extracted from `TaskProgressController::start()` (admin/ajax/assign_task_ajax.php's
@@ -46,6 +48,12 @@ class TaskStarter
         }
         if ($patientRegistration) {
             PatientScreeningGate::ensureClear($patientRegistration);
+            // One receipt, one case (2026-11-04, see CasePatientLinks).
+            try {
+                CasePatientLinks::ensureUsable($patientRegistration, $doctor->id, $task->id, null);
+            } catch (ValidationException $e) {
+                throw new TaskStartException(collect($e->errors())->flatten()->first());
+            }
         }
 
         $requiredForDoctor = (int) $task->required_count;
@@ -94,6 +102,14 @@ class TaskStarter
             ->where('status', 'assigned')
             ->latest('id')
             ->firstOrFail();
+
+        // The patient linked to the case (2026-11-04): the scanned one, or
+        // the one the doctor linked to their draft sheet.
+        if ($patientRegistration) {
+            CasePatientLinks::linkStartedInstance($instance, $patientRegistration);
+        } else {
+            CasePatientLinks::moveDraftToInstance($instance);
+        }
 
         // Push the newly-assigned treating doctor into any appointment
         // already booked for this patient/task (see AppointmentPatientSync's

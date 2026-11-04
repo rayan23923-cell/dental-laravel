@@ -260,7 +260,10 @@ Route::middleware('auth:doctor')->group(function () {
     // PatientRegistrationController::scanForCaseSheet()'s doc comment for
     // why this couldn't just reuse that route.
     Route::post('/patient-registrations/scan-for-case-sheet', [PatientRegistrationController::class, 'scanForCaseSheet'])
+        ->middleware('throttle:30,1')
         ->name('patient-registrations.scan-for-case-sheet');
+    // The patient linked to a case sheet's case (2026-11-04).
+    Route::get('/doctor/case-patient-link', [PatientRegistrationController::class, 'caseLink'])->name('doctor.case-patient-link');
     Route::post('/doctor/session', [AcademicSessionController::class, 'select'])->name('doctor.session.select');
 });
 

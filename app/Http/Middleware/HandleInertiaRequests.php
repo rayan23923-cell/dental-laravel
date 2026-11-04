@@ -93,7 +93,7 @@ class HandleInertiaRequests extends Middleware
             // Groups on/off from clinic settings — see ClinicSetting::groupsEnabled().
             'groupsEnabled' => fn () => ClinicSetting::groupsEnabled(),
             // Task progress switches for the whole system (2026-10-22).
-            'taskSwitches' => fn () => collect(\App\Support\FormSettings::get())->only(\App\Support\FormSettings::SWITCHES)->all(),
+            'taskSwitches' => fn () => collect(\App\Support\FormSettings::get())->only([...\App\Support\FormSettings::SWITCHES, 'patient_link_required'])->all(),
             // Where a case sheet's "رجوع" goes — the task page it was opened from.
             'caseSheetBackUrl' => fn () => CaseSheetReturn::url(),
             'printableCaseSheets' => array_keys(CaseSheetPrint::SHEETS),

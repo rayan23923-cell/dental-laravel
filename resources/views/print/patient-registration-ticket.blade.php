@@ -66,7 +66,7 @@
 
         <div style="text-align:center;">
             <img src="{{ route('patient-registrations.qr', $registration) }}" alt="رمز الدفع" class="qr" style="width:240px; height:240px;">
-            <p class="muted" style="margin-top:4px">رمز المريض</p>
+            @include('print.partials.patient-code', ['code' => $registration->patient_code])
         </div>
     </div>
 

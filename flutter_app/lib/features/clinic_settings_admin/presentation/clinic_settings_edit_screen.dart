@@ -450,7 +450,7 @@ class _ClinicSettingsEditScreenState extends ConsumerState<ClinicSettingsEditScr
                             Expanded(
                               child: SwitchListTile(
                                 contentPadding: EdgeInsets.zero,
-                                value: _taskSwitches[key] ?? true,
+                                value: _taskSwitches[key] ?? !kTaskSwitchesOffByDefault.contains(key),
                                 title: Text(t[_switchLabel(key)]!),
                                 subtitle: Text(t['${_switchLabel(key)}Hint']!, maxLines: 2, overflow: TextOverflow.ellipsis),
                                 onChanged: (v) => setState(() => _taskSwitches = {..._taskSwitches, key: v}),

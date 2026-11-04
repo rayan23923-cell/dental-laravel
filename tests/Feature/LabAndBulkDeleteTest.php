@@ -248,29 +248,35 @@ class LabAndBulkDeleteTest extends TestCase
         $this->actingAs($admin)->postJson("/lab/{$third->id}/reuse")->assertStatus(422);
     }
 
-    public function test_previous_screening_is_found_by_name_only(): void
+    public function test_previous_screening_is_suggested_by_name_or_phone(): void
     {
         \App\Models\ClinicSetting::current();
         \App\Models\ClinicSetting::current()->update(['lab_fee' => 5000, 'lab_validity_days' => 90]);
         $old = $this->registration(['name' => 'زينب أحمد', 'phone' => '07701112233', 'screening_status' => 'clear', 'screening_checked_at' => now()->subDays(5)]);
         $admin = $this->admin();
 
-        // Same number but another name: not the same patient (2026-11-01).
+        // Same number but another name: suggested, the lab decides (2026-11-04).
         $samePhone = $this->registration(['name' => 'Zainab', 'phone' => '+964 770 111 2233']);
-        // New number, same name with a spelling variant and extra spaces.
-        $byName = $this->registration(['name' => ' زينب  احمد ', 'phone' => '07809990000']);
-        $stranger = $this->registration(['name' => 'Someone Else', 'phone' => '07801234000']);
+        // Same name but another number (2026-11-04: the phone is compared again).
+        $sameName = $this->registration(['name' => 'زينب احمد', 'phone' => '07809990000']);
+        // Same name with a spelling variant and extra spaces, same number written differently.
+        $both = $this->registration(['name' => ' زينب  احمد ', 'phone' => '+964 770 111 2233']);
 
         $scan = fn ($r) => $this->actingAs($admin)->postJson('/lab/scan', ['payload' => json_encode(['type' => 'patient_registration', 'id' => $r->id])]);
 
-        $scan($samePhone)->assertOk()->assertJsonPath('data.previous_screening', null);
-        $scan($byName)->assertOk()->assertJsonPath('data.previous_screening.id', $old->id)
-            ->assertJsonPath('data.previous_screening.matched_by', 'name')
-            ->assertJsonPath('data.previous_screening.phone', '07701112233');
-        $scan($stranger)->assertOk()->assertJsonPath('data.previous_screening', null);
+        $stranger = $this->registration(['name' => 'Someone Else', 'phone' => '07801234000']);
 
-        $this->actingAs($admin)->postJson("/lab/{$byName->id}/reuse")->assertOk();
-        $this->assertDatabaseMissing('payments', ['patient_registration_id' => $byName->id]);
+        $scan($samePhone)->assertOk()->assertJsonPath('data.previous_screening.id', $old->id)
+            ->assertJsonPath('data.previous_screening.matched_by', 'phone');
+        $scan($sameName)->assertOk()->assertJsonPath('data.previous_screening.id', $old->id)
+            ->assertJsonPath('data.previous_screening.matched_by', 'name');
+        $scan($stranger)->assertOk()->assertJsonPath('data.previous_screening', null);
+        $scan($both)->assertOk()->assertJsonPath('data.previous_screening.id', $old->id)
+            ->assertJsonPath('data.previous_screening.matched_by', 'name_phone')
+            ->assertJsonPath('data.previous_screening.phone', '07701112233');
+
+        $this->actingAs($admin)->postJson("/lab/{$both->id}/reuse")->assertOk();
+        $this->assertDatabaseMissing('payments', ['patient_registration_id' => $both->id]);
     }
 
     public function test_api_offers_and_reuses_previous_screening(): void

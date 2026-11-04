@@ -68,7 +68,33 @@ class PatientRegistration extends Model
         // The patient collected the result (2026-11-02): leaves the
         // waiting screen's "النتيجة جاهزة للاستلام".
         'lab_result_received_at',
+        // Printed under the ticket/receipt QR (2026-11-04), typed by the
+        // doctor instead of scanning; see App\Support\CasePatientLinks.
+        'patient_code',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (PatientRegistration $registration) {
+            $registration->patient_code ??= self::newPatientCode();
+        });
+    }
+
+    /** A 6-digit code no other registration has. */
+    public static function newPatientCode(): string
+    {
+        do {
+            $code = (string) random_int(100000, 999999);
+        } while (self::withTrashed()->where('patient_code', $code)->exists());
+
+        return $code;
+    }
+
+    /** The case this registration was linked to (2026-11-04). */
+    public function caseLink(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(CasePatientLink::class, 'patient_registration_id');
+    }
 
     protected function casts(): array
     {

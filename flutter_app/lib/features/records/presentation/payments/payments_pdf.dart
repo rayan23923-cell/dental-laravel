@@ -255,6 +255,27 @@ Future<Uint8List> buildPaymentsReportPdf({
               ]),
           ],
         ),
+        // By department: the case sheet the patient was linked to (2026-11-04).
+        if (stats.byDepartment.isNotEmpty) ...[
+          pw.SizedBox(height: 12),
+          pw.Text('المدفوعات حسب الأقسام', style: bold(12)),
+          pw.SizedBox(height: 4),
+          pw.Table(
+            border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+            children: [
+              pw.TableRow(
+                decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+                children: [cell('القسم', header: true), cell('عدد الدفعات', header: true), cell('المبلغ', header: true)],
+              ),
+              for (final d in stats.byDepartment)
+                pw.TableRow(children: [
+                  cell(d.name),
+                  cell('${d.count}'),
+                  cell('${_money(d.total)} $currency'),
+                ]),
+            ],
+          ),
+        ],
         pw.SizedBox(height: 12),
         pw.Text('المدفوعات (${report.payments.length})', style: bold(12)),
         pw.SizedBox(height: 4),

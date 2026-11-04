@@ -338,27 +338,30 @@ class PatientRegistrationController extends Controller
     {
         abort_unless(Auth::guard('doctor')->check(), 403);
 
-        $request->validate(['payload' => ['required', 'string']]);
-
-        $decoded = json_decode($request->string('payload'), true);
-
-        if (! is_array($decoded) || ($decoded['type'] ?? null) !== 'patient_registration' || empty($decoded['id'])) {
-            return response()->json(['message' => 'رمز غير صالح — هذا ليس رمز تسجيل مريض.'], 422);
-        }
-
-        $registration = PatientRegistration::with(['service', 'registerDay'])->find($decoded['id']);
-
-        if (! $registration) {
-            return response()->json(['message' => 'التسجيل غير موجود.'], 404);
-        }
-
+        // QR or the typed code, checked and linked to the case
+        // (2026-11-04, see App\Support\CasePatientLinks).
         try {
-            PatientScreeningGate::ensureClear($registration);
-        } catch (PatientScreeningException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            [$registration, $link] = \App\Support\CasePatientLinks::scanForDoctor($request, Auth::guard('doctor')->user());
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['message' => collect($e->errors())->flatten()->first()], 422);
         }
 
-        return $this->stateResponse($registration);
+        $response = $this->stateResponse($registration)->getData(true);
+        $response['data']['link'] = \App\Support\CasePatientLinks::toView($link?->load('registration'));
+
+        return response()->json($response);
+    }
+
+    /** The patient linked to the case a sheet is for (2026-11-04). */
+    public function caseLink(Request $request): JsonResponse
+    {
+        abort_unless(Auth::guard('doctor')->check(), 403);
+
+        return response()->json(['data' => \App\Support\CasePatientLinks::toView(\App\Support\CasePatientLinks::forCase(
+            Auth::guard('doctor')->id(),
+            $request->integer('task_id') ?: null,
+            $request->integer('task_instances_id') ?: null,
+        ))]);
     }
 
     /**

@@ -96,6 +96,13 @@ class CaseSheetSignatures
      */
     public static function applyPending(string $resource, array $data, ?Model $existing, string $signerName): array
     {
+        // Every case sheet's save passes here: a new sheet needs its
+        // patient linked when that is required (2026-11-04, see
+        // CasePatientLinks).
+        if ($existing === null) {
+            CasePatientLinks::enforceOnCreate($data);
+        }
+
         foreach (self::fieldsFor($resource) as $spec) {
             $data = isset($spec['group'])
                 ? self::applyGrouped($data, $existing, $spec['group'], $spec['key'], $signerName)

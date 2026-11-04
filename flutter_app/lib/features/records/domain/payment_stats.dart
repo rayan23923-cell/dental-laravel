@@ -7,6 +7,7 @@ class PaymentStats {
     required this.monthly,
     required this.filteredTotal,
     required this.bySource,
+    this.byDepartment = const [],
     this.currency,
     this.range,
   });
@@ -27,6 +28,9 @@ class PaymentStats {
       bySource: ((data['by_source'] as List<dynamic>?) ?? const [])
           .map((e) => SourceTotal.fromJson(e as Map<String, dynamic>))
           .toList(),
+      byDepartment: ((data['by_department'] as List<dynamic>?) ?? const [])
+          .map((e) => DepartmentTotal.fromJson(e as Map<String, dynamic>))
+          .toList(),
       currency: data['currency'] as String?,
       range: data['range'] is Map<String, dynamic> ? PeriodRange.fromJson(data['range'] as Map<String, dynamic>) : null,
     );
@@ -43,6 +47,10 @@ class PaymentStats {
   /// Total and per-source split of what the filters match.
   final double filteredTotal;
   final List<SourceTotal> bySource;
+
+  /// Income by the department of the case sheet the patient was linked
+  /// to (2026-11-04); 'lab' and 'unlinked' rows come last.
+  final List<DepartmentTotal> byDepartment;
   final String? currency;
 
   /// The filtered period's own figures (2026-11-04, by request): set when
@@ -108,6 +116,23 @@ class ChartPoint {
 
   final String label;
   final double total;
+}
+
+class DepartmentTotal {
+  const DepartmentTotal({required this.key, required this.name, required this.total, required this.count});
+
+  factory DepartmentTotal.fromJson(Map<String, dynamic> json) => DepartmentTotal(
+        key: json['key'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+        total: _toDouble(json['total']),
+        count: (json['count'] as num?)?.toInt() ?? 0,
+      );
+
+  /// 'department:<id>', 'lab' or 'unlinked'.
+  final String key;
+  final String name;
+  final double total;
+  final int count;
 }
 
 class SourceTotal {

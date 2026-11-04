@@ -171,7 +171,7 @@ class SupervisorCodeNow {
 }
 
 class DoctorFormSettings {
-  const DoctorFormSettings({this.electronic = true, this.paper = true, this.showGrades = true, this.codeActions = const [], this.switches = const {}});
+  const DoctorFormSettings({this.electronic = true, this.paper = true, this.showGrades = true, this.codeActions = const [], this.switches = const {}, this.patientLinkRequired = false});
 
   factory DoctorFormSettings.fromJson(Map<String, dynamic> json) => DoctorFormSettings(
         electronic: json['electronic_forms_enabled'] as bool? ?? true,
@@ -179,9 +179,14 @@ class DoctorFormSettings {
         showGrades: json['show_grades'] as bool? ?? true,
         codeActions: [for (final a in (json['supervisor_code_actions'] as List<dynamic>? ?? const [])) a as String],
         switches: _switches(json),
+        patientLinkRequired: json['patient_link_required'] as bool? ?? false,
       );
 
   final bool electronic;
+
+  /// The patient must be linked to the case sheet by QR or code before it
+  /// is saved (2026-11-04, general settings).
+  final bool patientLinkRequired;
   final bool paper;
   final bool showGrades;
   final List<String> codeActions;

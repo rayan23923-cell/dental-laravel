@@ -46,6 +46,8 @@ const form = useForm({
     ...Object.fromEntries(
         ['electronic_forms_enabled', 'paper_forms_enabled', 'show_grades_to_doctors', 'task_start_enabled', 'task_finish_enabled', 'task_lists_enabled', 'grade_entry_enabled', 'steps_enabled', 'step_add_enabled', 'task_cancel_enabled'].map((k) => [k, !!(props.settings[k] ?? true)]),
     ),
+    // Patient linked to the case sheet by QR or code: optional or required (2026-11-04).
+    patient_link_required: !!(props.settings.patient_link_required ?? false),
     clinic_logo: null,
     university_logo: null,
     mail_host: props.settings.mail_host ?? '',
@@ -319,7 +321,7 @@ const summaries = computed(() => ({
                                     <p class="pt-2 text-sm font-medium text-gray-800">{{ t('formSettings.tasksSection') }}</p>
                                     <p class="text-xs text-gray-500">{{ t('formSettings.tasksSectionHint') }}</p>
                                     <SettingsToggle
-                                        v-for="key in ['task_start_enabled', 'task_cancel_enabled', 'task_finish_enabled', 'task_lists_enabled', 'steps_enabled', 'grade_entry_enabled', 'step_add_enabled']"
+                                        v-for="key in ['task_start_enabled', 'task_cancel_enabled', 'task_finish_enabled', 'task_lists_enabled', 'steps_enabled', 'grade_entry_enabled', 'step_add_enabled', 'patient_link_required']"
                                         :key="key"
                                         v-model="form[key]"
                                         :label="t('formSettings.' + key)"

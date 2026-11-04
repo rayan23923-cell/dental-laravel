@@ -56,9 +56,14 @@ enum QrScanMode {
 ///   forward — used by `task_progress_screen.dart` to identify which
 ///   patient a "بدء المهمة" call is for.
 class QrScanScreen extends ConsumerStatefulWidget {
-  const QrScanScreen({super.key, this.mode = QrScanMode.taskInstance});
+  const QrScanScreen({super.key, this.mode = QrScanMode.taskInstance, this.caseTaskId, this.caseTaskInstanceId});
 
   final QrScanMode mode;
+
+  /// [QrScanMode.caseSheetPatientAutofill]: the case the sheet is for, so
+  /// the scanned patient is linked to it (2026-11-04).
+  final int? caseTaskId;
+  final int? caseTaskInstanceId;
 
   @override
   ConsumerState<QrScanScreen> createState() => _QrScanScreenState();
@@ -147,7 +152,11 @@ class _QrScanScreenState extends ConsumerState<QrScanScreen> {
         case QrScanMode.caseSheetPatientAutofill:
           // Doctor-only route + PatientScreeningGate enforcement — see
           // PatientRegistrationRepository.scanForCaseSheet()'s doc comment.
-          final state = await ref.read(patientRegistrationRepositoryProvider).scanForCaseSheet(raw);
+          final state = await ref.read(patientRegistrationRepositoryProvider).scanForCaseSheet(
+                raw,
+                taskId: widget.caseTaskId,
+                taskInstanceId: widget.caseTaskInstanceId,
+              );
           if (mounted) context.pop(state);
       }
     } catch (e) {
