@@ -104,6 +104,27 @@ jobs:
       # APKs are saved so a failure here never holds back /download.
       - run: flutter build appbundle --release $BUILD_FLAGS --dart-define=API_BASE_URL=$API_BASE_URL --dart-define=STORE_BUILD=true --android-project-arg=storeBuild=true
       - run: cp build/app/outputs/bundle/release/app-release.aab ../DentalClinicApp-play.aab
+      # Play's upload key (2026-11-04): Play only accepts bundles signed with
+      # the key the app was first uploaded with (the Codemagic "upload"
+      # keystore, SHA1 1C:96:30:1B...), not the VPS key that signs the APKs.
+      # Re-sign the bundle with it when the two secrets are set.
+      - name: Sign the bundle with the Play upload key
+        env:
+          UPLOAD_KS: ${{ secrets.PLAY_UPLOAD_KEYSTORE_B64 }}
+          UPLOAD_PASS: ${{ secrets.PLAY_UPLOAD_KEYSTORE_PASSWORD }}
+        if: env.UPLOAD_KS != '' && env.UPLOAD_PASS != ''
+        # A wrong key only spoils the bundle; it must not hold back /download.
+        continue-on-error: true
+        working-directory: .
+        run: |
+          printf '%s' "$UPLOAD_KS" | tr -d ' \r\n' | base64 -d > "$RUNNER_TEMP/upload.jks"
+          zip -q -d DentalClinicApp-play.aab 'META-INF/*.SF' 'META-INF/*.RSA' 'META-INF/*.EC' 'META-INF/*.DSA' 'META-INF/MANIFEST.MF' || true
+          jarsigner -sigalg SHA256withRSA -digestalg SHA-256 -keystore "$RUNNER_TEMP/upload.jks" \
+            -storepass "$UPLOAD_PASS" -keypass "$UPLOAD_PASS" DentalClinicApp-play.aab upload
+          rm -f "$RUNNER_TEMP/upload.jks"
+          jarsigner -verify DentalClinicApp-play.aab | tail -1
+          keytool -printcert -jarfile DentalClinicApp-play.aab | grep 'SHA1:' | tee /dev/stderr \
+            | grep -q '1C:96:30:1B:B7:6F:3D:E9:49:CA:AF:14:AF:11:C2:63:74:09:10:BF'
       - uses: actions/upload-artifact@v4
         with:
           name: android-play
