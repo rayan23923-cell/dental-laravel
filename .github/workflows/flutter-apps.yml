@@ -112,11 +112,12 @@ jobs:
         env:
           UPLOAD_KS: ${{ secrets.PLAY_UPLOAD_KEYSTORE_B64 }}
           UPLOAD_PASS: ${{ secrets.PLAY_UPLOAD_KEYSTORE_PASSWORD }}
-        if: env.UPLOAD_KS != '' && env.UPLOAD_PASS != ''
-        # A wrong key only spoils the bundle; it must not hold back /download.
+        # A step's own env isn't visible to its `if`, so the secrets are
+        # checked inside the script. A wrong key only spoils the bundle; it must not hold back /download.
         continue-on-error: true
         working-directory: .
         run: |
+          if [ -z "$UPLOAD_KS" ] || [ -z "$UPLOAD_PASS" ]; then echo "Play upload key secrets not set; bundle left as built."; exit 0; fi
           printf '%s' "$UPLOAD_KS" | tr -d ' \r\n' | base64 -d > "$RUNNER_TEMP/upload.jks"
           zip -q -d DentalClinicApp-play.aab 'META-INF/*.SF' 'META-INF/*.RSA' 'META-INF/*.EC' 'META-INF/*.DSA' 'META-INF/MANIFEST.MF' || true
           jarsigner -sigalg SHA256withRSA -digestalg SHA-256 -keystore "$RUNNER_TEMP/upload.jks" \
