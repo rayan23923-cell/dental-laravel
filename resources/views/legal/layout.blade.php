@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('title') — {{ $clinic->clinic_name ?: 'عيادة الأسنان التعليمية' }}</title>
+    <title>@yield('title') — عيادة الأسنان</title>
     <style>
         body {
             font-family: -apple-system, "Segoe UI", Tahoma, Arial, sans-serif;
@@ -34,7 +34,9 @@
      deletion, support and terms share this frame and its footer links. --}}
 <div class="wrap">
     <h1>@yield('title')</h1>
-    <p class="sub">{{ $clinic->clinic_name ?: 'عيادة الأسنان التعليمية' }} — {{ $clinic->college_name ?: 'كلية طب الأسنان' }}@if($clinic->university_name)، {{ $clinic->university_name }}@endif</p>
+    {{-- Neutral on purpose (2026-11-04): Google Play rejected the app over the
+         college's name and seal, and its reviewers open these pages. --}}
+    <p class="sub">عيادة الأسنان — نظام إدارة عيادة تعليمية</p>
 
     @yield('content')
 
