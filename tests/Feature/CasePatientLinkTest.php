@@ -165,7 +165,7 @@ class CasePatientLinkTest extends TestCase
         $this->assertSame(2000.0, $rows['lab']['total']);
         $this->assertSame(3000.0, $rows['unlinked']['total']);
 
-        $this->actingAs(User::factory()->create(['role' => 'super_admin']))
+        $this->withoutVite()->actingAs(User::factory()->create(['role' => 'super_admin']))
             ->get(route('payments.index'))->assertOk()
             ->assertInertia(fn ($page) => $page->has('byDepartment', 3));
     }
