@@ -248,14 +248,14 @@ class LabAndBulkDeleteTest extends TestCase
         $this->actingAs($admin)->postJson("/lab/{$third->id}/reuse")->assertStatus(422);
     }
 
-    public function test_previous_screening_needs_the_same_name_and_phone(): void
+    public function test_previous_screening_is_suggested_by_name_or_phone(): void
     {
         \App\Models\ClinicSetting::current();
         \App\Models\ClinicSetting::current()->update(['lab_fee' => 5000, 'lab_validity_days' => 90]);
         $old = $this->registration(['name' => 'زينب أحمد', 'phone' => '07701112233', 'screening_status' => 'clear', 'screening_checked_at' => now()->subDays(5)]);
         $admin = $this->admin();
 
-        // Same number but another name: not the same patient.
+        // Same number but another name: suggested, the lab decides (2026-11-04).
         $samePhone = $this->registration(['name' => 'Zainab', 'phone' => '+964 770 111 2233']);
         // Same name but another number (2026-11-04: the phone is compared again).
         $sameName = $this->registration(['name' => 'زينب احمد', 'phone' => '07809990000']);
@@ -264,8 +264,13 @@ class LabAndBulkDeleteTest extends TestCase
 
         $scan = fn ($r) => $this->actingAs($admin)->postJson('/lab/scan', ['payload' => json_encode(['type' => 'patient_registration', 'id' => $r->id])]);
 
-        $scan($samePhone)->assertOk()->assertJsonPath('data.previous_screening', null);
-        $scan($sameName)->assertOk()->assertJsonPath('data.previous_screening', null);
+        $stranger = $this->registration(['name' => 'Someone Else', 'phone' => '07801234000']);
+
+        $scan($samePhone)->assertOk()->assertJsonPath('data.previous_screening.id', $old->id)
+            ->assertJsonPath('data.previous_screening.matched_by', 'phone');
+        $scan($sameName)->assertOk()->assertJsonPath('data.previous_screening.id', $old->id)
+            ->assertJsonPath('data.previous_screening.matched_by', 'name');
+        $scan($stranger)->assertOk()->assertJsonPath('data.previous_screening', null);
         $scan($both)->assertOk()->assertJsonPath('data.previous_screening.id', $old->id)
             ->assertJsonPath('data.previous_screening.matched_by', 'name_phone')
             ->assertJsonPath('data.previous_screening.phone', '07701112233');

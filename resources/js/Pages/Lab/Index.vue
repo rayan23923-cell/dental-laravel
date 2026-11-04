@@ -337,9 +337,9 @@ const record = async (status, { feeConfirmed = false, diagnosed = false } = {}) 
                     <span
                         v-if="selected.previous_screening.name"
                         class="rounded-lg px-2 py-1 text-xs"
-                        :class="selected.previous_screening.matched_by === 'name' ? 'bg-amber-100 text-amber-900' : 'bg-green-100'"
+                        :class="selected.previous_screening.matched_by === 'name_phone' ? 'bg-green-100' : 'bg-amber-100 text-amber-900'"
                     >
-                        {{ t(selected.previous_screening.matched_by === 'name' ? 'lab.matchedByName' : 'lab.matchedByPhone', { name: selected.previous_screening.name, phone: selected.previous_screening.phone }) }}
+                        {{ t({ name_phone: 'lab.matchedByBoth', phone: 'lab.matchedByPhone' }[selected.previous_screening.matched_by] ?? 'lab.matchedByName', { name: selected.previous_screening.name, phone: selected.previous_screening.phone }) }}
                     </span>
                     <button
                         v-if="canConfirm"

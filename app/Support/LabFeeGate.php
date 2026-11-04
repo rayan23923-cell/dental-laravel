@@ -101,11 +101,12 @@ class LabFeeGate
      * Batched form for a page of registrations: registration id => the
      * earlier registration whose result it can reuse.
      *
-     * Matches on the full name AND the phone number (2026-11-04, by
-     * request: the phone comparison is back with the name match of
-     * 2026-11-01), so two patients with the same common name are not
-     * taken for one, nor two people sharing a number. Both are compared
-     * after normalisation. Each match carries `matched_by` = 'name_phone'.
+     * Matches on the full name OR the phone number (2026-11-04, by
+     * request: the phone comparison is back next to the name match of
+     * 2026-11-01). It is only a suggestion: the lab staff confirm it with
+     * "اعتماد الفحص السابق". Both are compared after normalisation; a
+     * match on both is preferred, then the phone, then the name. Each
+     * match carries `matched_by` = 'name_phone', 'phone' or 'name'.
      *
      * @param  Collection<int, PatientRegistration>  $registrations
      * @return Collection<int, PatientRegistration>
@@ -133,10 +134,17 @@ class LabFeeGate
             $phone = self::normalizePhone($registration->phone);
             $name = self::normalizeName($registration->name);
 
-            $match = $name !== '' && $phone !== ''
-                ? $others->first(fn ($e) => self::normalizeName($e->name) === $name && self::normalizePhone($e->phone) === $phone)
-                : null;
-            $by = 'name_phone';
+            // Too short to be a real number (e.g. "0"): not compared.
+            $phoneOk = strlen($phone) >= 3;
+            $samePhone = fn ($e) => $phoneOk && self::normalizePhone($e->phone) === $phone;
+            $sameName = fn ($e) => $name !== '' && self::normalizeName($e->name) === $name;
+
+            [$match, $by] = match (true) {
+                ($m = $others->first(fn ($e) => $samePhone($e) && $sameName($e))) !== null => [$m, 'name_phone'],
+                ($m = $others->first($samePhone)) !== null => [$m, 'phone'],
+                ($m = $others->first($sameName)) !== null => [$m, 'name'],
+                default => [null, null],
+            };
 
             if ($match) {
                 $result->put($registration->id, (clone $match)->setAttribute('matched_by', $by));

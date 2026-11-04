@@ -48,8 +48,11 @@ class PreviousScreening {
   final String? phone;
   final String? matchedBy;
 
-  /// 'name_phone' (2026-11-04) or the older 'phone': the number matched too.
-  bool get matchedByPhone => matchedBy == 'phone' || matchedBy == 'name_phone';
+  bool get matchedByPhone => matchedBy == 'phone';
+
+  /// Name and number both matched (2026-11-04); otherwise only one did and
+  /// the lab checks it is the same patient before confirming.
+  bool get matchedByBoth => matchedBy == 'name_phone';
 }
 
 /// Mirrors `Api\PatientRegistrationQrController::stateResponse()` — the
