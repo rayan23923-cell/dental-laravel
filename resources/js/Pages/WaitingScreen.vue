@@ -77,10 +77,11 @@ const qrUrl = computed(() =>
 // a waiting-room TV is read from across a room, so each page needs to
 // stay large-print and glanceable.
 // The screen shows the lab only (2026-11-02, by request), so the pages
-// rotate through the lab list; its cards are smaller, hence 12 a page.
-const LAB_PER_PAGE = 12;
+// rotate through the lab list. Page size follows "عدد المرضى في كل صفحة"
+// from the settings (2026-11-04, by request; it was a fixed 12).
+const labPerPage = computed(() => Math.min(50, Math.max(1, Number(patientsPerPage.value) || 12)));
 const pages = computed(() => {
-    const size = LAB_PER_PAGE;
+    const size = labPerPage.value;
     const chunks = [];
     for (let i = 0; i < labPatients.value.length; i += size) {
         chunks.push(labPatients.value.slice(i, i + size));
@@ -183,7 +184,7 @@ const noticeChanges = (list) => {
     // Show the page that holds the latest change.
     if (newest !== null) {
         const index = list.findIndex((p) => p.id === newest);
-        if (index >= 0) currentPage.value = Math.floor(index / LAB_PER_PAGE);
+        if (index >= 0) currentPage.value = Math.floor(index / labPerPage.value);
     }
 };
 
