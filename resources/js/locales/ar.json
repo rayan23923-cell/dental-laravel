@@ -432,7 +432,14 @@
         "previousTitle": "مسجّل سابقاً:",
         "previousHint": "اضغط Tab لإكمال الاسم أو اختر مريضاً",
         "previousVisits": "{n} زيارات",
-        "previousSame": "مريض سابق: {n} زيارة، آخرها {date}"
+        "previousSame": "مريض سابق: {n} زيارة، آخرها {date}",
+        "linkFilterAll": "الكل",
+        "linkStage": "المرحلة",
+        "archivedFrom": {
+            "patients": "مؤرشف من المرضى",
+            "lab": "مؤرشف من المختبر",
+            "both": "مؤرشف"
+        }
     },
     "appointments": {
         "newAppointment": "موعد جديد",

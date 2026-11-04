@@ -432,7 +432,14 @@
         "previousTitle": "Registered before:",
         "previousHint": "Press Tab to complete, or pick a patient",
         "previousVisits": "{n} visits",
-        "previousSame": "Returning patient: {n} visit(s), last on {date}"
+        "previousSame": "Returning patient: {n} visit(s), last on {date}",
+        "linkFilterAll": "All",
+        "linkStage": "Stage",
+        "archivedFrom": {
+            "patients": "Archived from patients",
+            "lab": "Archived from the lab",
+            "both": "Archived"
+        }
     },
     "appointments": {
         "newAppointment": "New Appointment",

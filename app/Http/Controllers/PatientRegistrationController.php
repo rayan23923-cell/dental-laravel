@@ -50,7 +50,9 @@ class PatientRegistrationController extends Controller
             // (2026-10-14, by request): the days came from settings that
             // were removed. Same as the payments page.
             'services' => Service::orderBy('name')->get(['id', 'name']),
-            'filters' => $request->only('search', 'from', 'to', 'service_id', 'archived', 'link'),
+            'filters' => $request->only('search', 'from', 'to', 'service_id', 'archived', 'link', 'department_id', 'stage_id'),
+            // Counts per link status, stage and department (2026-11-04).
+            'linkFacets' => \App\Support\CasePatientLinks::facets($this->filteredQuery($request, false), $request),
             // Hides what the desk roles (2026-10-12) can't do here.
             'can' => [
                 'archive' => $permissions->can('patients', 'delete'),
@@ -64,7 +66,7 @@ class PatientRegistrationController extends Controller
      * The registry's search/day/service filters — shared by `index()` and
      * `destroyMany()`'s "delete all" so it deletes exactly what's listed.
      */
-    private function filteredQuery(Request $request)
+    private function filteredQuery(Request $request, bool $withLinkFilters = true)
     {
         return PatientRegistration::query()
             // The archive tab (2026-10-12) lists deleted (archived) patients.
@@ -82,15 +84,9 @@ class PatientRegistrationController extends Controller
             ->when($request->date('from'), fn ($q, $from) => $q->whereDate('created_at', '>=', $from))
             ->when($request->date('to'), fn ($q, $to) => $q->whereDate('created_at', '<=', $to))
             ->when($request->integer('service_id'), fn ($q, $id) => $q->where('service_id', $id))
-            // Linked to a case sheet or not, and refused link attempts
-            // (2026-11-04, by request, against stolen or forged receipts).
-            ->when($request->string('link')->toString(), fn ($q, $link) => match ($link) {
-                'linked' => $q->whereHas('caseLink'),
-                'unlinked' => $q->whereDoesntHave('caseLink'),
-                'suspicious' => $q->whereHas('linkAttempts', fn ($a) => $a->where('reason', 'already_used')),
-                'attempts' => $q->whereHas('linkAttempts'),
-                default => $q,
-            });
+            // Linked to a case sheet or not, refused link attempts, and the
+            // linked case's department and stage (2026-11-04, by request).
+            ->tap(fn ($q) => $withLinkFilters ? \App\Support\CasePatientLinks::filterList($q, $request) : $q);
     }
 
     /**

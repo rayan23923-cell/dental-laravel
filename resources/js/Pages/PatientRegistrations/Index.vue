@@ -32,6 +32,8 @@ const props = defineProps({
     registrations: Object,
     services: { type: Array, default: () => [] },
     filters: Object,
+    // Counts per link status, stage and department (2026-11-04).
+    linkFacets: { type: Object, default: () => ({ statuses: {}, stages: [], departments: [] }) },
 });
 
 // New and changed registrations show up by themselves (2026-10-19, by request).
@@ -73,6 +75,34 @@ const to = ref(props.filters.to ?? '');
 const serviceId = ref(props.filters.service_id ?? '');
 // Linked to a case sheet / refused attempts (2026-11-04, by request).
 const linkFilter = ref(props.filters.link ?? '');
+// The linked case's stage and department (2026-11-04, by request).
+const stageId = ref(props.filters.stage_id ? Number(props.filters.stage_id) : null);
+const departmentId = ref(props.filters.department_id ? Number(props.filters.department_id) : null);
+const setLink = (value) => {
+    linkFilter.value = value;
+    if (value === 'unlinked') {
+        stageId.value = null;
+        departmentId.value = null;
+    }
+    applyFilters();
+};
+const setStage = (id) => {
+    stageId.value = stageId.value === id ? null : id;
+    if (linkFilter.value === 'unlinked') linkFilter.value = '';
+    applyFilters();
+};
+const setDepartment = (id) => {
+    departmentId.value = departmentId.value === id ? null : id;
+    if (linkFilter.value === 'unlinked') linkFilter.value = '';
+    applyFilters();
+};
+const linkStatuses = [
+    { key: '', label: 'linkFilterAll', icon: 'select_all', count: 'all' },
+    { key: 'linked', label: 'linkFilterLinked', icon: 'link', count: 'linked' },
+    { key: 'unlinked', label: 'linkFilterUnlinked', icon: 'link_off', count: 'unlinked' },
+    { key: 'suspicious', label: 'linkFilterSuspicious', icon: 'gpp_maybe', count: 'suspicious', danger: true },
+    { key: 'attempts', label: 'linkFilterAttempts', icon: 'block', count: 'attempts' },
+];
 // Archive tab (2026-10-12): deleting archives a registration instead of
 // removing it, so its payments stay; archived ones are listed here and
 // can be restored.
@@ -87,6 +117,8 @@ const applyFilters = () => {
             ...(to.value ? { to: to.value } : {}),
             ...(serviceId.value ? { service_id: serviceId.value } : {}),
             ...(linkFilter.value ? { link: linkFilter.value } : {}),
+            ...(stageId.value ? { stage_id: stageId.value } : {}),
+            ...(departmentId.value ? { department_id: departmentId.value } : {}),
             ...(archived.value ? { archived: 1 } : {}),
         },
         { preserveState: true, replace: true }
@@ -110,7 +142,7 @@ const setPeriod = (range) => {
     to.value = range.to;
     applyFilters();
 };
-const hasFilters = computed(() => !!(search.value || from.value || to.value || serviceId.value || linkFilter.value));
+const hasFilters = computed(() => !!(search.value || from.value || to.value || serviceId.value || linkFilter.value || stageId.value || departmentId.value));
 
 const clearFilters = () => {
     search.value = '';
@@ -118,6 +150,8 @@ const clearFilters = () => {
     to.value = '';
     serviceId.value = '';
     linkFilter.value = '';
+    stageId.value = null;
+    departmentId.value = null;
     router.get(route('patient-registrations.index'), archived.value ? { archived: 1 } : {});
 };
 
@@ -135,6 +169,8 @@ const currentFilters = () => ({
     ...(to.value ? { to: to.value } : {}),
     ...(serviceId.value ? { service_id: serviceId.value } : {}),
     ...(linkFilter.value ? { link: linkFilter.value } : {}),
+    ...(stageId.value ? { stage_id: stageId.value } : {}),
+    ...(departmentId.value ? { department_id: departmentId.value } : {}),
 });
 // Archiving is the plain archive again (2026-11-04, by request): payments
 // kept, restorable from the archive tab. "From where" moved to the
@@ -336,13 +372,6 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
                         <option value="">{{ t('patientReg.serviceLabel') }}</option>
                         <option v-for="service in services" :key="service.id" :value="service.id">{{ service.name }}</option>
                     </select>
-                    <select v-model="linkFilter" @change="applyFilters" class="rounded-full border-gray-200 bg-white py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                        <option value="">{{ t('patientReg.linkFilter') }}</option>
-                        <option value="linked">{{ t('patientReg.linkFilterLinked') }}</option>
-                        <option value="unlinked">{{ t('patientReg.linkFilterUnlinked') }}</option>
-                        <option value="suspicious">{{ t('patientReg.linkFilterSuspicious') }}</option>
-                        <option value="attempts">{{ t('patientReg.linkFilterAttempts') }}</option>
-                    </select>
                     <ChatAction v-if="hasFilters" icon="filter_alt_off" :label="t('patientReg.clearFilters')" @click="clearFilters" />
                     <div v-if="!archived && can.archive && registrations.total" class="ms-auto flex items-center">
                         <ChatAction icon="inventory_2" :label="hasFilters ? t('patientReg.deleteAllFiltered') : t('patientReg.deleteAll')" danger @click="destroyAll" />
@@ -350,6 +379,65 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
                     <div v-if="archived && can.archive && registrations.total" class="ms-auto flex items-center">
                         <ChatAction icon="delete_forever" :label="t('patientReg.purgeAll')" danger @click="openPurge(true)" />
                     </div>
+                </div>
+
+                <!-- Link to case sheets: status, stage, department (2026-11-04, by request) -->
+                <div class="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+                    <p class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                        <Icon name="account_tree" size="text-[18px]" />{{ t('patientReg.linkFilter') }}
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                        <button
+                            v-for="st in linkStatuses"
+                            :key="st.key"
+                            type="button"
+                            @click="setLink(st.key)"
+                            class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition"
+                            :class="linkFilter === st.key
+                                ? (st.danger ? 'bg-rose-600 text-white shadow-sm' : 'bg-indigo-600 text-white shadow-sm')
+                                : (st.danger && linkFacets.statuses?.[st.count] ? 'bg-rose-50 text-rose-700 ring-1 ring-rose-200 hover:bg-rose-100' : 'bg-gray-50 text-gray-700 ring-1 ring-gray-200 hover:bg-gray-100')"
+                        >
+                            <Icon :name="st.icon" size="text-[16px]" />{{ t('patientReg.' + st.label) }}
+                            <span
+                                class="min-w-[1.5rem] rounded-full px-1.5 text-center text-xs"
+                                :class="linkFilter === st.key ? 'bg-white/25' : 'bg-white ring-1 ring-gray-200'"
+                            >{{ linkFacets.statuses?.[st.count] ?? 0 }}</span>
+                        </button>
+                    </div>
+                    <template v-if="linkFilter !== 'unlinked' && (linkFacets.stages?.length || linkFacets.departments?.length)">
+                        <div v-if="linkFacets.stages?.length" class="flex items-start gap-2">
+                            <span class="mt-1.5 w-14 shrink-0 text-xs font-semibold text-gray-500">{{ t('patientReg.linkStage') }}</span>
+                            <div class="flex flex-1 flex-wrap gap-2">
+                                <button
+                                    v-for="st in linkFacets.stages"
+                                    :key="st.id"
+                                    type="button"
+                                    @click="setStage(st.id)"
+                                    class="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm transition"
+                                    :class="stageId === st.id ? 'bg-emerald-600 text-white shadow-sm' : 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-100'"
+                                >
+                                    <Icon name="school" size="text-[16px]" />{{ st.name }}
+                                    <span class="text-xs opacity-80">({{ st.count }})</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div v-if="linkFacets.departments?.length" class="flex items-start gap-2">
+                            <span class="mt-1.5 w-14 shrink-0 text-xs font-semibold text-gray-500">{{ t('patientReg.linkDepartment') }}</span>
+                            <div class="flex flex-1 flex-wrap gap-2">
+                                <button
+                                    v-for="d in linkFacets.departments"
+                                    :key="d.id"
+                                    type="button"
+                                    @click="setDepartment(d.id)"
+                                    class="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm transition"
+                                    :class="departmentId === d.id ? 'bg-sky-600 text-white shadow-sm' : 'bg-sky-50 text-sky-800 ring-1 ring-sky-200 hover:bg-sky-100'"
+                                >
+                                    <Icon name="apartment" size="text-[16px]" />{{ d.name }}
+                                    <span class="text-xs opacity-80">({{ d.count }})</span>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
                 </div>
 
                 <!-- Bulk bar -->

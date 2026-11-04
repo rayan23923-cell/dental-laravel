@@ -120,6 +120,44 @@ class CasePatientLinkTest extends TestCase
             ->assertOk()->assertJsonCount(1, 'data.attempts');
     }
 
+    public function test_patients_filter_by_the_linked_department_and_stage_with_counts(): void
+    {
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        $stage4 = \App\Models\Stage::create(['name' => 'المرحلة الرابعة', 'education_type_id' => 1]);
+        $stage5 = \App\Models\Stage::create(['name' => 'المرحلة الخامسة', 'education_type_id' => 1]);
+        $surgery = Department::create(['name' => 'جراحة الفم']);
+        $extraction = Task::create([
+            'department_id' => $surgery->id, 'case_sheet_type_id' => 1, 'stage_id' => $stage5->id,
+            'title' => 'قلع', 'required_per_doctor' => 2, 'required_count' => 2,
+        ]);
+        $this->task->update(['stage_id' => $stage4->id]);
+        DB::statement('SET FOREIGN_KEY_CHECKS=1');
+
+        $a = $this->patient();
+        $b = $this->patient();
+        $this->patient(); // not linked
+        CasePatientLinks::link($a, $this->doctor, $this->task->id, null, 'qr');
+        CasePatientLinks::link($b, $this->other, $extraction->id, null, 'code');
+
+        $token = User::factory()->create(['role' => 'super_admin'])->createToken('t')->plainTextToken;
+        $this->withToken($token)->getJson('/api/v1/patient-registrations')
+            ->assertOk()
+            ->assertJsonPath('link_facets.statuses.all', 3)
+            ->assertJsonPath('link_facets.statuses.linked', 2)
+            ->assertJsonPath('link_facets.statuses.unlinked', 1)
+            ->assertJsonCount(2, 'link_facets.departments')
+            ->assertJsonCount(2, 'link_facets.stages');
+
+        $this->withToken($token)->getJson('/api/v1/patient-registrations?department_id='.$surgery->id)
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $b->id)
+            // Stage counts follow the chosen department.
+            ->assertJsonCount(1, 'link_facets.stages')
+            ->assertJsonPath('link_facets.stages.0.id', $stage5->id);
+
+        $this->withToken($token)->getJson('/api/v1/patient-registrations?stage_id='.$stage4->id)
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $a->id);
+    }
+
     public function test_the_registration_form_suggests_earlier_patients_by_name_or_phone(): void
     {
         PatientRegistration::create(['name' => 'أحمد علي حسن', 'phone' => '07701234567', 'screening_status' => 'clear']);

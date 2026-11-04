@@ -136,6 +136,89 @@ class CasePatientLinks
     }
 
     /**
+     * The patients lists' link filters (2026-11-04, by request): link
+     * status (`link`: linked, unlinked, suspicious, attempts) and the
+     * linked case's department (`department_id`) and stage (`stage_id`,
+     * the task's stage).
+     */
+    public static function filterList($query, \Illuminate\Http\Request $request)
+    {
+        $query->when($request->string('link')->toString(), fn ($q, $link) => match ($link) {
+            'linked' => $q->whereHas('caseLink'),
+            'unlinked' => $q->whereDoesntHave('caseLink'),
+            'suspicious' => $q->whereHas('linkAttempts', fn ($a) => $a->where('reason', 'already_used')),
+            'attempts' => $q->whereHas('linkAttempts'),
+            default => $q,
+        });
+
+        return self::filterCase($query, $request->integer('department_id') ?: null, $request->integer('stage_id') ?: null);
+    }
+
+    private static function filterCase($query, ?int $departmentId, ?int $stageId)
+    {
+        if (! $departmentId && ! $stageId) {
+            return $query;
+        }
+
+        return $query->whereIn('patients_simple.id', function ($sub) use ($departmentId, $stageId) {
+            $sub->select('case_patient_links.patient_registration_id')
+                ->from('case_patient_links')
+                ->whereNotNull('case_patient_links.patient_registration_id')
+                ->when($departmentId, fn ($q) => $q->where('case_patient_links.department_id', $departmentId))
+                ->when($stageId, fn ($q) => $q
+                    ->join('tasks', 'tasks.id', '=', 'case_patient_links.task_id')
+                    ->where('tasks.stage_id', $stageId));
+        });
+    }
+
+    /**
+     * How many listed patients fall in each link status, stage and
+     * department, for the filter chips. $base has the list's other filters
+     * (search, dates, service, archive) but none of the link filters; the
+     * stage counts follow the chosen department and the other way round.
+     *
+     * @return array{statuses: array<string, int>, stages: array<int, array{id: int, name: string, count: int}>, departments: array<int, array{id: int, name: string, count: int}>}
+     */
+    public static function facets($base, \Illuminate\Http\Request $request): array
+    {
+        $departmentId = $request->integer('department_id') ?: null;
+        $stageId = $request->integer('stage_id') ?: null;
+        $ids = fn ($q) => (clone $q)->toBase()->reorder()->select('patients_simple.id');
+
+        $statuses = [
+            'all' => (clone $base)->count(),
+            'linked' => (clone $base)->whereHas('caseLink')->count(),
+            'unlinked' => (clone $base)->whereDoesntHave('caseLink')->count(),
+            'suspicious' => (clone $base)->whereHas('linkAttempts', fn ($a) => $a->where('reason', 'already_used'))->count(),
+            'attempts' => (clone $base)->whereHas('linkAttempts')->count(),
+        ];
+
+        $links = fn ($q) => DB::table('case_patient_links')
+            ->join('tasks', 'tasks.id', '=', 'case_patient_links.task_id')
+            ->whereIn('case_patient_links.patient_registration_id', $ids($q));
+
+        $stageRows = $links(self::filterCase(clone $base, $departmentId, null))
+            ->whereNotNull('tasks.stage_id')
+            ->groupBy('tasks.stage_id')
+            ->selectRaw('tasks.stage_id as id, count(distinct case_patient_links.patient_registration_id) as n')
+            ->pluck('n', 'id');
+        $departmentRows = $links(self::filterCase(clone $base, null, $stageId))
+            ->whereNotNull('case_patient_links.department_id')
+            ->groupBy('case_patient_links.department_id')
+            ->selectRaw('case_patient_links.department_id as id, count(distinct case_patient_links.patient_registration_id) as n')
+            ->pluck('n', 'id');
+
+        $stageNames = \App\Models\Stage::withTrashed()->whereIn('id', $stageRows->keys())->orderBy('id')->pluck('name', 'id');
+        $departmentNames = \App\Models\Department::withTrashed()->whereIn('id', $departmentRows->keys())->orderBy('name')->pluck('name', 'id');
+
+        return [
+            'statuses' => $statuses,
+            'stages' => $stageNames->map(fn ($name, $id) => ['id' => (int) $id, 'name' => $name, 'count' => (int) $stageRows[$id]])->values()->all(),
+            'departments' => $departmentNames->map(fn ($name, $id) => ['id' => (int) $id, 'name' => $name, 'count' => (int) $departmentRows[$id]])->values()->all(),
+        ];
+    }
+
+    /**
      * Who the patient was linked to (doctor, task, department, when, how)
      * and every refused attempt, newest first: what staff see from the
      * patients list (2026-11-04, by request).
