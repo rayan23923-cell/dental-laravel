@@ -101,10 +101,11 @@ class LabFeeGate
      * Batched form for a page of registrations: registration id => the
      * earlier registration whose result it can reuse.
      *
-     * Matches on the full name only (2026-11-01, by request; it used to
-     * try the phone first), so a patient who comes back with another
-     * number is still found. Names are compared after normalisation.
-     * Each match carries `matched_by` = 'name'.
+     * Matches on the full name AND the phone number (2026-11-04, by
+     * request: the phone comparison is back with the name match of
+     * 2026-11-01), so two patients with the same common name are not
+     * taken for one, nor two people sharing a number. Both are compared
+     * after normalisation. Each match carries `matched_by` = 'name_phone'.
      *
      * @param  Collection<int, PatientRegistration>  $registrations
      * @return Collection<int, PatientRegistration>
@@ -129,12 +130,16 @@ class LabFeeGate
         $result = collect();
         foreach ($registrations as $registration) {
             $others = $earlier->where('id', '!=', $registration->id);
+            $phone = self::normalizePhone($registration->phone);
             $name = self::normalizeName($registration->name);
 
-            $match = $name !== '' ? $others->first(fn ($e) => self::normalizeName($e->name) === $name) : null;
+            $match = $name !== '' && $phone !== ''
+                ? $others->first(fn ($e) => self::normalizeName($e->name) === $name && self::normalizePhone($e->phone) === $phone)
+                : null;
+            $by = 'name_phone';
 
             if ($match) {
-                $result->put($registration->id, (clone $match)->setAttribute('matched_by', 'name'));
+                $result->put($registration->id, (clone $match)->setAttribute('matched_by', $by));
             }
         }
 

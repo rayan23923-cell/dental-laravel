@@ -1270,7 +1270,7 @@
         "reusePrint": "Use earlier test and print slip",
         "orScreenAgain": "Or record a new test result:",
         "matchedByName": "Found by name only: {name} ({phone}). Make sure it is the same patient first.",
-        "matchedByPhone": "Found by phone number: {name} ({phone}).",
+        "matchedByPhone": "Found by name and phone number: {name} ({phone}).",
         "autoReused": "Clear: valid earlier test, no new test needed. The slip was printed.",
         "feeConfirmQuestion": "Did you receive the lab fee ({amount}) from the patient? The payment is recorded and the slip prints.",
         "feeConfirmYes": "Yes, received",
