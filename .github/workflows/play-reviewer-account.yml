@@ -28,6 +28,7 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           PW="Review$(openssl rand -hex 4)"
-          php_code='$d = App\Models\Doctor::firstOrNew(["username" => "playreview"]); $d->fill(["name" => "Google Play Reviewer", "email" => "play.review@azoclinic.duckdns.org", "password" => "'"$PW"'", "locale" => "ar"]); $d->save(); echo "doctor id=".$d->id." stage=".var_export($d->stage_id, true)." groups=".DB::table("doctor_group_members")->where("doctor_id", $d->id)->count().PHP_EOL;'
+          php_code='$d = App\Models\Doctor::firstOrNew(["username" => "playreview"]); $d->fill(["name" => "Google Play Reviewer", "email" => "play.review@azoclinic.duckdns.org", "password" => "'"$PW"'", "locale" => "ar"]); if (! $d->education_type_id) { $d->education_type_id = App\Models\EducationType::orderBy("id")->value("id"); } if (! $d->academic_session_id) { $d->academic_session_id = App\Services\AcademicSessionHelper::resolveId(); } $d->save(); echo "doctor id=".$d->id." stage=".var_export($d->stage_id, true)." groups=".DB::table("doctor_group_members")->where("doctor_id", $d->id)->count().PHP_EOL;'
           ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" "sudo docker exec -u www-data dental-app php artisan tinker --execute=$(printf '%q' "$php_code")"
-          echo "LOGIN: username=playreview  email=play.review@azoclinic.duckdns.org  password=$PW"
+          echo "LOGIN username: playreview / email: play.review@azoclinic.duckdns.org"
+          echo "PW spaced (remove the spaces): $(printf '%s' "$PW" | sed 's/./& /g')"
