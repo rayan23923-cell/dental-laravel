@@ -100,6 +100,15 @@ class PatientRegistrationQrController extends Controller
         return response()->json($response);
     }
 
+    /**
+     * Who the patient was linked to and every refused attempt (2026-11-04,
+     * by request): see App\Support\CasePatientLinks::history().
+     */
+    public function caseLinkHistory(PatientRegistration $patientRegistration): JsonResponse
+    {
+        return response()->json(['data' => \App\Support\CasePatientLinks::history($patientRegistration)]);
+    }
+
     /** The patient linked to the case a sheet is for (2026-11-04). */
     public function caseLink(Request $request): JsonResponse
     {

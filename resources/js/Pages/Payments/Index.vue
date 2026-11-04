@@ -1,4 +1,5 @@
 <script setup>
+import DateInput from '@/Components/DateInput.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import ChatListCard from '@/Components/ChatList/ChatListCard.vue';
 import ChatListRow from '@/Components/ChatList/ChatListRow.vue';
@@ -204,11 +205,11 @@ const destroy = (payment) => {
                 <div class="flex flex-wrap items-center gap-2">
                     <label class="flex items-center gap-1 rounded-full bg-white py-0.5 ps-3 text-xs text-gray-500 shadow-sm ring-1 ring-gray-200">
                         {{ t('payments.fromDate') }}
-                        <input v-model="from" type="date" @change="applyFilters" class="rounded-full border-0 bg-transparent py-1 text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500" />
+                        <DateInput v-model="from" variant="pill" @change="applyFilters" />
                     </label>
                     <label class="flex items-center gap-1 rounded-full bg-white py-0.5 ps-3 text-xs text-gray-500 shadow-sm ring-1 ring-gray-200">
                         {{ t('payments.toDate') }}
-                        <input v-model="to" type="date" @change="applyFilters" class="rounded-full border-0 bg-transparent py-1 text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500" />
+                        <DateInput v-model="to" variant="pill" @change="applyFilters" />
                     </label>
                     <select
                         v-if="sourceOptions.length > 1"

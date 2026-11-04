@@ -212,6 +212,9 @@ Route::name('api.')->prefix('v1')->group(function () {
             ->middleware('permission:patients,view');
         Route::post('/patient-registrations', [PatientRegistrationController::class, 'store'])
             ->middleware('permission:patients,create');
+        // "مسجّل سابقاً" suggestions on the registration form (2026-11-04).
+        Route::get('/patient-registrations-previous', [PatientRegistrationController::class, 'previous'])
+            ->middleware(['permission:patients,create', 'throttle:120,1']);
         // Bulk archive / restore and the archive tab (2026-10-17), as the
         // web registry's destroy-many / restore-many.
         Route::delete('/patient-registrations-bulk', [PatientRegistrationController::class, 'destroyMany'])
@@ -240,6 +243,9 @@ Route::name('api.')->prefix('v1')->group(function () {
             ->middleware('permission:patients,view');
         Route::get('/patient-registrations/{patientRegistration}/status', [PatientRegistrationQrController::class, 'status'])
             ->middleware('permission:patients,view');
+        // Who the patient was linked to + refused attempts (2026-11-04).
+        Route::get('/patient-registrations/{patientRegistration}/case-link-history', [PatientRegistrationQrController::class, 'caseLinkHistory'])
+            ->withTrashed()->middleware('permission:patients,view');
 
         // Infectious-disease screening gate (2026-08-26) — see
         // PatientScreeningGate/PatientRegistrationQrController::confirmScreening().

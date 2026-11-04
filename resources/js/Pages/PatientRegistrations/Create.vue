@@ -4,6 +4,7 @@ import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
+import GhostTextInput from '@/Components/GhostTextInput.vue';
 import Icon from '@/Components/Icon.vue';
 import ChatAddButton from '@/Components/ChatList/ChatAddButton.vue';
 import { Head, useForm } from '@inertiajs/vue3';
@@ -37,6 +38,65 @@ const form = useForm({
     // service and the lab test free; sent only while the option is ticked.
     support_code: '',
 });
+
+// "مسجّل سابقاً" (2026-11-04, by request): earlier patients matching the
+// name or phone being typed are suggested in the background, as a faint
+// completion (Tab takes it) and a tap-to-fill line under the fields.
+// Late answers are dropped, so typing at a busy desk is never held up.
+const previous = ref([]);
+let previousTimer;
+let previousSeq = 0;
+const digitsOf = (v) => String(v ?? '').replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/\D/g, '');
+watch(
+    () => [form.name, form.phone],
+    ([name, phone]) => {
+        clearTimeout(previousTimer);
+        const n = String(name ?? '').trim();
+        const p = digitsOf(phone);
+        if (n.length < 2 && p.length < 4) {
+            previous.value = [];
+            return;
+        }
+        previousTimer = setTimeout(async () => {
+            const seq = ++previousSeq;
+            try {
+                const { data } = await axios.get(route('patient-registrations.previous'), { params: { name: n, phone: p } });
+                if (seq === previousSeq) previous.value = data.data ?? [];
+            } catch {
+                // Suggestions only: a failure changes nothing.
+            }
+        }, 250);
+    },
+);
+const nameSuggestion = computed(() => {
+    const typed = form.name.trim().toLocaleLowerCase();
+    if (!typed) return '';
+    return previous.value.find((p) => p.name.toLocaleLowerCase().startsWith(typed))?.name ?? '';
+});
+const phoneSuggestion = computed(() => {
+    const typed = digitsOf(form.phone);
+    if (typed.length < 4) return '';
+    return previous.value.find((p) => digitsOf(p.phone).startsWith(typed))?.phone ?? '';
+});
+// Already exactly one of them: nothing more to suggest.
+const sameAsPrevious = computed(() =>
+    previous.value.find((p) => p.name.toLocaleLowerCase() === form.name.trim().toLocaleLowerCase() && digitsOf(p.phone) === digitsOf(form.phone)),
+);
+const usePrevious = (p) => {
+    form.name = p.name;
+    if (p.phone) form.phone = p.phone;
+};
+const acceptName = () => {
+    const p = previous.value.find((x) => x.name === nameSuggestion.value);
+    form.name = nameSuggestion.value;
+    if (p?.phone && !digitsOf(form.phone)) form.phone = p.phone;
+};
+const acceptPhone = () => {
+    const p = previous.value.find((x) => x.phone === phoneSuggestion.value);
+    form.phone = phoneSuggestion.value;
+    if (p?.name && !form.name.trim()) form.name = p.name;
+};
+const fmtVisit = (iso) => (iso ? new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Baghdad' }) : '');
 
 const supportCare = ref(false);
 const codeCheck = ref({ state: null, message: '' });
@@ -185,15 +245,37 @@ const submit = () => {
                         <div class="grid gap-6 md:grid-cols-2">
                             <div>
                                 <InputLabel for="name" :value="t('patientReg.patientName')" />
-                                <TextInput id="name" v-model="form.name" type="text" class="mt-1 block w-full rounded-xl" required autofocus />
+                                <GhostTextInput id="name" v-model="form.name" :suggestion="nameSuggestion" type="text" class="mt-1" autocomplete="off" required autofocus @accept="acceptName" />
                                 <InputError class="mt-2" :message="form.errors.name" />
                             </div>
 
                             <div>
                                 <InputLabel for="phone" :value="t('profile.phone')" />
-                                <TextInput id="phone" v-model="form.phone" type="tel" class="mt-1 block w-full rounded-xl" dir="ltr" required />
+                                <GhostTextInput id="phone" v-model="form.phone" :suggestion="phoneSuggestion" type="tel" class="mt-1" dir="ltr" autocomplete="off" required @accept="acceptPhone" />
                                 <InputError class="mt-2" :message="form.errors.phone" />
                             </div>
+                        </div>
+
+                        <!-- Earlier patients matching what was typed (2026-11-04, by request) -->
+                        <div v-if="sameAsPrevious" class="-mt-3 flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                            <Icon name="history" size="text-[18px]" />
+                            {{ t('patientReg.previousSame', { n: sameAsPrevious.visits, date: fmtVisit(sameAsPrevious.last_visit) }) }}
+                        </div>
+                        <div v-else-if="previous.length" class="-mt-3 flex flex-wrap items-center gap-2 text-sm">
+                            <span class="flex items-center gap-1 text-gray-500"><Icon name="history" size="text-[18px]" />{{ t('patientReg.previousTitle') }}</span>
+                            <button
+                                v-for="p in previous.slice(0, 3)"
+                                :key="p.name + p.phone"
+                                type="button"
+                                tabindex="-1"
+                                class="rounded-full px-3 py-1 ring-1"
+                                :class="p.exact_name || p.exact_phone ? 'bg-amber-50 text-amber-900 ring-amber-200 hover:bg-amber-100' : 'bg-gray-50 text-gray-700 ring-gray-200 hover:bg-gray-100'"
+                                @click="usePrevious(p)"
+                            >
+                                {{ p.name }} · <span dir="ltr">{{ p.phone }}</span>
+                                <span class="text-xs opacity-70"> · {{ fmtVisit(p.last_visit) }}<template v-if="p.visits > 1"> · {{ t('patientReg.previousVisits', { n: p.visits }) }}</template></span>
+                            </button>
+                            <span class="text-xs text-gray-400">{{ t('patientReg.previousHint') }}</span>
                         </div>
 
                         <div>

@@ -38,7 +38,8 @@ class PatientRegistrationController extends Controller
     {
         $permissions = new PermissionManager($request->user());
         $registrations = $this->filteredQuery($request)
-            ->with(['service'])
+            ->with(['service', ...\App\Support\CasePatientLinks::LIST_RELATIONS])
+            ->withCount(\App\Support\CasePatientLinks::attemptCounts())
             ->orderByDesc('created_at')
             ->paginate(15)
             ->withQueryString();
@@ -49,7 +50,7 @@ class PatientRegistrationController extends Controller
             // (2026-10-14, by request): the days came from settings that
             // were removed. Same as the payments page.
             'services' => Service::orderBy('name')->get(['id', 'name']),
-            'filters' => $request->only('search', 'from', 'to', 'service_id', 'archived'),
+            'filters' => $request->only('search', 'from', 'to', 'service_id', 'archived', 'link'),
             // Hides what the desk roles (2026-10-12) can't do here.
             'can' => [
                 'archive' => $permissions->can('patients', 'delete'),
@@ -80,7 +81,16 @@ class PatientRegistrationController extends Controller
             })
             ->when($request->date('from'), fn ($q, $from) => $q->whereDate('created_at', '>=', $from))
             ->when($request->date('to'), fn ($q, $to) => $q->whereDate('created_at', '<=', $to))
-            ->when($request->integer('service_id'), fn ($q, $id) => $q->where('service_id', $id));
+            ->when($request->integer('service_id'), fn ($q, $id) => $q->where('service_id', $id))
+            // Linked to a case sheet or not, and refused link attempts
+            // (2026-11-04, by request, against stolen or forged receipts).
+            ->when($request->string('link')->toString(), fn ($q, $link) => match ($link) {
+                'linked' => $q->whereHas('caseLink'),
+                'unlinked' => $q->whereDoesntHave('caseLink'),
+                'suspicious' => $q->whereHas('linkAttempts', fn ($a) => $a->where('reason', 'already_used')),
+                'attempts' => $q->whereHas('linkAttempts'),
+                default => $q,
+            });
     }
 
     /**
@@ -177,6 +187,20 @@ class PatientRegistrationController extends Controller
             ->get(['id', 'name', 'phone', 'screening_status']);
 
         return response()->json(['data' => $registrations]);
+    }
+
+    /**
+     * Earlier patients matching the name or phone being typed on the
+     * registration form (2026-11-04, by request): App\Support\PreviousPatients.
+     */
+    public function previous(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'name' => ['nullable', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:40'],
+        ]);
+
+        return response()->json(['data' => \App\Support\PreviousPatients::suggest($validated['name'] ?? null, $validated['phone'] ?? null)]);
     }
 
     public function create(): Response
@@ -350,6 +374,15 @@ class PatientRegistrationController extends Controller
         $response['data']['link'] = \App\Support\CasePatientLinks::toView($link?->load('registration'));
 
         return response()->json($response);
+    }
+
+    /**
+     * Who the patient was linked to and every refused attempt (2026-11-04,
+     * by request): see App\Support\CasePatientLinks::history().
+     */
+    public function caseLinkHistory(PatientRegistration $patientRegistration): JsonResponse
+    {
+        return response()->json(['data' => \App\Support\CasePatientLinks::history($patientRegistration)]);
     }
 
     /** The patient linked to the case a sheet is for (2026-11-04). */

@@ -95,15 +95,38 @@ class PatientRegistrationRepository {
     String? to,
     int? serviceId,
     bool archived = false,
+    String? link,
   }) async {
     final data = await _client.getJson('/patient-registrations', query: {
       ..._filterQuery(search: search, from: from, to: to, serviceId: serviceId),
       if (archived) 'archived': 1,
+      // linked | unlinked | suspicious | attempts (2026-11-04).
+      if (link != null) 'link': link,
     }) as Map<String, dynamic>;
     return PatientRegistrationPage(
       page: Paginated.fromJson(data, PatientRegistration.fromJson),
       canArchive: (data['can'] as Map<String, dynamic>?)?['archive'] as bool? ?? false,
     );
+  }
+
+  /// Who the patient was linked to and every refused attempt (2026-11-04,
+  /// by request): `{registration, link, attempts}`, as
+  /// `CasePatientLinks::history()`.
+  Future<Map<String, dynamic>> caseLinkHistory(int registrationId) async {
+    final data = await _client.getJson('/patient-registrations/$registrationId/case-link-history') as Map<String, dynamic>;
+    return (data['data'] as Map<String, dynamic>?) ?? const {};
+  }
+
+  /// Earlier patients matching the name or phone being typed on the
+  /// registration form (2026-11-04, by request).
+  Future<List<PreviousPatient>> previousPatients({String? name, String? phone}) async {
+    final data = await _client.getJson('/patient-registrations-previous', query: {
+      if (name != null && name.isNotEmpty) 'name': name,
+      if (phone != null && phone.isNotEmpty) 'phone': phone,
+    }) as Map<String, dynamic>;
+    return ((data['data'] as List?) ?? const [])
+        .map((e) => PreviousPatient.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   static Map<String, dynamic> _filterQuery({String? search, String? from, String? to, int? serviceId}) => {

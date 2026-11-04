@@ -1,4 +1,5 @@
 <script setup>
+import DateInput from '@/Components/DateInput.vue';
 /**
  * Chat-list style (2026-10-13, by request): the registrations table became
  * chat-list rows (checkbox, initial avatar, name + phone, chips for
@@ -38,6 +39,26 @@ useLiveRegistrations(['registrations']);
 
 const page = usePage();
 
+// Who the patient was linked to (doctor, task, department) and refused
+// attempts, e.g. another doctor entering the same receipt (2026-11-04, by
+// request, against stolen or forged receipts).
+const historyFor = ref(null);
+const history = ref(null);
+const historyError = ref('');
+const openHistory = async (r) => {
+    historyFor.value = r;
+    history.value = null;
+    historyError.value = '';
+    try {
+        const { data } = await axios.get(route('patient-registrations.case-link-history', r.id));
+        history.value = data.data;
+    } catch (e) {
+        historyError.value = e.response?.data?.message || e.message;
+    }
+};
+const linkLabel = (link) => [link?.task?.title, link?.doctor?.name].filter(Boolean).join(' · ');
+const fmtDateTime = (iso) => (iso ? new Date(iso).toLocaleString('ar-IQ', { timeZone: 'Asia/Baghdad', dateStyle: 'medium', timeStyle: 'short' }) : '');
+
 // A patient just registered: their ticket prints straight away.
 watch(
     () => page.props.flash?.print_ticket,
@@ -50,6 +71,8 @@ const search = ref(props.filters.search || '');
 const from = ref(props.filters.from ?? '');
 const to = ref(props.filters.to ?? '');
 const serviceId = ref(props.filters.service_id ?? '');
+// Linked to a case sheet / refused attempts (2026-11-04, by request).
+const linkFilter = ref(props.filters.link ?? '');
 // Archive tab (2026-10-12): deleting archives a registration instead of
 // removing it, so its payments stay; archived ones are listed here and
 // can be restored.
@@ -63,6 +86,7 @@ const applyFilters = () => {
             ...(from.value ? { from: from.value } : {}),
             ...(to.value ? { to: to.value } : {}),
             ...(serviceId.value ? { service_id: serviceId.value } : {}),
+            ...(linkFilter.value ? { link: linkFilter.value } : {}),
             ...(archived.value ? { archived: 1 } : {}),
         },
         { preserveState: true, replace: true }
@@ -86,13 +110,14 @@ const setPeriod = (range) => {
     to.value = range.to;
     applyFilters();
 };
-const hasFilters = computed(() => !!(search.value || from.value || to.value || serviceId.value));
+const hasFilters = computed(() => !!(search.value || from.value || to.value || serviceId.value || linkFilter.value));
 
 const clearFilters = () => {
     search.value = '';
     from.value = '';
     to.value = '';
     serviceId.value = '';
+    linkFilter.value = '';
     router.get(route('patient-registrations.index'), archived.value ? { archived: 1 } : {});
 };
 
@@ -109,6 +134,7 @@ const currentFilters = () => ({
     ...(from.value ? { from: from.value } : {}),
     ...(to.value ? { to: to.value } : {}),
     ...(serviceId.value ? { service_id: serviceId.value } : {}),
+    ...(linkFilter.value ? { link: linkFilter.value } : {}),
 });
 // Archiving is the plain archive again (2026-11-04, by request): payments
 // kept, restorable from the archive tab. "From where" moved to the
@@ -300,15 +326,22 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
                 <div class="flex flex-wrap items-center gap-2">
                     <label class="flex items-center gap-1 rounded-full bg-white py-0.5 ps-3 text-xs text-gray-500 shadow-sm ring-1 ring-gray-200">
                         {{ t('payments.fromDate') }}
-                        <input v-model="from" type="date" @change="applyFilters" class="rounded-full border-0 bg-transparent py-1 text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500" />
+                        <DateInput v-model="from" variant="pill" @change="applyFilters" />
                     </label>
                     <label class="flex items-center gap-1 rounded-full bg-white py-0.5 ps-3 text-xs text-gray-500 shadow-sm ring-1 ring-gray-200">
                         {{ t('payments.toDate') }}
-                        <input v-model="to" type="date" @change="applyFilters" class="rounded-full border-0 bg-transparent py-1 text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500" />
+                        <DateInput v-model="to" variant="pill" @change="applyFilters" />
                     </label>
                     <select v-model="serviceId" @change="applyFilters" class="rounded-full border-gray-200 bg-white py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                         <option value="">{{ t('patientReg.serviceLabel') }}</option>
                         <option v-for="service in services" :key="service.id" :value="service.id">{{ service.name }}</option>
+                    </select>
+                    <select v-model="linkFilter" @change="applyFilters" class="rounded-full border-gray-200 bg-white py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">{{ t('patientReg.linkFilter') }}</option>
+                        <option value="linked">{{ t('patientReg.linkFilterLinked') }}</option>
+                        <option value="unlinked">{{ t('patientReg.linkFilterUnlinked') }}</option>
+                        <option value="suspicious">{{ t('patientReg.linkFilterSuspicious') }}</option>
+                        <option value="attempts">{{ t('patientReg.linkFilterAttempts') }}</option>
                     </select>
                     <ChatAction v-if="hasFilters" icon="filter_alt_off" :label="t('patientReg.clearFilters')" @click="clearFilters" />
                     <div v-if="!archived && can.archive && registrations.total" class="ms-auto flex items-center">
@@ -352,10 +385,14 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
                             </ChatChip>
                             <ChatChip icon="schedule">{{ fmtDate(r.created_at) }}</ChatChip>
                             <ChatChip :icon="screeningIcon(r.screening_status)" :tone="screeningTone(r.screening_status)">{{ screeningLabel(r.screening_status) }}<template v-if="diagnosisText(r)"> — {{ diagnosisText(r) }}</template></ChatChip>
+                            <ChatChip v-if="r.case_link" icon="link" tone="emerald">{{ t('patientReg.linkedTo') }}: {{ linkLabel(r.case_link) }}</ChatChip>
+                            <ChatChip v-if="r.suspicious_attempts_count" icon="gpp_maybe" tone="rose">{{ t('patientReg.suspiciousChip', { n: r.suspicious_attempts_count }) }}</ChatChip>
+                            <ChatChip v-else-if="r.link_attempts_count" icon="block" tone="amber">{{ t('patientReg.attemptsChip', { n: r.link_attempts_count }) }}</ChatChip>
                             <ChatChip v-if="archiveScopeOf(r)" icon="inventory_2" tone="amber">{{ t('patientReg.archivedFrom.' + archiveScopeOf(r)) }}</ChatChip>
                         </template>
                         <template #actions>
                             <ChatAction icon="qr_code_2" :label="t('patientReg.paymentCodeCol')" @click="qrRegistration = r" />
+                            <ChatAction :icon="r.suspicious_attempts_count ? 'gpp_maybe' : 'manage_search'" :label="t('patientReg.linkHistory')" :danger="!!r.suspicious_attempts_count" @click="openHistory(r)" />
                             <ChatAction icon="print" :label="t('patientReg.ticketCol')" :href="route('patient-registrations.print', r.id)" external />
                             <ChatAction v-if="can.screening" icon="health_and_safety" :label="t('patientReg.setScreening')" @click="screeningRegistration = r" />
                         </template>
@@ -366,6 +403,63 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
                 </ChatListCard>
             </div>
         </div>
+
+        <!-- Link history (2026-11-04, by request) -->
+        <Modal :show="!!historyFor" max-width="lg" @close="historyFor = null">
+            <div v-if="historyFor" class="flex flex-col gap-4 p-6">
+                <h3 class="flex items-center gap-2 text-lg font-semibold text-gray-800">
+                    <Icon name="manage_search" />{{ t('patientReg.linkHistoryTitle') }}
+                </h3>
+                <p class="text-sm text-gray-600">
+                    {{ historyFor.name }}<template v-if="historyFor.patient_code"> · <span dir="ltr" class="font-mono">{{ historyFor.patient_code }}</span></template>
+                </p>
+                <p v-if="historyError" class="rounded-xl bg-red-50 p-3 text-sm text-red-700">{{ historyError }}</p>
+                <p v-else-if="!history" class="text-sm text-gray-500">…</p>
+                <template v-else>
+                    <div v-if="history.link" class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                        <p class="mb-2 flex items-center gap-1 font-semibold"><Icon name="link" size="text-[18px]" />{{ t('patientReg.linkCurrent') }}</p>
+                        <dl class="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1">
+                            <dt class="text-emerald-700">{{ t('patientReg.linkDoctor') }}</dt>
+                            <dd class="font-medium">{{ history.link.doctor?.name || '—' }}<span v-if="history.link.doctor?.username" class="text-xs text-emerald-700" dir="ltr"> ({{ history.link.doctor.username }})</span></dd>
+                            <dt class="text-emerald-700">{{ t('patientReg.linkTask') }}</dt>
+                            <dd class="font-medium">{{ history.link.task || '—' }} <span class="text-xs text-emerald-700">({{ t(history.link.started ? 'patientReg.linkStarted' : 'patientReg.linkDraft') }})</span></dd>
+                            <dt class="text-emerald-700">{{ t('patientReg.linkDepartment') }}</dt>
+                            <dd>{{ history.link.department || '—' }}</dd>
+                            <dt class="text-emerald-700">{{ t('patientReg.linkAt') }}</dt>
+                            <dd>{{ fmtDateTime(history.link.linked_at) }}</dd>
+                            <dt class="text-emerald-700">{{ t('patientReg.linkMethod') }}</dt>
+                            <dd>{{ t(history.link.method === 'code' ? 'patientReg.linkMethodCode' : 'patientReg.linkMethodQr') }}</dd>
+                        </dl>
+                    </div>
+                    <p v-else class="rounded-xl bg-gray-50 p-3 text-sm text-gray-600">{{ t('patientReg.linkNone') }}</p>
+
+                    <div>
+                        <p class="mb-2 text-sm font-semibold text-gray-700">{{ t('patientReg.linkAttempts') }}</p>
+                        <p v-if="!history.attempts.length" class="text-sm text-gray-500">{{ t('patientReg.linkAttemptsNone') }}</p>
+                        <ul v-else class="flex max-h-72 flex-col gap-2 overflow-y-auto">
+                            <li
+                                v-for="a in history.attempts"
+                                :key="a.id"
+                                class="rounded-xl border p-3 text-sm"
+                                :class="a.reason === 'already_used' ? 'border-rose-200 bg-rose-50 text-rose-900' : 'border-amber-200 bg-amber-50 text-amber-900'"
+                            >
+                                <p class="flex items-center gap-1 font-semibold">
+                                    <Icon :name="a.reason === 'already_used' ? 'gpp_maybe' : 'block'" size="text-[18px]" />{{ t('patientReg.attemptReason.' + a.reason) }}
+                                </p>
+                                <p class="mt-1">
+                                    {{ a.doctor?.name || '—' }}<span v-if="a.doctor?.username" dir="ltr" class="text-xs opacity-80"> ({{ a.doctor.username }})</span>
+                                    <template v-if="a.task"> · {{ a.task }}</template>
+                                    · {{ t(a.method === 'code' ? 'patientReg.linkMethodCode' : 'patientReg.linkMethodQr') }}
+                                </p>
+                                <p v-if="a.linked_doctor" class="text-xs opacity-80">{{ t('patientReg.attemptLinkedTo', { doctor: [a.linked_task, a.linked_doctor].filter(Boolean).join(' · ') }) }}</p>
+                                <p class="text-xs opacity-80">{{ fmtDateTime(a.at) }}</p>
+                            </li>
+                        </ul>
+                    </div>
+                </template>
+                <SecondaryButton class="justify-center" @click="historyFor = null">{{ t('common.close') }}</SecondaryButton>
+            </div>
+        </Modal>
 
         <!-- Archive (plain again, 2026-11-04, by request) -->
         <Modal :show="!!archiveAsk" max-width="md" @close="archiveAsk = null">

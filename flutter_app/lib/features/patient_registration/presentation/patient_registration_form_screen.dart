@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/gestures.dart';
@@ -20,6 +21,7 @@ import '../../printing/presentation/ticket_renderer.dart';
 import '../../printing/presentation/ticket_widget.dart';
 import '../../records/domain/payment.dart';
 import '../data/patient_registration_repository.dart';
+import '../domain/patient_registration.dart';
 import '../data/support_codes_repository.dart';
 import '../domain/service.dart';
 import 'live_registrations.dart';
@@ -58,6 +60,101 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
   int? _taskId;
   bool _submitting = false;
 
+  // "مسجّل سابقاً" (2026-11-04, by request): earlier patients matching the
+  // name or phone being typed, asked in the background (late answers are
+  // dropped) and shown as tap-to-fill chips, so typing is never held up.
+  List<PreviousPatient> _previous = const [];
+  Timer? _previousTimer;
+  int _previousSeq = 0;
+  String _previousKey = '';
+
+  void _queuePrevious() {
+    final name = _nameController.text.trim();
+    final phone = _asciiDigits(_phoneController.text);
+    final key = '$name|$phone';
+    if (key == _previousKey) return;
+    _previousKey = key;
+    _previousTimer?.cancel();
+    if (name.length < 2 && phone.length < 4) {
+      if (_previous.isNotEmpty) setState(() => _previous = const []);
+      return;
+    }
+    _previousTimer = Timer(const Duration(milliseconds: 300), () async {
+      final seq = ++_previousSeq;
+      try {
+        final list = await ref.read(patientRegistrationRepositoryProvider).previousPatients(name: name, phone: phone);
+        if (mounted && seq == _previousSeq) setState(() => _previous = list);
+      } catch (_) {
+        // Suggestions only: a failure changes nothing.
+      }
+    });
+  }
+
+  void _usePrevious(PreviousPatient p) {
+    _nameController.text = p.name;
+    if (p.phone != null && p.phone!.isNotEmpty) _phoneController.text = p.phone!;
+  }
+
+  PreviousPatient? get _sameAsPrevious {
+    final name = _nameController.text.trim().toLowerCase();
+    final phone = _asciiDigits(_phoneController.text);
+    for (final p in _previous) {
+      if (p.name.toLowerCase() == name && _asciiDigits(p.phone ?? '') == phone) return p;
+    }
+    return null;
+  }
+
+  static String _visitDate(String? iso) {
+    final d = iso == null ? null : DateTime.tryParse(iso);
+    return d == null ? '' : DateFormat('yyyy-MM-dd').format(d.toUtc().add(const Duration(hours: 3)));
+  }
+
+  Widget _previousRow(Map<String, String> t) {
+    final same = _sameAsPrevious;
+    if (same != null) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(4, 10, 4, 0),
+        child: Row(children: [
+          Icon(Icons.history, size: 18, color: Colors.green.shade800),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              trf(t['patientRegFlutter.previousSame']!, {'n': same.visits, 'date': _visitDate(same.lastVisit)}),
+              style: TextStyle(color: Colors.green.shade800),
+            ),
+          ),
+        ]),
+      );
+    }
+    if (_previous.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 10, 4, 0),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.history, size: 18, color: Colors.grey),
+            const SizedBox(width: 4),
+            Text(t['patientRegFlutter.previousTitle']!, style: const TextStyle(color: Colors.grey)),
+          ]),
+          for (final p in _previous.take(3))
+            ActionChip(
+              backgroundColor: p.exactName || p.exactPhone ? Colors.amber.shade50 : null,
+              label: Text([
+                p.name,
+                if (p.phone != null) '\u2066${p.phone}\u2069',
+                _visitDate(p.lastVisit),
+                if (p.visits > 1) trf(t['patientRegFlutter.previousVisits']!, {'n': p.visits}),
+              ].where((s) => s.isNotEmpty).join(' · ')),
+              onPressed: () => _usePrevious(p),
+            ),
+        ],
+      ),
+    );
+  }
+
   /// Student discount (2026-10-25, by request): not eligible by default.
   bool _discountEligible = false;
 
@@ -89,6 +186,8 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
   @override
   void initState() {
     super.initState();
+    _nameController.addListener(_queuePrevious);
+    _phoneController.addListener(_queuePrevious);
     // The list screen keeps the services loaded; take them fresh here,
     // just after initState: ref reaches the provider scope through
     // context, which initState may not do (debug builds assert on it).
@@ -109,6 +208,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
 
   @override
   void dispose() {
+    _previousTimer?.cancel();
     _nameController.dispose();
     _phoneController.dispose();
     _discountPersonController.dispose();
@@ -326,6 +426,7 @@ class _PatientRegistrationFormScreenState extends ConsumerState<PatientRegistrat
                             : Column(children: [nameField, const SizedBox(height: 12), phoneField]),
                       ),
                     ),
+                    _previousRow(t),
                     const SizedBox(height: 12),
                     _Section(
                       icon: Icons.medical_services_outlined,

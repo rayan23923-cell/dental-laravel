@@ -75,7 +75,7 @@ class RegistrationArchive
         return DB::transaction(function () use ($ids) {
             foreach (array_chunk($ids, 500) as $chunk) {
                 DB::table('payments')->whereIn('patient_registration_id', $chunk)->delete();
-                foreach (['appointments', 'task_instances', 'support_codes', 'case_patient_links'] as $table) {
+                foreach (['appointments', 'task_instances', 'support_codes', 'case_patient_links', 'case_patient_link_attempts'] as $table) {
                     if (Schema::hasTable($table) && Schema::hasColumn($table, 'patient_registration_id')) {
                         DB::table($table)->whereIn('patient_registration_id', $chunk)->update(['patient_registration_id' => null]);
                     }

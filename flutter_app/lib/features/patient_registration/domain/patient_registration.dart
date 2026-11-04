@@ -42,6 +42,9 @@ class PatientRegistration {
     this.labResultReceivedAt,
     this.screeningDiagnoses = const [],
     this.screeningDiagnosisText,
+    this.caseLink,
+    this.linkAttemptsCount = 0,
+    this.suspiciousAttemptsCount = 0,
   });
 
   factory PatientRegistration.fromJson(Map<String, dynamic> json) {
@@ -97,6 +100,9 @@ class PatientRegistration {
       labResultReceivedAt: json['lab_result_received_at'] as String?,
       screeningDiagnoses: ((json['screening_diagnoses'] as List<dynamic>?) ?? const []).map((e) => e.toString()).toList(),
       screeningDiagnosisText: json['screening_diagnosis_text'] as String?,
+      caseLink: RegistrationCaseLink.fromJson(json['case_link']),
+      linkAttemptsCount: (json['link_attempts_count'] as num?)?.toInt() ?? 0,
+      suspiciousAttemptsCount: (json['suspicious_attempts_count'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -167,8 +173,71 @@ class PatientRegistration {
   final List<String> screeningDiagnoses;
   final String? screeningDiagnosisText;
 
+  /// The case sheet this patient was linked to, and refused attempts to
+  /// link it, e.g. another doctor entering the same receipt (2026-11-04,
+  /// by request, against stolen or forged receipts). Only the registry
+  /// list sends these.
+  final RegistrationCaseLink? caseLink;
+  final int linkAttemptsCount;
+  final int suspiciousAttemptsCount;
+
   bool get isLabResultReceived => labResultReceivedAt != null;
 
   bool get isScreeningClear => screeningStatus == 'clear';
   bool get isScreened => screeningStatus != 'pending';
+}
+
+/// Who a patient was linked to: doctor, task (e.g. قلع) and department.
+class RegistrationCaseLink {
+  const RegistrationCaseLink({this.doctor, this.task, this.department, this.method, this.started = false, this.linkedAt});
+
+  static RegistrationCaseLink? fromJson(Object? json) {
+    if (json is! Map) return null;
+    return RegistrationCaseLink(
+      doctor: json['doctor'] as String?,
+      task: json['task'] as String?,
+      department: json['department'] as String?,
+      method: json['method'] as String?,
+      started: json['started'] == true,
+      linkedAt: json['linked_at'] as String?,
+    );
+  }
+
+  final String? doctor;
+  final String? task;
+  final String? department;
+  final String? method;
+  final bool started;
+  final String? linkedAt;
+
+  String get label => [task, doctor].whereType<String>().where((s) => s.isNotEmpty).join(' · ');
+}
+
+/// An earlier patient matching the name or phone typed on the
+/// registration form (2026-11-04, by request): `PreviousPatients::suggest()`.
+class PreviousPatient {
+  const PreviousPatient({
+    required this.name,
+    this.phone,
+    this.visits = 1,
+    this.lastVisit,
+    this.exactName = false,
+    this.exactPhone = false,
+  });
+
+  factory PreviousPatient.fromJson(Map<String, dynamic> json) => PreviousPatient(
+        name: json['name'] as String? ?? '',
+        phone: json['phone'] as String?,
+        visits: (json['visits'] as num?)?.toInt() ?? 1,
+        lastVisit: json['last_visit'] as String?,
+        exactName: json['exact_name'] == true,
+        exactPhone: json['exact_phone'] == true,
+      );
+
+  final String name;
+  final String? phone;
+  final int visits;
+  final String? lastVisit;
+  final bool exactName;
+  final bool exactPhone;
 }

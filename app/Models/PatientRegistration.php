@@ -96,6 +96,12 @@ class PatientRegistration extends Model
         return $this->hasOne(CasePatientLink::class, 'patient_registration_id');
     }
 
+    /** Refused attempts to link it, e.g. another doctor's (2026-11-04). */
+    public function linkAttempts(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(CasePatientLinkAttempt::class, 'patient_registration_id');
+    }
+
     protected function casts(): array
     {
         return [

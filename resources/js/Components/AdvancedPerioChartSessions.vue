@@ -1,4 +1,5 @@
 <script setup>
+import DateInput from '@/Components/DateInput.vue';
 /**
  * Multiple sessions/visits for the Advanced Periodontal Chart's 32-tooth
  * grid (2026-09-03, by request — "اعمله على شكل جلسات متعددة يتم اختيار
@@ -111,7 +112,7 @@ const updateActiveTeeth = (val) => {
             <template v-if="!disabled">
                 <div v-if="showAddForm" class="flex items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1">
                     <input v-model="newLabel" type="text" placeholder="Session name" class="w-32 rounded border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500" />
-                    <input v-model="newDate" type="date" class="rounded border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                    <DateInput v-model="newDate" class="w-44" />
                     <button type="button" class="text-sm font-medium text-indigo-700 hover:text-indigo-900" @click="confirmAddSession">Add</button>
                     <button type="button" class="text-sm text-gray-400 hover:text-gray-600" @click="showAddForm = false">Cancel</button>
                 </div>
@@ -134,7 +135,7 @@ const updateActiveTeeth = (val) => {
                 </label>
                 <label class="flex items-center gap-1.5">
                     <span class="text-gray-500">Date:</span>
-                    <input v-model="activeSession.date" type="date" :disabled="disabled" class="rounded border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500" @change="emitUpdate" />
+                    <DateInput v-model="activeSession.date" :disabled="disabled" class="w-44" @change="emitUpdate" />
                 </label>
                 <button v-if="!disabled" type="button" class="text-sm text-red-600 hover:underline" @click="removeSession(activeSession.id)">
                     Delete this session

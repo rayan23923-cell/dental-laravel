@@ -86,6 +86,58 @@ class CasePatientLinkTest extends TestCase
         $this->assertSame(1, CasePatientLink::count());
     }
 
+    public function test_staff_see_who_the_patient_was_linked_to_and_another_doctors_attempt(): void
+    {
+        $patient = $this->patient();
+        $this->actingAs($this->doctor, 'doctor')
+            ->postJson(route('patient-registrations.scan-for-case-sheet'), ['code' => $patient->patient_code, 'task_id' => $this->task->id])
+            ->assertOk();
+        $this->actingAs($this->other, 'doctor')
+            ->postJson(route('patient-registrations.scan-for-case-sheet'), ['code' => $patient->patient_code, 'task_id' => $this->task->id])
+            ->assertStatus(422);
+
+        $this->app['auth']->forgetGuards();
+        $admin = User::factory()->create(['role' => 'super_admin']);
+        $this->actingAs($admin)
+            ->getJson(route('patient-registrations.case-link-history', $patient))
+            ->assertOk()
+            ->assertJsonPath('data.link.doctor.name', 'د. علي')
+            ->assertJsonPath('data.link.task', 'حشوة')
+            ->assertJsonPath('data.link.department', 'الحشوات')
+            ->assertJsonPath('data.link.method', 'code')
+            ->assertJsonPath('data.attempts.0.reason', 'already_used')
+            ->assertJsonPath('data.attempts.0.doctor.name', 'د. سارة')
+            ->assertJsonPath('data.attempts.0.linked_doctor', 'د. علي');
+
+        $token = $admin->createToken('t')->plainTextToken;
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->getJson('/api/v1/patient-registrations?link=suspicious')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.case_link.doctor', 'د. علي')
+            ->assertJsonPath('data.0.suspicious_attempts_count', 1);
+        $this->withToken($token)->getJson('/api/v1/patient-registrations/'.$patient->id.'/case-link-history')
+            ->assertOk()->assertJsonCount(1, 'data.attempts');
+    }
+
+    public function test_the_registration_form_suggests_earlier_patients_by_name_or_phone(): void
+    {
+        PatientRegistration::create(['name' => 'أحمد علي حسن', 'phone' => '07701234567', 'screening_status' => 'clear']);
+        PatientRegistration::create(['name' => 'أحمد علي حسن', 'phone' => '07701234567', 'screening_status' => 'pending']);
+        PatientRegistration::create(['name' => 'زينب كاظم', 'phone' => '07809998877', 'screening_status' => 'clear']);
+        $this->actingAs(User::factory()->create(['role' => 'super_admin']));
+
+        $this->getJson(route('patient-registrations.previous', ['name' => 'أحمد ع']))
+            ->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.name', 'أحمد علي حسن')
+            ->assertJsonPath('data.0.visits', 2);
+        $this->getJson(route('patient-registrations.previous', ['phone' => '٠٧٨٠٩']))
+            ->assertOk()->assertJsonPath('data.0.name', 'زينب كاظم');
+        $this->getJson(route('patient-registrations.previous', ['name' => 'أ']))->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson(route('patient-registrations.previous', ['name' => 'أحمد علي حسن']))
+            ->assertJsonPath('data.0.exact_name', true);
+    }
+
     public function test_flagged_or_untested_patients_cannot_be_linked_and_wrong_codes_fail(): void
     {
         $this->actingAs($this->doctor, 'doctor');
