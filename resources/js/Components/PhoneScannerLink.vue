@@ -8,6 +8,7 @@
 import Icon from '@/Components/Icon.vue';
 import Modal from '@/Components/Modal.vue';
 import { closeRemoteScanner, openRemoteScanner, remoteScanner, restoreRemoteScanner } from '@/remoteScanner';
+import { usePage } from '@inertiajs/vue3';
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -19,12 +20,16 @@ const props = defineProps({
 });
 
 const { t } = useI18n();
+// Not offered on the student (doctor) interface (2026-11-04, by request).
+const isDoctor = computed(() => !!usePage().props.auth?.doctor);
 const open = ref(false);
 const busy = ref(false);
 const error = ref('');
 const copied = ref(false);
 
-onMounted(restoreRemoteScanner);
+onMounted(() => {
+    if (!isDoctor.value) restoreRemoteScanner();
+});
 
 const pairing = computed(() => remoteScanner.pairing);
 const connected = computed(() => !!pairing.value?.phone_joined);
@@ -76,6 +81,7 @@ const copyUnhandled = async () => {
 </script>
 
 <template>
+    <template v-if="!isDoctor">
     <button
         type="button"
         @click="show"
@@ -144,4 +150,5 @@ const copyUnhandled = async () => {
             </template>
         </div>
     </Modal>
+    </template>
 </template>

@@ -96,12 +96,10 @@ class CaseSheetSignatures
      */
     public static function applyPending(string $resource, array $data, ?Model $existing, string $signerName): array
     {
-        // Every case sheet's save passes here: a new sheet needs its
-        // patient linked when that is required (2026-11-04, see
-        // CasePatientLinks).
-        if ($existing === null) {
-            CasePatientLinks::enforceOnCreate($data);
-        }
+        // Every case sheet's save passes here: when linking is required a
+        // new sheet needs its patient linked, and the name and phone come
+        // from the link (2026-11-04, see CasePatientLinks).
+        $data = CasePatientLinks::applyRequired($resource, $data, $existing);
 
         foreach (self::fieldsFor($resource) as $spec) {
             $data = isset($spec['group'])

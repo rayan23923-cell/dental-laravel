@@ -133,21 +133,27 @@ class CasePatientLinkTest extends TestCase
         $this->post(route('doctor.task-start-requests.store'), ['task_id' => $this->task->id, 'form_type' => 'electronic'])->assertCreated();
     }
 
-    public function test_required_linking_blocks_saving_a_new_case_sheet(): void
+    public function test_required_linking_blocks_saving_and_fills_the_locked_name_and_phone(): void
     {
         ClinicSetting::current()->update(['patient_link_required' => true]);
-        $data = ['doctor_id' => $this->doctor->id, 'task_id' => $this->task->id];
+        $data = ['doctor_id' => $this->doctor->id, 'task_id' => $this->task->id, 'patient_id' => 'اسم مكتوب', 'patient_phone' => '000'];
 
         try {
-            CasePatientLinks::enforceOnCreate($data);
+            CasePatientLinks::applyRequired('dental-charts', $data, null);
             $this->fail('expected a validation error');
         } catch (\Illuminate\Validation\ValidationException $e) {
             $this->assertArrayHasKey('patient_link', $e->errors());
         }
 
-        CasePatientLinks::link($this->patient(), $this->doctor, $this->task->id, null, 'qr');
-        CasePatientLinks::enforceOnCreate($data);
-        $this->assertTrue(true);
+        $patient = $this->patient();
+        CasePatientLinks::link($patient, $this->doctor, $this->task->id, null, 'qr');
+        $saved = CasePatientLinks::applyRequired('dental-charts', $data, null);
+        $this->assertSame($patient->name, $saved['patient_id']);
+        $this->assertSame($patient->phone, $saved['patient_phone']);
+
+        // Optional: whatever was typed stays.
+        ClinicSetting::current()->update(['patient_link_required' => false]);
+        $this->assertSame('اسم مكتوب', CasePatientLinks::applyRequired('dental-charts', $data, null)['patient_id']);
     }
 
     public function test_payments_are_split_by_the_linked_department_with_lab_on_its_own(): void
