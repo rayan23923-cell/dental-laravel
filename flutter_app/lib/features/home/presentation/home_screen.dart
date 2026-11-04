@@ -253,7 +253,7 @@ class _StaffDashboard extends ConsumerWidget {
       onRefresh: () async {
         ref.invalidate(isDeskRole ? deskPanelsProvider : dashboardProvider);
         ref.invalidate(patientRegistrationListProvider(null));
-        ref.invalidate(paymentListProvider((search: null, from: null, to: null, source: null)));
+        ref.invalidate(paymentListProvider((search: null, from: null, to: null, source: null, link: null, stageId: null, departmentId: null)));
       },
       child: list,
     );
@@ -383,7 +383,7 @@ class _LatestPayments extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider);
-    final async = ref.watch(paymentListProvider((search: null, from: null, to: null, source: null)));
+    final async = ref.watch(paymentListProvider((search: null, from: null, to: null, source: null, link: null, stageId: null, departmentId: null)));
     final money = NumberFormat('#,##0', 'en');
     return async.when(
       loading: () => const Padding(padding: EdgeInsets.all(24), child: Center(child: TgSpinner())),

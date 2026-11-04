@@ -30,7 +30,7 @@ final appointmentProvider = FutureProvider.autoDispose.family<Appointment, int>(
 /// result) — no separate class/`==`/`hashCode` boilerplate needed.
 /// `payment_list_screen.dart` was the only call site and is updated to
 /// build one of these instead of passing a bare search string.
-typedef PaymentFilters = ({String? search, String? from, String? to, String? source});
+typedef PaymentFilters = ({String? search, String? from, String? to, String? source, String? link, int? stageId, int? departmentId});
 
 final paymentListProvider = FutureProvider.autoDispose.family<Paginated<Payment>, PaymentFilters>((ref, filters) {
   return ref.watch(recordsRepositoryProvider).listPayments(
@@ -38,6 +38,9 @@ final paymentListProvider = FutureProvider.autoDispose.family<Paginated<Payment>
         from: filters.from,
         to: filters.to,
         source: filters.source,
+        link: filters.link,
+        stageId: filters.stageId,
+        departmentId: filters.departmentId,
       );
 });
 
@@ -48,6 +51,9 @@ final paymentStatsProvider = FutureProvider.autoDispose.family<PaymentStats, Pay
         from: filters.from,
         to: filters.to,
         source: filters.source,
+        link: filters.link,
+        stageId: filters.stageId,
+        departmentId: filters.departmentId,
       );
 });
 

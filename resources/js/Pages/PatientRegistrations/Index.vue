@@ -1,4 +1,5 @@
 <script setup>
+import LinkFacetPanel from '@/Components/LinkFacetPanel.vue';
 import DateInput from '@/Components/DateInput.vue';
 /**
  * Chat-list style (2026-10-13, by request): the registrations table became
@@ -32,6 +33,8 @@ const props = defineProps({
     registrations: Object,
     services: { type: Array, default: () => [] },
     filters: Object,
+    // Counts per link status, stage and department (2026-11-04).
+    linkFacets: { type: Object, default: () => ({ statuses: {}, stages: [], departments: [] }) },
 });
 
 // New and changed registrations show up by themselves (2026-10-19, by request).
@@ -73,6 +76,15 @@ const to = ref(props.filters.to ?? '');
 const serviceId = ref(props.filters.service_id ?? '');
 // Linked to a case sheet / refused attempts (2026-11-04, by request).
 const linkFilter = ref(props.filters.link ?? '');
+// The linked case's stage and department (2026-11-04, by request).
+const stageId = ref(props.filters.stage_id ? Number(props.filters.stage_id) : null);
+const departmentId = ref(props.filters.department_id ? Number(props.filters.department_id) : null);
+const onLinkChange = (v) => {
+    linkFilter.value = v.link;
+    stageId.value = v.stageId;
+    departmentId.value = v.departmentId;
+    applyFilters();
+};
 // Archive tab (2026-10-12): deleting archives a registration instead of
 // removing it, so its payments stay; archived ones are listed here and
 // can be restored.
@@ -87,6 +99,8 @@ const applyFilters = () => {
             ...(to.value ? { to: to.value } : {}),
             ...(serviceId.value ? { service_id: serviceId.value } : {}),
             ...(linkFilter.value ? { link: linkFilter.value } : {}),
+            ...(stageId.value ? { stage_id: stageId.value } : {}),
+            ...(departmentId.value ? { department_id: departmentId.value } : {}),
             ...(archived.value ? { archived: 1 } : {}),
         },
         { preserveState: true, replace: true }
@@ -110,7 +124,7 @@ const setPeriod = (range) => {
     to.value = range.to;
     applyFilters();
 };
-const hasFilters = computed(() => !!(search.value || from.value || to.value || serviceId.value || linkFilter.value));
+const hasFilters = computed(() => !!(search.value || from.value || to.value || serviceId.value || linkFilter.value || stageId.value || departmentId.value));
 
 const clearFilters = () => {
     search.value = '';
@@ -118,6 +132,8 @@ const clearFilters = () => {
     to.value = '';
     serviceId.value = '';
     linkFilter.value = '';
+    stageId.value = null;
+    departmentId.value = null;
     router.get(route('patient-registrations.index'), archived.value ? { archived: 1 } : {});
 };
 
@@ -135,6 +151,8 @@ const currentFilters = () => ({
     ...(to.value ? { to: to.value } : {}),
     ...(serviceId.value ? { service_id: serviceId.value } : {}),
     ...(linkFilter.value ? { link: linkFilter.value } : {}),
+    ...(stageId.value ? { stage_id: stageId.value } : {}),
+    ...(departmentId.value ? { department_id: departmentId.value } : {}),
 });
 // Archiving is the plain archive again (2026-11-04, by request): payments
 // kept, restorable from the archive tab. "From where" moved to the
@@ -336,13 +354,6 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
                         <option value="">{{ t('patientReg.serviceLabel') }}</option>
                         <option v-for="service in services" :key="service.id" :value="service.id">{{ service.name }}</option>
                     </select>
-                    <select v-model="linkFilter" @change="applyFilters" class="rounded-full border-gray-200 bg-white py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                        <option value="">{{ t('patientReg.linkFilter') }}</option>
-                        <option value="linked">{{ t('patientReg.linkFilterLinked') }}</option>
-                        <option value="unlinked">{{ t('patientReg.linkFilterUnlinked') }}</option>
-                        <option value="suspicious">{{ t('patientReg.linkFilterSuspicious') }}</option>
-                        <option value="attempts">{{ t('patientReg.linkFilterAttempts') }}</option>
-                    </select>
                     <ChatAction v-if="hasFilters" icon="filter_alt_off" :label="t('patientReg.clearFilters')" @click="clearFilters" />
                     <div v-if="!archived && can.archive && registrations.total" class="ms-auto flex items-center">
                         <ChatAction icon="inventory_2" :label="hasFilters ? t('patientReg.deleteAllFiltered') : t('patientReg.deleteAll')" danger @click="destroyAll" />
@@ -351,6 +362,9 @@ const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { da
                         <ChatAction icon="delete_forever" :label="t('patientReg.purgeAll')" danger @click="openPurge(true)" />
                     </div>
                 </div>
+
+                <!-- Link to case sheets: status, stage, department (2026-11-04, by request) -->
+                <LinkFacetPanel :facets="linkFacets" :link="linkFilter" :stage-id="stageId" :department-id="departmentId" @change="onLinkChange" />
 
                 <!-- Bulk bar -->
                 <div v-if="selected.length" class="flex items-center justify-between gap-2 rounded-2xl bg-amber-50 px-4 py-2 ring-1 ring-amber-200">

@@ -60,6 +60,8 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
   int? _serviceId;
   // Linked to a case sheet / refused attempts (2026-11-04, by request).
   String? _link;
+  int? _stageId;
+  int? _departmentId;
   Timer? _debounce;
 
   // Archive tab and bulk archive / restore (2026-10-17), as the web
@@ -91,7 +93,8 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
         serviceId: _serviceId,
       );
 
-  bool get _hasFilters => _search.isNotEmpty || _range != null || _serviceId != null || _link != null;
+  bool get _hasFilters =>
+      _search.isNotEmpty || _range != null || _serviceId != null || _link != null || _stageId != null || _departmentId != null;
 
   Future<void> _pickRange() async {
     final now = DateTime.now();
@@ -104,7 +107,117 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
     if (picked != null) setState(() => _range = picked);
   }
 
-  PatientRegistrationPageQuery get _pageQuery => (filter: _filter, archived: !widget.pickMode && _archived, link: widget.pickMode ? null : _link);
+  PatientRegistrationPageQuery get _pageQuery => (
+        filter: _filter,
+        archived: !widget.pickMode && _archived,
+        link: widget.pickMode ? null : _link,
+        stageId: widget.pickMode ? null : _stageId,
+        departmentId: widget.pickMode ? null : _departmentId,
+      );
+
+  static const _linkStatuses = [
+    ('', 'patientRegFlutter.linkFilterAll', Icons.select_all),
+    ('linked', 'patientRegFlutter.linkFilterLinked', Icons.link),
+    ('unlinked', 'patientRegFlutter.linkFilterUnlinked', Icons.link_off),
+    ('suspicious', 'patientRegFlutter.linkFilterSuspicious', Icons.gpp_maybe_outlined),
+    ('attempts', 'patientRegFlutter.linkFilterAttempts', Icons.block),
+  ];
+
+  /// What the link filter button says, e.g. "مربوط بنموذج · المرحلة الرابعة · الحشوات".
+  String _linkSummary(Map<String, String> t, LinkFacets? facets) {
+    final parts = <String>[
+      if (_link != null) t[_linkStatuses.firstWhere((s) => s.$1 == _link).$2]!,
+      if (_stageId != null) facets?.stages.where((s) => s.id == _stageId).firstOrNull?.name ?? '…',
+      if (_departmentId != null) facets?.departments.where((d) => d.id == _departmentId).firstOrNull?.name ?? '…',
+    ];
+    return parts.isEmpty ? t['patientRegFlutter.linkFilterAll']! : parts.join(' · ');
+  }
+
+  /// Link to case sheets: status, the linked case's stage and department,
+  /// each with its count (2026-11-04, by request). A tap applies it.
+  Future<void> _openLinkFilter(LinkFacets facets) async {
+    final t = ref.read(translationsProvider);
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        void apply(VoidCallback change) {
+          setState(change);
+          Navigator.of(sheetContext).pop();
+        }
+
+        Widget section(String title, List<Widget> chips) => Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: Theme.of(sheetContext).textTheme.labelLarge?.copyWith(color: Colors.grey.shade600)),
+                  const SizedBox(height: 8),
+                  Wrap(spacing: 8, runSpacing: 8, children: chips),
+                ],
+              ),
+            );
+
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(sheetContext).size.height * 0.8),
+            child: ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              children: [
+                Text(t['patientRegFlutter.linkFilter']!, style: Theme.of(sheetContext).textTheme.titleMedium),
+                const SizedBox(height: 16),
+                section(t['patientRegFlutter.linkStatus']!, [
+                  for (final (key, label, icon) in _linkStatuses)
+                    ChoiceChip(
+                      avatar: Icon(icon, size: 16, color: key == 'suspicious' ? Colors.red.shade700 : null),
+                      label: Text('${t[label]!} (${facets.statuses[key.isEmpty ? 'all' : key] ?? 0})'),
+                      selected: (_link ?? '') == key,
+                      onSelected: (_) => apply(() {
+                        _link = key.isEmpty ? null : key;
+                        if (key == 'unlinked') {
+                          _stageId = null;
+                          _departmentId = null;
+                        }
+                      }),
+                    ),
+                ]),
+                if (facets.stages.isNotEmpty)
+                  section(t['patientRegFlutter.linkStage']!, [
+                    for (final st in facets.stages)
+                      ChoiceChip(
+                        avatar: const Icon(Icons.school_outlined, size: 16),
+                        selectedColor: Colors.green.shade100,
+                        label: Text('${st.name} (${st.count})'),
+                        selected: _stageId == st.id,
+                        onSelected: (_) => apply(() {
+                          _stageId = _stageId == st.id ? null : st.id;
+                          if (_link == 'unlinked') _link = null;
+                        }),
+                      ),
+                  ]),
+                if (facets.departments.isNotEmpty)
+                  section(t['patientRegFlutter.linkDepartment']!, [
+                    for (final d in facets.departments)
+                      ChoiceChip(
+                        avatar: const Icon(Icons.apartment, size: 16),
+                        selectedColor: Colors.blue.shade100,
+                        label: Text('${d.name} (${d.count})'),
+                        selected: _departmentId == d.id,
+                        onSelected: (_) => apply(() {
+                          _departmentId = _departmentId == d.id ? null : d.id;
+                          if (_link == 'unlinked') _link = null;
+                        }),
+                      ),
+                  ]),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   void _refresh() {
     ref.invalidate(patientRegistrationPageProvider);
@@ -301,6 +414,8 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
       _range = null;
       _serviceId = null;
       _link = null;
+      _stageId = null;
+      _departmentId = null;
     });
   }
 
@@ -539,27 +654,11 @@ class _PatientRegistrationListScreenState extends ConsumerState<PatientRegistrat
                 ),
                 if (!widget.pickMode) ...[
                   const SizedBox(height: 8),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        for (final (key, label, icon) in [
-                          ('linked', t['patientRegFlutter.linkFilterLinked']!, Icons.link),
-                          ('unlinked', t['patientRegFlutter.linkFilterUnlinked']!, Icons.link_off),
-                          ('suspicious', t['patientRegFlutter.linkFilterSuspicious']!, Icons.gpp_maybe_outlined),
-                          ('attempts', t['patientRegFlutter.linkFilterAttempts']!, Icons.block),
-                        ])
-                          Padding(
-                            padding: const EdgeInsetsDirectional.only(end: 6),
-                            child: FilterChip(
-                              avatar: Icon(icon, size: 16),
-                              label: Text(label),
-                              selected: _link == key,
-                              onSelected: (on) => setState(() => _link = on ? key : null),
-                            ),
-                          ),
-                      ],
-                    ),
+                  _LinkFilterButton(
+                    summary: _linkSummary(t, pageAsync.valueOrNull?.facets),
+                    active: _link != null || _stageId != null || _departmentId != null,
+                    suspicious: pageAsync.valueOrNull?.facets.statuses['suspicious'] ?? 0,
+                    onPressed: () => _openLinkFilter(pageAsync.valueOrNull?.facets ?? const LinkFacets()),
                   ),
                 ],
               ],
@@ -837,4 +936,41 @@ ThemeData _pillFilterTheme(BuildContext context) {
       textStyle: const TextStyle(fontSize: 13),
     ),
   );
+}
+
+/// The patients list's "الربط بالنماذج" button (2026-11-04): what is
+/// chosen now, and a red dot when other doctors tried linked receipts.
+class _LinkFilterButton extends StatelessWidget {
+  const _LinkFilterButton({required this.summary, required this.active, required this.suspicious, required this.onPressed});
+
+  final String summary;
+  final bool active;
+  final int suspicious;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        shape: const StadiumBorder(),
+        minimumSize: const Size.fromHeight(44),
+        backgroundColor: active ? scheme.primaryContainer : null,
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.account_tree_outlined, size: 18),
+          const SizedBox(width: 8),
+          Expanded(child: Text(summary, overflow: TextOverflow.ellipsis)),
+          if (suspicious > 0) ...[
+            Icon(Icons.gpp_maybe_outlined, size: 18, color: Colors.red.shade700),
+            Text(' $suspicious', style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold)),
+            const SizedBox(width: 4),
+          ],
+          const Icon(Icons.expand_more, size: 18),
+        ],
+      ),
+    );
+  }
 }

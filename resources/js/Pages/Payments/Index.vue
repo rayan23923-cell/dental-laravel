@@ -1,4 +1,5 @@
 <script setup>
+import LinkFacetPanel from '@/Components/LinkFacetPanel.vue';
 import DateInput from '@/Components/DateInput.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import ChatListCard from '@/Components/ChatList/ChatListCard.vue';
@@ -29,6 +30,8 @@ const props = defineProps({
     bySource: { type: Array, default: () => [] },
     // Income by department from the patient's case sheet (2026-11-04).
     byDepartment: { type: Array, default: () => [] },
+    // Counts per link status, stage and department (2026-11-04).
+    linkFacets: { type: Object, default: () => ({ statuses: {}, stages: [], departments: [] }) },
     currency: { type: String, default: '' },
     // The payments permissions (2026-10-24): report and delete.
     can: { type: Object, default: () => ({ export: true, delete: true }) },
@@ -65,7 +68,7 @@ const monthlyTitle = computed(() => (props.range ? t('payments.rangeMonthlyChart
 const sourceLabel = (s) => ({ registration: t('payments.registrationSource'), lab: t('payments.labFee'), appointment: t('payments.appointmentSource') })[s];
 const sourceMax = computed(() => Math.max(1, ...props.bySource.map((s) => s.total)));
 const departmentMax = computed(() => Math.max(1, ...props.byDepartment.map((d) => d.total)));
-const hasFilters = computed(() => !!(props.filters.search || props.filters.from || props.filters.to || (props.filters.source && sourceOptions.value.length > 1)));
+const hasFilters = computed(() => !!(props.filters.search || props.filters.from || props.filters.to || (props.filters.source && sourceOptions.value.length > 1) || props.filters.link || props.filters.stage_id || props.filters.department_id));
 
 const activityUrl = computed(() =>
     route('payments.activity', { from: props.filters.from || undefined, to: props.filters.to || undefined, autoprint: 1 }),
@@ -78,6 +81,9 @@ const reportUrl = computed(() =>
         ...(props.filters.from ? { from: props.filters.from } : {}),
         ...(props.filters.to ? { to: props.filters.to } : {}),
         ...(props.filters.source ? { source: props.filters.source } : {}),
+        ...(props.filters.link ? { link: props.filters.link } : {}),
+        ...(props.filters.stage_id ? { stage_id: props.filters.stage_id } : {}),
+        ...(props.filters.department_id ? { department_id: props.filters.department_id } : {}),
         autoprint: 1,
     }),
 );
@@ -96,6 +102,16 @@ const search = ref(props.filters.search ?? '');
 const from = ref(props.filters.from ?? '');
 const to = ref(props.filters.to ?? '');
 const source = ref(props.filters.source ?? '');
+// Link to case sheets, stage and department (2026-11-04, by request).
+const link = ref(props.filters.link ?? '');
+const stageId = ref(props.filters.stage_id ? Number(props.filters.stage_id) : null);
+const departmentId = ref(props.filters.department_id ? Number(props.filters.department_id) : null);
+const onLinkChange = (v) => {
+    link.value = v.link;
+    stageId.value = v.stageId;
+    departmentId.value = v.departmentId;
+    applyFilters();
+};
 
 // Today / this week / this month (2026-11-01, by request).
 const setPeriod = (range) => {
@@ -111,6 +127,9 @@ const applyFilters = () => {
             from: from.value || undefined,
             to: to.value || undefined,
             source: source.value || undefined,
+            link: link.value || undefined,
+            stage_id: stageId.value || undefined,
+            department_id: departmentId.value || undefined,
         },
         { preserveState: true, replace: true },
     );
@@ -223,6 +242,9 @@ const destroy = (payment) => {
                     </select>
                     <ChatAction icon="search" :label="t('payments.searchLabel')" @click="applyFilters" />
                 </div>
+
+                <!-- Link to case sheets: status, stage, department (2026-11-04, by request) -->
+                <LinkFacetPanel :facets="linkFacets" :link="link" :stage-id="stageId" :department-id="departmentId" @change="onLinkChange" />
 
                 <!-- Total of what the filters show, by source -->
                 <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">

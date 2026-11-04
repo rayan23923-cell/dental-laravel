@@ -24,6 +24,8 @@ import '../../data/records_repository.dart';
 import '../../domain/payment.dart';
 import '../records_providers.dart';
 import '../../../clinic_settings/presentation/clinic_settings_providers.dart';
+import '../../../patient_registration/data/patient_registration_repository.dart' show LinkFacets;
+import '../../../patient_registration/presentation/link_filter_sheet.dart';
 import 'payment_stats_overview.dart';
 import 'payments_activity_pdf.dart';
 import 'payments_pdf.dart';
@@ -49,6 +51,16 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
   DateTime? _to;
   String? _source; // null (all) | 'registration' | 'lab'
 
+  // Link to case sheets, the linked case's stage and department
+  // (2026-11-04, by request), as on the patients list.
+  LinkFilterValue _linkFilter = (link: null, stageId: null, departmentId: null);
+
+  /// The lab's own payments have no case sheets to filter by.
+  bool get _showLinkFilter {
+    final sources = staffPaymentSources(ref, listen: false);
+    return sources == null || sources.contains('registration');
+  }
+
   bool get _hasActiveFilters => _from != null || _to != null || _source != null;
 
   @override
@@ -62,6 +74,9 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
         from: _from == null ? null : DateFormat('yyyy-MM-dd').format(_from!),
         to: _to == null ? null : DateFormat('yyyy-MM-dd').format(_to!),
         source: _source,
+        link: _linkFilter.link,
+        stageId: _linkFilter.stageId,
+        departmentId: _linkFilter.departmentId,
       );
 
   Future<void> _openFilters() async {
@@ -100,6 +115,9 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
             from: f.from,
             to: f.to,
             source: f.source,
+            link: f.link,
+            stageId: f.stageId,
+            departmentId: f.departmentId,
           );
       final settings = await ref.read(clinicSettingsProvider.future);
       final logo = await loadLetterheadLogo(ref, settings);
@@ -114,6 +132,7 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
           // A single fixed source is the title, not a filter (2026-10-26).
           source: sources?.length == 1 ? null : f.source,
           title: sources?.length == 1 ? 'تقرير ${t[paymentsTitleKey(sources)]!}' : null,
+          linkFilter: linkFilterActive(_linkFilter) ? linkFilterSummary(t, _linkFilter, ref.read(paymentStatsProvider(f)).valueOrNull?.linkFacets) : null,
           format: format,
           logo: logo,
         ),
@@ -224,6 +243,23 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
               ),
             ),
           ),
+          // Link to case sheets / stage / department (2026-11-04, by request).
+          if (_showLinkFilter)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+              child: Builder(builder: (context) {
+                final facets = ref.watch(paymentStatsProvider(_filters)).valueOrNull?.linkFacets;
+                return LinkFilterButton(
+                  summary: linkFilterSummary(t, _linkFilter, facets),
+                  active: linkFilterActive(_linkFilter),
+                  suspicious: facets?.statuses['suspicious'] ?? 0,
+                  onPressed: () async {
+                    final picked = await showLinkFilterSheet(context, t, facets ?? const LinkFacets(), _linkFilter);
+                    if (picked != null && mounted) setState(() => _linkFilter = picked);
+                  },
+                );
+              }),
+            ),
           Expanded(
             child: paymentsAsync.when(
               loading: () => const Center(child: TgSpinner()),

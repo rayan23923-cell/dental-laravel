@@ -1,3 +1,5 @@
+import '../../patient_registration/data/patient_registration_repository.dart' show LinkFacets;
+
 /// Mirrors `Api\PaymentController::stats()` — the income overview the web
 /// `Payments/Index` page shows (2026-10-17, see `App\Support\PaymentStats`).
 class PaymentStats {
@@ -10,6 +12,7 @@ class PaymentStats {
     this.byDepartment = const [],
     this.currency,
     this.range,
+    this.linkFacets = const LinkFacets(),
   });
 
   factory PaymentStats.fromJson(Map<String, dynamic> json) {
@@ -33,6 +36,7 @@ class PaymentStats {
           .toList(),
       currency: data['currency'] as String?,
       range: data['range'] is Map<String, dynamic> ? PeriodRange.fromJson(data['range'] as Map<String, dynamic>) : null,
+      linkFacets: LinkFacets.fromJson(data['link_facets']),
     );
   }
 
@@ -57,6 +61,9 @@ class PaymentStats {
   /// the list has a date filter; [daily] and [monthly] then cover that
   /// period only (empty when it is too long / within one month).
   final PeriodRange? range;
+
+  /// Counts per link status, the linked case's stage and department (2026-11-04).
+  final LinkFacets linkFacets;
 }
 
 class PeriodRange {

@@ -25,6 +25,10 @@
     $filterBits = array_filter([
         $filters['source'] && count($scope ?? ['', '']) > 1 ? 'المصدر: ' . ($sourceLabels[$filters['source']] ?? $filters['source']) : null,
         $filters['search'] ? 'بحث: ' . $filters['search'] : null,
+        // Link to case sheets, stage and department (2026-11-04).
+        ! empty($filters['link']) ? 'الربط: ' . (['linked' => 'مربوط بنموذج', 'unlinked' => 'غير مربوط', 'suspicious' => 'محاولات مشبوهة', 'attempts' => 'محاولات مرفوضة'][$filters['link']] ?? $filters['link']) : null,
+        ! empty($filters['stage_id']) ? 'المرحلة: ' . (\App\Models\Stage::withTrashed()->whereKey($filters['stage_id'])->value('name') ?? '') : null,
+        ! empty($filters['department_id']) ? 'القسم: ' . (\App\Models\Department::withTrashed()->whereKey($filters['department_id'])->value('name') ?? '') : null,
     ]);
 @endphp
 

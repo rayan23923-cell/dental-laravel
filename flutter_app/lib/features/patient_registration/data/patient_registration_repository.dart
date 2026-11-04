@@ -96,16 +96,22 @@ class PatientRegistrationRepository {
     int? serviceId,
     bool archived = false,
     String? link,
+    int? stageId,
+    int? departmentId,
   }) async {
     final data = await _client.getJson('/patient-registrations', query: {
       ..._filterQuery(search: search, from: from, to: to, serviceId: serviceId),
       if (archived) 'archived': 1,
       // linked | unlinked | suspicious | attempts (2026-11-04).
       if (link != null) 'link': link,
+      // The linked case's stage and department (2026-11-04).
+      if (stageId != null) 'stage_id': stageId,
+      if (departmentId != null) 'department_id': departmentId,
     }) as Map<String, dynamic>;
     return PatientRegistrationPage(
       page: Paginated.fromJson(data, PatientRegistration.fromJson),
       canArchive: (data['can'] as Map<String, dynamic>?)?['archive'] as bool? ?? false,
+      facets: LinkFacets.fromJson(data['link_facets']),
     );
   }
 
@@ -314,8 +320,47 @@ class PatientRegistrationRepository {
 
 /// One page of the registry plus whether this account may archive.
 class PatientRegistrationPage {
-  const PatientRegistrationPage({required this.page, required this.canArchive});
+  const PatientRegistrationPage({required this.page, required this.canArchive, this.facets = const LinkFacets()});
 
   final Paginated<PatientRegistration> page;
   final bool canArchive;
+
+  /// Counts per link status, stage and department (2026-11-04).
+  final LinkFacets facets;
+}
+
+/// The patients list's link filter counts (2026-11-04, by request):
+/// `CasePatientLinks::facets()`.
+class LinkFacets {
+  const LinkFacets({this.statuses = const {}, this.stages = const [], this.departments = const []});
+
+  factory LinkFacets.fromJson(Object? json) {
+    if (json is! Map) return const LinkFacets();
+    List<LinkFacetItem> items(Object? list) => ((list as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => LinkFacetItem(
+              id: (e['id'] as num).toInt(),
+              name: e['name']?.toString() ?? '',
+              count: (e['count'] as num?)?.toInt() ?? 0,
+            ))
+        .toList();
+    final statuses = <String, int>{};
+    final raw = json['statuses'];
+    if (raw is Map) {
+      raw.forEach((k, v) => statuses[k.toString()] = (v as num?)?.toInt() ?? 0);
+    }
+    return LinkFacets(statuses: statuses, stages: items(json['stages']), departments: items(json['departments']));
+  }
+
+  final Map<String, int> statuses;
+  final List<LinkFacetItem> stages;
+  final List<LinkFacetItem> departments;
+}
+
+class LinkFacetItem {
+  const LinkFacetItem({required this.id, required this.name, required this.count});
+
+  final int id;
+  final String name;
+  final int count;
 }

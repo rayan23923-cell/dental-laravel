@@ -53,6 +53,8 @@ class PaymentController extends Controller
             'bySource' => PaymentStats::bySource($query, $sources),
             // Income by department from the patient's case sheet (2026-11-04).
             'byDepartment' => \App\Support\CasePatientLinks::departmentTotals($query),
+            // Counts per link status, stage and department (2026-11-04).
+            'linkFacets' => \App\Support\CasePatientLinks::paymentFacets($this->filteredQuery($request, $sources, false), $request),
             'currency' => ClinicSetting::current()->clinic_currency,
             'can' => [
                 // The lab / tickets grants include printing their report.
@@ -127,7 +129,7 @@ class PaymentController extends Controller
      * The search / date range / source filters shared by `index()` and
      * `report()`, within the account's [$sources] (PaymentScope).
      */
-    private function filteredQuery(Request $request, ?array $sources)
+    private function filteredQuery(Request $request, ?array $sources, bool $withLinkFilters = true)
     {
         $search = $request->string('search')->toString();
         $source = $this->filters($request, $sources)['source'];
@@ -146,7 +148,9 @@ class PaymentController extends Controller
                 'registration' => $q->whereNotNull('patient_registration_id')->where('type', '!=', Payment::TYPE_LAB),
                 'lab' => $q->where('type', Payment::TYPE_LAB),
                 default => $q,
-            });
+            })
+            // Link to case sheets, stage and department (2026-11-04, by request).
+            ->tap(fn ($q) => $withLinkFilters ? \App\Support\CasePatientLinks::filterPayments($q, $request) : $q);
     }
 
     private function filters(Request $request, ?array $sources): array
@@ -162,6 +166,9 @@ class PaymentController extends Controller
             'from' => $request->string('from')->toString() ?: null,
             'to' => $request->string('to')->toString() ?: null,
             'source' => $source,
+            'link' => $request->string('link')->toString() ?: null,
+            'stage_id' => $request->integer('stage_id') ?: null,
+            'department_id' => $request->integer('department_id') ?: null,
         ];
     }
 
