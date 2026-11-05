@@ -7,8 +7,10 @@
         $used = $licenses->whereNotNull('machine_id');
         $free = $licenses->whereNull('machine_id');
         $latestBuild = $latest['build'] ?? null;
-        $active = $university->activeDevices();
-        $outdated = $latestBuild ? $used->filter(fn ($l) => $l->installed_build && $l->installed_build < $latestBuild)->count() : 0;
+        $active = $university->activeDevices(null, $product);
+        // The newest build is known for the clinic system only (FileNest updates from its own hosting).
+        $isOutdated = fn ($l) => $latestBuild && ($l->product ?: 'dental') === 'dental' && $l->installed_build && $l->installed_build < $latestBuild;
+        $outdated = $used->filter($isOutdated)->count();
     @endphp
 
     <p class="muted" style="margin: 0 0 6px;"><a href="{{ route('licensing.home') }}">الجامعات</a> ›</p>
@@ -17,10 +19,17 @@
         <p class="muted" style="margin: 0 0 16px;">{{ collect([$university->contact, $university->notes])->filter()->join(' · ') }}</p>
     @endif
 
+    <nav class="tabs" style="display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 4px;">
+        <a href="{{ route('licensing.universities.show', $university) }}" class="tag {{ $product ? '' : 'green' }}">كل الأنظمة <span class="ltr">({{ $counts->sum() }})</span></a>
+        @foreach ($products as $key => $label)
+            <a href="{{ route('licensing.universities.show', [$university, 'product' => $key]) }}" class="tag {{ $product === $key ? 'green' : '' }}">{{ $label }} <span class="ltr">({{ $counts[$key] ?? 0 }})</span></a>
+        @endforeach
+    </nav>
+
     <div class="grid" style="margin: 16px 0;">
         <div class="stat"><span class="muted">الرموز</span><b>{{ $licenses->count() }}</b></div>
         <div class="stat"><span class="muted">حواسيب مفعّلة</span><b>{{ $used->count() }}</b></div>
-        <div class="stat"><span class="muted">الحد المسموح للأجهزة</span>
+        <div class="stat"><span class="muted">الحد المسموح للأجهزة @if ($product) ({{ $products[$product] }}) @else (لكل نظام) @endif</span>
             @if ($university->max_devices)
                 <b class="ltr">{{ $active }} / {{ $university->max_devices }}</b>
                 <span class="muted">{{ $active >= $university->max_devices ? 'مكتمل، لن يُفعَّل حاسوب جديد' : 'متبقٍّ '.($university->max_devices - $active) }}</span>
@@ -41,18 +50,19 @@
             <div class="table-wrap">
                 <table>
                     <thead>
-                        <tr><th>الحاسوب</th><th>رقم الحاسوب</th><th>الرمز</th><th>النسخة المثبّتة</th><th>تاريخ التفعيل</th><th>آخر اتصال</th><th>عبر الإنترنت</th><th>الحالة</th><th></th></tr>
+                        <tr><th>النظام</th><th>الحاسوب</th><th>رقم الحاسوب</th><th>الرمز</th><th>النسخة المثبّتة</th><th>تاريخ التفعيل</th><th>آخر اتصال</th><th>عبر الإنترنت</th><th>الحالة</th><th></th></tr>
                     </thead>
                     <tbody>
                         @foreach ($used as $l)
                             <tr>
+                                <td><span class="tag {{ $l->product === 'filenest' ? 'amber' : '' }}">{{ $l->productLabel() }}</span></td>
                                 <td>{{ $l->machine_name ?: '—' }}
                                     @if ($l->last_ip) <div class="muted ltr">{{ $l->last_ip }}</div> @endif</td>
                                 <td><code>{{ $l->machine_id }}</code></td>
                                 <td><code data-copy="{{ $l->code }}">{{ $l->code }}</code></td>
                                 <td>
                                     @if (! $l->installed_build) <span class="muted">غير معروفة</span>
-                                    @elseif ($latestBuild && $l->installed_build < $latestBuild) <span class="tag amber ltr">{{ $l->installed_build }}</span> <span class="muted">قديمة</span>
+                                    @elseif ($isOutdated($l)) <span class="tag amber ltr">{{ $l->installed_build }}</span> <span class="muted">قديمة</span>
                                     @else <span class="tag green ltr">{{ $l->installed_build }}</span>
                                     @endif
                                 </td>
@@ -80,6 +90,13 @@
         <h2>رموز التفعيل غير المستخدمة</h2>
         <form method="POST" action="{{ route('licensing.codes.store', $university) }}" class="row" style="margin-bottom: 14px;">
             @csrf
+            <label style="flex: 0 1 220px;">النظام
+                <select name="product" required>
+                    @foreach ($products as $key => $label)
+                        <option value="{{ $key }}" @selected(old('product', $product ?? 'dental') === $key)>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </label>
             <label style="flex: 0 1 120px;">العدد <input type="number" name="count" value="1" min="1" max="50" required></label>
             <label>ملاحظة <input name="notes" placeholder="مثلاً: حاسوب الاستقبال"></label>
             <button class="btn-primary" type="submit">إنشاء رموز</button>
@@ -90,10 +107,11 @@
         @else
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th>الرمز</th><th>ملاحظة</th><th>أُنشئ</th><th>الحالة</th><th></th></tr></thead>
+                    <thead><tr><th>النظام</th><th>الرمز</th><th>ملاحظة</th><th>أُنشئ</th><th>الحالة</th><th></th></tr></thead>
                     <tbody>
                         @foreach ($free as $l)
                             <tr>
+                                <td><span class="tag {{ $l->product === 'filenest' ? 'amber' : '' }}">{{ $l->productLabel() }}</span></td>
                                 <td><code data-copy="{{ $l->code }}" style="cursor: copy;" title="انقر للنسخ">{{ $l->code }}</code></td>
                                 <td>{{ $l->notes }}</td>
                                 <td class="muted">{{ $l->created_at?->format('Y-m-d') }}</td>
@@ -117,7 +135,7 @@
             <label>ملاحظات <input name="notes" value="{{ old('notes', $university->notes) }}"></label>
             <button type="submit">حفظ</button>
         </form>
-        <p class="muted" style="margin: 8px 0 0;">اتركه فارغاً بلا حد. عند الوصول إلى الحد يُرفض تفعيل أي حاسوب جديد، ويبقى المفعّل يعمل. تحرير رمز أو إيقافه يفرّغ مكاناً.</p>
+        <p class="muted" style="margin: 8px 0 0;">الحد يُطبَّق على كل نظام وحده (العيادات وFileNest). اتركه فارغاً بلا حد. عند الوصول إلى الحد يُرفض تفعيل أي حاسوب جديد، ويبقى المفعّل يعمل. تحرير رمز أو إيقافه يفرّغ مكاناً.</p>
         @error('name') <div class="error">{{ $message }}</div> @enderror
         @error('max_devices') <div class="error">{{ $message }}</div> @enderror
         @if ($used->isEmpty())

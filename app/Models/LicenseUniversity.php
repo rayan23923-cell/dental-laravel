@@ -15,17 +15,21 @@ class LicenseUniversity extends Model
         return $this->hasMany(OfflineLicense::class, 'university_id');
     }
 
-    /** Computers using one of its codes now (a stopped code frees its computer's place). */
-    public function activeDevices(?string $exceptMachine = null): int
+    /**
+     * Computers using one of its codes now (a stopped code frees its computer's place).
+     * With a product, only that system's computers: the limit applies to each system.
+     */
+    public function activeDevices(?string $exceptMachine = null, ?string $product = null): int
     {
         return $this->licenses()->whereNotNull('machine_id')->whereNull('revoked_at')
             ->when($exceptMachine, fn ($q) => $q->where('machine_id', '!=', $exceptMachine))
+            ->when($product, fn ($q) => $q->where('product', $product))
             ->distinct()->count('machine_id');
     }
 
-    /** Whether one more computer (other than this one) may activate. */
-    public function hasRoomFor(?string $machine = null): bool
+    /** Whether one more computer (other than this one) may activate this system. */
+    public function hasRoomFor(?string $machine = null, string $product = 'dental'): bool
     {
-        return $this->max_devices === null || $this->activeDevices($machine) < $this->max_devices;
+        return $this->max_devices === null || $this->activeDevices($machine, $product) < $this->max_devices;
     }
 }
