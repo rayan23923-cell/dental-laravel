@@ -25,13 +25,19 @@ class OfflineLicenseController extends Controller
             'machine_id' => ['required', 'string', 'regex:/^[A-F0-9]{4}(-[A-F0-9]{4}){3}$/'],
             'machine_name' => ['nullable', 'string', 'max:100'],
             'build' => ['nullable', 'integer', 'min:0'],
+            // Which offline system is activating (2026-11-05); the clinic system sends none.
+            'product' => ['nullable', 'string', 'in:'.implode(',', array_keys(OfflineLicense::PRODUCTS))],
         ]);
+        $product = $data['product'] ?? 'dental';
 
-        return DB::transaction(function () use ($data, $request) {
+        return DB::transaction(function () use ($data, $request, $product) {
             $license = OfflineLicense::where('code', OfflineLicense::normalize($data['code']))->lockForUpdate()->first();
 
             if (! $license) {
                 return response()->json(['message' => 'رمز التفعيل غير صحيح.'], 422);
+            }
+            if (($license->product ?: 'dental') !== $product) {
+                return response()->json(['message' => 'رمز التفعيل هذا مخصص لـ '.$license->productLabel().' وليس لهذا النظام.'], 422);
             }
             if ($license->revoked_at) {
                 return response()->json(['message' => 'رمز التفعيل هذا موقوف. راجع إدارة النظام.'], 422);
@@ -42,7 +48,7 @@ class OfflineLicenseController extends Controller
             }
             // A new computer only while the university is under its device limit.
             $university = $license->machine_id ? null : $license->universityRecord()->lockForUpdate()->first();
-            if ($university && ! $university->hasRoomFor($data['machine_id'])) {
+            if ($university && ! $university->hasRoomFor($data['machine_id'], $product)) {
                 return response()->json(['message' => 'وصلت الجامعة إلى الحد الأقصى لعدد الأجهزة ('.$university->max_devices.'). راجع إدارة النظام.'], 422);
             }
 
@@ -75,6 +81,11 @@ class OfflineLicenseController extends Controller
             'installed_build' => $build === false ? $license->installed_build : $build,
             'last_ip' => $request->ip(),
         ])->save();
+
+        // FileNest's packages live on its own hosting: its panel only checks in here.
+        if (($license->product ?: 'dental') !== 'dental') {
+            return response()->json(['build' => 0, 'product' => $license->product]);
+        }
 
         $latest = OfflineLicensing::latestBuild();
         if (! $latest) {

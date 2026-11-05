@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Licensing;
 
 use App\Http\Controllers\Controller;
 use App\Models\LicenseUniversity;
+use App\Models\OfflineLicense;
 use App\Support\OfflineLicensing;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,6 +21,8 @@ class UniversityController extends Controller
             'licenses as used_count' => fn ($q) => $q->whereNotNull('machine_id'),
             'licenses as active_count' => fn ($q) => $q->whereNotNull('machine_id')->whereNull('revoked_at'),
             'licenses as revoked_count' => fn ($q) => $q->whereNotNull('revoked_at'),
+            'licenses as dental_active_count' => fn ($q) => $q->where('product', 'dental')->whereNotNull('machine_id')->whereNull('revoked_at'),
+            'licenses as filenest_active_count' => fn ($q) => $q->where('product', 'filenest')->whereNotNull('machine_id')->whereNull('revoked_at'),
         ])->withMax('licenses', 'last_seen_at')->orderBy('name')->get();
 
         return view('licensing.index', [
@@ -36,11 +39,19 @@ class UniversityController extends Controller
         return redirect()->route('licensing.universities.show', $university)->with('success', 'تمت إضافة الجامعة.');
     }
 
-    public function show(LicenseUniversity $university): View
+    public function show(Request $request, LicenseUniversity $university): View
     {
+        // Each system has its own tab on the university page (2026-11-05).
+        $product = $request->query('product');
+        $product = array_key_exists((string) $product, OfflineLicense::PRODUCTS) ? $product : null;
+
         return view('licensing.university', [
             'university' => $university,
-            'licenses' => $university->licenses()->orderByRaw('machine_id is null')->orderByDesc('activated_at')->orderByDesc('id')->get(),
+            'product' => $product,
+            'products' => OfflineLicense::PRODUCTS,
+            'counts' => $university->licenses()->selectRaw('product, count(*) as total')->groupBy('product')->pluck('total', 'product'),
+            'licenses' => $university->licenses()->when($product, fn ($q) => $q->where('product', $product))
+                ->orderByRaw('machine_id is null')->orderByDesc('activated_at')->orderByDesc('id')->get(),
             'latest' => OfflineLicensing::latestBuild(),
         ]);
     }

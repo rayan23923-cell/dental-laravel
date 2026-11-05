@@ -13,7 +13,20 @@ use Illuminate\Support\Str;
  */
 class OfflineLicense extends Model
 {
-    protected $fillable = ['code', 'university', 'university_id', 'notes', 'machine_id', 'machine_name', 'activated_at', 'last_seen_at', 'installed_build', 'last_ip', 'revoked_at', 'created_by', 'tunnel_slug', 'tunnel_url', 'tunnel_panel_url', 'tunnel_seen_at'];
+    /** The offline systems one portal licenses (2026-11-05): code => name shown in the portal. */
+    public const PRODUCTS = [
+        'dental' => 'نظام العيادات',
+        'filenest' => 'FileNest (الملفات والمكتبة)',
+    ];
+
+    protected $attributes = ['product' => 'dental'];
+
+    public function productLabel(): string
+    {
+        return self::PRODUCTS[$this->product] ?? $this->product;
+    }
+
+    protected $fillable = ['code', 'product', 'university', 'university_id', 'notes', 'machine_id', 'machine_name', 'activated_at', 'last_seen_at', 'installed_build', 'last_ip', 'revoked_at', 'created_by', 'tunnel_slug', 'tunnel_url', 'tunnel_panel_url', 'tunnel_seen_at'];
 
     protected function casts(): array
     {

@@ -36,6 +36,7 @@ class OfflineLicensing
     {
         $payload = json_encode([
             'code' => $license->code,
+            'product' => $license->product ?: 'dental',
             'university' => $license->university,
             'machine_id' => $license->machine_id,
             'activated_at' => $license->activated_at?->toIso8601String(),
@@ -80,6 +81,11 @@ class OfflineLicensing
         $file = self::path();
         $saved = is_file($file) ? json_decode((string) file_get_contents($file), true) : null;
         $data = self::verify(is_array($saved) ? $saved : null);
+
+        // A licence for another system (FileNest, 2026-11-05) never unlocks this one.
+        if ($data && ($data['product'] ?? 'dental') !== 'dental') {
+            return null;
+        }
 
         return $data && hash_equals((string) ($data['machine_id'] ?? ''), self::machineId()) ? $data : null;
     }

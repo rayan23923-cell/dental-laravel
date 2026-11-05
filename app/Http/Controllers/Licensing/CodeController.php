@@ -16,11 +16,13 @@ class CodeController extends Controller
         $data = $request->validate([
             'count' => ['required', 'integer', 'min:1', 'max:50'],
             'notes' => ['nullable', 'string', 'max:255'],
+            'product' => ['nullable', 'string', 'in:'.implode(',', array_keys(OfflineLicense::PRODUCTS))],
         ]);
 
         for ($i = 0; $i < $data['count']; $i++) {
             OfflineLicense::create([
                 'code' => OfflineLicense::newCode(),
+                'product' => $data['product'] ?? 'dental',
                 'university' => $university->name,
                 'university_id' => $university->id,
                 'notes' => $data['notes'] ?? null,
@@ -37,7 +39,7 @@ class CodeController extends Controller
 
         // Restarting a stopped code brings its computer back: only within the limit.
         $university = $license->universityRecord;
-        if ($action === 'restore' && $license->machine_id && $university && ! $university->hasRoomFor($license->machine_id)) {
+        if ($action === 'restore' && $license->machine_id && $university && ! $university->hasRoomFor($license->machine_id, $license->product ?: 'dental')) {
             return back()->with('error', 'وصلت الجامعة إلى الحد الأقصى لعدد الأجهزة ('.$university->max_devices.'). حرّر أو أوقف حاسوباً آخر، أو ارفع الحد.');
         }
 
