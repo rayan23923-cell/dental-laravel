@@ -27,7 +27,7 @@ class BrandIconTest extends TestCase
         $this->get('/brand-icon/64.png')->assertNotFound();
 
         $this->getJson('/manifest.webmanifest')->assertOk()
-            ->assertJsonPath('start_url', './')
+            ->assertJsonPath('start_url', './start')
             ->assertJsonPath('icons.0.src', 'brand-icon/192.png');
         $this->getJson('/brand.json')->assertOk()
             ->assertJsonPath('name', 'عيادة الاختبار')

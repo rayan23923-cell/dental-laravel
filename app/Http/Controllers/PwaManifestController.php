@@ -41,7 +41,8 @@ class PwaManifestController extends Controller
             // Relative to this manifest (2026-11-02): the offline server is
             // opened by name or IP, http or https, so an absolute APP_URL
             // here pointed at another origin and the install ignored it.
-            'start_url' => './',
+            // Opens the system itself, or the login page (2026-11-05, see /start).
+            'start_url' => './start',
             'scope' => './',
             'id' => './',
             'display' => 'standalone',
