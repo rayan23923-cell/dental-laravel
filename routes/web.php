@@ -73,6 +73,7 @@ use App\Http\Controllers\ScannerPairingController;
 use App\Models\EducationType;
 use App\Models\Patient;
 use App\Models\Stage;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -80,11 +81,44 @@ use Inertia\Inertia;
 // same ClinicSetting row every print view and the admin settings screen
 // already use, plus real counts (not placeholder marketing numbers) so
 // the page reflects this actual install rather than generic copy.
-Route::get('/', function () {
+// Where an installed web app opens (the manifest's start_url, 2026-11-05, by
+// request): straight into the system when signed in, else the login page,
+// which then leads into the system; never the public front page first.
+Route::get('/start', function () {
+    if (Auth::guard('web')->check()) {
+        return redirect()->route('dashboard');
+    }
+    if (Auth::guard('doctor')->check()) {
+        return redirect()->route('doctor.dashboard');
+    }
+
+    return redirect()->route('login');
+})->name('app.start');
+
+Route::get('/', function (\Illuminate\Http\Request $request) {
+    // Offline server (2026-11-05, by request): a home-screen shortcut made
+    // from this page (plain http can't install a real app) opens the system
+    // directly once signed in instead of asking to log in again each time.
+    if (config('offline.edition')) {
+        if (Auth::guard('web')->check()) {
+            return redirect()->route('dashboard');
+        }
+        if (Auth::guard('doctor')->check()) {
+            return redirect()->route('doctor.dashboard');
+        }
+    }
     $settings = ClinicSetting::current();
+
+    $httpPort = (int) config('offline.http_port', 80);
 
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
+        // Offline server: the Wi-Fi/certificate page over plain http (no
+        // certificate warning before it is installed) replaces the
+        // waiting-screen button (2026-11-05, by request).
+        'setupUrl' => config('offline.edition')
+            ? 'http://'.$request->getHost().($httpPort === 80 ? '' : ':'.$httpPort).'/setup'
+            : null,
         'clinic' => [
             'name' => $settings->clinic_name,
             'description' => $settings->clinic_description,

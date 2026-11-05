@@ -519,6 +519,8 @@ namespace DentalClinicPanel
             // this computer, which it recognises by Windows' MachineGuid.
             Environment.SetEnvironmentVariable("OFFLINE_EDITION", "true");
             Environment.SetEnvironmentVariable("DENTAL_MACHINE_GUID", MachineGuid());
+            // The http port, for the app's link to the Wi-Fi/certificate page (2026-11-05).
+            Environment.SetEnvironmentVariable("OFFLINE_HTTP_PORT", HttpPort.ToString());
             // PHP behind FastCGI does not always see this process's
             // environment, so the id is also left where the app reads it;
             // rewritten on every start, so a copied folder gets this computer's.
@@ -998,6 +1000,11 @@ namespace DentalClinicPanel
         public string LocalUrl { get { return "http://localhost" + (HttpPort == 80 ? "" : ":" + HttpPort); } }
         public string NetUrl { get { return "https://" + ServerName + (HttpsPort == 443 ? "" : ":" + HttpsPort); } }
         public string IpUrl { get { return "https://" + LanIp + (HttpsPort == 443 ? "" : ":" + HttpsPort); } }
+        // What other devices open first (2026-11-05, by request): plain http, so
+        // a phone without the clinic certificate sees no warning; https (NetUrl)
+        // is for after the certificate is installed from /setup.
+        public string LanUrl { get { return "http://" + ServerName + (HttpPort == 80 ? "" : ":" + HttpPort); } }
+        public string LanIpUrl { get { return "http://" + LanIp + (HttpPort == 80 ? "" : ":" + HttpPort); } }
         public string SetupUrl { get { return "http://" + ServerName + (HttpPort == 80 ? "" : ":" + HttpPort) + "/setup"; } }
     }
 
@@ -2791,7 +2798,7 @@ namespace DentalClinicPanel
             stateDot.ForeColor = c;
             if (stateText.Text != text) stateText.Text = text;
             string hint = st == State.Error ? engine.LastError
-                : st == State.Running ? "تفتحه كل أجهزة العيادة على " + engine.NetUrl + " أو بعنوان IP هذا الحاسوب."
+                : st == State.Running ? "تفتحه كل أجهزة العيادة على " + engine.LanUrl + " أو بعنوان IP هذا الحاسوب."
                 : st == State.Stopped ? "اضغط «تشغيل النظام» ليعمل على كل الأجهزة."
                 : "قد يستغرق ذلك دقيقة في المرة الأولى.";
             if (stateHint.Text != hint) stateHint.Text = hint;
@@ -2815,16 +2822,16 @@ namespace DentalClinicPanel
             string trayText = running ? "عيادة الأسنان - يعمل" : "عيادة الأسنان - " + text;
             if (tray.Text != trayText) tray.Text = trayText;
             footDot.ForeColor = c;
-            string foot = text + (running ? "   •   " + engine.NetUrl : "") + (engine.TunnelOn && tunnel.Connected ? "   •   متصل بالإنترنت" : "");
+            string foot = text + (running ? "   •   " + engine.LanUrl : "") + (engine.TunnelOn && tunnel.Connected ? "   •   متصل بالإنترنت" : "");
             if (footState.Text != foot && (DateTime.Now - copiedAt).TotalSeconds > 3) footState.Text = foot;
 
             // Addresses.
             bool hasIp = engine.LanIp.Length > 0;
-            tileNet.Text = engine.NetUrl;
-            tileIp.Text = hasIp ? engine.IpUrl : "-";
+            tileNet.Text = engine.LanUrl;
+            tileIp.Text = hasIp ? engine.LanIpUrl : "-";
             addrLocal.Text = engine.LocalUrl;
-            addrNet.Text = engine.NetUrl;
-            addrIp.Text = hasIp ? engine.IpUrl : "-";
+            addrNet.Text = engine.LanUrl;
+            addrIp.Text = hasIp ? engine.LanIpUrl : "-";
             addrDns.Text = hasIp ? engine.LanIp : "-";
             if (macIp != engine.LanIp || (DateTime.Now - lastMacCheck).TotalSeconds > 10)
             {
@@ -3078,7 +3085,7 @@ namespace DentalClinicPanel
                 { "backupBusy", backupBusy },
                 { "lastBackup", last == null ? "" : Path.GetFileName(last) + " (" + File.GetLastWriteTime(last).ToString("yyyy-MM-dd HH:mm") + ")" },
                 { "site", tunnel.Link.Length > 0 ? tunnel.Link : tunnel.SiteUrl },
-                { "lan", engine.NetUrl },
+                { "lan", engine.LanUrl },
                 { "log", log },
             };
         }

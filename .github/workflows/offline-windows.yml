@@ -511,7 +511,7 @@ jobs:
 
           Write-Host 'Clinic logo for install / share / Wi-Fi pages (2026-11-02)'
           $man = (curl.exe -s --max-time 30 "http://${ip}:8080/manifest.webmanifest") -join '' | ConvertFrom-Json
-          if ($man.icons[0].src -ne 'brand-icon/192.png' -or $man.start_url -ne './') { throw 'manifest.webmanifest is wrong.' }
+          if ($man.icons[0].src -ne 'brand-icon/192.png' -or $man.start_url -ne './start') { throw 'manifest.webmanifest is wrong.' }
           $tooth = curl.exe -s -o C:\icon-tooth.png -w '%{http_code} %{content_type}' --max-time 30 "http://${ip}:8080/brand-icon/192.png"
           if ($tooth -ne '200 image/png') { throw "brand-icon without a logo failed: $tooth" }
           New-Item -ItemType Directory -Force C:\DentalClinicOffline\app\storage\app\public\logos | Out-Null

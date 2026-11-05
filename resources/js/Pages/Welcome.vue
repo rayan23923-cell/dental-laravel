@@ -22,6 +22,8 @@ import { computed, ref } from 'vue';
 const props = defineProps({
     clinic: { type: Object, required: true },
     stats: { type: Object, required: true },
+    // Offline server only: its Wi-Fi/certificate page over plain http.
+    setupUrl: { type: String, default: null },
 });
 
 const page = usePage();
@@ -38,6 +40,7 @@ const strings = {
             fallbackTitle: 'المستشفى التعليمي لطب الأسنان',
             ctaLogin: 'تسجيل الدخول',
             ctaBoard: 'عرض شاشة الانتظار',
+            ctaSetup: 'شهادة الأمان والتسهيلات',
             ctaDownload: 'تحميل التطبيق',
         },
         stats: {
@@ -76,6 +79,7 @@ const strings = {
             fallbackTitle: 'Dental Teaching Hospital',
             ctaLogin: 'Log in',
             ctaBoard: 'View Waiting Board',
+            ctaSetup: 'Certificate & setup',
             ctaDownload: 'Download the App',
         },
         stats: {
@@ -206,7 +210,19 @@ const year = new Date().getFullYear();
                 >
                     {{ t.hero.ctaLogin }}
                 </Link>
+                <!-- Offline server (2026-11-05, by request): the certificate and
+                     Wi-Fi page instead of the waiting screen, over plain http
+                     so it opens before the certificate is installed. -->
+                <a
+                    v-if="setupUrl"
+                    :href="setupUrl"
+                    class="flex w-full items-center justify-center gap-2 rounded-lg border border-ig-border-light px-6 py-3 font-semibold transition hover:bg-ig-off-white dark:border-ig-border-dark dark:hover:bg-ig-dark-surface sm:w-auto"
+                >
+                    <Icon name="verified_user" size="text-[20px]" />
+                    {{ t.hero.ctaSetup }}
+                </a>
                 <Link
+                    v-else
                     :href="route('waiting-screen')"
                     class="flex w-full items-center justify-center gap-2 rounded-lg border border-ig-border-light px-6 py-3 font-semibold transition hover:bg-ig-off-white dark:border-ig-border-dark dark:hover:bg-ig-dark-surface sm:w-auto"
                 >

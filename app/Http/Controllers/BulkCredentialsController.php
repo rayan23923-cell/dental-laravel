@@ -29,9 +29,11 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  */
 class BulkCredentialsController extends Controller
 {
-    public const DEFAULT_LOGIN_URL = 'https://clinic.lan/login';
+    // Plain http (2026-11-05, by request): a phone without the clinic
+    // certificate opens these with no security warning.
+    public const DEFAULT_LOGIN_URL = 'http://clinic.lan/login';
 
-    public const DEFAULT_ALT_URL = 'https://192.168.68.52/login';
+    public const DEFAULT_ALT_URL = 'http://192.168.68.52/login';
 
     public function index(Request $request): Response
     {
@@ -78,8 +80,8 @@ class BulkCredentialsController extends Controller
         return view('bulk-credentials-cards', [
             'cards' => $cards,
             'title' => $setting?->clinic_name ?: config('app.name'),
-            'loginUrl' => 'https://clinic.lan',
-            'altUrl' => 'https://192.168.68.52',
+            'loginUrl' => 'http://clinic.lan',
+            'altUrl' => 'http://192.168.68.52',
             // Scanned with the phone camera on the clinic Wi-Fi: opens the login page by the server IP.
             'qr' => (new PngWriter)->write(new QrCode(data: self::DEFAULT_ALT_URL, errorCorrectionLevel: ErrorCorrectionLevel::Medium, size: 240, margin: 12))->getDataUri(),
             'qrUrl' => self::DEFAULT_ALT_URL,

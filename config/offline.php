@@ -9,6 +9,11 @@ return [
     // code (2026-10-17, by request). Off only in the package's own smoke test.
     'activation' => (bool) env('OFFLINE_ACTIVATION', true),
 
+    // The plain-http port of the offline server (the panel's HTTP_PORT,
+    // 2026-11-05): the Wi-Fi/certificate page is linked over http so a
+    // device without the clinic certificate never sees a warning first.
+    'http_port' => (int) env('OFFLINE_HTTP_PORT', 80),
+
     // The hosted system that issues and checks activation codes and serves
     // the offline builds and their updates.
     'server' => rtrim((string) env('OFFLINE_LICENSE_SERVER', 'https://dental.azoclinic.duckdns.org'), '/'),
