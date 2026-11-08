@@ -57,4 +57,16 @@ class FileNestLicensingTest extends TestCase
             ->assertOk()->assertJson(['build' => 0, 'product' => 'filenest']);
         $this->assertSame(31, $files->fresh()->installed_build);
     }
+
+    public function test_an_exams_code_activates_only_the_exam_system(): void
+    {
+        $university = LicenseUniversity::create(['name' => 'جامعة الامتحانات']);
+        $exams = OfflineLicense::create(['code' => 'EEEE-XXXX-AAAA-MMMM', 'product' => 'exams', 'university' => $university->name, 'university_id' => $university->id]);
+
+        $this->postJson('/api/v1/offline/activate', ['code' => $exams->code, 'machine_id' => self::MACHINE, 'product' => 'filenest'])
+            ->assertStatus(422)->assertJsonPath('message', fn ($m) => str_contains($m, 'نظام الامتحانات'));
+        $license = $this->postJson('/api/v1/offline/activate', ['code' => $exams->code, 'machine_id' => self::MACHINE, 'product' => 'exams'])
+            ->assertOk()->json('license');
+        $this->assertSame('exams', OfflineLicensing::verify($license)['product']);
+    }
 }

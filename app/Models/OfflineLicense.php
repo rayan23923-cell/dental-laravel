@@ -17,6 +17,7 @@ class OfflineLicense extends Model
     public const PRODUCTS = [
         'dental' => 'نظام العيادات',
         'filenest' => 'FileNest (الملفات والمكتبة)',
+        'exams' => 'نظام الامتحانات',   // 2026-11-08: ExamNest, the online exam system
     ];
 
     protected $attributes = ['product' => 'dental'];

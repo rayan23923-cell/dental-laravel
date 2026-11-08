@@ -55,7 +55,7 @@
                     <tbody>
                         @foreach ($used as $l)
                             <tr>
-                                <td><span class="tag {{ $l->product === 'filenest' ? 'amber' : '' }}">{{ $l->productLabel() }}</span></td>
+                                <td><span class="tag {{ ['filenest' => 'amber', 'exams' => 'green'][$l->product ?? ''] ?? '' }}">{{ $l->productLabel() }}</span></td>
                                 <td>{{ $l->machine_name ?: '—' }}
                                     @if ($l->last_ip) <div class="muted ltr">{{ $l->last_ip }}</div> @endif</td>
                                 <td><code>{{ $l->machine_id }}</code></td>
@@ -111,7 +111,7 @@
                     <tbody>
                         @foreach ($free as $l)
                             <tr>
-                                <td><span class="tag {{ $l->product === 'filenest' ? 'amber' : '' }}">{{ $l->productLabel() }}</span></td>
+                                <td><span class="tag {{ ['filenest' => 'amber', 'exams' => 'green'][$l->product ?? ''] ?? '' }}">{{ $l->productLabel() }}</span></td>
                                 <td><code data-copy="{{ $l->code }}" style="cursor: copy;" title="انقر للنسخ">{{ $l->code }}</code></td>
                                 <td>{{ $l->notes }}</td>
                                 <td class="muted">{{ $l->created_at?->format('Y-m-d') }}</td>
@@ -135,7 +135,7 @@
             <label>ملاحظات <input name="notes" value="{{ old('notes', $university->notes) }}"></label>
             <button type="submit">حفظ</button>
         </form>
-        <p class="muted" style="margin: 8px 0 0;">الحد يُطبَّق على كل نظام وحده (العيادات وFileNest). اتركه فارغاً بلا حد. عند الوصول إلى الحد يُرفض تفعيل أي حاسوب جديد، ويبقى المفعّل يعمل. تحرير رمز أو إيقافه يفرّغ مكاناً.</p>
+        <p class="muted" style="margin: 8px 0 0;">الحد يُطبَّق على كل نظام وحده (العيادات وFileNest والامتحانات). اتركه فارغاً بلا حد. عند الوصول إلى الحد يُرفض تفعيل أي حاسوب جديد، ويبقى المفعّل يعمل. تحرير رمز أو إيقافه يفرّغ مكاناً.</p>
         @error('name') <div class="error">{{ $message }}</div> @enderror
         @error('max_devices') <div class="error">{{ $message }}</div> @enderror
         @if ($used->isEmpty())
