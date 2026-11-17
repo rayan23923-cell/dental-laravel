@@ -332,9 +332,11 @@ jobs:
           curl -fsSL --retry 5 --retry-delay 10 --retry-all-errors -o piper.zip \
             "https://github.com/rhasspy/piper/releases/download/${PIPER_VERSION}/piper_windows_amd64.zip"
           unzip -q piper.zip -d $OUT
-          # The Arabic voices (2026-11-17), «ميرو» by default; see deploy/voices.
+          # «ميرو», the default voice, only (2026-11-17, by request): the other
+          # voices are downloaded from the hosting when picked in the settings,
+          # so the package stays small. See App\Services\Speech\VoiceDownloads.
           pip install --quiet onnx
-          python3 deploy/voices/fetch-voices.py $OUT/piper/voices
+          python3 deploy/voices/fetch-voices.py $OUT/piper/voices miro
           test -f $OUT/piper/piper.exe && test "$(stat -c %s $OUT/piper/voices/miro.onnx)" -gt 50000000
 
       - name: Zip

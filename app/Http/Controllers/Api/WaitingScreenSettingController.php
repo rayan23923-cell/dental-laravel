@@ -7,6 +7,7 @@ use App\Models\Group;
 use App\Models\WaitingScreenSetting;
 use App\Services\Speech\SpeechException;
 use App\Services\Speech\SpeechSynthesizer;
+use App\Services\Speech\VoiceDownloads;
 use App\Support\VoiceCalls;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -46,6 +47,7 @@ class WaitingScreenSettingController extends Controller
             ...VoiceCalls::rules(),
         ]);
 
+        $this->ensureVoiceInstalled($validated);
         WaitingScreenSetting::current()->update($validated);
 
         return response()->json(['data' => ['settings' => $this->settings()]]);
@@ -64,6 +66,7 @@ class WaitingScreenSettingController extends Controller
             'voice_engines' => app(SpeechSynthesizer::class)->available(),
             'voice_names' => SpeechSynthesizer::VOICES,
             'voice_installed' => app(SpeechSynthesizer::class)->voices(),
+            'voice_downloadable' => VoiceDownloads::needed(),
         ];
     }
 
@@ -80,5 +83,28 @@ class WaitingScreenSettingController extends Controller
         }
 
         return response()->file($path, ['Content-Type' => 'audio/wav', 'Cache-Control' => 'no-store']);
+    }
+
+    /**
+     * «تنزيل الصوت» (2026-11-17, by request): the next piece of a voice this
+     * Windows server does not carry yet; the page calls it until `done`.
+     */
+    public function downloadVoice(string $voice, VoiceDownloads $downloads): JsonResponse
+    {
+        try {
+            return response()->json(['data' => $downloads->step($voice)]);
+        } catch (SpeechException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+    }
+
+    /** A voice must be on this server before it is saved as the one that calls. */
+    private function ensureVoiceInstalled(array $validated): void
+    {
+        $voice = $validated['voice_name'] ?? null;
+        $engine = $validated['voice_engine'] ?? WaitingScreenSetting::current()->voice_engine ?? 'piper';
+        if ($voice && $engine === 'piper' && VoiceDownloads::needed() && ! in_array($voice, app(SpeechSynthesizer::class)->voices(), true)) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['voice_name' => 'نزّل هذا الصوت أولًا من زر «تنزيل الصوت».']);
+        }
     }
 }

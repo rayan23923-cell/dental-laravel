@@ -2110,6 +2110,7 @@ namespace DentalClinicPanel
             AddPage(menu, "\uE968", "الشبكة والأجهزة", BuildNetwork());
             AddPage(menu, "\uE74E", "النسخ الاحتياطي", BuildBackups());
             updatesItem = AddPage(menu, "\uE895", "التحديثات", BuildUpdates());
+            AddPage(menu, "\uE767", "أصوات النداء", BuildVoices());
             AddPage(menu, "\uE774", "الوصول عبر الإنترنت", BuildOnline());
             AddPage(menu, "\uE81C", "السجل", BuildLog());
             // Docked top in reverse: the first page's item goes on top.
@@ -2380,6 +2381,222 @@ namespace DentalClinicPanel
             g.RowCount++;
             rowMarker = cap;
             return val;
+        }
+
+        // ---- Voices for calling names on the waiting screen (2026-11-17, by request) ----
+        // The package carries «ميرو» only, so it stays small; the other voices
+        // are downloaded from the hosting here (or from the waiting screen's
+        // settings in the system) into app\storage\app\voices, which updates
+        // keep. Resumable, checked against the SHA-256 the hosting publishes.
+
+        const string VoicesUrl = "https://dental.azoclinic.duckdns.org/downloads/voices";
+        static readonly string[][] VoiceList =
+        {
+            new[] { "miro", "ميرو (الافتراضي)" },
+            new[] { "miro_v2", "ميرو 2" },
+            new[] { "dii", "دي" },
+            new[] { "kareem", "كريم (فصحى)" },
+            new[] { "emirati", "إماراتي (أنثى)" },
+        };
+
+        class VoiceRow
+        {
+            public Label State;
+            public ProgressBar Bar;
+            public Button Download, Remove;
+            public volatile bool Busy;
+        }
+
+        readonly Dictionary<string, VoiceRow> voiceRows = new Dictionary<string, VoiceRow>();
+
+        string VoiceShipped(string v) { return engine.P(@"piper\voices\" + v + ".onnx"); }
+        string VoiceDownloaded(string v) { return engine.P(@"app\storage\app\voices\" + v + ".onnx"); }
+
+        bool VoiceInstalled(string v)
+        {
+            if (File.Exists(VoiceShipped(v)) && File.Exists(VoiceShipped(v) + ".json")) return true;
+            if (File.Exists(VoiceDownloaded(v)) && File.Exists(VoiceDownloaded(v) + ".json")) return true;
+            return v == "kareem" && File.Exists(engine.P(@"piper\voices\ar_JO-kareem-medium.onnx"));
+        }
+
+        Page BuildVoices()
+        {
+            var page = new Page("أصوات النداء",
+                "الأصوات التي تنادي أسماء المرضى على شاشة الانتظار. «ميرو» مثبت مع البرنامج، والباقي يُنزَّل من هنا عند الحاجة (63 م.ب تقريبًا لكل صوت، يحتاج الإنترنت وقت التنزيل فقط). يُختار الصوت من إعدادات شاشة الانتظار في النظام.");
+            var card = page.Add(new Card());
+            var grid = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 3, BackColor = Ui.Card, Margin = Padding.Empty };
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            foreach (var voice in VoiceList)
+            {
+                string v = voice[0];
+                int r = grid.RowCount;
+                grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                var name = Ui.Label(voice[1], 11f, Ui.Ink, true);
+                name.Margin = Ui.P(0, 12, 18, 12);
+                name.Anchor = AnchorStyles.Left;
+                var status = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = Ui.Card, Dock = DockStyle.Fill, Margin = Padding.Empty };
+                var row = new VoiceRow
+                {
+                    State = Ui.Label("-", 9.5f, Ui.Muted, false),
+                    Bar = new ProgressBar { Width = Ui.S(220), Height = Ui.S(8), Minimum = 0, Maximum = 1000, Visible = false, RightToLeftLayout = true, Margin = Ui.P(0, 2, 0, 6) },
+                    Download = Ui.Button("تنزيل", Ui.Kind.Primary),
+                    Remove = Ui.Button("حذف", Ui.Kind.Secondary),
+                };
+                row.State.Margin = Ui.P(0, 12, 0, 2);
+                status.Controls.Add(row.State);
+                status.Controls.Add(row.Bar);
+                row.Download.Click += (s, e) => DownloadVoice(v);
+                row.Remove.Click += (s, e) => RemoveVoice(v);
+                grid.Controls.Add(name, 0, r);
+                grid.Controls.Add(status, 1, r);
+                grid.Controls.Add(Ui.Row(row.Download, row.Remove), 2, r);
+                grid.RowCount++;
+                voiceRows[v] = row;
+            }
+            card.Add(grid);
+            RefreshVoices();
+            return page;
+        }
+
+        void RefreshVoices()
+        {
+            foreach (var pair in voiceRows)
+            {
+                var row = pair.Value;
+                if (row.Busy) continue;
+                bool installed = VoiceInstalled(pair.Key);
+                bool removable = File.Exists(VoiceDownloaded(pair.Key)) && !File.Exists(VoiceShipped(pair.Key));
+                row.State.Text = installed ? "مثبت ✓" : "غير مثبت";
+                row.State.ForeColor = installed ? Ui.Green : Ui.Muted;
+                row.Download.Visible = !installed;
+                row.Remove.Visible = removable;
+                row.Bar.Visible = false;
+            }
+        }
+
+        void RemoveVoice(string v)
+        {
+            if (MessageBox.Show(this, "حذف هذا الصوت من الحاسوب؟ إن كان مختارًا ستنادي الشاشة بصوت «ميرو» حتى تنزّله من جديد.", "أصوات النداء",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2, MessageBoxOptions.RightAlign | MessageBoxOptions.RtlReading) != DialogResult.Yes) return;
+            try
+            {
+                File.Delete(VoiceDownloaded(v));
+                File.Delete(VoiceDownloaded(v) + ".json");
+                engine.Log("حُذف صوت النداء «" + v + "».");
+            }
+            catch (Exception ex) { AppendLog("تعذّر حذف الصوت: " + ex.Message); }
+            RefreshVoices();
+        }
+
+        void DownloadVoice(string v)
+        {
+            var row = voiceRows[v];
+            if (row.Busy) return;
+            row.Busy = true;
+            row.Download.Visible = false;
+            row.Bar.Value = 0;
+            row.Bar.Visible = true;
+            row.State.ForeColor = Ui.Muted;
+            row.State.Text = "جارٍ التنزيل…";
+            new Thread(() =>
+            {
+                string error = null;
+                try { FetchVoice(v, row); }
+                catch (Exception ex) { error = ex.Message; }
+                try
+                {
+                    BeginInvoke(new Action(() =>
+                    {
+                        row.Busy = false;
+                        RefreshVoices();
+                        if (error != null)
+                        {
+                            row.State.Text = "تعذّر التنزيل: " + error + " اضغط «تنزيل» ليكمل من حيث توقف.";
+                            row.State.ForeColor = Ui.Red;
+                            row.Download.Visible = true;
+                        }
+                    }));
+                }
+                catch { }
+            }) { IsBackground = true }.Start();
+        }
+
+        void FetchVoice(string v, VoiceRow row)
+        {
+            ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072; // TLS 1.2
+            string manifestText;
+            using (var wc = new WebClient { Encoding = Encoding.UTF8 })
+            {
+                wc.Headers[HttpRequestHeader.UserAgent] = "DentalClinicPanel";
+                try { manifestText = wc.DownloadString(VoicesUrl + "/voices.json"); }
+                catch { throw new Exception("تعذّر الوصول إلى سيرفر التنزيل، تأكد من اتصال الحاسوب بالإنترنت."); }
+            }
+            var manifest = new JavaScriptSerializer().DeserializeObject(manifestText) as Dictionary<string, object>;
+            var info = manifest != null && manifest.ContainsKey(v) ? manifest[v] as Dictionary<string, object> : null;
+            if (info == null) throw new Exception("هذا الصوت غير متوفر على سيرفر التنزيل.");
+            long size = Convert.ToInt64(info["size"]);
+            string sha = Convert.ToString(info["sha256"]).ToLowerInvariant();
+
+            string model = VoiceDownloaded(v);
+            Directory.CreateDirectory(Path.GetDirectoryName(model));
+            string part = model + ".part";
+            long have = File.Exists(part) ? new FileInfo(part).Length : 0;
+            if (have > size) { File.Delete(part); have = 0; }
+            if (have < size)
+            {
+                var req = (HttpWebRequest)WebRequest.Create(VoicesUrl + "/" + v + ".onnx");
+                req.UserAgent = "DentalClinicPanel";
+                req.Timeout = 30000;
+                req.ReadWriteTimeout = 60000;
+                if (have > 0) req.AddRange(have);
+                using (var resp = (HttpWebResponse)req.GetResponse())
+                {
+                    bool resumed = have > 0 && resp.StatusCode == HttpStatusCode.PartialContent;
+                    if (!resumed) have = 0;
+                    using (var input = resp.GetResponseStream())
+                    using (var output = new FileStream(part, resumed ? FileMode.Append : FileMode.Create, FileAccess.Write))
+                    {
+                        var buf = new byte[81920];
+                        var sw = Stopwatch.StartNew();
+                        int n;
+                        while ((n = input.Read(buf, 0, buf.Length)) > 0)
+                        {
+                            output.Write(buf, 0, n);
+                            have += n;
+                            if (sw.ElapsedMilliseconds >= 300)
+                            {
+                                sw.Restart();
+                                long got = have;
+                                try
+                                {
+                                    BeginInvoke(new Action(() =>
+                                    {
+                                        row.Bar.Value = (int)Math.Min(1000, got * 1000 / size);
+                                        row.State.Text = "جارٍ التنزيل… " + Updater.Mb(got) + " من " + Updater.Mb(size) + " م.ب";
+                                    }));
+                                }
+                                catch { }
+                            }
+                        }
+                    }
+                }
+            }
+            if (new FileInfo(part).Length != size) throw new Exception("انقطع التنزيل قبل اكتماله.");
+            string got256;
+            using (var hasher = SHA256.Create())
+            using (var fs = File.OpenRead(part))
+                got256 = BitConverter.ToString(hasher.ComputeHash(fs)).Replace("-", "").ToLowerInvariant();
+            if (got256 != sha) { File.Delete(part); throw new Exception("الملف المنزّل تالف فحُذف."); }
+            using (var wc = new WebClient())
+            {
+                wc.Headers[HttpRequestHeader.UserAgent] = "DentalClinicPanel";
+                File.WriteAllBytes(model + ".json", wc.DownloadData(VoicesUrl + "/" + v + ".onnx.json"));
+            }
+            if (File.Exists(model)) File.Delete(model);
+            File.Move(part, model);
+            engine.Log("نُزّل صوت النداء «" + v + "» وتم التحقق منه.");
         }
 
         Page BuildLog()
