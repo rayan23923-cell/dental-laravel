@@ -118,6 +118,16 @@ class PermissionMatrix
                     'view_tickets' => 'عرض وطباعة واردات التذاكر فقط',
                 ],
             ],
+            // The lab's own priced services and test-only patients
+            // (2026-11-17, by request); see App\Models\LabService.
+            'lab_services' => [
+                'name' => 'خدمات المختبر',
+                'permissions' => [
+                    'view' => 'عرض خدمات المختبر',
+                    'manage' => 'إضافة الخدمات وتسعيرها',
+                    'register' => 'تسجيل مريض للفحص فقط',
+                ],
+            ],
             'register_settings' => [
                 'name' => 'إعدادات تسجيل الخدمات وتسعيرها',
                 'permissions' => ['view' => 'عرض', 'edit' => 'تعديل الخدمات والأسعار'],

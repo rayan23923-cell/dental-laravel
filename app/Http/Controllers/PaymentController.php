@@ -81,7 +81,7 @@ class PaymentController extends Controller
         $range = $stats->range($request->string('from')->toString() ?: null, $request->string('to')->toString() ?: null);
 
         $filters = $this->filters($request, $sources);
-        $payments = (clone $query)->with(['appointment', 'patientRegistration.service'])->latest('paid_at')->get();
+        $payments = (clone $query)->with(['appointment', 'patientRegistration.service', 'patientRegistration.labService'])->latest('paid_at')->get();
         $settings = ClinicSetting::current();
 
         return view('print.payments-report', [

@@ -166,7 +166,7 @@
                             <div class="muted">غير سليم — {{ $diagnosis }}</div>
                         @endif
                     </td>
-                    <td>{{ $p->patientRegistration?->service?->name ?? '—' }}</td>
+                    <td>{{ $p->patientRegistration?->serviceLabel() ?? '—' }}</td>
                     <td>{{ $money($discount['full'] ?? $p->amount) }}</td>
                     <td>{{ $discount ? trim(($discount['percent'] !== null ? $discount['percent'].'% · ' : '').$discount['who']) : '—' }}</td>
                     <td><strong>{{ $money($p->amount) }}</strong></td>

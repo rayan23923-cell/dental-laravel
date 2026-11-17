@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PatientRegistrationResource;
 use App\Models\ClinicSetting;
+use App\Models\LabService;
 use App\Models\PatientRegistration;
 use App\Models\Payment;
 use App\Models\User;
 use App\Services\PermissionManager;
 use App\Support\LabFeeGate;
+use App\Support\LabServices;
 use App\Support\StudentDiscount;
 use App\Support\QrCodeFactory;
 use App\Support\RegistrationPaymentState;
@@ -30,7 +32,7 @@ use Illuminate\Validation\Rule;
  */
 class LabController extends Controller
 {
-    private const RELATIONS = ['service', 'registerDay', 'screeningCheckedBy:id,full_name', 'screeningReusedFrom:id,screening_checked_at'];
+    private const RELATIONS = ['service', 'labService', 'registerDay', 'screeningCheckedBy:id,full_name', 'screeningReusedFrom:id,screening_checked_at'];
 
     public function index(Request $request): JsonResponse
     {
@@ -45,7 +47,7 @@ class LabController extends Controller
 
         $settings = ClinicSetting::current();
 
-        $registrations = PatientRegistration::with(['service', 'registerDay', 'screeningCheckedBy:id,full_name'])
+        $registrations = PatientRegistration::with(['service', 'labService', 'registerDay', 'screeningCheckedBy:id,full_name'])
             ->whereNull('lab_archived_at')->whereNull('lab_deleted_at')
             ->withExists(['payments as lab_paid' => fn ($q) => $q->where('type', Payment::TYPE_LAB)])
             ->when($status !== 'all', fn ($q) => $q->where('screening_status', $status))
@@ -92,8 +94,64 @@ class LabController extends Controller
                 'currency' => $settings->clinic_currency,
                 'validity_days' => LabFeeGate::validityDays(),
                 'can_confirm' => $permissions->can('patient_screening', 'confirm'),
+                // The lab's own services (2026-11-17): what this account may do.
+                'lab_services' => LabServices::abilities($permissions),
             ],
         ]);
+    }
+
+    /** The lab's own priced services (2026-11-17, by request). */
+    public function services(Request $request): JsonResponse
+    {
+        $abilities = LabServices::abilities(new PermissionManager($request->user()));
+        abort_unless($abilities['view'], 403, 'لا تملك صلاحية لهذا الإجراء.');
+
+        return response()->json(['data' => LabServices::list(), 'meta' => $abilities]);
+    }
+
+    public function storeService(Request $request): JsonResponse
+    {
+        LabServices::authorize($request->user(), 'manage');
+        LabServices::save($request);
+
+        return response()->json(['data' => LabServices::list()], 201);
+    }
+
+    public function updateService(Request $request, LabService $labService): JsonResponse
+    {
+        LabServices::authorize($request->user(), 'manage');
+        LabServices::save($request, $labService);
+
+        return response()->json(['data' => LabServices::list()]);
+    }
+
+    public function destroyService(Request $request, LabService $labService): JsonResponse
+    {
+        LabServices::authorize($request->user(), 'manage');
+        $deleted = LabServices::delete($labService);
+
+        return response()->json([
+            'data' => LabServices::list(),
+            'message' => $deleted ? 'حُذفت الخدمة.' : 'للخدمة مرضى مسجلون، فأُوقفت بدل حذفها.',
+        ]);
+    }
+
+    /**
+     * «تسجيل مريض للفحص فقط» (2026-11-17, by request): answers with the
+     * new patient's lab state, like `show`, plus the payment when it was
+     * taken at registration.
+     */
+    public function register(Request $request): JsonResponse
+    {
+        abort_unless($request->user() instanceof User, 403, 'لا تملك صلاحية لهذا الإجراء.');
+        LabServices::authorize($request->user(), 'register');
+
+        [$registration, $payment] = LabServices::register($request);
+        $response = $this->stateResponse($registration->load(self::RELATIONS));
+        $body = $response->getData(true);
+        $body['payment_id'] = $payment?->id;
+
+        return response()->json($body, 201);
     }
 
     /** Same payload and response as `POST /patient-registrations/scan`, lab-gated. */

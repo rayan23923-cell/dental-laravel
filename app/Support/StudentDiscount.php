@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\ClinicSetting;
+use App\Models\LabService;
 use App\Models\PatientRegistration;
 use App\Models\Payment;
 use App\Models\Service;
@@ -71,6 +72,14 @@ class StudentDiscount
      */
     public static function labFee(?PatientRegistration $registration, ?ClinicSetting $settings = null): ?float
     {
+        // A test-only patient pays the price of the lab's own service
+        // (2026-11-17, by request), whatever the clinic's lab fee is.
+        if ($registration?->lab_service_id) {
+            $price = self::labServicePrice($registration);
+
+            return $price === null ? null : ($registration->support_code_id ? 0.0 : $price);
+        }
+
         $settings ??= ClinicSetting::current();
         if ($settings->lab_fee === null) {
             return null;
@@ -84,6 +93,30 @@ class StudentDiscount
         return $registration?->discount_eligible
             ? self::apply((float) $settings->lab_fee, self::percent($settings->lab_student_discount_percent))
             : (float) $settings->lab_fee;
+    }
+
+    /**
+     * The undiscounted lab price for this patient: the lab service's for a
+     * test-only patient (2026-11-17), else the clinic's lab fee.
+     */
+    public static function labFullPrice(?PatientRegistration $registration, ?ClinicSetting $settings = null): ?float
+    {
+        if ($registration?->lab_service_id) {
+            return self::labServicePrice($registration);
+        }
+
+        $fee = ($settings ?? ClinicSetting::current())->lab_fee;
+
+        return $fee === null ? null : (float) $fee;
+    }
+
+    private static function labServicePrice(PatientRegistration $registration): ?float
+    {
+        $price = $registration->relationLoaded('labService')
+            ? $registration->labService?->price
+            : LabService::whereKey($registration->lab_service_id)->value('price');
+
+        return $price === null ? null : (float) $price;
     }
 
     private static function percent($value): float
@@ -203,9 +236,7 @@ class StudentDiscount
         }
 
         if ($payment->type === Payment::TYPE_LAB) {
-            $fee = ($settings ?? ClinicSetting::current())->lab_fee;
-
-            return $fee === null ? null : (float) $fee;
+            return self::labFullPrice($payment->patientRegistration, $settings);
         }
 
         $registration = $payment->patientRegistration;

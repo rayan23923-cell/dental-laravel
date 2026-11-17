@@ -61,7 +61,7 @@ class UserCreatePermissionsTest extends TestCase
 
         $this->getJson('/api/v1/users/form-options')->assertOk()
             ->assertJsonStructure(['modules', 'scope_options' => ['departments', 'stages', 'education_types', 'academic_sessions'], 'role_defaults'])
-            ->assertJsonPath('role_defaults.lab', ['patient_screening.view', 'patient_screening.confirm', 'payments.view_lab', 'printer_settings.view']);
+            ->assertJsonPath('role_defaults.lab', ['patient_screening.view', 'patient_screening.confirm', 'payments.view_lab', 'printer_settings.view', 'lab_services.view', 'lab_services.manage', 'lab_services.register']);
 
         $this->postJson('/api/v1/users', $this->account('app', ['grants' => ['tasks.view']]))->assertCreated();
 

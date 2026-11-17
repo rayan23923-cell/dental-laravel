@@ -33,8 +33,8 @@
     <div class="sample-sheet">
         <p class="title">عينات المريض</p>
         <div class="name">{{ $registration->name }}</div>
-        @if ($registration->service)
-            <div class="sub">{{ $registration->service->name }}</div>
+        @if ($registration->serviceLabel())
+            <div class="sub">{{ $registration->serviceLabel() }}</div>
         @endif
         <div class="circle">هنا توضع العينات</div>
         <div class="foot">{{ $registration->name }}</div>

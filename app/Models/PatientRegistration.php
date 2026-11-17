@@ -71,6 +71,8 @@ class PatientRegistration extends Model
         // Printed under the ticket/receipt QR (2026-11-04), typed by the
         // doctor instead of scanning; see App\Support\CasePatientLinks.
         'patient_code',
+        // A test-only patient registered by the lab (2026-11-17), see App\Models\LabService.
+        'lab_service_id',
     ];
 
     protected static function booted(): void
@@ -158,6 +160,18 @@ class PatientRegistration extends Model
     public function service(): BelongsTo
     {
         return $this->belongsTo(Service::class);
+    }
+
+    /** The lab's own service for a test-only patient (2026-11-17); null for reception's patients. */
+    public function labService(): BelongsTo
+    {
+        return $this->belongsTo(LabService::class);
+    }
+
+    /** The service name to show: reception's service, else the lab's. */
+    public function serviceLabel(): ?string
+    {
+        return $this->service?->name ?? $this->labService?->name;
     }
 
     public function registerDay(): BelongsTo

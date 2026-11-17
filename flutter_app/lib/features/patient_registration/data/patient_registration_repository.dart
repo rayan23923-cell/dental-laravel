@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/paginated.dart';
 import '../domain/lab_registration.dart';
+import '../domain/lab_service.dart';
 import '../domain/patient_registration.dart';
 import '../domain/register_day.dart';
 import '../domain/registration_payment_state.dart';
@@ -186,6 +187,51 @@ class PatientRegistrationRepository {
   }
 
   /// [status] for the lab, same gate as [labScan].
+  /// The lab's own priced services (2026-11-17, by request) and what this
+  /// account may do with them.
+  Future<(List<LabService>, LabServiceAbilities)> listLabServices() async {
+    final data = await _client.getJson('/lab/services') as Map<String, dynamic>;
+    return (_labServices(data), LabServiceAbilities.fromJson(data['meta'] as Map<String, dynamic>?));
+  }
+
+  /// Adds a service, or changes one when [id] is given.
+  Future<List<LabService>> saveLabService({int? id, required String name, required double price, bool? active}) async {
+    final body = {'name': name, 'price': price, if (active != null) 'active': active};
+    final data = (id == null
+        ? await _client.postJson('/lab/services', body: body)
+        : await _client.putJson('/lab/services/$id', body: body)) as Map<String, dynamic>;
+    return _labServices(data);
+  }
+
+  /// Deletes a service; one with patients is switched off instead.
+  /// Returns the list and the server's message.
+  Future<(List<LabService>, String?)> deleteLabService(int id) async {
+    final data = await _client.deleteJsonData('/lab/services/$id') as Map<String, dynamic>;
+    return (_labServices(data), data['message'] as String?);
+  }
+
+  static List<LabService> _labServices(Map<String, dynamic> data) =>
+      ((data['data'] as List<dynamic>?) ?? const []).map((e) => LabService.fromJson(e as Map<String, dynamic>)).toList();
+
+  /// «تسجيل مريض للفحص فقط» (2026-11-17): the new patient's lab state,
+  /// like [labStatus]. With [paid] the price is booked as a lab payment now.
+  Future<RegistrationPaymentState> registerLabPatient({
+    required String name,
+    required String phone,
+    int? age,
+    required int labServiceId,
+    required bool paid,
+  }) async {
+    final data = await _client.postJson('/lab/register', body: {
+      'name': name,
+      'phone': phone,
+      if (age != null) 'age': age,
+      'lab_service_id': labServiceId,
+      'paid': paid,
+    }) as Map<String, dynamic>;
+    return RegistrationPaymentState.fromJson(data);
+  }
+
   Future<RegistrationPaymentState> labStatus(int registrationId) async {
     final data = await _client.getJson('/lab/$registrationId') as Map<String, dynamic>;
     return RegistrationPaymentState.fromJson(data);

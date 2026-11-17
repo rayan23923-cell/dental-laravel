@@ -93,6 +93,13 @@ class PatientRegistrationResource extends JsonResource
                 'price' => $this->service->price !== null ? (float) $this->service->price : null,
                 'student_discount_percent' => (float) ($this->service->student_discount_percent ?? 50),
             ] : null),
+            // A test-only patient's lab service (2026-11-17); see App\Models\LabService.
+            'lab_service_id' => $this->lab_service_id,
+            'lab_service' => $this->whenLoaded('labService', fn () => $this->labService ? [
+                'id' => $this->labService->id,
+                'name' => $this->labService->name,
+                'price' => (float) $this->labService->price,
+            ] : null),
             'register_day' => $this->whenLoaded('registerDay', fn () => $this->registerDay ? [
                 'id' => $this->registerDay->id,
                 'name' => $this->registerDay->name,

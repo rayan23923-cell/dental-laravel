@@ -10,6 +10,9 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/chat_list_tile.dart';
 import '../data/patient_registration_repository.dart';
 import '../domain/lab_registration.dart';
+import '../domain/registration_payment_state.dart';
+import 'lab_services_screen.dart';
+import 'lab_walk_in_screen.dart';
 import 'live_registrations.dart';
 import 'patient_registration_providers.dart';
 import '../../../core/widgets/tg_spinner.dart';
@@ -68,6 +71,26 @@ class _LabListScreenState extends ConsumerState<LabListScreen> with LiveRegistra
     if (mounted) ref.invalidate(labListProvider);
   }
 
+  /// «خدمات المختبر» (2026-11-17, by request): the lab's own priced services.
+  Future<void> _openServices(LabPage? page) async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => LabServicesScreen(currency: page?.currency)));
+    if (mounted) ref.invalidate(labListProvider);
+  }
+
+  /// «مريض للفحص فقط» (2026-11-17, by request): registers a test-only
+  /// patient, then opens them in the screening screen like a scanned ticket.
+  Future<void> _openWalkIn(LabPage? page) async {
+    final state = await Navigator.of(context).push<RegistrationPaymentState>(
+      MaterialPageRoute(builder: (_) => LabWalkInScreen(currency: page?.currency)),
+    );
+    if (!mounted) return;
+    ref.invalidate(labListProvider);
+    if (state != null) {
+      await context.push('/records/patient-registrations/screening', extra: state);
+      if (mounted) ref.invalidate(labListProvider);
+    }
+  }
+
   /// Fresh state (payments, earlier valid result, checker) for the row,
   /// then the screening screen; the list refreshes on the way back.
   Future<void> _open(LabRegistration row) async {
@@ -112,6 +135,18 @@ class _LabListScreenState extends ConsumerState<LabListScreen> with LiveRegistra
       appBar: AppBar(
         title: Text(t['labels.lab']!),
         actions: [
+          if (counts?.labServices.view ?? false)
+            IconButton(
+              icon: const Icon(Icons.biotech_outlined),
+              tooltip: t['lab.services']!,
+              onPressed: () => _openServices(counts),
+            ),
+          if (counts?.labServices.register ?? false)
+            IconButton(
+              icon: const Icon(Icons.person_add_alt_1_outlined),
+              tooltip: t['lab.walkIn']!,
+              onPressed: () => _openWalkIn(counts),
+            ),
           IconButton(
             icon: const Icon(Icons.qr_code_scanner),
             tooltip: t['lab.scanTicket']!,
@@ -219,13 +254,16 @@ class _LabListScreenState extends ConsumerState<LabListScreen> with LiveRegistra
             color: row.labPaid ? Colors.lightBlue.shade700 : Colors.blueGrey,
           ),
         // "ادفع واطبع" (pay and print): the fee is taken with the result.
-        if (!row.canReuse && !row.labPaid && (page.labFee ?? 0) > 0 && r.screeningStatus == 'pending')
+        if (!row.canReuse && !row.labPaid && (row.labFeeDue ?? page.labFee ?? 0) > 0 && r.screeningStatus == 'pending')
           ChatChip(label: t['lab.payAndPrint']!, icon: Icons.print_outlined, color: Colors.orange.shade800),
         // Collected or still waiting for the patient (2026-11-02).
         if (r.isLabResultReceived)
           ChatChip(label: t['screening.resultReceivedDone']!, icon: Icons.how_to_reg, color: Colors.green.shade700)
         else if (r.isScreened)
           ChatChip(label: t['screening.awaitingCollection']!, icon: Icons.hourglass_bottom, color: Colors.orange.shade800),
+        // A test-only patient the lab registered (2026-11-17).
+        if (r.serviceId == null && r.serviceName != null)
+          ChatChip(label: t['lab.labOnlyBadge']!, icon: Icons.biotech_outlined, color: Colors.deepPurple),
         ChatChip(label: place, icon: Icons.location_on_outlined, color: Colors.indigo),
         ChatChip(label: _date(r.createdAt), icon: Icons.schedule, color: Colors.blueGrey),
       ],

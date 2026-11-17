@@ -28,7 +28,7 @@ class RegistrationPaymentState
         // The lab fee's full price as recorded with the payment (2026-11-01), else today's.
         $labFull = $lab->isNotEmpty() && $lab->every(fn ($p) => $p->full_amount !== null)
             ? (float) $lab->sum('full_amount')
-            : ($settings->lab_fee !== null ? (float) $settings->lab_fee : null);
+            : StudentDiscount::labFullPrice($registration, $settings);
 
         return [
             'registration' => $registrationData,

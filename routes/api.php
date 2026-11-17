@@ -259,6 +259,14 @@ Route::name('api.')->prefix('v1')->group(function () {
         // web. See Api\LabController.
         Route::get('/lab', [LabController::class, 'index']);
         Route::post('/lab/scan', [LabController::class, 'scan']);
+        // The lab's own priced services and test-only patients (2026-11-17,
+        // by request), before `/lab/{patientRegistration}`; gated in
+        // App\Support\LabServices by `lab_services`.
+        Route::get('/lab/services', [LabController::class, 'services']);
+        Route::post('/lab/services', [LabController::class, 'storeService']);
+        Route::put('/lab/services/{labService}', [LabController::class, 'updateService']);
+        Route::delete('/lab/services/{labService}', [LabController::class, 'destroyService']);
+        Route::post('/lab/register', [LabController::class, 'register'])->middleware('throttle:60,1');
         Route::get('/lab/{patientRegistration}', [LabController::class, 'show']);
         Route::get('/lab/{patientRegistration}/qr', [LabController::class, 'qr']);
         // Samples sheet printed in the app -> waiting screen (2026-11-02).
