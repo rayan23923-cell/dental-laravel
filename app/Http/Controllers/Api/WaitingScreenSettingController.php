@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Group;
 use App\Models\WaitingScreenSetting;
+use App\Services\Speech\SpeechException;
+use App\Services\Speech\SpeechSynthesizer;
+use App\Support\VoiceCalls;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -39,6 +42,8 @@ class WaitingScreenSettingController extends Controller
             'rotation_seconds' => ['required', 'integer', 'min:3', 'max:300'],
             // Optional so older app builds that don't send it keep working.
             'lab_scope' => ['sometimes', 'string', 'in:'.implode(',', WaitingScreenSetting::LAB_SCOPES)],
+            // Calling names by voice (2026-11-17); optional for older app builds.
+            ...VoiceCalls::rules(),
         ]);
 
         WaitingScreenSetting::current()->update($validated);
@@ -55,6 +60,23 @@ class WaitingScreenSettingController extends Controller
             'patients_per_page' => $settings->patients_per_page,
             'rotation_seconds' => $settings->rotation_seconds,
             'lab_scope' => $settings->lab_scope ?: 'today',
+        ] + VoiceCalls::settings($settings) + [
+            'voice_engines' => app(SpeechSynthesizer::class)->available(),
         ];
+    }
+
+    /** «تجربة الصوت» for the app (2026-11-17): same as the web page's. */
+    public function voicePreview(Request $request, SpeechSynthesizer $speech)
+    {
+        $data = $request->validate(VoiceCalls::previewRules());
+        $settings = array_merge(VoiceCalls::settings(), array_filter($data, fn ($v) => $v !== null));
+
+        try {
+            $path = $speech->wav(VoiceCalls::sentence($data['name'], $data['kind'], $settings), $settings['voice_engine'], (int) $settings['voice_rate']);
+        } catch (SpeechException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->file($path, ['Content-Type' => 'audio/wav', 'Cache-Control' => 'no-store']);
     }
 }

@@ -21,6 +21,18 @@ class WaitingScreenSetting extends Model
         'patients_per_page',
         'rotation_seconds',
         'lab_scope',
+        // Calling names by voice (2026-11-17), see App\Support\VoiceCalls.
+        'voice_enabled',
+        'voice_engine',
+        'voice_ready',
+        'voice_ready_before',
+        'voice_ready_after',
+        'voice_waiting',
+        'voice_waiting_before',
+        'voice_waiting_after',
+        'voice_repeat',
+        'voice_volume',
+        'voice_rate',
     ];
 
     /** Lab list on the screen (2026-11-03): today's only (empties at midnight clinic time) or all pending. */
@@ -31,6 +43,12 @@ class WaitingScreenSetting extends Model
         return [
             'patients_per_page' => 'integer',
             'rotation_seconds' => 'integer',
+            'voice_enabled' => 'boolean',
+            'voice_ready' => 'boolean',
+            'voice_waiting' => 'boolean',
+            'voice_repeat' => 'integer',
+            'voice_volume' => 'integer',
+            'voice_rate' => 'integer',
         ];
     }
 

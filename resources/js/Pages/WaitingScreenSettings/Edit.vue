@@ -6,7 +6,8 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import Icon from '@/Components/Icon.vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
-import { onBeforeUnmount, onMounted } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import axios from 'axios';
 import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
@@ -14,6 +15,10 @@ const props = defineProps({
     settings: Object,
     screens: { type: Array, default: () => [] },
     returnMinutes: { type: Array, default: () => [0, 1, 2, 5, 10, 30, 60] },
+    // Calling names by voice (2026-11-17), see App\Support\VoiceCalls.
+    voice: { type: Object, default: () => ({}) },
+    voiceEngines: { type: Array, default: () => [] },
+    voiceDefaults: { type: Object, default: () => ({}) },
 });
 
 // Remote control of paired screens (2026-11-03, by request).
@@ -61,7 +66,54 @@ const form = useForm({
     rotation_seconds: props.settings.rotation_seconds ?? 12,
     // Lab filter (2026-11-03, by request): today's only or all pending.
     lab_scope: props.settings.lab_scope || 'today',
+    ...props.voice,
 });
+
+// «تجربة الصوت» (2026-11-17, by request): plays the sentence for a sample
+// name with the wording, speed and volume on the form, before saving.
+const testName = ref(t('waitingScreenSettings.voiceTestNameDefault'));
+const testKind = ref('ready');
+const testing = ref(false);
+const testError = ref('');
+let testAudio = null;
+const joinSentence = (kind, name) => {
+    const before = (form[`voice_${kind}_before`] ?? '').trim();
+    const after = (form[`voice_${kind}_after`] ?? '').trim();
+    let text = `${before} ${name.trim()}`.trim();
+    if (after) text += (/^[،,.؛:!؟?]/.test(after) ? '' : '، ') + after;
+    return text;
+};
+const previewSentence = computed(() => joinSentence(testKind.value, testName.value || ''));
+const testVoice = async () => {
+    testing.value = true;
+    testError.value = '';
+    try {
+        const { data } = await axios.post(route('waiting-screen-settings.voice-preview'), {
+            name: testName.value,
+            kind: testKind.value,
+            voice_engine: form.voice_engine,
+            voice_rate: form.voice_rate,
+            voice_ready_before: form.voice_ready_before,
+            voice_ready_after: form.voice_ready_after,
+            voice_waiting_before: form.voice_waiting_before,
+            voice_waiting_after: form.voice_waiting_after,
+        }, { responseType: 'blob' });
+        testAudio?.pause();
+        testAudio = new Audio(URL.createObjectURL(data));
+        testAudio.volume = Math.max(0, Math.min(1, form.voice_volume / 100));
+        for (let i = 0; i < form.voice_repeat; i++) {
+            await testAudio.play();
+            await new Promise((r) => { testAudio.onended = r; });
+            if (i < form.voice_repeat - 1) await new Promise((r) => setTimeout(r, 900));
+        }
+    } catch (e) {
+        let message = '';
+        try { message = JSON.parse(await e?.response?.data?.text?.())?.message ?? ''; } catch { message = ''; }
+        testError.value = message || t('waitingScreenSettings.voiceTestFailed');
+    } finally {
+        testing.value = false;
+    }
+};
 
 const submit = () => {
     form.put(route('waiting-screen-settings.update'), { preserveScroll: true });
@@ -150,6 +202,81 @@ const submit = () => {
                                 required
                             />
                             <InputError class="mt-2" :message="form.errors.rotation_seconds" />
+                        </div>
+
+                        <!-- Calling names by voice (2026-11-17, by request) -->
+                        <div class="space-y-4 rounded-2xl bg-violet-50/60 p-4 ring-1 ring-violet-100">
+                            <div>
+                                <h3 class="flex items-center gap-2 font-semibold text-gray-800"><Icon name="record_voice_over" />{{ t('waitingScreenSettings.voiceHeading') }}</h3>
+                                <p class="mt-1 text-xs text-gray-500">{{ t('waitingScreenSettings.voiceHint') }}</p>
+                            </div>
+                            <label class="flex items-center gap-2 text-sm font-medium text-gray-800">
+                                <input v-model="form.voice_enabled" type="checkbox" class="rounded text-violet-600 focus:ring-violet-500" />
+                                {{ t('waitingScreenSettings.voiceEnabled') }}
+                            </label>
+                            <template v-if="form.voice_enabled">
+                                <div>
+                                    <InputLabel :value="t('waitingScreenSettings.voiceEngine')" />
+                                    <select v-model="form.voice_engine" class="mt-1 block w-full rounded-xl border-gray-300 text-sm">
+                                        <option v-for="engine in ['piper', 'windows']" :key="engine" :value="engine">
+                                            {{ t(`waitingScreenSettings.voiceEngine_${engine}`) }}{{ voiceEngines.includes(engine) ? '' : ' — ' + t('waitingScreenSettings.voiceEngineMissing') }}
+                                        </option>
+                                    </select>
+                                    <InputError class="mt-2" :message="form.errors.voice_engine" />
+                                </div>
+                                <div v-for="kind in ['ready', 'waiting']" :key="kind" class="rounded-xl bg-white p-3 ring-1 ring-gray-100">
+                                    <label class="flex items-center gap-2 text-sm font-medium text-gray-800">
+                                        <input v-model="form[`voice_${kind}`]" type="checkbox" class="rounded text-violet-600 focus:ring-violet-500" />
+                                        {{ t(kind === 'ready' ? 'waitingScreenSettings.voiceReady' : 'waitingScreenSettings.voiceWaiting') }}
+                                    </label>
+                                    <div v-if="form[`voice_${kind}`]" class="mt-3 grid gap-3 sm:grid-cols-2">
+                                        <div>
+                                            <InputLabel :value="t('waitingScreenSettings.voiceBefore')" />
+                                            <TextInput v-model="form[`voice_${kind}_before`]" maxlength="150" class="mt-1 block w-full rounded-xl" :placeholder="voiceDefaults[`voice_${kind}_before`]" />
+                                            <InputError class="mt-1" :message="form.errors[`voice_${kind}_before`]" />
+                                        </div>
+                                        <div>
+                                            <InputLabel :value="t('waitingScreenSettings.voiceAfter')" />
+                                            <TextInput v-model="form[`voice_${kind}_after`]" maxlength="150" class="mt-1 block w-full rounded-xl" :placeholder="voiceDefaults[`voice_${kind}_after`]" />
+                                            <InputError class="mt-1" :message="form.errors[`voice_${kind}_after`]" />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="grid gap-4 sm:grid-cols-3">
+                                    <div>
+                                        <InputLabel :value="t('waitingScreenSettings.voiceRepeat')" />
+                                        <select v-model.number="form.voice_repeat" class="mt-1 block w-full rounded-xl border-gray-300 text-sm">
+                                            <option v-for="n in 5" :key="n" :value="n">{{ n }}</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <InputLabel :value="`${t('waitingScreenSettings.voiceVolume')} (${form.voice_volume}%)`" />
+                                        <input v-model.number="form.voice_volume" type="range" min="0" max="100" step="5" class="mt-3 w-full accent-violet-600" />
+                                    </div>
+                                    <div>
+                                        <InputLabel :value="`${t('waitingScreenSettings.voiceRate')} (${form.voice_rate}%)`" />
+                                        <input v-model.number="form.voice_rate" type="range" min="50" max="150" step="5" class="mt-3 w-full accent-violet-600" />
+                                        <p class="mt-1 text-[11px] text-gray-500">{{ t('waitingScreenSettings.voiceRateHint') }}</p>
+                                    </div>
+                                </div>
+                                <div class="rounded-xl bg-white p-3 ring-1 ring-gray-100">
+                                    <div class="flex flex-wrap items-end gap-2">
+                                        <div class="min-w-[10rem] flex-1">
+                                            <InputLabel :value="t('waitingScreenSettings.voiceTestName')" />
+                                            <TextInput v-model="testName" maxlength="100" class="mt-1 block w-full rounded-xl" />
+                                        </div>
+                                        <select v-model="testKind" class="rounded-xl border-gray-300 text-sm">
+                                            <option value="ready">{{ t('waitingScreenSettings.voiceReady') }}</option>
+                                            <option value="waiting">{{ t('waitingScreenSettings.voiceWaiting') }}</option>
+                                        </select>
+                                        <button type="button" :disabled="testing || !testName.trim()" @click="testVoice" class="inline-flex items-center gap-1 rounded-full bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+                                            <Icon name="play_arrow" size="text-[18px]" />{{ testing ? t('waitingScreenSettings.voiceTesting') : t('waitingScreenSettings.voiceTest') }}
+                                        </button>
+                                    </div>
+                                    <p class="mt-2 text-xs text-gray-500">{{ t('waitingScreenSettings.voicePreviewSentence', { text: previewSentence }) }}</p>
+                                    <p v-if="testError" class="mt-2 rounded-lg bg-red-50 p-2 text-xs text-red-700">{{ testError }}</p>
+                                </div>
+                            </template>
                         </div>
 
                         <div class="flex items-center justify-end border-t border-gray-100 pt-6">

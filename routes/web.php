@@ -404,6 +404,9 @@ Route::middleware('auth')->group(function () {
         ->middleware('permission:waiting_screen,view')->name('waiting-screen-settings.edit');
     Route::put('/waiting-screen-settings', [WaitingScreenSettingController::class, 'update'])
         ->middleware('permission:waiting_screen,edit')->name('waiting-screen-settings.update');
+    // «تجربة الصوت» (2026-11-17): the call for a sample name, unsaved wording.
+    Route::post('/waiting-screen-settings/voice-preview', [WaitingScreenSettingController::class, 'voicePreview'])
+        ->middleware(['permission:waiting_screen,view', 'throttle:30,1'])->name('waiting-screen-settings.voice-preview');
     // Controlling paired screens from the server (2026-11-03, by request).
     Route::middleware('permission:waiting_screen,edit')->group(function () {
         Route::post('/waiting-screen/screens/{pairing}/command', [\App\Http\Controllers\WaitingScreenRemoteController::class, 'command'])->name('waiting-screen-screens.command');

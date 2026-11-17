@@ -32,6 +32,8 @@ env:
   COREDNS_VERSION: '1.12.3'
   # Online access through a Cloudflare tunnel (2026-10-31, by request).
   CLOUDFLARED_VERSION: '2026.9.3'
+  # Speech for calling names on the waiting screen (2026-11-17): the MIT build of Piper.
+  PIPER_VERSION: '2023.11.14-2'
 
 jobs:
   panel:
@@ -324,6 +326,18 @@ jobs:
             "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-windows-amd64.exe"
           test "$(stat -c %s $OUT/cloudflared/cloudflared.exe)" -gt 20000000
 
+      - name: Piper (calling names by voice on the waiting screen)
+        run: |
+          OUT=dist/DentalClinicOffline
+          curl -fsSL --retry 5 --retry-delay 10 --retry-all-errors -o piper.zip \
+            "https://github.com/rhasspy/piper/releases/download/${PIPER_VERSION}/piper_windows_amd64.zip"
+          unzip -q piper.zip -d $OUT
+          VOICE=https://huggingface.co/rhasspy/piper-voices/resolve/main/ar/ar_JO/kareem/medium
+          mkdir -p $OUT/piper/voices
+          curl -fsSL --retry 5 --retry-delay 10 --retry-all-errors -o $OUT/piper/voices/ar_JO-kareem-medium.onnx "$VOICE/ar_JO-kareem-medium.onnx"
+          curl -fsSL --retry 5 --retry-delay 10 --retry-all-errors -o $OUT/piper/voices/ar_JO-kareem-medium.onnx.json "$VOICE/ar_JO-kareem-medium.onnx.json"
+          test -f $OUT/piper/piper.exe && test "$(stat -c %s $OUT/piper/voices/ar_JO-kareem-medium.onnx)" -gt 50000000
+
       - name: Zip
         run: |
           cd dist && zip -qr9 ../DentalClinicOffline-windows.zip DentalClinicOffline
@@ -345,6 +359,15 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: offline
+      - name: Piper speaks Arabic on Windows
+        shell: pwsh
+        run: |
+          Expand-Archive DentalClinicOffline-windows.zip -DestinationPath C:\
+          $piper = 'C:\DentalClinicOffline\piper'
+          'المريض أحمد علي، نتيجتك جاهزة' | & "$piper\piper.exe" --model "$piper\voices\ar_JO-kareem-medium.onnx" --output_file C:\voice-check.wav
+          if (-not (Test-Path C:\voice-check.wav) -or (Get-Item C:\voice-check.wav).Length -lt 20000) { throw 'Piper made no speech.' }
+          Write-Host "Voice check: $((Get-Item C:\voice-check.wav).Length) bytes"
+          Remove-Item -Recurse -Force C:\DentalClinicOffline
       - name: Start through DentalClinic.exe and wait for the login page
         shell: pwsh
         run: |
