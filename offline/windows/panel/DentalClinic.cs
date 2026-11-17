@@ -3364,7 +3364,7 @@ namespace DentalClinicPanel
             Show();
             Activate();
             var shots = new List<Action>();
-            string[] names = { "1-home", "2-network", "3-backups", "4-updates", "5-online", "6-log" };
+            string[] names = { "1-home", "2-network", "3-backups", "4-updates", "4b-voices", "5-online", "6-log" };
             for (int i = 0; i < pages.Count; i++)
             {
                 int n = i;
@@ -3385,7 +3385,7 @@ namespace DentalClinicPanel
                 Size = MinimumSize;
                 ShowPage(0);
                 Snap(this, "8-home-small");
-                ShowPage(4);
+                ShowPage(5);
                 Snap(this, "9-online-small");
             });
             shots.Add(() =>
