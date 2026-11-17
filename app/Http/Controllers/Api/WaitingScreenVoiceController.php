@@ -41,7 +41,7 @@ class WaitingScreenVoiceController extends Controller
         abort_unless($shown, 404);
 
         try {
-            $path = $speech->wav(VoiceCalls::sentence($patientRegistration->name, $kind, $settings), $settings['voice_engine'], $settings['voice_rate']);
+            $path = $speech->wav(VoiceCalls::sentence($patientRegistration->name, $kind, $settings), $settings['voice_engine'], $settings['voice_rate'], $settings['voice_name']);
         } catch (SpeechException $e) {
             return response()->json(['message' => $e->getMessage()], 503);
         }

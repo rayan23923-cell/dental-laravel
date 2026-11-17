@@ -33,6 +33,8 @@ class WaitingScreenSettingController extends Controller
             // Calling names by voice (2026-11-17), see App\Support\VoiceCalls.
             'voice' => VoiceCalls::settings(),
             'voiceEngines' => app(SpeechSynthesizer::class)->available(),
+            'voiceNames' => SpeechSynthesizer::VOICES,
+            'voiceInstalled' => app(SpeechSynthesizer::class)->voices(),
             'voiceDefaults' => VoiceCalls::DEFAULTS,
         ]);
     }
@@ -47,7 +49,7 @@ class WaitingScreenSettingController extends Controller
         $settings = array_merge(VoiceCalls::settings(), array_filter($data, fn ($v) => $v !== null));
 
         try {
-            $path = $speech->wav(VoiceCalls::sentence($data['name'], $data['kind'], $settings), $settings['voice_engine'], (int) $settings['voice_rate']);
+            $path = $speech->wav(VoiceCalls::sentence($data['name'], $data['kind'], $settings), $settings['voice_engine'], (int) $settings['voice_rate'], $settings['voice_name']);
         } catch (SpeechException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }

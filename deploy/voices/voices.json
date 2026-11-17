@@ -1,0 +1,23 @@
+{
+  "_comment": "Piper voices for calling names on the waiting screen (2026-11-17). Each entry: the .onnx and its .onnx.json; fetch-voices.py downloads them and lowers the model's IR version to 8 where needed, so the MIT Piper build (onnxruntime 1.14) runs them.",
+  "kareem": {
+    "onnx": "https://huggingface.co/rhasspy/piper-voices/resolve/main/ar/ar_JO/kareem/medium/ar_JO-kareem-medium.onnx",
+    "json": "https://huggingface.co/rhasspy/piper-voices/resolve/main/ar/ar_JO/kareem/medium/ar_JO-kareem-medium.onnx.json"
+  },
+  "miro": {
+    "onnx": "https://huggingface.co/csukuangfj/vits-piper-ar_JO-SA_miro-high/resolve/main/ar_JO-SA_miro-high.onnx",
+    "json": "https://huggingface.co/csukuangfj/vits-piper-ar_JO-SA_miro_V2-high/resolve/main/ar_JO-SA_miro_V2-high.onnx.json"
+  },
+  "miro_v2": {
+    "onnx": "https://huggingface.co/csukuangfj/vits-piper-ar_JO-SA_miro_V2-high/resolve/main/ar_JO-SA_miro_V2-high.onnx",
+    "json": "https://huggingface.co/csukuangfj/vits-piper-ar_JO-SA_miro_V2-high/resolve/main/ar_JO-SA_miro_V2-high.onnx.json"
+  },
+  "dii": {
+    "onnx": "https://huggingface.co/csukuangfj/vits-piper-ar_JO-SA_dii-high/resolve/main/ar_JO-SA_dii-high.onnx",
+    "json": "https://huggingface.co/csukuangfj/vits-piper-ar_JO-SA_dii-high/resolve/main/ar_JO-SA_dii-high.onnx.json"
+  },
+  "emirati": {
+    "onnx": "https://huggingface.co/vadimbelsky/arabic-emirati-female-piper/resolve/main/arabic-emirati-female-model.onnx",
+    "json": "https://huggingface.co/vadimbelsky/arabic-emirati-female-piper/resolve/main/arabic-emirati-female-model.onnx.json"
+  }
+}

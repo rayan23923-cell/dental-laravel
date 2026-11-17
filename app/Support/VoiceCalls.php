@@ -31,6 +31,7 @@ class VoiceCalls
         return [
             'voice_enabled' => ['sometimes', 'boolean'],
             'voice_engine' => ['sometimes', Rule::in(SpeechSynthesizer::ENGINES)],
+            'voice_name' => ['sometimes', Rule::in(SpeechSynthesizer::VOICES)],
             'voice_ready' => ['sometimes', 'boolean'],
             'voice_ready_before' => ['sometimes', 'nullable', 'string', 'max:150'],
             'voice_ready_after' => ['sometimes', 'nullable', 'string', 'max:150'],
@@ -50,7 +51,7 @@ class VoiceCalls
             'name' => ['required', 'string', 'max:100'],
             'kind' => ['required', Rule::in(self::KINDS)],
             ...collect(self::rules())->only([
-                'voice_engine', 'voice_ready_before', 'voice_ready_after', 'voice_waiting_before', 'voice_waiting_after', 'voice_rate',
+                'voice_engine', 'voice_name', 'voice_ready_before', 'voice_ready_after', 'voice_waiting_before', 'voice_waiting_after', 'voice_rate',
             ])->all(),
         ];
     }
@@ -63,6 +64,7 @@ class VoiceCalls
         return [
             'voice_enabled' => (bool) ($settings->voice_enabled ?? true),
             'voice_engine' => $settings->voice_engine ?: 'piper',
+            'voice_name' => in_array($settings->voice_name, SpeechSynthesizer::VOICES, true) ? $settings->voice_name : SpeechSynthesizer::DEFAULT_VOICE,
             'voice_ready' => (bool) ($settings->voice_ready ?? true),
             'voice_ready_before' => $settings->voice_ready_before ?? self::DEFAULTS['voice_ready_before'],
             'voice_ready_after' => $settings->voice_ready_after ?? self::DEFAULTS['voice_ready_after'],
@@ -105,7 +107,7 @@ class VoiceCalls
             'waiting' => $s['voice_enabled'] && $s['voice_waiting'],
             'repeat' => $s['voice_repeat'],
             'volume' => $s['voice_volume'],
-            'version' => substr(sha1(json_encode([$s['voice_engine'], $s['voice_rate'], $s['voice_ready_before'], $s['voice_ready_after'], $s['voice_waiting_before'], $s['voice_waiting_after']])), 0, 10),
+            'version' => substr(sha1(json_encode([$s['voice_engine'], $s['voice_name'], $s['voice_rate'], $s['voice_ready_before'], $s['voice_ready_after'], $s['voice_waiting_before'], $s['voice_waiting_after']])), 0, 10),
         ];
     }
 }

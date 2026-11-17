@@ -24,6 +24,7 @@ class WaitingScreenSetting extends Model
         // Calling names by voice (2026-11-17), see App\Support\VoiceCalls.
         'voice_enabled',
         'voice_engine',
+        'voice_name',
         'voice_ready',
         'voice_ready_before',
         'voice_ready_after',

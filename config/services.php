@@ -8,7 +8,7 @@ return [
     'tts' => [
         'url' => env('TTS_URL'),
         'piper_bin' => env('PIPER_BIN'),
-        'piper_model' => env('PIPER_MODEL'),
+        'piper_voices' => env('PIPER_VOICES'),
     ],
 
 

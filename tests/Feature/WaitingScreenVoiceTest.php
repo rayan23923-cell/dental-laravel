@@ -38,12 +38,17 @@ class WaitingScreenVoiceTest extends TestCase
                 return ['piper'];
             }
 
-            public function wav(string $text, string $engine = 'piper', int $rate = 100): string
+            public function voices(): array
+            {
+                return ['miro', 'kareem'];
+            }
+
+            public function wav(string $text, string $engine = 'piper', int $rate = 100, string $voice = 'miro'): string
             {
                 if ($engine === 'windows') {
                     throw new SpeechException('صوت ويندوز يعمل على سيرفر ويندوز فقط.');
                 }
-                $this->test->record([$text, $engine, $rate]);
+                $this->test->record([$text, $engine, $rate, $voice]);
                 $path = tempnam(sys_get_temp_dir(), 'tts');
                 file_put_contents($path, 'RIFF'.str_repeat("\0", 60));
 
@@ -88,7 +93,9 @@ class WaitingScreenVoiceTest extends TestCase
             'voice_repeat' => 3,
             'voice_volume' => 70,
             'voice_rate' => 90,
+            'voice_name' => 'emirati',
         ])->assertSessionHasNoErrors();
+        $this->assertSame('emirati', WaitingScreenSetting::current()->voice_name);
 
         $settings = WaitingScreenSetting::current();
         $this->assertSame(3, $settings->voice_repeat);
@@ -120,7 +127,7 @@ class WaitingScreenVoiceTest extends TestCase
         $patient->markLabResultReceived();
 
         $this->get($url('ready'))->assertOk()->assertHeader('Content-Type', 'audio/wav');
-        $this->assertSame([['المريض زينب كاظم، نتيجتك جاهزة، يرجى المراجعة إلى المختبر', 'piper', 100]], $this->spoken);
+        $this->assertSame([['المريض زينب كاظم، نتيجتك جاهزة، يرجى المراجعة إلى المختبر', 'piper', 100, 'miro']], $this->spoken);
 
         // An unpaired screen gets nothing.
         $this->get($url('ready', 'nope'))->assertForbidden();
@@ -139,7 +146,9 @@ class WaitingScreenVoiceTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->where('voice.voice_repeat', 2)
                 ->where('voice.voice_ready_before', 'المريض')
-                ->where('voiceEngines', ['piper']));
+                ->where('voiceEngines', ['piper'])
+                ->where('voice.voice_name', 'miro')
+                ->where('voiceInstalled', ['miro', 'kareem']));
 
         $this->post(route('waiting-screen-settings.voice-preview'), [
             'name' => 'أحمد علي',
@@ -147,8 +156,12 @@ class WaitingScreenVoiceTest extends TestCase
             'voice_ready_before' => 'السيد',
             'voice_ready_after' => 'تفضل',
             'voice_rate' => 80,
+            'voice_name' => 'kareem',
         ])->assertOk()->assertHeader('Content-Type', 'audio/wav');
-        $this->assertSame([['السيد أحمد علي، تفضل', 'piper', 80]], $this->spoken);
+        $this->assertSame([['السيد أحمد علي، تفضل', 'piper', 80, 'kareem']], $this->spoken);
+
+        $this->postJson(route('waiting-screen-settings.voice-preview'), ['name' => 'أحمد', 'kind' => 'ready', 'voice_name' => 'nope'])
+            ->assertStatus(422)->assertJsonValidationErrors('voice_name');
 
         $this->postJson(route('waiting-screen-settings.voice-preview'), ['name' => 'أحمد', 'kind' => 'ready', 'voice_engine' => 'windows'])
             ->assertStatus(422)->assertJsonPath('message', 'صوت ويندوز يعمل على سيرفر ويندوز فقط.');

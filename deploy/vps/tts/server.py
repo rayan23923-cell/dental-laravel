@@ -1,6 +1,7 @@
 """Piper behind a tiny HTTP API for the dental app (2026-11-17).
 
-POST /synthesize {"text": "...", "length_scale": 1.0} -> audio/wav
+POST /synthesize {"text": "...", "length_scale": 1.0, "voice": "miro"} -> audio/wav
+GET  /voices -> ["dii", "emirati", ...]
 GET  /health -> ok
 
 Only the app container reaches it (no published port). One Piper process
@@ -8,12 +9,14 @@ per sentence: nothing stays in memory between calls.
 """
 import json
 import os
+import re
 import subprocess
 import tempfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 PIPER = os.environ.get("PIPER_BIN", "/opt/piper/piper")
-MODEL = os.environ.get("PIPER_MODEL", "/opt/voices/ar_JO-kareem-medium.onnx")
+VOICES = os.environ.get("PIPER_VOICES", "/opt/voices")
+DEFAULT_VOICE = "miro"
 MAX_CHARS = 400
 
 
@@ -28,6 +31,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/health":
             self._send(200, b"ok")
+        elif self.path == "/voices":
+            names = sorted(f[:-5] for f in os.listdir(VOICES) if f.endswith(".onnx"))
+            self._send(200, json.dumps(names).encode(), "application/json")
         else:
             self._send(404, b"not found")
 
@@ -39,14 +45,18 @@ class Handler(BaseHTTPRequestHandler):
             data = json.loads(self.rfile.read(min(length, 20000)) or b"{}")
             text = " ".join(str(data.get("text", "")).split())[:MAX_CHARS]
             scale = min(2.0, max(0.5, float(data.get("length_scale", 1.0))))
+            voice = str(data.get("voice") or DEFAULT_VOICE)
         except Exception:
             return self._send(400, b"bad request")
         if not text:
             return self._send(400, b"no text")
+        model = os.path.join(VOICES, voice + ".onnx")
+        if not re.fullmatch(r"[a-z0-9_]{1,40}", voice) or not os.path.exists(model):
+            return self._send(404, b"unknown voice")
         with tempfile.TemporaryDirectory() as tmp:
             out = os.path.join(tmp, "out.wav")
             proc = subprocess.run(
-                [PIPER, "--model", MODEL, "--output_file", out, "--length_scale", str(scale)],
+                [PIPER, "--model", model, "--output_file", out, "--length_scale", str(scale)],
                 input=text.encode("utf-8"),
                 capture_output=True,
                 timeout=60,
