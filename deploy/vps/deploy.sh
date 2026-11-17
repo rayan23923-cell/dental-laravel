@@ -42,6 +42,25 @@ fi
 compose build --pull
 compose up -d
 
+# The waiting screen's voices for Windows servers to download when picked (2026-11-17): copied out
+# of the voice container to /downloads/voices with a manifest of sizes and SHA-256 sums.
+voices=public/downloads/voices
+sudo mkdir -p "$voices"
+if sudo docker cp dental-tts:/opt/voices/. "$voices/"; then
+    {
+        printf '{'
+        sep=''
+        for f in "$voices"/*.onnx; do
+            printf '%s"%s":{"size":%s,"sha256":"%s"}' "$sep" "$(basename "$f" .onnx)" "$(sudo stat -c %s "$f")" "$(sudo sha256sum "$f" | cut -d' ' -f1)"
+            sep=','
+        done
+        printf '}\n'
+    } | sudo tee "$voices/voices.json" >/dev/null
+    echo "Voices published: $(sudo cat "$voices/voices.json" | tr ',' '\n' | grep -c sha256)"
+else
+    echo "Could not copy the voices out of dental-tts." >&2
+fi
+
 echo "Waiting for the app to finish migrating..."
 tries=0
 until sudo docker exec dental-app test -f storage/app/.seeded 2>/dev/null; do

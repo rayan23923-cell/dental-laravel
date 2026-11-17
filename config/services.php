@@ -9,6 +9,8 @@ return [
         'url' => env('TTS_URL'),
         'piper_bin' => env('PIPER_BIN'),
         'piper_voices' => env('PIPER_VOICES'),
+        // Where a Windows server downloads the voices it does not carry.
+        'voices_url' => env('TTS_VOICES_URL'),
     ],
 
 

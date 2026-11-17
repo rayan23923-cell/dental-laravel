@@ -71,6 +71,13 @@ class SpeechSynthesizer
                 : 'محرك الصوت Piper غير مثبت على هذا السيرفر.');
         }
 
+        // A picked voice that is not on this computer (not downloaded yet, or
+        // lost) speaks with the default voice instead of leaving the screen
+        // silent; the cache key follows the voice actually used.
+        if ($engine === 'piper' && blank(config('services.tts.url')) && $this->piperModel($voice) === null && $this->piperModel(self::DEFAULT_VOICE) !== null) {
+            $voice = self::DEFAULT_VOICE;
+        }
+
         $dir = storage_path('app/tts');
         $path = $dir.'/'.sha1($engine.'|'.($engine === 'piper' ? $voice : '').'|'.$rate.'|'.$text).'.wav';
         if (is_file($path) && filesize($path) > 44) {
@@ -220,6 +227,8 @@ class SpeechSynthesizer
         $dir = $this->voicesDir();
         $candidates = array_filter([
             $dir.'/'.$voice.'.onnx',
+            // Downloaded when picked (2026-11-17), kept across program updates.
+            VoiceDownloads::dir().'/'.$voice.'.onnx',
             // The first Windows package named «كريم» after its file (2026-11-17).
             $voice === 'kareem' ? $dir.'/ar_JO-kareem-medium.onnx' : null,
         ]);

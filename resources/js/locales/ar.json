@@ -1153,6 +1153,11 @@
         "emptyList": "لا يوجد مرضى مجدولون."
     },
     "waitingScreenSettings": {
+        "voiceNeedsDownload": "هذا الصوت غير موجود على هذا السيرفر. نزّله مرة واحدة (63 م.ب تقريبًا، يحتاج الإنترنت وقت التنزيل)، أو من صفحة «أصوات النداء» في لوحة البرنامج.",
+        "voiceDownload": "تنزيل الصوت",
+        "voiceDownloading": "جارٍ التنزيل… {done} من {total} م.ب",
+        "voiceDownloaded": "نُزّل الصوت ✓",
+        "voiceDownloadFailed": "تعذر التنزيل.",
         "voiceName": "الصوت",
         "voiceName_miro": "ميرو (الافتراضي)",
         "voiceName_miro_v2": "ميرو 2",

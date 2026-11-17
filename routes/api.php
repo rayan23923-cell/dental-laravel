@@ -322,6 +322,9 @@ Route::name('api.')->prefix('v1')->group(function () {
         // «تجربة الصوت» (2026-11-17): the call for a sample name, unsaved wording.
         Route::post('/waiting-screen-settings/voice-preview', [WaitingScreenSettingController::class, 'voicePreview'])
             ->middleware(['permission:waiting_screen,view', 'throttle:30,1']);
+        Route::post('/waiting-screen-settings/voices/{voice}/download', [WaitingScreenSettingController::class, 'downloadVoice'])
+            ->whereIn('voice', \App\Services\Speech\SpeechSynthesizer::VOICES)
+            ->middleware(['permission:waiting_screen,edit', 'throttle:240,1']);
         // Paired screens and their remote control (2026-11-03, by request).
         Route::get('/waiting-screen/screens', [\App\Http\Controllers\Api\WaitingScreenRemoteController::class, 'index'])
             ->middleware('permission:waiting_screen,view');

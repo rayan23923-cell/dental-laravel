@@ -21,6 +21,7 @@ const props = defineProps({
     voiceDefaults: { type: Object, default: () => ({}) },
     voiceNames: { type: Array, default: () => [] },
     voiceInstalled: { type: Array, default: () => [] },
+    voiceDownloadable: { type: Boolean, default: false },
 });
 
 // Remote control of paired screens (2026-11-03, by request).
@@ -84,6 +85,32 @@ const joinSentence = (kind, name) => {
     let text = `${before} ${name.trim()}`.trim();
     if (after) text += (/^[،,.؛:!؟?]/.test(after) ? '' : '، ') + after;
     return text;
+};
+// A voice the Windows server does not carry (2026-11-17): fetched piece by piece.
+const installed = ref([...props.voiceInstalled]);
+const voiceMissing = computed(() => form.voice_engine === 'piper' && !installed.value.includes(form.voice_name));
+const downloading = ref(false);
+const downloadText = ref('');
+const downloadError = ref('');
+const mb = (b) => (b / 1048576).toFixed(1);
+const downloadVoice = async () => {
+    downloading.value = true;
+    downloadError.value = '';
+    const voice = form.voice_name;
+    try {
+        for (;;) {
+            const { data } = await axios.post(route('waiting-screen-settings.voice-download', voice), {}, { timeout: 180000 });
+            const s = data.data;
+            downloadText.value = t('waitingScreenSettings.voiceDownloading', { done: mb(s.received), total: mb(s.total) });
+            if (s.done) break;
+        }
+        installed.value = [...installed.value, voice];
+        downloadText.value = t('waitingScreenSettings.voiceDownloaded');
+    } catch (e) {
+        downloadError.value = e?.response?.data?.message ?? t('waitingScreenSettings.voiceDownloadFailed');
+    } finally {
+        downloading.value = false;
+    }
 };
 const previewSentence = computed(() => joinSentence(testKind.value, testName.value || ''));
 const testVoice = async () => {
@@ -231,10 +258,19 @@ const submit = () => {
                                     <InputLabel :value="t('waitingScreenSettings.voiceName')" />
                                     <select v-model="form.voice_name" class="mt-1 block w-full rounded-xl border-gray-300 text-sm">
                                         <option v-for="name in voiceNames" :key="name" :value="name">
-                                            {{ t(`waitingScreenSettings.voiceName_${name}`) }}{{ voiceInstalled.includes(name) ? '' : ' — ' + t('waitingScreenSettings.voiceNameMissing') }}
+                                            {{ t(`waitingScreenSettings.voiceName_${name}`) }}{{ installed.includes(name) ? '' : ' — ' + t('waitingScreenSettings.voiceNameMissing') }}
                                         </option>
                                     </select>
                                     <InputError class="mt-2" :message="form.errors.voice_name" />
+                                    <div v-if="voiceMissing && voiceDownloadable" class="mt-2 space-y-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-900">
+                                        <p>{{ t('waitingScreenSettings.voiceNeedsDownload') }}</p>
+                                        <button type="button" :disabled="downloading" @click="downloadVoice" class="inline-flex items-center gap-1 rounded-full bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50">
+                                            <Icon name="download" size="text-[16px]" />{{ t('waitingScreenSettings.voiceDownload') }}
+                                        </button>
+                                        <p v-if="downloadText">{{ downloadText }}</p>
+                                        <p v-if="downloadError" class="text-red-700">{{ downloadError }}</p>
+                                    </div>
+                                    <p v-else-if="downloadText" class="mt-2 text-xs text-emerald-700">{{ downloadText }}</p>
                                 </div>
                                 <div v-for="kind in ['ready', 'waiting']" :key="kind" class="rounded-xl bg-white p-3 ring-1 ring-gray-100">
                                     <label class="flex items-center gap-2 text-sm font-medium text-gray-800">

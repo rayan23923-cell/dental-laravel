@@ -8,8 +8,10 @@ use App\Models\WaitingScreenPairing;
 use App\Models\WaitingScreenSetting;
 use App\Services\Speech\SpeechException;
 use App\Services\Speech\SpeechSynthesizer;
+use App\Services\Speech\VoiceDownloads;
 use App\Support\VoiceCalls;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -93,9 +95,13 @@ class WaitingScreenVoiceTest extends TestCase
             'voice_repeat' => 3,
             'voice_volume' => 70,
             'voice_rate' => 90,
-            'voice_name' => 'emirati',
+            'voice_name' => 'kareem',
         ])->assertSessionHasNoErrors();
-        $this->assertSame('emirati', WaitingScreenSetting::current()->voice_name);
+        $this->assertSame('kareem', WaitingScreenSetting::current()->voice_name);
+
+        // A voice this Windows server does not have must be downloaded first.
+        $this->put(route('waiting-screen-settings.update'), ['patients_per_page' => 8, 'rotation_seconds' => 12, 'voice_name' => 'emirati'])
+            ->assertSessionHasErrors('voice_name');
 
         $settings = WaitingScreenSetting::current();
         $this->assertSame(3, $settings->voice_repeat);
@@ -177,5 +183,57 @@ class WaitingScreenVoiceTest extends TestCase
 
         $this->putJson('/api/v1/waiting-screen-settings', ['patients_per_page' => 8, 'rotation_seconds' => 12, 'voice_volume' => 40])
             ->assertOk()->assertJsonPath('data.settings.voice_volume', 40);
+    }
+
+    public function test_a_voice_is_downloaded_piece_by_piece_and_checked(): void
+    {
+        $model = random_bytes(7 * 1024 * 1024); // two pieces of 6 MB
+        $sha = hash('sha256', $model);
+        $base = 'https://voices.test/v';
+        config(['services.tts.voices_url' => $base]);
+        Http::fake(function ($request) use ($model, $sha, $base) {
+            if ($request->url() === "$base/voices.json") {
+                return Http::response(['emirati' => ['size' => strlen($model), 'sha256' => $sha]]);
+            }
+            if ($request->url() === "$base/emirati.onnx.json") {
+                return Http::response(['audio' => ['sample_rate' => 22050]]);
+            }
+            preg_match('/bytes=(\d+)-(\d+)/', $request->header('Range')[0] ?? '', $m);
+
+            return Http::response(substr($model, (int) $m[1], (int) $m[2] - (int) $m[1] + 1), 206);
+        });
+        $dir = VoiceDownloads::dir();
+        @unlink("$dir/emirati.onnx");
+        @unlink("$dir/emirati.onnx.part");
+
+        $admin = User::factory()->create(['role' => 'super_admin']);
+        $url = route('waiting-screen-settings.voice-download', 'emirati');
+        $this->actingAs($admin)->postJson($url)->assertOk()->assertJsonPath('data.done', false)->assertJsonPath('data.received', 6 * 1024 * 1024);
+        $this->postJson($url)->assertOk()->assertJsonPath('data.done', true);
+        $this->assertSame($sha, hash_file('sha256', "$dir/emirati.onnx"));
+        $this->assertFileExists("$dir/emirati.onnx.json");
+
+        // Unknown voices are not routed; a reception account cannot download.
+        $this->postJson('/waiting-screen-settings/voices/nope/download')->assertNotFound();
+
+        @unlink("$dir/emirati.onnx");
+        @unlink("$dir/emirati.onnx.json");
+    }
+
+    public function test_a_corrupt_download_is_thrown_away(): void
+    {
+        config(['services.tts.voices_url' => 'https://voices.test/v']);
+        Http::fake([
+            'voices.test/v/voices.json' => Http::response(['dii' => ['size' => 4, 'sha256' => str_repeat('0', 64)]]),
+            'voices.test/v/dii.onnx' => Http::response('abcd', 206),
+        ]);
+        $dir = VoiceDownloads::dir();
+        @unlink("$dir/dii.onnx.part");
+
+        $this->actingAs(User::factory()->create(['role' => 'super_admin']))
+            ->postJson(route('waiting-screen-settings.voice-download', 'dii'))
+            ->assertStatus(422)->assertJsonPath('message', 'الملف المنزّل تالف، فحُذف. اضغط «تنزيل» لإعادة تنزيله.');
+        $this->assertFileDoesNotExist("$dir/dii.onnx.part");
+        $this->assertFileDoesNotExist("$dir/dii.onnx");
     }
 }

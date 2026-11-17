@@ -3,7 +3,7 @@
 (their operators are unchanged), so the MIT Piper build 2023.11.14-2, whose
 onnxruntime is 1.14, can load them. Needs: pip install onnx.
 
-Usage: python3 fetch-voices.py DEST
+Usage: python3 fetch-voices.py DEST [NAME ...]   (all voices when no names)
 """
 import json
 import os
@@ -33,10 +33,13 @@ def fetch(url, path):
     raise SystemExit(f"download failed: {url}")
 
 
-def main(dest):
+def main(dest, only=None):
     os.makedirs(dest, exist_ok=True)
     with open(os.path.join(HERE, "voices.json"), encoding="utf-8") as f:
         voices = {k: v for k, v in json.load(f).items() if not k.startswith("_")}
+    if only:
+        voices = {k: v for k, v in voices.items() if k in only}
+        assert voices, f"unknown voices: {only}"
     for name, src in voices.items():
         model = os.path.join(dest, name + ".onnx")
         fetch(src["onnx"], model)
@@ -51,4 +54,4 @@ def main(dest):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main(sys.argv[1], sys.argv[2:])

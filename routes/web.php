@@ -407,6 +407,10 @@ Route::middleware('auth')->group(function () {
     // «تجربة الصوت» (2026-11-17): the call for a sample name, unsaved wording.
     Route::post('/waiting-screen-settings/voice-preview', [WaitingScreenSettingController::class, 'voicePreview'])
         ->middleware(['permission:waiting_screen,view', 'throttle:30,1'])->name('waiting-screen-settings.voice-preview');
+    // A voice the Windows server does not carry, fetched piece by piece (2026-11-17).
+    Route::post('/waiting-screen-settings/voices/{voice}/download', [WaitingScreenSettingController::class, 'downloadVoice'])
+        ->whereIn('voice', \App\Services\Speech\SpeechSynthesizer::VOICES)
+        ->middleware(['permission:waiting_screen,edit', 'throttle:240,1'])->name('waiting-screen-settings.voice-download');
     // Controlling paired screens from the server (2026-11-03, by request).
     Route::middleware('permission:waiting_screen,edit')->group(function () {
         Route::post('/waiting-screen/screens/{pairing}/command', [\App\Http\Controllers\WaitingScreenRemoteController::class, 'command'])->name('waiting-screen-screens.command');
