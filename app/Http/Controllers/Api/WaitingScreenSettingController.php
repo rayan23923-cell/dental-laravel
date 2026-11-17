@@ -62,6 +62,8 @@ class WaitingScreenSettingController extends Controller
             'lab_scope' => $settings->lab_scope ?: 'today',
         ] + VoiceCalls::settings($settings) + [
             'voice_engines' => app(SpeechSynthesizer::class)->available(),
+            'voice_names' => SpeechSynthesizer::VOICES,
+            'voice_installed' => app(SpeechSynthesizer::class)->voices(),
         ];
     }
 
@@ -72,7 +74,7 @@ class WaitingScreenSettingController extends Controller
         $settings = array_merge(VoiceCalls::settings(), array_filter($data, fn ($v) => $v !== null));
 
         try {
-            $path = $speech->wav(VoiceCalls::sentence($data['name'], $data['kind'], $settings), $settings['voice_engine'], (int) $settings['voice_rate']);
+            $path = $speech->wav(VoiceCalls::sentence($data['name'], $data['kind'], $settings), $settings['voice_engine'], (int) $settings['voice_rate'], $settings['voice_name']);
         } catch (SpeechException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }

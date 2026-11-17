@@ -27,6 +27,14 @@ class SpeechSynthesizer
 {
     public const ENGINES = ['piper', 'windows'];
 
+    /**
+     * Piper's Arabic voices (2026-11-17, by request), see
+     * deploy/voices/voices.json; «ميرو» is the default.
+     */
+    public const VOICES = ['miro', 'miro_v2', 'dii', 'kareem', 'emirati'];
+
+    public const DEFAULT_VOICE = 'miro';
+
     private const MAX_CHARS = 400;
 
     /** Engines this server can run, for the settings page. */
@@ -48,8 +56,9 @@ class SpeechSynthesizer
      * Path of the WAV for $text. $rate is the speed in percent (100 =
      * normal). Throws SpeechException with an Arabic reason.
      */
-    public function wav(string $text, string $engine = 'piper', int $rate = 100): string
+    public function wav(string $text, string $engine = 'piper', int $rate = 100, string $voice = self::DEFAULT_VOICE): string
     {
+        $voice = in_array($voice, self::VOICES, true) ? $voice : self::DEFAULT_VOICE;
         $text = trim(preg_replace('/\s+/u', ' ', $text));
         if ($text === '') {
             throw new SpeechException('لا يوجد نص للنطق.');
@@ -63,7 +72,7 @@ class SpeechSynthesizer
         }
 
         $dir = storage_path('app/tts');
-        $path = $dir.'/'.sha1($engine.'|'.$rate.'|'.$text).'.wav';
+        $path = $dir.'/'.sha1($engine.'|'.($engine === 'piper' ? $voice : '').'|'.$rate.'|'.$text).'.wav';
         if (is_file($path) && filesize($path) > 44) {
             @touch($path);
 
@@ -75,7 +84,7 @@ class SpeechSynthesizer
         try {
             match ($engine) {
                 'windows' => $this->windows($text, $rate, $tmp),
-                default => filled(config('services.tts.url')) ? $this->piperHttp($text, $rate, $tmp) : $this->piperCli($text, $rate, $tmp),
+                default => filled(config('services.tts.url')) ? $this->piperHttp($text, $rate, $voice, $tmp) : $this->piperCli($text, $rate, $voice, $tmp),
             };
             if (! is_file($tmp) || filesize($tmp) <= 44) {
                 throw new SpeechException('لم يُنتج محرك الصوت ملفًا.');
@@ -95,24 +104,31 @@ class SpeechSynthesizer
         return $path;
     }
 
-    private function piperHttp(string $text, int $rate, string $out): void
+    private function piperHttp(string $text, int $rate, string $voice, string $out): void
     {
         $response = Http::timeout(30)->post(rtrim(config('services.tts.url'), '/').'/synthesize', [
             'text' => $text,
             'length_scale' => round(100 / $rate, 3),
+            'voice' => $voice,
         ]);
+        if ($response->status() === 404) {
+            throw new SpeechException('هذا الصوت غير مثبت على السيرفر.');
+        }
         if (! $response->successful()) {
             throw new SpeechException('خدمة الصوت لم تستجب ('.$response->status().').');
         }
         file_put_contents($out, $response->body());
     }
 
-    private function piperCli(string $text, int $rate, string $out): void
+    private function piperCli(string $text, int $rate, string $voice, string $out): void
     {
         $bin = $this->piperBinary();
-        $model = $this->piperModel();
-        if ($bin === null || $model === null) {
-            throw new SpeechException('محرك الصوت Piper أو الصوت العربي غير موجود على هذا السيرفر.');
+        $model = $this->piperModel($voice);
+        if ($bin === null) {
+            throw new SpeechException('محرك الصوت Piper غير موجود على هذا السيرفر.');
+        }
+        if ($model === null) {
+            throw new SpeechException('هذا الصوت غير موجود على هذا السيرفر. حدّث البرنامج إلى آخر نسخة.');
         }
         $process = new Process([$bin, '--model', $model, '--output_file', $out, '--length_scale', (string) round(100 / $rate, 3)]);
         $process->setInput($text);
@@ -176,11 +192,36 @@ class SpeechSynthesizer
         return null;
     }
 
-    private function piperModel(): ?string
+    /** Voices installed for Piper on this server. */
+    public function voices(): array
     {
+        if (filled(config('services.tts.url'))) {
+            return cache()->remember('tts.voices', 600, function () {
+                try {
+                    $names = Http::timeout(5)->get(rtrim(config('services.tts.url'), '/').'/voices')->json();
+                } catch (Throwable) {
+                    return [];
+                }
+
+                return array_values(array_intersect(self::VOICES, is_array($names) ? $names : []));
+            });
+        }
+
+        return array_values(array_filter(self::VOICES, fn ($v) => $this->piperModel($v) !== null));
+    }
+
+    private function voicesDir(): string
+    {
+        return config('services.tts.piper_voices') ?: base_path('../piper/voices');
+    }
+
+    private function piperModel(string $voice): ?string
+    {
+        $dir = $this->voicesDir();
         $candidates = array_filter([
-            config('services.tts.piper_model'),
-            base_path('../piper/voices/ar_JO-kareem-medium.onnx'),
+            $dir.'/'.$voice.'.onnx',
+            // The first Windows package named «كريم» after its file (2026-11-17).
+            $voice === 'kareem' ? $dir.'/ar_JO-kareem-medium.onnx' : null,
         ]);
         foreach ($candidates as $path) {
             if (is_file($path) && is_file($path.'.json')) {

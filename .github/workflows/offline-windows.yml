@@ -332,11 +332,10 @@ jobs:
           curl -fsSL --retry 5 --retry-delay 10 --retry-all-errors -o piper.zip \
             "https://github.com/rhasspy/piper/releases/download/${PIPER_VERSION}/piper_windows_amd64.zip"
           unzip -q piper.zip -d $OUT
-          VOICE=https://huggingface.co/rhasspy/piper-voices/resolve/main/ar/ar_JO/kareem/medium
-          mkdir -p $OUT/piper/voices
-          curl -fsSL --retry 5 --retry-delay 10 --retry-all-errors -o $OUT/piper/voices/ar_JO-kareem-medium.onnx "$VOICE/ar_JO-kareem-medium.onnx"
-          curl -fsSL --retry 5 --retry-delay 10 --retry-all-errors -o $OUT/piper/voices/ar_JO-kareem-medium.onnx.json "$VOICE/ar_JO-kareem-medium.onnx.json"
-          test -f $OUT/piper/piper.exe && test "$(stat -c %s $OUT/piper/voices/ar_JO-kareem-medium.onnx)" -gt 50000000
+          # The Arabic voices (2026-11-17), «ميرو» by default; see deploy/voices.
+          pip install --quiet onnx
+          python3 deploy/voices/fetch-voices.py $OUT/piper/voices
+          test -f $OUT/piper/piper.exe && test "$(stat -c %s $OUT/piper/voices/miro.onnx)" -gt 50000000
 
       - name: Zip
         run: |
@@ -364,9 +363,12 @@ jobs:
         run: |
           Expand-Archive DentalClinicOffline-windows.zip -DestinationPath C:\
           $piper = 'C:\DentalClinicOffline\piper'
-          'المريض أحمد علي، نتيجتك جاهزة' | & "$piper\piper.exe" --model "$piper\voices\ar_JO-kareem-medium.onnx" --output_file C:\voice-check.wav
-          if (-not (Test-Path C:\voice-check.wav) -or (Get-Item C:\voice-check.wav).Length -lt 20000) { throw 'Piper made no speech.' }
-          Write-Host "Voice check: $((Get-Item C:\voice-check.wav).Length) bytes"
+          foreach ($model in Get-ChildItem "$piper\voices\*.onnx") {
+            Remove-Item C:\voice-check.wav -ErrorAction SilentlyContinue
+            'المريض أحمد علي، نتيجتك جاهزة' | & "$piper\piper.exe" --model $model.FullName --output_file C:\voice-check.wav
+            if (-not (Test-Path C:\voice-check.wav) -or (Get-Item C:\voice-check.wav).Length -lt 20000) { throw "Piper made no speech with $($model.Name)." }
+            Write-Host "Voice check $($model.BaseName): $((Get-Item C:\voice-check.wav).Length) bytes"
+          }
           Remove-Item -Recurse -Force C:\DentalClinicOffline
       - name: Start through DentalClinic.exe and wait for the login page
         shell: pwsh

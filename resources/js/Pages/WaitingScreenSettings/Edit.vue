@@ -19,6 +19,8 @@ const props = defineProps({
     voice: { type: Object, default: () => ({}) },
     voiceEngines: { type: Array, default: () => [] },
     voiceDefaults: { type: Object, default: () => ({}) },
+    voiceNames: { type: Array, default: () => [] },
+    voiceInstalled: { type: Array, default: () => [] },
 });
 
 // Remote control of paired screens (2026-11-03, by request).
@@ -92,6 +94,7 @@ const testVoice = async () => {
             name: testName.value,
             kind: testKind.value,
             voice_engine: form.voice_engine,
+            voice_name: form.voice_name,
             voice_rate: form.voice_rate,
             voice_ready_before: form.voice_ready_before,
             voice_ready_after: form.voice_ready_after,
@@ -223,6 +226,15 @@ const submit = () => {
                                         </option>
                                     </select>
                                     <InputError class="mt-2" :message="form.errors.voice_engine" />
+                                </div>
+                                <div v-if="form.voice_engine === 'piper'">
+                                    <InputLabel :value="t('waitingScreenSettings.voiceName')" />
+                                    <select v-model="form.voice_name" class="mt-1 block w-full rounded-xl border-gray-300 text-sm">
+                                        <option v-for="name in voiceNames" :key="name" :value="name">
+                                            {{ t(`waitingScreenSettings.voiceName_${name}`) }}{{ voiceInstalled.includes(name) ? '' : ' — ' + t('waitingScreenSettings.voiceNameMissing') }}
+                                        </option>
+                                    </select>
+                                    <InputError class="mt-2" :message="form.errors.voice_name" />
                                 </div>
                                 <div v-for="kind in ['ready', 'waiting']" :key="kind" class="rounded-xl bg-white p-3 ring-1 ring-gray-100">
                                     <label class="flex items-center gap-2 text-sm font-medium text-gray-800">
