@@ -52,10 +52,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
-    }
-
     // AIDL codegen is off by default in modern AGP — needed for
     // PosPrinterPlugin.kt's `IPosPrinterService.aidl` to actually get
     // compiled into a usable Stub class.
@@ -97,6 +93,13 @@ android {
             // a plain local release build.
             signingConfig = if (hasReleaseKeystore) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
         }
+    }
+}
+
+// Kotlin 2.4 (2026-11-17): `kotlinOptions` is gone, the target is set here.
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11
     }
 }
 

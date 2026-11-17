@@ -39,7 +39,13 @@ class _LabServicesScreenState extends ConsumerState<LabServicesScreen> {
   Future<void> _load() async {
     try {
       final (services, abilities) = await _repo.listLabServices();
-      if (mounted) setState(() => (_services, _abilities, _error) = (services, abilities, null));
+      if (mounted) {
+        setState(() {
+          _services = services;
+          _abilities = abilities;
+          _error = null;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _error = e is ApiException ? e.userMessage : ref.read(translationsProvider)['common.loadFailed']!);
     }
