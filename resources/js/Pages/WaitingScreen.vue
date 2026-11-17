@@ -156,6 +156,47 @@ const chimeNew = () => playNotes([[659.25, 0, 0.6], [523.25, 0.35, 0.9]], 'sine'
 // Result ready: a bright rising three-note chime, clearly different.
 const chimeReady = () => playNotes([[523.25, 0, 0.35], [659.25, 0.15, 0.35], [783.99, 0.3, 0.35], [1046.5, 0.45, 0.9]], 'triangle');
 
+// Calling names by voice (2026-11-17, by request): the server turns
+// «المريض … نتيجتك جاهزة» into speech (Piper), so TVs without text-to-speech
+// can call names. Calls play one after another, each `repeat` times at
+// `volume`, a moment after the chime.
+const voice = ref(null); // { enabled, ready, waiting, repeat, volume, version }
+const callQueue = [];
+let calling = false;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const playOnce = (url, volume) => new Promise((resolve) => {
+    const audio = new Audio(url);
+    audio.volume = Math.max(0, Math.min(1, volume / 100));
+    audio.onended = () => resolve(true);
+    audio.onerror = () => resolve(false);
+    audio.play().catch(() => {
+        soundBlocked.value = true;
+        resolve(false);
+    });
+});
+const runCalls = async () => {
+    if (calling) return;
+    calling = true;
+    await sleep(1600); // after the chime
+    while (callQueue.length) {
+        const { id, kind } = callQueue.shift();
+        const v = voice.value;
+        if (!v?.enabled || !pairingToken.value) break;
+        const url = `/api/v1/waiting-screen/voice/${id}?kind=${kind}&token=${encodeURIComponent(pairingToken.value)}&v=${v.version}`;
+        for (let i = 0; i < (v.repeat || 1); i++) {
+            if (!(await playOnce(url, v.volume ?? 100))) break;
+            if (i < v.repeat - 1) await sleep(900);
+        }
+        await sleep(700);
+    }
+    calling = false;
+};
+const queueCall = (call) => {
+    if (callQueue.some((c) => c.id === call.id && c.kind === call.kind)) return;
+    callQueue.push(call);
+    runCalls();
+};
+
 const noticeChanges = (list) => {
     const statuses = new Map(list.filter((p) => p.id != null).map((p) => [p.id, p.status]));
     if (knownStatuses === null) {
@@ -165,21 +206,26 @@ const noticeChanges = (list) => {
     let newest = null;
     let anyNew = false;
     let anyReady = false;
+    const calls = [];
     statuses.forEach((status, id) => {
         const before = knownStatuses.get(id);
         if (status === 'ready' && before !== 'ready') {
             setHighlight(id, 'ready');
             anyReady = true;
             newest = id;
+            if (voice.value?.ready) calls.push({ id, kind: 'ready' });
         } else if (before === undefined) {
             setHighlight(id, 'new');
             anyNew = true;
             newest = id;
+            if (voice.value?.waiting && status !== 'ready') calls.push({ id, kind: 'waiting' });
         }
     });
     knownStatuses = statuses;
     if (anyReady) chimeReady();
     else if (anyNew) chimeNew();
+    // Names called by voice after the chime (2026-11-17, by request).
+    calls.forEach((call) => queueCall(call));
     // Show the page that holds the latest change.
     if (newest !== null) {
         const index = list.findIndex((p) => p.id === newest);
@@ -296,6 +342,7 @@ const load = async () => {
         return;
     }
 
+    voice.value = data.voice ?? null;
     clinicName.value = data.clinic_name;
     logoUrl.value = sameOriginPath(data.logo_url);
     appointments.value = data.appointments;

@@ -2,6 +2,16 @@
 
 return [
 
+    // Speech for calling names on the waiting screen (2026-11-17), see
+    // App\Services\Speech\SpeechSynthesizer. On the VPS `url` is the Piper
+    // container; on the Windows server piper\piper.exe is found by itself.
+    'tts' => [
+        'url' => env('TTS_URL'),
+        'piper_bin' => env('PIPER_BIN'),
+        'piper_model' => env('PIPER_MODEL'),
+    ],
+
+
     /*
     |--------------------------------------------------------------------------
     | Third Party Services

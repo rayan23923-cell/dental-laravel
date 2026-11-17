@@ -111,6 +111,9 @@ Route::name('api.')->prefix('v1')->group(function () {
     // pairing (choosing a stage) is authenticated, further down in the
     // auth:sanctum group below.
     Route::get('/waiting-screen/pairings/{token}/qr', [WaitingScreenPairingController::class, 'qr']);
+    // The spoken call for one patient on a paired screen (2026-11-17), see
+    // WaitingScreenVoiceController: token-gated, made once and kept.
+    Route::get('/waiting-screen/voice/{patientRegistration}', \App\Http\Controllers\Api\WaitingScreenVoiceController::class)->middleware('throttle:120,1');
 
     // Public, unauthenticated — the Flutter login screen needs the clinic
     // logo/name before any Sanctum token exists. See BrandingController
@@ -316,6 +319,9 @@ Route::name('api.')->prefix('v1')->group(function () {
             ->middleware('permission:waiting_screen,view');
         Route::put('/waiting-screen-settings', [WaitingScreenSettingController::class, 'update'])
             ->middleware('permission:waiting_screen,edit');
+        // «تجربة الصوت» (2026-11-17): the call for a sample name, unsaved wording.
+        Route::post('/waiting-screen-settings/voice-preview', [WaitingScreenSettingController::class, 'voicePreview'])
+            ->middleware(['permission:waiting_screen,view', 'throttle:30,1']);
         // Paired screens and their remote control (2026-11-03, by request).
         Route::get('/waiting-screen/screens', [\App\Http\Controllers\Api\WaitingScreenRemoteController::class, 'index'])
             ->middleware('permission:waiting_screen,view');

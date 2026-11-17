@@ -34,6 +34,8 @@ services:
     container_name: dental-app
     restart: unless-stopped
     env_file: ../../.env
+    environment:
+      TTS_URL: http://tts:5000
     depends_on:
       db:
         condition: service_healthy
@@ -41,6 +43,18 @@ services:
       - dental_storage:/var/www/html/storage
       # App builds the Flutter workflow uploads; live without a rebuild.
       - ../../public/downloads:/var/www/html/public/downloads:ro
+    networks: [default]
+
+  # Speech for calling names on the waiting screen (2026-11-17): Piper with the
+  # Arabic voice, reached only by the app at http://tts:5000 (no published port).
+  tts:
+    build:
+      context: ../..
+      dockerfile: deploy/vps/tts/Dockerfile
+    image: dental-tts:latest
+    container_name: dental-tts
+    restart: unless-stopped
+    mem_limit: 512m
     networks: [default]
 
   # Laravel's scheduler (the daily backup:run). Same image, no migrations: the entrypoint only prepares on php-fpm.

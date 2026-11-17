@@ -9,6 +9,7 @@ use App\Models\PatientRegistration;
 use App\Models\TaskInstance;
 use App\Models\WaitingScreenPairing;
 use App\Models\WaitingScreenSetting;
+use App\Support\VoiceCalls;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -172,6 +173,9 @@ class WaitingScreenController extends Controller
             'lab_waiting' => $labWaiting,
             'lab_ready' => $labReady,
             'commands' => $commands,
+            // Calling names by voice (2026-11-17), see App\Support\VoiceCalls
+            // and WaitingScreenVoiceController.
+            'voice' => VoiceCalls::forScreen($settings),
         ]);
     }
 
