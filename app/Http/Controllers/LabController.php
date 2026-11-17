@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\ClinicSetting;
+use App\Models\LabService;
 use App\Models\PatientRegistration;
 use App\Models\Payment;
 use App\Support\LabFeeGate;
+use App\Support\LabServices;
 use App\Support\StudentDiscount;
 use App\Support\QrCodeFactory;
 use Endroid\QrCode\ErrorCorrectionLevel;
@@ -43,7 +45,7 @@ class LabController extends Controller
 
         $settings = ClinicSetting::current();
 
-        $registrations = PatientRegistration::with(['service:id,name', 'registerDay:id,name', 'screeningCheckedBy:id,full_name'])
+        $registrations = PatientRegistration::with(['service:id,name', 'labService:id,name,price', 'registerDay:id,name', 'screeningCheckedBy:id,full_name'])
             ->whereNull('lab_archived_at')->whereNull('lab_deleted_at')
             ->withExists(['payments as lab_paid' => fn ($q) => $q->where('type', Payment::TYPE_LAB)])
             ->when($status !== 'all', fn ($q) => $q->where('screening_status', $status))
@@ -69,6 +71,52 @@ class LabController extends Controller
             'currency' => $settings->clinic_currency,
             'validityDays' => LabFeeGate::validityDays(),
             'canConfirm' => $permissions->can('patient_screening', 'confirm'),
+            // The lab's own priced services and test-only patients (2026-11-17).
+            'labServices' => ($abilities = LabServices::abilities($permissions))['view'] ? LabServices::list() : [],
+            'labAbilities' => $abilities,
+        ]);
+    }
+
+    /** «تسجيل مريض للفحص فقط» (2026-11-17, by request); see App\Support\LabServices. */
+    public function register(Request $request): JsonResponse
+    {
+        LabServices::authorize($request->user(), 'register');
+
+        [$registration, $payment] = LabServices::register($request);
+        $registration->load(['labService:id,name,price', 'screeningCheckedBy:id,full_name'])
+            ->loadExists(['payments as lab_paid' => fn ($q) => $q->where('type', Payment::TYPE_LAB)]);
+        $this->attachPreviousScreenings(collect([$registration]));
+
+        return response()->json([
+            'data' => $registration,
+            'receipt_url' => $payment ? route('payments.receipt', ['payment' => $payment, 'autoprint' => 1]) : null,
+        ], 201);
+    }
+
+    public function storeService(Request $request): JsonResponse
+    {
+        LabServices::authorize($request->user(), 'manage');
+        LabServices::save($request);
+
+        return response()->json(['data' => LabServices::list()], 201);
+    }
+
+    public function updateService(Request $request, LabService $labService): JsonResponse
+    {
+        LabServices::authorize($request->user(), 'manage');
+        LabServices::save($request, $labService);
+
+        return response()->json(['data' => LabServices::list()]);
+    }
+
+    public function destroyService(Request $request, LabService $labService): JsonResponse
+    {
+        LabServices::authorize($request->user(), 'manage');
+        $deleted = LabServices::delete($labService);
+
+        return response()->json([
+            'data' => LabServices::list(),
+            'message' => $deleted ? 'حُذفت الخدمة.' : 'للخدمة مرضى مسجلون، فأُوقفت بدل حذفها.',
         ]);
     }
 
@@ -88,7 +136,7 @@ class LabController extends Controller
             return response()->json(['message' => 'رمز غير صالح — هذا ليس رمز تسجيل مريض.'], 422);
         }
 
-        $registration = PatientRegistration::with(['service:id,name', 'registerDay:id,name', 'screeningCheckedBy:id,full_name'])
+        $registration = PatientRegistration::with(['service:id,name', 'labService:id,name,price', 'registerDay:id,name', 'screeningCheckedBy:id,full_name'])
             ->withExists(['payments as lab_paid' => fn ($q) => $q->where('type', Payment::TYPE_LAB)])
             ->find($decoded['id']);
 
@@ -183,7 +231,7 @@ class LabController extends Controller
     {
         $this->authorizeLab($request);
 
-        $patientRegistration->load(['service', 'registerDay', 'screeningCheckedBy:id,full_name', 'screeningReusedFrom:id,screening_checked_at'])
+        $patientRegistration->load(['service', 'labService', 'registerDay', 'screeningCheckedBy:id,full_name', 'screeningReusedFrom:id,screening_checked_at'])
             ->loadExists(['payments as lab_paid' => fn ($q) => $q->where('type', Payment::TYPE_LAB)])
             ->loadSum(['payments as lab_fee_paid' => fn ($q) => $q->where('type', Payment::TYPE_LAB)], 'amount');
 
@@ -225,7 +273,7 @@ class LabController extends Controller
 
         return view('print.lab-sample', [
             'settings' => ClinicSetting::current(),
-            'registration' => $patientRegistration->load('service'),
+            'registration' => $patientRegistration->load(['service', 'labService']),
             'qrDataUri' => $qr->getDataUri(),
             'autoprint' => $request->boolean('autoprint'),
         ]);

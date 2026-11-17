@@ -65,7 +65,8 @@ class PatientRegistration {
       occupation: json['occupation'] as String?,
       serviceId: json['service_id'] as int?,
       registerDayId: json['register_day_id'] as int?,
-      serviceName: service?['name'] as String?,
+      // A test-only patient shows the lab's own service (2026-11-17).
+      serviceName: service?['name'] as String? ?? (json['lab_service'] as Map<String, dynamic>?)?['name'] as String?,
       // A decimal column, so it may arrive as a string ("25000.00").
       // `service_fee` (2026-10-25) is the price less the student discount
       // when the patient is eligible; older servers only send the price.

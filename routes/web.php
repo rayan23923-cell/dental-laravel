@@ -470,6 +470,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/lab/{patientRegistration}/sample', [LabController::class, 'sample'])->name('lab.sample');
         Route::post('/lab/{patientRegistration}/reuse', [LabController::class, 'reuse'])->name('lab.reuse');
         Route::post('/lab/{patientRegistration}/received', [LabController::class, 'received'])->name('lab.received');
+        // The lab's own priced services and test-only patients (2026-11-17,
+        // by request); gated in App\Support\LabServices by `lab_services`.
+        Route::post('/lab/register', [LabController::class, 'register'])->middleware('throttle:60,1')->name('lab.register');
+        Route::post('/lab/services', [LabController::class, 'storeService'])->name('lab.services.store');
+        Route::put('/lab/services/{labService}', [LabController::class, 'updateService'])->name('lab.services.update');
+        Route::delete('/lab/services/{labService}', [LabController::class, 'destroyService'])->name('lab.services.destroy');
     });
 
     Route::middleware('role:super_admin,admin,editor')->group(function () {

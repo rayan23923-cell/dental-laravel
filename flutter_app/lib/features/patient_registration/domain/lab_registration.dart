@@ -1,3 +1,4 @@
+import 'lab_service.dart';
 import 'patient_registration.dart';
 import 'registration_payment_state.dart';
 
@@ -5,11 +6,12 @@ import 'registration_payment_state.dart';
 /// registration plus whether its lab fee is paid and, while it is still
 /// pending, the earlier valid clear result it can reuse.
 class LabRegistration {
-  const LabRegistration({required this.registration, required this.labPaid, this.previousScreening});
+  const LabRegistration({required this.registration, required this.labPaid, this.previousScreening, this.labFeeDue});
 
   factory LabRegistration.fromJson(Map<String, dynamic> json) => LabRegistration(
         registration: PatientRegistration.fromJson(json),
         labPaid: json['lab_paid'] as bool? ?? false,
+        labFeeDue: json['lab_fee_due'] == null ? null : double.tryParse(json['lab_fee_due'].toString()),
         previousScreening: json['previous_screening'] == null
             ? null
             : PreviousScreening.fromJson(json['previous_screening'] as Map<String, dynamic>),
@@ -18,6 +20,11 @@ class LabRegistration {
   final PatientRegistration registration;
   final bool labPaid;
   final PreviousScreening? previousScreening;
+
+  /// This patient's own fee: the clinic's lab fee (less the student
+  /// discount), or the lab service's price for a test-only patient
+  /// (2026-11-17). Older servers do not send it.
+  final double? labFeeDue;
 
   /// Same rule as the web `Lab/Index.vue`'s `canReuse()`.
   bool get canReuse => registration.screeningStatus == 'pending' && previousScreening != null;
@@ -36,6 +43,7 @@ class LabPage {
     this.currency,
     this.validityDays = 0,
     this.canConfirm = false,
+    this.labServices = const LabServiceAbilities(),
   });
 
   factory LabPage.fromJson(Map<String, dynamic> json) {
@@ -52,6 +60,7 @@ class LabPage {
       currency: meta['currency'] as String?,
       validityDays: (meta['validity_days'] as num?)?.toInt() ?? 0,
       canConfirm: meta['can_confirm'] as bool? ?? false,
+      labServices: LabServiceAbilities.fromJson(meta['lab_services'] as Map<String, dynamic>?),
     );
   }
 
@@ -67,6 +76,9 @@ class LabPage {
   final String? currency;
   final int validityDays;
   final bool canConfirm;
+
+  /// The lab's own services and test-only patients (2026-11-17).
+  final LabServiceAbilities labServices;
 
   int countFor(String status) =>
       status == 'all' ? counts.values.fold(0, (a, b) => a + b) : (counts[status] ?? 0);

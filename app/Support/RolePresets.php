@@ -12,7 +12,8 @@ use App\Models\UserPermission;
  * permissions screen.
  *
  *  - `reception` (موظف التذاكر): register patients and print their tickets.
- *  - `lab` (مختبري): open the lab, record results and print the lab slip.
+ *  - `lab` (مختبري): open the lab, record results and print the lab slip,
+ *    and its own priced services with test-only patients (2026-11-17).
  *  - `accountant` (محاسب): payments, and the registration services and
  *    their prices.
  */
@@ -21,7 +22,7 @@ class RolePresets
     public const GRANTS = [
         // Each desk sees and prints its own income (2026-10-26, by request).
         'reception' => ['patients' => ['view', 'create'], 'payments' => ['view_tickets'], 'printer_settings' => ['view']],
-        'lab' => ['patient_screening' => ['view', 'confirm'], 'payments' => ['view_lab'], 'printer_settings' => ['view']],
+        'lab' => ['patient_screening' => ['view', 'confirm'], 'payments' => ['view_lab'], 'printer_settings' => ['view'], 'lab_services' => ['view', 'manage', 'register']],
         // The accountant (2026-10-24, by request): payments and the
         // registration services with their prices.
         'accountant' => [

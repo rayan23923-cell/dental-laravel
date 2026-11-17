@@ -36,6 +36,9 @@ const props = defineProps({
     labFee: { type: [Number, String], default: null },
     currency: { type: String, default: '' },
     validityDays: { type: Number, default: 0 },
+    // The lab's own priced services and test-only patients (2026-11-17).
+    labServices: { type: Array, default: () => [] },
+    labAbilities: { type: Object, default: () => ({ view: false, manage: false, register: false }) },
 });
 
 // New and changed registrations show up by themselves (2026-10-19, by request).
@@ -70,9 +73,10 @@ const statusLabel = (status) =>
 const isPaid = (r) => !!r.lab_paid;
 // The lab fee is taken with the result (2026-10-12): picking "سليم" or
 // "غير سليم" records the payment and prints one paid slip (LabFeeGate).
-const hasLabFee = computed(() => props.labFee !== null && props.labFee !== '');
-// Each patient's own fee: less the student discount when eligible (2026-10-25).
+// Each patient's own fee: less the student discount when eligible (2026-10-25),
+// or the lab service's price for a test-only patient (2026-11-17).
 const feeOf = (r) => Number(r?.lab_fee_due ?? props.labFee ?? 0);
+const hasFee = (r) => feeOf(r) > 0 || isPaid(r);
 const labFeeText = (r) => `${feeOf(r).toLocaleString()} ${props.currency ?? ''}`.trim();
 // "10,000 − 50%" beside the discounted fee (2026-10-25, by request).
 const labDiscountText = (r) => {
@@ -84,8 +88,8 @@ const labDiscountText = (r) => {
 // A clear result from the last `validityDays` (same phone) is reused
 // instead: no new screening and nothing to pay (LabFeeGate).
 const canReuse = (r) => r.screening_status === 'pending' && !!r.previous_screening;
-const feeDue = (r) => hasLabFee.value && feeOf(r) > 0 && !isPaid(r) && !canReuse(r);
-const placeAndDay = (r) => [r.service?.name ?? '—', r.register_day?.name].filter(Boolean).join(' · ');
+const feeDue = (r) => feeOf(r) > 0 && !isPaid(r) && !canReuse(r);
+const placeAndDay = (r) => [r.service?.name ?? r.lab_service?.name ?? '—', r.register_day?.name].filter(Boolean).join(' · ');
 const fmtDate = (value) => (value ? new Date(value).toLocaleString('ar-IQ', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
 
 // --- Scan a ticket QR ---
@@ -224,6 +228,87 @@ const record = async (status, { feeConfirmed = false, diagnosed = false } = {}) 
         submitting.value = false;
     }
 };
+
+// --- The lab's own services and test-only patients (2026-11-17, by request) ---
+const services = ref([...props.labServices]);
+watch(() => props.labServices, (v) => { services.value = [...v]; });
+const activeServices = computed(() => services.value.filter((s) => s.active));
+const money = (v) => `${Number(v ?? 0).toLocaleString()} ${props.currency ?? ''}`.trim();
+
+const walkInOpen = ref(false);
+const walkIn = ref({ name: '', phone: '', age: '', lab_service_id: '', paid: true });
+const walkInError = ref('');
+const walkInSaving = ref(false);
+const walkInService = computed(() => services.value.find((s) => s.id === Number(walkIn.value.lab_service_id)));
+const openWalkIn = () => {
+    walkIn.value = { name: '', phone: '', age: '', lab_service_id: activeServices.value.length === 1 ? activeServices.value[0].id : '', paid: true };
+    walkInError.value = '';
+    walkInOpen.value = true;
+};
+const saveWalkIn = async () => {
+    walkInSaving.value = true;
+    walkInError.value = '';
+    try {
+        const { data } = await axios.post(route('lab.register'), {
+            ...walkIn.value,
+            age: walkIn.value.age === '' ? null : Number(walkIn.value.age),
+            lab_service_id: Number(walkIn.value.lab_service_id) || null,
+        });
+        if (data.receipt_url) printInFrame(data.receipt_url);
+        walkInOpen.value = false;
+        resetPrompts();
+        selected.value = data.data;
+        router.reload({ only: ['registrations', 'counts', 'labServices'] });
+    } catch (e) {
+        const errors = e?.response?.data?.errors;
+        walkInError.value = (errors && Object.values(errors)[0]?.[0]) ?? e?.response?.data?.message ?? t('lab.walkInFailed');
+    } finally {
+        walkInSaving.value = false;
+    }
+};
+
+const servicesOpen = ref(false);
+const serviceForm = ref({ id: null, name: '', price: '' });
+const serviceError = ref('');
+const serviceSaving = ref(false);
+const openServices = () => {
+    serviceForm.value = { id: null, name: '', price: '' };
+    serviceError.value = '';
+    servicesOpen.value = true;
+};
+const editService = (svc) => {
+    serviceForm.value = { id: svc.id, name: svc.name, price: svc.price };
+    serviceError.value = '';
+};
+const serviceRequest = async (fn) => {
+    serviceSaving.value = true;
+    serviceError.value = '';
+    try {
+        const { data } = await fn();
+        services.value = data.data;
+        return true;
+    } catch (e) {
+        const errors = e?.response?.data?.errors;
+        serviceError.value = (errors && Object.values(errors)[0]?.[0]) ?? e?.response?.data?.message ?? t('lab.serviceFailed');
+        return false;
+    } finally {
+        serviceSaving.value = false;
+    }
+};
+const saveService = async () => {
+    const body = { name: serviceForm.value.name, price: serviceForm.value.price === '' ? null : Number(serviceForm.value.price) };
+    const id = serviceForm.value.id;
+    const ok = await serviceRequest(() =>
+        id ? axios.put(route('lab.services.update', id), body) : axios.post(route('lab.services.store'), body),
+    );
+    if (ok) serviceForm.value = { id: null, name: '', price: '' };
+};
+const toggleService = (svc) =>
+    serviceRequest(() => axios.put(route('lab.services.update', svc.id), { name: svc.name, price: svc.price, active: !svc.active }));
+const deleteService = (svc) => {
+    if (!window.confirm(t('lab.serviceDeleteConfirm', { name: svc.name }))) return;
+    serviceRequest(() => axios.delete(route('lab.services.destroy', svc.id)));
+};
 </script>
 
 <template>
@@ -233,7 +318,23 @@ const record = async (status, { feeConfirmed = false, diagnosed = false } = {}) 
         <template #header>
             <div class="flex items-center justify-between gap-3">
                 <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ t('dashboard.lab') }}</h2>
-                <div class="flex items-center gap-2">
+                <div class="flex flex-wrap items-center justify-end gap-2">
+                    <button
+                        v-if="labAbilities.view"
+                        type="button"
+                        @click="openServices"
+                        class="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-gray-200 hover:bg-gray-50"
+                    >
+                        <Icon name="biotech" />{{ t('lab.services') }}
+                    </button>
+                    <button
+                        v-if="labAbilities.register"
+                        type="button"
+                        @click="openWalkIn"
+                        class="inline-flex items-center gap-1 rounded-full bg-violet-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-violet-700"
+                    >
+                        <Icon name="person_add" />{{ t('lab.walkIn') }}
+                    </button>
                     <PhoneScannerLink variant="page" />
                     <ChatAddButton :label="t('lab.scanTicket')" icon="qr_code_scanner" @click="openScanner" />
                 </div>
@@ -276,6 +377,7 @@ const record = async (status, { feeConfirmed = false, diagnosed = false } = {}) 
                             <ChatChip v-else :icon="isPaid(r) ? 'paid' : 'money_off'" :tone="isPaid(r) ? 'sky' : 'gray'">{{ isPaid(r) ? t('lab.paid') : t('lab.unpaid') }}</ChatChip>
                             <ChatChip v-if="r.lab_result_received_at" icon="how_to_reg" tone="emerald">{{ t('lab.resultReceivedDone') }}</ChatChip>
                             <ChatChip v-else-if="r.screening_status !== 'pending'" icon="hourglass_bottom" tone="amber">{{ t('lab.awaitingCollection') }}</ChatChip>
+                            <ChatChip v-if="r.lab_service_id" icon="biotech" tone="violet">{{ t('lab.labOnlyBadge') }}</ChatChip>
                             <ChatChip icon="location_on">{{ placeAndDay(r) }}</ChatChip>
                             <ChatChip icon="schedule">{{ fmtDate(r.created_at) }}</ChatChip>
                         </template>
@@ -352,7 +454,7 @@ const record = async (status, { feeConfirmed = false, diagnosed = false } = {}) 
                     </button>
                 </div>
 
-                <div v-if="!canReuse(selected) && hasLabFee" class="flex items-center gap-1 rounded-xl p-3 text-sm font-semibold" :class="isPaid(selected) ? 'bg-sky-50 text-sky-800' : 'bg-amber-50 text-amber-800'">
+                <div v-if="!canReuse(selected) && hasFee(selected)" class="flex items-center gap-1 rounded-xl p-3 text-sm font-semibold" :class="isPaid(selected) ? 'bg-sky-50 text-sky-800' : 'bg-amber-50 text-amber-800'">
                     <Icon :name="isPaid(selected) ? 'paid' : 'payments'" class="ml-1" />
                     <span>{{ isPaid(selected) ? t('lab.paid') : t('lab.feeWithResult') }}</span>
                     <span class="font-normal" dir="ltr">({{ labFeeText(selected) }})</span>
@@ -492,6 +594,96 @@ const record = async (status, { feeConfirmed = false, diagnosed = false } = {}) 
                 >
                     <Icon name="print" class="ml-1" />{{ t('lab.printResult') }}
                 </button>
+            </div>
+        </Modal>
+        <!-- Test-only patient (2026-11-17, by request) -->
+        <Modal :show="walkInOpen" @close="walkInOpen = false">
+            <form class="flex flex-col gap-4 p-4 sm:p-6" @submit.prevent="saveWalkIn">
+                <div>
+                    <h3 class="flex items-center gap-2 text-lg font-semibold text-gray-800"><Icon name="person_add" />{{ t('lab.walkInTitle') }}</h3>
+                    <p class="mt-1 text-sm text-gray-500">{{ t('lab.walkInHint') }}</p>
+                </div>
+                <p v-if="activeServices.length === 0" class="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">{{ t('lab.walkInNoServices') }}</p>
+                <label class="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                    {{ t('lab.walkInService') }}
+                    <select v-model="walkIn.lab_service_id" required class="rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="" disabled>{{ t('lab.walkInPick') }}</option>
+                        <option v-for="svc in activeServices" :key="svc.id" :value="svc.id">{{ svc.name }} — {{ money(svc.price) }}</option>
+                    </select>
+                </label>
+                <label class="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                    {{ t('lab.walkInName') }}
+                    <input v-model="walkIn.name" type="text" required maxlength="255" class="rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500" />
+                </label>
+                <div class="grid grid-cols-2 gap-3">
+                    <label class="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                        {{ t('lab.walkInPhone') }}
+                        <input v-model="walkIn.phone" type="tel" dir="ltr" required maxlength="20" class="rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500" />
+                    </label>
+                    <label class="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                        {{ t('lab.walkInAge') }}
+                        <input v-model="walkIn.age" type="number" min="0" max="150" class="rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500" />
+                    </label>
+                </div>
+                <label v-if="walkInService && Number(walkInService.price) > 0" class="flex items-start gap-2 rounded-xl bg-violet-50 p-3 text-sm text-violet-900">
+                    <input v-model="walkIn.paid" type="checkbox" class="mt-0.5 rounded border-gray-300 text-violet-600 focus:ring-violet-500" />
+                    <span>
+                        <span class="font-semibold">{{ t('lab.walkInPaid', { amount: money(walkInService.price) }) }}</span>
+                        <span class="block text-xs opacity-80">{{ t('lab.walkInPaidHint') }}</span>
+                    </span>
+                </label>
+                <div v-if="walkInError" class="rounded-xl bg-red-50 p-3 text-sm text-red-700">{{ walkInError }}</div>
+                <button
+                    type="submit"
+                    :disabled="walkInSaving || activeServices.length === 0"
+                    class="rounded-xl bg-violet-600 px-4 py-3 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+                >
+                    <Icon name="check" class="ml-1" />{{ t('lab.walkInSave') }}
+                </button>
+            </form>
+        </Modal>
+
+        <!-- The lab's own services and prices (2026-11-17, by request) -->
+        <Modal :show="servicesOpen" @close="servicesOpen = false">
+            <div class="flex flex-col gap-4 p-4 sm:p-6">
+                <div>
+                    <h3 class="flex items-center gap-2 text-lg font-semibold text-gray-800"><Icon name="biotech" />{{ t('lab.services') }}</h3>
+                    <p class="mt-1 text-sm text-gray-500">{{ t('lab.servicesHint') }}</p>
+                </div>
+                <form v-if="labAbilities.manage" class="grid grid-cols-[1fr_8rem_auto] items-end gap-2" @submit.prevent="saveService">
+                    <label class="flex flex-col gap-1 text-xs font-medium text-gray-600">
+                        {{ t('lab.serviceName') }}
+                        <input v-model="serviceForm.name" type="text" required maxlength="100" class="rounded-xl border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                    </label>
+                    <label class="flex flex-col gap-1 text-xs font-medium text-gray-600">
+                        {{ t('lab.servicePrice') }}
+                        <input v-model="serviceForm.price" type="number" min="0" step="any" required dir="ltr" class="rounded-xl border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                    </label>
+                    <button type="submit" :disabled="serviceSaving" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
+                        {{ serviceForm.id ? t('lab.serviceSave') : t('lab.serviceAdd') }}
+                    </button>
+                </form>
+                <div v-if="serviceError" class="rounded-xl bg-red-50 p-3 text-sm text-red-700">{{ serviceError }}</div>
+                <p v-if="services.length === 0" class="rounded-xl bg-gray-50 p-3 text-center text-sm text-gray-500">{{ t('lab.servicesEmpty') }}</p>
+                <ul v-else class="divide-y divide-gray-100 rounded-xl ring-1 ring-gray-200">
+                    <li v-for="svc in services" :key="svc.id" class="flex items-center gap-3 px-3 py-2.5" :class="svc.active ? '' : 'opacity-60'">
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-sm font-semibold text-gray-800">{{ svc.name }}</p>
+                            <p class="text-xs text-gray-500">
+                                <span dir="ltr">{{ money(svc.price) }}</span>
+                                · {{ svc.active ? t('lab.serviceActive') : t('lab.serviceInactive') }}
+                                <template v-if="svc.patients"> · {{ t('lab.servicePatients', { n: svc.patients }) }}</template>
+                            </p>
+                        </div>
+                        <template v-if="labAbilities.manage">
+                            <button type="button" :title="svc.active ? t('lab.serviceInactive') : t('lab.serviceActive')" @click="toggleService(svc)" class="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100">
+                                <Icon :name="svc.active ? 'toggle_on' : 'toggle_off'" :class="svc.active ? 'text-emerald-600' : ''" />
+                            </button>
+                            <button type="button" :title="t('lab.serviceEdit')" @click="editService(svc)" class="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100"><Icon name="edit" /></button>
+                            <button type="button" :title="t('lab.serviceDelete')" @click="deleteService(svc)" class="rounded-lg p-1.5 text-rose-500 hover:bg-rose-50"><Icon name="delete" /></button>
+                        </template>
+                    </li>
+                </ul>
             </div>
         </Modal>
     </AuthenticatedLayout>

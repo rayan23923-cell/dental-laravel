@@ -30,7 +30,9 @@ class RegistrationArchive
     /** The patients list: not archived or deleted from it in any way. */
     public static function currentRegistry(Builder $query): Builder
     {
-        return $query->whereNull('registry_archived_at')->whereNull('registry_deleted_at');
+        return $query->whereNull('registry_archived_at')->whereNull('registry_deleted_at')
+            // Test-only patients the lab registered stay in the lab (2026-11-17).
+            ->whereNull('lab_service_id');
     }
 
     /** The archive tab: anything archived, from either list or both. */
