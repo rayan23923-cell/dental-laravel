@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/toast';
 /**
  * "المختبر" — web twin of the Flutter lab screen (2026-10-11). Lab staff
  * scan a patient's ticket QR (or search by name/phone, or pick from the
@@ -305,8 +306,8 @@ const saveService = async () => {
 };
 const toggleService = (svc) =>
     serviceRequest(() => axios.put(route('lab.services.update', svc.id), { name: svc.name, price: svc.price, active: !svc.active }));
-const deleteService = (svc) => {
-    if (!window.confirm(t('lab.serviceDeleteConfirm', { name: svc.name }))) return;
+const deleteService = async (svc) => {
+    if (!await confirmDialog(t('lab.serviceDeleteConfirm', { name: svc.name }))) return;
     serviceRequest(() => axios.delete(route('lab.services.destroy', svc.id)));
 };
 </script>

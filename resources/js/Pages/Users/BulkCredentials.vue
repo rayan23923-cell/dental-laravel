@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/toast';
 /**
  * Bulk accounts and login emails, super admins only (2026-10-31, by
  * request). On the hosting: create the teachers / reset a stage's
@@ -22,8 +23,8 @@ const props = defineProps({
     can: { type: Object, default: () => ({ create: true, apply: true, delete: true }) },
 });
 
-const removeFile = (f) => {
-    if (!window.confirm(t('bulkCredentials.deleteFileConfirm'))) return;
+const removeFile = async (f) => {
+    if (!await confirmDialog(t('bulkCredentials.deleteFileConfirm'))) return;
     router.delete(route('bulk-credentials.destroy', f.name), { preserveScroll: true });
 };
 
@@ -60,7 +61,7 @@ const downloadCredentials = (rows, name) => {
 };
 
 const run = async (kind, url, body, confirmText) => {
-    if (confirmText && !window.confirm(confirmText)) return;
+    if (confirmText && !await confirmDialog(confirmText)) return;
     busy.value = kind;
     error.value = '';
     result.value = null;

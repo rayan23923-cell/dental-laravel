@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/toast';
 import LinkFacetPanel from '@/Components/LinkFacetPanel.vue';
 import DateInput from '@/Components/DateInput.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
@@ -145,8 +146,8 @@ const receiptUrl = (payment) => route('payments.receipt', { payment: payment.id,
 
 const personName = (payment) => payment.patient_registration?.name ?? payment.appointment?.full_name ?? '—';
 
-const destroy = (payment) => {
-    if (confirm(t('payments.deleteConfirm', { amount: payment.amount }))) {
+const destroy = async (payment) => {
+    if (await confirmDialog(t('payments.deleteConfirm', { amount: payment.amount }))) {
         router.delete(route('payments.destroy', payment.id));
     }
 };
@@ -185,9 +186,6 @@ const destroy = (payment) => {
 
         <div class="py-6 sm:py-10">
             <div class="mx-auto max-w-2xl space-y-4 px-4 sm:px-6 lg:px-8">
-                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
-                    {{ page.props.flash.success }}
-                </div>
 
                 <!-- Income: today / week / month / year, or the filtered period's own figures -->
                 <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">

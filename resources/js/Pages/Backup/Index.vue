@@ -79,9 +79,6 @@ const formatDate = (unixSeconds) => new Date(unixSeconds * 1000).toLocaleString(
 
         <div class="py-6 sm:py-10">
             <div class="mx-auto max-w-2xl space-y-4 px-4 sm:px-6 lg:px-8">
-                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
-                    {{ page.props.flash.success }}
-                </div>
 
                 <div class="flex flex-wrap items-center gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
                     <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 text-white">

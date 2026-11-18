@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/toast';
 import DoctorLayout from '@/Layouts/DoctorLayout.vue';
 import Modal from '@/Components/Modal.vue';
 import PaperPhotos from '@/Components/PaperPhotos.vue';
@@ -111,7 +112,7 @@ const submitRequest = async () => {
     }
 };
 const cancelRequest = async (request) => {
-    if (!confirm(t('taskRequests.cancelConfirm'))) return;
+    if (!await confirmDialog(t('taskRequests.cancelConfirm'))) return;
     await axios.delete(route('doctor.task-start-requests.destroy', request.id));
     router.reload({ preserveScroll: true });
 };

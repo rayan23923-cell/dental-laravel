@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/toast';
 import DateInput from '@/Components/DateInput.vue';
 /**
  * Multiple sessions/visits for the Advanced Periodontal Chart's 32-tooth
@@ -77,9 +78,9 @@ const selectSession = (id) => {
     emitUpdate();
 };
 
-const removeSession = (id) => {
+const removeSession = async (id) => {
     if (props.disabled) return;
-    if (!confirm('حذف هذه الجلسة نهائيًا؟ لا يمكن التراجع.')) return;
+    if (!await confirmDialog('حذف هذه الجلسة نهائيًا؟ لا يمكن التراجع.')) return;
     sessions.value = sessions.value.filter((s) => s.id !== id);
     if (activeId.value === id) {
         activeId.value = sessions.value[0]?.id ?? null;

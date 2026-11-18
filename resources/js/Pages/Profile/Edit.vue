@@ -102,9 +102,6 @@ const languageLabel = computed(() => ({
 
         <div class="py-6 sm:py-10">
             <div class="mx-auto max-w-2xl space-y-5 px-4 sm:px-6 lg:px-8">
-                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
-                    {{ page.props.flash.success }}
-                </div>
                 <div v-if="status" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">{{ status }}</div>
 
                 <ProfileHero

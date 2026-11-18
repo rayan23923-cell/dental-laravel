@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/toast';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import ChatListCard from '@/Components/ChatList/ChatListCard.vue';
 import ChatListRow from '@/Components/ChatList/ChatListRow.vue';
@@ -61,8 +62,8 @@ const submitEdit = () => {
     });
 };
 
-const destroy = (type) => {
-    if (confirm(t('educationTypesAdmin.deleteConfirm', { name: type.name }))) {
+const destroy = async (type) => {
+    if (await confirmDialog(t('educationTypesAdmin.deleteConfirm', { name: type.name }))) {
         router.delete(route('education-types.destroy', type.id));
     }
 };
@@ -84,12 +85,6 @@ const destroy = (type) => {
             <div class="mx-auto max-w-2xl space-y-4 px-4 sm:px-6 lg:px-8">
                 <StructureTabs />
 
-                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
-                    {{ page.props.flash.success }}
-                </div>
-                <div v-if="page.props.flash?.error" class="rounded-xl bg-red-50 p-4 text-sm text-red-700 whitespace-pre-line">
-                    {{ page.props.flash.error }}
-                </div>
 
                 <ChatSearch v-model="search" :placeholder="t('taxonomyAdmin.searchPlaceholder')" @submit="applySearch" />
 

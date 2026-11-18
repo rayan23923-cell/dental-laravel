@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/toast';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import ChatListCard from '@/Components/ChatList/ChatListCard.vue';
 import ChatListRow from '@/Components/ChatList/ChatListRow.vue';
@@ -64,8 +65,8 @@ const toggle = (assignment) => {
     router.put(route('department-roles.toggle', assignment.id), {}, { preserveScroll: true });
 };
 
-const remove = (assignment) => {
-    if (confirm(t('departmentRolesAdmin.removeConfirm'))) {
+const remove = async (assignment) => {
+    if (await confirmDialog(t('departmentRolesAdmin.removeConfirm'))) {
         router.delete(route('department-roles.destroy', assignment.id), { preserveScroll: true });
     }
 };
@@ -84,9 +85,6 @@ const remove = (assignment) => {
 
         <div class="py-6 sm:py-10">
             <div class="mx-auto max-w-2xl space-y-4 px-4 sm:px-6 lg:px-8">
-                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
-                    {{ page.props.flash.success }}
-                </div>
 
                 <ChatListCard :empty="assignments.length === 0" :empty-text="t('departmentRolesAdmin.emptyList')" empty-icon="badge">
                     <ChatListRow

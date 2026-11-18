@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/toast';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
@@ -144,9 +145,9 @@ const toggleScoring = (row, on) => {
     row.scoring.points_off = !on;
 };
 
-const submit = () => {
+const submit = async () => {
     const repeated = rows.value ? rows.value.filter((row) => row.enabled && isDuplicate(row.title)).map((row) => row.title) : isDuplicate(form.title) ? [form.title] : [];
-    if (repeated.length && !window.confirm(t('tasksAdmin.duplicateConfirm', { titles: repeated.join('، ') }))) return;
+    if (repeated.length && !await confirmDialog(t('tasksAdmin.duplicateConfirm', { titles: repeated.join('، ') }))) return;
     form.transform((data) => {
         const extra = repeated.length ? { allow_duplicates: true } : {};
         if (!rows.value) return { ...data, ...extra };

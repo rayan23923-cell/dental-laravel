@@ -42,7 +42,7 @@ class VoiceSettings {
   const VoiceSettings({
     this.enabled = true,
     this.engine = 'piper',
-    this.name = 'emirati',
+    this.name = 'dii',
     this.ready = true,
     this.readyBefore = '',
     this.readyAfter = '',
@@ -62,7 +62,7 @@ class VoiceSettings {
   factory VoiceSettings.fromJson(Map<String, dynamic> json) => VoiceSettings(
         enabled: json['voice_enabled'] as bool? ?? true,
         engine: json['voice_engine'] as String? ?? 'piper',
-        name: json['voice_name'] as String? ?? 'emirati',
+        name: json['voice_name'] as String? ?? 'dii',
         ready: json['voice_ready'] as bool? ?? true,
         readyBefore: json['voice_ready_before'] as String? ?? '',
         readyAfter: json['voice_ready_after'] as String? ?? '',

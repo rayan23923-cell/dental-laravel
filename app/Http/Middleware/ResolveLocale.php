@@ -13,10 +13,10 @@ use Symfony\Component\HttpFoundation\Response;
  * اختيار المستخدم"). Order of precedence:
  *   1. The authenticated principal's own `locale` column (either guard —
  *      `web` for staff `User`, `doctor` for `Doctor`), when set.
- *   2. The browser's `Accept-Language` header ("حسب لغة النظام") — only
- *      `ar`/`en` are supported today, so anything else falls through.
- *   3. `ar` — the app's existing all-Arabic default, unchanged for anyone
- *      who never touches the new language setting.
+ *   2. `ar` — Arabic is the default for everyone else (2026-11-18, by
+ *      request: «اجعل اللغة العربية الافتراضية»). The browser's language is
+ *      no longer followed, so a phone or computer set to English still
+ *      opens in Arabic; English is chosen from the profile.
  *
  * Registered in `bootstrap/app.php`'s `web` middleware stack, *before*
  * `HandleInertiaRequests`, since that shares `app()->getLocale()` with the
@@ -46,8 +46,6 @@ class ResolveLocale
             return $principal->locale;
         }
 
-        $preferred = $request->getPreferredLanguage(self::SUPPORTED);
-
-        return $preferred ?? 'ar';
+        return 'ar';
     }
 }

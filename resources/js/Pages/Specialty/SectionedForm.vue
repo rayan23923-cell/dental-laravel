@@ -705,9 +705,6 @@ const canSubmit = computed(() => !props.readonly || props.supervisorEditableFiel
 
         <div class="py-12">
             <div class="mx-auto max-w-6xl space-y-6 sm:px-6 lg:px-8">
-                <div v-if="page.props.flash?.success" class="rounded-md bg-green-50 p-4 text-sm text-green-700">
-                    {{ page.props.flash.success }}
-                </div>
 
                 <!-- The patient linked to this case (2026-11-04), or the reminder when linking is required. -->
                 <div v-if="linkedPatient" class="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">

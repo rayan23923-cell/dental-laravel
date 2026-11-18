@@ -29,13 +29,13 @@ class SpeechSynthesizer
 
     /**
      * Piper's Arabic voices (2026-11-17, by request), see
-     * deploy/voices/voices.json. The Emirati female voice is the default
-     * and the one the Windows package carries (2026-11-18, by request:
-     * «ميرو» was dropped); the others are downloaded when wanted.
+     * deploy/voices/voices.json. «دي» is the default and the one the
+     * Windows package carries (2026-11-18, by request; «ميرو» was dropped);
+     * the others are downloaded when wanted.
      */
-    public const VOICES = ['emirati', 'miro_v2', 'dii', 'kareem'];
+    public const VOICES = ['dii', 'emirati', 'miro_v2', 'kareem'];
 
-    public const DEFAULT_VOICE = 'emirati';
+    public const DEFAULT_VOICE = 'dii';
 
     private const MAX_CHARS = 400;
 

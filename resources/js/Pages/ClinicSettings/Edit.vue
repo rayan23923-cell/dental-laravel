@@ -122,14 +122,8 @@ const summaries = computed(() => ({
 
         <div class="py-6 pb-28 sm:py-10 sm:pb-28">
             <div class="mx-auto max-w-3xl space-y-5 px-4 sm:px-6 lg:px-8">
-                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
-                    {{ page.props.flash.success }}
-                </div>
                 <!-- The test-send reports the transport's real error here; without
                      this the SMTP failure text would be invisible. -->
-                <div v-if="page.props.flash?.error" class="rounded-xl bg-red-50 p-4 text-sm text-red-700">
-                    {{ page.props.flash.error }}
-                </div>
 
                 <form @submit.prevent="submit" class="space-y-5">
                     <section>

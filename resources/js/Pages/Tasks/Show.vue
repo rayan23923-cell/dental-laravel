@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/toast';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Icon from '@/Components/Icon.vue';
 import ChatListCard from '@/Components/ChatList/ChatListCard.vue';
@@ -27,8 +28,8 @@ const updateStatus = (instance, status) => {
     }, { preserveScroll: true });
 };
 
-const removeInstance = (instance) => {
-    if (confirm(t('tasksAdmin.removeAssignmentConfirm'))) {
+const removeInstance = async (instance) => {
+    if (await confirmDialog(t('tasksAdmin.removeAssignmentConfirm'))) {
         router.delete(route('task-instances.destroy', instance.id), { preserveScroll: true });
     }
 };
@@ -60,9 +61,6 @@ const statusLabel = (status) => (['pending', 'assigned', 'completed'].includes(s
 
         <div class="py-6 sm:py-10">
             <div class="mx-auto max-w-2xl space-y-4 px-4 sm:px-6 lg:px-8">
-                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
-                    {{ page.props.flash.success }}
-                </div>
 
                 <div class="flex items-start gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
                     <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 text-white">

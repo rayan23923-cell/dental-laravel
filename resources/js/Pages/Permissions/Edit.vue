@@ -70,9 +70,6 @@ const submit = () => {
 
         <div class="py-6 pb-28 sm:py-10 sm:pb-28">
             <div class="mx-auto max-w-3xl space-y-5 px-4 sm:px-6 lg:px-8">
-                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
-                    {{ page.props.flash.success }}
-                </div>
 
                 <!-- The account these permissions belong to -->
                 <ChatListCard>

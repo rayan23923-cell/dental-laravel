@@ -97,9 +97,6 @@ const filtered = computed(() => {
 
         <div class="py-6 sm:py-10">
             <div class="mx-auto max-w-2xl space-y-4 px-4 sm:px-6 lg:px-8">
-                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
-                    {{ page.props.flash.success }}
-                </div>
 
                 <!-- Search -->
                 <div class="relative">

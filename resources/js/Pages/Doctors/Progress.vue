@@ -50,9 +50,6 @@ const completionPct = (completed, total) => (total > 0 ? Math.round((completed /
 
         <div class="py-12">
             <div class="mx-auto max-w-5xl space-y-6 sm:px-6 lg:px-8">
-                <div v-if="page.props.flash?.success" class="rounded-md bg-green-50 p-4 text-sm text-green-700">
-                    {{ page.props.flash.success }}
-                </div>
 
                 <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
                     <dl class="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">

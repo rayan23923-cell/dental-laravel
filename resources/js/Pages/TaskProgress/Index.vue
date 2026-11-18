@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/toast';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
@@ -270,8 +271,8 @@ const submitComplete = () => {
 };
 
 // --- Cancel a start (2026-10-23, by request); see App\Services\TaskCanceller ---
-const cancelStart = (card) => {
-    if (!window.confirm(t('taskProgressAdmin.cancelStartConfirm', { task: card.task_title }))) return;
+const cancelStart = async (card) => {
+    if (!await confirmDialog(t('taskProgressAdmin.cancelStartConfirm', { task: card.task_title }))) return;
     router.delete(route('task-progress.cancel', card.instance_id), {
         preserveScroll: true,
         onSuccess: () => reloadGroup(),
@@ -426,12 +427,6 @@ const startFromScan = () => {
                     {{ t('common.academicYearActive') }} <strong>{{ currentSession.name }}</strong>
                 </div>
 
-                <div v-if="page.props.flash?.success" class="rounded-md bg-green-50 p-4 text-sm text-green-700">
-                    {{ page.props.flash.success }}
-                </div>
-                <div v-if="page.props.flash?.error" class="rounded-md bg-red-50 p-4 text-sm text-red-700">
-                    {{ page.props.flash.error }}
-                </div>
 
                 <!-- Filters -->
                 <div class="rounded-lg bg-white p-4 shadow-sm">
