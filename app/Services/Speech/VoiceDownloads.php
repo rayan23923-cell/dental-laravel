@@ -8,7 +8,7 @@ use Throwable;
 
 /**
  * Voices downloaded when picked (2026-11-17, by request): the Windows
- * package carries «ميرو» only, so it stays small; another voice is fetched
+ * package carries the default voice only (the Emirati one since 2026-11-18), so it stays small; another voice is fetched
  * from the hosting (/downloads/voices, published by deploy/vps/deploy.sh
  * with a manifest of sizes and SHA-256 sums) the first time it is chosen.
  *

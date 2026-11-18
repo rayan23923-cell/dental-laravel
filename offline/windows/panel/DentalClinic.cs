@@ -2384,7 +2384,8 @@ namespace DentalClinicPanel
         }
 
         // ---- Voices for calling names on the waiting screen (2026-11-17, by request) ----
-        // The package carries «ميرو» only, so it stays small; the other voices
+        // The package carries the default voice only, the Emirati one since
+        // 2026-11-18 («ميرو» was dropped), so it stays small; the other voices
         // are downloaded from the hosting here (or from the waiting screen's
         // settings in the system) into app\storage\app\voices, which updates
         // keep. Resumable, checked against the SHA-256 the hosting publishes.
@@ -2392,11 +2393,10 @@ namespace DentalClinicPanel
         const string VoicesUrl = "https://dental.azoclinic.duckdns.org/downloads/voices";
         static readonly string[][] VoiceList =
         {
-            new[] { "miro", "ميرو (الافتراضي)" },
+            new[] { "emirati", "إماراتي (أنثى) — الافتراضي" },
             new[] { "miro_v2", "ميرو 2" },
             new[] { "dii", "دي" },
             new[] { "kareem", "كريم (فصحى)" },
-            new[] { "emirati", "إماراتي (أنثى)" },
         };
 
         class VoiceRow
@@ -2422,7 +2422,7 @@ namespace DentalClinicPanel
         Page BuildVoices()
         {
             var page = new Page("أصوات النداء",
-                "الأصوات التي تنادي أسماء المرضى على شاشة الانتظار. «ميرو» مثبت مع البرنامج، والباقي يُنزَّل من هنا عند الحاجة (63 م.ب تقريبًا لكل صوت، يحتاج الإنترنت وقت التنزيل فقط). يُختار الصوت من إعدادات شاشة الانتظار في النظام.");
+                "الأصوات التي تنادي أسماء المرضى على شاشة الانتظار. الصوت الإماراتي (أنثى) مثبت مع البرنامج وهو الافتراضي، والباقي يُنزَّل من هنا عند الحاجة (63 م.ب تقريبًا لكل صوت، يحتاج الإنترنت وقت التنزيل فقط). يُختار الصوت من إعدادات شاشة الانتظار في النظام.");
             var card = page.Add(new Card());
             var grid = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 3, BackColor = Ui.Card, Margin = Padding.Empty };
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -2478,7 +2478,7 @@ namespace DentalClinicPanel
 
         void RemoveVoice(string v)
         {
-            if (MessageBox.Show(this, "حذف هذا الصوت من الحاسوب؟ إن كان مختارًا ستنادي الشاشة بصوت «ميرو» حتى تنزّله من جديد.", "أصوات النداء",
+            if (MessageBox.Show(this, "حذف هذا الصوت من الحاسوب؟ إن كان مختارًا ستنادي الشاشة بالصوت الإماراتي حتى تنزّله من جديد.", "أصوات النداء",
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2, MessageBoxOptions.RightAlign | MessageBoxOptions.RtlReading) != DialogResult.Yes) return;
             try
             {

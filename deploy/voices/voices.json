@@ -4,10 +4,6 @@
     "onnx": "https://huggingface.co/rhasspy/piper-voices/resolve/main/ar/ar_JO/kareem/medium/ar_JO-kareem-medium.onnx",
     "json": "https://huggingface.co/rhasspy/piper-voices/resolve/main/ar/ar_JO/kareem/medium/ar_JO-kareem-medium.onnx.json"
   },
-  "miro": {
-    "onnx": "https://huggingface.co/csukuangfj/vits-piper-ar_JO-SA_miro-high/resolve/main/ar_JO-SA_miro-high.onnx",
-    "json": "https://huggingface.co/csukuangfj/vits-piper-ar_JO-SA_miro_V2-high/resolve/main/ar_JO-SA_miro_V2-high.onnx.json"
-  },
   "miro_v2": {
     "onnx": "https://huggingface.co/csukuangfj/vits-piper-ar_JO-SA_miro_V2-high/resolve/main/ar_JO-SA_miro_V2-high.onnx",
     "json": "https://huggingface.co/csukuangfj/vits-piper-ar_JO-SA_miro_V2-high/resolve/main/ar_JO-SA_miro_V2-high.onnx.json"

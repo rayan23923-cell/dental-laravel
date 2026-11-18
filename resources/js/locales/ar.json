@@ -1153,17 +1153,19 @@
         "emptyList": "لا يوجد مرضى مجدولون."
     },
     "waitingScreenSettings": {
+        "voiceDownloadingShort": "جارٍ التنزيل…",
+        "voiceMore": "أصوات أخرى للتنزيل",
+        "voiceMoreHint": "63 م.ب تقريبًا لكل صوت، يحتاج الإنترنت وقت التنزيل فقط. بعد التنزيل يظهر الصوت في القائمة أعلاه.",
         "voiceNeedsDownload": "هذا الصوت غير موجود على هذا السيرفر. نزّله مرة واحدة (63 م.ب تقريبًا، يحتاج الإنترنت وقت التنزيل)، أو من صفحة «أصوات النداء» في لوحة البرنامج.",
         "voiceDownload": "تنزيل الصوت",
         "voiceDownloading": "جارٍ التنزيل… {done} من {total} م.ب",
         "voiceDownloaded": "نُزّل الصوت ✓",
         "voiceDownloadFailed": "تعذر التنزيل.",
         "voiceName": "الصوت",
-        "voiceName_miro": "ميرو (الافتراضي)",
         "voiceName_miro_v2": "ميرو 2",
         "voiceName_dii": "دي",
         "voiceName_kareem": "كريم (فصحى)",
-        "voiceName_emirati": "إماراتي (أنثى)",
+        "voiceName_emirati": "إماراتي (أنثى) — الافتراضي",
         "voiceNameMissing": "غير مثبت على هذا السيرفر",
         "voiceHeading": "نداء الأسماء بالصوت",
         "voiceHint": "السيرفر يحوّل الجملة إلى صوت، والشاشة تشغّله بعد النغمة. يعمل على أي تلفزيون يشغّل الصوت، حتى بدون دعم تحويل النص إلى كلام.",
@@ -1241,7 +1243,7 @@
         "labReadyHeading": "النتيجة جاهزة للاستلام",
         "labReadyBadge": "النتيجة جاهزة",
         "labHeading": "المختبر",
-        "labEmpty": "لا يوجد مرضى في المختبر الآن.",
+        "labEmpty": "لا توجد فحوصات في المختبر",
         "enableSound": "اضغط لتفعيل الصوت"
     },
     "waitingScreenPairing": {

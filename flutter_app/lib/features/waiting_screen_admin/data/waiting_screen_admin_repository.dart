@@ -8,13 +8,20 @@ final waitingScreenAdminRepositoryProvider = Provider<WaitingScreenAdminReposito
 
 /// `/waiting-screen-settings` (`Api\WaitingScreenSettingController`).
 class WaitingScreenSettings {
-  const WaitingScreenSettings({required this.groupId, required this.patientsPerPage, required this.rotationSeconds, this.labScope = 'today'});
+  const WaitingScreenSettings({
+    required this.groupId,
+    required this.patientsPerPage,
+    required this.rotationSeconds,
+    this.labScope = 'today',
+    this.voice = const VoiceSettings(),
+  });
 
   factory WaitingScreenSettings.fromJson(Map<String, dynamic> json) => WaitingScreenSettings(
         groupId: json['group_id'] as int?,
         patientsPerPage: (json['patients_per_page'] as num?)?.toInt() ?? 8,
         rotationSeconds: (json['rotation_seconds'] as num?)?.toInt() ?? 10,
         labScope: json['lab_scope'] == 'all' ? 'all' : 'today',
+        voice: VoiceSettings.fromJson(json),
       );
 
   /// Null shows every group.
@@ -24,6 +31,91 @@ class WaitingScreenSettings {
 
   /// 'today' (list empties at midnight) or 'all' pending (2026-11-03).
   final String labScope;
+
+  /// Calling names by voice (2026-11-17); see `App\Support\VoiceCalls`.
+  final VoiceSettings voice;
+}
+
+/// Calling names by voice on the waiting screen (2026-11-17, by request):
+/// the server speaks «{before} {name}، {after}» and the screen plays it.
+class VoiceSettings {
+  const VoiceSettings({
+    this.enabled = true,
+    this.engine = 'piper',
+    this.name = 'emirati',
+    this.ready = true,
+    this.readyBefore = '',
+    this.readyAfter = '',
+    this.waiting = false,
+    this.waitingBefore = '',
+    this.waitingAfter = '',
+    this.repeat = 2,
+    this.volume = 100,
+    this.rate = 100,
+    this.engines = const ['piper'],
+    this.names = const [],
+    this.installed = const [],
+    this.downloadable = false,
+    this.supported = false,
+  });
+
+  factory VoiceSettings.fromJson(Map<String, dynamic> json) => VoiceSettings(
+        enabled: json['voice_enabled'] as bool? ?? true,
+        engine: json['voice_engine'] as String? ?? 'piper',
+        name: json['voice_name'] as String? ?? 'emirati',
+        ready: json['voice_ready'] as bool? ?? true,
+        readyBefore: json['voice_ready_before'] as String? ?? '',
+        readyAfter: json['voice_ready_after'] as String? ?? '',
+        waiting: json['voice_waiting'] as bool? ?? false,
+        waitingBefore: json['voice_waiting_before'] as String? ?? '',
+        waitingAfter: json['voice_waiting_after'] as String? ?? '',
+        repeat: (json['voice_repeat'] as num?)?.toInt() ?? 2,
+        volume: (json['voice_volume'] as num?)?.toInt() ?? 100,
+        rate: (json['voice_rate'] as num?)?.toInt() ?? 100,
+        engines: [for (final e in json['voice_engines'] as List<dynamic>? ?? const ['piper']) '$e'],
+        names: [for (final e in json['voice_names'] as List<dynamic>? ?? const []) '$e'],
+        installed: [for (final e in json['voice_installed'] as List<dynamic>? ?? const []) '$e'],
+        downloadable: json['voice_downloadable'] as bool? ?? false,
+        // Older servers do not send the voice settings at all.
+        supported: json.containsKey('voice_enabled'),
+      );
+
+  final bool enabled;
+  final String engine;
+  final String name;
+  final bool ready;
+  final String readyBefore;
+  final String readyAfter;
+  final bool waiting;
+  final String waitingBefore;
+  final String waitingAfter;
+  final int repeat;
+  final int volume;
+  final int rate;
+
+  /// Engines this server runs, every voice offered, and those on this server.
+  final List<String> engines;
+  final List<String> names;
+  final List<String> installed;
+
+  /// True on the Windows server, which downloads voices when wanted.
+  final bool downloadable;
+  final bool supported;
+
+  Map<String, dynamic> toJson() => {
+        'voice_enabled': enabled,
+        'voice_engine': engine,
+        'voice_name': name,
+        'voice_ready': ready,
+        'voice_ready_before': readyBefore,
+        'voice_ready_after': readyAfter,
+        'voice_waiting': waiting,
+        'voice_waiting_before': waitingBefore,
+        'voice_waiting_after': waitingAfter,
+        'voice_repeat': repeat,
+        'voice_volume': volume,
+        'voice_rate': rate,
+      };
 }
 
 class WaitingScreenGroup {
@@ -108,14 +200,34 @@ class WaitingScreenAdminRepository {
     );
   }
 
-  Future<WaitingScreenSettings> save({required int? groupId, required int patientsPerPage, required int rotationSeconds, required String labScope}) async {
+  Future<WaitingScreenSettings> save({
+    required int? groupId,
+    required int patientsPerPage,
+    required int rotationSeconds,
+    required String labScope,
+    Map<String, dynamic>? voice,
+  }) async {
     final data = await _client.putJson('/waiting-screen-settings', body: {
       'group_id': groupId,
       'patients_per_page': patientsPerPage,
       'rotation_seconds': rotationSeconds,
       'lab_scope': labScope,
+      ...?voice,
     }) as Map<String, dynamic>;
     return WaitingScreenSettings.fromJson((data['data'] as Map<String, dynamic>)['settings'] as Map<String, dynamic>);
+  }
+
+  /// «تجربة الصوت»: the WAV for a sample [name] with the form's wording.
+  Future<List<int>> previewVoice({required String name, required String kind, required Map<String, dynamic> voice}) {
+    return _client.postBytes('/waiting-screen-settings/voice-preview', body: {'name': name, 'kind': kind, ...voice});
+  }
+
+  /// The next piece of a voice the Windows server does not carry yet:
+  /// `(received, total, done)`.
+  Future<(int, int, bool)> downloadVoiceStep(String voice) async {
+    final data = (await _client.postJson('/waiting-screen-settings/voices/$voice/download') as Map<String, dynamic>)['data']
+        as Map<String, dynamic>;
+    return ((data['received'] as num).toInt(), (data['total'] as num).toInt(), data['done'] == true);
   }
 
   Future<List<PairedScreen>> screens() async {
