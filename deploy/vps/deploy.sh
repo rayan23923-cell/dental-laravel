@@ -46,6 +46,8 @@ compose up -d
 # of the voice container to /downloads/voices with a manifest of sizes and SHA-256 sums.
 voices=public/downloads/voices
 sudo mkdir -p "$voices"
+# Voices no longer offered (such as «ميرو», 2026-11-18) are removed with the old copies.
+sudo find "$voices" -maxdepth 1 -type f -delete
 if sudo docker cp dental-tts:/opt/voices/. "$voices/"; then
     {
         printf '{'

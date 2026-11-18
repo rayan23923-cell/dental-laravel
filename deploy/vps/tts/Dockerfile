@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Piper text-to-speech for calling names on the waiting screen (2026-11-17).
 # The MIT build of Piper (2023.11.14-2, no Python needed for synthesis) with
-# the Arabic voices of deploy/voices/voices.json (default «ميرو»), behind a
+# the Arabic voices of deploy/voices/voices.json (default: the Emirati one), behind a
 # tiny HTTP wrapper on port 5000 that only the app container reaches. It
 # works only while a sentence is being made.
 

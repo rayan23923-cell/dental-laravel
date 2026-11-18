@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -123,6 +125,27 @@ class ApiClient {
       );
       return response.data!;
     } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  /// A POST answered with bytes (a spoken call to play, 2026-11-17). A JSON
+  /// error body is decoded first, so the usual [ApiException] comes out.
+  Future<List<int>> postBytes(String path, {Object? body}) async {
+    try {
+      final response = await _dio.post<List<int>>(
+        path,
+        data: body,
+        options: Options(responseType: ResponseType.bytes, receiveTimeout: const Duration(minutes: 2)),
+      );
+      return response.data!;
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      if (data is List<int>) {
+        try {
+          e.response!.data = jsonDecode(utf8.decode(data));
+        } catch (_) {}
+      }
       throw ApiException.fromDioException(e);
     }
   }

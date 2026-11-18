@@ -86,17 +86,19 @@ const joinSentence = (kind, name) => {
     if (after) text += (/^[،,.؛:!؟?]/.test(after) ? '' : '، ') + after;
     return text;
 };
-// A voice the Windows server does not carry (2026-11-17): fetched piece by piece.
+// Voices the Windows server does not carry (2026-11-17): fetched piece by
+// piece. A downloaded voice joins the list at once and is picked (2026-11-18).
 const installed = ref([...props.voiceInstalled]);
-const voiceMissing = computed(() => form.voice_engine === 'piper' && !installed.value.includes(form.voice_name));
-const downloading = ref(false);
+const installedVoices = computed(() => props.voiceNames.filter((n) => installed.value.includes(n) || n === form.voice_name));
+const missingVoices = computed(() => props.voiceNames.filter((n) => !installed.value.includes(n)));
+const downloadingVoice = ref('');
 const downloadText = ref('');
 const downloadError = ref('');
 const mb = (b) => (b / 1048576).toFixed(1);
-const downloadVoice = async () => {
-    downloading.value = true;
+const downloadVoice = async (voice) => {
+    downloadingVoice.value = voice;
     downloadError.value = '';
-    const voice = form.voice_name;
+    downloadText.value = '';
     try {
         for (;;) {
             const { data } = await axios.post(route('waiting-screen-settings.voice-download', voice), {}, { timeout: 180000 });
@@ -105,11 +107,12 @@ const downloadVoice = async () => {
             if (s.done) break;
         }
         installed.value = [...installed.value, voice];
+        form.voice_name = voice;
         downloadText.value = t('waitingScreenSettings.voiceDownloaded');
     } catch (e) {
         downloadError.value = e?.response?.data?.message ?? t('waitingScreenSettings.voiceDownloadFailed');
     } finally {
-        downloading.value = false;
+        downloadingVoice.value = '';
     }
 };
 const previewSentence = computed(() => joinSentence(testKind.value, testName.value || ''));
@@ -257,20 +260,25 @@ const submit = () => {
                                 <div v-if="form.voice_engine === 'piper'">
                                     <InputLabel :value="t('waitingScreenSettings.voiceName')" />
                                     <select v-model="form.voice_name" class="mt-1 block w-full rounded-xl border-gray-300 text-sm">
-                                        <option v-for="name in voiceNames" :key="name" :value="name">
+                                        <option v-for="name in installedVoices" :key="name" :value="name">
                                             {{ t(`waitingScreenSettings.voiceName_${name}`) }}{{ installed.includes(name) ? '' : ' — ' + t('waitingScreenSettings.voiceNameMissing') }}
                                         </option>
                                     </select>
                                     <InputError class="mt-2" :message="form.errors.voice_name" />
-                                    <div v-if="voiceMissing && voiceDownloadable" class="mt-2 space-y-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-900">
-                                        <p>{{ t('waitingScreenSettings.voiceNeedsDownload') }}</p>
-                                        <button type="button" :disabled="downloading" @click="downloadVoice" class="inline-flex items-center gap-1 rounded-full bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50">
-                                            <Icon name="download" size="text-[16px]" />{{ t('waitingScreenSettings.voiceDownload') }}
-                                        </button>
-                                        <p v-if="downloadText">{{ downloadText }}</p>
-                                        <p v-if="downloadError" class="text-red-700">{{ downloadError }}</p>
+                                    <div v-if="voiceDownloadable && missingVoices.length" class="mt-3 rounded-xl bg-white p-3 ring-1 ring-gray-100">
+                                        <p class="text-xs font-semibold text-gray-700">{{ t('waitingScreenSettings.voiceMore') }}</p>
+                                        <p class="mt-0.5 text-[11px] text-gray-500">{{ t('waitingScreenSettings.voiceMoreHint') }}</p>
+                                        <ul class="mt-2 divide-y divide-gray-100">
+                                            <li v-for="name in missingVoices" :key="name" class="flex items-center justify-between gap-2 py-2 text-sm">
+                                                <span>{{ t(`waitingScreenSettings.voiceName_${name}`) }}</span>
+                                                <button type="button" :disabled="!!downloadingVoice" @click="downloadVoice(name)" class="inline-flex items-center gap-1 rounded-full bg-violet-600 px-3 py-1 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+                                                    <Icon name="download" size="text-[16px]" />{{ downloadingVoice === name ? t('waitingScreenSettings.voiceDownloadingShort') : t('waitingScreenSettings.voiceDownload') }}
+                                                </button>
+                                            </li>
+                                        </ul>
                                     </div>
-                                    <p v-else-if="downloadText" class="mt-2 text-xs text-emerald-700">{{ downloadText }}</p>
+                                    <p v-if="downloadText" class="mt-2 text-xs text-emerald-700">{{ downloadText }}</p>
+                                    <p v-if="downloadError" class="mt-2 rounded-lg bg-red-50 p-2 text-xs text-red-700">{{ downloadError }}</p>
                                 </div>
                                 <div v-for="kind in ['ready', 'waiting']" :key="kind" class="rounded-xl bg-white p-3 ring-1 ring-gray-100">
                                     <label class="flex items-center gap-2 text-sm font-medium text-gray-800">

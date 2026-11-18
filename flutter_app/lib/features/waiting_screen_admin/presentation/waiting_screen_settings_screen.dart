@@ -7,6 +7,7 @@ import '../../../core/config/app_config.dart';
 import '../../../core/i18n/locale_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/waiting_screen_admin_repository.dart';
+import 'voice_settings_section.dart';
 import '../../../core/widgets/tg_spinner.dart';
 
 final pairedScreensProvider = FutureProvider.autoDispose<List<PairedScreen>>((ref) {
@@ -32,6 +33,7 @@ class _WaitingScreenSettingsScreenState extends ConsumerState<WaitingScreenSetti
   final _perPage = TextEditingController();
   final _rotation = TextEditingController();
   String _labScope = 'today';
+  final _voiceKey = GlobalKey<VoiceSettingsSectionState>();
   bool _seeded = false;
   bool _saving = false;
 
@@ -60,6 +62,7 @@ class _WaitingScreenSettingsScreenState extends ConsumerState<WaitingScreenSetti
             patientsPerPage: int.parse(_perPage.text.trim()),
             rotationSeconds: int.parse(_rotation.text.trim()),
             labScope: _labScope,
+            voice: _voiceKey.currentState?.values(),
           );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t['waitingScreenSettings.saved']!)));
@@ -132,6 +135,9 @@ class _WaitingScreenSettingsScreenState extends ConsumerState<WaitingScreenSetti
                   decoration: InputDecoration(labelText: t['waitingScreenSettings.rotationSecondsLabel'], border: const OutlineInputBorder()),
                   validator: (v) => _range(v, 3, 300),
                 ),
+                const SizedBox(height: 20),
+                // Calling names by voice (2026-11-17, by request).
+                VoiceSettingsSection(key: _voiceKey, initial: page.settings.voice),
                 const SizedBox(height: 20),
                 FilledButton.icon(
                   onPressed: _saving ? null : _save,

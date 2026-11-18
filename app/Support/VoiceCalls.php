@@ -19,9 +19,10 @@ class VoiceCalls
     public const KINDS = ['ready', 'waiting'];
 
     public const DEFAULTS = [
-        'voice_ready_before' => 'المريض',
+        // Nothing before the name by default (2026-11-18, by request).
+        'voice_ready_before' => '',
         'voice_ready_after' => 'نتيجتك جاهزة، يرجى المراجعة إلى المختبر',
-        'voice_waiting_before' => 'المريض',
+        'voice_waiting_before' => '',
         'voice_waiting_after' => 'يرجى التوجه إلى المختبر لإجراء الفحص',
     ];
 
