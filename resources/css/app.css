@@ -98,3 +98,21 @@
     .themed textarea::placeholder { color: rgb(var(--c-muted)); }
     .themed select option { background-color: rgb(var(--c-surface)); color: rgb(var(--c-text)); }
 }
+
+/* Notifications and confirmations (SweetAlert2, 2026-11-18): the app's
+   font and colours, rounded like the rest of the UI. */
+.swal2-container { z-index: 10000; }
+.swal2-popup { font-family: inherit !important; border-radius: 1rem !important; }
+.swal2-popup.app-toast { padding: 0.75rem 1rem !important; box-shadow: 0 10px 30px -10px rgb(15 23 42 / 0.35) !important; }
+.swal2-popup.app-toast .swal2-title { font-size: 0.9rem !important; font-weight: 600 !important; color: #1f2937 !important; margin: 0 0.5rem !important; white-space: pre-line; }
+.swal2-popup.app-dialog { padding: 1.5rem !important; }
+.swal2-popup.app-dialog .swal2-html-container { font-size: 0.95rem; color: #374151; white-space: pre-line; }
+.swal2-actions { gap: 0.5rem; }
+.app-dialog-danger, .app-dialog-primary, .app-dialog-cancel { border: 0; outline: none; border-radius: 9999px; padding: 0.55rem 1.25rem; font-size: 0.875rem; font-weight: 600; }
+.app-dialog-danger { background: #dc2626; color: #fff; }
+.app-dialog-danger:hover { background: #b91c1c; }
+.app-dialog-primary { background: #4f46e5; color: #fff; }
+.app-dialog-primary:hover { background: #4338ca; }
+.app-dialog-cancel { background: #f3f4f6; color: #374151; }
+.app-dialog-cancel:hover { background: #e5e7eb; }
+.app-dialog-danger:focus-visible, .app-dialog-primary:focus-visible, .app-dialog-cancel:focus-visible { box-shadow: 0 0 0 3px rgb(99 102 241 / 0.35); }

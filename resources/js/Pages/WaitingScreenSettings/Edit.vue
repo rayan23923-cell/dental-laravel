@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/toast';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
@@ -48,8 +49,8 @@ const rename = (screen, i) => {
     if (name === null) return;
     router.patch(route('waiting-screen-screens.update', screen.id), { name }, { preserveScroll: true });
 };
-const unpair = (screen) => {
-    if (!window.confirm(t('waitingScreenSettings.unpairConfirm'))) return;
+const unpair = async (screen) => {
+    if (!await confirmDialog(t('waitingScreenSettings.unpairConfirm'))) return;
     router.delete(route('waiting-screen-screens.destroy', screen.id), { preserveScroll: true });
 };
 
@@ -176,12 +177,6 @@ const submit = () => {
 
         <div class="py-6 sm:py-10">
             <div class="mx-auto max-w-2xl px-4 sm:px-6 lg:px-8">
-                <div
-                    v-if="page.props.flash?.success"
-                    class="mb-4 rounded-xl bg-green-50 p-4 text-sm text-green-700"
-                >
-                    {{ page.props.flash.success }}
-                </div>
 
                 <div class="overflow-hidden rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-6">
                     <div class="mb-6 flex items-start gap-3">

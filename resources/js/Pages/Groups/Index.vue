@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/toast';
 /**
  * إدارة المجموعات — rebuilt to match dental_clinics2/admin/manage_groups.php
  * and its load_groups.php card renderer: the same filter row
@@ -129,8 +130,8 @@ const submitEdit = () => {
     });
 };
 
-const destroyGroup = (group) => {
-    if (confirm(t('groupsAdmin.deleteConfirm', { name: group.name }))) {
+const destroyGroup = async (group) => {
+    if (await confirmDialog(t('groupsAdmin.deleteConfirm', { name: group.name }))) {
         router.delete(route('groups.destroy', group.id), { preserveScroll: true });
     }
 };
@@ -174,10 +175,10 @@ const allDoctorsSelected = (group) => {
     return visible.length > 0 && visible.every((id) => selectionOf(group.id).includes(id));
 };
 
-const removeSelectedDoctors = (group) => {
+const removeSelectedDoctors = async (group) => {
     const ids = selectionOf(group.id);
     if (!ids.length) return;
-    if (confirm(t('groupsAdmin.removeSelectedConfirm', { n: ids.length, name: group.name }))) {
+    if (await confirmDialog(t('groupsAdmin.removeSelectedConfirm', { n: ids.length, name: group.name }))) {
         router.delete(route('groups.doctors.remove', group.id), {
             data: { doctor_ids: ids },
             preserveScroll: true,
@@ -252,12 +253,6 @@ const submitAddDoctors = () => {
                     <ChatChip icon="calendar_month" tone="indigo">{{ t('groupsAdmin.sessionBannerPrefix') }} <strong>{{ currentSession.name }}</strong></ChatChip>
                 </div>
 
-                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
-                    {{ page.props.flash.success }}
-                </div>
-                <div v-if="page.props.flash?.error" class="rounded-xl bg-red-50 p-4 text-sm text-red-700 whitespace-pre-line">
-                    {{ page.props.flash.error }}
-                </div>
 
                 <!-- فلاتر -->
                 <div class="flex flex-wrap items-center gap-2">

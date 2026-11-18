@@ -1181,36 +1181,18 @@ namespace DentalClinicPanel
             if (have < info.Size)
             {
                 State = UpdateState.Downloading;
-                var req = (HttpWebRequest)WebRequest.Create(info.Url);
-                req.UserAgent = "DentalClinicPanel";
-                req.Timeout = 30000;
-                req.ReadWriteTimeout = 60000;
-                if (have > 0) req.AddRange(have);
-                using (var resp = (HttpWebResponse)req.GetResponse())
+                // Like a download manager (2026-11-18, by request: weak internet
+                // in Iraq): the file is fetched in parts over several
+                // connections at once, each resuming where it stopped and
+                // retrying by itself. A server that ignores ranges falls back
+                // to one connection.
+                if (have == 0 && info.Size >= 8L * 1024 * 1024 && DownloadInParts(info.Url, done, info.Size))
                 {
-                    bool resumed = have > 0 && resp.StatusCode == HttpStatusCode.PartialContent;
-                    if (!resumed) have = 0;
-                    Received = have;
-                    using (var input = resp.GetResponseStream())
-                    using (var output = new FileStream(part, resumed ? FileMode.Append : FileMode.Create, FileAccess.Write))
-                    {
-                        var buf = new byte[81920];
-                        var sw = Stopwatch.StartNew();
-                        long mark = Received;
-                        int n;
-                        while ((n = input.Read(buf, 0, buf.Length)) > 0)
-                        {
-                            if (PauseRequested) { State = UpdateState.Paused; throw new Exception("أُوقف التنزيل مؤقتًا."); }
-                            output.Write(buf, 0, n);
-                            Received += n;
-                            if (sw.ElapsedMilliseconds >= 1000)
-                            {
-                                Speed = (Received - mark) * 1000.0 / sw.ElapsedMilliseconds;
-                                mark = Received;
-                                sw.Restart();
-                            }
-                        }
-                    }
+                    JoinParts(done, part, Parts(info.Size).Length);
+                }
+                else
+                {
+                    DownloadSingle(info.Url, part, info.Size);
                 }
             }
             if (new FileInfo(part).Length != info.Size)
@@ -1223,6 +1205,161 @@ namespace DentalClinicPanel
             TryDelete(done);
             File.Move(part, done);
             engine.Log("نُزّل التحديث إلى النسخة " + info.Build + " بالكامل وتم التحقق منه.");
+        }
+
+        const int Connections = 4;
+        const int RetriesPerPart = 40;
+
+        // [start, end] of each part, end inclusive.
+        static long[][] Parts(long size)
+        {
+            long chunk = (size + Connections - 1) / Connections;
+            var parts = new List<long[]>();
+            for (long start = 0; start < size; start += chunk)
+                parts.Add(new[] { start, Math.Min(start + chunk, size) - 1 });
+            return parts.ToArray();
+        }
+
+        static string PartFile(string done, int k) { return done + ".part" + k; }
+
+        // True when every part is whole; false when the server ignores ranges.
+        bool DownloadInParts(string url, string done, long size)
+        {
+            var parts = Parts(size);
+            long received = 0;
+            for (int k = 0; k < parts.Length; k++)
+                if (File.Exists(PartFile(done, k))) received += new FileInfo(PartFile(done, k)).Length;
+            Received = received;
+            Exception failure = null;
+            bool noRanges = false;
+            var threads = new List<Thread>();
+            for (int k = 0; k < parts.Length; k++)
+            {
+                int index = k;
+                var t = new Thread(() =>
+                {
+                    try { FetchPart(url, PartFile(done, index), parts[index][0], parts[index][1]); }
+                    catch (NotSupportedException) { noRanges = true; }
+                    catch (Exception ex) { if (failure == null) failure = ex; }
+                }) { IsBackground = true };
+                threads.Add(t);
+                t.Start();
+            }
+            var sw = Stopwatch.StartNew();
+            long mark = Interlocked.Read(ref Received);
+            while (threads.Any(t => t.IsAlive))
+            {
+                Thread.Sleep(500);
+                if (sw.ElapsedMilliseconds >= 1000)
+                {
+                    long now = Interlocked.Read(ref Received);
+                    Speed = (now - mark) * 1000.0 / sw.ElapsedMilliseconds;
+                    mark = now;
+                    sw.Restart();
+                }
+            }
+            if (noRanges)
+            {
+                for (int k = 0; k < parts.Length; k++) TryDelete(PartFile(done, k));
+                return false;
+            }
+            if (PauseRequested) { State = UpdateState.Paused; throw new Exception("أُوقف التنزيل مؤقتًا."); }
+            if (failure != null) throw failure;
+            return true;
+        }
+
+        // One part, appended to its own file; on a dropped connection it waits
+        // a little and resumes from where it stopped.
+        void FetchPart(string url, string file, long start, long end)
+        {
+            long length = end - start + 1;
+            int attempts = 0;
+            while (true)
+            {
+                long have = File.Exists(file) ? new FileInfo(file).Length : 0;
+                if (have > length) { TryDelete(file); have = 0; }
+                if (have == length) return;
+                if (PauseRequested) return;
+                try
+                {
+                    var req = (HttpWebRequest)WebRequest.Create(url);
+                    req.UserAgent = "DentalClinicPanel";
+                    req.Timeout = 30000;
+                    req.ReadWriteTimeout = 60000;
+                    req.AddRange(start + have, end);
+                    using (var resp = (HttpWebResponse)req.GetResponse())
+                    {
+                        if (resp.StatusCode != HttpStatusCode.PartialContent) throw new NotSupportedException();
+                        using (var input = resp.GetResponseStream())
+                        using (var output = new FileStream(file, FileMode.Append, FileAccess.Write))
+                        {
+                            var buf = new byte[81920];
+                            int n;
+                            while ((n = input.Read(buf, 0, buf.Length)) > 0)
+                            {
+                                if (PauseRequested) return;
+                                output.Write(buf, 0, n);
+                                Interlocked.Add(ref Received, n);
+                            }
+                        }
+                    }
+                    attempts = 0;
+                }
+                catch (NotSupportedException) { throw; }
+                catch (Exception)
+                {
+                    if (++attempts > RetriesPerPart) throw new Exception("انقطع التنزيل كثيرًا، سيُستكمل تلقائيًا بعد قليل من حيث توقف.");
+                    Thread.Sleep(Math.Min(30000, 3000 * attempts));
+                }
+            }
+        }
+
+        static void JoinParts(string done, string part, int count)
+        {
+            using (var output = new FileStream(part, FileMode.Create, FileAccess.Write))
+            {
+                for (int k = 0; k < count; k++)
+                    using (var input = File.OpenRead(PartFile(done, k))) input.CopyTo(output);
+            }
+            for (int k = 0; k < count; k++) TryDelete(PartFile(done, k));
+        }
+
+        // One connection, resuming the .part file (servers without ranges, and
+        // downloads begun before 2026-11-18).
+        void DownloadSingle(string url, string part, long size)
+        {
+            long have = File.Exists(part) ? new FileInfo(part).Length : 0;
+            var req = (HttpWebRequest)WebRequest.Create(url);
+            req.UserAgent = "DentalClinicPanel";
+            req.Timeout = 30000;
+            req.ReadWriteTimeout = 60000;
+            if (have > 0) req.AddRange(have);
+            using (var resp = (HttpWebResponse)req.GetResponse())
+            {
+                bool resumed = have > 0 && resp.StatusCode == HttpStatusCode.PartialContent;
+                if (!resumed) have = 0;
+                Received = have;
+                using (var input = resp.GetResponseStream())
+                using (var output = new FileStream(part, resumed ? FileMode.Append : FileMode.Create, FileAccess.Write))
+                {
+                    var buf = new byte[81920];
+                    var sw = Stopwatch.StartNew();
+                    long mark = Received;
+                    int n;
+                    while ((n = input.Read(buf, 0, buf.Length)) > 0)
+                    {
+                        if (PauseRequested) { State = UpdateState.Paused; throw new Exception("أُوقف التنزيل مؤقتًا."); }
+                        output.Write(buf, 0, n);
+                        Received += n;
+                        if (sw.ElapsedMilliseconds >= 1000)
+                        {
+                            Speed = (Received - mark) * 1000.0 / sw.ElapsedMilliseconds;
+                            mark = Received;
+                            sw.Restart();
+                        }
+                    }
+                }
+            }
         }
 
         static string Sha256Of(string file)
@@ -2384,8 +2521,8 @@ namespace DentalClinicPanel
         }
 
         // ---- Voices for calling names on the waiting screen (2026-11-17, by request) ----
-        // The package carries the default voice only, the Emirati one since
-        // 2026-11-18 («ميرو» was dropped), so it stays small; the other voices
+        // The package carries the default voice only, «دي» since 2026-11-18
+        // («ميرو» was dropped), so it stays small; the other voices
         // are downloaded from the hosting here (or from the waiting screen's
         // settings in the system) into app\storage\app\voices, which updates
         // keep. Resumable, checked against the SHA-256 the hosting publishes.
@@ -2393,9 +2530,9 @@ namespace DentalClinicPanel
         const string VoicesUrl = "https://dental.azoclinic.duckdns.org/downloads/voices";
         static readonly string[][] VoiceList =
         {
-            new[] { "emirati", "إماراتي (أنثى) — الافتراضي" },
+            new[] { "dii", "دي — الافتراضي" },
+            new[] { "emirati", "إماراتي (أنثى)" },
             new[] { "miro_v2", "ميرو 2" },
-            new[] { "dii", "دي" },
             new[] { "kareem", "كريم (فصحى)" },
         };
 
@@ -2422,7 +2559,7 @@ namespace DentalClinicPanel
         Page BuildVoices()
         {
             var page = new Page("أصوات النداء",
-                "الأصوات التي تنادي أسماء المرضى على شاشة الانتظار. الصوت الإماراتي (أنثى) مثبت مع البرنامج وهو الافتراضي، والباقي يُنزَّل من هنا عند الحاجة (63 م.ب تقريبًا لكل صوت، يحتاج الإنترنت وقت التنزيل فقط). يُختار الصوت من إعدادات شاشة الانتظار في النظام.");
+                "الأصوات التي تنادي أسماء المرضى على شاشة الانتظار. صوت «دي» مثبت مع البرنامج وهو الافتراضي، والباقي يُنزَّل من هنا عند الحاجة (63 م.ب تقريبًا لكل صوت، يحتاج الإنترنت وقت التنزيل فقط). يُختار الصوت من إعدادات شاشة الانتظار في النظام.");
             var card = page.Add(new Card());
             var grid = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 3, BackColor = Ui.Card, Margin = Padding.Empty };
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -2478,7 +2615,7 @@ namespace DentalClinicPanel
 
         void RemoveVoice(string v)
         {
-            if (MessageBox.Show(this, "حذف هذا الصوت من الحاسوب؟ إن كان مختارًا ستنادي الشاشة بالصوت الإماراتي حتى تنزّله من جديد.", "أصوات النداء",
+            if (MessageBox.Show(this, "حذف هذا الصوت من الحاسوب؟ إن كان مختارًا ستنادي الشاشة بصوت «دي» حتى تنزّله من جديد.", "أصوات النداء",
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2, MessageBoxOptions.RightAlign | MessageBoxOptions.RtlReading) != DialogResult.Yes) return;
             try
             {

@@ -200,12 +200,6 @@ const tileClass = (active) => [
         </header>
 
         <main class="mx-auto max-w-7xl px-4 py-6 pb-12 sm:px-6 lg:px-8">
-            <div v-if="page.props.flash?.success" class="mb-4 rounded-md bg-green-50 p-4 text-sm text-green-700">
-                {{ page.props.flash.success }}
-            </div>
-            <div v-if="page.props.flash?.error" class="mb-4 rounded-md bg-red-50 p-4 text-sm text-red-700">
-                {{ page.props.flash.error }}
-            </div>
             <slot />
         </main>
     </div>

@@ -133,7 +133,7 @@ Route::name('api.')->prefix('v1')->group(function () {
     Route::post('/offline/activate', [\App\Http\Controllers\Api\OfflineLicenseController::class, 'activate'])->middleware('throttle:10,1');
     Route::get('/offline/latest', [\App\Http\Controllers\Api\OfflineLicenseController::class, 'latest'])->middleware('throttle:30,1');
     Route::get('/offline/download', [\App\Http\Controllers\Api\OfflineLicenseController::class, 'download'])
-        ->middleware('throttle:10,1')->name('offline.download');
+        ->middleware('throttle:120,1')->name('offline.download'); // several connections per download (2026-11-18)
     // Online access (2026-10-31): the panel reports its tunnel's address.
     Route::post('/offline/tunnel', [\App\Http\Controllers\Api\OfflineLicenseController::class, 'tunnel'])->middleware('throttle:30,1');
 

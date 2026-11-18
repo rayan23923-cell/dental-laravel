@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/toast';
 import DateInput from '@/Components/DateInput.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import ChatListCard from '@/Components/ChatList/ChatListCard.vue';
@@ -61,8 +62,8 @@ const selectViewing = (session) => {
     router.post(route('academic-sessions.select'), { academic_session_id: session.id });
 };
 
-const destroy = (session) => {
-    if (confirm(t('academicSessionsAdmin.deleteConfirm', { name: session.name }))) {
+const destroy = async (session) => {
+    if (await confirmDialog(t('academicSessionsAdmin.deleteConfirm', { name: session.name }))) {
         router.delete(route('academic-sessions.destroy', session.id));
     }
 };
@@ -85,12 +86,6 @@ const destroy = (session) => {
             <div class="mx-auto max-w-2xl space-y-4 px-4 sm:px-6 lg:px-8">
                 <StructureTabs active="academic-sessions" />
 
-                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
-                    {{ page.props.flash.success }}
-                </div>
-                <div v-if="page.props.flash?.error" class="rounded-xl bg-red-50 p-4 text-sm text-red-700">
-                    {{ page.props.flash.error }}
-                </div>
 
                 <ChatListCard :empty="sessions.length === 0" :empty-text="t('academicSessionsAdmin.emptyList')" empty-icon="calendar_month">
                     <ChatListRow

@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/toast';
 /**
  * Photos of a task's paper case sheet (2026-10-13, by request). Upload
  * from this device, or (staff) ask the paired phone: its scanner page
@@ -88,7 +89,7 @@ const pickFiles = async (event) => {
 };
 
 const remove = async (photo) => {
-    if (!confirm(t('paperPhotos.confirmDelete'))) return;
+    if (!await confirmDialog(t('paperPhotos.confirmDelete'))) return;
     error.value = '';
     try {
         const { data } = await axios.delete(route(routes.value.destroy, photo.id));

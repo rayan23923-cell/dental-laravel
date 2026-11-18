@@ -80,9 +80,6 @@ const lastLogin = computed(() => (u.last_login ? new Date(u.last_login).toLocale
 
         <div class="py-6 sm:py-10">
             <div class="mx-auto max-w-3xl space-y-5 px-4 sm:px-6 lg:px-8">
-                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
-                    {{ page.props.flash.success }}
-                </div>
 
                 <div v-if="generated" class="rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200">
                     <div class="text-sm font-semibold text-amber-900">{{ t('usersAdmin.generatedTitle') }}</div>

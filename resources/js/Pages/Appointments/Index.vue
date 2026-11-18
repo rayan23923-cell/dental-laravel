@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/toast';
 import DateInput from '@/Components/DateInput.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
@@ -21,8 +22,8 @@ watch([search, date], ([searchValue, dateValue]) => {
     router.get(route('appointments.index'), { search: searchValue, date: dateValue }, { preserveState: true, replace: true });
 });
 
-const destroy = (appointment) => {
-    if (confirm(t('appointments.deleteConfirm', { name: appointment.full_name }))) {
+const destroy = async (appointment) => {
+    if (await confirmDialog(t('appointments.deleteConfirm', { name: appointment.full_name }))) {
         router.delete(route('appointments.destroy', appointment.id));
     }
 };
@@ -49,12 +50,6 @@ const paidTotal = (appointment) => appointment.payments.reduce((sum, p) => sum +
 
         <div class="py-12">
             <div class="mx-auto max-w-6xl space-y-4 sm:px-6 lg:px-8">
-                <div
-                    v-if="page.props.flash?.success"
-                    class="rounded-md bg-green-50 p-4 text-sm text-green-700"
-                >
-                    {{ page.props.flash.success }}
-                </div>
 
                 <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                     <div class="flex flex-wrap items-center gap-3 border-b border-gray-200 p-4">

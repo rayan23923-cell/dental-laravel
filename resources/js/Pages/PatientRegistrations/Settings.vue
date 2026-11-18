@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/toast';
 /**
  * Registration settings (2026-10-12): the services the desk registers
  * patients for, each with its price, plus the lab test price and how long
@@ -36,8 +37,8 @@ const serviceForm = useForm({ name: '', price: '', student_discount_percent: 50 
 const submitService = () => {
     serviceForm.post(route('register-services.store'), { preserveScroll: true, onSuccess: () => serviceForm.reset() });
 };
-const deleteService = (service) => {
-    if (confirm(t('patientReg.deleteServiceConfirm', { name: service.name }))) {
+const deleteService = async (service) => {
+    if (await confirmDialog(t('patientReg.deleteServiceConfirm', { name: service.name }))) {
         router.delete(route('register-services.destroy', service.id), { preserveScroll: true });
     }
 };
@@ -89,12 +90,6 @@ const toggleSupportCodes = (event) => {
 
         <div class="py-6 sm:py-10">
             <div class="mx-auto max-w-4xl space-y-6 px-4 sm:px-6 lg:px-8">
-                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
-                    {{ page.props.flash.success }}
-                </div>
-                <div v-if="page.props.flash?.error" class="rounded-xl bg-red-50 p-4 text-sm text-red-700 whitespace-pre-line">
-                    {{ page.props.flash.error }}
-                </div>
 
                 <!-- Services and prices -->
                 <div class="overflow-hidden rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100">

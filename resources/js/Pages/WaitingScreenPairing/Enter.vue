@@ -34,12 +34,6 @@ const submit = () => {
 
         <div class="py-6 sm:py-10">
             <div class="mx-auto max-w-lg px-4 sm:px-6 lg:px-8">
-                <div
-                    v-if="page.props.flash?.success"
-                    class="mb-4 rounded-xl bg-green-50 p-4 text-sm text-green-700"
-                >
-                    {{ page.props.flash.success }}
-                </div>
 
                 <div class="overflow-hidden rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-6">
                     <div class="mb-6 flex items-start gap-3">

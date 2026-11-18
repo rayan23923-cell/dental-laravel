@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/toast';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
@@ -22,8 +23,8 @@ watch(search, (value) => {
     });
 });
 
-const destroy = (patient) => {
-    if (confirm(t('patients.deleteConfirm', { name: patient.name }))) {
+const destroy = async (patient) => {
+    if (await confirmDialog(t('patients.deleteConfirm', { name: patient.name }))) {
         router.delete(route('patients.destroy', patient.id));
     }
 };
@@ -46,12 +47,6 @@ const destroy = (patient) => {
 
         <div class="py-12">
             <div class="mx-auto max-w-7xl space-y-4 sm:px-6 lg:px-8">
-                <div
-                    v-if="page.props.flash?.success"
-                    class="rounded-md bg-green-50 p-4 text-sm text-green-700"
-                >
-                    {{ page.props.flash.success }}
-                </div>
 
                 <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                     <div class="border-b border-gray-200 p-4">

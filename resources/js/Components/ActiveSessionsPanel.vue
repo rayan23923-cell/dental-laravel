@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/toast';
 /**
  * Instagram-style "الأجهزة النشطة" panel — embedded in both Profile pages
  * (Profile/Edit.vue for staff, Doctor/Profile.vue for doctors). Lists this
@@ -42,7 +43,7 @@ const load = async () => {
 };
 
 const endSession = async (session) => {
-    if (!confirm(t('sessions.endConfirm', { device: session.device_name }))) return;
+    if (!await confirmDialog(t('sessions.endConfirm', { device: session.device_name }))) return;
     busyId.value = session.id;
     await axios.delete(route('account.sessions.destroy', session.id));
     sessions.value = sessions.value.filter((s) => s.id !== session.id);
@@ -50,7 +51,7 @@ const endSession = async (session) => {
 };
 
 const logoutAll = async () => {
-    if (!confirm(t('sessions.logoutAllConfirm'))) return;
+    if (!await confirmDialog(t('sessions.logoutAllConfirm'))) return;
     loggingOutAll.value = true;
     await axios.post(route('account.sessions.logout-all'));
     sessions.value = [];

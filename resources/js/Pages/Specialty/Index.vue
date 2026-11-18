@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/toast';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DoctorLayout from '@/Layouts/DoctorLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
@@ -25,8 +26,8 @@ const Layout = computed(() => (isDoctor.value ? DoctorLayout : AuthenticatedLayo
 // satellite records like surgery images still do.
 const canDelete = computed(() => route().has(`${props.resource}.destroy`));
 
-const destroy = (record) => {
-    if (confirm(t('specialtyForms.deleteConfirmTemplate', { title: props.title.toLowerCase() }))) {
+const destroy = async (record) => {
+    if (await confirmDialog(t('specialtyForms.deleteConfirmTemplate', { title: props.title.toLowerCase() }))) {
         router.delete(route(`${props.resource}.destroy`, record.id));
     }
 };
@@ -51,12 +52,6 @@ const recordLabel = (record) => record[props.titleField] || `#${record.id}`;
 
         <div class="py-12">
             <div class="mx-auto max-w-5xl space-y-4 sm:px-6 lg:px-8">
-                <div
-                    v-if="page.props.flash?.success"
-                    class="rounded-md bg-green-50 p-4 text-sm text-green-700"
-                >
-                    {{ page.props.flash.success }}
-                </div>
 
                 <div class="overflow-x-auto bg-white shadow-sm sm:rounded-lg">
                     <table class="min-w-full divide-y divide-gray-200">

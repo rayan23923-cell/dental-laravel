@@ -1,6 +1,6 @@
 """Piper behind a tiny HTTP API for the dental app (2026-11-17).
 
-POST /synthesize {"text": "...", "length_scale": 1.0, "voice": "emirati"} -> audio/wav
+POST /synthesize {"text": "...", "length_scale": 1.0, "voice": "dii"} -> audio/wav
 GET  /voices -> ["dii", "emirati", ...]
 GET  /health -> ok
 
@@ -16,7 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 PIPER = os.environ.get("PIPER_BIN", "/opt/piper/piper")
 VOICES = os.environ.get("PIPER_VOICES", "/opt/voices")
-DEFAULT_VOICE = "emirati"
+DEFAULT_VOICE = "dii"
 MAX_CHARS = 400
 
 

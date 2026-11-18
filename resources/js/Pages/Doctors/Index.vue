@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/toast';
 /**
  * إدارة الأطباء — rebuilt to match dental_clinics2/admin/manage_doctors.php:
  * the same header actions (رفع ملف Excel / إضافة طبيب), the same filter row
@@ -105,15 +106,15 @@ const toggleAll = () => {
 
 const canSeeProgress = computed(() => ['super_admin', 'admin'].includes(page.props.auth.user.role));
 
-const destroy = (doctor) => {
-    if (confirm(t('doctorsAdmin.deleteConfirm', { name: doctor.name }))) {
+const destroy = async (doctor) => {
+    if (await confirmDialog(t('doctorsAdmin.deleteConfirm', { name: doctor.name }))) {
         router.delete(route('doctors.destroy', doctor.id), { preserveScroll: true });
     }
 };
 
-const destroySelected = () => {
+const destroySelected = async () => {
     if (!selected.value.length) return;
-    if (confirm(t('doctorsAdmin.deleteSelectedConfirm', { n: selected.value.length }))) {
+    if (await confirmDialog(t('doctorsAdmin.deleteSelectedConfirm', { n: selected.value.length }))) {
         router.delete(route('doctors.destroy-many'), {
             data: { ids: selected.value },
             preserveScroll: true,
@@ -163,12 +164,6 @@ const cardsSelectedUrl = computed(() => `${route('doctors.cards')}?ids=${selecte
             <div class="mx-auto max-w-2xl space-y-4 px-4 sm:px-6 lg:px-8">
                 <StructureTabs />
 
-                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
-                    {{ page.props.flash.success }}
-                </div>
-                <div v-if="page.props.flash?.error" class="rounded-xl bg-red-50 p-4 text-sm text-red-700 whitespace-pre-line">
-                    {{ page.props.flash.error }}
-                </div>
 
                 <!-- Which academic year this list belongs to -->
                 <div v-if="currentSession" class="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-indigo-50 px-4 py-2.5 text-sm text-indigo-900">

@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/toast';
 /**
  * "بطاقات الرعاية" (2026-11-01, by request): generate one-time 5-digit
  * codes, print them as cards to cut out and hand out, and stop unused
@@ -63,8 +64,8 @@ const toggleAll = () => {
     selected.value = allSelected.value ? [] : selectable.value.map((c) => c.id);
 };
 
-const setDisabled = (disabled, ids = selected.value, batch = null) => {
-    if (disabled && !confirm(batch ? t('supportCodes.disableBatchConfirm', { batch }) : t('supportCodes.disableConfirm', { n: ids.length }))) return;
+const setDisabled = async (disabled, ids = selected.value, batch = null) => {
+    if (disabled && !await confirmDialog(batch ? t('supportCodes.disableBatchConfirm', { batch }) : t('supportCodes.disableConfirm', { n: ids.length }))) return;
     router.post(route('support-codes.status'), { ids, batch, disabled }, { preserveScroll: true, onSuccess: () => (selected.value = []) });
 };
 
@@ -92,7 +93,6 @@ const fmt = (d) => (d ? new Date(d).toLocaleString('en-GB', { dateStyle: 'short'
 
         <div class="py-6 sm:py-10">
             <div class="mx-auto max-w-5xl space-y-6 px-4 sm:px-6 lg:px-8">
-                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">{{ page.props.flash.success }}</div>
                 <div v-if="!enabled" class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
                     <span>{{ t('supportCodes.disabledFeature') }}</span>
                     <Link v-if="can.settings" :href="route('patient-registrations.settings')" class="font-semibold underline">{{ t('supportCodes.openSettings') }}</Link>

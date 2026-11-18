@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/toast';
 /**
  * Activation codes for offline copies (2026-10-17, by request): each code
  * activates one copy once and is then tied to that computer. See
@@ -33,12 +34,12 @@ const counts = computed(() => ({
     used: props.licenses.filter((l) => l.machine_id).length,
 }));
 
-const act = (license, action) => {
-    if (action === 'release' && !window.confirm(t('offlineLicenses.confirmRelease'))) return;
+const act = async (license, action) => {
+    if (action === 'release' && !await confirmDialog(t('offlineLicenses.confirmRelease'))) return;
     router.patch(route('offline-licenses.update', license.id), { action }, { preserveScroll: true });
 };
-const remove = (license) => {
-    if (!window.confirm(t('offlineLicenses.confirmDelete'))) return;
+const remove = async (license) => {
+    if (!await confirmDialog(t('offlineLicenses.confirmDelete'))) return;
     router.delete(route('offline-licenses.destroy', license.id), { preserveScroll: true });
 };
 
@@ -65,7 +66,6 @@ const date = (value) => (value ? new Date(value).toLocaleString('ar') : '');
 
         <div class="py-8">
             <div class="mx-auto max-w-4xl space-y-6 px-4 sm:px-6 lg:px-8">
-                <p v-if="page.props.flash?.success" class="rounded-md bg-emerald-50 px-4 py-2 text-sm text-emerald-700">{{ page.props.flash.success }}</p>
 
                 <div class="rounded-lg bg-white p-4 shadow-sm">
                     <p class="text-sm text-gray-600">{{ t('offlineLicenses.intro') }}</p>

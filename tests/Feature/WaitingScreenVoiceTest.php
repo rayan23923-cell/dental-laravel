@@ -42,10 +42,10 @@ class WaitingScreenVoiceTest extends TestCase
 
             public function voices(): array
             {
-                return ['emirati', 'kareem'];
+                return ['dii', 'kareem'];
             }
 
-            public function wav(string $text, string $engine = 'piper', int $rate = 100, string $voice = 'emirati'): string
+            public function wav(string $text, string $engine = 'piper', int $rate = 100, string $voice = 'dii'): string
             {
                 if ($engine === 'windows') {
                     throw new SpeechException('صوت ويندوز يعمل على سيرفر ويندوز فقط.');
@@ -100,7 +100,7 @@ class WaitingScreenVoiceTest extends TestCase
         $this->assertSame('kareem', WaitingScreenSetting::current()->voice_name);
 
         // A voice this Windows server does not have must be downloaded first.
-        $this->put(route('waiting-screen-settings.update'), ['patients_per_page' => 8, 'rotation_seconds' => 12, 'voice_name' => 'dii'])
+        $this->put(route('waiting-screen-settings.update'), ['patients_per_page' => 8, 'rotation_seconds' => 12, 'voice_name' => 'miro_v2'])
             ->assertSessionHasErrors('voice_name');
 
         $settings = WaitingScreenSetting::current();
@@ -133,7 +133,7 @@ class WaitingScreenVoiceTest extends TestCase
         $patient->markLabResultReceived();
 
         $this->get($url('ready'))->assertOk()->assertHeader('Content-Type', 'audio/wav');
-        $this->assertSame([['زينب كاظم، نتيجتك جاهزة، يرجى المراجعة إلى المختبر', 'piper', 100, 'emirati']], $this->spoken);
+        $this->assertSame([['زينب كاظم، نتيجتك جاهزة، يرجى المراجعة إلى المختبر', 'piper', 100, 'dii']], $this->spoken);
 
         // An unpaired screen gets nothing.
         $this->get($url('ready', 'nope'))->assertForbidden();
@@ -153,8 +153,8 @@ class WaitingScreenVoiceTest extends TestCase
                 ->where('voice.voice_repeat', 2)
                 ->where('voice.voice_ready_before', '')
                 ->where('voiceEngines', ['piper'])
-                ->where('voice.voice_name', 'emirati')
-                ->where('voiceInstalled', ['emirati', 'kareem']));
+                ->where('voice.voice_name', 'dii')
+                ->where('voiceInstalled', ['dii', 'kareem']));
 
         $this->post(route('waiting-screen-settings.voice-preview'), [
             'name' => 'أحمد علي',
@@ -246,30 +246,30 @@ class WaitingScreenVoiceTest extends TestCase
         $this->app->offsetUnset(SpeechSynthesizer::class);
         $shipped = sys_get_temp_dir().'/piper-voices-'.uniqid();
         mkdir($shipped);
-        touch("$shipped/emirati.onnx");
-        touch("$shipped/emirati.onnx.json");
+        touch("$shipped/dii.onnx");
+        touch("$shipped/dii.onnx.json");
         config(['services.tts.url' => null, 'services.tts.piper_voices' => $shipped]);
         $dir = VoiceDownloads::dir();
         @mkdir($dir, 0777, true);
-        @unlink("$dir/dii.onnx");
+        @unlink("$dir/kareem.onnx");
 
         $speech = new SpeechSynthesizer;
-        $this->assertSame(['emirati'], $speech->voices());
+        $this->assertSame(['dii'], $speech->voices());
 
         // Downloaded by the panel or the settings page: offered at once.
-        file_put_contents("$dir/dii.onnx", 'x');
-        file_put_contents("$dir/dii.onnx.json", '{}');
-        $this->assertSame(['emirati', 'dii'], $speech->voices());
+        file_put_contents("$dir/kareem.onnx", 'x');
+        file_put_contents("$dir/kareem.onnx.json", '{}');
+        $this->assertSame(['dii', 'kareem'], $speech->voices());
 
         $admin = User::factory()->create(['role' => 'super_admin']);
         $this->actingAs($admin)->get(route('waiting-screen-settings.edit'))
-            ->assertInertia(fn ($page) => $page->where('voiceInstalled', ['emirati', 'dii'])->where('voiceDownloadable', true));
-        $this->put(route('waiting-screen-settings.update'), ['patients_per_page' => 8, 'rotation_seconds' => 12, 'voice_name' => 'dii'])
+            ->assertInertia(fn ($page) => $page->where('voiceInstalled', ['dii', 'kareem'])->where('voiceDownloadable', true));
+        $this->put(route('waiting-screen-settings.update'), ['patients_per_page' => 8, 'rotation_seconds' => 12, 'voice_name' => 'kareem'])
             ->assertSessionHasNoErrors();
-        $this->assertSame('dii', WaitingScreenSetting::current()->voice_name);
+        $this->assertSame('kareem', WaitingScreenSetting::current()->voice_name);
 
-        @unlink("$dir/dii.onnx");
-        @unlink("$dir/dii.onnx.json");
+        @unlink("$dir/kareem.onnx");
+        @unlink("$dir/kareem.onnx.json");
         array_map('unlink', glob("$shipped/*"));
         rmdir($shipped);
     }

@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/toast';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
@@ -20,8 +21,8 @@ const form = useForm({
     body: '',
 });
 
-const submit = () => {
-    if (!confirm(t('adminBroadcast.confirmTemplate', { count: props.recipientCount }))) {
+const submit = async () => {
+    if (!await confirmDialog(t('adminBroadcast.confirmTemplate', { count: props.recipientCount }))) {
         return;
     }
     form.post(route('admin-broadcast.store'), {
@@ -41,9 +42,6 @@ const submit = () => {
 
         <div class="py-6 sm:py-10">
             <div class="mx-auto max-w-xl space-y-4 px-4 sm:px-6 lg:px-8">
-                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
-                    {{ page.props.flash.success }}
-                </div>
 
                 <div class="overflow-hidden rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-6">
                     <div class="mb-5 flex items-start gap-3">

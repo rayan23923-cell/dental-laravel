@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/toast';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import ChatListCard from '@/Components/ChatList/ChatListCard.vue';
 import ChatListRow from '@/Components/ChatList/ChatListRow.vue';
@@ -68,8 +69,8 @@ const submitEdit = () => {
     });
 };
 
-const destroy = (stage) => {
-    if (confirm(t('stagesAdmin.deleteConfirm', { name: stage.name }))) {
+const destroy = async (stage) => {
+    if (await confirmDialog(t('stagesAdmin.deleteConfirm', { name: stage.name }))) {
         router.delete(route('stages.destroy', stage.id));
     }
 };
@@ -90,12 +91,6 @@ const destroy = (stage) => {
             <div class="mx-auto max-w-2xl space-y-4 px-4 sm:px-6 lg:px-8">
                 <StructureTabs active="stages" />
 
-                <div v-if="page.props.flash?.success" class="rounded-xl bg-green-50 p-4 text-sm text-green-700">
-                    {{ page.props.flash.success }}
-                </div>
-                <div v-if="page.props.flash?.error" class="rounded-xl bg-red-50 p-4 text-sm text-red-700 whitespace-pre-line">
-                    {{ page.props.flash.error }}
-                </div>
 
                 <ChatSearch v-model="search" :placeholder="t('taxonomyAdmin.searchPlaceholder')" @submit="applyFilters" />
 
