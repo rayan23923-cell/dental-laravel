@@ -1243,7 +1243,7 @@
         "labReadyHeading": "النتيجة جاهزة للاستلام",
         "labReadyBadge": "النتيجة جاهزة",
         "labHeading": "المختبر",
-        "labEmpty": "لا يوجد مرضى في المختبر الآن.",
+        "labEmpty": "لا توجد فحوصات في المختبر",
         "enableSound": "اضغط لتفعيل الصوت"
     },
     "waitingScreenPairing": {

@@ -1243,7 +1243,7 @@
         "labReadyHeading": "Result ready to collect",
         "labReadyBadge": "Result ready",
         "labHeading": "Lab",
-        "labEmpty": "No lab patients right now.",
+        "labEmpty": "No tests in the lab",
         "enableSound": "Press to turn sound on"
     },
     "waitingScreenPairing": {
