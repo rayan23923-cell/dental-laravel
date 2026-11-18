@@ -9,6 +9,16 @@ import 'sweetalert2/dist/sweetalert2.min.css';
  * a page needs nothing of its own. Follows the page direction (RTL for
  * Arabic) and the app's font.
  */
+// A page window (Modal.vue) is a native <dialog> opened with showModal(),
+// which sits in the browser's top layer above everything, whatever its
+// z-index. So notifications and confirmations open inside the topmost open
+// window when there is one, else on the page (2026-11-18 fix: the delete
+// confirmation showed behind «خدمات المختبر»).
+const target = () => {
+    const open = document.querySelectorAll('dialog[open]');
+    return open.length ? open[open.length - 1] : document.body;
+};
+
 const Toast = Swal.mixin({
     toast: true,
     position: 'top-end',
@@ -32,13 +42,13 @@ const fresh = (text) => {
 
 export const toast = {
     success(text) {
-        if (text && fresh(text)) Toast.fire({ icon: 'success', title: text });
+        if (text && fresh(text)) Toast.fire({ icon: 'success', title: text, target: target() });
     },
     error(text) {
-        if (text && fresh(text)) Toast.fire({ icon: 'error', title: text, timer: 7000 });
+        if (text && fresh(text)) Toast.fire({ icon: 'error', title: text, timer: 7000, target: target() });
     },
     info(text) {
-        if (text && fresh(text)) Toast.fire({ icon: 'info', title: text });
+        if (text && fresh(text)) Toast.fire({ icon: 'info', title: text, target: target() });
     },
 };
 
@@ -64,8 +74,13 @@ export function showErrors(errors) {
  */
 export async function confirmDialog(text, { danger = true } = {}) {
     const ar = document.documentElement.lang !== 'en';
+    const host = target();
+    // Esc closes the confirmation only, not the window it opened in.
+    const keep = (e) => e.preventDefault();
+    if (host !== document.body) host.addEventListener('cancel', keep);
     const result = await Swal.fire({
         text,
+        target: host,
         icon: danger ? 'warning' : 'question',
         showCancelButton: true,
         focusCancel: true,
@@ -78,5 +93,6 @@ export async function confirmDialog(text, { danger = true } = {}) {
         },
         buttonsStyling: false,
     });
+    if (host !== document.body) host.removeEventListener('cancel', keep);
     return result.isConfirmed;
 }
