@@ -24,6 +24,7 @@ class UniversityController extends Controller
             'licenses as dental_active_count' => fn ($q) => $q->where('product', 'dental')->whereNotNull('machine_id')->whereNull('revoked_at'),
             'licenses as filenest_active_count' => fn ($q) => $q->where('product', 'filenest')->whereNotNull('machine_id')->whereNull('revoked_at'),
             'licenses as exams_active_count' => fn ($q) => $q->where('product', 'exams')->whereNotNull('machine_id')->whereNull('revoked_at'),
+            'licenses as sis_active_count' => fn ($q) => $q->where('product', 'sis')->whereNotNull('machine_id')->whereNull('revoked_at'),
         ])->withMax('licenses', 'last_seen_at')->orderBy('name')->get();
 
         return view('licensing.index', [

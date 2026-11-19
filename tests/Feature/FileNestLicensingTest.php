@@ -69,4 +69,20 @@ class FileNestLicensingTest extends TestCase
             ->assertOk()->json('license');
         $this->assertSame('exams', OfflineLicensing::verify($license)['product']);
     }
+
+    public function test_an_sis_code_activates_only_the_student_information_system(): void
+    {
+        $university = LicenseUniversity::create(['name' => 'جامعة الطلبة']);
+        $sis = OfflineLicense::create(['code' => 'SSSS-XXXX-AAAA-MMMM', 'product' => 'sis', 'university' => $university->name, 'university_id' => $university->id]);
+
+        $this->postJson('/api/v1/offline/activate', ['code' => $sis->code, 'machine_id' => self::MACHINE, 'product' => 'filenest'])
+            ->assertStatus(422)->assertJsonPath('message', fn ($m) => str_contains($m, 'نظام معلومات الطلبة'));
+        $license = $this->postJson('/api/v1/offline/activate', ['code' => $sis->code, 'machine_id' => self::MACHINE, 'product' => 'sis'])
+            ->assertOk()->json('license');
+        $this->assertSame('sis', OfflineLicensing::verify($license)['product']);
+
+        // SIS's panel checks in; its packages come from its own hosting.
+        $this->getJson('/api/v1/offline/latest?code='.$sis->code.'&machine='.self::MACHINE.'&build=5')
+            ->assertOk()->assertJson(['build' => 0, 'product' => 'sis']);
+    }
 }

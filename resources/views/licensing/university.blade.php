@@ -135,7 +135,7 @@
             <label>ملاحظات <input name="notes" value="{{ old('notes', $university->notes) }}"></label>
             <button type="submit">حفظ</button>
         </form>
-        <p class="muted" style="margin: 8px 0 0;">الحد يُطبَّق على كل نظام وحده (العيادات وFileNest والامتحانات). اتركه فارغاً بلا حد. عند الوصول إلى الحد يُرفض تفعيل أي حاسوب جديد، ويبقى المفعّل يعمل. تحرير رمز أو إيقافه يفرّغ مكاناً.</p>
+        <p class="muted" style="margin: 8px 0 0;">الحد يُطبَّق على كل نظام وحده (العيادات وFileNest والامتحانات ونظام الطلبة). اتركه فارغاً بلا حد. عند الوصول إلى الحد يُرفض تفعيل أي حاسوب جديد، ويبقى المفعّل يعمل. تحرير رمز أو إيقافه يفرّغ مكاناً.</p>
         @error('name') <div class="error">{{ $message }}</div> @enderror
         @error('max_devices') <div class="error">{{ $message }}</div> @enderror
         @if ($used->isEmpty())

@@ -18,6 +18,7 @@ class OfflineLicense extends Model
         'dental' => 'نظام العيادات',
         'filenest' => 'FileNest (الملفات والمكتبة)',
         'exams' => 'نظام الامتحانات',   // 2026-11-08: ExamNest, the online exam system
+        'sis' => 'نظام معلومات الطلبة',   // 2026-11-19: the student information system (SIS)
     ];
 
     protected $attributes = ['product' => 'dental'];
