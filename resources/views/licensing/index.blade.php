@@ -30,7 +30,7 @@
             <div class="table-wrap">
                 <table>
                     <thead>
-                        <tr><th>الجامعة</th><th>الرموز</th><th>حواسيب مفعّلة</th><th>العيادات / FileNest / الامتحانات</th><th>الحد المسموح</th><th>رموز غير مستخدمة</th><th>موقوفة</th><th>آخر اتصال</th></tr>
+                        <tr><th>الجامعة</th><th>الرموز</th><th>حواسيب مفعّلة</th><th>العيادات / FileNest / الامتحانات / الطلبة</th><th>الحد المسموح</th><th>رموز غير مستخدمة</th><th>موقوفة</th><th>آخر اتصال</th></tr>
                     </thead>
                     <tbody>
                         @foreach ($universities as $u)
@@ -39,7 +39,7 @@
                                     @if ($u->contact) <div class="muted">{{ $u->contact }}</div> @endif</td>
                                 <td>{{ $u->licenses_count }}</td>
                                 <td>{{ $u->used_count }}</td>
-                                <td class="ltr">{{ $u->dental_active_count }} / {{ $u->filenest_active_count }} / {{ $u->exams_active_count }}</td>
+                                <td class="ltr">{{ $u->dental_active_count }} / {{ $u->filenest_active_count }} / {{ $u->exams_active_count }} / {{ $u->sis_active_count }}</td>
                                 <td>@if ($u->max_devices)
                                         <span class="tag {{ $u->active_count >= $u->max_devices ? 'red' : 'green' }} ltr">{{ $u->active_count }} / {{ $u->max_devices }}</span>
                                     @else <span class="muted">بلا حد</span> @endif</td>
