@@ -1,0 +1,23 @@
+name: Koha and hosting check (read-only)
+on:
+  push:
+    branches: [diag/koha-check]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Hosting
+        run: |
+          for u in https://files.azoclinic.duckdns.org/ https://dental.azoclinic.duckdns.org/ https://koha.azoclinic.duckdns.org/ http://167.86.66.47:8080/cgi-bin/koha/mainpage.pl; do
+            echo "== $u"; curl -s -o /dev/null -w "%{http_code} total=%{time_total}s\n" --max-time 30 "$u" || echo "FAILED: no answer"
+          done
+          echo "== DNS"; getent hosts files.azoclinic.duckdns.org dental.azoclinic.duckdns.org || true
+      - name: Koha REST API (no real credentials)
+        run: |
+          B=http://167.86.66.47:8080/api/v1
+          echo "== no auth"; curl -s --max-time 30 "$B/biblios?_per_page=1" -H 'Accept: application/json'; echo
+          echo "== basic with a made-up user"; curl -s --max-time 30 -u 'no_such_user_check:x' "$B/biblios?_per_page=1" -H 'Accept: application/json'; echo
+          echo "== oauth token with a made-up client"; curl -s --max-time 30 -d 'grant_type=client_credentials&client_id=none&client_secret=none' "$B/oauth/token"; echo
