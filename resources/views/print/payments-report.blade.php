@@ -51,9 +51,33 @@
         .chart h3 { font-size: 13px; margin: 0 0 4px; }
         .sources td, .sources th { font-size: 13px; }
         .report-table td, .report-table th { font-size: 12px; padding: 4px 6px; }
+        /* Missing numbers in the payments' ids (2026-11-25, by request). */
+        .report-table tr.gap td { background: #fff7ed; color: #9a3412; font-size: 11px; padding: 3px 6px; }
+        .report-table tr.gap.outside td { background: #f9fafb; color: #4b5563; }
         @media print {
             @page { size: A4; margin: 10mm; }
-            .chart, .card, tr { break-inside: avoid; }
+            .chart, .card, tr { break-inside: avoid; page-break-inside: avoid; }
+            /* No row split across two pages (2026-11-25, by request). Safari
+               (every browser on iPhone/iPad) ignores break-inside on table
+               rows, so in print each row of the payments table is its own
+               block-level table with fixed column widths: blocks are never
+               split, and the columns still line up. */
+            .payments-table, .payments-table thead, .payments-table tbody, .payments-table tfoot { display: block; width: 100%; }
+            .payments-table tr { display: table; width: 100%; table-layout: fixed; border-collapse: collapse; border-spacing: 0; }
+            .payments-table tbody tr td, .payments-table tfoot tr th { border-top: 0; }
+            .payments-table .w-n { width: 5%; }
+            .payments-table .w-id { width: 6%; }
+            .payments-table .w-who { width: 15%; }
+            .payments-table .w-src { width: 10%; }
+            .payments-table .w-svc { width: 11%; }
+            .payments-table .w-amt { width: 8%; }
+            .payments-table .w-disc { width: 12%; }
+            .payments-table .w-net { width: 9%; }
+            .payments-table .w-by { width: 10%; }
+            .payments-table .w-at { width: 14%; }
+            .payments-table .w-sum { width: 67%; }
+            .payments-table .w-rest { width: 24%; }
+            .payments-table td, .payments-table th { overflow-wrap: anywhere; }
         }
     </style>
 
@@ -138,13 +162,51 @@
         </table>
     @endif
 
+    @php
+        $gapAfter = $gaps['after'] ?? [];
+        // One line on a missing id: what it is and what is known of it.
+        $gapText = function (array $g) use ($sourceLabels, $money) {
+            $d = $g['details'];
+            $bits = $d ? array_filter([
+                $d['patient'] ?? null,
+                isset($d['amount']) ? $money($d['amount']) : null,
+                $d['paid_by'] ?? null,
+                $d['paid_at'] ?? null,
+            ]) : [];
+            $src = $g['source'] ? ($sourceLabels[$g['source']] ?? $g['source']) : null;
+            $what = match ($g['status']) {
+                'outside' => 'ليست ضمن هذا التقرير' . ($src ? ' — ' . $src : ''),
+                'deleted' => 'محذوفة' . ($g['by'] ? ' من ' . $g['by'] : '') . ($g['at'] ? ' بتاريخ ' . $g['at'] : '') . ($src ? ' — كانت ' . $src : ''),
+                default => 'لا يوجد لها سجل (محذوفة قبل تفعيل سجل النشاط أو رقم لم يُستخدم)',
+            };
+
+            return $what . ($bits ? ' · ' . implode(' · ', $bits) : '');
+        };
+        $gapRow = fn (array $g) => '<tr class="gap ' . e($g['status']) . '"><td class="w-all" colspan="10">رقم ناقص <strong dir="ltr">' . e($g['id']) . '</strong>: ' . e($gapText($g)) . '</td></tr>';
+    @endphp
+
     <h3 class="section">المدفوعات ({{ $payments->count() }})</h3>
-    <table class="report-table">
+    @if (($gaps['count'] ?? 0) > 0)
+        {{-- Missing numbers (2026-11-25, by request): ids between the
+             first and the last listed payment that this report doesn't list. --}}
+        <p class="muted" style="margin:0 0 6px">
+            أرقام ناقصة في التسلسل: {{ $gaps['count'] }}
+            @if (! empty($gaps['counts']))
+                ({{ implode('، ', array_filter([
+                    isset($gaps['counts']['outside']) ? $gaps['counts']['outside'] . ' خارج هذا التقرير' : null,
+                    isset($gaps['counts']['deleted']) ? $gaps['counts']['deleted'] . ' محذوفة' : null,
+                    isset($gaps['counts']['unknown']) ? $gaps['counts']['unknown'] . ' بلا سجل' : null,
+                ])) }})
+            @endif
+            @if ($gaps['truncated']) — أكثر من أن تُعرض هنا؛ ضيّق الفترة أو الفلتر لعرضها. @else — مبيّنة في الجدول بلون مختلف. @endif
+        </p>
+    @endif
+    <table class="report-table payments-table">
         <thead>
-            <tr><th>#</th><th>الشخص</th><th>المصدر</th><th>الخدمة</th><th>المبلغ</th><th>التخفيض</th><th>المبلغ بعد التخفيض</th><th>الدافع</th><th>التاريخ</th></tr>
+            <tr><th class="w-n">ت</th><th class="w-id">#</th><th class="w-who">الشخص</th><th class="w-src">المصدر</th><th class="w-svc">الخدمة</th><th class="w-amt">المبلغ</th><th class="w-disc">التخفيض</th><th class="w-net">المبلغ بعد التخفيض</th><th class="w-by">الدافع</th><th class="w-at">التاريخ</th></tr>
         </thead>
         <tbody>
-            @forelse ($payments as $p)
+            @forelse ($payments as $i => $p)
                 @php
                     $source = $p->type === \App\Models\Payment::TYPE_LAB ? 'lab' : ($p->appointment_id ? 'appointment' : 'registration');
                     // Student/employee discount (2026-10-25, by request): the
@@ -154,32 +216,37 @@
                         : null;
                 @endphp
                 <tr>
-                    <td dir="ltr" style="text-align:left">{{ $p->id }}</td>
-                    <td>
+                    {{-- Serial number from 1 (2026-11-25, by request), beside the id. --}}
+                    <td class="w-n" style="text-align:center">{{ $loop->iteration }}</td>
+                    <td class="w-id" dir="ltr" style="text-align:left">{{ $p->id }}</td>
+                    <td class="w-who">
                         {{ $p->patientRegistration?->name ?? $p->appointment?->full_name ?? '—' }}
                         @if ($p->patientRegistration?->trashed()) <span class="muted">(مؤرشف)</span> @endif
                     </td>
-                    <td>
+                    <td class="w-src">
                         {{ $sourceLabels[$source] }}
                         {{-- "غير سليم" diagnosis: B / C / HIV (2026-11-03, by request). --}}
                         @if ($source === 'lab' && $p->patientRegistration && ($diagnosis = \App\Support\ScreeningDiagnosis::text($p->patientRegistration)))
                             <div class="muted">غير سليم — {{ $diagnosis }}</div>
                         @endif
                     </td>
-                    <td>{{ $p->patientRegistration?->serviceLabel() ?? '—' }}</td>
-                    <td>{{ $money($discount['full'] ?? $p->amount) }}</td>
-                    <td>{{ $discount ? trim(($discount['percent'] !== null ? $discount['percent'].'% · ' : '').$discount['who']) : '—' }}</td>
-                    <td><strong>{{ $money($p->amount) }}</strong></td>
-                    <td>{{ $p->paid_by ?? '—' }}</td>
-                    <td dir="ltr" style="text-align:left">{{ $p->paid_at?->setTimezone(\App\Support\PaymentStats::TIMEZONE)->format('Y-m-d H:i') ?? '—' }}</td>
+                    <td class="w-svc">{{ $p->patientRegistration?->serviceLabel() ?? '—' }}</td>
+                    <td class="w-amt">{{ $money($discount['full'] ?? $p->amount) }}</td>
+                    <td class="w-disc">{{ $discount ? trim(($discount['percent'] !== null ? $discount['percent'].'% · ' : '').$discount['who']) : '—' }}</td>
+                    <td class="w-net"><strong>{{ $money($p->amount) }}</strong></td>
+                    <td class="w-by">{{ $p->paid_by ?? '—' }}</td>
+                    <td class="w-at" dir="ltr" style="text-align:left">{{ $p->paid_at?->setTimezone(\App\Support\PaymentStats::TIMEZONE)->format('Y-m-d H:i') ?? '—' }}</td>
                 </tr>
+                @foreach ($gapAfter[$i] ?? [] as $g)
+                    {!! $gapRow($g) !!}
+                @endforeach
             @empty
-                <tr><td colspan="9" style="text-align:center">لا توجد مدفوعات.</td></tr>
+                <tr><td colspan="10" style="text-align:center">لا توجد مدفوعات.</td></tr>
             @endforelse
         </tbody>
         @if ($payments->count())
             <tfoot>
-                <tr><th colspan="6">المجموع</th><th>{{ $money($filteredTotal) }} {{ $currency }}</th><th colspan="2"></th></tr>
+                <tr><th class="w-sum" colspan="7">المجموع</th><th class="w-net">{{ $money($filteredTotal) }} {{ $currency }}</th><th class="w-rest" colspan="2"></th></tr>
             </tfoot>
         @endif
     </table>
