@@ -75,6 +75,11 @@ jobs:
           ssh-keygen -y -f ~/.ssh/vps_key >/dev/null && echo "key reads OK" || echo "::error::VPS_SSH_KEY is not a valid private key (paste the whole .pem file, including the BEGIN and END lines)."
           # Stray spaces or line breaks in the secret are dropped; shape only, never the value.
           host=$(printf '%s' "$VPS_HOST" | tr -d ' \r\n\t')
+          # The Oracle server (193.123.83.82) is gone since 2026-11-19; a secret still holding it means the AWS one.
+          if [ "$host" = 193.123.83.82 ]; then
+            echo "::warning::VPS_HOST still holds the old Oracle address; using the AWS server 16.16.76.126. Update the secret."
+            host=16.16.76.126
+          fi
           echo "VPS_HOST is 16.16.76.126: $([ "$host" = 16.16.76.126 ] && echo yes || echo "no (${#host} characters)")"
           echo "VPS_ADDR=$host" >> "$GITHUB_ENV"
           for i in 1 2 3 4 5; do
