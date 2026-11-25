@@ -77,7 +77,8 @@ class PaymentController extends Controller
         $stats = new PaymentStats(null, $sources, $query);
         $range = $stats->range($request->string('from')->toString() ?: null, $request->string('to')->toString() ?: null);
 
-        $payments = (clone $query)->with(['appointment', 'patientRegistration.service'])->latest('paid_at')->get();
+        // Oldest first, like the printed web report (2026-11-25, by request).
+        $payments = (clone $query)->with(['appointment', 'patientRegistration.service'])->orderBy('paid_at')->orderBy('id')->get();
         $source = $request->string('source')->toString() ?: null;
 
         return response()->json([

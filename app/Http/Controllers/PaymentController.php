@@ -81,7 +81,9 @@ class PaymentController extends Controller
         $range = $stats->range($request->string('from')->toString() ?: null, $request->string('to')->toString() ?: null);
 
         $filters = $this->filters($request, $sources);
-        $payments = (clone $query)->with(['appointment', 'patientRegistration.service', 'patientRegistration.labService'])->latest('paid_at')->get();
+        // Oldest first (2026-11-25, by request), as the day's papers are read.
+        $payments = (clone $query)->with(['appointment', 'patientRegistration.service', 'patientRegistration.labService'])
+            ->orderBy('paid_at')->orderBy('id')->get();
         $settings = ClinicSetting::current();
 
         return view('print.payments-report', [
@@ -100,6 +102,8 @@ class PaymentController extends Controller
             'daily' => $range['daily'] ?? $stats->daily(),
             'monthly' => $range['monthly'] ?? $stats->monthly(),
             'range' => $range ? collect($range)->except(['daily', 'monthly'])->all() : null,
+            // Missing numbers between the listed ids (2026-11-25, by request).
+            'gaps' => \App\Support\PaymentGaps::for($payments, $sources),
             'autoprint' => $request->boolean('autoprint'),
         ]);
     }
