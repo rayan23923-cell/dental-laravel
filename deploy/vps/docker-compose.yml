@@ -1,5 +1,6 @@
 # Dental clinic app on the VPS: nginx + PHP-FPM + MySQL + scheduler.
-# Reached through the existing Caddy (network `headscale_default`) at https://dental.azoclinic.duckdns.org .
+# Reached through the existing Caddy (network `headscale_default`) at https://dental.azoclinic.duckdns.org ;
+# deploy/vps/caddy-site.sh adds the site to that Caddy.
 # Run from the repo root:  docker compose --env-file .env -f deploy/vps/docker-compose.yml up -d --build
 name: dental
 
@@ -9,8 +10,9 @@ services:
     container_name: dental-db
     restart: unless-stopped
     # No binlog (single server, nothing replicates) and no performance_schema: RAM and IO back for PHP.
-    # A 2 GB buffer pool (default 128 MB) keeps the whole clinic database in memory on the 24 GB server.
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-time-zone=+03:00 --skip-log-bin --performance-schema=OFF --max-connections=200 --innodb-buffer-pool-size=2G
+    # The AWS server (2026-11-25) has 2 GB shared with the files site and the SIS, so the buffer pool
+    # is 256 MB by default; set DB_BUFFER_POOL in .env (e.g. 2G) on a bigger server.
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-time-zone=+03:00 --skip-log-bin --performance-schema=OFF --max-connections=60 --innodb-buffer-pool-size=${DB_BUFFER_POOL:-256M}
     environment:
       MYSQL_DATABASE: ${DB_DATABASE}
       MYSQL_USER: ${DB_USERNAME}
