@@ -73,7 +73,15 @@ jobs:
           fi
           chmod 600 ~/.ssh/vps_key
           ssh-keygen -y -f ~/.ssh/vps_key >/dev/null && echo "key reads OK" || echo "::error::VPS_SSH_KEY is not a valid private key (paste the whole .pem file, including the BEGIN and END lines)."
-          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          # Stray spaces or line breaks in the secret are dropped; shape only, never the value.
+          host=$(printf '%s' "$VPS_HOST" | tr -d ' \r\n\t')
+          echo "VPS_HOST is 16.16.76.126: $([ "$host" = 16.16.76.126 ] && echo yes || echo "no (${#host} characters)")"
+          echo "VPS_HOST=$host" >> "$GITHUB_ENV"
+          for i in 1 2 3 4 5; do
+            ssh-keyscan -T 10 -H "$host" >> ~/.ssh/known_hosts 2>/dev/null && break
+            echo "SSH on $host not answering yet (try $i)"; sleep 5
+          done
+          grep -q . ~/.ssh/known_hosts || { echo "::error::Could not reach SSH (port 22) on the server."; exit 1; }
 
       - name: Copy the code and deploy
         if: steps.cfg.outputs.ready == 'yes'
