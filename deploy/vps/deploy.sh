@@ -2,6 +2,7 @@
 # Builds and (re)starts the dental app on the VPS. Run from the repo root on the server: sh deploy/vps/deploy.sh
 # First run: creates .env with random secrets and, once the app is up, replaces the seeded admin's default
 # password with a random one saved to ~/dental-admin-password.txt (readable only by this user).
+# Every run makes sure the shared Caddy serves the site (deploy/vps/caddy-site.sh, a no-op once it does).
 set -eu
 cd "$(dirname "$0")/../.."
 
@@ -77,6 +78,8 @@ if [ "$first_run" = yes ]; then
     (umask 077; printf 'username: admin\npassword: %s\n' "$pw" > "$HOME/dental-admin-password.txt")
     echo "Admin password saved to ~/dental-admin-password.txt"
 fi
+
+sh deploy/vps/caddy-site.sh
 
 echo "PHP $(sudo docker exec dental-app php -r 'echo PHP_VERSION;')"
 compose ps
