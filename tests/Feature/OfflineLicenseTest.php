@@ -101,6 +101,30 @@ class OfflineLicenseTest extends TestCase
         $this->getJson("/api/v1/offline/latest?code={$license->code}&machine=AAAA-AAAA-AAAA-AAAA")->assertForbidden();
     }
 
+    public function test_a_copy_activated_on_the_old_server_is_registered_again(): void
+    {
+        $machine = OfflineLicensing::machineId();
+        config(['offline.restore_until' => now()->addDay()->toDateString()]);
+
+        // A well-formed code this server never issued, from a computer checking in.
+        $this->getJson("/api/v1/offline/latest?code=ABCD-EFGH-JKMN-PQRS&machine=$machine&build=7")->assertOk();
+        $license = OfflineLicense::where('code', 'ABCD-EFGH-JKMN-PQRS')->firstOrFail();
+        $this->assertSame($machine, $license->machine_id);
+        $this->assertSame('حواسيب مستعادة', $license->universityRecord->name);
+        $this->assertSame(7, (int) $license->installed_build);
+
+        // It stays with that computer, and a stopped one gets nothing.
+        $this->getJson("/api/v1/offline/latest?code=ABCD-EFGH-JKMN-PQRS&machine=AAAA-AAAA-AAAA-AAAA")->assertForbidden();
+        $license->update(['revoked_at' => now()]);
+        $this->getJson("/api/v1/offline/latest?code=ABCD-EFGH-JKMN-PQRS&machine=$machine")->assertForbidden();
+
+        // Malformed codes are not registered, nor anything after the date.
+        $this->getJson("/api/v1/offline/latest?code=ABC&machine=$machine")->assertForbidden();
+        config(['offline.restore_until' => now()->subDay()->toDateString()]);
+        $this->getJson("/api/v1/offline/latest?code=TUVW-XYZ2-3456-789A&machine=$machine")->assertForbidden();
+        $this->assertSame(1, OfflineLicense::count());
+    }
+
     public function test_the_offline_copy_works_only_once_activated_on_this_computer(): void
     {
         config(['offline.edition' => true, 'offline.activation' => true]);
