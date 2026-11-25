@@ -21,4 +21,9 @@ return [
     // The licensing portal (routes/licensing.php): served at the root of this
     // host when set (e.g. licenses.azoclinic.duckdns.org), else under /licensing.
     'portal_domain' => env('LICENSING_DOMAIN') ?: null,
+
+    // Copies activated on the old server (its codes were lost in the move to AWS,
+    // 2026-11-25) are registered again when they check in, until this date
+    // (see Api\OfflineLicenseController::restored). Empty turns it off.
+    'restore_until' => env('OFFLINE_RESTORE_UNTIL', '2027-01-31'),
 ];

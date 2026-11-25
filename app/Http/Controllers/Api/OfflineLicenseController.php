@@ -155,9 +155,38 @@ class OfflineLicenseController extends Controller
     {
         $code = $fromBody ? $request->input('code') : $request->query('code');
         $machine = $fromBody ? $request->input('machine') : $request->query('machine');
-        $license = OfflineLicense::where('code', OfflineLicense::normalize($code))->first();
+        $license = OfflineLicense::where('code', OfflineLicense::normalize($code))->first()
+            ?? $this->restored($code, $machine, $request);
 
         return $license && ! $license->revoked_at && $license->machine_id && is_string($machine) && $license->machine_id === $machine
             ? $license : null;
+    }
+
+    /**
+     * A copy activated on the old server, whose codes were lost with it (2026-11-25: the hosting
+     * moved from Oracle to AWS with an empty database). Until offline.restore_until, a computer
+     * checking in with a well-formed code this server does not know is registered with that code
+     * and its machine id, under the university «حواسيب مستعادة», so it keeps getting updates and
+     * online access without anyone at the computer. The portal shows them there to move or stop.
+     */
+    private function restored(mixed $code, mixed $machine, Request $request): ?OfflineLicense
+    {
+        $until = config('offline.restore_until');
+        if (! $until || now()->gt(\Illuminate\Support\Carbon::parse($until)->endOfDay())) {
+            return null;
+        }
+        $code = OfflineLicense::normalize(is_string($code) ? $code : '');
+        if (! preg_match('/^[A-HJKMNP-Z2-9]{4}(-[A-HJKMNP-Z2-9]{4}){3}$/', $code)
+            || ! is_string($machine) || ! preg_match('/^[A-F0-9]{4}(-[A-F0-9]{4}){3}$/', $machine)) {
+            return null;
+        }
+
+        return OfflineLicense::firstOrCreate(['code' => $code], [
+            'university' => 'حواسيب مستعادة',
+            'notes' => 'سُجّل تلقائياً بعد نقل السيرفر (كان مفعّلاً على السيرفر القديم).',
+            'machine_id' => $machine,
+            'activated_at' => now(),
+            'last_ip' => $request->ip(),
+        ]);
     }
 }
