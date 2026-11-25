@@ -76,7 +76,7 @@ jobs:
           # Stray spaces or line breaks in the secret are dropped; shape only, never the value.
           host=$(printf '%s' "$VPS_HOST" | tr -d ' \r\n\t')
           echo "VPS_HOST is 16.16.76.126: $([ "$host" = 16.16.76.126 ] && echo yes || echo "no (${#host} characters)")"
-          echo "VPS_HOST=$host" >> "$GITHUB_ENV"
+          echo "VPS_ADDR=$host" >> "$GITHUB_ENV"
           for i in 1 2 3 4 5; do
             ssh-keyscan -T 10 -H "$host" >> ~/.ssh/known_hosts 2>/dev/null && break
             echo "SSH on $host not answering yet (try $i)"; sleep 5
@@ -94,8 +94,8 @@ jobs:
             --exclude='./.git' --exclude='./.github' --exclude='./node_modules' --exclude='./vendor' \
             --exclude='./.env' --exclude='./storage' --exclude='./public/build' --exclude='./public/downloads' \
             --exclude='./public/storage' --exclude='./flutter_app' --exclude='./offline' --exclude='./tests' .
-          ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" "mkdir -p '$VPS_APP_DIR' && tar xzf - -C '$VPS_APP_DIR'" < /tmp/app.tgz
-          ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" "cd '$VPS_APP_DIR' && sh deploy/vps/deploy.sh"
+          ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_ADDR" "mkdir -p '$VPS_APP_DIR' && tar xzf - -C '$VPS_APP_DIR'" < /tmp/app.tgz
+          ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_ADDR" "cd '$VPS_APP_DIR' && sh deploy/vps/deploy.sh"
 
       - name: Set the admin password
         if: steps.cfg.outputs.ready == 'yes' && inputs.admin_password_hash != ''
@@ -104,7 +104,7 @@ jobs:
           HASH: ${{ inputs.admin_password_hash }}
         run: |
           printf '%s' "$HASH" | grep -Eq '^\$2[aby]\$[0-9]{2}\$[./A-Za-z0-9]{53}$' || { echo "::error::Not a bcrypt hash."; exit 1; }
-          ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" "sudo docker exec -e NEW_HASH='$HASH' dental-app php artisan tinker --execute='DB::table(\"users\")->where(\"username\",\"admin\")->update([\"password\" => getenv(\"NEW_HASH\")]); echo \"updated\";'"
+          ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_ADDR" "sudo docker exec -e NEW_HASH='$HASH' dental-app php artisan tinker --execute='DB::table(\"users\")->where(\"username\",\"admin\")->update([\"password\" => getenv(\"NEW_HASH\")]); echo \"updated\";'"
 
       - name: Check the site answers
         if: steps.cfg.outputs.ready == 'yes'
